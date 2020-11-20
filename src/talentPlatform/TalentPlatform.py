@@ -1,4 +1,6 @@
 # -*- coding: utf-8 -*-
+import dfply
+
 
 class sDtaProcess:
 
@@ -58,7 +60,7 @@ class sDtaProcess:
         from nltk.corpus import stopwords
         from nltk.tokenize import word_tokenize
         from bs4 import BeautifulSoup
-        from dfply import *
+        import dfply as dfply
 
         # 로그 설정
         log.basicConfig(stream=sys.stdout, level=log.INFO,
@@ -106,18 +108,18 @@ class sDtaProcess:
         # 3) 빈도분포 및 워드 클라우드 시각화
         dataL1 = (
             (data >>
-             filter_by(
-                 X.type != '.'
-                 , X.type != ','
-                 , X.type != "'"
-                 , X.type != "''"
-                 , X.type != "``"
-                 , X.type != "'s"
+             dfply.filter_by(
+                 dfply.X.type != '.'
+                 , dfply.X.type != ','
+                 , dfply.X.type != "'"
+                 , dfply.X.type != "''"
+                 , dfply.X.type != "``"
+                 , dfply.X.type != "'s"
              ) >>
-             group_by(X.type) >>
-             summarize(number=n(X.type)) >>
-             ungroup() >>
-             arrange(X.number, ascending=False)
+             dfply.group_by(dfply.X.type) >>
+             dfply.summarize(number=dfply.n(dfply.X.type)) >>
+             dfply.ungroup() >>
+             dfply.arrange(dfply.X.number, ascending=False)
              ))
 
         log.info("dataL1 : {%s} : {%s}", len(dataL1), dataL1)
@@ -257,7 +259,7 @@ class sDtaProcess:
             Y_pred_train = model.predict(X_train)
             Y_pred_test = model.predict(X_test)
             rmse_train = np.sqrt(metrics.mean_squared_error(Y_train, Y_pred_train))
-            rmse_test = np.sqrt(metrics.mean_squared_error(Y_test, Y_ped_test))
+            rmse_test = np.sqrt(metrics.mean_squared_error(Y_test, Y_pred_test))
 
             # Calculate training R-square and testing R-square
             rsquared_train = model.score(X_train, Y_train)
@@ -3159,7 +3161,7 @@ class sDtaProcess:
         mpl.rcParams['axes.unicode_minus'] = False
 
         try:
-            log.info('[START] main : {}'.format('Run Program'))
+            log.info('[START] Main : {}'.format('Run Program'))
 
             # 작업환경 경로 설정
             contextPath = os.getcwd()
@@ -3347,9 +3349,476 @@ class sDtaProcess:
             log.info('[END] Main : {}'.format('Run Program'))
 
     def uPro16(self):
-        pass
+        import AMD_Tools3 as AMD
+        import time, re
+        import numpy as np
+        import pandas as pd
+        from datetime import timedelta, date
+        from pytest import collect
+
+        # =======================================================
+        #  입력 파라메타 정의
+        # =======================================================
+        # TMP_mea, APCP RH WIND
+        elements = ['TMP_mea', 'APCP', 'RH', 'WIND']
+        # places = ['place']
+        srtDate = '2020-07-20'
+        endDate = '2020-07-21'
+
+        # =======================================================
+        #  자료 자동 수집
+        # =======================================================
+        data = pd.read_csv("2020_ohtani_田植え_12-2_raw.csv", encoding="UTF-8")
+        dateList = pd.date_range(start=srtDate, end=endDate, freq="D")
+
+        # 결측값 제거
+        dataL1 = data.dropna(axis=0)
+
+        dataL3 = pd.DataFrame()
+        for i in dateList:
+            sDate1 = i.strftime("%Y-%m-%d")
+            sDate2 = (i + timedelta(days=1)).strftime("%Y-%m-%d")
+
+            inDate = [sDate1, sDate2]
+
+            for i in data.index:
+                # for j in range(0, 3):
+
+                lon = dataL1._get_value(j, 'x')
+                lat = dataL1._get_value(j, 'y')
+                inGeo = [lat, lat, lon, lon]
+
+                # time = dataL1._get_value(i, 'time')
+                # dtDate = pd.to_datetime(time, format='%Y/%m/%d %H:%M')
+                # sDate1 = dtDate.strftime("%Y-%m-%d")
+                # sDate2 = (dtDate + timedelta(days=1)).strftime("%Y-%m-%d")
+
+                # 자료 처리를 위한 딕션너리 정의
+                dict = {
+                    'date': [sDate1]
+                    , 'lon': [lon]
+                    , 'lat': [lat]
+                    , 'TD': dataL1._get_value(j, 'TD')
+                    , 'SFV': dataL1._get_value(j, 'SFV')
+                    , 'FA': dataL1._get_value(j, 'FA')
+                }
+
+                for element in elements:
+                    print('[INFO] element : {}'.format(element))
+                    print('[INFO] inDate : {}'.format(inDate))
+                    print('[INFO] inGeo : {}'.format(inGeo))
+
+                    Msh, tim, tmpLat, tmpLon = AMD.GetMetData(element, inDate, inGeo)
+                    getVal = Msh.ravel()
+
+                    # 1번째 요소에 대해서만 자료 저장
+                    dict[element] = [getVal[0]]
+
+                dataL2 = pd.DataFrame.from_dict(dict)
+                dataL3 = dataL3.append(dataL2)
+
+        fname = 'place.csv'
+        dataL3.to_csv(fname, index=None)
+
+        print('완료')
 
     def uPro17(self):
+
+        # 라이브러리 읽기
+        import configparser
+        import logging as log
+        import os
+        import sys
+        import dateutil
+        import pandas as pd
+        import GetOldTweets3 as got
+        from datetime import datetime
+        from bs4 import BeautifulSoup
+        import dfply as dfply
+        import numpy as np
+        import pandas as pd
+        import time
+        from dateutil import tz
+        import traceback
+        from requests_oauthlib import OAuth1Session
+        import warnings
+        from haversine import haversine
+        from requests_oauthlib import OAuth1Session
+        import json
+
+        # 작업환경 경로 설정
+        # contextPath = os.getcwd()
+        contextPath = 'D:/04. 재능플랫폼/Github/TalentPlatform-Python'
+
+        # 전역 변수
+        globalVar = {
+            "config": {
+                "imgContextPath": contextPath + '/resources/image/'
+                , "csvConfigPath": contextPath + '/resources/data/csv/'
+                , "xlsxConfigPath": contextPath + '/resources/data/xlsx/'
+                , "system": contextPath + '/resources/config/system.cfg'
+            }
+        }
+
+        log.info("[Check] globalVar : {}".format(globalVar))
+
+        systemConfigName = globalVar.get('config').get('system')
+        config = configparser.ConfigParser()
+        config.read(systemConfigName, encoding='utf-8')
+
+        log.info("[Check] systemConfigName : {}".format(systemConfigName))
+
+        # ==============================================
+        # 주 소스코드
+        # ==============================================
+        log.info("[START] Main : %s", "Run Program")
+
+        # setKeyword = "#TEST"
+        # setKeyword = "@noradio"
+        setKeyword = "우한폐렴 OR 코로나"
+        setDate = "2015-07-19"
+
+        # 위/경도 설정
+        srtLat = 40.44
+        endLat = 41.12
+
+        srtLon = -74.93
+        endLon = -72.63
+
+        cenLat = (srtLat + endLat) / 2.0
+        cenLon = (srtLon + endLon) / 2.0
+
+        dist = haversine((srtLat, srtLon), (cenLat, cenLon), unit='km')
+        setGeocode = "{},{},{}km".format(cenLat, cenLon, 500)
+
+        # https://developer.twitter.com/en/docs/twitter-api/v1/tweets/search/api-reference/get-search-tweets
+        # 등급에 따른 API 종류 존재 (Standard search API, Enterprise search APIs, Premium search API)
+        # 표준 검색 API 사용
+
+        oath = OAuth1Session(
+            config.get('twitter', 'consumerKey')
+            , config.get('twitter', 'consumerSecret')
+            , config.get('twitter', 'accessToken')
+            , config.get('twitter', 'accessTokenSecret')
+        )
+
+        # 현재를 기준으로 7일 전
+        params = {
+            "q": setKeyword
+            # , "lang": "ko"
+            , "result_type": "mixed"
+            , "count": "100"
+            # , "until": setDate
+            # , "geocode": setGeocode
+            , "retryonratelimit": True
+        }
+
+        url = "https://api.twitter.com/1.1/search/tweets.json?"
+        responce = oath.get(url, params=params)
+
+        if responce.status_code != 200:
+            raise Exception("Error code: %d" % (responce.status_code))
+
+        tweets = json.loads(responce.text)
+        data = pd.DataFrame(tweets['statuses'])
+
+    def uPro18(self):
+        import glob
+        import logging as log
+        import sys
+        import warnings
+
+        import matplotlib as mpl
+        import matplotlib.pyplot as plt
+        import numpy as np
+        import pandas as pd
+        import seaborn as sns
+        import statsmodels.api as sm
+        import statsmodels.formula.api as smf
+        from scipy import stats
+
+        # 로그 설정
+        log.basicConfig(stream=sys.stdout, level=log.INFO,
+                        format="%(asctime)s [%(name)s | %(lineno)d | %(filename)s | %(funcName)10.10s] [%(levelname)-5.5s] %(message)s")
+        warnings.filterwarnings("ignore")
+
+        plt.rc('font', family='Malgun Gothic')
+        plt.rc('axes', unicode_minus=False)
+        # 그래프에서 마이너스 글꼴 깨지는 문제에 대한 대처
+        mpl.rcParams['axes.unicode_minus'] = False
+
+        def stepAic(model, exog, endog, **kwargs):
+            """
+            This select the best exogenous variables with AIC
+            Both exog and endog values can be either str or list.
+            (Endog list is for the Binomial family.)
+
+            Note: This adopt only "forward" selection
+
+            Args:
+                model: model from statsmodels.formula.api
+                exog (str or list): exogenous variables
+                endog (str or list): endogenous variables
+                kwargs: extra keyword argments for model (e.g., data, family)
+
+            Returns:
+                model: a model that seems to have the smallest AIC
+            """
+
+            exog = np.r_[[exog]].flatten()
+            endog = np.r_[[endog]].flatten()
+            remaining = set(exog)
+            selected = []
+
+            formula_head = ' + '.join(endog) + ' ~ '
+            formula = formula_head + '1'
+            aic = model(formula=formula, **kwargs).fit().aic
+            print('AIC: {}, formula: {}'.format(round(aic, 3), formula))
+
+            current_score, best_new_score = np.ones(2) * aic
+
+            while remaining and current_score == best_new_score:
+                scores_with_candidates = []
+                for candidate in remaining:
+                    formula_tail = ' + '.join(selected + [candidate])
+                    formula = formula_head + formula_tail
+                    aic = model(formula=formula, **kwargs).fit().aic
+                    print('AIC: {}, formula: {}'.format(round(aic, 3), formula))
+
+                    scores_with_candidates.append((aic, candidate))
+
+                scores_with_candidates.sort()
+                scores_with_candidates.reverse()
+                best_new_score, best_candidate = scores_with_candidates.pop()
+
+                if best_new_score < current_score:
+                    remaining.remove(best_candidate)
+                    selected.append(best_candidate)
+                    current_score = best_new_score
+
+            formula = formula_head + ' + '.join(selected)
+
+            print('The best formula: {}'.format(formula))
+
+            return model(formula, **kwargs).fit()
+
+        try:
+            log.info('[START] Main : {}'.format('Run Program'))
+
+            # 작업환경 경로 설정
+            # contextPath = os.getcwd()
+            contextPath = 'E:/04. 재능플랫폼/Github/TalentPlatform-Python'
+
+            globalVar = {
+                "contextPath": {
+                    "img": contextPath + '/resources/image/'
+                    , "movie": contextPath + '/resources/movie/'
+                    , "csv": contextPath + '/resources/data/csv/'
+                    , "xlsx": contextPath + '/resources/data/xlsx/'
+                }
+                , "config": {
+                    "system": contextPath + '/resources/config/system.cfg'
+                }
+            }
+
+            # 전역 변수
+            log.info("[Check] globalVar : {}".format(globalVar))
+
+            # ==============================================
+            # 주 소스 코드
+            # ==============================================
+
+            # ===============================================
+            # 교재 연습문제 8장
+            # ===============================================
+            # 2번 문제
+            fileInfo = glob.glob(globalVar.get('contextPath').get('csv') + 'rpy/nutrient2.csv')
+            data = pd.read_csv(fileInfo[0], encoding="UTF-8")
+
+            # (1)
+            dataL1 = data.replace(to_replace=0, value=np.nan)
+            dataL1.isnull().sum()
+
+            # (2)
+            dataL1.describe()
+
+            # (3)
+            # 상자 그림
+            dataL1.boxplot()
+            plt.show()
+
+            # 히스토그램
+            dataL1.hist()
+            plt.show()
+
+            # 3번 문제
+            fileInfo = glob.glob(globalVar.get('contextPath').get('csv') + 'rpy/pima2.csv')
+            data = pd.read_csv(fileInfo[0], encoding="UTF-8")
+
+            # (1)
+            dataL1 = data['diabetes'].value_counts(normalize=False)
+
+            dataL1.plot.bar()
+            plt.show()
+
+            dataL1.plot.pie()
+            plt.show()
+
+            # (2)
+            data.groupby(['diabetes']).describe()
+
+            data.groupby(['diabetes']).boxplot()
+            plt.show()
+
+            data.groupby(['diabetes']).hist()
+            plt.show()
+
+            # (3)
+            gpAge = pd.cut(data['age'], bins=[20, 30, 40, 50, np.inf], labels=['20-30', '30-40', '41-50', '50+'])
+
+            # 분할표
+            crossAge = pd.crosstab(gpAge, data['diabetes'])
+            crossAge
+
+            crossAge.plot.bar()
+            plt.show()
+
+            # (4)
+            gpPregnant = pd.cut(data['pregnant'], bins=[0, 5, 10, np.inf], labels=['0-5', '6-10', '10+'])
+
+            # 분할표
+            crossPregnant = pd.crosstab(gpPregnant, data['diabetes'])
+
+            crossPregnant.plot.bar()
+            plt.show()
+
+            # (5)
+            dataL1 = pd.merge(data.reset_index(), gpPregnant.reset_index(), on='index')
+
+            selCol = ['glucose', 'pressure', 'triceps', 'insulin', 'mass', 'pedigree', 'diabetes', 'pregnant_y']
+
+            # 평균
+            dataL1[selCol].groupby(['diabetes', 'pregnant_y']).mean()
+
+            # 표준편차
+            dataL1[selCol].groupby(['diabetes', 'pregnant_y']).std()
+
+            # ===============================================
+            # 교재 연습문제 9장
+            # ===============================================
+            # 연습문제 2번
+            fileInfo = glob.glob(globalVar.get('contextPath').get('csv') + 'rpy/bateriasoap.csv')
+
+            data = dict(
+                {
+                    'Placebo': [105, 119, 100, 97, 96, 101, 94, 95, 98]
+                    , 'Caffeine': [96, 99, 94, 89, 96, 93, 88, 105, 88]
+                }
+            )
+
+            # F 테스트
+            # P값이 0.38으로서 귀무가설 기각하지 못함(두 캡슐의 분산 차이가 없다)
+            # 따라서 등분산 조건 (equal_var=True)
+            stats.bartlett(data['Placebo'], data['Caffeine'])
+
+            # T 테스트
+            # P값이 0.063로서 귀무가설 기각 (두 캡슐의 차이가 있다)
+            stats.ttest_ind(data['Placebo'], data['Caffeine'], equal_var=True)
+
+            # 연습문제 2번
+            fileInfo = glob.glob(globalVar.get('contextPath').get('csv') + 'rpy/mtcars.csv')
+            data = pd.read_csv(fileInfo[0], encoding="UTF-8")
+
+            # F 테스트
+            # P값이 0.001 이하로서 귀무가설 기각 (두 캡슐의 분산 차이가 있다)
+            # 따라서 상이한 분산 조건 (equal_var=False)
+            stats.bartlett(data['am'], data['mpg'])
+
+            # T 테스트
+            # P값이 0.001 이하로서 귀무가설 기각 (두 캡슐의 차이가 있다)
+            stats.ttest_ind(data['am'], data['mpg'], equal_var=False)
+
+            # ==========================================
+            # 교재 연습문제 10장
+            # ==========================================
+
+            # 연습문제 1
+            fileInfo = glob.glob(globalVar.get('contextPath').get('csv') + 'rpy/computer.csv')
+            data = pd.read_csv(fileInfo[0], encoding="UTF-8")
+
+            selCol = ['erp ', 'myct', 'mmax', 'cach', 'chmin', 'chmax', 'prpe']
+            dataL1 = data[selCol]
+
+            # 산점도
+            sns.pairplot(dataL1)
+            plt.show()
+
+            # 상관계수 행렬
+            dataL1.corr(method='pearson')
+
+            # 다중 선형 회귀모형
+            xCol = ['myct', 'mmax', 'cach', 'chmin', 'chmax']
+            yCol = ['erp ']
+
+            xAxis = dataL1[xCol]
+            yAxis = dataL1[yCol]
+
+            model = sm.OLS(yAxis, xAxis)
+
+            result = model.fit()
+            result.summary()
+
+            # 연습문제 2번
+            fileInfo = glob.glob(globalVar.get('contextPath').get('csv') + 'rpy/mtcars.csv')
+            data = pd.read_csv(fileInfo[0], encoding="UTF-8")
+
+            xCol = ['cyl', 'disp', 'hp', 'drat', 'wt', 'qsec', 'vs', 'am', 'gear', 'carb']
+            yCol = ['mpg']
+
+            bestModel = stepAic(smf.ols, xCol, yCol, data=data)
+            bestModel.summary()
+
+            # ==========================================
+            # 교재 연습문제 11장
+            # ==========================================
+            # 연습문제 1번
+            fileInfo = glob.glob(globalVar.get('contextPath').get('csv') + 'rpy/bateriasoap.csv')
+            data = pd.read_csv(fileInfo[0], encoding="UTF-8")
+
+            fit = smf.ols('data["BacterialCounts"] ~ C(data["Method"])', data=data).fit()
+            fit.summary()
+
+            aovFit = sm.stats.anova_lm(fit)
+            aovFit
+
+            # 연습문제 2번
+            fileInfo = glob.glob(globalVar.get('contextPath').get('csv') + 'rpy/downloading.csv')
+            data = pd.read_csv(fileInfo[0], encoding="UTF-8")
+
+            fit = smf.ols('data["Time(Sec)"] ~ C(data["TimeofDay"])', data=data).fit()
+            fit.summary()
+
+            aovFit = sm.stats.anova_lm(fit)
+            aovFit
+
+        except Exception as e:
+            log.error("Exception : {}".format(e))
+            # traceback.print_exc()
+            # sys.exit(1)
+
+        finally:
+            log.info('[END] Main : {}'.format('Run Program'))
+
+    def uPro19(self):
+        pass
+
+    def uPro20(self):
+        pass
+
+    def uPro21(self):
+        pass
+
+    def uPro22(self):
         pass
 
     def uProDefault(self):
@@ -3366,8 +3835,9 @@ class sDtaProcess:
 
         # 로그 설정
         log.basicConfig(stream=sys.stdout, level=log.INFO,
-                        format="%(asctime)s [%(name)s | %(lineno)5.5s | %(filename)s | %(funcName)10.10s] [%(levelname)-5.5s] %(message)s")
+                        format="%(asctime)s [%(name)s | %(lineno)d | %(filename)s | %(funcName)10.10s] [%(levelname)-5.5s] %(message)s")
         warnings.filterwarnings("ignore")
+
         plt.rc('font', family='Malgun Gothic')
         plt.rc('axes', unicode_minus=False)
         # 그래프에서 마이너스 글꼴 깨지는 문제에 대한 대처
@@ -3378,7 +3848,7 @@ class sDtaProcess:
 
             # 작업환경 경로 설정
             # contextPath = os.getcwd()
-            contextPath = 'D:/02. 블로그/PyCharm'
+            contextPath = 'E:/04. 재능플랫폼/Github/TalentPlatform-Python'
 
             globalVar = {
                 "contextPath": {
@@ -3391,8 +3861,8 @@ class sDtaProcess:
                     "system": contextPath + '/resources/config/system.cfg'
                 }
             }
-            # 전역 변수
 
+            # 전역 변수
             log.info("[Check] globalVar : {}".format(globalVar))
 
             # ==============================================
@@ -3401,6 +3871,7 @@ class sDtaProcess:
 
         except Exception as e:
             log.error("Exception : {}".format(e))
+            # traceback.print_exc()
             # sys.exit(1)
 
         finally:
@@ -3440,6 +3911,11 @@ if __name__ == '__main__':
     from sklearn.decomposition import PCA
     from sklearn.linear_model import LinearRegression
     from sklearn.metrics import mean_squared_error
+    import dfply as dfply
+    from matplotlib import rcParams
+    import matplotlib.pylab as pylab
+    from sklearn.preprocessing import minmax_scale
+    from sklearn.preprocessing import MinMaxScaler
 
     # ignore all future warnings
     simplefilter(action='ignore', category=FutureWarning)
@@ -3450,6 +3926,15 @@ if __name__ == '__main__':
     warnings.filterwarnings("ignore")
     plt.rc('font', family='Malgun Gothic')
     plt.rc('axes', unicode_minus=False)
+
+    params = {'legend.fontsize': 'x-large',
+              'figure.figsize': (10, 10),
+              'axes.labelsize': 'x-large',
+              'axes.titlesize': 'x-large',
+              'xtick.labelsize': 'x-large',
+              'ytick.labelsize': 'x-large'}
+    pylab.rcParams.update(params)
+
     # 그래프에서 마이너스 글꼴 깨지는 문제에 대한 대처
     mpl.rcParams['axes.unicode_minus'] = False
 
@@ -3471,6 +3956,7 @@ if __name__ == '__main__':
         X = PredValY
         Y = valY
 
+        pylab.rcParams['figure.figsize'] = (6, 6)
         plt.scatter(X, Y)
 
         # arrVal = np.array([X, Y])
@@ -3506,7 +3992,7 @@ if __name__ == '__main__':
         plt.annotate('Pred = %.2f x (Val) + %.2f' % (slope, intercept), xy=(setMin, setMax - interval), color='red',
                      fontweight='bold',
                      xycoords='data', horizontalalignment='left', verticalalignment='center')
-        plt.annotate('R-square = %.2f  (p-value < %.2f)' % (R ** 2, Pvalue), xy=(setMin, setMax - interval * 2),
+        plt.annotate('R = %.2f  (p-value < %.2f)' % (R, Pvalue), xy=(setMin, setMax - interval * 2),
                      color='red',
                      fontweight='bold', xycoords='data',
                      horizontalalignment='left', verticalalignment='center')
@@ -3524,6 +4010,7 @@ if __name__ == '__main__':
                      verticalalignment='center')
         plt.title(titleName)
         plt.savefig(savefigName, dpi=600, bbox_inches='tight')
+        # plt.savefig(savefigName, dpi=600)
         plt.show()
 
 
@@ -3567,13 +4054,13 @@ if __name__ == '__main__':
 
         # 작업환경 경로 설정
         # contextPath = os.getcwd()
-        contextPath = 'D:/02. 블로그/PyCharm'
-        # contextPath = 'E:/02. 블로그/PyCharm'
+        # contextPath = 'D:/04. 재능플랫폼/Github/TalentPlatform-Python'
+        contextPath = 'E:/04. 재능플랫폼/Github/TalentPlatform-Python'
 
         # 전역 변수
         globalVar = {
             "config": {
-                "imgContextPath": contextPath + '/resources/image/'
+                "imgContextPath": contextPath + '/resources/image/TMP3/'
                 , "csvConfigPath": contextPath + '/resources/data/csv/'
                 , "xlsxConfigPath": contextPath + '/resources/data/xlsx/'
             }
@@ -3584,9 +4071,11 @@ if __name__ == '__main__':
         # ==============================================
         # 주 소스코드
         # ==============================================
-        caseList = ['case{}'.format(str(i)) for i in range(1, 7)]
+        # caseList = ['case{}'.format(str(i)) for i in range(1, 7)]
+        # caseList = ['new_case5']
+        caseList = ['new_case1']
 
-        case = 'case2'
+        # case = 'case2'
 
         for (ind, case) in enumerate(caseList):
             log.info("[Check] case : {}".format(case))
@@ -3596,111 +4085,163 @@ if __name__ == '__main__':
 
             dataL1 = pd.DataFrame()
             for i in glob.glob(inFile):
-                # if ((i.__contains__('case1')) and not (
-                #         (i.__contains__('Takemoto_2016_Field_4')) or (
-                #         i.__contains__('Takemoto_2017_Field_2')))): continue
-                # if ((i.__contains__('case2')) and not (
-                #         (i.__contains__('Takemoto_2016_Field_4')) or (
-                #         i.__contains__('Takemoto_2018_Field_3')))): continue
-
                 log.info("[Check] inFile : {}".format(i))
+                fileNameInfo = os.path.splitext(os.path.basename(i))[0]
+
                 data = pd.read_csv(i, encoding="euc-kr")
+                # dataL1 = data
                 dataL1 = dataL1.append(data)
 
             valFile = globalVar.get('config').get('csvConfigPath') + 'data/{}/data_test/*.csv'.format(case)
 
             dataTestL1 = pd.DataFrame()
-            for i in glob.glob(valFile):
-                log.info("[Check] valFile : {}".format(i))
+            for j in glob.glob(valFile):
+                log.info("[Check] valFile : {}".format(j))
 
-                dataTest = pd.read_csv(i, encoding="euc-kr")
+                dataTest = pd.read_csv(j, encoding="euc-kr")
                 dataTestL1 = dataTestL1.append(dataTest)
 
-            # 파일 정보 읽기
-            # dataL1.head()
+                # 파일 정보 읽기
+                # dataL1.head()
 
             # =========================================
             # 1. 탐색
             # =========================================
-            # 각 자료에 대한 빈도분포
-            savefigName = globalVar.get('config').get('imgContextPath') + 'Image_%s_%s_%s_Hist.png' % (50, case, 'train')
-            dataL1.hist()
-            plt.savefig(savefigName, dpi=600, bbox_inches='tight')
-            plt.show()
-
-            # 각 자료에 대한 상자그림 (자료에 대한 상대범위 확인)
-            savefigName = globalVar.get('config').get('imgContextPath') + 'Image_%s_%s_%s_BoxPlot.png' % (50, case, 'train')
-            dataL1.plot(kind='box', subplots=True, sharex=False, sharey=False)
-            plt.savefig(savefigName, dpi=600, bbox_inches='tight')
-            plt.show()
-
-            # 상관분석 행렬 시각화 및 자료 저장
-            dataCorr = dataL1.corr(method='pearson')
-            savefigName = globalVar.get('config').get('imgContextPath') + 'Image_%s_%s_%s_CorrMatrix.png' % (50, case, 'train')
-            makeCorrPlot(dataCorr, savefigName)
-
-            dataL1Summary = dataL1.describe()
+            # # 각 자료에 대한 빈도분포
+            # pylab.rcParams['figure.figsize'] = (14, 10)
+            # savefigName = globalVar.get('config').get('imgContextPath') + 'Image_%s_%s_%s_%s_Hist.png' % (fileNameInfo, 50, case, 'train')
+            # dataL1.hist()
+            # # plt.savefig(savefigName, dpi=600)
+            # plt.savefig(savefigName, dpi=600, bbox_inches='tight')
+            # plt.show()
+            #
+            # # 각 자료에 대한 상자그림 (자료에 대한 상대범위 확인)
+            # pylab.rcParams['figure.figsize'] = (14, 10)
+            # savefigName = globalVar.get('config').get('imgContextPath') + 'Image_%s_%s_%s_%s_BoxPlot.png' % (fileNameInfo, 50, case, 'train')
+            # # dataL1.plot(kind='box', subplots=True, sharex=False, sharey=False)
+            # sns.boxplot(data=dataL1, orient="h", palette="Set2")
+            # plt.savefig(savefigName, dpi=600, bbox_inches='tight')
+            # plt.show()
+            #
+            # # plt.show()
+            #  # ax = sns.boxplot(x="day", y="total_bill", data=tips)
+            #
+            # # 상관분석 행렬 시각화 및 자료 저장
+            # pylab.rcParams['figure.figsize'] = (10, 10)
+            # dataCorr = dataL1.corr(method='pearson')
+            # savefigName = globalVar.get('config').get('imgContextPath') + 'Image_%s_%s_%s_%s_CorrMatrix.png' % (fileNameInfo, 50, case, 'train')
+            # makeCorrPlot(dataCorr, savefigName)
+            #
+            # dataL1Summary = dataL1.describe()
+            # # dataTestL1Summary = dataTestL1.describe()
+            # log.info("[Check] Train dataL1 Summary : {}".format(dataL1Summary))
+            #
+            # # 각 자료에 대한 빈도분포
+            # pylab.rcParams['figure.figsize'] = (14, 10)
+            # savefigName = globalVar.get('config').get('imgContextPath') + 'Image_%s_%s_%s_%s_Hist.png' % (fileNameInfo, 50, case, 'test')
+            # dataTestL1.hist()
+            # plt.savefig(savefigName, dpi=600, bbox_inches='tight')
+            # plt.show()
+            #
+            # # 각 자료에 대한 상자그림 (자료에 대한 상대범위 확인)
+            # pylab.rcParams['figure.figsize'] = (14, 10)
+            # savefigName = globalVar.get('config').get('imgContextPath') + 'Image_%s_%s_%s_%s_BoxPlot.png' % (fileNameInfo, 50, case, 'test')
+            # sns.boxplot(data=dataL1, orient="h", palette="Set2")
+            # # dataTestL1.plot(kind='box', subplots=True, sharex=False, sharey=False)
+            # plt.savefig(savefigName, dpi=600, bbox_inches='tight')
+            # plt.show()
+            #
+            # # 상관분석 행렬 시각화 및 자료 저장
+            # pylab.rcParams['figure.figsize'] = (10, 10)
+            # dataCorr = dataTestL1.corr(method='pearson')
+            # savefigName = globalVar.get('config').get('imgContextPath') + 'Image_%s_%s_%s_%s_CorrMatrix.png' % (fileNameInfo, 50, case, 'test')
+            # makeCorrPlot(dataCorr, savefigName)
+            #
             # dataTestL1Summary = dataTestL1.describe()
-            log.info("[Check] Train dataL1 Summary : {}".format(dataL1Summary))
-
-            # 각 자료에 대한 빈도분포
-            savefigName = globalVar.get('config').get('imgContextPath') + 'Image_%s_%s_%s_Hist.png' % (50, case, 'test')
-            dataTestL1.hist()
-            plt.savefig(savefigName, dpi=600, bbox_inches='tight')
-            plt.show()
-
-            # 각 자료에 대한 상자그림 (자료에 대한 상대범위 확인)
-            savefigName = globalVar.get('config').get('imgContextPath') + 'Image_%s_%s_%s_BoxPlot.png' % (50, case, 'test')
-            dataTestL1.plot(kind='box', subplots=True, sharex=False, sharey=False)
-            plt.savefig(savefigName, dpi=600, bbox_inches='tight')
-            plt.show()
-
-            # 상관분석 행렬 시각화 및 자료 저장
-            dataCorr = dataTestL1.corr(method='pearson')
-            savefigName = globalVar.get('config').get('imgContextPath') + 'Image_%s_%s_%s_CorrMatrix.png' % (50, case, 'test')
-            makeCorrPlot(dataCorr, savefigName)
-
-            dataTestL1Summary = dataTestL1.describe()
-            log.info("[Check] Test dataL1 Summary : {}".format(dataTestL1Summary))
+            # log.info("[Check] Test dataL1 Summary : {}".format(dataTestL1Summary))
 
             # =========================================
             # 3. 목적에 맞는 분석
             # ========================================
-            dataL1 = dataL1.rename({'Section5_Accumulated precipitation (mm)': 'Section5_Accumulated_precipitation'}, axis='columns')
+            dataL1 = dataL1.rename({'Section4_Winkler scale': 'Section4_Winkler_scale'}, axis='columns')
+            dataL1 = dataL1.rename({'Section5_Accumulated precipitation': 'Section5_Accumulated_precipitation'},
+                                   axis='columns')
+            dataL1 = dataL1.rename({'Section5_Winkler scale': 'Section5_Winkler_scale'}, axis='columns')
 
             # 특정 행을 대상으로 NA값 삭제
-            dataL2 = dataL1[['TD', 'SFV', 'N', 'Section4_Winkler scale(℃)', 'Section4_Accumulated precipitation (mm)',
-                              'Section5_Winkler scale(℃)', 'Section5_Accumulated_precipitation', 'S1']].dropna(axis=0)
+            # dataL2 = dataL1[['TD', 'SFV', 'N', 'Section4_Winkler scale', 'Section4_Accumulated precipitation',
+            #                   'Section5_Winkler scale', 'Section5_Accumulated_precipitation', 'S1']].dropna(axis=0)
+            dataL2 = dataL1[['TD', 'SFV', 'N', 'Section4_Winkler_scale', 'Section4_precipitation',
+                             'Section5_Winkler_scale', 'Section5_precipitation', 'S1']].dropna(axis=0)
+
+            tmpDataL2 = ((dataL2 >>
+                          dfply.group_by(dfply.X.Section4_precipitation, dfply.X.Section5_precipitation) >>
+                          dfply.summarize(
+                              meanTD=dfply.X.TD.mean()
+                              , meanSFV=dfply.X.SFV.mean()
+                              , meanN=dfply.X.N.mean()
+                              , meanSec4Wink=dfply.X.Section4_Winkler_scale.mean()
+                              , meanSec4Prec=dfply.X.Section4_precipitation.sum()
+                              , meanSec5Wink=dfply.X.Section5_Winkler_scale.mean()
+                              , meanSec5Prec=dfply.X.Section5_precipitation.sum()
+                              , meanS1=dfply.X.S1.mean()
+                              , cnt=dfply.n(dfply.X.Section4_precipitation)
+                          )
+                          ))
+
+            # 전체
+            dataL3 = tmpDataL2
 
             # 강수 유무에 따른 별도 회귀계수 필요
             # 무강수
-            dataL3 = (dataL2 >>
-                      dfply.mask(dfply.X.Section5_Accumulated_precipitation < 10)
-                      )
+            # dataL3 = (dataL2 >>
+            #          dfply.mask(dfply.X.Section5_Accumulated_precipitation < 10)
+            # )
+            # dataL3 = (dataL2 >>
+            #          dfply.mask(dfply.X.Section5_precipitation < 10)
+            # )
+            # dataL3 = (dataL2 >>
+            #          dfply.mask(dfply.X.Section5_Accumulated_precipitation == 0)
+            # )
+            # dataL3 = (tmpDataL2 >>
+            #          dfply.mask(dfply.X.Section5_precipitation == 0)
+            # )
+
             # 유강수
             # dataL3 = (dataL2 >>
             #           dfply.mask(dfply.X.Section5_Accumulated_precipitation > 10)
+            #           )
+            # dataL3 = (dataL2 >>
+            #           dfply.mask(dfply.X.Section5_precipitation > 10)
             #           )
 
             # 트레이닝 및 테스트 셋을 각각 75% 및 25% 선정
             # X_train, X_test, Y_train, Y_test = train_test_split(X, Y, test_size=0.25, random_state=101)
 
             # 트레이닝 셋에 대한 독립변수 설정
-            X_train = dataL3[['TD', 'SFV', 'N', 'Section4_Winkler scale(℃)', 'Section4_Accumulated precipitation (mm)',
-                              'Section5_Winkler scale(℃)', 'Section5_Accumulated_precipitation']]
-            # X_train = dataL3[['TD', 'SFV']]
+            # X_train = dataL3[['TD', 'SFV', 'N', 'Section4_Winkler scale', 'Section4_Accumulated precipitation',
+            #                   'Section5_Winkler scale', 'Section5_Accumulated_precipitation']]
+            # X_train = dataL3[['TD', 'SFV', 'N', 'Section4_Winkler scale', 'Section4_precipitation',
+            #                   'Section5_Winkler scale', 'Section5_precipitation']]
+            X_train = dataL3[['meanTD', 'meanSFV', 'meanN', 'meanSec4Wink', 'meanSec4Prec',
+                              'meanSec5Wink', 'meanSec5Prec']]
 
             # 트레이닝 셋에 대한 종속변수 설정
-            Y_train = dataL3[['S1']]
+            # Y_train = dataL3[['S1']]
+            Y_train = dataL3[['meanS1']]
 
             #  테스트 셋에 대한 독립변수 설정
-            X_test = dataTestL1[
-                ['TD', 'SFV', 'N', 'Section4_Winkler scale(℃)', 'Section4_Accumulated precipitation (mm)',
-                 'Section5_Winkler scale(℃)', 'Section5_Accumulated precipitation (mm)']]
+            # X_test = dataTestL1[['TD', 'SFV', 'N', 'Section4_Winkler scale', 'Section4_Accumulated precipitation',
+            #      'Section5_Winkler scale', 'Section5_Accumulated precipitation']]
+            X_test = dataTestL1[['TD', 'SFV', 'N', 'Section4_Winkler scale', 'Section4_precipitation',
+                                 'Section5_Winkler scale', 'Section5_precipitation']]
+            # X_test = dataTestL1[['meanTD', 'meanSFV', 'maenN', 'meanSec4Wink', 'meanSec4Prec',
+            #                   'meanSec5Wink', 'meanSec5Prec']]
             # X_test = dataTestL1[['TD', 'SFV']]
 
             #  테스트 셋에 대한 종속변수 설정
             Y_test = dataTestL1[['S1']]
+            # Y_test = dataTestL1[['meanS1']]
 
             # X_train.hist()
             # plt.show()
@@ -3713,6 +4254,9 @@ if __name__ == '__main__':
             #
             # Y_test.hist()
             # plt.show()
+
+            if len(X_train) == 0 or len(Y_train) == 0:
+                continue
 
             # ========================================================
             # 주성분 회귀분석
@@ -3737,7 +4281,8 @@ if __name__ == '__main__':
 
             mean_squared_error(Y_pca_test_hat, Y_test)
 
-            savefigName = globalVar.get('config').get('imgContextPath') + 'Image_%s_%s_PCA.png' % (51, case)
+            savefigName = globalVar.get('config').get('imgContextPath') + 'Image_%s_%s_%s_PCA.png' % (
+            fileNameInfo, 51, case)
             makeScatterPlot(Y_pca_test_hat[:, 0], Y_test.values[:, 0], "PCA", savefigName)
 
             rmse = np.sqrt(metrics.mean_squared_error(Y_test, Y_pca_test_hat))
@@ -3745,7 +4290,7 @@ if __name__ == '__main__':
             log.info("[Check] %s | RMSE : %.4f // R-square: %.4f" % ("PCA", rmse, r2))
 
             # ====================================================
-            # [표준회 X] 4종 회귀모형을 이용
+            # [표준화 X] 4종 회귀모형을 이용
             # ====================================================
             # 초기값 설정
             models = []
@@ -3821,7 +4366,8 @@ if __name__ == '__main__':
             # 테스트 셋을 이용한 검증
             for i in range(len(results)):
                 Y_test_hat = results[i].predict(X_test)
-                savefigName = globalVar.get('config').get('imgContextPath') + 'Image_%s_%s.png' % (i + 52, case)
+                savefigName = globalVar.get('config').get('imgContextPath') + 'Image_%s_%s_%s.png' % (
+                fileNameInfo, i + 52, case)
 
                 selModel = models[i][0]
 
@@ -3909,7 +4455,8 @@ if __name__ == '__main__':
             # 테스트 셋을 이용한 검증
             for i in range(len(results)):
                 Y_test_hat = results[i].predict(X_test)
-                savefigName = globalVar.get('config').get('imgContextPath') + 'Image_%s_%s.png' % (i + 57, case)
+                savefigName = globalVar.get('config').get('imgContextPath') + 'Image_%s_%s_%s.png' % (
+                fileNameInfo, i + 57, case)
 
                 selModel = models[i][0]
 
@@ -3923,9 +4470,105 @@ if __name__ == '__main__':
                 r2 = metrics.r2_score(Y_test, Y_test_hat)
                 log.info("[Check] %s | RMSE : %.4f // R-square: %.4f" % (selModel, rmse, r2))
 
+                # ========================================================
+                # [표준화 0-1] 4종 회귀모형을 이용
+                # ========================================================
+                # 초기값 설정
+                models = []
+                params = []
+
+                # 선형회귀모형 및 파라미터 설정
+                model = (
+                    'Scaled Linear',
+                    Pipeline([('ScalerMinMax', MinMaxScaler(feature_range=(0, 1))),
+                              ('Linear', linear_model.LinearRegression())]))
+                param = {}
+
+                models.append(model)
+                params.append(param)
+
+                # 릿지 회귀모형 및 파라미터 (알파 조정) 설정
+                model = ('ScalerMinMax Ridge',
+                         Pipeline([('Scaler', MinMaxScaler(feature_range=(0, 1))), ('Ridge', linear_model.Ridge())]))
+                param = {
+                    'Ridge__alpha': [0.1, 0.3, 0.5, 1.0, 3.0, 5.0, 10.0]
+                }
+
+                models.append(model)
+                params.append(param)
+
+                # 라쏘에 대해서 및 파라미터 (알파 조정) 설정
+                model = ('ScalerMinMax Lasso',
+                         Pipeline([('Scaler', MinMaxScaler(feature_range=(0, 1))), ('Lasso', linear_model.Lasso())]))
+                param = {
+                    'Lasso__alpha': [0.1, 0.3, 0.5, 1.0, 3.0, 5.0, 10.0]
+                }
+
+                models.append(model)
+                params.append(param)
+
+                # 엘라스틴에 대해서 및 파라미터 (알파 조정) 설정
+                model = (
+                    'ScalerMinMax ElasticNet',
+                    Pipeline(
+                        [('Scaler', MinMaxScaler(feature_range=(0, 1))), ('ElasticNet', linear_model.ElasticNet())]))
+                param = {
+                    'ElasticNet__alpha': [0.1, 0.3, 0.5, 1.0, 3.0, 5.0, 10.0],
+                    'ElasticNet__l1_ratio': [0.3, 0.5, 0.7]
+                }
+
+                models.append(model)
+                params.append(param)
+
+                # PLS Regression
+                model = [
+                    'ScalerMinMax PLS', Pipeline([('Scaler', MinMaxScaler(feature_range=(0, 1))), ('PLS', PLS())])]
+                param = {
+                    'PLS__n_components': [1, 2, 3, 4, 5, 6, 7]
+                    # 'PLS__n_components': [1, 2]
+                }
+
+                models.append(model)
+                params.append(param)
+
+                log.info("[Check] models | %s" % (models))
+                log.info("[Check] params | %s" % (params))
+
+                # ====================================================
+                # 트레이닝 및 테스트 셋을 각각 75% 및 25% 선정
+                # ====================================================
+                # 트레이닝 셋을 이용한 학습
+                results = []
+                for i in range(len(models)):
+                    model = models[i]
+                    param = params[i]
+                    result = gridsearch_cv_for_regression(model=model, param=param, kfold=kfold
+                                                          , train_input=X_train, train_target=Y_train)
+                    result.best_score_
+                    results.append(result)
+
+                # 테스트 셋을 이용한 검증
+                for i in range(len(results)):
+                    Y_test_hat = results[i].predict(X_test)
+                    savefigName = globalVar.get('config').get('imgContextPath') + 'Image_%s_%s_%s.png' % (
+                        fileNameInfo, i + 70, case)
+
+                    selModel = models[i][0]
+
+                    if (selModel.__contains__('ScalerMinMax Lasso') or selModel.__contains__(
+                            'ScalerMinMax ElasticNet')):
+                        makeScatterPlot(Y_test_hat, Y_test.values[:, 0], selModel, savefigName)
+                    else:
+                        makeScatterPlot(Y_test_hat[:, 0], Y_test.values[:, 0], selModel, savefigName)
+
+                    rmse = np.sqrt(metrics.mean_squared_error(Y_test, Y_test_hat))
+                    r2 = metrics.r2_score(Y_test, Y_test_hat)
+                    log.info("[Check] %s | RMSE : %.4f // R-square: %.4f" % (selModel, rmse, r2))
+
+
     except Exception as e:
         log.error("Exception : {}".format(e))
-        traceback.print_exc()
+        # traceback.print_exc()
         # sys.exit(1)
 
     finally:
