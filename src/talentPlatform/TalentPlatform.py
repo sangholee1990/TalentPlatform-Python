@@ -1,6 +1,4 @@
 # -*- coding: utf-8 -*-
-import dfply
-
 
 class sDtaProcess:
 
@@ -18,7 +16,7 @@ class sDtaProcess:
                         format="%(asctime)s [%(threadName)-12.12s] [%(levelname)-5.5s] %(message)s")
 
         # 이미지 읽기
-        image = Image.open("/resources/image/lena_gray.gif")
+        image = Image.open("/resources/fig/lena_gray.gif")
 
         arrVal2D = np.array(image)
         arrVal1D = arrVal2D.flatten()
@@ -142,7 +140,7 @@ class sDtaProcess:
 
         plt.imshow(wordcloud, interpolation="bilinear")
         plt.axis("off")
-        savefigName = contextPath + '/../resources/image/Image_01.png'
+        savefigName = contextPath + '/../resources/fig/Image_01.png'
         plt.savefig(savefigName, width=1000, heiht=1000, dpi=600, bbox_inches='tight')
         plt.show()
 
@@ -162,6 +160,7 @@ class sDtaProcess:
         from sklearn.model_selection import KFold, GridSearchCV
         from sklearn import metrics
         from datetime import datetime
+
 
         # warnings.filterwarnings("ignore")
 
@@ -356,7 +355,7 @@ class sDtaProcess:
 
         # 기간 및 자치구에 따른 데이터 병합
         data = ((inpData01 >>
-                 left_join(inpData02, by=('기간', '자치구')) >>
+                 dfply.left_join(inpData02, by=('기간', '자치구')) >>
                  left_join(inpData03, by=('기간', '자치구')) >>
                  left_join(inpData04, by=('기간', '자치구')) >>
                  left_join(inpData05, by=('기간', '자치구')) >>
@@ -383,13 +382,13 @@ class sDtaProcess:
 
         dataStep1 = pd.concat([tmpColY, tmpColXStep1], axis=1)
         dataStep1Corr = dataStep1.corr(method='pearson')
-        savefigName = contextPath + '/../resources/image/Image_02.png'
+        savefigName = contextPath + '/../resources/fig/Image_02.png'
 
         makeCorrPlot(dataStep1, savefigName)
 
         dataStep2 = pd.concat([tmpColY, tmpColXStep2], axis=1)
         dataStep2Corr = dataStep2.corr(method='pearson')
-        savefigName = contextPath + '/../resources/image/Image_03.png'
+        savefigName = contextPath + '/../resources/fig/Image_03.png'
 
         makeCorrPlot(dataStep2, savefigName)
 
@@ -451,14 +450,14 @@ class sDtaProcess:
         # 트레이닝 데이터
         trainValY = result['Y_train'].values
         trainPredValY = result['Y_pred_train']
-        savefigName = contextPath + '/../resources/image/Image_04.png'
+        savefigName = contextPath + '/../resources/fig/Image_04.png'
 
         makeScatterPlot(trainValY, trainPredValY, savefigName)
 
         # 테스트 데이터
         testValY = result['Y_test'].values
         testPredValY = result['Y_pred_test']
-        savefigName = contextPath + '/../resources/image/Image_05.png'
+        savefigName = contextPath + '/../resources/fig/Image_05.png'
 
         makeScatterPlot(testValY, testPredValY, savefigName)
 
@@ -500,7 +499,7 @@ class sDtaProcess:
             testValY = Y_test.values
             testPredValY = results[i].predict(X_test)
 
-            savefigName = contextPath + '/../resources/image/Image_06.png'
+            savefigName = contextPath + '/../resources/fig/Image_06.png'
             makeScatterPlot(testValY, testPredValY, savefigName)
 
         log.info("[END] : {%s}", "uProgram")
@@ -693,7 +692,7 @@ class sDtaProcess:
                 mask(X.meanValPerDay == X.meanValPerDay.max())
         )
 
-        savImgName = contextPath + '/../resources/image/Image_10.png'
+        savImgName = contextPath + '/../resources/fig/Image_10.png'
 
         pn = (ggplot(dataL3, aes(x="week", y="meanValPerDay", colour="TOC_ID")) +
               geom_line() +
@@ -1062,11 +1061,11 @@ class sDtaProcess:
 
         data1Stat = (
                 data1 >>
-                mutate(
-                    hour=X.dtDateTime.dt.strftime("%H")
+                dfply.mutate(
+                    hour=dfply.X.dtDateTime.dt.strftime("%H")
                 ) >>
-                group_by(X.hour) >>
-                summarize(stress=n(X.hour))
+                dfply.group_by(dfply.X.hour) >>
+                dfply.summarize(stress=dfply.n(dfply.X.hour))
         )
 
         data2Stat = (
@@ -1095,8 +1094,8 @@ class sDtaProcess:
                 + lims(y=(0, 30))
                 )
 
-        # plot.save(contextPath + '/../resources/image/Image_07.png', width=10, height=10, dpi=600)
-        plot.save(contextPath + '/../resources/image/Image_08.png', width=10, height=10, dpi=600)
+        # plot.save(contextPath + '/../resources/fig/Image_07.png', width=10, height=10, dpi=600)
+        plot.save(contextPath + '/../resources/fig/Image_08.png', width=10, height=10, dpi=600)
 
         log.info("[END] : %s", "Run Program")
 
@@ -1438,7 +1437,7 @@ class sDtaProcess:
         ax1.legend(line, label, loc="center", mode="expand", ncol=4)
 
         # ax1.grid(True)
-        plt.savefig(contextPath + '/../resources/image/Image_11.png', width=10, height=6, dpi=600, bbox_inches='tight')
+        plt.savefig(contextPath + '/../resources/fig/Image_11.png', width=10, height=6, dpi=600, bbox_inches='tight')
         plt.show()
 
         # 단일 축으로 시각화 (1)
@@ -1457,7 +1456,7 @@ class sDtaProcess:
                 + scale_color_discrete(name='Color', labels=("강우", "용수량"))
                 + labs(x='Date [Year-Month-Day]', y='')
                 )
-        plot.save(contextPath + '/../resources/image/Image_08.png', bbox_inches='tight', width=10, height=6, dpi=600)
+        plot.save(contextPath + '/../resources/fig/Image_08.png', bbox_inches='tight', width=10, height=6, dpi=600)
 
         # 단일 축으로 시각화 (2)
         plotDataL2 = (
@@ -1475,14 +1474,14 @@ class sDtaProcess:
                 + scale_color_discrete(name='Color', labels=("관측값", "모의값"))
                 + labs(x='Date [Year-Month-Day]', y='')
                 )
-        plot.save(contextPath + '/../resources/image/Image_09.png', bbox_inches='tight', width=10, height=6, dpi=600)
+        plot.save(contextPath + '/../resources/fig/Image_09.png', bbox_inches='tight', width=10, height=6, dpi=600)
 
         # ===========================================
         # 그림 2. 데이터 그림
         # ===========================================
         xAxis = dataL1['val3'].values
         yAxis = dataL1['val4'].values
-        savefigName = contextPath + '/../resources/image/Image_10.png'
+        savefigName = contextPath + '/../resources/fig/Image_10.png'
 
         makeScatterPlot(xAxis, yAxis, savefigName)
 
@@ -1753,7 +1752,7 @@ class sDtaProcess:
         log.info("[Check] y : %s", y)
 
         # 이미지 저장 파일명 설정
-        savefigName = contextPath + '/../resources/image/Image_12.png'
+        savefigName = contextPath + '/../resources/fig/Image_12.png'
 
         # 산점도에 따른 그림 시각화
         plt.scatter(x, y)
@@ -1832,7 +1831,7 @@ class sDtaProcess:
         log.info("[Check] x : %s", predY)
 
         # 이미지 저장 파일명 설정
-        savefigName = contextPath + '/../resources/image/Image_13.png'
+        savefigName = contextPath + '/../resources/fig/Image_13.png'
 
         # 산점도에 따른 그림 시각화
         plt.scatter(trainX, trainY, color='black', alpha=0.3)
@@ -1870,7 +1869,7 @@ class sDtaProcess:
         xlsxContextPath = contextPath + '/../resources/data/xlsx/'
         log.info('[Check] xlsxContextPath : {}'.format(xlsxContextPath))
 
-        imgContextPath = contextPath + '/../resources/image/'
+        imgContextPath = contextPath + '/../resources/fig/'
         log.info('[Check] imgContextPath : {}'.format(imgContextPath))
 
         log.info('[START] main : {}'.format('Run Program'))
@@ -2092,7 +2091,7 @@ class sDtaProcess:
             # 전역 변수
             globalVar = {
                 "config": {
-                    "imgContextPath": contextPath + '/../resources/image/'
+                    "imgContextPath": contextPath + '/../resources/fig/'
                     , "csvConfigPath": contextPath + '/../resources/data/csv/'
                     , "xlsxConfigPath": contextPath + '/../resources/data/xlsx/'
                 }
@@ -2495,7 +2494,7 @@ class sDtaProcess:
             # 전역 변수
             globalVar = {
                 "contextPath": {
-                    "img": contextPath + '/../../resources/image/'
+                    "img": contextPath + '/../../resources/fig/'
                     , "csv": contextPath + '/../../resources/data/csv/'
                     , "xlsx": contextPath + '/../../resources/data/xlsx/'
                 }
@@ -2833,7 +2832,7 @@ class sDtaProcess:
             # 전역 변수
             globalVar = {
                 "config": {
-                    "imgContextPath": contextPath + '/../../resources/image/'
+                    "imgContextPath": contextPath + '/../../resources/fig/'
                     , "csvConfigPath": contextPath + '/../../resources/data/csv/'
                     , "xlsxConfigPath": contextPath + '/../../resources/data/xlsx/'
                 }
@@ -3169,7 +3168,7 @@ class sDtaProcess:
             # 전역 변수
             globalVar = {
                 "contextPath": {
-                    "img": contextPath + '/../../resources/image/'
+                    "img": contextPath + '/../../resources/fig/'
                     , "csv": contextPath + '/../../resources/data/csv/'
                     , "xlsx": contextPath + '/../../resources/data/xlsx/'
                 }
@@ -3453,7 +3452,7 @@ class sDtaProcess:
         # 전역 변수
         globalVar = {
             "config": {
-                "imgContextPath": contextPath + '/resources/image/'
+                "imgContextPath": contextPath + '/resources/fig/'
                 , "csvConfigPath": contextPath + '/resources/data/csv/'
                 , "xlsxConfigPath": contextPath + '/resources/data/xlsx/'
                 , "system": contextPath + '/resources/config/system.cfg'
@@ -3611,7 +3610,7 @@ class sDtaProcess:
 
             globalVar = {
                 "contextPath": {
-                    "img": contextPath + '/resources/image/'
+                    "img": contextPath + '/resources/fig/'
                     , "movie": contextPath + '/resources/movie/'
                     , "csv": contextPath + '/resources/data/csv/'
                     , "xlsx": contextPath + '/resources/data/xlsx/'
@@ -3810,306 +3809,701 @@ class sDtaProcess:
             log.info('[END] Main : {}'.format('Run Program'))
 
     def uPro19(self):
-        pass
+        # ===============================================================================================
+        # Routine : Main R program
+        #
+        # Purpose : 재능상품 (크몽, 오투잡)
+        #
+        # Author : 해솔
+        #
+        # Revisions: V1.0 May 28, 2020 First release (MS. 해솔)
+        # ===============================================================================================
+
+        import matplotlib.pyplot as plt
+        import numpy as np
+        import pandas as pd
+        import seaborn as sns
+        import statsmodels.api as sm
+        import statsmodels.formula.api as smf
+        from scipy import stats
+
+        def mywage(nParm1):
+
+            if nParm1 > 40:
+                nVal = 40 + ((nParm1 - 40) * 1.5)
+            else:
+                nVal = nParm1
+
+            rsVal = 1.0 * nVal
+
+            return rsVal
+
+        class Example:
+            def __init__(self, name):
+                self.name = name
+                self.dict = {
+                    'a': 'Hello {} !'.format(self.name)
+                    , 'b': 'Good-bye {} !'.format(self.name)
+                }
+
+            def a(self):
+                return '{}'.format(self.dict.get('a'))
+
+            def b(self):
+                return '{}'.format(self.dict.get('b'))
+
+        def step_aic(model, exog, endog, **kwargs):
+            """
+            This select the best exogenous variables with AIC
+            Both exog and endog values can be either str or list.
+            (Endog list is for the Binomial family.)
+
+            Note: This adopt only "forward" selection
+
+            Args:
+                model: model from statsmodels.formula.api
+                exog (str or list): exogenous variables
+                endog (str or list): endogenous variables
+                kwargs: extra keyword argments for model (e.g., data, family)
+
+            Returns:
+                model: a model that seems to have the smallest AIC
+            """
+
+            # exog, endogは強制的にリスト形式に変換しておく
+            exog = np.r_[[exog]].flatten()
+            endog = np.r_[[endog]].flatten()
+            remaining = set(exog)
+            selected = []  # 採用が確定された要因
+
+            # 定数項のみのAICを計算
+            formula_head = ' + '.join(endog) + ' ~ '
+            formula = formula_head + '1'
+            aic = model(formula=formula, **kwargs).fit().aic
+            print('AIC: {}, formula: {}'.format(round(aic, 3), formula))
+
+            current_score, best_new_score = np.ones(2) * aic
+
+            # 全要因を採択するか，どの要因を追加してもAICが上がらなければ終了
+            while remaining and current_score == best_new_score:
+                scores_with_candidates = []
+                for candidate in remaining:
+                    # 残っている要因を1つずつ追加したときのAICを計算
+                    formula_tail = ' + '.join(selected + [candidate])
+                    formula = formula_head + formula_tail
+                    aic = model(formula=formula, **kwargs).fit().aic
+                    print('AIC: {}, formula: {}'.format(round(aic, 3), formula))
+
+                    scores_with_candidates.append((aic, candidate))
+
+                # 最もAICが小さかった要因をbest_candidateとする
+                scores_with_candidates.sort()
+                scores_with_candidates.reverse()
+                best_new_score, best_candidate = scores_with_candidates.pop()
+
+                # 候補要因追加でAICが下がったならば，それを確定要因として追加する
+                if best_new_score < current_score:
+                    remaining.remove(best_candidate)
+                    selected.append(best_candidate)
+                    current_score = best_new_score
+
+            formula = formula_head + ' + '.join(selected)
+            print('The best formula: {}'.format(formula))
+            return model(formula, **kwargs).fit()
+
+        def forward_selected(data, response):
+            """Linear model designed by forward selection.
+
+            Parameters:
+            -----------
+            data : pandas DataFrame with all possible predictors and response
+
+            response: string, name of response column in data
+
+            Returns:
+            --------
+            model: an "optimal" fitted statsmodels linear model
+                   with an intercept
+                   selected by forward selection
+                   evaluated by adjusted R-squared
+            """
+            remaining = set(data.columns)
+            remaining.remove(response)
+            selected = []
+            current_score, best_new_score = 0.0, 0.0
+            while remaining and current_score == best_new_score:
+                scores_with_candidates = []
+                for candidate in remaining:
+                    formula = "{} ~ {} + 1".format(response,
+                                                   ' + '.join(selected + [candidate]))
+                    score = smf.ols(formula, data).fit().rsquared_adj
+                    scores_with_candidates.append((score, candidate))
+                scores_with_candidates.sort()
+                best_new_score, best_candidate = scores_with_candidates.pop()
+                if current_score < best_new_score:
+                    remaining.remove(best_candidate)
+                    selected.append(best_candidate)
+                    current_score = best_new_score
+            formula = "{} ~ {} + 1".format(response,
+                                           ' + '.join(selected))
+            model = smf.ols(formula, data).fit()
+            return model
+
+        # ===============================================
+        # 문제사진1
+        # ===============================================
+        sDayName = pd.to_datetime("1945-08-15", format='%Y-%m-%d').strftime("%A")
+        sDayName
+
+        # ===========================================
+        # 문제사진2
+        # ===========================================
+        x1 = ['kim', 'lee', 'park']
+        x2 = [170, 160, 180]
+        x3 = [60, 55, 75]
+
+        # 딕션너리 정의
+        diData = {
+            'name': x1
+            , 'height': x2
+            , 'weight': x3
+        }
+
+        dfData = pd.DataFrame(diData)
+        arrData = np.array([dfData.iloc[0, 1], dfData.iloc[1, 2], dfData.iloc[2, 2]])
+
+        # ===========================================
+        # 문제사진3
+        # ==========================================
+        for i in range(1, 6):
+            print(i)
+
+        j = 1
+        while (j < 6):
+            print(j)
+            j = j + 1
+
+        for i in range(1, 10):
+            print(mywage(i * 10))
+
+        name = "David"
+        fnExample = Example(name)
+        fnExample.a()
+        fnExample.b()
+
+        # ===========================================
+        # 문제사진5
+        # ==========================================
+        # nN = int(input("n을 입력하세요"))
+        # nP = int(input("p을 입력하세요"))
+
+        # liSeq = np.linspace(1, nN, nN)
+        # sum = np.sum(liSeq ** nP)
+
+        # ===========================================
+        # 문제사진6, 7
+        # ==========================================
+        dfData = pd.read_csv('rpy/nutrient2.csv', encoding="UTF-8")
+
+        # (1)
+        dfData2 = dfData.replace(to_replace=0, value=np.nan)
+        dfData2.isnull().sum()
+
+        # (2)
+        dfData2.describe()
+
+        # (3)
+        # 상자 그림
+        dfData2.boxplot()
+        plt.show()
+
+        # 히스토그램
+        dfData2.hist()
+        plt.show()
+
+        # ===========================================
+        # 문제사진8
+        # ==========================================
+        dfData = pd.read_csv('rpy/pima2.csv', encoding="UTF-8")
+
+        # (1)
+        dfData2 = dfData['diabetes'].value_counts(normalize=False)
+
+        # (2)
+        dfData2.describe()
+
+        dfData2.plot.bar()
+        plt.show()
+
+        dfData2.plot.pie()
+        plt.show()
+
+        # (2)
+        dfData.groupby(['diabetes']).describe()
+
+        dfData.groupby(['diabetes']).boxplot()
+        plt.show()
+
+        dfData.groupby(['diabetes']).hist()
+        plt.show()
+
+        # (3)
+        dfAge = pd.cut(dfData['age'], bins=[20, 30, 40, 50, np.inf], labels=['20-30', '30-40', '41-50', '50+'])
+
+        # 분할표
+        dfAge2 = pd.crosstab(dfAge, dfData['diabetes'])
+        dfAge2
+
+        dfAge2.plot.bar()
+        plt.show()
+
+        # (4)
+        dfPregnant = pd.cut(dfData['pregnant'], bins=[0, 5, 10, np.inf], labels=['0-5', '6-10', '10+'])
+
+        # 분할표
+        dfPregnant2 = pd.crosstab(dfPregnant, dfData['diabetes'])
+        dfPregnant2
+
+        dfPregnant2.plot.bar()
+        plt.show()
+
+        # (5)
+        dfData2 = pd.merge(dfData.reset_index(), dfPregnant.reset_index(), on='index')
+
+        # 평균
+        dfData2[['glucose', 'pressure', 'triceps', 'insulin', 'mass', 'pedigree', 'diabetes', 'pregnant_y']].groupby(
+            ['diabetes', 'pregnant_y']).mean()
+
+        # 표준편차
+        dfData2[['glucose', 'pressure', 'triceps', 'insulin', 'mass', 'pedigree', 'diabetes', 'pregnant_y']].groupby(
+            ['diabetes', 'pregnant_y']).std()
+
+        # ===========================================
+        # 문제사진9
+        # ==========================================
+        dfData = dict({
+            'Placebo': [105, 119, 100, 97, 96, 101, 94, 95, 98]
+            , 'Caffeine': [96, 99, 94, 89, 96, 93, 88, 105, 88]
+        })
+
+        # F 테스트
+        stats.bartlett(dfData['Placebo'], dfData['Caffeine'])
+
+        # T 테스트
+        stats.ttest_ind(dfData['Placebo'], dfData['Caffeine'], equal_var=True)
+
+        # ===========================================
+        # 문제사진10
+        # ==========================================
+        dfData = pd.read_csv('rpy/mtcars.csv', encoding="UTF-8")
+
+        # F 테스트
+        stats.bartlett(dfData['am'], dfData['mpg'])
+
+        # T 테스트
+        stats.ttest_ind(dfData['am'], dfData['mpg'], equal_var=False)
+
+        # ===========================================
+        # 문제사진11
+        # ==========================================
+        dfData = pd.read_csv('rpy/computer.csv', encoding="UTF-8")
+
+        dfData2 = dfData[['erp ', 'myct', 'mmax', 'cach', 'chmin', 'chmax', 'prpe']]
+
+        # 산점도
+        sns.pairplot(dfData2)
+        plt.show()
+
+        # 상관계수 행렬
+        dfData2.corr(method='pearson')
+
+        # 다중 선형 회귀모형
+        rsModel = sm.OLS(dfData2[['erp ']], dfData2[['myct', 'mmax', 'cach', 'chmin', 'chmax']]).fit()
+
+        rsModel.summary()
+
+        # ===========================================
+        # 문제사진12
+        # ==========================================
+        dfData = pd.read_csv('rpy/mtcars.csv', encoding="UTF-8")
+        rsModel = step_aic(smf.ols, ['cyl', 'disp', 'hp', 'drat', 'wt', 'qsec', 'vs', 'am', 'gear', 'carb'], ['mpg'],
+                           data=dfData)
+        rsModel.summary()
+
+        # ===========================================
+        # 문제사진13
+        # ==========================================
+        dfData = pd.read_csv('rpy/bateriasoap.csv', encoding="UTF-8")
+
+        rsModel = smf.ols('dfData["BacterialCounts"] ~ C(dfData["Method"])', data=dfData).fit()
+        rsModel.summary()
+
+        rsAov = sm.stats.anova_lm(rsModel)
+        rsAov
+
+        # ===========================================
+        # 문제사진14
+        # ==========================================
+        dfData = pd.read_csv('rpy/downloading.csv', encoding="UTF-8")
+
+        rsModel = smf.ols('dfData["Time(Sec)"] ~ C(dfData["TimeofDay"])', data=dfData).fit()
+        rsModel.summary()
+
+        rsAov = sm.stats.anova_lm(rsModel)
+        rsAov
 
     def uPro20(self):
-        pass
+        # ===============================================================================================
+        # Routine : Main R program
+        #
+        # Purpose : 재능상품 (크몽, 오투잡)
+        #
+        # Author : 해솔
+        #
+        # Revisions: V1.0 May 28, 2020 First release (MS. 해솔)
+        # ===============================================================================================
 
-    def uPro21(self):
-        pass
+        # 안녕하세요 전문가님! 질문이 있어서 연락드렸습니다!
+        # 제가 회귀분석을 하고싶은데요.
+        # 케이스별로 데이터는 정리를 했습니다. 저는 해외에서 스마트 농업을 공부하면서 그 안에서 딥러닝으로 예측모델을 구현하려고 연구를 하고있습니다. 이 전에 데이터들간의 관계를 좀더 분석기법을 통해서 표현하고싶어서 이렇게 전문가님께 연락을 드렸습니다. PLS, PCR, PCA이런 기법들을 활용하고싶은데요..ㅠ
+        # 연구의 활용도로 쓰이겠지만 제일 큰 목적은 전문가님께 문의를 받고 앞으로도 계속 공부를 하는데 적용해서 하고싶은 마음이 더욱더 큽니다. 데이터도 참고해주셔서 상담 해주시면 감사하겠습니다.
 
-    def uPro22(self):
-        pass
-
-    def uProDefault(self):
+        # 라이브러리 읽기
         import logging as log
         import os
         import sys
-        # from plotnine import *
-        # from plotnine.data import *
-        # from dfply import *
-        # import hydroeval
+        import datetime
         import matplotlib as mpl
         import matplotlib.pyplot as plt
+        import pandas as pd
+        from sklearn import linear_model
         import warnings
+        import seaborn as sns
+        from scipy import stats
+        import traceback
+        from sklearn.model_selection import KFold, GridSearchCV, train_test_split
+        from sklearn import metrics
+        from datetime import datetime
+        from sklearn.pipeline import Pipeline
+        from warnings import simplefilter
+        import glob
+        from sklearn.cross_decomposition import PLSRegression as PLS
+        import numpy as np
+        from sklearn.preprocessing import StandardScaler
+        import dfply as dfply
+        from sklearn.decomposition import PCA
+        from sklearn.linear_model import LinearRegression
+        from sklearn.metrics import mean_squared_error
+        import dfply as dfply
+        from matplotlib import rcParams
+        import matplotlib.pylab as pylab
+        from sklearn.preprocessing import minmax_scale
+        from sklearn.preprocessing import MinMaxScaler
+        import matplotlib.pyplot as plt
+        import numpy as np
+        import pandas as pd
+        import seaborn as sns
+        import statsmodels.api as sm
+        import statsmodels.formula.api as smf
+        from scipy import stats
+
+        # ignore all future warnings
+        simplefilter(action='ignore', category=FutureWarning)
 
         # 로그 설정
         log.basicConfig(stream=sys.stdout, level=log.INFO,
                         format="%(asctime)s [%(name)s | %(lineno)d | %(filename)s | %(funcName)10.10s] [%(levelname)-5.5s] %(message)s")
         warnings.filterwarnings("ignore")
-
         plt.rc('font', family='Malgun Gothic')
         plt.rc('axes', unicode_minus=False)
+
+        params = {'legend.fontsize': 'x-large',
+                  'figure.figsize': (10, 10),
+                  'axes.labelsize': 'x-large',
+                  'axes.titlesize': 'x-large',
+                  'xtick.labelsize': 'x-large',
+                  'ytick.labelsize': 'x-large'}
+        pylab.rcParams.update(params)
+
         # 그래프에서 마이너스 글꼴 깨지는 문제에 대한 대처
         mpl.rcParams['axes.unicode_minus'] = False
+
+        # 상관계수 행렬 시각화
+        def makeCorrPlot(data, savefigName):
+            corr = data.corr(method='pearson')
+            cmap = sns.diverging_palette(220, 10, as_cmap=True)
+
+            sns.heatmap(corr, square=True, annot=False, cmap=cmap, vmin=-1.0, vmax=1.0, linewidths=0.5)
+            plt.savefig(savefigName, dpi=600, bbox_inches='tight')
+            plt.show()
+
+        # 산점도 시각화
+        def makeScatterPlot(PredValY, valY, titleName, savefigName):
+            X = PredValY
+            Y = valY
+
+            pylab.rcParams['figure.figsize'] = (6, 6)
+            plt.scatter(X, Y)
+
+            # arrVal = np.array([X, Y])
+            # setMin = np.min(arrVal)
+            # setMax = np.max(arrVal)
+            # interval = (setMax - setMin) / 10
+
+            setMin = 1.0
+            setMax = 40
+            interval = 2
+
+            plt.title("")
+            plt.xlabel('Val')
+            plt.ylabel('Pred')
+            # plt.xlim(0, setMax)
+            # plt.ylim(0, setMax)
+            plt.grid()
+
+            # Bias (relative Bias), RMSE (relative RMSE), R, slope, intercept, pvalue
+            Bias = np.mean(X - Y)
+            rBias = (Bias / np.mean(Y)) * 100.0
+            RMSE = np.sqrt(np.mean((X - Y) ** 2))
+            rRMSE = (RMSE / np.mean(Y)) * 100.0
+            MAPE = np.mean(np.abs((X - Y) / X)) * 100.0
+
+            slope, intercept, R, Pvalue, std_err = stats.linregress(X, Y)
+            N = len(X)
+
+            lmfit = (slope * X) + intercept
+            plt.plot(X, lmfit, color='red', linewidth=2)
+            plt.plot([0, setMax], [0, setMax], color='black')
+
+            plt.annotate('Pred = %.2f x (Val) + %.2f' % (slope, intercept), xy=(setMin, setMax - interval), color='red',
+                         fontweight='bold',
+                         xycoords='data', horizontalalignment='left', verticalalignment='center')
+            plt.annotate('R = %.2f  (p-value < %.2f)' % (R, Pvalue), xy=(setMin, setMax - interval * 2),
+                         color='red',
+                         fontweight='bold', xycoords='data',
+                         horizontalalignment='left', verticalalignment='center')
+            plt.annotate('Bias = %.2f  (%%Bias = %.2f %%)' % (Bias, rBias), xy=(setMin, setMax - interval * 3),
+                         color='black', fontweight='bold',
+                         xycoords='data', horizontalalignment='left', verticalalignment='center')
+            plt.annotate('RMSE = %.2f  (%%RMSE = %.2f %%)' % (RMSE, rRMSE), xy=(setMin, setMax - interval * 4),
+                         color='black', fontweight='bold',
+                         xycoords='data', horizontalalignment='left', verticalalignment='center')
+            plt.annotate('MAPE = %.2f %%' % (MAPE), xy=(setMin, setMax - interval * 5),
+                         color='black', fontweight='bold',
+                         xycoords='data', horizontalalignment='left', verticalalignment='center')
+            plt.annotate('N = %d' % N, xy=(setMin, setMax - interval * 6), color='black', fontweight='bold',
+                         xycoords='data', horizontalalignment='left',
+                         verticalalignment='center')
+            plt.title(titleName)
+            plt.savefig(savefigName, dpi=600, bbox_inches='tight')
+            # plt.savefig(savefigName, dpi=600)
+            plt.show()
+
+        # 회귀모형을 위한 교차검증 수행
+        def gridsearch_cv_for_regression(model, param, kfold, train_input, train_target,
+                                         scoring='neg_mean_squared_error',
+                                         n_jobs=-1, tracking=True):
+            '''
+            [Parameters]
+            - model: A tuple like ('name', MODEL)
+            - param
+            - scoring: neg_mean_absolute_error, neg_mean_squared_error, neg_median_absolute_error, r2
+                       (http://scikit-learn.org/stable/modules/model_evaluation.html#scoring-parameter)
+            - n_jobs: default as -1 (if it is -1, all CPU cores are used to train and validate models)
+            - tracking: whether trained model's name and duration time are printed
+            '''
+
+            name = model[0]
+            estimator = model[1]
+            if tracking:
+                start_time = datetime.now()
+                print("[%s] Start parameter search for model '%s'" % (start_time, name))
+                gridsearch = GridSearchCV(estimator=estimator, param_grid=param, cv=kfold, scoring=scoring,
+                                          n_jobs=n_jobs)
+                gridsearch.fit(train_input, train_target)
+                end_time = datetime.now()
+                duration_time = (end_time - start_time).seconds
+                print(
+                    "[%s] Finish parameter search for model '%s' (time: %d seconds)" % (end_time, name, duration_time))
+                print()
+            else:
+                gridsearch = GridSearchCV(estimator=estimator, param_grid=param, cv=kfold, scoring=scoring,
+                                          n_jobs=n_jobs)
+                gridsearch.fit(train_input, train_target)
+
+            return gridsearch
+
+        def stepAic(model, exog, endog, **kwargs):
+            """
+            This select the best exogenous variables with AIC
+            Both exog and endog values can be either str or list.
+            (Endog list is for the Binomial family.)
+
+            Note: This adopt only "forward" selection
+
+            Args:
+                model: model from statsmodels.formula.api
+                exog (str or list): exogenous variables
+                endog (str or list): endogenous variables
+                kwargs: extra keyword argments for model (e.g., data, family)
+
+            Returns:
+                model: a model that seems to have the smallest AIC
+            """
+
+            exog = np.r_[[exog]].flatten()
+            endog = np.r_[[endog]].flatten()
+            remaining = set(exog)
+            selected = []
+
+            formula_head = ' + '.join(endog) + ' ~ '
+            formula = formula_head + '1'
+            aic = model(formula=formula, **kwargs).fit().aic
+            print('AIC: {}, formula: {}'.format(round(aic, 3), formula))
+
+            current_score, best_new_score = np.ones(2) * aic
+
+            while remaining and current_score == best_new_score:
+                scores_with_candidates = []
+                for candidate in remaining:
+                    formula_tail = ' + '.join(selected + [candidate])
+                    formula = formula_head + formula_tail
+                    aic = model(formula=formula, **kwargs).fit().aic
+                    print('AIC: {}, formula: {}'.format(round(aic, 3), formula))
+
+                    scores_with_candidates.append((aic, candidate))
+
+                scores_with_candidates.sort()
+                scores_with_candidates.reverse()
+                best_new_score, best_candidate = scores_with_candidates.pop()
+
+                if best_new_score < current_score:
+                    remaining.remove(best_candidate)
+                    selected.append(best_candidate)
+                    current_score = best_new_score
+
+            formula = formula_head + ' + '.join(selected)
+
+            print('The best formula: {}'.format(formula))
+
+            return model(formula, **kwargs).fit()
 
         try:
             log.info('[START] Main : {}'.format('Run Program'))
 
             # 작업환경 경로 설정
             # contextPath = os.getcwd()
-            contextPath = 'E:/04. 재능플랫폼/Github/TalentPlatform-Python'
+            # contextPath = 'D:/04. TalentPlatform/Github/TalentPlatform-Python'
+            contextPath = 'E:/04. TalentPlatform/Github/TalentPlatform-Python'
 
+            # 전역 변수
             globalVar = {
-                "contextPath": {
-                    "img": contextPath + '/resources/image/'
-                    , "movie": contextPath + '/resources/movie'
-                    , "csv": contextPath + '/resources/data/csv/'
-                    , "xlsx": contextPath + '/resources/data/xlsx/'
-                }
-                , "config": {
-                    "system": contextPath + '/resources/config/system.cfg'
+                "config": {
+                    # "imgContextPath": contextPath + '/resources/fig/TMP4-noRain/'
+                    "imgContextPath": contextPath + '/resources/fig/TMP6-Y-S1/'
+                    # "imgContextPath": contextPath + '/resources/fig/TMP6-Y-FERT/'
+                    # "imgContextPath": contextPath + '/resources/fig/TMP6-N-S1/'
+                    # "imgContextPath": contextPath + '/resources/fig/TMP6-N-FERT/'
+                    , "csvConfigPath": contextPath + '/resources/data/csv/'
+                    , "xlsxConfigPath": contextPath + '/resources/data/xlsx/'
                 }
             }
 
-            # 전역 변수
+            serviceName = 'LSH0044'
+
             log.info("[Check] globalVar : {}".format(globalVar))
 
             # ==============================================
             # 주 소스코드
             # ==============================================
+            # caseList = ['case{}'.format(str(i)) for i in range(1, 7)]
+            # caseList = ['new_case5']
+            # caseList = ['new_case1']
+            # caseList = ['case1']
 
-        except Exception as e:
-            log.error("Exception : {}".format(e))
-            # traceback.print_exc()
-            # sys.exit(1)
+            # case1의 경우 종속변수 = S1
+            case = 'case1'
 
-        finally:
-            log.info('[END] Main : {}'.format('Run Program'))
+            # case2의 경우 종속변수 = fertilizer
+            # case = 'case2'
 
+            # for (ind, case) in enumerate(caseList):
+            #     log.info("[Check] case : {}".format(case))
+            #
+            #     # 파일 읽기
+            #     inFile = globalVar.get('config').get('csvConfigPath') + 'data2/{}/data/*.csv'.format(case)
+            #
+            #     dataL1 = pd.DataFrame()
+            #     for i in glob.glob(inFile):
+            #         log.info("[Check] inFile : {}".format(i))
+            #         fileNameInfo = os.path.splitext(os.path.basename(i))[0]
+            #
+            #         data = pd.read_csv(i, encoding="euc-kr")
+            #         # dataL1 = data
+            #         dataL1 = dataL1.append(data)
+            #
+            #     valFile = globalVar.get('config').get('csvConfigPath') + 'data/{}/data_test/*.csv'.format(case)
+            #     dataTestL1 = pd.DataFrame()
+            #     for j in glob.glob(valFile):
+            #         log.info("[Check] valFile : {}".format(j))
+            #
+            #         dataTest = pd.read_csv(j, encoding="euc-kr")
+            #         dataTestL1 = dataTestL1.append(dataTest)
 
-if __name__ == '__main__':
+            # 파일 정보 읽기
+            # dataL1.head()
 
-    # 안녕하세요 전문가님! 질문이 있어서 연락드렸습니다!
-    # 제가 회귀분석을 하고싶은데요.
-    # 케이스별로 데이터는 정리를 했습니다. 저는 해외에서 스마트 농업을 공부하면서 그 안에서 딥러닝으로 예측모델을 구현하려고 연구를 하고있습니다. 이 전에 데이터들간의 관계를 좀더 분석기법을 통해서 표현하고싶어서 이렇게 전문가님께 연락을 드렸습니다. PLS, PCR, PCA이런 기법들을 활용하고싶은데요..ㅠ
-    # 연구의 활용도로 쓰이겠지만 제일 큰 목적은 전문가님께 문의를 받고 앞으로도 계속 공부를 하는데 적용해서 하고싶은 마음이 더욱더 큽니다. 데이터도 참고해주셔서 상담 해주시면 감사하겠습니다.
-
-    # 라이브러리 읽기
-    import logging as log
-    import os
-    import sys
-    import datetime
-    import matplotlib as mpl
-    import matplotlib.pyplot as plt
-    import pandas as pd
-    from sklearn import linear_model
-    import warnings
-    import seaborn as sns
-    from scipy import stats
-    import traceback
-    from sklearn.model_selection import KFold, GridSearchCV
-    from sklearn import metrics
-    from datetime import datetime
-    from sklearn.pipeline import Pipeline
-    from warnings import simplefilter
-    import glob
-    from sklearn.cross_decomposition import PLSRegression as PLS
-    import numpy as np
-    from sklearn.preprocessing import StandardScaler
-    import dfply as dfply
-    from sklearn.decomposition import PCA
-    from sklearn.linear_model import LinearRegression
-    from sklearn.metrics import mean_squared_error
-    import dfply as dfply
-    from matplotlib import rcParams
-    import matplotlib.pylab as pylab
-    from sklearn.preprocessing import minmax_scale
-    from sklearn.preprocessing import MinMaxScaler
-
-    # ignore all future warnings
-    simplefilter(action='ignore', category=FutureWarning)
-
-    # 로그 설정
-    log.basicConfig(stream=sys.stdout, level=log.INFO,
-                    format="%(asctime)s [%(name)s | %(lineno)d | %(filename)s | %(funcName)10.10s] [%(levelname)-5.5s] %(message)s")
-    warnings.filterwarnings("ignore")
-    plt.rc('font', family='Malgun Gothic')
-    plt.rc('axes', unicode_minus=False)
-
-    params = {'legend.fontsize': 'x-large',
-              'figure.figsize': (10, 10),
-              'axes.labelsize': 'x-large',
-              'axes.titlesize': 'x-large',
-              'xtick.labelsize': 'x-large',
-              'ytick.labelsize': 'x-large'}
-    pylab.rcParams.update(params)
-
-    # 그래프에서 마이너스 글꼴 깨지는 문제에 대한 대처
-    mpl.rcParams['axes.unicode_minus'] = False
-
-
-    # 상관계수 행렬 시각화
-    def makeCorrPlot(data, savefigName):
-
-        corr = data.corr(method='pearson')
-        cmap = sns.diverging_palette(220, 10, as_cmap=True)
-
-        sns.heatmap(corr, square=True, annot=False, cmap=cmap, vmin=-1.0, vmax=1.0, linewidths=0.5)
-        plt.savefig(savefigName, dpi=600, bbox_inches='tight')
-        plt.show()
-
-
-    # 산점도 시각화
-    def makeScatterPlot(PredValY, valY, titleName, savefigName):
-
-        X = PredValY
-        Y = valY
-
-        pylab.rcParams['figure.figsize'] = (6, 6)
-        plt.scatter(X, Y)
-
-        # arrVal = np.array([X, Y])
-        # setMin = np.min(arrVal)
-        # setMax = np.max(arrVal)
-        # interval = (setMax - setMin) / 10
-
-        setMin = 1.0
-        setMax = 40
-        interval = 2
-
-        plt.title("")
-        plt.xlabel('Val')
-        plt.ylabel('Pred')
-        # plt.xlim(0, setMax)
-        # plt.ylim(0, setMax)
-        plt.grid()
-
-        # Bias (relative Bias), RMSE (relative RMSE), R, slope, intercept, pvalue
-        Bias = np.mean(X - Y)
-        rBias = (Bias / np.mean(Y)) * 100.0
-        RMSE = np.sqrt(np.mean((X - Y) ** 2))
-        rRMSE = (RMSE / np.mean(Y)) * 100.0
-        MAPE = np.mean(np.abs((X - Y) / X)) * 100.0
-
-        slope, intercept, R, Pvalue, std_err = stats.linregress(X, Y)
-        N = len(X)
-
-        lmfit = (slope * X) + intercept
-        plt.plot(X, lmfit, color='red', linewidth=2)
-        plt.plot([0, setMax], [0, setMax], color='black')
-
-        plt.annotate('Pred = %.2f x (Val) + %.2f' % (slope, intercept), xy=(setMin, setMax - interval), color='red',
-                     fontweight='bold',
-                     xycoords='data', horizontalalignment='left', verticalalignment='center')
-        plt.annotate('R = %.2f  (p-value < %.2f)' % (R, Pvalue), xy=(setMin, setMax - interval * 2),
-                     color='red',
-                     fontweight='bold', xycoords='data',
-                     horizontalalignment='left', verticalalignment='center')
-        plt.annotate('Bias = %.2f  (%%Bias = %.2f %%)' % (Bias, rBias), xy=(setMin, setMax - interval * 3),
-                     color='black', fontweight='bold',
-                     xycoords='data', horizontalalignment='left', verticalalignment='center')
-        plt.annotate('RMSE = %.2f  (%%RMSE = %.2f %%)' % (RMSE, rRMSE), xy=(setMin, setMax - interval * 4),
-                     color='black', fontweight='bold',
-                     xycoords='data', horizontalalignment='left', verticalalignment='center')
-        plt.annotate('MAPE = %.2f %%' % (MAPE), xy=(setMin, setMax - interval * 5),
-                     color='black', fontweight='bold',
-                     xycoords='data', horizontalalignment='left', verticalalignment='center')
-        plt.annotate('N = %d' % N, xy=(setMin, setMax - interval * 6), color='black', fontweight='bold',
-                     xycoords='data', horizontalalignment='left',
-                     verticalalignment='center')
-        plt.title(titleName)
-        plt.savefig(savefigName, dpi=600, bbox_inches='tight')
-        # plt.savefig(savefigName, dpi=600)
-        plt.show()
-
-
-    # 회귀모형을 위한 교차검증 수행
-    def gridsearch_cv_for_regression(model, param, kfold, train_input, train_target,
-                                     scoring='neg_mean_squared_error',
-                                     n_jobs=-1, tracking=True):
-        '''
-        [Parameters]
-        - model: A tuple like ('name', MODEL)
-        - param
-        - scoring: neg_mean_absolute_error, neg_mean_squared_error, neg_median_absolute_error, r2
-                   (http://scikit-learn.org/stable/modules/model_evaluation.html#scoring-parameter)
-        - n_jobs: default as -1 (if it is -1, all CPU cores are used to train and validate models)
-        - tracking: whether trained model's name and duration time are printed
-        '''
-
-        name = model[0]
-        estimator = model[1]
-        if tracking:
-            start_time = datetime.now()
-            print("[%s] Start parameter search for model '%s'" % (start_time, name))
-            gridsearch = GridSearchCV(estimator=estimator, param_grid=param, cv=kfold, scoring=scoring,
-                                      n_jobs=n_jobs)
-            gridsearch.fit(train_input, train_target)
-            end_time = datetime.now()
-            duration_time = (end_time - start_time).seconds
-            print(
-                "[%s] Finish parameter search for model '%s' (time: %d seconds)" % (end_time, name, duration_time))
-            print()
-        else:
-            gridsearch = GridSearchCV(estimator=estimator, param_grid=param, cv=kfold, scoring=scoring,
-                                      n_jobs=n_jobs)
-            gridsearch.fit(train_input, train_target)
-
-        return gridsearch
-
-
-    try:
-        log.info('[START] Main : {}'.format('Run Program'))
-
-        # 작업환경 경로 설정
-        # contextPath = os.getcwd()
-        # contextPath = 'D:/04. 재능플랫폼/Github/TalentPlatform-Python'
-        contextPath = 'E:/04. 재능플랫폼/Github/TalentPlatform-Python'
-
-        # 전역 변수
-        globalVar = {
-            "config": {
-                "imgContextPath": contextPath + '/resources/image/TMP3/'
-                , "csvConfigPath": contextPath + '/resources/data/csv/'
-                , "xlsxConfigPath": contextPath + '/resources/data/xlsx/'
-            }
-        }
-
-        log.info("[Check] globalVar : {}".format(globalVar))
-
-        # ==============================================
-        # 주 소스코드
-        # ==============================================
-        # caseList = ['case{}'.format(str(i)) for i in range(1, 7)]
-        # caseList = ['new_case5']
-        caseList = ['new_case1']
-
-        # case = 'case2'
-
-        for (ind, case) in enumerate(caseList):
-            log.info("[Check] case : {}".format(case))
-
-            # 파일 읽기
-            inFile = globalVar.get('config').get('csvConfigPath') + 'data/{}/data/*.csv'.format(case)
-
+            # 2021-01-22일 사례
             dataL1 = pd.DataFrame()
-            for i in glob.glob(inFile):
-                log.info("[Check] inFile : {}".format(i))
-                fileNameInfo = os.path.splitext(os.path.basename(i))[0]
 
-                data = pd.read_csv(i, encoding="euc-kr")
-                # dataL1 = data
+            inFileList = globalVar.get('config').get('csvConfigPath') + 'data4/4(data=0있음).csv'
+            # inFileList = globalVar.get('config').get('csvConfigPath') + 'data4/4(data=0없음).csv'
+
+            for inFileInfo in glob.glob(inFileList):
+                log.info("[Check] valFile : {}".format(inFileInfo))
+
+                data = pd.read_csv(inFileInfo, encoding="euc-kr")
                 dataL1 = dataL1.append(data)
-
-            valFile = globalVar.get('config').get('csvConfigPath') + 'data/{}/data_test/*.csv'.format(case)
-
-            dataTestL1 = pd.DataFrame()
-            for j in glob.glob(valFile):
-                log.info("[Check] valFile : {}".format(j))
-
-                dataTest = pd.read_csv(j, encoding="euc-kr")
-                dataTestL1 = dataTestL1.append(dataTest)
-
-                # 파일 정보 읽기
-                # dataL1.head()
 
             # =========================================
             # 1. 탐색
             # =========================================
+            # 각 자료에 대한 빈도분포
+            pylab.rcParams['figure.figsize'] = (14, 10)
+            savefigName = globalVar.get('config').get('imgContextPath') + 'Image_%s_%s_%s_%s.png' % (
+                serviceName, case, 'Hist', 'dataL1')
+            dataL1.hist()
+            # plt.savefig(savefigName, dpi=600)
+            plt.savefig(savefigName, dpi=600, bbox_inches='tight')
+            plt.show()
+
+            # 각 자료에 대한 상자그림 (자료에 대한 상대범위 확인)
+            pylab.rcParams['figure.figsize'] = (14, 10)
+            savefigName = globalVar.get('config').get('imgContextPath') + 'Image_%s_%s_%s_%s.png' % (
+                serviceName, case, 'BoxPlot', 'dataL1')
+            # dataL1.plot(kind='box', subplots=True, sharex=False, sharey=False)
+            sns.boxplot(data=dataL1, orient="h", palette="Set2")
+            plt.savefig(savefigName, dpi=600, bbox_inches='tight')
+            plt.show()
+
+            # plt.show()
+            # ax = sns.boxplot(x="day", y="total_bill", data=tips)
+
+            # 상관분석 행렬 시각화 및 자료 저장
+            pylab.rcParams['figure.figsize'] = (10, 10)
+            dataCorr = dataL1.corr(method='pearson')
+            savefigName = globalVar.get('config').get('imgContextPath') + 'Image_%s_%s_%s_%s.png' % (
+                serviceName, case, 'CorrMatrix', 'dataL1')
+            makeCorrPlot(dataCorr, savefigName)
+
+            dataL1Summary = dataL1.describe()
+            # dataTestL1Summary = dataTestL1.describe()
+            log.info("[Check] Train dataL1 Summary : {}".format(dataL1Summary))
+
+            #
             # # 각 자료에 대한 빈도분포
             # pylab.rcParams['figure.figsize'] = (14, 10)
-            # savefigName = globalVar.get('config').get('imgContextPath') + 'Image_%s_%s_%s_%s_Hist.png' % (fileNameInfo, 50, case, 'train')
+            # savefigName = globalVar.get('config').get('imgContextPath') + 'Image_%s_%s_%s_%s.png' % (serviceName, case, 'Hist', 'train')
             # dataL1.hist()
             # # plt.savefig(savefigName, dpi=600)
             # plt.savefig(savefigName, dpi=600, bbox_inches='tight')
@@ -4117,7 +4511,7 @@ if __name__ == '__main__':
             #
             # # 각 자료에 대한 상자그림 (자료에 대한 상대범위 확인)
             # pylab.rcParams['figure.figsize'] = (14, 10)
-            # savefigName = globalVar.get('config').get('imgContextPath') + 'Image_%s_%s_%s_%s_BoxPlot.png' % (fileNameInfo, 50, case, 'train')
+            # savefigName = globalVar.get('config').get('imgContextPath') + 'Image_%s_%s_%s_%s.png' % (serviceName, case, 'BoxPlot', 'train')
             # # dataL1.plot(kind='box', subplots=True, sharex=False, sharey=False)
             # sns.boxplot(data=dataL1, orient="h", palette="Set2")
             # plt.savefig(savefigName, dpi=600, bbox_inches='tight')
@@ -4129,23 +4523,23 @@ if __name__ == '__main__':
             # # 상관분석 행렬 시각화 및 자료 저장
             # pylab.rcParams['figure.figsize'] = (10, 10)
             # dataCorr = dataL1.corr(method='pearson')
-            # savefigName = globalVar.get('config').get('imgContextPath') + 'Image_%s_%s_%s_%s_CorrMatrix.png' % (fileNameInfo, 50, case, 'train')
+            # savefigName = globalVar.get('config').get('imgContextPath') + 'Image_%s_%s_%s_%s.png' % (serviceName, case, 'CorrMatrix', 'train')
             # makeCorrPlot(dataCorr, savefigName)
             #
             # dataL1Summary = dataL1.describe()
             # # dataTestL1Summary = dataTestL1.describe()
             # log.info("[Check] Train dataL1 Summary : {}".format(dataL1Summary))
-            #
+
             # # 각 자료에 대한 빈도분포
             # pylab.rcParams['figure.figsize'] = (14, 10)
-            # savefigName = globalVar.get('config').get('imgContextPath') + 'Image_%s_%s_%s_%s_Hist.png' % (fileNameInfo, 50, case, 'test')
+            # savefigName = globalVar.get('config').get('imgContextPath') + 'Image_%s_%s_%s_%s.png' % (serviceName, case, 'Hist', 'test')
             # dataTestL1.hist()
             # plt.savefig(savefigName, dpi=600, bbox_inches='tight')
             # plt.show()
             #
             # # 각 자료에 대한 상자그림 (자료에 대한 상대범위 확인)
             # pylab.rcParams['figure.figsize'] = (14, 10)
-            # savefigName = globalVar.get('config').get('imgContextPath') + 'Image_%s_%s_%s_%s_BoxPlot.png' % (fileNameInfo, 50, case, 'test')
+            # savefigName = globalVar.get('config').get('imgContextPath') + 'Image_%s_%s_%s_%s.png' % (serviceName, case, 'BoxPlot', 'test')
             # sns.boxplot(data=dataL1, orient="h", palette="Set2")
             # # dataTestL1.plot(kind='box', subplots=True, sharex=False, sharey=False)
             # plt.savefig(savefigName, dpi=600, bbox_inches='tight')
@@ -4154,7 +4548,7 @@ if __name__ == '__main__':
             # # 상관분석 행렬 시각화 및 자료 저장
             # pylab.rcParams['figure.figsize'] = (10, 10)
             # dataCorr = dataTestL1.corr(method='pearson')
-            # savefigName = globalVar.get('config').get('imgContextPath') + 'Image_%s_%s_%s_%s_CorrMatrix.png' % (fileNameInfo, 50, case, 'test')
+            # savefigName = globalVar.get('config').get('imgContextPath') + 'Image_%s_%s_%s_%s.png' % (serviceName, case, 'CorrMatrix', 'test')
             # makeCorrPlot(dataCorr, savefigName)
             #
             # dataTestL1Summary = dataTestL1.describe()
@@ -4163,40 +4557,81 @@ if __name__ == '__main__':
             # =========================================
             # 3. 목적에 맞는 분석
             # ========================================
-            dataL1 = dataL1.rename({'Section4_Winkler scale': 'Section4_Winkler_scale'}, axis='columns')
-            dataL1 = dataL1.rename({'Section5_Accumulated precipitation': 'Section5_Accumulated_precipitation'},
-                                   axis='columns')
-            dataL1 = dataL1.rename({'Section5_Winkler scale': 'Section5_Winkler_scale'}, axis='columns')
+            # dataL1 = dataL1.rename({'Section4_Winkler scale': 'Section4_Winkler_scale'}, axis='columns')
+            # dataL1 = dataL1.rename({'Section5_Accumulated precipitation': 'Section5_Accumulated_precipitation'},
+            #                        axis='columns')
+            # dataL1 = dataL1.rename({'Section5_Winkler scale': 'Section5_Winkler_scale'}, axis='columns')
+
+            # dataL1 = dataL1.rename({
+            #     'Section1_Accumulated precipitation': 'Section1_Accumulated_precipitation'
+            #     , 'Section2_Accumulated precipitation': 'Section2_Accumulated_precipitation'
+            #     , 'Section3_Accumulated precipitation': 'Section3_Accumulated_precipitation'
+            #     , 'Section4_Accumulated precipitation': 'Section4_Accumulated_precipitation'
+            #     , 'Section5_Accumulated precipitation': 'Section5_Accumulated_precipitation'
+            #     , 'Section1_Winkler scale': 'Section1_Winkler_scale'
+            #     , 'Section2_Winkler scale': 'Section2_Winkler_scale'
+            #     , 'Section3_Winkler scale': 'Section3_Winkler_scale'
+            #     , 'Section4_Winkler scale': 'Section4_Winkler_scale'
+            #     , 'Section5_Winkler scale': 'Section5_Winkler_scale'
+            # }, axis='columns')
+
+            # dataTestL1 = dataTestL1.rename({
+            #     'Section1_Accumulated precipitation': 'Section1_Accumulated_precipitation'
+            #     , 'Section2_Accumulated precipitation': 'Section2_Accumulated_precipitation'
+            #     , 'Section3_Accumulated precipitation': 'Section3_Accumulated_precipitation'
+            #     , 'Section4_Accumulated precipitation': 'Section4_Accumulated_precipitation'
+            #     , 'Section5_Accumulated precipitation': 'Section5_Accumulated_precipitation'
+            #     , 'Section1_Winkler scale': 'Section1_Winkler_scale'
+            #     , 'Section2_Winkler scale': 'Section2_Winkler_scale'
+            #     , 'Section3_Winkler scale': 'Section3_Winkler_scale'
+            #     , 'Section4_Winkler scale': 'Section4_Winkler_scale'
+            #     , 'Section5_Winkler scale': 'Section5_Winkler_scale'
+            # }, axis='columns')
 
             # 특정 행을 대상으로 NA값 삭제
             # dataL2 = dataL1[['TD', 'SFV', 'N', 'Section4_Winkler scale', 'Section4_Accumulated precipitation',
             #                   'Section5_Winkler scale', 'Section5_Accumulated_precipitation', 'S1']].dropna(axis=0)
-            dataL2 = dataL1[['TD', 'SFV', 'N', 'Section4_Winkler_scale', 'Section4_precipitation',
-                             'Section5_Winkler_scale', 'Section5_precipitation', 'S1']].dropna(axis=0)
+            # dataL2 = dataL1[['TD', 'SFV', 'N', 'Section4_Winkler_scale', 'Section4_precipitation',
+            #                  'Section5_Winkler_scale', 'Section5_precipitation', 'S1']].dropna(axis=0)
+            # dataL2 = dataL1[[
+            #     'TD', 'SFV', 'S1', 'N'
+            #     , 'Section1_Winkler_scale', 'Section1_Accumulated_precipitation'
+            #     , 'Section2_Winkler_scale', 'Section2_Accumulated_precipitation'
+            #     , 'Section3_Winkler_scale', 'Section3_Accumulated_precipitation'
+            #     , 'Section4_Winkler_scale', 'Section4_Accumulated_precipitation'
+            #     , 'Section5_Winkler_scale', 'Section5_Accumulated_precipitation'
+            # ]].dropna(axis=0)
 
-            tmpDataL2 = ((dataL2 >>
-                          dfply.group_by(dfply.X.Section4_precipitation, dfply.X.Section5_precipitation) >>
-                          dfply.summarize(
-                              meanTD=dfply.X.TD.mean()
-                              , meanSFV=dfply.X.SFV.mean()
-                              , meanN=dfply.X.N.mean()
-                              , meanSec4Wink=dfply.X.Section4_Winkler_scale.mean()
-                              , meanSec4Prec=dfply.X.Section4_precipitation.sum()
-                              , meanSec5Wink=dfply.X.Section5_Winkler_scale.mean()
-                              , meanSec5Prec=dfply.X.Section5_precipitation.sum()
-                              , meanS1=dfply.X.S1.mean()
-                              , cnt=dfply.n(dfply.X.Section4_precipitation)
-                          )
-                          ))
+            # tmpDataL2 = ((dataL2 >>
+            #               dfply.group_by(dfply.X.Section4_precipitation, dfply.X.Section5_precipitation) >>
+            #               dfply.summarize(
+            #                   meanTD=dfply.X.TD.mean()
+            #                   , meanSFV=dfply.X.SFV.mean()
+            #                   , meanN=dfply.X.N.mean()
+            #                   , meanSec4Wink=dfply.X.Section4_Winkler_scale.mean()
+            #                   , meanSec4Prec=dfply.X.Section4_precipitation.sum()
+            #                   , meanSec5Wink=dfply.X.Section5_Winkler_scale.mean()
+            #                   , meanSec5Prec=dfply.X.Section5_precipitation.sum()
+            #                   , meanS1=dfply.X.S1.mean()
+            #                   , cnt=dfply.n(dfply.X.Section4_precipitation)
+            #               )
+            #               ))
 
             # 전체
-            dataL3 = tmpDataL2
+            # dataL3 = tmpDataL2
+            # dataL3 = dataL2
+
+            # 범주형 변수
+            # dataL3 = (dataL2 >>
+            #          dfply.mask(dfply.X.Section5_Accumulated_precipitation < 1)
+            # )
 
             # 강수 유무에 따른 별도 회귀계수 필요
             # 무강수
             # dataL3 = (dataL2 >>
-            #          dfply.mask(dfply.X.Section5_Accumulated_precipitation < 10)
+            #          dfply.mask(dfply.X.Section5_Accumulated_precipitation < 1)
             # )
+
             # dataL3 = (dataL2 >>
             #          dfply.mask(dfply.X.Section5_precipitation < 10)
             # )
@@ -4215,6 +4650,19 @@ if __name__ == '__main__':
             #           dfply.mask(dfply.X.Section5_precipitation > 10)
             #           )
 
+            # xCol = [
+            #     'TD', 'SFV', 'N'
+            #     , 'Section1_Winkler_scale', 'Section1_Accumulated_precipitation'
+            #     , 'Section2_Winkler_scale', 'Section2_Accumulated_precipitation'
+            #     , 'Section3_Winkler_scale', 'Section3_Accumulated_precipitation'
+            #     , 'Section4_Winkler_scale', 'Section4_Accumulated_precipitation'
+            #     , 'Section5_Winkler_scale', 'Section5_Accumulated_precipitation'
+            #     ]
+            # yCol = ['S1']
+
+            # bestModel = stepAic(smf.ols, xCol, yCol, data=dataL3)
+            # bestModel.summary()
+
             # 트레이닝 및 테스트 셋을 각각 75% 및 25% 선정
             # X_train, X_test, Y_train, Y_test = train_test_split(X, Y, test_size=0.25, random_state=101)
 
@@ -4223,24 +4671,50 @@ if __name__ == '__main__':
             #                   'Section5_Winkler scale', 'Section5_Accumulated_precipitation']]
             # X_train = dataL3[['TD', 'SFV', 'N', 'Section4_Winkler scale', 'Section4_precipitation',
             #                   'Section5_Winkler scale', 'Section5_precipitation']]
-            X_train = dataL3[['meanTD', 'meanSFV', 'meanN', 'meanSec4Wink', 'meanSec4Prec',
-                              'meanSec5Wink', 'meanSec5Prec']]
+            # X_train = dataL3[['meanTD', 'meanSFV', 'meanN', 'meanSec4Wink', 'meanSec4Prec',
+            #                   'meanSec5Wink', 'meanSec5Prec']]
+            # X_train = dataL3[[
+            #     'TD', 'SFV', 'N'
+            #     , 'Section1_Winkler_scale', 'Section1_Accumulated_precipitation'
+            #     , 'Section2_Winkler_scale', 'Section2_Accumulated_precipitation'
+            #     , 'Section3_Winkler_scale', 'Section3_Accumulated_precipitation'
+            #     , 'Section4_Winkler_scale', 'Section4_Accumulated_precipitation'
+            #     , 'Section5_Winkler_scale', 'Section5_Accumulated_precipitation'
+            # ]]
+            #
+            # X_train = dataL3[[
+            #     'TD', 'SFV', 'N'
+            #     , 'Section1_Winkler_scale', 'Section4_Accumulated_precipitation'
+            # ]]
 
             # 트레이닝 셋에 대한 종속변수 설정
             # Y_train = dataL3[['S1']]
-            Y_train = dataL3[['meanS1']]
+            # Y_train = dataL3[['meanS1']]
+            # Y_train = dataL3[['S1']]
 
             #  테스트 셋에 대한 독립변수 설정
             # X_test = dataTestL1[['TD', 'SFV', 'N', 'Section4_Winkler scale', 'Section4_Accumulated precipitation',
             #      'Section5_Winkler scale', 'Section5_Accumulated precipitation']]
-            X_test = dataTestL1[['TD', 'SFV', 'N', 'Section4_Winkler scale', 'Section4_precipitation',
-                                 'Section5_Winkler scale', 'Section5_precipitation']]
+            # X_test = dataTestL1[['TD', 'SFV', 'N', 'Section4_Winkler scale', 'Section4_precipitation',
+            #                      'Section5_Winkler scale', 'Section5_precipitation']]
             # X_test = dataTestL1[['meanTD', 'meanSFV', 'maenN', 'meanSec4Wink', 'meanSec4Prec',
             #                   'meanSec5Wink', 'meanSec5Prec']]
-            # X_test = dataTestL1[['TD', 'SFV']]
+            # X_test = dataTestL1[[
+            #     'TD', 'SFV', 'N'
+            #     , 'Section1_Winkler_scale', 'Section1_Accumulated_precipitation'
+            #     , 'Section2_Winkler_scale', 'Section2_Accumulated_precipitation'
+            #     , 'Section3_Winkler_scale', 'Section3_Accumulated_precipitation'
+            #     , 'Section4_Winkler_scale', 'Section4_Accumulated_precipitation'
+            #     , 'Section5_Winkler_scale', 'Section5_Accumulated_precipitation'
+            #     ]]
+
+            # X_test = dataTestL1[[
+            #     'TD', 'SFV', 'N'
+            #     , 'Section1_Winkler_scale', 'Section4_Accumulated_precipitation'
+            # ]]
 
             #  테스트 셋에 대한 종속변수 설정
-            Y_test = dataTestL1[['S1']]
+            # Y_test = dataTestL1[['S1']]
             # Y_test = dataTestL1[['meanS1']]
 
             # X_train.hist()
@@ -4255,8 +4729,18 @@ if __name__ == '__main__':
             # Y_test.hist()
             # plt.show()
 
-            if len(X_train) == 0 or len(Y_train) == 0:
-                continue
+            xCol = [
+                'section6_a', 'section6_b'
+                , 'section7_a', 'section7_b'
+            ]
+
+            yCol = ['S1']
+            # yCol = ['fertilizer']
+
+            X_train, X_test, Y_train, Y_test = train_test_split(dataL1[xCol], dataL1[yCol], test_size=0.30,
+                                                                random_state=101)
+
+            # if len(X_train) == 0 or len(Y_train) == 0:
 
             # ========================================================
             # 주성분 회귀분석
@@ -4281,8 +4765,8 @@ if __name__ == '__main__':
 
             mean_squared_error(Y_pca_test_hat, Y_test)
 
-            savefigName = globalVar.get('config').get('imgContextPath') + 'Image_%s_%s_%s_PCA.png' % (
-            fileNameInfo, 51, case)
+            savefigName = globalVar.get('config').get('imgContextPath') + 'Image_%s_%s_%s.png' % (
+                serviceName, case, "PCA")
             makeScatterPlot(Y_pca_test_hat[:, 0], Y_test.values[:, 0], "PCA", savefigName)
 
             rmse = np.sqrt(metrics.mean_squared_error(Y_test, Y_pca_test_hat))
@@ -4366,10 +4850,9 @@ if __name__ == '__main__':
             # 테스트 셋을 이용한 검증
             for i in range(len(results)):
                 Y_test_hat = results[i].predict(X_test)
-                savefigName = globalVar.get('config').get('imgContextPath') + 'Image_%s_%s_%s.png' % (
-                fileNameInfo, i + 52, case)
-
                 selModel = models[i][0]
+                savefigName = globalVar.get('config').get('imgContextPath') + 'Image_%s_%s_%s.png' % (
+                    serviceName, case, selModel)
 
                 if (selModel.__contains__('Lasso') or selModel.__contains__('ElasticNet')):
                     makeScatterPlot(Y_test_hat, Y_test.values[:, 0], selModel, savefigName)
@@ -4380,8 +4863,98 @@ if __name__ == '__main__':
                 r2 = metrics.r2_score(Y_test, Y_test_hat)
                 log.info("[Check] %s | RMSE : %.4f // R-square: %.4f" % (selModel, rmse, r2))
 
+            # # ========================================================
+            # # [표준회 O] 4종 회귀모형을 이용
+            # # ========================================================
+            # # 초기값 설정
+            # models = []
+            # params = []
+            #
+            # # 선형회귀모형 및 파라미터 설정
+            # model = (
+            #     'Scaled Linear', Pipeline([('Scaler', StandardScaler()), ('Linear', linear_model.LinearRegression())]))
+            # param = {}
+            #
+            # models.append(model)
+            # params.append(param)
+            #
+            # # 릿지 회귀모형 및 파라미터 (알파 조정) 설정
+            # model = ('Scaled Ridge', Pipeline([('Scaler', StandardScaler()), ('Ridge', linear_model.Ridge())]))
+            # param = {
+            #     'Ridge__alpha': [0.1, 0.3, 0.5, 1.0, 3.0, 5.0, 10.0]
+            # }
+            #
+            # models.append(model)
+            # params.append(param)
+            #
+            # # 라쏘에 대해서 및 파라미터 (알파 조정) 설정
+            # model = ('Scaled Lasso', Pipeline([('Scaler', StandardScaler()), ('Lasso', linear_model.Lasso())]))
+            # param = {
+            #     'Lasso__alpha': [0.1, 0.3, 0.5, 1.0, 3.0, 5.0, 10.0]
+            # }
+            #
+            # models.append(model)
+            # params.append(param)
+            #
+            # # 엘라스틴에 대해서 및 파라미터 (알파 조정) 설정
+            # model = (
+            #     'Scaled ElasticNet',
+            #     Pipeline([('Scaler', StandardScaler()), ('ElasticNet', linear_model.ElasticNet())]))
+            # param = {
+            #     'ElasticNet__alpha': [0.1, 0.3, 0.5, 1.0, 3.0, 5.0, 10.0],
+            #     'ElasticNet__l1_ratio': [0.3, 0.5, 0.7]
+            # }
+            #
+            # models.append(model)
+            # params.append(param)
+            #
+            # # PLS Regression
+            # model = [
+            #     'Scaled PLS', Pipeline([('Scaler', StandardScaler()), ('PLS', PLS())])]
+            # param = {
+            #     'PLS__n_components': [1, 2, 3, 4, 5, 6, 7]
+            #     # 'PLS__n_components': [1, 2]
+            # }
+            #
+            # models.append(model)
+            # params.append(param)
+            #
+            # log.info("[Check] models | %s" % (models))
+            # log.info("[Check] params | %s" % (params))
+            #
+            # # ====================================================
+            # # 트레이닝 및 테스트 셋을 각각 75% 및 25% 선정
+            # # ====================================================
+            # # 트레이닝 셋을 이용한 학습
+            # results = []
+            # for i in range(len(models)):
+            #     model = models[i]
+            #     param = params[i]
+            #     result = gridsearch_cv_for_regression(model=model, param=param, kfold=kfold
+            #                                           , train_input=X_train, train_target=Y_train)
+            #     result.best_score_
+            #     results.append(result)
+            #
+            # # 테스트 셋을 이용한 검증
+            # for i in range(len(results)):
+            #     Y_test_hat = results[i].predict(X_test)
+            #
+            #     selModel = models[i][0]
+            #     savefigName = globalVar.get('config').get('imgContextPath') + 'Image_%s_%s_%s.png' % (
+            #         serviceName, case, selModel)
+            #
+            #     if (selModel.__contains__('Scaled Lasso') or selModel.__contains__(
+            #             'Scaled ElasticNet')):
+            #         makeScatterPlot(Y_test_hat, Y_test.values[:, 0], selModel, savefigName)
+            #     else:
+            #         makeScatterPlot(Y_test_hat[:, 0], Y_test.values[:, 0], selModel, savefigName)
+            #
+            #     rmse = np.sqrt(metrics.mean_squared_error(Y_test, Y_test_hat))
+            #     r2 = metrics.r2_score(Y_test, Y_test_hat)
+            #     log.info("[Check] %s | RMSE : %.4f // R-square: %.4f" % (selModel, rmse, r2))
+
             # ========================================================
-            # [표준회 O] 4종 회귀모형을 이용
+            # [정규화 0-1] 4종 회귀모형을 이용
             # ========================================================
             # 초기값 설정
             models = []
@@ -4389,14 +4962,17 @@ if __name__ == '__main__':
 
             # 선형회귀모형 및 파라미터 설정
             model = (
-                'Scaled Linear', Pipeline([('Scaler', StandardScaler()), ('Linear', linear_model.LinearRegression())]))
+                'Scaled Linear',
+                Pipeline([('ScalerMinMax', MinMaxScaler(feature_range=(0, 1))),
+                          ('Linear', linear_model.LinearRegression())]))
             param = {}
 
             models.append(model)
             params.append(param)
 
             # 릿지 회귀모형 및 파라미터 (알파 조정) 설정
-            model = ('Scaled Ridge', Pipeline([('Scaler', StandardScaler()), ('Ridge', linear_model.Ridge())]))
+            model = ('ScalerMinMax Ridge',
+                     Pipeline([('Scaler', MinMaxScaler(feature_range=(0, 1))), ('Ridge', linear_model.Ridge())]))
             param = {
                 'Ridge__alpha': [0.1, 0.3, 0.5, 1.0, 3.0, 5.0, 10.0]
             }
@@ -4405,7 +4981,8 @@ if __name__ == '__main__':
             params.append(param)
 
             # 라쏘에 대해서 및 파라미터 (알파 조정) 설정
-            model = ('Scaled Lasso', Pipeline([('Scaler', StandardScaler()), ('Lasso', linear_model.Lasso())]))
+            model = ('ScalerMinMax Lasso',
+                     Pipeline([('Scaler', MinMaxScaler(feature_range=(0, 1))), ('Lasso', linear_model.Lasso())]))
             param = {
                 'Lasso__alpha': [0.1, 0.3, 0.5, 1.0, 3.0, 5.0, 10.0]
             }
@@ -4415,8 +4992,9 @@ if __name__ == '__main__':
 
             # 엘라스틴에 대해서 및 파라미터 (알파 조정) 설정
             model = (
-                'Scaled ElasticNet',
-                Pipeline([('Scaler', StandardScaler()), ('ElasticNet', linear_model.ElasticNet())]))
+                'ScalerMinMax ElasticNet',
+                Pipeline(
+                    [('Scaler', MinMaxScaler(feature_range=(0, 1))), ('ElasticNet', linear_model.ElasticNet())]))
             param = {
                 'ElasticNet__alpha': [0.1, 0.3, 0.5, 1.0, 3.0, 5.0, 10.0],
                 'ElasticNet__l1_ratio': [0.3, 0.5, 0.7]
@@ -4427,7 +5005,7 @@ if __name__ == '__main__':
 
             # PLS Regression
             model = [
-                'Scaled PLS', Pipeline([('Scaler', StandardScaler()), ('PLS', PLS())])]
+                'ScalerMinMax PLS', Pipeline([('Scaler', MinMaxScaler(feature_range=(0, 1))), ('PLS', PLS())])]
             param = {
                 'PLS__n_components': [1, 2, 3, 4, 5, 6, 7]
                 # 'PLS__n_components': [1, 2]
@@ -4439,9 +5017,6 @@ if __name__ == '__main__':
             log.info("[Check] models | %s" % (models))
             log.info("[Check] params | %s" % (params))
 
-            # ====================================================
-            # 트레이닝 및 테스트 셋을 각각 75% 및 25% 선정
-            # ====================================================
             # 트레이닝 셋을 이용한 학습
             results = []
             for i in range(len(models)):
@@ -4455,13 +5030,13 @@ if __name__ == '__main__':
             # 테스트 셋을 이용한 검증
             for i in range(len(results)):
                 Y_test_hat = results[i].predict(X_test)
-                savefigName = globalVar.get('config').get('imgContextPath') + 'Image_%s_%s_%s.png' % (
-                fileNameInfo, i + 57, case)
 
                 selModel = models[i][0]
+                savefigName = globalVar.get('config').get('imgContextPath') + 'Image_%s_%s_%s.png' % (
+                    serviceName, case, selModel)
 
-                if (selModel.__contains__('Scaled Lasso') or selModel.__contains__(
-                        'Scaled ElasticNet')):
+                if (selModel.__contains__('ScalerMinMax Lasso') or selModel.__contains__(
+                        'ScalerMinMax ElasticNet')):
                     makeScatterPlot(Y_test_hat, Y_test.values[:, 0], selModel, savefigName)
                 else:
                     makeScatterPlot(Y_test_hat[:, 0], Y_test.values[:, 0], selModel, savefigName)
@@ -4470,101 +5045,892 @@ if __name__ == '__main__':
                 r2 = metrics.r2_score(Y_test, Y_test_hat)
                 log.info("[Check] %s | RMSE : %.4f // R-square: %.4f" % (selModel, rmse, r2))
 
-                # ========================================================
-                # [표준화 0-1] 4종 회귀모형을 이용
-                # ========================================================
-                # 초기값 설정
-                models = []
-                params = []
+        except Exception as e:
+            log.error("Exception : {}".format(e))
+            # traceback.print_exc()
+            # sys.exit(1)
 
-                # 선형회귀모형 및 파라미터 설정
-                model = (
-                    'Scaled Linear',
-                    Pipeline([('ScalerMinMax', MinMaxScaler(feature_range=(0, 1))),
-                              ('Linear', linear_model.LinearRegression())]))
-                param = {}
+        finally:
+            log.info('[END] Main : {}'.format('Run Program'))
 
-                models.append(model)
-                params.append(param)
+    def uPro21(self):
+        import logging
+        import logging.handlers
+        import os
+        import sys
+        # from plotnine import *
+        # from plotnine.data import *
+        # from dfply import *
+        # import hydroeval
+        import matplotlib as mpl
+        import matplotlib.pyplot as plt
+        import warnings
+        from pathlib import Path
+        import glob
+        import pprint
+        import platform
+        from datetime import datetime
+        import dfply as dfply
+        import numpy as np
+        import pandas as pd
+        import seaborn as sns
+        import re
 
-                # 릿지 회귀모형 및 파라미터 (알파 조정) 설정
-                model = ('ScalerMinMax Ridge',
-                         Pipeline([('Scaler', MinMaxScaler(feature_range=(0, 1))), ('Ridge', linear_model.Ridge())]))
-                param = {
-                    'Ridge__alpha': [0.1, 0.3, 0.5, 1.0, 3.0, 5.0, 10.0]
+        warnings.filterwarnings("ignore")
+
+        plt.rc('font', family='Malgun Gothic')
+        plt.rc('axes', unicode_minus=False)
+
+        # 그래프에서 마이너스 글꼴 깨지는 문제에 대한 대처
+        mpl.rcParams['axes.unicode_minus'] = False
+
+        # 작업환경 경로 설정
+        contextPath = 'E:/04. TalentPlatform/Github/TalentPlatform-Python'
+        prjName = 'test'
+        serviceName = 'LSH0138'
+
+        # =================================================
+        # 요구사항
+        # =================================================
+        # 1번 폴더의 각각의 파일 이름이 시간이 되고 그 파일 안에의 평균 값이 변형된 average값이거든요
+        # 이부분에서 3미만 40초과인 값을 삭제 후 평균값 이런 의미입니다!
+
+        # =================================================
+        # 로그 설정
+        # =================================================
+        def initLog(prjName):
+
+            saveLogFile = "{}/{}_{}_{}_{}.log".format(
+                os.path.join(contextPath, 'resources', 'log', prjName)
+                , platform.system()
+                , platform.node()
+                , prjName
+                , datetime.now().strftime("%Y%m%d")
+            )
+
+            # breakpoint()
+
+            if not os.path.exists(os.path.dirname(saveLogFile)):
+                os.makedirs(os.path.dirname(saveLogFile))
+
+            # logger instance 생성
+            log = logging.getLogger(prjName)
+
+            if len(log.handlers) > 0:
+                return log
+
+            # format 생성
+            format = logging.Formatter(
+                '%(asctime)s [%(name)s | %(lineno)d | %(filename)s] [%(levelname)-5.5s] %(message)s')
+
+            # handler 생성
+            streamHandler = logging.StreamHandler()
+            fileHandler = logging.FileHandler(saveLogFile)
+
+            # logger instance에 format 설정
+            streamHandler.setFormatter(format)
+            fileHandler.setFormatter(format)
+
+            # logger instance에 handler 설정
+            log.addHandler(streamHandler)
+            log.addHandler(fileHandler)
+
+            # logger instance로 log 기록
+            log.setLevel(level=logging.INFO)
+
+            return log
+
+        log = initLog(prjName)
+
+        # =================================================
+        #  전역변수 설정
+        # =================================================
+        globalVar = {
+            "prjName": prjName
+            , "contextPath": contextPath
+            , "srcPath": os.path.join(contextPath, 'src')
+            , "resPath": os.path.join(contextPath, 'resources')
+            , "cfgPath": os.path.join(contextPath, 'resources', 'config')
+            , "inpPath": os.path.join(contextPath, 'resources', 'input', prjName)
+            , "figPath": os.path.join(contextPath, 'resources', 'fig', prjName)
+            , "outPath": os.path.join(contextPath, 'resources', 'output', prjName)
+            , "movPath": os.path.join(contextPath, 'resources', 'movie', prjName)
+            , "logPath": os.path.join(contextPath, 'resources', 'log', prjName)
+            , "mapPath": os.path.join(contextPath, 'resources', 'mapInfo')
+            , "systemPath": os.path.join(contextPath, 'resources', 'config', 'system.cfg')
+            , "seleniumPath": os.path.join(contextPath, 'resources', 'config', 'selenium')
+            , "fontPath": os.path.join(contextPath, 'resources', 'config', 'fonInfo')
+        }
+
+        for key, val in globalVar.items():
+            globalVar[key] = val.replace("\\", "/")
+
+        # 전역 변수
+        log.info("[Check] globalVar : {}".format(globalVar))
+
+        try:
+            log.info('[START] {}'.format('Main'))
+
+            # =================================================
+            # 주 소스 코드
+            # =================================================
+            # fileList = globalVar.get('inpPath') + '/LSH0138_sample/20210514_0900_GNGGA_1/*.csv'
+            fileList = '{}/{}'.format(globalVar.get('inpPath'), 'LSH0138_sample/20210514_0900_GNGGA_1/*.csv')
+
+            # breakpoint()
+
+            fileInfo = 'E:/04. TalentPlatform/Github/TalentPlatform-Python/resources/input/test/LSH0138_sample/20210514_0900_GNGGA_1/20210514_090007724828.csv'
+
+            dataL2 = pd.DataFrame()
+            for fileInfo in glob.glob(fileList):
+                # breakpoint()
+
+                log.info("[Check] fileInfo : {}".format(fileInfo))
+                data = pd.read_csv(fileInfo, header=None, encoding="euc-kr")
+
+                fileInfoSplit = re.split('\\\|\.|\/', fileInfo)
+
+                time = fileInfoSplit[len(fileInfoSplit) - 2]
+                mean1 = data.stack().mean()
+                mean2 = data[data > 0].stack().mean()
+                mean3 = data[data > 30].stack().mean()
+                mean4 = data[(data >= 3) & (data <= 40)].stack().mean()
+
+                dict = {
+                    'time': [time]
+                    , 'mean1': [mean1]
+                    , 'mean2': [mean2]
+                    , 'mean3': [mean3]
+                    , 'mean4': [mean4]
                 }
 
-                models.append(model)
-                params.append(param)
+                dataL2 = dataL2.append(pd.DataFrame.from_dict(dict))
 
-                # 라쏘에 대해서 및 파라미터 (알파 조정) 설정
-                model = ('ScalerMinMax Lasso',
-                         Pipeline([('Scaler', MinMaxScaler(feature_range=(0, 1))), ('Lasso', linear_model.Lasso())]))
-                param = {
-                    'Lasso__alpha': [0.1, 0.3, 0.5, 1.0, 3.0, 5.0, 10.0]
-                }
+            saveFile = '{}/{}_{}'.format(globalVar.get('outPath'), serviceName, 'Result.csv')
+            dataL2.to_csv(saveFile, index=None)
 
-                models.append(model)
-                params.append(param)
+        except Exception as e:
+            log.error("Exception : {}".format(e))
+            # traceback.print_exc()
+            # sys.exit(1)
 
-                # 엘라스틴에 대해서 및 파라미터 (알파 조정) 설정
-                model = (
-                    'ScalerMinMax ElasticNet',
-                    Pipeline(
-                        [('Scaler', MinMaxScaler(feature_range=(0, 1))), ('ElasticNet', linear_model.ElasticNet())]))
-                param = {
-                    'ElasticNet__alpha': [0.1, 0.3, 0.5, 1.0, 3.0, 5.0, 10.0],
-                    'ElasticNet__l1_ratio': [0.3, 0.5, 0.7]
-                }
+        finally:
+            log.info('[END] {}'.format('Main'))
 
-                models.append(model)
-                params.append(param)
+    def uPro22(self):
+        import logging
+        import logging.handlers
+        import os
+        import sys
+        # from plotnine import *
+        # from plotnine.data import *
+        # from dfply import *
+        # import hydroeval
+        import matplotlib as mpl
+        import matplotlib.pyplot as plt
+        import warnings
+        from pathlib import Path
+        import glob
+        import pprint
+        import platform
+        from datetime import datetime
+        import dfply as dfply
+        import numpy as np
+        import pandas as pd
+        import seaborn as sns
+        import re
 
-                # PLS Regression
-                model = [
-                    'ScalerMinMax PLS', Pipeline([('Scaler', MinMaxScaler(feature_range=(0, 1))), ('PLS', PLS())])]
-                param = {
-                    'PLS__n_components': [1, 2, 3, 4, 5, 6, 7]
-                    # 'PLS__n_components': [1, 2]
-                }
+        warnings.filterwarnings("ignore")
 
-                models.append(model)
-                params.append(param)
+        plt.rc('font', family='Malgun Gothic')
+        plt.rc('axes', unicode_minus=False)
 
-                log.info("[Check] models | %s" % (models))
-                log.info("[Check] params | %s" % (params))
+        # 그래프에서 마이너스 글꼴 깨지는 문제에 대한 대처
+        mpl.rcParams['axes.unicode_minus'] = False
 
-                # ====================================================
-                # 트레이닝 및 테스트 셋을 각각 75% 및 25% 선정
-                # ====================================================
-                # 트레이닝 셋을 이용한 학습
-                results = []
-                for i in range(len(models)):
-                    model = models[i]
-                    param = params[i]
-                    result = gridsearch_cv_for_regression(model=model, param=param, kfold=kfold
-                                                          , train_input=X_train, train_target=Y_train)
-                    result.best_score_
-                    results.append(result)
+        # 작업환경 경로 설정
+        contextPath = 'E:/04. TalentPlatform/Github/TalentPlatform-Python'
+        prjName = 'test'
+        serviceName = 'LSH0139'
 
-                # 테스트 셋을 이용한 검증
-                for i in range(len(results)):
-                    Y_test_hat = results[i].predict(X_test)
-                    savefigName = globalVar.get('config').get('imgContextPath') + 'Image_%s_%s_%s.png' % (
-                        fileNameInfo, i + 70, case)
+        # =================================================
+        # 요구사항
+        # =================================================
+        # 이 파일은 10개씩 같은시간으로 평균 값을 구하고싶어서요.
+        # 시간 부분 보시면 소수점3자리 제외하고 10개씩 같은 시간의 데이터가 있습니다.
 
-                    selModel = models[i][0]
+        # =================================================
+        # 로그 설정
+        # =================================================
+        def initLog(prjName):
 
-                    if (selModel.__contains__('ScalerMinMax Lasso') or selModel.__contains__(
-                            'ScalerMinMax ElasticNet')):
-                        makeScatterPlot(Y_test_hat, Y_test.values[:, 0], selModel, savefigName)
-                    else:
-                        makeScatterPlot(Y_test_hat[:, 0], Y_test.values[:, 0], selModel, savefigName)
+            saveLogFile = "{}/{}_{}_{}_{}.log".format(
+                os.path.join(contextPath, 'resources', 'log', prjName)
+                , platform.system()
+                , platform.node()
+                , prjName
+                , datetime.now().strftime("%Y%m%d")
+            )
 
-                    rmse = np.sqrt(metrics.mean_squared_error(Y_test, Y_test_hat))
-                    r2 = metrics.r2_score(Y_test, Y_test_hat)
-                    log.info("[Check] %s | RMSE : %.4f // R-square: %.4f" % (selModel, rmse, r2))
+            # breakpoint()
 
+            if not os.path.exists(os.path.dirname(saveLogFile)):
+                os.makedirs(os.path.dirname(saveLogFile))
+
+            # logger instance 생성
+            log = logging.getLogger(prjName)
+
+            if len(log.handlers) > 0:
+                return log
+
+            # format 생성
+            format = logging.Formatter(
+                '%(asctime)s [%(name)s | %(lineno)d | %(filename)s] [%(levelname)-5.5s] %(message)s')
+
+            # handler 생성
+            streamHandler = logging.StreamHandler()
+            fileHandler = logging.FileHandler(saveLogFile)
+
+            # logger instance에 format 설정
+            streamHandler.setFormatter(format)
+            fileHandler.setFormatter(format)
+
+            # logger instance에 handler 설정
+            log.addHandler(streamHandler)
+            log.addHandler(fileHandler)
+
+            # logger instance로 log 기록
+            log.setLevel(level=logging.INFO)
+
+            return log
+
+        log = initLog(prjName)
+
+        # =================================================
+        #  전역변수 설정
+        # =================================================
+        globalVar = {
+            "prjName": prjName
+            , "contextPath": contextPath
+            , "srcPath": os.path.join(contextPath, 'src')
+            , "resPath": os.path.join(contextPath, 'resources')
+            , "cfgPath": os.path.join(contextPath, 'resources', 'config')
+            , "inpPath": os.path.join(contextPath, 'resources', 'input', prjName)
+            , "figPath": os.path.join(contextPath, 'resources', 'fig', prjName)
+            , "outPath": os.path.join(contextPath, 'resources', 'output', prjName)
+            , "movPath": os.path.join(contextPath, 'resources', 'movie', prjName)
+            , "logPath": os.path.join(contextPath, 'resources', 'log', prjName)
+            , "mapPath": os.path.join(contextPath, 'resources', 'mapInfo')
+            , "systemPath": os.path.join(contextPath, 'resources', 'config', 'system.cfg')
+            , "seleniumPath": os.path.join(contextPath, 'resources', 'config', 'selenium')
+            , "fontPath": os.path.join(contextPath, 'resources', 'config', 'fonInfo')
+        }
+
+        for key, val in globalVar.items():
+            globalVar[key] = val.replace("\\", "/")
+
+        # 전역 변수
+        log.info("[Check] globalVar : {}".format(globalVar))
+
+        try:
+            log.info('[START] {}'.format('Main'))
+
+            # =================================================
+            # 주 소스 코드
+            # =================================================
+            # fileList = globalVar.get('inpPath') + '/LSH0138_sample/20210514_0900_GNGGA_1/*.csv'
+            # fileList = '{}/{}'.format(globalVar.get('inpPath'), 'LSH0139_12-3_1.CSV')
+            # fileList = '{}/{}'.format(globalVar.get('inpPath'), 'LSH0140_2021_ohtani_tractor_12-3_raw.csv')
+            fileList = '{}/{}'.format(globalVar.get('inpPath'), 'LSH0139_12-3_4.csv')
+
+            # breakpoint()
+
+            dataL2 = pd.DataFrame()
+            for fileInfo in glob.glob(fileList):
+
+                # breakpoint()
+
+                log.info("[Check] fileInfo : {}".format(fileInfo))
+                data = pd.read_csv(fileInfo, encoding="euc-kr")
+
+                # data['time0'] = data['time(ms)'].apply(lambda x: x.split(',')[0]).str.zfill(2)
+                # data['time1'] = data['time(ms)'].apply(lambda x: x.split(',')[1])
+
+                # breakpoint()
+
+                cnt = 0
+                refCnt = 4
+                for i in data.index:
+                    if i % refCnt == 0: cnt = cnt + 1
+                    # data._set_value(i, 'idx', cnt)
+                    data._set_value(i, 'sTime', cnt)
+                    # data._set_value(i, 'sTime', data._get_value((cnt - 1) * 2, 't'))
+
+                # dtDateTime = pd.to_datetime(data['t'][0], format='%Y%m%d_%H%M%S%f')
+                # dtDateTime1 = pd.to_datetime(data['t'][1], format='%Y%m%d_%H%M%S%f')
+                # dtDateTime.timestamp()
+
+                log.info("[Check] data.dtypes : {}".format(data.dtypes))
+
+                # dataL1 = ((data >>
+                #            # dfply.mutate(
+                #                # sTime=dfply.X.time0 + ',' + dfply.X.time1
+                #            # ) >>
+                #            dfply.group_by(dfply.X.idx) >>
+                #            dfply.summarize(
+                #                meanAngleA_x=dfply.mean(dfply.X.angleA_x)
+                #                , meanAngleA_y=dfply.mean(dfply.X.angleA_y)
+                #                , meanAngleB_x=dfply.mean(dfply.X.angleB_x)
+                #                , meanAngleB_y=dfply.mean(dfply.X.angleB_y)
+                #                , meanDistance_A=dfply.mean(dfply.X['distance_A(cm)'])
+                #                , meanDistance_B=dfply.mean(dfply.X['distance_B'])
+                #                , meanDistance_C=dfply.mean(dfply.X['distance_C'])
+                #            ) >>
+                #            dfply.ungroup() >>
+                #            dfply.arrange(dfply.X.idx, ascending=True)
+                #            ))
+
+                dataL1 = ((data >>
+                           # dfply.mutate(
+                           # sTime=dfply.X.time0 + ',' + dfply.X.time1
+                           # ) >>
+                           dfply.group_by(dfply.X.sTime) >>
+                           dfply.summarize(
+                               meanX=dfply.mean(dfply.X.x)
+                               , meanY=dfply.mean(dfply.X.y)
+                               , meanH=dfply.mean(dfply.X.h)
+                               , meanQ=dfply.mean(dfply.X.q)
+                               , meanNs=dfply.mean(dfply.X.ns)
+                           ) >>
+                           dfply.ungroup() >>
+                           dfply.arrange(dfply.X.sTime, ascending=True)
+                           ))
+
+                fileName = os.path.basename(fileInfo)
+                saveFile = '{}/{}_{}'.format(globalVar.get('outPath'), serviceName, fileName)
+                log.info("[Check] saveFile : {}".format(saveFile))
+
+                dataL2 = dataL1.round(decimals=6)
+                dataL2.to_csv(saveFile, index=None)
+
+        except Exception as e:
+            log.error("Exception : {}".format(e))
+            # traceback.print_exc()
+            # sys.exit(1)
+
+        finally:
+            log.info('[END] {}'.format('Main'))
+
+    def uPro23(self):
+        # ===============================================================================================
+        # Routine : Main R program
+        #
+        # Purpose : 재능상품 (크몽, 오투잡)
+        #
+        # Author : 해솔
+        #
+        # Revisions: V1.0 May 28, 2020 First release (MS. 해솔)
+        # ===============================================================================================
+
+        import logging
+        import logging.handlers
+        import os
+        import sys
+        # from plotnine import *
+        # from plotnine.data import *
+        # from dfply import *
+        # import hydroeval
+        import matplotlib as mpl
+        import matplotlib.pyplot as plt
+        import warnings
+        from pathlib import Path
+        import glob
+        import pprint
+        import platform
+        from datetime import datetime
+        import dfply as dfply
+        import numpy as np
+        import pandas as pd
+        import seaborn as sns
+        import re
+        import pgeocode
+
+        warnings.filterwarnings("ignore")
+
+        plt.rc('font', family='Malgun Gothic')
+        plt.rc('axes', unicode_minus=False)
+
+        # 그래프에서 마이너스 글꼴 깨지는 문제에 대한 대처
+        mpl.rcParams['axes.unicode_minus'] = False
+
+        # 작업환경 경로 설정
+        contextPath = 'E:/04. TalentPlatform/Github/TalentPlatform-Python'
+        prjName = 'test'
+        serviceName = 'LSH0143'
+
+        # =================================================
+        # 요구사항
+        # =================================================
+        # 스페인 바르셀로나 시내 우편번호(Zip code) 별 택배배송량(Order)을 히트맵으로 시각화
+        # 우편번호를 기반으로 위/경도 추출
+
+        # =================================================
+        # 로그 설정
+        # =================================================
+        def initLog(prjName):
+
+            saveLogFile = "{}/{}_{}_{}_{}.log".format(
+                os.path.join(contextPath, 'resources', 'log', prjName)
+                , platform.system()
+                , platform.node()
+                , prjName
+                , datetime.now().strftime("%Y%m%d")
+            )
+
+            # breakpoint()
+
+            if not os.path.exists(os.path.dirname(saveLogFile)):
+                os.makedirs(os.path.dirname(saveLogFile))
+
+            # logger instance 생성
+            log = logging.getLogger(prjName)
+
+            if len(log.handlers) > 0:
+                return log
+
+            # format 생성
+            format = logging.Formatter(
+                '%(asctime)s [%(name)s | %(lineno)d | %(filename)s] [%(levelname)-5.5s] %(message)s')
+
+            # handler 생성
+            streamHandler = logging.StreamHandler()
+            fileHandler = logging.FileHandler(saveLogFile)
+
+            # logger instance에 format 설정
+            streamHandler.setFormatter(format)
+            fileHandler.setFormatter(format)
+
+            # logger instance에 handler 설정
+            log.addHandler(streamHandler)
+            log.addHandler(fileHandler)
+
+            # logger instance로 log 기록
+            log.setLevel(level=logging.INFO)
+
+            return log
+
+        log = initLog(prjName)
+
+        # =================================================
+        #  전역변수 설정
+        # =================================================
+        globalVar = {
+            "prjName": prjName
+            , "contextPath": contextPath
+            , "srcPath": os.path.join(contextPath, 'src')
+            , "resPath": os.path.join(contextPath, 'resources')
+            , "cfgPath": os.path.join(contextPath, 'resources', 'config')
+            , "inpPath": os.path.join(contextPath, 'resources', 'input', prjName)
+            , "figPath": os.path.join(contextPath, 'resources', 'fig', prjName)
+            , "outPath": os.path.join(contextPath, 'resources', 'output', prjName)
+            , "movPath": os.path.join(contextPath, 'resources', 'movie', prjName)
+            , "logPath": os.path.join(contextPath, 'resources', 'log', prjName)
+            , "mapPath": os.path.join(contextPath, 'resources', 'mapInfo')
+            , "systemPath": os.path.join(contextPath, 'resources', 'config', 'system.cfg')
+            , "seleniumPath": os.path.join(contextPath, 'resources', 'config', 'selenium')
+            , "fontPath": os.path.join(contextPath, 'resources', 'config', 'fonInfo')
+        }
+
+        for key, val in globalVar.items():
+            globalVar[key] = val.replace("\\", "/")
+
+        # 전역 변수
+        log.info("[Check] globalVar : {}".format(globalVar))
+
+        try:
+            log.info('[START] {}'.format('Main'))
+
+            # =================================================
+            # 주 소스 코드
+            # =================================================
+            fileList = '{}/{}'.format(globalVar.get('inpPath'), 'LSH0143_통합+문서2.xlsx')
+
+            # breakpoint()
+
+            for fileInfo in glob.glob(fileList):
+
+                # breakpoint()
+
+                log.info("[Check] fileInfo : {}".format(fileInfo))
+                data = pd.read_excel(fileInfo)
+                dataL2 = pd.DataFrame()
+
+                # 스페인 국가
+                nomi = pgeocode.Nominatim('ES')
+
+                for i in data.index:
+                    rowData = data.loc[i,]
+                    posCode = str(data._get_value(i, 'Postal Code')).zfill(5)
+
+                    objData = nomi.query_postal_code(posCode)
+                    catData = pd.concat([rowData, nomi.query_postal_code(posCode)])
+                    dataL2 = dataL2.append(pd.DataFrame([catData]))
+
+                fileName = os.path.basename(fileInfo)
+                saveFile = '{}/{}_{}'.format(globalVar.get('outPath'), serviceName, fileName)
+                log.info("[Check] saveFile : {}".format(saveFile))
+
+                dataL2.to_excel(saveFile, index=None)
+
+        except Exception as e:
+            log.error("Exception : {}".format(e))
+            # traceback.print_exc()
+            # sys.exit(1)
+
+        finally:
+            log.info('[END] {}'.format('Main'))
+
+    def uPro24(self):
+        pass
+
+    def uProDefault(self):
+        import logging
+        import logging.handlers
+        import os
+        import sys
+        # from plotnine import *
+        # from plotnine.data import *
+        # from dfply import *
+        # import hydroeval
+        import matplotlib as mpl
+        import matplotlib.pyplot as plt
+        import warnings
+        from pathlib import Path
+        import glob
+        import pprint
+        import platform
+        from datetime import datetime
+        import pandas as pd
+        import matplotlib.pyplot as plt
+
+        warnings.filterwarnings("ignore")
+
+        plt.rc('font', family='Malgun Gothic')
+        plt.rc('axes', unicode_minus=False)
+
+        # 그래프에서 마이너스 글꼴 깨지는 문제에 대한 대처
+        mpl.rcParams['axes.unicode_minus'] = False
+
+        # 작업환경 경로 설정
+        contextPath = 'E:/04. TalentPlatform/Github/TalentPlatform-Python'
+        prjName = 'test'
+
+        # =================================================
+        # 로그 설정
+        # =================================================
+        def initLog(prjName):
+
+            saveLogFile = "{}/{}_{}_{}_{}.log".format(
+                os.path.join(contextPath, 'resources', 'log', prjName)
+                , platform.system()
+                , platform.node()
+                , prjName
+                , datetime.now().strftime("%Y%m%d")
+            )
+
+            if not os.path.exists(os.path.dirname(saveLogFile)):
+                os.makedirs(os.path.dirname(saveLogFile))
+
+            # logger instance 생성
+            log = logging.getLogger(prjName)
+
+            if len(log.handlers) > 0:
+                return log
+
+            # format 생성
+            format = logging.Formatter(
+                '%(asctime)s [%(name)s | %(lineno)d | %(filename)s] [%(levelname)-5.5s] %(message)s')
+
+            # handler 생성
+            streamHandler = logging.StreamHandler()
+            fileHandler = logging.FileHandler(saveLogFile)
+
+            # logger instance에 format 설정
+            streamHandler.setFormatter(format)
+            fileHandler.setFormatter(format)
+
+            # logger instance에 handler 설정
+            log.addHandler(streamHandler)
+            log.addHandler(fileHandler)
+
+            # logger instance로 log 기록
+            log.setLevel(level=logging.INFO)
+
+            return log
+
+        log = initLog(prjName)
+
+        # =================================================
+        #  전역변수 설정
+        # =================================================
+        globalVar = {
+            "prjName": prjName
+            , "contextPath": contextPath
+            , "srcPath": os.path.join(contextPath, 'src')
+            , "resPath": os.path.join(contextPath, 'resources')
+            , "cfgPath": os.path.join(contextPath, 'resources', 'config')
+            , "inpPath": os.path.join(contextPath, 'resources', 'input', prjName)
+            , "figPath": os.path.join(contextPath, 'resources', 'fig', prjName)
+            , "outPath": os.path.join(contextPath, 'resources', 'output', prjName)
+            , "movPath": os.path.join(contextPath, 'resources', 'movie', prjName)
+            , "logPath": os.path.join(contextPath, 'resources', 'log', prjName)
+            , "mapPath": os.path.join(contextPath, 'resources', 'mapInfo')
+            , "systemPath": os.path.join(contextPath, 'resources', 'config', 'system.cfg')
+            , "seleniumPath": os.path.join(contextPath, 'resources', 'config', 'selenium')
+            , "fontPath": os.path.join(contextPath, 'resources', 'config', 'fonInfo')
+        }
+
+        for key, val in globalVar.items():
+            globalVar[key] = val.replace("\\", "/")
+
+        # 전역 변수
+        log.info("[Check] globalVar : {}".format(globalVar))
+
+        try:
+            log.info('[START] {}'.format('Main'))
+
+            # =================================================
+            # 주 소스 코드
+            # =================================================
+            a = 10
+
+
+        except Exception as e:
+            log.error("Exception : {}".format(e))
+            # traceback.print_exc()
+            # sys.exit(1)
+
+        finally:
+            log.info('[END] {}'.format('Main'))
+
+
+if __name__ == '__main__':
+
+    # ===============================================================================================
+    # Routine : Main R program
+    #
+    # Purpose : 재능상품 (크몽, 오투잡)
+    #
+    # Author : 해솔
+    #
+    # Revisions: V1.0 May 28, 2020 First release (MS. 해솔)
+    # ===============================================================================================
+
+    import logging
+    import logging.handlers
+    import os
+    import sys
+    # from plotnine import *
+    # from plotnine.data import *
+    # from dfply import *
+    # import hydroeval
+    import matplotlib as mpl
+    import matplotlib.pyplot as plt
+    import warnings
+    from pathlib import Path
+    import glob
+    import pprint
+    import platform
+    from datetime import datetime
+    import dfply as dfply
+    import numpy as np
+    import pandas as pd
+    import seaborn as sns
+    import re
+    import pgeocode
+
+    warnings.filterwarnings("ignore")
+
+    plt.rc('font', family='Malgun Gothic')
+    plt.rc('axes', unicode_minus=False)
+
+    # 그래프에서 마이너스 글꼴 깨지는 문제에 대한 대처
+    mpl.rcParams['axes.unicode_minus'] = False
+
+    # 작업환경 경로 설정
+    contextPath = 'E:/04. TalentPlatform/Github/TalentPlatform-Python'
+    prjName = 'test'
+    serviceName = 'LSH0143'
+
+    # =================================================
+    # 요구사항
+    # =================================================
+    # 이 파일은 10개씩 같은시간으로 평균 값을 구하고싶어서요.
+    # 시간 부분 보시면 소수점3자리 제외하고 10개씩 같은 시간의 데이터가 있습니다.
+
+    # =================================================
+    # 로그 설정
+    # =================================================
+    def initLog(prjName):
+
+        saveLogFile = "{}/{}_{}_{}_{}.log".format(
+            os.path.join(contextPath, 'resources', 'log', prjName)
+            , platform.system()
+            , platform.node()
+            , prjName
+            , datetime.now().strftime("%Y%m%d")
+        )
+
+        # breakpoint()
+
+        if not os.path.exists(os.path.dirname(saveLogFile)):
+            os.makedirs(os.path.dirname(saveLogFile))
+
+        # logger instance 생성
+        log = logging.getLogger(prjName)
+
+        if len(log.handlers) > 0:
+            return log
+
+        # format 생성
+        format = logging.Formatter('%(asctime)s [%(name)s | %(lineno)d | %(filename)s] [%(levelname)-5.5s] %(message)s')
+
+        # handler 생성
+        streamHandler = logging.StreamHandler()
+        fileHandler = logging.FileHandler(saveLogFile)
+
+        # logger instance에 format 설정
+        streamHandler.setFormatter(format)
+        fileHandler.setFormatter(format)
+
+        # logger instance에 handler 설정
+        log.addHandler(streamHandler)
+        log.addHandler(fileHandler)
+
+        # logger instance로 log 기록
+        log.setLevel(level=logging.INFO)
+
+        return log
+
+    log = initLog(prjName)
+
+    # =================================================
+    #  전역변수 설정
+    # =================================================
+    globalVar = {
+        "prjName": prjName
+        , "contextPath": contextPath
+        , "srcPath": os.path.join(contextPath, 'src')
+        , "resPath": os.path.join(contextPath, 'resources')
+        , "cfgPath": os.path.join(contextPath, 'resources', 'config')
+        , "inpPath": os.path.join(contextPath, 'resources', 'input', prjName)
+        , "figPath": os.path.join(contextPath, 'resources', 'fig', prjName)
+        , "outPath": os.path.join(contextPath, 'resources', 'output', prjName)
+        , "movPath": os.path.join(contextPath, 'resources', 'movie', prjName)
+        , "logPath": os.path.join(contextPath, 'resources', 'log', prjName)
+        , "mapPath": os.path.join(contextPath, 'resources', 'mapInfo')
+        , "systemPath": os.path.join(contextPath, 'resources', 'config', 'system.cfg')
+        , "seleniumPath": os.path.join(contextPath, 'resources', 'config', 'selenium')
+        , "fontPath": os.path.join(contextPath, 'resources', 'config', 'fonInfo')
+    }
+
+    for key, val in globalVar.items():
+        globalVar[key] = val.replace("\\", "/")
+
+    # 전역 변수
+    log.info("[Check] globalVar : {}".format(globalVar))
+
+    try:
+        log.info('[START] {}'.format('Main'))
+
+        # =================================================
+        # 주 소스 코드
+        # =================================================
+        # fileList = '{}/{}'.format(globalVar.get('inpPath'), 'LSH0143_통합+문서2.xlsx')
+        #
+        # # breakpoint()
+        #
+        # for fileInfo in glob.glob(fileList):
+        #
+        #     # breakpoint()
+        #
+        #     log.info("[Check] fileInfo : {}".format(fileInfo))
+        #     # data = pd.read_csv(fileInfo, encoding="euc-kr")
+        #     data = pd.read_excel(fileInfo)
+        #
+        #     # data['time0'] = data['time(ms)'].apply(lambda x: x.split(',')[0]).str.zfill(2)
+        #     # data['time1'] = data['time(ms)'].apply(lambda x: x.split(',')[1])
+        #
+        #     # breakpoint()
+        #
+        #     dataL2 = pd.DataFrame()
+        #     # 국가
+        #     nomi = pgeocode.Nominatim('ES')
+        #
+        #     for i in data.index:
+        #         rowData = data.loc[i, ]
+        #         posCode = str(data._get_value(i, 'Postal Code')).zfill(5)
+        #
+        #         objData = nomi.query_postal_code(posCode)
+        #         catData = pd.concat([rowData, nomi.query_postal_code(posCode)])
+        #         dataL2 = dataL2.append(pd.DataFrame([catData]))
+        #
+        #     fileName = os.path.basename(fileInfo)
+        #     saveFile = '{}/{}_{}'.format(globalVar.get('outPath'), serviceName, fileName)
+        #     log.info("[Check] saveFile : {}".format(saveFile))
+        #
+        #     # dataL2 = dataL2.round(decimals=6)
+        #     # dataL2.to_csv(saveFile, index=None)
+        #     dataL2.to_excel(saveFile, index=None)
+
+        # import pandas as pd
+        # import matplotlib.pyplot as plt
+        #
+        # data = pd.DataFrame({'mass': [15, 85], }, index=['네, 알고 있습니다.', '아니요, 모르겠습니다.'])
+        # plt.figure(num="파이 차트")
+        #
+        # # 차트 글꼴 설정
+        # plt.rcParams.update({'font.family': 'malgun gothic', 'font.size': 12})
+        # # 차트 제목
+        # plt.title("지금은 언택트 시대! 여러분은 AI 역량검사가 무엇인지 알고 계신가요?")
+        #
+        # ax = plt.gca()
+        #
+        # data.plot(kind='pie', y='mass', ax=ax)
+        # ax.yaxis.label.set_visible(False)
+        #
+        # plt.show()
+
+        from urllib.parse import urlencode
+        # Python 샘플 코드 #
+
+        from urllib.request import Request, urlopen
+        from urllib.parse import urlencode, quote_plus
+
+        # from urllib2 import Request, urlopen
+        # from urllib import urlencode, quote_plus
+
+
+        url = 'http://apis.data.go.kr/B552474/SenuriService/getJobList'
+        queryParams = '?' + urlencode(
+            { quote_plus('ServiceKey'): 'bf9fH0KLgr65zXKT5D/dcgUBIj1znJKnUPrzDVZEe6g4gquylOjmt65R5cjivLPfOKXWcRcAWU0SN7KKXBGDKA=='
+            , quote_plus('pageNo'): '1'
+            , quote_plus('numOfRows'): '10'
+            , quote_plus('type'): 'json'
+            }
+        )
+
+        # http://apis.data.go.kr/B552474/EduInfoService/getEduInfoList?serviceKey=bf9fH0KLgr65zXKT5D%2FdcgUBIj1znJKnUPrzDVZEe6g4gquylOjmt65R5cjivLPfOKXWcRcAWU0SN7KKXBGDKA%3D%3D&numOfRows=10&pageNo=1&eduTgt=CM3301
+        breakpoint()
+
+        import urllib.request
+        response = urllib.request.urlopen(url+ queryParams)
+        json_str = response.read().decode("utf-8")
+
+        request = Request(url + queryParams)
+        request.get_method = lambda: 'GET'
+        response_body = urlopen(request).read()
+        print(response_body)
 
     except Exception as e:
         log.error("Exception : {}".format(e))
@@ -4572,4 +5938,4 @@ if __name__ == '__main__':
         # sys.exit(1)
 
     finally:
-        log.info('[END] Main : {}'.format('Run Program'))
+        log.info('[END] {}'.format('Main'))
