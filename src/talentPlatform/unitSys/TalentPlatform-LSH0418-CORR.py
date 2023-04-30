@@ -301,17 +301,213 @@ class DtaProcess(object):
             # fileInfo = fileList[0]
             # log.info('[CHECK] fileInfo : {}'.format(fileInfo))
 
-            # data = xr.open_mfdataset(fileList)
-            # data = xr.open_mfdataset(fileList)
+            data = xr.open_mfdataset(fileList)
+            #
+            # # Numpy 배열을 xarray DataArray 객체로 변환합니다.
+            # var1 = data['EC']
+            # var2 = data['emi_ch4']
+            #
+            # cov = ((var1 - var1.mean(dim='time')) * (var2 - var2.mean(dim='time'))).mean(dim='time')
+            # std_var1 = var1.std(dim='time')
+            # std_var2 = var2.std(dim='time')
+            # pearson_correlation = cov / (std_var1 * std_var2)
+            #
+            # print("시간에 따른 상관계수:", pearson_correlation)
+            # pearson_correlation.plot()
+            # plt.show()
 
-            dataL1 = xr.Dataset()
-            for i, fileInfo in enumerate(fileList):
-                log.info("[CHECK] fileInfo : {}".format(fileInfo))
+            # np.nanmin(pearson_correlation.values)
+            import pymannkendall as mk
+            # from pymannkendall import mann_kendall_test
 
-                data = xr.open_mfdataset(fileInfo)
+            # var1 = data['EC']
+            # var2 = data['emi_ch4']
 
-                dataL1 = xr.merge([dataL1, data])
-                print(len(dataL1['lat'].values))
+            # var = data['EC']
+            # var = data['EC']
+            var = data['EC'].sel(lat=slice(30, 60), lon=slice(100, 150))
+
+            def mann_kendall(x):
+                try:
+                    result = mk.original_test(x)
+                    return result.z, result.p, result.slope
+                except Exception:
+                    return np.nan, np.nan, np.nan
+
+            mk_stat, mk_p, mk_slope = xr.apply_ufunc(
+                mann_kendall,
+                var,
+                input_core_dims=[['time']],
+                output_core_dims=[[], [], []],
+                vectorize=True,
+                dask='parallelized',
+                output_dtypes=[np.float64, np.float64, np.object]
+            )
+
+            print("Mann-Kendall 통계:", mk_stat)
+            print("p-value:", mk_p)
+            print("Trend:", mk_slope)
+
+            # d = mk_stat.compute
+            np.nanmean(mk_stat.values)
+            np.nanmean(mk_p.values)
+            np.nanmean(mk_slope.values)
+
+
+            # mk_stat.plot()
+            # mk_p.plot()
+            mk_slope.plot()
+            plt.show()
+
+            # print(mk_stat)
+
+
+            # from pymannkendall import mann_kendall_test
+
+            # def kendall_correlation(x, y):
+            #     # NaN 값을 제거합니다.
+            #     # x_no_nan = x[~np.isnan(x) & ~np.isnan(y)]
+            #     # y_no_nan = y[~np.isnan(x) & ~np.isnan(y)]
+            #     #
+            #     # if len(x_no_nan) < 2 or len(y_no_nan) < 2:  # 적어도 두 개의 데이터 포인트가 필요합니다.
+            #     #     return np.nan
+            #
+            #     tau, _ = kendalltau(x, y)
+            #     return tau
+
+            # np.nanmean(var1.values)
+            # np.nanmean(var2.values)
+
+            # ff = kendalltau(var1.values, var2.values)
+            #
+            # kendall_corr = xr.apply_ufunc(
+            #     kendall_correlation,
+            #     var1,
+            #     var2,
+            #     input_core_dims=[['time'], ['time']],
+            #     vectorize=True,
+            #     dask='parallelized',
+            #     output_dtypes=[np.float64]
+            # )
+
+            # kendall_corr2 = kendall_corr.compute()
+            # # print("시간에 따른 Kendall 상관계수:", kendall_corr.values)
+            # print("시간에 따른 Kendall 상관계수:", kendall_corr2.values)
+
+            # kendall_corr.values
+            # Mann-Kendall
+            # np.nanmin(kendall_corr2.values)
+            # np.nanmax(kendall_corr2.values)
+            # Mann Kendall
+            # MK_class = Mann_Kendall_test(da_with_linear_trend, 'time')
+            # MK_class.compute(path='test.nc')
+            #
+            # kendall_corr.plot()
+            # plt.show()
+            #
+            # import pymannkendall as mk
+            #
+            # def mann_kendall(x):
+            #     result = mk.(x)
+            #     return result.tau, result.p
+            #
+            # tau, p_value = xr.apply_ufunc(
+            #     mann_kendall,
+            #     var,
+            #     input_core_dims=[['time']],
+            #     vectorize=True,
+            #     dask='parallelized',
+            #     output_dtypes=[np.float64, np.float64]
+            # )
+
+            print("Mann-Kendall tau:", tau)
+            print("Mann-Kendall p-value:", p_value)
+
+
+
+            # def kendall_correlation(x, y, dim='year'):
+            #     return xr.apply_ufunc(
+            #         mk_cor, x, y,
+            #         input_core_dims=[[dim], [dim]],
+            #         vectorize=True,
+            #         dask='parallelized',
+            #         output_dtypes=[int]
+            #     )
+            #
+            # r = kendall_correlation(ds2, x, 'year').compute()
+
+
+            # Mann_Kendall_test
+
+            # # Time series length
+            # n = 100
+            # time = np.arange(n)
+            # # Grid
+            # x = np.arange(4)
+            # y = np.arange(4)
+            #
+            # # Create dataarray
+            # data = np.zeros((len(time), len(x), len(y)))
+            # da = xr.DataArray(data, coords=[time, x, y],
+            #                   dims=['time', 'lon', 'lat'])
+            # # Create noise
+            # noise = np.random.randn(*np.shape(data))
+            #
+            # # Create dataarray with positive linear trend
+            # linear_trend = xr.DataArray(time, coords=[time], dims=['time'])
+            #
+            # # Add noise to trend
+            # da_with_linear_trend = (da + linear_trend) + noise
+            #
+            #
+            # # Compute trends using Mann-Kendall test
+            # MK_class = Mann_Kendall_test(da_with_linear_trend, 'time')
+            # MK_class.compute(path='test.nc')
+
+            # n_lat = var1.sizes['lat']
+            # n_lon = var1.sizes['lon']
+
+
+
+            # kendall_correlation = np.empty((n_lat, n_lon))
+            #
+            # for i in range(n_lat):
+            #     for j in range(n_lon):
+            #         tau, _ = kendalltau(var1[:, i, j], var2[:, i, j])
+            #         kendall_correlation[i, j] = tau
+            #
+            # kendall_correlation_da = xr.DataArray(
+            #     kendall_correlation,
+            #     dims=('lat', 'lon'),
+            #     coords={'lat': var1.lat, 'lon': var1.lon}
+            # )
+
+
+
+
+            # 두 DataArray의 공분산을 계산합니다.
+            # cov = ((da1 - da1.mean()) * (da2 - da2.mean())).mean(dim=('lon', 'lat'))
+
+            # 두 DataArray의 표준편차를 계산합니다.
+            # std_da1 = da1.std(dim=('time'))
+            # std_da2 = da2.std(dim=('time')))
+
+            # 상관계수를 계산합니다.
+            # corr_coeff = cov / (std_da1 * std_da2)
+
+
+            # b = xr.corr(data['EC'], data['emi_ch4'])
+            # b.plot()
+            # plt.show()
+
+            # dataL1 = xr.Dataset()
+            # for i, fileInfo in enumerate(fileList):
+            #     log.info("[CHECK] fileInfo : {}".format(fileInfo))
+            #
+            #     data = xr.open_mfdataset(fileInfo)
+            #
+            #     dataL1 = xr.merge([dataL1, data])
+            #     print(len(dataL1['lat'].values))
 
 
             # 도법 설정
