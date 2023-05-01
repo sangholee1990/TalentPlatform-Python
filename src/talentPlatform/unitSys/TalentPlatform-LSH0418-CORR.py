@@ -16,6 +16,21 @@ import numpy as np
 import pandas as pd
 import xarray as xr
 from pyproj import Proj
+import pymannkendall as mk
+
+# Xarray
+import xarray as xr
+from numba import njit
+# Dask stuff
+import dask.array as da
+from dask.diagnostics import ProgressBar
+from xarrayMannKendall import *
+from numba import jit  # Speedup for python functions
+import dask.array as da
+import dask
+from dask.distributed import Client
+
+from scipy.stats import kendalltau
 
 # =================================================
 # 사용자 매뉴얼
@@ -42,12 +57,12 @@ plt.rc('axes', unicode_minus=False)
 # 그래프에서 마이너스 글꼴 깨지는 문제에 대한 대처
 mpl.rcParams['axes.unicode_minus'] = False
 
+
 # =================================================
 # 2. 유틸리티 함수
 # =================================================
 # 로그 설정
 def initLog(env=None, contextPath=None, prjName=None):
-
     if env is None: env = 'local'
     if contextPath is None: contextPath = os.getcwd()
     if prjName is None: prjName = 'test'
@@ -114,7 +129,8 @@ def initGlobalVar(env=None, contextPath=None, prjName=None):
         , 'logPath': contextPath if env in 'local' else os.path.join(contextPath, 'resources', 'log', prjName)
         , 'mapPath': contextPath if env in 'local' else os.path.join(contextPath, 'resources', 'mapInfo')
         , 'sysPath': contextPath if env in 'local' else os.path.join(contextPath, 'resources', 'config', 'system.cfg')
-        , 'seleniumPath': contextPath if env in 'local' else os.path.join(contextPath, 'resources', 'config', 'selenium')
+        ,
+        'seleniumPath': contextPath if env in 'local' else os.path.join(contextPath, 'resources', 'config', 'selenium')
         , 'fontPath': contextPath if env in 'local' else os.path.join(contextPath, 'resources', 'config', 'fontInfo')
     }
 
@@ -123,7 +139,6 @@ def initGlobalVar(env=None, contextPath=None, prjName=None):
 
 #  초기 전달인자 설정
 def initArgument(globalVar, inParams):
-
     # 원도우 또는 맥 환경
     if globalVar['sysOs'] in 'Windows' or globalVar['sysOs'] in 'Darwin':
         inParInfo = inParams
@@ -159,11 +174,64 @@ def initArgument(globalVar, inParams):
 
     return globalVar
 
+def mann_kendall(x):
+
+    try:
+        result = mk.original_test(x)
+        return result.Tau
+        # return result.trend, result.p, result.Tau
+    except Exception:
+        return np.nan
+        # return np.nan, np.nan, np.nan
+
+
+def get_slope(x):
+    if np.isnan(x).any():
+        return np.nan
+    idx = 0
+    n = len(x)
+    d = np.ones(int(n * (n - 1) / 2))
+
+    for i in range(n - 1):
+        j = np.arange(i + 1, n)
+        d[idx: idx + len(j)] = (x[j] - x[i]) / (j - i)
+        idx = idx + len(j)
+
+    return np.median(d)
+
+def get_pvalue(x):
+    if np.isnan(x).any():
+        return np.nan
+    result = mk.original_test(x)
+    return result.p
+
+
+
+# @jit(nopython=True)
+# def mann_kendall_numpy(x):
+#     try:
+#         tau, p_value = kendalltau(np.arange(len(x)), x)
+#         # n = len(x)
+#         # tau = 0
+#         # for i in range(n - 1):
+#         #     for j in range(i + 1, n):
+#         #         tau += np.sign(x[j] - x[i])
+#         #
+#         # return tau / (0.5 * n * (n - 1))
+#     except Exception:
+#         return np.nan
+#
+# def mann_kendall_vectorized(x):
+#     try:
+#         tau, p_value = kendalltau(np.arange(len(x)), x)
+#         return tau
+#     except Exception:
+#         return np.nan
+
 # ================================================
 # 4. 부 프로그램
 # ================================================
 class DtaProcess(object):
-
     # ================================================
     # 요구사항
     # ================================================
@@ -184,7 +252,7 @@ class DtaProcess(object):
     global env, contextPath, prjName, serviceName, log, globalVar
 
     # env = 'local'  # 로컬 : 원도우 환경, 작업환경 (현재 소스 코드 환경 시 .) 설정
-    env = 'dev'      # 개발 : 원도우 환경, 작업환경 (사용자 환경 시 contextPath) 설정
+    env = 'dev'  # 개발 : 원도우 환경, 작업환경 (사용자 환경 시 contextPath) 설정
     # env = 'oper'  # 운영 : 리눅스 환경, 작업환경 (사용자 환경 시 contextPath) 설정
 
     if (platform.system() == 'Windows'):
@@ -284,11 +352,10 @@ class DtaProcess(object):
             #         log.error('[ERROR] inpFile : {} / {}'.format(inpFile, '입력 자료를 확인해주세요.'))
             #         continue
 
-                # fileInfo = fileList[0]
-                # log.info('[CHECK] fileInfo : {}'.format(fileInfo))
+            # fileInfo = fileList[0]
+            # log.info('[CHECK] fileInfo : {}'.format(fileInfo))
 
-                # data = xr.open_mfdataset(fileInfo)
-
+            # data = xr.open_mfdataset(fileInfo)
 
             # inpFile = '{}/{}/{}.nc'.format(globalVar['outPath'], serviceName, '*_1990-2021')
             inpFile = '{}/{}/{}.nc'.format(globalVar['outPath'], serviceName, '*')
@@ -301,7 +368,38 @@ class DtaProcess(object):
             # fileInfo = fileList[0]
             # log.info('[CHECK] fileInfo : {}'.format(fileInfo))
 
-            data = xr.open_mfdataset(fileList)
+            # data = xr.open_mfdataset(fileList)
+            data = xr.open_mfdataset(fileList, chunks={'time': 10, 'lat': 10, 'lon': 10})
+            # da = data['EC']
+            # time =  np.arange(len(da['time'].values))
+            # da['time'] = time
+            # Time series length
+            # n = 100
+            # time = np.arange(n)
+            # # Grid
+            # x = np.arange(4)
+            # y = np.arange(4)
+            #
+            # # Create dataarray
+            # dd2 = np.zeros((len(time), len(x), len(y)))
+            # da = xr.DataArray(dd2, coords=[time, x, y], dims=['time', 'lon', 'lat'])
+            # # Create noise
+            # noise = np.random.randn(*np.shape(dd2))
+
+            # Create dataarray with positive linear trend
+            # linear_trend = xr.DataArray(time, coords=[time], dims=['time'])
+            #
+            # # Add noise to trend
+            # # da_with_linear_trend = (da + linear_trend) + noise
+            # da_with_linear_trend = (da + linear_trend)
+            #
+            # # Compute trends using Mann-Kendall test
+            # MK_class = Mann_Kendall_test(da_with_linear_trend, 'time', coords_name={'time': 'time', 'lon': 'x', 'lat': 'y'})
+            # MK_trends = MK_class.compute()
+            #
+            # MK_trends['signif'].plot()
+            # plt.show()
+
             #
             # # Numpy 배열을 xarray DataArray 객체로 변환합니다.
             # var1 = data['EC']
@@ -317,50 +415,184 @@ class DtaProcess(object):
             # plt.show()
 
             # np.nanmin(pearson_correlation.values)
-            import pymannkendall as mk
+
             # from pymannkendall import mann_kendall_test
 
             # var1 = data['EC']
             # var2 = data['emi_ch4']
 
-            # var = data['EC']
-            # var = data['EC']
-            var = data['EC'].sel(lat=slice(30, 60), lon=slice(100, 150))
+            # n = 100
+            # time = np.arange(n)
+            # x = np.arange(4)
+            # y = np.arange(4)
+            # data = np.zeros((len(time), len(x), len(y)))
+            #
+            # da = xr.DataArray(data, coords=[time, x, y],
+            #                   dims=['time', 'x', 'y'])
+            #
+            # from dask.distributed import Client
+            #
+            # client = Client()
+            # def trends_2d_no_noise(da):
+            #     linear_trend = xr.DataArray(time, coords=[time], dims=['time'])
+            #     dataarray_plus_lt = (da + linear_trend)
+            #     MK_class = Mann_Kendall_test(dataarray_plus_lt, 'time', coords_name={'time': 'time', 'lon': 'x', 'lat': 'y'})
+            #     # MK_class = Mann_Kendall_test(dataarray_plus_lt, 'time', coords_name={'time': 'time', 'lon': 'x', 'lat': 'y'}, MK_modified=True, method="linregress")
+            #     MK_trends = MK_class.compute()
+            #     return MK_trends
 
-            def mann_kendall(x):
-                try:
-                    result = mk.original_test(x)
-                    return result.z, result.p, result.slope
-                except Exception:
-                    return np.nan, np.nan, np.nan
+            # trends_2d_no_noise(da)
 
-            mk_stat, mk_p, mk_slope = xr.apply_ufunc(
+            # def nan_in_data_MK(da):
+            #     linear_trend = xr.DataArray(time, coords=[time], dims=['time'])
+            #     dataarray_plus_lt = (da + linear_trend) * np.nan
+            #     MK_class = Mann_Kendall_test(dataarray_plus_lt, 'time', coords_name={'time': 'time', 'lon': 'lon', 'lat': 'lat'},
+            #                                  MK_modified=True, method="linregress")
+            #     MK_trends = MK_class.compute()
+            #     return MK_trends
+
+            # nan_in_data_MK(da)
+
+            # var = data['EC']
+            var = data['EC']
+            # var = data['EC'].sel(lat=slice(30, 60), lon=slice(120, 150))
+
+            # var = data['EC'].sel(lat=slice(59.9, 60), lon=slice(149.9, 150))
+            # var = data['EC']
+            # da = var
+            # da = da.chunk({'time': -1})
+
+            import multiprocessing
+
+            # cpu_cores = multiprocessing.cpu_count()
+            # cpu_cores = multiprocessing.cpu_count() / 1.5
+            # cpu_cores = multiprocessing.cpu_count() / 1.5
+            # print(cpu_cores)
+
+            # from dask.distributed import Client
+            # client = Client()
+            # client = Client(n_workers=4, threads_per_worker=2)
+            client = Client(n_workers=os.cpu_count(), threads_per_worker=os.cpu_count())
+            dask.config.set(scheduler='processes')
+
+            # Dask로 변환
+            # var_dask = var.chunk({'time': -1, 'lat': 1, 'lon': 1})
+
+            # aa = var.to_dataframe().reset_index()
+            # pearson = aa.groupby(by=['lat', 'lon']).corr(method='pearson')
+            # kendall = aa.groupby(by=['lat', 'lon']).corr(method='kendall')
+            # # print(pearson)
+            # # print(kendall)
+            #
+            # # # 결과를 xarray DataArray로 변환
+            # # pearson_da = xr.DataArray(pearson.to_xarray().unstack(), dims=['lat', 'lon'],
+            # #                           coords=[var_dask.lat, var_dask.lon])
+            # pearson_da = pearson.to_xarray()
+            # # kendall_da = xr.DataArray(kendall.to_xarray().unstack(), dims=['lat', 'lon'],
+            # #                           coords=[var_dask.lat, var_dask.lon])
+            # kendall_da = kendall.to_xarray()
+            #
+            # print(pearson_da)
+            # print(kendall_da)
+            #
+            # pearson_da['EC'].plot()
+            # plt.show()
+            #
+            # kendall_da['EC'].plot()
+            # plt.show()
+
+            # Dask 클라이언트 종료
+            # client.close()
+
+            #
+            # var['time'] = np.arange(len(var['time'].values))
+            # time = np.arange(len(da['time'].values))
+
+            # var2 = nan_in_data_MK(da)
+            # var2 = trends_2d_no_noise(da)
+
+            # results = []
+            # for i in range(10):
+            #     result = trends_2d_no_noise(da)
+            #     results.append(result)
+            #
+            # MK_trends = dask.compute(*results)
+            #
+            #
+            # var2['signif'].plot()
+            # plt.show()
+
+            # var2['trend'].plot()
+            # plt.show()
+
+            # var2['p'].plot()
+            # plt.show()
+
+            # mk_stat, mk_p, mk_slope = xr.apply_ufunc(
+            #     mann_kendall,
+            #     var,
+            #     input_core_dims=[['time']],
+            #     output_core_dims=[[], [], []],
+            #     vectorize=True,
+            #     dask='parallelized',
+            #     output_dtypes=[np.object, np.object, np.object]
+            # )
+
+            # chunk_size = {'time': 32, 'lat': 10, 'lon': 10}
+            # var_dask = da.from_array(var, chunks=chunk_size)
+
+            # mk_slope = xr.apply_ufunc(
+            #     mann_kendall,
+            #     var,
+            #     input_core_dims=[['time']],
+            #     output_core_dims=[[]],
+            #     vectorize=True,
+            #     dask='parallelized',
+            #     output_dtypes=[np.float64]
+            # )
+
+            # slopes = np.apply_along_axis(get_slope, 0, var)
+            # slopes2 = np.apply_along_axis(get_slope, 'time', var)
+
+            mk_slope = xr.apply_ufunc(
                 mann_kendall,
                 var,
                 input_core_dims=[['time']],
-                output_core_dims=[[], [], []],
+                output_core_dims=[[]],
                 vectorize=True,
                 dask='parallelized',
-                output_dtypes=[np.float64, np.float64, np.object]
+                output_dtypes=[np.float64],
+                dask_gufunc_kwargs={'allow_rechunk': True}
             )
 
-            print("Mann-Kendall 통계:", mk_stat)
-            print("p-value:", mk_p)
-            print("Trend:", mk_slope)
+            # print("Mann-Kendall 통계:", mk_stat)
+            # print("p-value:", mk_p)
+            # print("Trend:", mk_slope.values)
+
+            # numpy_arr = mk_stat.compute()
+            # numpy_arr2 = mk_p.compute()
+            numpy_arr3 = mk_slope.compute()
+            print("Trend:", numpy_arr3)
 
             # d = mk_stat.compute
-            np.nanmean(mk_stat.values)
-            np.nanmean(mk_p.values)
-            np.nanmean(mk_slope.values)
-
+            # np.nanmean(mk_stat.values)
+            # np.nanmean(mk_p.values)
+            # np.nanmean(mk_slope.values)
+            # np.nanmean(mk_slope)
 
             # mk_stat.plot()
             # mk_p.plot()
-            mk_slope.plot()
+            # mk_slope.plot()
+            # plt.show()
+            numpy_arr3.plot()
             plt.show()
 
-            # print(mk_stat)
+            # np.nanmean(slopes)
 
+
+            print(numpy_arr3)
+
+            client.close()
 
             # from pymannkendall import mann_kendall_test
 
@@ -420,10 +652,8 @@ class DtaProcess(object):
             #     output_dtypes=[np.float64, np.float64]
             # )
 
-            print("Mann-Kendall tau:", tau)
-            print("Mann-Kendall p-value:", p_value)
-
-
+            # print("Mann-Kendall tau:", tau)
+            # print("Mann-Kendall p-value:", p_value)
 
             # def kendall_correlation(x, y, dim='year'):
             #     return xr.apply_ufunc(
@@ -435,7 +665,6 @@ class DtaProcess(object):
             #     )
             #
             # r = kendall_correlation(ds2, x, 'year').compute()
-
 
             # Mann_Kendall_test
 
@@ -467,8 +696,6 @@ class DtaProcess(object):
             # n_lat = var1.sizes['lat']
             # n_lon = var1.sizes['lon']
 
-
-
             # kendall_correlation = np.empty((n_lat, n_lon))
             #
             # for i in range(n_lat):
@@ -482,9 +709,6 @@ class DtaProcess(object):
             #     coords={'lat': var1.lat, 'lon': var1.lon}
             # )
 
-
-
-
             # 두 DataArray의 공분산을 계산합니다.
             # cov = ((da1 - da1.mean()) * (da2 - da2.mean())).mean(dim=('lon', 'lat'))
 
@@ -494,7 +718,6 @@ class DtaProcess(object):
 
             # 상관계수를 계산합니다.
             # corr_coeff = cov / (std_da1 * std_da2)
-
 
             # b = xr.corr(data['EC'], data['emi_ch4'])
             # b.plot()
@@ -509,7 +732,6 @@ class DtaProcess(object):
             #     dataL1 = xr.merge([dataL1, data])
             #     print(len(dataL1['lat'].values))
 
-
             # 도법 설정
             # proj4326 = 'epsg:4326'
             # mapProj4326 = Proj(proj4326)
@@ -519,7 +741,6 @@ class DtaProcess(object):
             #
             # log.info('[CHECK] len(lonList) : {}'.format(len(lonList)))
             # log.info('[CHECK] len(latList) : {}'.format(len(latList)))
-
 
             # dtSrtDate = pd.to_datetime(sysOpt['srtDate'], format='%Y-%m-%d')
             # dtEndDate = pd.to_datetime(sysOpt['endDate'], format='%Y-%m-%d')
@@ -587,8 +808,10 @@ class DtaProcess(object):
         except Exception as e:
             log.error("Exception : {}".format(e))
             raise e
+
         finally:
             log.info('[END] {}'.format("exec"))
+
 
 # ================================================
 # 3. 주 프로그램
@@ -600,7 +823,7 @@ if __name__ == '__main__':
     try:
 
         # 파이썬 실행 시 전달인자를 초기 환경변수 설정
-        inParams = { }
+        inParams = {}
 
         print("[CHECK] inParams : {}".format(inParams))
 
