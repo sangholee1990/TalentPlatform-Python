@@ -267,7 +267,8 @@ class DtaProcess(object):
                     , 'latMax': 90
                     , 'latInv': 0.1
 
-                    , 'keyList' : ['CH4', 'CO2_excl', 'CO2_org', 'N2O', 'NH3', 'NMVOC', 'OC', 'NH3', 'SO2']
+                    # , 'keyList' : ['CO', 'NOx', 'CH4', 'CO2_excl', 'CO2_org', 'N2O', 'NH3', 'NMVOC', 'OC', 'NH3', 'SO2']
+                    , 'keyList' : ['CO', 'NOx']
                 }
 
                 globalVar['inpPath'] = '/DATA/INPUT'
@@ -298,7 +299,7 @@ class DtaProcess(object):
                     # log.info("[CHECK] dtIncDateInfo : {}".format(dtIncDateInfo))
                     sYear = dtIncDateInfo.strftime('%Y')
 
-                    inpFile = '{}/{}/*/*_{}_*_{}_*.nc'.format(globalVar['inpPath'], serviceName, keyInfo, sYear)
+                    inpFile = '{}/{}/*/*_{}_*{}*.nc'.format(globalVar['inpPath'], serviceName, keyInfo, sYear)
 
                     fileList = sorted(glob.glob(inpFile))
 

@@ -301,8 +301,8 @@ class DtaProcess(object):
                 # 옵션 설정
                 sysOpt = {
                     # 시작/종료 시간
-                    'srtDate': '1990-01-01'
-                    , 'endDate': '2022-01-01'
+                    'srtDate': '2001-01-01'
+                    , 'endDate': '2018-01-01'
 
                     # 경도 최소/최대/간격
                     , 'lonMin': -180
@@ -322,8 +322,8 @@ class DtaProcess(object):
                 # 옵션 설정
                 sysOpt = {
                     # 시작/종료 시간
-                    'srtDate': '1990-01-01'
-                    , 'endDate': '2022-01-01'
+                    'srtDate': '2001-01-01'
+                    , 'endDate': '2018-01-01'
 
                     # 경도 최소/최대/간격
                     , 'lonMin': -180
@@ -335,7 +335,9 @@ class DtaProcess(object):
                     , 'latMax': 90
                     , 'latInv': 0.1
 
-                    , 'keyList': ['CH4', 'CO2_excl', 'CO2_org', 'N2O', 'NH3', 'NMVOC', 'OC', 'NH3', 'SO2']
+                    , 'typeList': ['EC', 'GDP', 'Land_Cover_Type_1_Percent', 'landscan']
+                    # , 'keyList': ['CH4', 'CO2_excl', 'CO2_org', 'N2O', 'NH3', 'NMVOC', 'OC', 'NH3', 'SO2']
+                    , 'keyList': ['emi_co', 'emi_n2o', 'emi_nh3', 'emi_nmvoc', 'emi_nox', 'emi_oc', 'emi_so2']
                 }
 
                 globalVar['inpPath'] = '/DATA/INPUT'
@@ -365,53 +367,42 @@ class DtaProcess(object):
                 log.error('[ERROR] inpFile : {} / {}'.format(inpFile, '입력 자료를 확인해주세요.'))
                 # continue
 
-            # fileInfo = fileList[0]
-            # log.info('[CHECK] fileInfo : {}'.format(fileInfo))
+            # data = xr.open_mfdataset(fileList, chunks={'time': 10, 'lat': 10, 'lon': 10})
+            data = xr.open_mfdataset(fileList).sel(time = slice(sysOpt['srtDate'], sysOpt['endDate']))
 
-            # data = xr.open_mfdataset(fileList)
-            data = xr.open_mfdataset(fileList, chunks={'time': 10, 'lat': 10, 'lon': 10})
-            # da = data['EC']
-            # time =  np.arange(len(da['time'].values))
-            # da['time'] = time
-            # Time series length
-            # n = 100
-            # time = np.arange(n)
-            # # Grid
-            # x = np.arange(4)
-            # y = np.arange(4)
-            #
-            # # Create dataarray
-            # dd2 = np.zeros((len(time), len(x), len(y)))
-            # da = xr.DataArray(dd2, coords=[time, x, y], dims=['time', 'lon', 'lat'])
-            # # Create noise
-            # noise = np.random.randn(*np.shape(dd2))
+            for i, typeInfo in enumerate(sysOpt['typeList']):
+                for j, keyInfo in enumerate(sysOpt['keyList']):
+                    log.info(f'[CHECK] typeInfo : {typeInfo} / keyInfo : {keyInfo}')
 
-            # Create dataarray with positive linear trend
-            # linear_trend = xr.DataArray(time, coords=[time], dims=['time'])
-            #
-            # # Add noise to trend
-            # # da_with_linear_trend = (da + linear_trend) + noise
-            # da_with_linear_trend = (da + linear_trend)
-            #
-            # # Compute trends using Mann-Kendall test
-            # MK_class = Mann_Kendall_test(da_with_linear_trend, 'time', coords_name={'time': 'time', 'lon': 'x', 'lat': 'y'})
-            # MK_trends = MK_class.compute()
-            #
-            # MK_trends['signif'].plot()
+                    var1 = data[typeInfo]
+                    var2 = data[keyInfo]
+
+                    cov = ((var1 - var1.mean(dim='time')) * (var2 - var2.mean(dim='time'))).mean(dim='time')
+                    stdVar1 = var1.std(dim='time')
+                    stdVar2 = var2.std(dim='time')
+                    peaCorr = cov / (stdVar1 * stdVar2)
+                    peaCorr = peaCorr.rename(f'{typeInfo}-{keyInfo}')
+
+                    saveImg = '{}/{}/{}_{}-{}.png'.format(globalVar['figPath'], serviceName, 'corr', typeInfo, keyInfo)
+                    os.makedirs(os.path.dirname(saveImg), exist_ok=True)
+                    peaCorr.plot(vmin=-1.0, vmax=1.0)
+                    plt.savefig(saveImg, dpi=600, bbox_inches='tight', transparent=True)
+                    plt.tight_layout()
+                    plt.show()
+                    plt.close()
+                    log.info(f'[CHECK] saveImg : {saveImg}')
+
+                    saveFile = '{}/{}/{}_{}-{}.nc'.format(globalVar['outPath'], serviceName, 'corr', typeInfo, keyInfo)
+                    os.makedirs(os.path.dirname(saveFile), exist_ok=True)
+                    peaCorr.to_netcdf(saveFile)
+                    log.info(f'[CHECK] saveFile : {saveFile}')
+
+
+            # data['Land_Cover_Type_1_Percent'].isel(time = 12).plot()
             # plt.show()
-
-            #
-            # # Numpy 배열을 xarray DataArray 객체로 변환합니다.
-            # var1 = data['EC']
-            # var2 = data['emi_ch4']
-            #
-            # cov = ((var1 - var1.mean(dim='time')) * (var2 - var2.mean(dim='time'))).mean(dim='time')
-            # std_var1 = var1.std(dim='time')
-            # std_var2 = var2.std(dim='time')
-            # pearson_correlation = cov / (std_var1 * std_var2)
-            #
-            # print("시간에 따른 상관계수:", pearson_correlation)
-            # pearson_correlation.plot()
+            # data['GDP'].isel(time = 12).plot()
+            # plt.show()
+            # data['landscan'].isel(time = 12).plot()
             # plt.show()
 
             # np.nanmin(pearson_correlation.values)
