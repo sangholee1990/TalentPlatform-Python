@@ -9,7 +9,7 @@ import sys
 import traceback
 import warnings
 from datetime import datetime
-
+import seaborn as sns
 import matplotlib as mpl
 import matplotlib.pyplot as plt
 import numpy as np
@@ -31,6 +31,7 @@ import dask
 from dask.distributed import Client
 
 from scipy.stats import kendalltau
+from plotnine import ggplot, aes, geom_boxplot
 
 # =================================================
 # 사용자 매뉴얼
@@ -324,8 +325,6 @@ class DtaProcess(object):
                 log.error('[ERROR] inpFile : {} / {}'.format(inpFile, '입력 자료를 확인해주세요.'))
                 # continue
 
-            # data = xr.open_mfdataset(fileList, chunks={'time': 10, 'lat': 10, 'lon': 10})
-            # data = xr.open_mfdataset(fileList).sel(time = slice(sysOpt['srtDate'], sysOpt['endDate']))
             data = xr.open_mfdataset(fileList, chunks={'time': 10, 'lat': 10, 'lon': 10}).sel(time=slice(sysOpt['srtDate'], sysOpt['endDate']))
 
             # 피어슨 상관계수 계산
@@ -384,40 +383,71 @@ class DtaProcess(object):
             #     meanDataL1.to_netcdf(saveFile)
             #     log.info(f'[CHECK] saveFile : {saveFile}')
 
-            for i, keyInfo in enumerate(sysOpt['keyList']):
-                log.info(f'[CHECK] keyInfo : {keyInfo}')
+            # for i, keyInfo in enumerate(sysOpt['keyList']):
+            #     log.info(f'[CHECK] keyInfo : {keyInfo}')
+            #
+            #     var = data[keyInfo]
+            #
+            #     client = Client(n_workers=os.cpu_count(), threads_per_worker=os.cpu_count())
+            #     dask.config.set(scheduler='processes')
+            #
+            #     mannKendall = xr.apply_ufunc(
+            #         calcMannKendall,
+            #         var,
+            #         input_core_dims=[['time']],
+            #         output_core_dims=[[]],
+            #         vectorize=True,
+            #         dask='parallelized',
+            #         output_dtypes=[np.float64],
+            #         dask_gufunc_kwargs={'allow_rechunk': True}
+            #     ).compute()
+            #
+            #     saveImg = '{}/{}/{}/{}_{}.png'.format(globalVar['figPath'], serviceName, 'MANN', 'mann', keyInfo)
+            #     os.makedirs(os.path.dirname(saveImg), exist_ok=True)
+            #     mannKendall.plot(vmin=-1.0, vmax=1.0)
+            #     plt.savefig(saveImg, dpi=600, bbox_inches='tight', transparent=True)
+            #     plt.tight_layout()
+            #     plt.show()
+            #     plt.close()
+            #     log.info(f'[CHECK] saveImg : {saveImg}')
+            #
+            #     saveFile = '{}/{}/{}/{}_{}.nc'.format(globalVar['outPath'], serviceName, 'MANN', 'mann', keyInfo)
+            #     os.makedirs(os.path.dirname(saveFile), exist_ok=True)
+            #     mannKendall.to_netcdf(saveFile)
+            #     log.info(f'[CHECK] saveFile : {saveFile}')
+            #
+            #     client.close()
 
-                var = data[keyInfo]
 
-                client = Client(n_workers=os.cpu_count(), threads_per_worker=os.cpu_count())
-                dask.config.set(scheduler='processes')
+            # Mann Kendall 상자 그림
+            inpFile = '{}/{}/{}/{}.nc'.format(globalVar['outPath'], serviceName, 'MANN', '*')
+            fileList = sorted(glob.glob(inpFile))
 
-                mannKendall = xr.apply_ufunc(
-                    calcMannKendall,
-                    var,
-                    input_core_dims=[['time']],
-                    output_core_dims=[[]],
-                    vectorize=True,
-                    dask='parallelized',
-                    output_dtypes=[np.float64],
-                    dask_gufunc_kwargs={'allow_rechunk': True}
-                ).compute()
+            if fileList is None or len(fileList) < 1:
+                log.error('[ERROR] inpFile : {} / {}'.format(inpFile, '입력 자료를 확인해주세요.'))
 
-                saveImg = '{}/{}/{}/{}_{}.png'.format(globalVar['figPath'], serviceName, 'MANN', 'mann', keyInfo)
-                os.makedirs(os.path.dirname(saveImg), exist_ok=True)
-                mannKendall.plot(vmin=-1.0, vmax=1.0)
-                plt.savefig(saveImg, dpi=600, bbox_inches='tight', transparent=True)
-                plt.tight_layout()
-                plt.show()
-                plt.close()
-                log.info(f'[CHECK] saveImg : {saveImg}')
+            data = xr.open_mfdataset(fileList)
+            dataL1 = data.to_dataframe().reset_index(drop=True)
+            dataL1.columns = dataL1.columns.str.replace('emi_', '')
 
-                saveFile = '{}/{}/{}/{}_{}.nc'.format(globalVar['outPath'], serviceName, 'MANN', 'mann', keyInfo)
-                os.makedirs(os.path.dirname(saveFile), exist_ok=True)
-                mannKendall.to_netcdf(saveFile)
-                log.info(f'[CHECK] saveFile : {saveFile}')
+            dataL2 = pd.melt(dataL1, id_vars=[], var_name='key', value_name='val')
 
-                client.close()
+            mainTitle = '{}'.format('EDGAR Mann-Kendall Trend (2001~2018)')
+            saveImg = '{}/{}/{}.png'.format(globalVar['figPath'], serviceName, mainTitle)
+            os.makedirs(os.path.dirname(saveImg), exist_ok=True)
+
+            sns.set_style("whitegrid")
+            sns.set_palette(sns.color_palette("husl", len(dataL1.columns)))
+            sns.boxplot(x='key', y='val', data=dataL2, dodge=False, hue='key')
+            plt.xlabel(None)
+            plt.ylabel('Mann-Kendall Trend')
+            plt.title(mainTitle)
+            plt.legend(loc='upper center', bbox_to_anchor=(0.5, -0.2), ncol=4, title=None)
+            plt.savefig(saveImg, dpi=600, bbox_inches='tight', transparent=True)
+            plt.tight_layout()
+            plt.show()
+            plt.close()
+            log.info(f'[CHECK] saveImg : {saveImg}')
 
         except Exception as e:
             log.error("Exception : {}".format(e))
