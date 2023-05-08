@@ -174,8 +174,8 @@ def initArgument(globalVar, inParams):
 
     return globalVar
 
-def mann_kendall(x):
 
+def calcMannKendall(x):
     try:
         result = mk.original_test(x)
         return result.Tau
@@ -184,49 +184,6 @@ def mann_kendall(x):
         return np.nan
         # return np.nan, np.nan, np.nan
 
-
-def get_slope(x):
-    if np.isnan(x).any():
-        return np.nan
-    idx = 0
-    n = len(x)
-    d = np.ones(int(n * (n - 1) / 2))
-
-    for i in range(n - 1):
-        j = np.arange(i + 1, n)
-        d[idx: idx + len(j)] = (x[j] - x[i]) / (j - i)
-        idx = idx + len(j)
-
-    return np.median(d)
-
-def get_pvalue(x):
-    if np.isnan(x).any():
-        return np.nan
-    result = mk.original_test(x)
-    return result.p
-
-
-
-# @jit(nopython=True)
-# def mann_kendall_numpy(x):
-#     try:
-#         tau, p_value = kendalltau(np.arange(len(x)), x)
-#         # n = len(x)
-#         # tau = 0
-#         # for i in range(n - 1):
-#         #     for j in range(i + 1, n):
-#         #         tau += np.sign(x[j] - x[i])
-#         #
-#         # return tau / (0.5 * n * (n - 1))
-#     except Exception:
-#         return np.nan
-#
-# def mann_kendall_vectorized(x):
-#     try:
-#         tau, p_value = kendalltau(np.arange(len(x)), x)
-#         return tau
-#     except Exception:
-#         return np.nan
 
 # ================================================
 # 4. 부 프로그램
@@ -368,433 +325,99 @@ class DtaProcess(object):
                 # continue
 
             # data = xr.open_mfdataset(fileList, chunks={'time': 10, 'lat': 10, 'lon': 10})
-            data = xr.open_mfdataset(fileList).sel(time = slice(sysOpt['srtDate'], sysOpt['endDate']))
+            # data = xr.open_mfdataset(fileList).sel(time = slice(sysOpt['srtDate'], sysOpt['endDate']))
+            data = xr.open_mfdataset(fileList, chunks={'time': 10, 'lat': 10, 'lon': 10}).sel(time=slice(sysOpt['srtDate'], sysOpt['endDate']))
 
-            for i, typeInfo in enumerate(sysOpt['typeList']):
-                for j, keyInfo in enumerate(sysOpt['keyList']):
-                    log.info(f'[CHECK] typeInfo : {typeInfo} / keyInfo : {keyInfo}')
-
-                    var1 = data[typeInfo]
-                    var2 = data[keyInfo]
-
-                    cov = ((var1 - var1.mean(dim='time')) * (var2 - var2.mean(dim='time'))).mean(dim='time')
-                    stdVar1 = var1.std(dim='time')
-                    stdVar2 = var2.std(dim='time')
-                    peaCorr = cov / (stdVar1 * stdVar2)
-                    peaCorr = peaCorr.rename(f'{typeInfo}-{keyInfo}')
-
-                    saveImg = '{}/{}/{}_{}-{}.png'.format(globalVar['figPath'], serviceName, 'corr', typeInfo, keyInfo)
-                    os.makedirs(os.path.dirname(saveImg), exist_ok=True)
-                    peaCorr.plot(vmin=-1.0, vmax=1.0)
-                    plt.savefig(saveImg, dpi=600, bbox_inches='tight', transparent=True)
-                    plt.tight_layout()
-                    plt.show()
-                    plt.close()
-                    log.info(f'[CHECK] saveImg : {saveImg}')
-
-                    saveFile = '{}/{}/{}_{}-{}.nc'.format(globalVar['outPath'], serviceName, 'corr', typeInfo, keyInfo)
-                    os.makedirs(os.path.dirname(saveFile), exist_ok=True)
-                    peaCorr.to_netcdf(saveFile)
-                    log.info(f'[CHECK] saveFile : {saveFile}')
-
-
-            # data['Land_Cover_Type_1_Percent'].isel(time = 12).plot()
-            # plt.show()
-            # data['GDP'].isel(time = 12).plot()
-            # plt.show()
-            # data['landscan'].isel(time = 12).plot()
-            # plt.show()
-
-            # np.nanmin(pearson_correlation.values)
-
-            # from pymannkendall import mann_kendall_test
-
-            # var1 = data['EC']
-            # var2 = data['emi_ch4']
-
-            # n = 100
-            # time = np.arange(n)
-            # x = np.arange(4)
-            # y = np.arange(4)
-            # data = np.zeros((len(time), len(x), len(y)))
+            # 피어슨 상관계수 계산
+            # for i, typeInfo in enumerate(sysOpt['typeList']):
+            #     for j, keyInfo in enumerate(sysOpt['keyList']):
+            #         log.info(f'[CHECK] typeInfo : {typeInfo} / keyInfo : {keyInfo}')
             #
-            # da = xr.DataArray(data, coords=[time, x, y],
-            #                   dims=['time', 'x', 'y'])
+            #         saveFile = '{}/{}/{}/{}_{}-{}.nc'.format(globalVar['outPath'], serviceName, 'CORR', 'corr', typeInfo, keyInfo)
+            #         fileChkList = glob.glob(saveFile)
+            #         if (len(fileChkList) > 0): continue
             #
-            # from dask.distributed import Client
+            #         var1 = data[typeInfo]
+            #         var2 = data[keyInfo]
             #
-            # client = Client()
-            # def trends_2d_no_noise(da):
-            #     linear_trend = xr.DataArray(time, coords=[time], dims=['time'])
-            #     dataarray_plus_lt = (da + linear_trend)
-            #     MK_class = Mann_Kendall_test(dataarray_plus_lt, 'time', coords_name={'time': 'time', 'lon': 'x', 'lat': 'y'})
-            #     # MK_class = Mann_Kendall_test(dataarray_plus_lt, 'time', coords_name={'time': 'time', 'lon': 'x', 'lat': 'y'}, MK_modified=True, method="linregress")
-            #     MK_trends = MK_class.compute()
-            #     return MK_trends
-
-            # trends_2d_no_noise(da)
-
-            # def nan_in_data_MK(da):
-            #     linear_trend = xr.DataArray(time, coords=[time], dims=['time'])
-            #     dataarray_plus_lt = (da + linear_trend) * np.nan
-            #     MK_class = Mann_Kendall_test(dataarray_plus_lt, 'time', coords_name={'time': 'time', 'lon': 'lon', 'lat': 'lat'},
-            #                                  MK_modified=True, method="linregress")
-            #     MK_trends = MK_class.compute()
-            #     return MK_trends
-
-            # nan_in_data_MK(da)
-
-            # var = data['EC']
-            var = data['EC']
-            # var = data['EC'].sel(lat=slice(30, 60), lon=slice(120, 150))
-
-            # var = data['EC'].sel(lat=slice(59.9, 60), lon=slice(149.9, 150))
-            # var = data['EC']
-            # da = var
-            # da = da.chunk({'time': -1})
-
-            import multiprocessing
-
-            # cpu_cores = multiprocessing.cpu_count()
-            # cpu_cores = multiprocessing.cpu_count() / 1.5
-            # cpu_cores = multiprocessing.cpu_count() / 1.5
-            # print(cpu_cores)
-
-            # from dask.distributed import Client
-            # client = Client()
-            # client = Client(n_workers=4, threads_per_worker=2)
-            client = Client(n_workers=os.cpu_count(), threads_per_worker=os.cpu_count())
-            dask.config.set(scheduler='processes')
-
-            # Dask로 변환
-            # var_dask = var.chunk({'time': -1, 'lat': 1, 'lon': 1})
-
-            # aa = var.to_dataframe().reset_index()
-            # pearson = aa.groupby(by=['lat', 'lon']).corr(method='pearson')
-            # kendall = aa.groupby(by=['lat', 'lon']).corr(method='kendall')
-            # # print(pearson)
-            # # print(kendall)
+            #         cov = ((var1 - var1.mean(dim='time')) * (var2 - var2.mean(dim='time'))).mean(dim='time')
+            #         stdVar1 = var1.std(dim='time')
+            #         stdVar2 = var2.std(dim='time')
+            #         peaCorr = cov / (stdVar1 * stdVar2)
+            #         peaCorr = peaCorr.rename(f'{typeInfo}-{keyInfo}')
             #
-            # # # 결과를 xarray DataArray로 변환
-            # # pearson_da = xr.DataArray(pearson.to_xarray().unstack(), dims=['lat', 'lon'],
-            # #                           coords=[var_dask.lat, var_dask.lon])
-            # pearson_da = pearson.to_xarray()
-            # # kendall_da = xr.DataArray(kendall.to_xarray().unstack(), dims=['lat', 'lon'],
-            # #                           coords=[var_dask.lat, var_dask.lon])
-            # kendall_da = kendall.to_xarray()
+            #         saveImg = '{}/{}/{}/{}_{}-{}.png'.format(globalVar['figPath'], serviceName, 'CORR', 'corr', typeInfo, keyInfo)
+            #         os.makedirs(os.path.dirname(saveImg), exist_ok=True)
+            #         peaCorr.plot(vmin=-1.0, vmax=1.0)
+            #         plt.savefig(saveImg, dpi=600, bbox_inches='tight', transparent=True)
+            #         plt.tight_layout()
+            #         plt.show()
+            #         plt.close()
+            #         log.info(f'[CHECK] saveImg : {saveImg}')
             #
-            # print(pearson_da)
-            # print(kendall_da)
-            #
-            # pearson_da['EC'].plot()
-            # plt.show()
-            #
-            # kendall_da['EC'].plot()
-            # plt.show()
+            #         os.makedirs(os.path.dirname(saveFile), exist_ok=True)
+            #         peaCorr.to_netcdf(saveFile)
+            #         log.info(f'[CHECK] saveFile : {saveFile}')
 
-            # Dask 클라이언트 종료
-            # client.close()
-
-            #
-            # var['time'] = np.arange(len(var['time'].values))
-            # time = np.arange(len(da['time'].values))
-
-            # var2 = nan_in_data_MK(da)
-            # var2 = trends_2d_no_noise(da)
-
-            # results = []
-            # for i in range(10):
-            #     result = trends_2d_no_noise(da)
-            #     results.append(result)
-            #
-            # MK_trends = dask.compute(*results)
-            #
-            #
-            # var2['signif'].plot()
-            # plt.show()
-
-            # var2['trend'].plot()
-            # plt.show()
-
-            # var2['p'].plot()
-            # plt.show()
-
-            # mk_stat, mk_p, mk_slope = xr.apply_ufunc(
-            #     mann_kendall,
-            #     var,
-            #     input_core_dims=[['time']],
-            #     output_core_dims=[[], [], []],
-            #     vectorize=True,
-            #     dask='parallelized',
-            #     output_dtypes=[np.object, np.object, np.object]
-            # )
-
-            # chunk_size = {'time': 32, 'lat': 10, 'lon': 10}
-            # var_dask = da.from_array(var, chunks=chunk_size)
-
-            # mk_slope = xr.apply_ufunc(
-            #     mann_kendall,
-            #     var,
-            #     input_core_dims=[['time']],
-            #     output_core_dims=[[]],
-            #     vectorize=True,
-            #     dask='parallelized',
-            #     output_dtypes=[np.float64]
-            # )
-
-            # slopes = np.apply_along_axis(get_slope, 0, var)
-            # slopes2 = np.apply_along_axis(get_slope, 'time', var)
-
-            mk_slope = xr.apply_ufunc(
-                mann_kendall,
-                var,
-                input_core_dims=[['time']],
-                output_core_dims=[[]],
-                vectorize=True,
-                dask='parallelized',
-                output_dtypes=[np.float64],
-                dask_gufunc_kwargs={'allow_rechunk': True}
-            )
-
-            # print("Mann-Kendall 통계:", mk_stat)
-            # print("p-value:", mk_p)
-            # print("Trend:", mk_slope.values)
-
-            # numpy_arr = mk_stat.compute()
-            # numpy_arr2 = mk_p.compute()
-            numpy_arr3 = mk_slope.compute()
-            print("Trend:", numpy_arr3)
-
-            # d = mk_stat.compute
-            # np.nanmean(mk_stat.values)
-            # np.nanmean(mk_p.values)
-            # np.nanmean(mk_slope.values)
-            # np.nanmean(mk_slope)
-
-            # mk_stat.plot()
-            # mk_p.plot()
-            # mk_slope.plot()
-            # plt.show()
-            numpy_arr3.plot()
-            plt.show()
-
-            # np.nanmean(slopes)
-
-
-            print(numpy_arr3)
-
-            client.close()
-
-            # from pymannkendall import mann_kendall_test
-
-            # def kendall_correlation(x, y):
-            #     # NaN 값을 제거합니다.
-            #     # x_no_nan = x[~np.isnan(x) & ~np.isnan(y)]
-            #     # y_no_nan = y[~np.isnan(x) & ~np.isnan(y)]
-            #     #
-            #     # if len(x_no_nan) < 2 or len(y_no_nan) < 2:  # 적어도 두 개의 데이터 포인트가 필요합니다.
-            #     #     return np.nan
-            #
-            #     tau, _ = kendalltau(x, y)
-            #     return tau
-
-            # np.nanmean(var1.values)
-            # np.nanmean(var2.values)
-
-            # ff = kendalltau(var1.values, var2.values)
-            #
-            # kendall_corr = xr.apply_ufunc(
-            #     kendall_correlation,
-            #     var1,
-            #     var2,
-            #     input_core_dims=[['time'], ['time']],
-            #     vectorize=True,
-            #     dask='parallelized',
-            #     output_dtypes=[np.float64]
-            # )
-
-            # kendall_corr2 = kendall_corr.compute()
-            # # print("시간에 따른 Kendall 상관계수:", kendall_corr.values)
-            # print("시간에 따른 Kendall 상관계수:", kendall_corr2.values)
-
-            # kendall_corr.values
-            # Mann-Kendall
-            # np.nanmin(kendall_corr2.values)
-            # np.nanmax(kendall_corr2.values)
-            # Mann Kendall
-            # MK_class = Mann_Kendall_test(da_with_linear_trend, 'time')
-            # MK_class.compute(path='test.nc')
-            #
-            # kendall_corr.plot()
-            # plt.show()
-            #
-            # import pymannkendall as mk
-            #
-            # def mann_kendall(x):
-            #     result = mk.(x)
-            #     return result.tau, result.p
-            #
-            # tau, p_value = xr.apply_ufunc(
-            #     mann_kendall,
-            #     var,
-            #     input_core_dims=[['time']],
-            #     vectorize=True,
-            #     dask='parallelized',
-            #     output_dtypes=[np.float64, np.float64]
-            # )
-
-            # print("Mann-Kendall tau:", tau)
-            # print("Mann-Kendall p-value:", p_value)
-
-            # def kendall_correlation(x, y, dim='year'):
-            #     return xr.apply_ufunc(
-            #         mk_cor, x, y,
-            #         input_core_dims=[[dim], [dim]],
-            #         vectorize=True,
-            #         dask='parallelized',
-            #         output_dtypes=[int]
-            #     )
-            #
-            # r = kendall_correlation(ds2, x, 'year').compute()
-
-            # Mann_Kendall_test
-
-            # # Time series length
-            # n = 100
-            # time = np.arange(n)
-            # # Grid
-            # x = np.arange(4)
-            # y = np.arange(4)
-            #
-            # # Create dataarray
-            # data = np.zeros((len(time), len(x), len(y)))
-            # da = xr.DataArray(data, coords=[time, x, y],
-            #                   dims=['time', 'lon', 'lat'])
-            # # Create noise
-            # noise = np.random.randn(*np.shape(data))
-            #
-            # # Create dataarray with positive linear trend
-            # linear_trend = xr.DataArray(time, coords=[time], dims=['time'])
-            #
-            # # Add noise to trend
-            # da_with_linear_trend = (da + linear_trend) + noise
-            #
-            #
-            # # Compute trends using Mann-Kendall test
-            # MK_class = Mann_Kendall_test(da_with_linear_trend, 'time')
-            # MK_class.compute(path='test.nc')
-
-            # n_lat = var1.sizes['lat']
-            # n_lon = var1.sizes['lon']
-
-            # kendall_correlation = np.empty((n_lat, n_lon))
-            #
-            # for i in range(n_lat):
-            #     for j in range(n_lon):
-            #         tau, _ = kendalltau(var1[:, i, j], var2[:, i, j])
-            #         kendall_correlation[i, j] = tau
-            #
-            # kendall_correlation_da = xr.DataArray(
-            #     kendall_correlation,
-            #     dims=('lat', 'lon'),
-            #     coords={'lat': var1.lat, 'lon': var1.lon}
-            # )
-
-            # 두 DataArray의 공분산을 계산합니다.
-            # cov = ((da1 - da1.mean()) * (da2 - da2.mean())).mean(dim=('lon', 'lat'))
-
-            # 두 DataArray의 표준편차를 계산합니다.
-            # std_da1 = da1.std(dim=('time'))
-            # std_da2 = da2.std(dim=('time')))
-
-            # 상관계수를 계산합니다.
-            # corr_coeff = cov / (std_da1 * std_da2)
-
-            # b = xr.corr(data['EC'], data['emi_ch4'])
-            # b.plot()
-            # plt.show()
-
-            # dataL1 = xr.Dataset()
-            # for i, fileInfo in enumerate(fileList):
-            #     log.info("[CHECK] fileInfo : {}".format(fileInfo))
-            #
-            #     data = xr.open_mfdataset(fileInfo)
-            #
-            #     dataL1 = xr.merge([dataL1, data])
-            #     print(len(dataL1['lat'].values))
-
-            # 도법 설정
-            # proj4326 = 'epsg:4326'
-            # mapProj4326 = Proj(proj4326)
-
-            # lonList = np.arange(sysOpt['lonMin'], sysOpt['lonMax'], sysOpt['lonInv'])
-            # latList = np.arange(sysOpt['latMin'], sysOpt['latMax'], sysOpt['latInv'])
-            #
-            # log.info('[CHECK] len(lonList) : {}'.format(len(lonList)))
-            # log.info('[CHECK] len(latList) : {}'.format(len(latList)))
-
-            # dtSrtDate = pd.to_datetime(sysOpt['srtDate'], format='%Y-%m-%d')
-            # dtEndDate = pd.to_datetime(sysOpt['endDate'], format='%Y-%m-%d')
-            # dtIncDateList = pd.date_range(start=dtSrtDate, end=dtEndDate, freq='1Y')
-            # # dtIncDateInfo = dtIncDateList[0]
-            #
+            # 온실가스 배출량 계산
             # for i, keyInfo in enumerate(sysOpt['keyList']):
-            #     log.info("[CHECK] keyInfo : {}".format(keyInfo))
+            #     log.info(f'[CHECK] keyInfo : {keyInfo}')
             #
-            #     dataL3 = xr.Dataset()
-            #     for i, dtIncDateInfo in enumerate(dtIncDateList):
-            #         # log.info("[CHECK] dtIncDateInfo : {}".format(dtIncDateInfo))
-            #         sYear = dtIncDateInfo.strftime('%Y')
+            #     var = data[keyInfo]
             #
-            #         inpFile = '{}/{}/*/*_{}_*_{}_*.nc'.format(globalVar['inpPath'], serviceName, keyInfo, sYear)
+            #     meanData = var.mean(dim=('time'), skipna=True)
+            #     meanDataL1 = np.log10(meanData)
+            #     meanDataL1.plot()
+            #     plt.show()
             #
-            #         fileList = sorted(glob.glob(inpFile))
+            #     saveImg = '{}/{}/{}/{}.png'.format(globalVar['figPath'], serviceName, 'EMI', keyInfo)
+            #     os.makedirs(os.path.dirname(saveImg), exist_ok=True)
+            #     meanDataL1.plot()
+            #     plt.savefig(saveImg, dpi=600, bbox_inches='tight', transparent=True)
+            #     plt.tight_layout()
+            #     plt.show()
+            #     plt.close()
+            #     log.info(f'[CHECK] saveImg : {saveImg}')
             #
-            #         if fileList is None or len(fileList) < 1:
-            #             log.error('[ERROR] inpFile : {} / {}'.format(inpFile, '입력 자료를 확인해주세요.'))
-            #             continue
-            #
-            #         fileInfo = fileList[0]
-            #         log.info('[CHECK] fileInfo : {}'.format(fileInfo))
-            #
-            #         # fileNameNoExt = os.path.basename(fileInfo).split('.nc')[0]
-            #         data = xr.open_mfdataset(fileInfo)
-            #
-            #         # 경도 변환 (0~360 to -180~180)
-            #         data.coords['lon'] = (data.coords['lon'] + 180) % 360 - 180
-            #         data = data.sortby(data.lon)
-            #
-            #         dataL1 = data.interp(lon=lonList, lat=latList, method='linear')
-            #
-            #         varInfo = list(dataL1.data_vars)[0]
-            #
-            #         # 자료 변환
-            #         lon1D = dataL1['lon'].values
-            #         lat1D = dataL1['lat'].values
-            #         time1D = pd.to_datetime(sYear, format='%Y')
-            #
-            #         dataL2 = xr.Dataset(
-            #             {
-            #                 varInfo : (('time', 'lat', 'lon'), (dataL1[varInfo].values).reshape(1, len(lat1D), len(lon1D)))
-            #             }
-            #             , coords={
-            #                 'time': pd.date_range(time1D, periods=1)
-            #                 , 'lat': lat1D
-            #                 , 'lon': lon1D
-            #             }
-            #         )
-            #
-            #         dataL3 = xr.merge([dataL3, dataL2])
-            #
-            #     timeList = dataL3['time'].values
-            #     minYear = pd.to_datetime(timeList.min()).strftime('%Y')
-            #     maxYear = pd.to_datetime(timeList.max()).strftime('%Y')
-            #
-            #     # 자료 저장
-            #     saveFile = '{}/{}/{}_{}-{}.nc'.format(globalVar['outPath'], serviceName, keyInfo, minYear, maxYear)
+            #     saveFile = '{}/{}/{}/{}.nc'.format(globalVar['outPath'], serviceName, 'EMI', keyInfo)
             #     os.makedirs(os.path.dirname(saveFile), exist_ok=True)
-            #     dataL3.to_netcdf(saveFile)
-            #     log.info('[CHECK] saveFile : {}'.format(saveFile))
+            #     meanDataL1.to_netcdf(saveFile)
+            #     log.info(f'[CHECK] saveFile : {saveFile}')
+
+            for i, keyInfo in enumerate(sysOpt['keyList']):
+                log.info(f'[CHECK] keyInfo : {keyInfo}')
+
+                var = data[keyInfo]
+
+                client = Client(n_workers=os.cpu_count(), threads_per_worker=os.cpu_count())
+                dask.config.set(scheduler='processes')
+
+                mannKendall = xr.apply_ufunc(
+                    calcMannKendall,
+                    var,
+                    input_core_dims=[['time']],
+                    output_core_dims=[[]],
+                    vectorize=True,
+                    dask='parallelized',
+                    output_dtypes=[np.float64],
+                    dask_gufunc_kwargs={'allow_rechunk': True}
+                ).compute()
+
+                saveImg = '{}/{}/{}/{}_{}.png'.format(globalVar['figPath'], serviceName, 'MANN', 'mann', keyInfo)
+                os.makedirs(os.path.dirname(saveImg), exist_ok=True)
+                mannKendall.plot(vmin=-1.0, vmax=1.0)
+                plt.savefig(saveImg, dpi=600, bbox_inches='tight', transparent=True)
+                plt.tight_layout()
+                plt.show()
+                plt.close()
+                log.info(f'[CHECK] saveImg : {saveImg}')
+
+                saveFile = '{}/{}/{}/{}_{}.nc'.format(globalVar['outPath'], serviceName, 'MANN', 'mann', keyInfo)
+                os.makedirs(os.path.dirname(saveFile), exist_ok=True)
+                mannKendall.to_netcdf(saveFile)
+                log.info(f'[CHECK] saveFile : {saveFile}')
+
+                client.close()
 
         except Exception as e:
             log.error("Exception : {}".format(e))
