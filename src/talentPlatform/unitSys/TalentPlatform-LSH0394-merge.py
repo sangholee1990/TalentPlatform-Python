@@ -10,11 +10,14 @@ import traceback
 import warnings
 from datetime import datetime
 
+import googlemaps
+import math
 import matplotlib as mpl
-import matplotlib.cm as cm
 import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
+from matplotlib import font_manager
+from scipy import spatial
 
 # =================================================
 # 사용자 매뉴얼
@@ -135,6 +138,11 @@ def initArgument(globalVar, inParams):
 
         inParInfo = vars(parser.parse_args())
 
+        # 글꼴 설정
+        # fontList = glob.glob('{}/{}'.format(globalVar['fontPath'], '*.ttf'))
+        # fontName = font_manager.FontProperties(fname=fontList[0]).get_name()
+        # plt.rcParams['font.family'] = fontName
+
     log.info("[CHECK] inParInfo : {}".format(inParInfo))
 
     for key, val in inParInfo.items():
@@ -157,11 +165,17 @@ def initArgument(globalVar, inParams):
     return globalVar
 
 
-# 위도와 경도를 도로 환산하는 함수
-def dmsToDecimal(dms):
-    degrees, minutes, seconds = map(float, dms.split('/'))
-    decimalDeg = degrees + minutes / 60 + seconds / 3600
-    return decimalDeg
+def cartesian(latitude, longitude, elevation=0):
+    # Convert to radians
+    latitude = latitude * (math.pi / 180)
+    longitude = longitude * (math.pi / 180)
+
+    R = 6371  # 6378137.0 + elevation  # relative to centre of the earth
+    X = R * math.cos(latitude) * math.cos(longitude)
+    Y = R * math.cos(latitude) * math.sin(longitude)
+    Z = R * math.sin(latitude)
+
+    return (X, Y, Z)
 
 
 # ================================================
@@ -171,7 +185,7 @@ class DtaProcess(object):
     # ================================================
     # 요구사항
     # ================================================
-    # Python을 이용한 뇌파 측정 자료 처리 및 스펙트럼 및 푸리에 변환 시각화
+    # Python을 이용한 탄소모니터링 도시를 기준으로 1,2순위 온도 도시 매칭 (구글 위경도 지오코딩 활용+다양한 국가)
 
     # ================================================================================================
     # 환경변수 설정
@@ -188,7 +202,7 @@ class DtaProcess(object):
         contextPath = os.getcwd() if env in 'local' else '/SYSTEMS/PROG/PYTHON/PyCharm'
 
     prjName = 'test'
-    serviceName = 'LSH0413'
+    serviceName = 'LSH0394'
 
     # 4.1. 환경 변수 설정 (로그 설정)
     log = initLog(env, contextPath, prjName)
@@ -239,120 +253,42 @@ class DtaProcess(object):
                 globalVar['outPath'] = '/DATA/OUTPUT'
                 globalVar['figPath'] = '/DATA/FIG'
 
-            from PIL import Image
-            from pytesseract import pytesseract
-            import os
-            import re
-            import cv2
-            import re
-            import csv
-            import pytesseract
-            from PIL import Image
-            import glob
+            # ********************************************************************
+            # 자료 병합
+            # ********************************************************************
+            # 엑셀 저장
+            saveFile = '{}/{}/{}.xlsx'.format(globalVar['outPath'], serviceName, 'merge')
+            os.makedirs(os.path.dirname(saveFile), exist_ok=True)
+            writer = pd.ExcelWriter(saveFile, engine='openpyxl')
 
-            import cv2
-            import pytesseract
-            import io
-            from datetime import datetime, timedelta
-
-            # ********************************************************************************************
-            #
-            # ********************************************************************************************
-            x1, x2, y1, y2 = 430, 1800, 1000, 1060
-            pytesseract.pytesseract.tesseract_cmd = '/SYSTEMS/anaconda3/envs/py38/bin/tesseract'
-            os.environ['TESSDATA_PREFIX'] = '/SYSTEMS/anaconda3/envs/py38/share/tessdata'
-
-            patterns = {
-                "lat": r".(\d{2}\/\d{2}\/\d{2})",
-                "lon": r".(\d{3}\/\d{2}\/\d{2})",
-                "dateTime": r"(\d{4}\/\d{2}\/\d{2} \d{2}:\d{2}:\d{2})"
-            }
-
-            inpFile = '{}/{}/{}'.format(globalVar['inpPath'], serviceName, '20230504_output.mp4')
+            inpFile = '{}/{}/{}/{}'.format(globalVar['inpPath'], serviceName, 'merge', '*.xlsx')
             fileList = sorted(glob.glob(inpFile))
+            optData = pd.read_excel(fileList[0])
 
-            if (len(fileList) < 1):
-                raise Exception(f'[ERROR] inpFile : {inpFile} : 입력 자료를 확인해주세요.')
+            with pd.ExcelWriter(saveFile, mode='w', engine='openpyxl') as writer:
+                optData.to_excel(writer, sheet_name='India', index=False)
 
-            dataL1 = pd.DataFrame()
+            # inpFile = '{}/{}/{}/{}'.format(globalVar['inpPath'], serviceName, 'merge', 'daily_temperature*.csv')
+            # fileList = sorted(glob.glob(inpFile))
+            # tmpData = pd.read_csv(fileList[0])
+            #
+            # with pd.ExcelWriter(saveFile, mode='a', engine='openpyxl') as writer:
+            #     tmpData.to_excel(writer, sheet_name='germany', index=False)
+
+
+            inpFile = '{}/{}/{}/{}'.format(globalVar['inpPath'], serviceName, 'merge', 'matDataL3*.csv')
+            fileList = sorted(glob.glob(inpFile))
             for i, fileInfo in enumerate(fileList):
                 log.info(f'[CHECK] fileInfo : {fileInfo}')
+                fileNameNoExt = os.path.basename(fileInfo).split('.')[0]
+                key = fileNameNoExt.split('-')[1].lower()
 
-                fileNameNoExt = os.path.basename(fileInfo).split('.mp4')[0]
+                tmpData = pd.read_csv(fileInfo)
 
-                cap = cv2.VideoCapture(fileInfo)
+                with pd.ExcelWriter(saveFile, mode='a', engine='openpyxl') as writer:
+                    tmpData.to_excel(writer, sheet_name=key, index=False)
 
-                # 프레임 수
-                cnt = cap.get(cv2.CAP_PROP_FRAME_COUNT)
-
-                # 프레임 레이트 확인
-                fps = cap.get(cv2.CAP_PROP_FPS)
-
-                # 재생 시간 초 단위
-                playTime = cnt / fps
-
-                idx = 1
-                while cap.isOpened():
-                    try:
-                        ret, frame = cap.read()
-                        if not ret: break
-
-                        cropImg = frame[y1:y2, x1:x2]
-                        newImg = Image.fromarray(cropImg)
-
-                        saveImg = '{}/{}/{}-{}.png'.format(globalVar['figPath'], serviceName, fileNameNoExt, str(idx).zfill(10))
-                        # os.makedirs(os.path.dirname(saveImg), exist_ok=True)
-                        # cv2.imwrite(saveImg, cropImg)
-                        # log.info(f'[CHECK] saveImg : {saveImg}')
-                        idx += 1
-
-                        # plt.imshow(newImg)
-                        # plt.show()
-
-                        data = pytesseract.image_to_string(newImg)
-                        # log.info(f'[CHECK] data : {data}')
-
-                        # 패턴에 따라 문자열에서 데이터 추출
-                        extInfo = {key: re.search(pattern, data).group(1) if re.search(pattern, data) else None for key, pattern in patterns.items()}
-
-                        if extInfo['lat'] is None or len(extInfo['lat']) != 8: continue
-                        if extInfo['lon'] is None or len(extInfo['lon']) != 9: continue
-                        if extInfo['dateTime'] is None or len(extInfo['dateTime']) != 19: continue
-
-                        dict = {
-                            'videoInfo': [fileInfo]
-                            , 'imageInfo': [saveImg]
-                            , 'lat': [dmsToDecimal(extInfo['lat'])]
-                            , 'lon': [dmsToDecimal(extInfo['lon'])]
-                            , 'dateTime': [pd.to_datetime(extInfo['dateTime'])]
-                        }
-
-                        log.info(f'[CHECK] dict : {dict}')
-
-                        dataL1 = pd.concat([dataL1, pd.DataFrame.from_dict(dict)], ignore_index=True)
-                    except Exception as e:
-                        log.error("Exception : {}".format(e))
-
-                    statData = dataL1.groupby(['videoInfo']).agg(lambda x: x.value_counts().index[0])
-                    # log.info(f'[CHECK] statData : {statData}')
-
-                    # 데이터 필터링
-                    dataL2 = dataL1[
-                        (abs(dataL1['lat'] - statData['lat'][0]) <= 0.05) &
-                        (abs(dataL1['lon'] - statData['lon'][0]) <= 0.05) &
-                        (abs(dataL1['dateTime'] - statData['dateTime'][0]) <= timedelta(seconds=playTime))
-                        ]
-
-                    dataL3 = dataL2.groupby(['videoInfo', 'dateTime']).agg(lambda x: x.value_counts().index[0])
-
-
-
-            # ********************************************************************************************
-            #
-            # ********************************************************************************************
-            inpFile = '{}/{}/{}'.format(globalVar['inpPath'], serviceName, '20230504_output.mp4')
-            fileList = sorted(glob.glob(inpFile))
-
+            log.info(f'[CHECK] saveFile : {saveFile}')
 
         except Exception as e:
             log.error("Exception : {}".format(e))
@@ -372,7 +308,6 @@ if __name__ == '__main__':
 
         # 파이썬 실행 시 전달인자를 초기 환경변수 설정
         inParams = {}
-
         print("[CHECK] inParams : {}".format(inParams))
 
         # 부 프로그램 호출

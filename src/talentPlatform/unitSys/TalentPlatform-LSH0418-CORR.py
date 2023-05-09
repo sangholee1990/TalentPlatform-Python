@@ -285,11 +285,11 @@ class DtaProcess(object):
                     , 'latMax': 90
                     , 'latInv': 0.1
 
-                    # , 'typeList': ['EC', 'GDP', 'Land_Cover_Type_1_Percent', 'landscan']
-                    , 'typeList': ['Land_Cover_Type_1_Percent']
+                    , 'typeList': ['EC', 'GDP', 'Land_Cover_Type_1_Percent', 'landscan']
+                    # , 'typeList': ['Land_Cover_Type_1_Percent']
                     # , 'keyList': ['CH4', 'CO2_excl', 'CO2_org', 'N2O', 'NH3', 'NMVOC', 'OC', 'NH3', 'SO2']
-                    # , 'keyList': ['emi_co', 'emi_n2o', 'emi_nh3', 'emi_nmvoc', 'emi_nox', 'emi_oc', 'emi_so2']
-                    , 'keyList': ['emi_nmvoc']
+                    , 'keyList': ['emi_co', 'emi_n2o', 'emi_nh3', 'emi_nmvoc', 'emi_nox', 'emi_oc', 'emi_so2']
+                    # , 'keyList': ['emi_nmvoc']
                 }
 
                 globalVar['inpPath'] = '/DATA/INPUT'
@@ -336,12 +336,9 @@ class DtaProcess(object):
                     var1 = data[typeInfo]
                     var2 = data[keyInfo]
 
-                    var2.isel(time = 0).plot()
-                    plt.show()
-
-                    cov = ((var1 - var1.mean(dim='time')) * (var2 - var2.mean(dim='time'))).mean(dim='time')
-                    stdVar1 = var1.std(dim='time')
-                    stdVar2 = var2.std(dim='time')
+                    cov = ((var1 - var1.mean(dim='time', skipna=True)) * (var2 - var2.mean(dim='time', skipna=True))).mean(dim='time', skipna=True)
+                    stdVar1 = var1.std(dim='time', skipna=True)
+                    stdVar2 = var2.std(dim='time', skipna=True)
                     peaCorr = cov / (stdVar1 * stdVar2)
                     peaCorr = peaCorr.rename(f'{typeInfo}-{keyInfo}')
 
@@ -350,8 +347,8 @@ class DtaProcess(object):
                     peaCorr.plot(vmin=-1.0, vmax=1.0)
                     plt.savefig(saveImg, dpi=600, bbox_inches='tight', transparent=True)
                     plt.tight_layout()
-                    plt.show()
-                    plt.close()
+                    # plt.show()
+                    # plt.close()
                     log.info(f'[CHECK] saveImg : {saveImg}')
 
                     os.makedirs(os.path.dirname(saveFile), exist_ok=True)
@@ -483,8 +480,8 @@ class DtaProcess(object):
                 plt.legend(loc='upper center', bbox_to_anchor=(0.5, -0.2), ncol=4, title=None)
                 plt.savefig(saveImg, dpi=600, bbox_inches='tight', transparent=True)
                 plt.tight_layout()
-                plt.show()
-                plt.close()
+                # plt.show()
+                # plt.close()
                 log.info(f'[CHECK] saveImg : {saveImg}')
 
         except Exception as e:
