@@ -285,9 +285,11 @@ class DtaProcess(object):
                     , 'latMax': 90
                     , 'latInv': 0.1
 
-                    , 'typeList': ['EC', 'GDP', 'Land_Cover_Type_1_Percent', 'landscan']
+                    # , 'typeList': ['EC', 'GDP', 'Land_Cover_Type_1_Percent', 'landscan']
+                    , 'typeList': ['Land_Cover_Type_1_Percent']
                     # , 'keyList': ['CH4', 'CO2_excl', 'CO2_org', 'N2O', 'NH3', 'NMVOC', 'OC', 'NH3', 'SO2']
-                    , 'keyList': ['emi_co', 'emi_n2o', 'emi_nh3', 'emi_nmvoc', 'emi_nox', 'emi_oc', 'emi_so2']
+                    # , 'keyList': ['emi_co', 'emi_n2o', 'emi_nh3', 'emi_nmvoc', 'emi_nox', 'emi_oc', 'emi_so2']
+                    , 'keyList': ['emi_nmvoc']
                 }
 
                 globalVar['inpPath'] = '/DATA/INPUT'
@@ -323,35 +325,38 @@ class DtaProcess(object):
             # **********************************************************************************************************
             # 피어슨 상관계수 계산
             # **********************************************************************************************************
-            # for i, typeInfo in enumerate(sysOpt['typeList']):
-            #     for j, keyInfo in enumerate(sysOpt['keyList']):
-            #         log.info(f'[CHECK] typeInfo : {typeInfo} / keyInfo : {keyInfo}')
-            #
-            #         saveFile = '{}/{}/{}/{}_{}-{}.nc'.format(globalVar['outPath'], serviceName, 'CORR', 'corr', typeInfo, keyInfo)
-            #         fileChkList = glob.glob(saveFile)
-            #         if (len(fileChkList) > 0): continue
-            #
-            #         var1 = data[typeInfo]
-            #         var2 = data[keyInfo]
-            #
-            #         cov = ((var1 - var1.mean(dim='time')) * (var2 - var2.mean(dim='time'))).mean(dim='time')
-            #         stdVar1 = var1.std(dim='time')
-            #         stdVar2 = var2.std(dim='time')
-            #         peaCorr = cov / (stdVar1 * stdVar2)
-            #         peaCorr = peaCorr.rename(f'{typeInfo}-{keyInfo}')
-            #
-            #         saveImg = '{}/{}/{}/{}_{}-{}.png'.format(globalVar['figPath'], serviceName, 'CORR', 'corr', typeInfo, keyInfo)
-            #         os.makedirs(os.path.dirname(saveImg), exist_ok=True)
-            #         peaCorr.plot(vmin=-1.0, vmax=1.0)
-            #         plt.savefig(saveImg, dpi=600, bbox_inches='tight', transparent=True)
-            #         plt.tight_layout()
-            #         plt.show()
-            #         plt.close()
-            #         log.info(f'[CHECK] saveImg : {saveImg}')
-            #
-            #         os.makedirs(os.path.dirname(saveFile), exist_ok=True)
-            #         peaCorr.to_netcdf(saveFile)
-            #         log.info(f'[CHECK] saveFile : {saveFile}')
+            for i, typeInfo in enumerate(sysOpt['typeList']):
+                for j, keyInfo in enumerate(sysOpt['keyList']):
+                    log.info(f'[CHECK] typeInfo : {typeInfo} / keyInfo : {keyInfo}')
+
+                    saveFile = '{}/{}/{}/{}_{}-{}.nc'.format(globalVar['outPath'], serviceName, 'CORR', 'corr', typeInfo, keyInfo)
+                    fileChkList = glob.glob(saveFile)
+                    # if (len(fileChkList) > 0): continue
+
+                    var1 = data[typeInfo]
+                    var2 = data[keyInfo]
+
+                    var2.isel(time = 0).plot()
+                    plt.show()
+
+                    cov = ((var1 - var1.mean(dim='time')) * (var2 - var2.mean(dim='time'))).mean(dim='time')
+                    stdVar1 = var1.std(dim='time')
+                    stdVar2 = var2.std(dim='time')
+                    peaCorr = cov / (stdVar1 * stdVar2)
+                    peaCorr = peaCorr.rename(f'{typeInfo}-{keyInfo}')
+
+                    saveImg = '{}/{}/{}/{}_{}-{}.png'.format(globalVar['figPath'], serviceName, 'CORR', 'corr', typeInfo, keyInfo)
+                    os.makedirs(os.path.dirname(saveImg), exist_ok=True)
+                    peaCorr.plot(vmin=-1.0, vmax=1.0)
+                    plt.savefig(saveImg, dpi=600, bbox_inches='tight', transparent=True)
+                    plt.tight_layout()
+                    plt.show()
+                    plt.close()
+                    log.info(f'[CHECK] saveImg : {saveImg}')
+
+                    os.makedirs(os.path.dirname(saveFile), exist_ok=True)
+                    peaCorr.to_netcdf(saveFile)
+                    log.info(f'[CHECK] saveFile : {saveFile}')
 
             # **********************************************************************************************************
             # 온실가스 배출량 계산
@@ -461,7 +466,6 @@ class DtaProcess(object):
 
                 data = xr.open_mfdataset(fileList)
                 dataL1 = data.to_dataframe().reset_index(drop=True)
-                # dataL1.columns = dataL1.columns.str.replace('emi_', '')
                 dataL1.columns = dataL1.columns.str.replace(f'{typeInfo}-emi_', '')
 
                 dataL2 = pd.melt(dataL1, id_vars=[], var_name='key', value_name='val')
