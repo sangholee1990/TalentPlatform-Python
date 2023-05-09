@@ -181,6 +181,7 @@ def calcMannKendall(x):
         result = mk.original_test(x)
         return result.Tau
         # return result.trend, result.p, result.Tau
+
     except Exception:
         return np.nan
         # return np.nan, np.nan, np.nan
@@ -194,15 +195,6 @@ class DtaProcess(object):
     # 요구사항
     # ================================================
     # Python 이용한 CO2 및 CH4 자료 처리 및 연도별 저장
-
-    # 추가 기체
-    # Ch4
-    # https://jeodpp.jrc.ec.europa.eu/ftp/jrc-opendata/EDGAR/datasets/v60_GHG/CH4/
-    # totals 파일
-
-    # CO2
-    # https://jeodpp.jrc.ec.europa.eu/ftp/jrc-opendata/EDGAR/datasets/v60_GHG/CO2_excl_short-cycle_org_C/
-    # totals 파일
 
     # ================================================================================================
     # 환경변수 설정
@@ -325,9 +317,12 @@ class DtaProcess(object):
                 log.error('[ERROR] inpFile : {} / {}'.format(inpFile, '입력 자료를 확인해주세요.'))
                 # continue
 
-            data = xr.open_mfdataset(fileList, chunks={'time': 10, 'lat': 10, 'lon': 10}).sel(time=slice(sysOpt['srtDate'], sysOpt['endDate']))
+            data = xr.open_mfdataset(fileList, chunks={'time': 10, 'lat': 10, 'lon': 10}).sel(
+                time=slice(sysOpt['srtDate'], sysOpt['endDate']))
 
+            # **********************************************************************************************************
             # 피어슨 상관계수 계산
+            # **********************************************************************************************************
             # for i, typeInfo in enumerate(sysOpt['typeList']):
             #     for j, keyInfo in enumerate(sysOpt['keyList']):
             #         log.info(f'[CHECK] typeInfo : {typeInfo} / keyInfo : {keyInfo}')
@@ -358,7 +353,9 @@ class DtaProcess(object):
             #         peaCorr.to_netcdf(saveFile)
             #         log.info(f'[CHECK] saveFile : {saveFile}')
 
+            # **********************************************************************************************************
             # 온실가스 배출량 계산
+            # **********************************************************************************************************
             # for i, keyInfo in enumerate(sysOpt['keyList']):
             #     log.info(f'[CHECK] keyInfo : {keyInfo}')
             #
@@ -418,36 +415,73 @@ class DtaProcess(object):
             #
             #     client.close()
 
-
+            # **********************************************************************************************************
             # Mann Kendall 상자 그림
-            inpFile = '{}/{}/{}/{}.nc'.format(globalVar['outPath'], serviceName, 'MANN', '*')
-            fileList = sorted(glob.glob(inpFile))
+            # **********************************************************************************************************
+            # inpFile = '{}/{}/{}/{}.nc'.format(globalVar['outPath'], serviceName, 'MANN', '*')
+            # fileList = sorted(glob.glob(inpFile))
+            #
+            # if fileList is None or len(fileList) < 1:
+            #     log.error('[ERROR] inpFile : {} / {}'.format(inpFile, '입력 자료를 확인해주세요.'))
+            #
+            # data = xr.open_mfdataset(fileList)
+            # dataL1 = data.to_dataframe().reset_index(drop=True)
+            # dataL1.columns = dataL1.columns.str.replace('emi_', '')
+            #
+            # dataL2 = pd.melt(dataL1, id_vars=[], var_name='key', value_name='val')
+            #
+            # mainTitle = '{}'.format('EDGAR Mann-Kendall Trend (2001~2018)')
+            # saveImg = '{}/{}/{}.png'.format(globalVar['figPath'], serviceName, mainTitle)
+            # os.makedirs(os.path.dirname(saveImg), exist_ok=True)
+            #
+            # sns.set_style("whitegrid")
+            # sns.set_palette(sns.color_palette("husl", len(dataL1.columns)))
+            # sns.boxplot(x='key', y='val', data=dataL2, dodge=False, hue='key')
+            # plt.xlabel(None)
+            # plt.ylabel('Mann-Kendall Trend')
+            # plt.title(mainTitle)
+            # plt.legend(loc='upper center', bbox_to_anchor=(0.5, -0.2), ncol=4, title=None)
+            # plt.savefig(saveImg, dpi=600, bbox_inches='tight', transparent=True)
+            # plt.tight_layout()
+            # plt.show()
+            # plt.close()
+            # log.info(f'[CHECK] saveImg : {saveImg}')
 
-            if fileList is None or len(fileList) < 1:
-                log.error('[ERROR] inpFile : {} / {}'.format(inpFile, '입력 자료를 확인해주세요.'))
+            # **********************************************************************************************************
+            # typeList에 따른 상자 그림
+            # **********************************************************************************************************
+            for i, typeInfo in enumerate(sysOpt['typeList']):
+                log.info(f'[CHECK] typeInfo : {typeInfo}')
 
-            data = xr.open_mfdataset(fileList)
-            dataL1 = data.to_dataframe().reset_index(drop=True)
-            dataL1.columns = dataL1.columns.str.replace('emi_', '')
+                inpFile = '{}/{}/{}/*{}*.nc'.format(globalVar['outPath'], serviceName, 'CORR', typeInfo)
+                fileList = sorted(glob.glob(inpFile))
 
-            dataL2 = pd.melt(dataL1, id_vars=[], var_name='key', value_name='val')
+                if fileList is None or len(fileList) < 1:
+                    log.error('[ERROR] inpFile : {} / {}'.format(inpFile, '입력 자료를 확인해주세요.'))
 
-            mainTitle = '{}'.format('EDGAR Mann-Kendall Trend (2001~2018)')
-            saveImg = '{}/{}/{}.png'.format(globalVar['figPath'], serviceName, mainTitle)
-            os.makedirs(os.path.dirname(saveImg), exist_ok=True)
+                data = xr.open_mfdataset(fileList)
+                dataL1 = data.to_dataframe().reset_index(drop=True)
+                # dataL1.columns = dataL1.columns.str.replace('emi_', '')
+                dataL1.columns = dataL1.columns.str.replace(f'{typeInfo}-emi_', '')
 
-            sns.set_style("whitegrid")
-            sns.set_palette(sns.color_palette("husl", len(dataL1.columns)))
-            sns.boxplot(x='key', y='val', data=dataL2, dodge=False, hue='key')
-            plt.xlabel(None)
-            plt.ylabel('Mann-Kendall Trend')
-            plt.title(mainTitle)
-            plt.legend(loc='upper center', bbox_to_anchor=(0.5, -0.2), ncol=4, title=None)
-            plt.savefig(saveImg, dpi=600, bbox_inches='tight', transparent=True)
-            plt.tight_layout()
-            plt.show()
-            plt.close()
-            log.info(f'[CHECK] saveImg : {saveImg}')
+                dataL2 = pd.melt(dataL1, id_vars=[], var_name='key', value_name='val')
+
+                mainTitle = f'EDGAR Pearson-Corr {typeInfo} (2001~2018)'
+                saveImg = '{}/{}/{}.png'.format(globalVar['figPath'], serviceName, mainTitle)
+                os.makedirs(os.path.dirname(saveImg), exist_ok=True)
+
+                sns.set_style("whitegrid")
+                sns.set_palette(sns.color_palette("husl", len(dataL1.columns)))
+                sns.boxplot(x='key', y='val', data=dataL2, dodge=False, hue='key')
+                plt.xlabel(None)
+                plt.ylabel('Pearson-Corr')
+                plt.title(mainTitle)
+                plt.legend(loc='upper center', bbox_to_anchor=(0.5, -0.2), ncol=4, title=None)
+                plt.savefig(saveImg, dpi=600, bbox_inches='tight', transparent=True)
+                plt.tight_layout()
+                plt.show()
+                plt.close()
+                log.info(f'[CHECK] saveImg : {saveImg}')
 
         except Exception as e:
             log.error("Exception : {}".format(e))
@@ -455,7 +489,6 @@ class DtaProcess(object):
 
         finally:
             log.info('[END] {}'.format("exec"))
-
 
 # ================================================
 # 3. 주 프로그램
