@@ -22,6 +22,7 @@ from utils.download_weights import download
 #For SORT tracking
 import skimage
 from sort import *
+import pandas as pd
 
 """Function to Draw Bounding boxes"""
 def draw_boxes(img, bbox, identities=None, categories=None, names=None, save_with_object_id=False, path=None,offset=(0, 0)):
@@ -231,15 +232,21 @@ def detect(save_img=False):
                             txt_str += " %f %f" % (np.abs(track.bbox_history[-1][0] - track.bbox_history[-1][2]) / im0.shape[0], np.abs(track.bbox_history[-1][1] - track.bbox_history[-1][3]) / im0.shape[1])
                         txt_str += "\n"
                 
-                if save_txt and not save_with_object_id:
-                    with open(txt_path + '.txt', 'a') as f:
-                        f.write(txt_str)
+                #if save_txt and not save_with_object_id:
+                #    with open(txt_path + '.txt', 'a') as f:
+                #        f.write(txt_str)
 
                 # draw boxes for visualization
                 if len(tracked_dets)>0:
                     bbox_xyxy = tracked_dets[:,:4]
                     identities = tracked_dets[:, 8]
                     categories = tracked_dets[:, 4]
+
+                    if save_txt:
+                        outData = pd.DataFrame(tracked_dets).iloc[:, [0, 1, 2, 3, 4, 8]]
+                        outData.to_csv(txt_path + '.txt', sep=' ', index=False, header=False)
+                        #print(outData)
+
                     draw_boxes(im0, bbox_xyxy, identities, categories, names, save_with_object_id, txt_path)
                 #........................................................
                 
