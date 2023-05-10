@@ -15,6 +15,21 @@ import matplotlib.cm as cm
 import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
+from PIL import Image
+from pytesseract import pytesseract
+import os
+import re
+import cv2
+import re
+import csv
+import pytesseract
+from PIL import Image
+import glob
+
+import cv2
+import pytesseract
+import io
+from datetime import datetime, timedelta
 
 # =================================================
 # 사용자 매뉴얼
@@ -163,6 +178,27 @@ def dmsToDecimal(dms):
     decimalDeg = degrees + minutes / 60 + seconds / 3600
     return decimalDeg
 
+def sortKeyNum(filename):
+    match = re.search(r'(\d+)\.txt$', filename)
+    return int(match.group(1)) if match else float('inf')
+
+def procFile(data, column_cnt, column_info, path_pattern, serviceName, fileNameNoExt):
+    for j, row in data.iterrows():
+        log.info(f'[CHECK] row : {row.idx}')
+
+        inpFile = os.path.join(globalVar['inpPath'], serviceName, path_pattern.format(fileNameNoExt, row.idx))
+        fileList = sorted(glob.glob(inpFile), key=sortKeyNum)
+
+        data.loc[j, column_cnt] = None
+        data.loc[j, column_info] = None
+
+        if len(fileList) > 0:
+            txtData = pd.read_csv(fileList[0], sep=' ', header=None)
+            data.loc[j, column_cnt] = len(txtData)
+            data.loc[j, column_info] = txtData.to_json(orient='records')
+
+    return data
+
 
 # ================================================
 # 4. 부 프로그램
@@ -239,22 +275,6 @@ class DtaProcess(object):
                 globalVar['outPath'] = '/DATA/OUTPUT'
                 globalVar['figPath'] = '/DATA/FIG'
 
-            from PIL import Image
-            from pytesseract import pytesseract
-            import os
-            import re
-            import cv2
-            import re
-            import csv
-            import pytesseract
-            from PIL import Image
-            import glob
-
-            import cv2
-            import pytesseract
-            import io
-            from datetime import datetime, timedelta
-
             # ********************************************************************************************
             #
             # ********************************************************************************************
@@ -268,13 +288,13 @@ class DtaProcess(object):
                 "dateTime": r"(\d{4}\/\d{2}\/\d{2} \d{2}:\d{2}:\d{2})"
             }
 
-            inpFile = '{}/{}/{}'.format(globalVar['inpPath'], serviceName, '20230504_output.mp4')
+            # inpFile = '{}/{}/{}'.format(globalVar['inpPath'], serviceName, '20230504_output.mp4')
+            inpFile = '{}/{}/{}'.format(globalVar['inpPath'], serviceName, '20230501122318_000005.mp4')
             fileList = sorted(glob.glob(inpFile))
 
             if (len(fileList) < 1):
                 raise Exception(f'[ERROR] inpFile : {inpFile} : 입력 자료를 확인해주세요.')
 
-            dataL1 = pd.DataFrame()
             for i, fileInfo in enumerate(fileList):
                 log.info(f'[CHECK] fileInfo : {fileInfo}')
 
@@ -291,7 +311,8 @@ class DtaProcess(object):
                 # 재생 시간 초 단위
                 playTime = cnt / fps
 
-                idx = 1
+                idx = 0
+                dataL1 = pd.DataFrame()
                 while cap.isOpened():
                     try:
                         ret, frame = cap.read()
@@ -299,15 +320,7 @@ class DtaProcess(object):
 
                         cropImg = frame[y1:y2, x1:x2]
                         newImg = Image.fromarray(cropImg)
-
-                        saveImg = '{}/{}/{}-{}.png'.format(globalVar['figPath'], serviceName, fileNameNoExt, str(idx).zfill(10))
-                        # os.makedirs(os.path.dirname(saveImg), exist_ok=True)
-                        # cv2.imwrite(saveImg, cropImg)
-                        # log.info(f'[CHECK] saveImg : {saveImg}')
                         idx += 1
-
-                        # plt.imshow(newImg)
-                        # plt.show()
 
                         data = pytesseract.image_to_string(newImg)
                         # log.info(f'[CHECK] data : {data}')
@@ -321,38 +334,51 @@ class DtaProcess(object):
 
                         dict = {
                             'videoInfo': [fileInfo]
-                            , 'imageInfo': [saveImg]
+                            # , 'frame': [frame]
+                            , 'idx': [idx]
                             , 'lat': [dmsToDecimal(extInfo['lat'])]
                             , 'lon': [dmsToDecimal(extInfo['lon'])]
                             , 'dateTime': [pd.to_datetime(extInfo['dateTime'])]
                         }
 
-                        log.info(f'[CHECK] dict : {dict}')
-
                         dataL1 = pd.concat([dataL1, pd.DataFrame.from_dict(dict)], ignore_index=True)
                     except Exception as e:
                         log.error("Exception : {}".format(e))
 
-                    statData = dataL1.groupby(['videoInfo']).agg(lambda x: x.value_counts().index[0])
-                    # log.info(f'[CHECK] statData : {statData}')
+                # ********************************************************************************************
+                # 자료 병합
+                # **************************************************************************************
+                statData = dataL1.groupby(['videoInfo']).agg(lambda x: x.value_counts().index[0])
+                # log.info(f'[CHECK] statData : {statData}')
 
-                    # 데이터 필터링
-                    dataL2 = dataL1[
-                        (abs(dataL1['lat'] - statData['lat'][0]) <= 0.05) &
-                        (abs(dataL1['lon'] - statData['lon'][0]) <= 0.05) &
-                        (abs(dataL1['dateTime'] - statData['dateTime'][0]) <= timedelta(seconds=playTime))
-                        ]
+                # 데이터 필터링
+                dataL2 = dataL1[
+                    (abs(dataL1['lat'] - statData['lat'][0]) <= 0.05) &
+                    (abs(dataL1['lon'] - statData['lon'][0]) <= 0.05) &
+                    (abs(dataL1['dateTime'] - statData['dateTime'][0]) <= timedelta(seconds=playTime))
+                    ]
 
-                    dataL3 = dataL2.groupby(['videoInfo', 'dateTime']).agg(lambda x: x.value_counts().index[0])
+                dataL3 = dataL2.groupby(['videoInfo', 'dateTime']).agg(lambda x: x.value_counts().index[0]).reset_index()
 
+                # dataL3 = procFile(dataL3, 'NEW-cnt', 'NEW-info', 'object_tracking8*/labels/{}_{}.txt', serviceName, fileNameNoExt)
+                # dataL3 = procFile(dataL3, 'NEW2-cnt', 'NEW2-info', 'exp9*/labels/{}_{}.txt', serviceName, fileNameNoExt)
 
+                dataL3 = procFile(dataL3, 'NEW-cnt', 'NEW-info', 'object_tracking18*/labels/{}_{}.txt', serviceName, fileNameNoExt)
+                dataL3 = procFile(dataL3, 'NEW2-cnt', 'NEW2-info', 'exp78*/labels/{}_{}.txt', serviceName, fileNameNoExt)
 
-            # ********************************************************************************************
-            #
-            # ********************************************************************************************
-            inpFile = '{}/{}/{}'.format(globalVar['inpPath'], serviceName, '20230504_output.mp4')
-            fileList = sorted(glob.glob(inpFile))
+                # for j, row in dataL3.iterrows():
+                #     saveImg = '{}/{}/{}-{}.png'.format(globalVar['figPath'], serviceName, fileNameNoExt, str(row.idx).zfill(10))
+                #     os.makedirs(os.path.dirname(saveImg), exist_ok=True)
+                #     plt.imshow(row.frame)
+                #     plt.axis("off")
+                #     plt.savefig(saveImg, dpi=600, bbox_inches='tight')
+                #     # plt.show()
+                #     log.info(f'[CHECK] saveImg : {saveImg}')
 
+                saveFile = '{}/{}/{}_{}.csv'.format(globalVar['outPath'], serviceName, fileNameNoExt, 'FNL')
+                os.makedirs(os.path.dirname(saveFile), exist_ok=True)
+                dataL3.to_csv(saveFile, index=False)
+                log.info(f'[CHECK] saveFile : {saveFile}')
 
         except Exception as e:
             log.error("Exception : {}".format(e))

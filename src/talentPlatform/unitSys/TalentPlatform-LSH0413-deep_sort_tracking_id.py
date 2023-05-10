@@ -19,6 +19,9 @@ from deep_sort_pytorch.utils.parser import get_config
 from deep_sort_pytorch.deep_sort import DeepSort
 from collections import deque
 import numpy as np
+import pandas as pd
+
+
 palette = (2 ** 11 - 1, 2 ** 15 - 1, 2 ** 20 - 1)
 data_deque = {}
 
@@ -107,8 +110,6 @@ def UI_box(x, img, color=None, label=None, line_thickness=None):
 
         cv2.putText(img, label, (c1[0], c1[1] - 2), 0, tl / 3, [225, 255, 255], thickness=tf, lineType=cv2.LINE_AA)
 
-
-
 def draw_boxes(img, bbox, names,object_id, identities=None, offset=(0, 0)):
     #cv2.line(img, line[0], line[1], (46,162,112), 3)
 
@@ -117,7 +118,7 @@ def draw_boxes(img, bbox, names,object_id, identities=None, offset=(0, 0)):
     for key in list(data_deque):
       if key not in identities:
         data_deque.pop(key)
-
+ 
     cnt = 0
     for i, box in enumerate(bbox):
         x1, y1, x2, y2 = [int(i) for i in box]
@@ -145,8 +146,6 @@ def draw_boxes(img, bbox, names,object_id, identities=None, offset=(0, 0)):
         data_deque[id].appendleft(center)
         UI_box(box, img, label=label, color=color, line_thickness=2)
 
-        cnt += 1
-
         # draw trail
         #for i in range(1, len(data_deque[id])):
         #    # check if on buffer value is none
@@ -157,7 +156,9 @@ def draw_boxes(img, bbox, names,object_id, identities=None, offset=(0, 0)):
         #    # draw trails
         #    cv2.line(img, data_deque[id][i - 1], data_deque[id][i], color, thickness)
 
+        cnt += 1
     cv2.putText(img, f'Persons : {cnt}', (int(width * 0.85), int(height * 0.05)), cv2.FONT_HERSHEY_DUPLEX, 0.8, (255,0,0), 2)
+   # print(f'Persons : {cnt} / {len(np.unique(labelList))}')
 
     return img
 def load_classes(path):
@@ -273,9 +274,12 @@ def detect(save_img=False):
                 for c in det[:, -1].unique():
                     n = (det[:, -1] == c).sum()  # detections per class
                     s += '%g %ss, ' % (n, names[int(c)])  # add to string
+
                 xywh_bboxs = []
                 confs = []
                 oids = []
+                ideList = []
+     
                 # Write results
                 for *xyxy, conf, cls in reversed(det):
                     x_c, y_c, bbox_w, bbox_h = xyxy_to_xywh(*xyxy)
@@ -283,25 +287,34 @@ def detect(save_img=False):
                     xywh_bboxs.append(xywh_obj)
                     confs.append([conf.item()])
                     oids.append(int(cls))
+
                     if save_txt:  # Write to file
+                        #if (conf < opt.conf_thres): continue
                         xywh = (xyxy2xywh(torch.tensor(xyxy).view(1, 4)) / gn).view(-1).tolist()  # normalized xywh
                         line = (cls, *xywh, conf) if opt.save_conf else (cls, *xywh)  # label format
-                        with open(txt_path + '.txt', 'a') as f:
-                            f.write(('%g ' * len(line)).rstrip() % line + '\n')
+            
+                        #with open(txt_path + '.txt', 'a') as f:
+                        #    f.write(('%g ' * len(line)).rstrip() % line + '\n')
 
                     #if save_img or view_img:  # Add bbox to image
                         #label = f'{names[int(cls)]} {conf:.2f}'
                         #plot_one_box(xyxy, im0, label=label, color=colors[int(cls)], line_thickness=1)
                 xywhs = torch.Tensor(xywh_bboxs)
                 confss = torch.Tensor(confs)
-                
+
                 outputs = deepsort.update(xywhs, confss, oids, im0)
                 if len(outputs) > 0:
                     bbox_xyxy = outputs[:, :4]
                     identities = outputs[:, -2]
                     object_id = outputs[:, -1]
 
-                    draw_boxes(im0, bbox_xyxy, names, object_id,identities)
+                    if save_txt:
+                        outData = pd.DataFrame(outputs)
+                        outData.to_csv(txt_path + '.txt', sep=' ', index=False, header=False)
+                        #print(outData)
+
+                    draw_boxes(im0, bbox_xyxy, names, object_id, identities)
+
             # Print time (inference + NMS)
             print(f'{s}Done. ({(1E3 * (t2 - t1)):.1f}ms) Inference, ({(1E3 * (t3 - t2)):.1f}ms) NMS')
 
