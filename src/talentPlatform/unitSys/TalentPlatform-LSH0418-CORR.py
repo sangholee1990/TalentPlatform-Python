@@ -364,7 +364,8 @@ class DtaProcess(object):
                 var = data[keyInfo]
 
                 meanData = var.mean(dim=('time'), skipna=True)
-                meanData = meanData.where(meanData > 0)
+                # meanData = meanData.where(meanData > 0)
+                meanData = meanData.where(meanData != 0)
 
                 meanDataL1 = np.log10(meanData)
 
@@ -373,7 +374,7 @@ class DtaProcess(object):
                 meanDataL1.plot()
                 plt.savefig(saveImg, dpi=600, bbox_inches='tight', transparent=True)
                 plt.tight_layout()
-                plt.show()
+                # plt.show()
                 plt.close()
                 log.info(f'[CHECK] saveImg : {saveImg}')
 
