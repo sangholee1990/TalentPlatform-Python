@@ -386,7 +386,6 @@ class DtaProcess(object):
                 #     # plt.show()
                 #     log.info(f'[CHECK] saveImg : {saveImg}')
 
-
                 dataL3['dateTimeDiff'] = pd.to_datetime(dataL3['dateTime']).diff().dt.total_seconds()
 
                 # 특정 임계값 60초 이상
@@ -395,6 +394,11 @@ class DtaProcess(object):
                 saveFile = '{}/{}/{}_{}.csv'.format(globalVar['outPath'], serviceName, fileNameNoExt, 'FNL')
                 os.makedirs(os.path.dirname(saveFile), exist_ok=True)
                 dataL4.to_csv(saveFile, index=False)
+                log.info(f'[CHECK] saveFile : {saveFile}')
+
+                saveFile = '{}/{}/{}_{}.xlsx'.format(globalVar['outPath'], serviceName, fileNameNoExt, 'FNL')
+                os.makedirs(os.path.dirname(saveFile), exist_ok=True)
+                dataL4.to_excel(saveFile, index=False)
                 log.info(f'[CHECK] saveFile : {saveFile}')
 
         except Exception as e:
