@@ -460,7 +460,10 @@ class DtaProcess(object):
                 # 최종 결과 생성
                 # **************************************************************************************************************
                 # CSV to NetCDF 변환
-                dataL7 = dataL6.set_index(['time', 'col', 'row']).to_xarray()
+                # 2023.05.11 좌우 대칭
+                # dataL7 = dataL6.set_index(['time', 'col', 'row']).to_xarray()
+                dataL7 = dataL6.set_index(['time', 'row', 'col']).to_xarray()
+
                 saveFile = '{}/{}/{}_{}.nc'.format(globalVar['outPath'], serviceName, 'Result', dtIncDateInfo.strftime('%Y%m%d'))
                 os.makedirs(os.path.dirname(saveFile), exist_ok=True)
                 dataL7.to_netcdf(saveFile)
