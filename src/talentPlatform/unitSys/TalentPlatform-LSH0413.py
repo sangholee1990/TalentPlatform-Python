@@ -269,6 +269,17 @@ class DtaProcess(object):
 
                 # 옵션 설정
                 sysOpt = {
+                    'srtRow' : 430
+                    , 'endRow' : 1800
+                    , 'srcCol' : 1000
+                    , 'endCol' : 1060
+
+                    #
+                    , 'pyTesCmd' : '/SYSTEMS/anaconda3/envs/py38/bin/tesseract'
+                    , 'pyTesData' : '/SYSTEMS/anaconda3/envs/py38/share/tessdata'
+
+                    # 시간 임계값
+                    , 'timeThres' : 60
                 }
 
                 globalVar['inpPath'] = '/DATA/INPUT'
@@ -278,9 +289,9 @@ class DtaProcess(object):
             # ********************************************************************************************
             #
             # ********************************************************************************************
-            x1, x2, y1, y2 = 430, 1800, 1000, 1060
-            pytesseract.pytesseract.tesseract_cmd = '/SYSTEMS/anaconda3/envs/py38/bin/tesseract'
-            os.environ['TESSDATA_PREFIX'] = '/SYSTEMS/anaconda3/envs/py38/share/tessdata'
+            x1, x2, y1, y2 = sysOpt['srtRow'], sysOpt['endRow'], sysOpt['srcCol'], sysOpt['endCol']
+            pytesseract.pytesseract.tesseract_cmd = sysOpt['pyTesCmd']
+            os.environ['TESSDATA_PREFIX'] = sysOpt['pyTesData']
 
             patterns = {
                 "lat": r".(\d{2}\/\d{2}\/\d{2})",
@@ -375,9 +386,15 @@ class DtaProcess(object):
                 #     # plt.show()
                 #     log.info(f'[CHECK] saveImg : {saveImg}')
 
+
+                dataL3['dateTimeDiff'] = pd.to_datetime(dataL3['dateTime']).diff().dt.total_seconds()
+
+                # 특정 임계값 60초 이상
+                dataL4 = dataL3[dataL3['dateTimeDiff'] <= sysOpt['timeThres']]
+
                 saveFile = '{}/{}/{}_{}.csv'.format(globalVar['outPath'], serviceName, fileNameNoExt, 'FNL')
                 os.makedirs(os.path.dirname(saveFile), exist_ok=True)
-                dataL3.to_csv(saveFile, index=False)
+                dataL4.to_csv(saveFile, index=False)
                 log.info(f'[CHECK] saveFile : {saveFile}')
 
         except Exception as e:
