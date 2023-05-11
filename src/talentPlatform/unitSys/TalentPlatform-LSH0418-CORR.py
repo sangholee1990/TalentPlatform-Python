@@ -329,7 +329,7 @@ class DtaProcess(object):
                 for j, keyInfo in enumerate(sysOpt['keyList']):
                     log.info(f'[CHECK] typeInfo : {typeInfo} / keyInfo : {keyInfo}')
 
-                    saveFile = '{}/{}/{}/{}_{}-{}.nc'.format(globalVar['outPath'], serviceName, 'CORR', 'corr', typeInfo, keyInfo)
+                    saveFile = '{}/{}/{}/{}_{}_{}.nc'.format(globalVar['outPath'], serviceName, 'CORR', 'corr', typeInfo, keyInfo)
                     fileChkList = glob.glob(saveFile)
                     # if (len(fileChkList) > 0): continue
 
@@ -340,15 +340,15 @@ class DtaProcess(object):
                     stdVar1 = var1.std(dim='time', skipna=True)
                     stdVar2 = var2.std(dim='time', skipna=True)
                     peaCorr = cov / (stdVar1 * stdVar2)
-                    peaCorr = peaCorr.rename(f'{typeInfo}-{keyInfo}')
+                    peaCorr = peaCorr.rename(f'{typeInfo}_{keyInfo}')
 
-                    saveImg = '{}/{}/{}/{}_{}-{}.png'.format(globalVar['figPath'], serviceName, 'CORR', 'corr', typeInfo, keyInfo)
+                    saveImg = '{}/{}/{}/{}_{}_{}.png'.format(globalVar['figPath'], serviceName, 'CORR', 'corr', typeInfo, keyInfo)
                     os.makedirs(os.path.dirname(saveImg), exist_ok=True)
                     peaCorr.plot(vmin=-1.0, vmax=1.0)
                     plt.savefig(saveImg, dpi=600, bbox_inches='tight', transparent=True)
                     plt.tight_layout()
                     # plt.show()
-                    # plt.close()
+                    plt.close()
                     log.info(f'[CHECK] saveImg : {saveImg}')
 
                     os.makedirs(os.path.dirname(saveFile), exist_ok=True)
@@ -373,7 +373,7 @@ class DtaProcess(object):
             #     meanDataL1.plot()
             #     plt.savefig(saveImg, dpi=600, bbox_inches='tight', transparent=True)
             #     plt.tight_layout()
-            #     plt.show()
+            #     # plt.show()
             #     plt.close()
             #     log.info(f'[CHECK] saveImg : {saveImg}')
             #
@@ -381,7 +381,7 @@ class DtaProcess(object):
             #     os.makedirs(os.path.dirname(saveFile), exist_ok=True)
             #     meanDataL1.to_netcdf(saveFile)
             #     log.info(f'[CHECK] saveFile : {saveFile}')
-
+            #
             # for i, keyInfo in enumerate(sysOpt['keyList']):
             #     log.info(f'[CHECK] keyInfo : {keyInfo}')
             #
@@ -406,7 +406,7 @@ class DtaProcess(object):
             #     mannKendall.plot(vmin=-1.0, vmax=1.0)
             #     plt.savefig(saveImg, dpi=600, bbox_inches='tight', transparent=True)
             #     plt.tight_layout()
-            #     plt.show()
+            #     # plt.show()
             #     plt.close()
             #     log.info(f'[CHECK] saveImg : {saveImg}')
             #
@@ -452,37 +452,37 @@ class DtaProcess(object):
             # **********************************************************************************************************
             # typeList에 따른 상자 그림
             # **********************************************************************************************************
-            for i, typeInfo in enumerate(sysOpt['typeList']):
-                log.info(f'[CHECK] typeInfo : {typeInfo}')
-
-                inpFile = '{}/{}/{}/*{}*.nc'.format(globalVar['outPath'], serviceName, 'CORR', typeInfo)
-                fileList = sorted(glob.glob(inpFile))
-
-                if fileList is None or len(fileList) < 1:
-                    log.error('[ERROR] inpFile : {} / {}'.format(inpFile, '입력 자료를 확인해주세요.'))
-
-                data = xr.open_mfdataset(fileList)
-                dataL1 = data.to_dataframe().reset_index(drop=True)
-                dataL1.columns = dataL1.columns.str.replace(f'{typeInfo}-emi_', '')
-
-                dataL2 = pd.melt(dataL1, id_vars=[], var_name='key', value_name='val')
-
-                mainTitle = f'EDGAR Pearson-Corr {typeInfo} (2001~2018)'
-                saveImg = '{}/{}/{}.png'.format(globalVar['figPath'], serviceName, mainTitle)
-                os.makedirs(os.path.dirname(saveImg), exist_ok=True)
-
-                sns.set_style("whitegrid")
-                sns.set_palette(sns.color_palette("husl", len(dataL1.columns)))
-                sns.boxplot(x='key', y='val', data=dataL2, dodge=False, hue='key')
-                plt.xlabel(None)
-                plt.ylabel('Pearson-Corr')
-                plt.title(mainTitle)
-                plt.legend(loc='upper center', bbox_to_anchor=(0.5, -0.2), ncol=4, title=None)
-                plt.savefig(saveImg, dpi=600, bbox_inches='tight', transparent=True)
-                plt.tight_layout()
-                # plt.show()
-                # plt.close()
-                log.info(f'[CHECK] saveImg : {saveImg}')
+            # for i, typeInfo in enumerate(sysOpt['typeList']):
+            #     log.info(f'[CHECK] typeInfo : {typeInfo}')
+            #
+            #     inpFile = '{}/{}/{}/*{}*.nc'.format(globalVar['outPath'], serviceName, 'CORR', typeInfo)
+            #     fileList = sorted(glob.glob(inpFile))
+            #
+            #     if fileList is None or len(fileList) < 1:
+            #         log.error('[ERROR] inpFile : {} / {}'.format(inpFile, '입력 자료를 확인해주세요.'))
+            #
+            #     data = xr.open_mfdataset(fileList)
+            #     dataL1 = data.to_dataframe().reset_index(drop=True)
+            #     dataL1.columns = dataL1.columns.str.replace(f'{typeInfo}-emi_', '')
+            #
+            #     dataL2 = pd.melt(dataL1, id_vars=[], var_name='key', value_name='val')
+            #
+            #     mainTitle = f'EDGAR Pearson-Corr {typeInfo} (2001~2018)'
+            #     saveImg = '{}/{}/{}.png'.format(globalVar['figPath'], serviceName, mainTitle)
+            #     os.makedirs(os.path.dirname(saveImg), exist_ok=True)
+            #
+            #     sns.set_style("whitegrid")
+            #     sns.set_palette(sns.color_palette("husl", len(dataL1.columns)))
+            #     sns.boxplot(x='key', y='val', data=dataL2, dodge=False, hue='key')
+            #     plt.xlabel(None)
+            #     plt.ylabel('Pearson-Corr')
+            #     plt.title(mainTitle)
+            #     plt.legend(loc='upper center', bbox_to_anchor=(0.5, -0.2), ncol=4, title=None)
+            #     plt.savefig(saveImg, dpi=600, bbox_inches='tight', transparent=True)
+            #     plt.tight_layout()
+            #     # plt.show()
+            #     # plt.close()
+            #     log.info(f'[CHECK] saveImg : {saveImg}')
 
         except Exception as e:
             log.error("Exception : {}".format(e))
