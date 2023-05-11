@@ -325,63 +325,66 @@ class DtaProcess(object):
             # **********************************************************************************************************
             # 피어슨 상관계수 계산
             # **********************************************************************************************************
-            for i, typeInfo in enumerate(sysOpt['typeList']):
-                for j, keyInfo in enumerate(sysOpt['keyList']):
-                    log.info(f'[CHECK] typeInfo : {typeInfo} / keyInfo : {keyInfo}')
-
-                    saveFile = '{}/{}/{}/{}_{}_{}.nc'.format(globalVar['outPath'], serviceName, 'CORR', 'corr', typeInfo, keyInfo)
-                    fileChkList = glob.glob(saveFile)
-                    # if (len(fileChkList) > 0): continue
-
-                    var1 = data[typeInfo]
-                    var2 = data[keyInfo]
-
-                    cov = ((var1 - var1.mean(dim='time', skipna=True)) * (var2 - var2.mean(dim='time', skipna=True))).mean(dim='time', skipna=True)
-                    stdVar1 = var1.std(dim='time', skipna=True)
-                    stdVar2 = var2.std(dim='time', skipna=True)
-                    peaCorr = cov / (stdVar1 * stdVar2)
-                    peaCorr = peaCorr.rename(f'{typeInfo}_{keyInfo}')
-
-                    saveImg = '{}/{}/{}/{}_{}_{}.png'.format(globalVar['figPath'], serviceName, 'CORR', 'corr', typeInfo, keyInfo)
-                    os.makedirs(os.path.dirname(saveImg), exist_ok=True)
-                    peaCorr.plot(vmin=-1.0, vmax=1.0)
-                    plt.savefig(saveImg, dpi=600, bbox_inches='tight', transparent=True)
-                    plt.tight_layout()
-                    # plt.show()
-                    plt.close()
-                    log.info(f'[CHECK] saveImg : {saveImg}')
-
-                    os.makedirs(os.path.dirname(saveFile), exist_ok=True)
-                    peaCorr.to_netcdf(saveFile)
-                    log.info(f'[CHECK] saveFile : {saveFile}')
+            # for i, typeInfo in enumerate(sysOpt['typeList']):
+            #     for j, keyInfo in enumerate(sysOpt['keyList']):
+            #         log.info(f'[CHECK] typeInfo : {typeInfo} / keyInfo : {keyInfo}')
+            #
+            #         saveFile = '{}/{}/{}/{}_{}_{}.nc'.format(globalVar['outPath'], serviceName, 'CORR', 'corr', typeInfo, keyInfo)
+            #         fileChkList = glob.glob(saveFile)
+            #         # if (len(fileChkList) > 0): continue
+            #
+            #         var1 = data[typeInfo]
+            #         var2 = data[keyInfo]
+            #
+            #         cov = ((var1 - var1.mean(dim='time', skipna=True)) * (var2 - var2.mean(dim='time', skipna=True))).mean(dim='time', skipna=True)
+            #         stdVar1 = var1.std(dim='time', skipna=True)
+            #         stdVar2 = var2.std(dim='time', skipna=True)
+            #         peaCorr = cov / (stdVar1 * stdVar2)
+            #         peaCorr = peaCorr.rename(f'{typeInfo}_{keyInfo}')
+            #
+            #         saveImg = '{}/{}/{}/{}_{}_{}.png'.format(globalVar['figPath'], serviceName, 'CORR', 'corr', typeInfo, keyInfo)
+            #         os.makedirs(os.path.dirname(saveImg), exist_ok=True)
+            #         peaCorr.plot(vmin=-1.0, vmax=1.0)
+            #         plt.savefig(saveImg, dpi=600, bbox_inches='tight', transparent=True)
+            #         plt.tight_layout()
+            #         # plt.show()
+            #         plt.close()
+            #         log.info(f'[CHECK] saveImg : {saveImg}')
+            #
+            #         os.makedirs(os.path.dirname(saveFile), exist_ok=True)
+            #         peaCorr.to_netcdf(saveFile)
+            #         log.info(f'[CHECK] saveFile : {saveFile}')
 
             # **********************************************************************************************************
             # 온실가스 배출량 계산
             # **********************************************************************************************************
-            # for i, keyInfo in enumerate(sysOpt['keyList']):
-            #     log.info(f'[CHECK] keyInfo : {keyInfo}')
-            #
-            #     var = data[keyInfo]
-            #
-            #     meanData = var.mean(dim=('time'), skipna=True)
-            #     meanDataL1 = np.log10(meanData)
-            #     meanDataL1.plot()
-            #     plt.show()
-            #
-            #     saveImg = '{}/{}/{}/{}.png'.format(globalVar['figPath'], serviceName, 'EMI', keyInfo)
-            #     os.makedirs(os.path.dirname(saveImg), exist_ok=True)
-            #     meanDataL1.plot()
-            #     plt.savefig(saveImg, dpi=600, bbox_inches='tight', transparent=True)
-            #     plt.tight_layout()
-            #     # plt.show()
-            #     plt.close()
-            #     log.info(f'[CHECK] saveImg : {saveImg}')
-            #
-            #     saveFile = '{}/{}/{}/{}.nc'.format(globalVar['outPath'], serviceName, 'EMI', keyInfo)
-            #     os.makedirs(os.path.dirname(saveFile), exist_ok=True)
-            #     meanDataL1.to_netcdf(saveFile)
-            #     log.info(f'[CHECK] saveFile : {saveFile}')
-            #
+            for i, keyInfo in enumerate(sysOpt['keyList']):
+                log.info(f'[CHECK] keyInfo : {keyInfo}')
+
+                var = data[keyInfo]
+
+                meanData = var.mean(dim=('time'), skipna=True)
+                meanData = meanData.where(meanData > 0)
+
+                meanDataL1 = np.log10(meanData)
+
+                saveImg = '{}/{}/{}/{}.png'.format(globalVar['figPath'], serviceName, 'EMI', keyInfo)
+                os.makedirs(os.path.dirname(saveImg), exist_ok=True)
+                meanDataL1.plot()
+                plt.savefig(saveImg, dpi=600, bbox_inches='tight', transparent=True)
+                plt.tight_layout()
+                plt.show()
+                plt.close()
+                log.info(f'[CHECK] saveImg : {saveImg}')
+
+                saveFile = '{}/{}/{}/{}.nc'.format(globalVar['outPath'], serviceName, 'EMI', keyInfo)
+                os.makedirs(os.path.dirname(saveFile), exist_ok=True)
+                meanDataL1.to_netcdf(saveFile)
+                log.info(f'[CHECK] saveFile : {saveFile}')
+
+            # **********************************************************************************************************
+            # Mann-Kendall 계산
+            # **********************************************************************************************************
             # for i, keyInfo in enumerate(sysOpt['keyList']):
             #     log.info(f'[CHECK] keyInfo : {keyInfo}')
             #
