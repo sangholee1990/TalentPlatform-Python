@@ -271,6 +271,8 @@ class DtaProcess(object):
                 sysOpt = {
                     'srtRow' : 430
                     , 'endRow' : 1800
+                    # 'srtRow' : 400
+                    # , 'endRow' : 1900
                     , 'srcCol' : 1000
                     , 'endCol' : 1060
 
@@ -301,6 +303,8 @@ class DtaProcess(object):
 
             # inpFile = '{}/{}/{}'.format(globalVar['inpPath'], serviceName, '20230504_output.mp4')
             inpFile = '{}/{}/{}'.format(globalVar['inpPath'], serviceName, '20230501122318_000005.mp4')
+            # inpFile = '{}/{}/{}'.format(globalVar['inpPath'], serviceName, 'object_tracking18/20230501122318_000005.MP4')
+
             fileList = sorted(glob.glob(inpFile))
 
             if (len(fileList) < 1):
@@ -326,13 +330,22 @@ class DtaProcess(object):
                 dataL1 = pd.DataFrame()
                 while cap.isOpened():
                     try:
+                        # cap.set(cv2.CAP_PROP_POS_FRAMES, 8000)
+                        # cap.set(cv2.CAP_PROP_POS_FRAMES, 9500)
+                        # cap.set(cv2.CAP_PROP_POS_FRAMES, 10500)
                         ret, frame = cap.read()
                         if not ret: break
 
                         cropImg = frame[y1:y2, x1:x2]
-                        newImg = Image.fromarray(cropImg)
+                        # newImg = Image.fromarray(cropImg)
+
+                        grayImg = cv2.cvtColor(cropImg, cv2.COLOR_BGR2GRAY)
+                        thresVal, thresImg = cv2.threshold(grayImg, 0, 255, cv2.THRESH_BINARY | cv2.THRESH_OTSU)
+                        newImg = Image.fromarray(thresImg)
+
                         idx += 1
 
+                        # data = pytesseract.image_to_string(cropImg)
                         data = pytesseract.image_to_string(newImg)
                         # log.info(f'[CHECK] data : {data}')
 
@@ -352,6 +365,8 @@ class DtaProcess(object):
                             , 'dateTime': [pd.to_datetime(extInfo['dateTime'])]
                         }
 
+                        # log.info(f'[CHECK] dict : {dict}')
+
                         dataL1 = pd.concat([dataL1, pd.DataFrame.from_dict(dict)], ignore_index=True)
                     except Exception as e:
                         log.error("Exception : {}".format(e))
@@ -359,8 +374,19 @@ class DtaProcess(object):
                 # ********************************************************************************************
                 # 자료 병합
                 # **************************************************************************************
+                saveFile = '{}/{}/{}_{}.csv'.format(globalVar['outPath'], serviceName, fileNameNoExt, 'dataL1')
+                os.makedirs(os.path.dirname(saveFile), exist_ok=True)
+                dataL1.to_csv(saveFile, index=False)
+                log.info(f'[CHECK] saveFile : {saveFile}')
+
                 statData = dataL1.groupby(['videoInfo']).agg(lambda x: x.value_counts().index[0])
                 # log.info(f'[CHECK] statData : {statData}')
+
+                saveFile = '{}/{}/{}_{}.csv'.format(globalVar['outPath'], serviceName, fileNameNoExt, 'statData')
+                os.makedirs(os.path.dirname(saveFile), exist_ok=True)
+                statData.to_csv(saveFile, index=False)
+                log.info(f'[CHECK] saveFile : {saveFile}')
+
 
                 # 데이터 필터링
                 dataL2 = dataL1[
@@ -369,13 +395,29 @@ class DtaProcess(object):
                     (abs(dataL1['dateTime'] - statData['dateTime'][0]) <= timedelta(seconds=playTime))
                     ]
 
+                saveFile = '{}/{}/{}_{}.csv'.format(globalVar['outPath'], serviceName, fileNameNoExt, 'dataL2')
+                os.makedirs(os.path.dirname(saveFile), exist_ok=True)
+                dataL2.to_csv(saveFile, index=False)
+                log.info(f'[CHECK] saveFile : {saveFile}')
+
                 dataL3 = dataL2.groupby(['videoInfo', 'dateTime']).agg(lambda x: x.value_counts().index[0]).reset_index()
+
+                saveFile = '{}/{}/{}_{}.csv'.format(globalVar['outPath'], serviceName, fileNameNoExt, 'dataL3')
+                os.makedirs(os.path.dirname(saveFile), exist_ok=True)
+                dataL3.to_csv(saveFile, index=False)
+                log.info(f'[CHECK] saveFile : {saveFile}')
 
                 # dataL3 = procFile(dataL3, 'NEW-cnt', 'NEW-info', 'object_tracking8*/labels/{}_{}.txt', serviceName, fileNameNoExt)
                 # dataL3 = procFile(dataL3, 'NEW2-cnt', 'NEW2-info', 'exp9*/labels/{}_{}.txt', serviceName, fileNameNoExt)
 
                 dataL3 = procFile(dataL3, 'NEW-cnt', 'NEW-info', 'object_tracking18*/labels/{}_{}.txt', serviceName, fileNameNoExt)
                 dataL3 = procFile(dataL3, 'NEW2-cnt', 'NEW2-info', 'exp78*/labels/{}_{}.txt', serviceName, fileNameNoExt)
+
+                saveFile = '{}/{}/{}_{}.csv'.format(globalVar['outPath'], serviceName, fileNameNoExt, 'dataL3')
+                os.makedirs(os.path.dirname(saveFile), exist_ok=True)
+                dataL3.to_csv(saveFile, index=False)
+                log.info(f'[CHECK] saveFile : {saveFile}')
+
 
                 # for j, row in dataL3.iterrows():
                 #     saveImg = '{}/{}/{}-{}.png'.format(globalVar['figPath'], serviceName, fileNameNoExt, str(row.idx).zfill(10))
@@ -387,6 +429,15 @@ class DtaProcess(object):
                 #     log.info(f'[CHECK] saveImg : {saveImg}')
 
                 dataL3['dateTimeDiff'] = pd.to_datetime(dataL3['dateTime']).diff().dt.total_seconds()
+                saveFile = '{}/{}/{}_{}.csv'.format(globalVar['outPath'], serviceName, fileNameNoExt, 'PROP')
+                os.makedirs(os.path.dirname(saveFile), exist_ok=True)
+                dataL3.to_csv(saveFile, index=False)
+                log.info(f'[CHECK] saveFile : {saveFile}')
+
+                saveFile = '{}/{}/{}_{}.xlsx'.format(globalVar['outPath'], serviceName, fileNameNoExt, 'PROP')
+                os.makedirs(os.path.dirname(saveFile), exist_ok=True)
+                dataL3.to_excel(saveFile, index=False)
+                log.info(f'[CHECK] saveFile : {saveFile}')
 
                 # 특정 임계값 60초 이상
                 dataL4 = dataL3[dataL3['dateTimeDiff'] <= sysOpt['timeThres']]
