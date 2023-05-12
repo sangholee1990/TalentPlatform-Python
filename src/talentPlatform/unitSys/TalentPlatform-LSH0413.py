@@ -178,9 +178,11 @@ def dmsToDecimal(dms):
     decimalDeg = degrees + minutes / 60 + seconds / 3600
     return decimalDeg
 
+
 def sortKeyNum(filename):
     match = re.search(r'(\d+)\.txt$', filename)
     return int(match.group(1)) if match else float('inf')
+
 
 def procFile(data, column_cnt, column_info, path_pattern, serviceName, fileNameNoExt):
     for j, row in data.iterrows():
@@ -269,19 +271,22 @@ class DtaProcess(object):
 
                 # 옵션 설정
                 sysOpt = {
-                    'srtRow' : 430
-                    , 'endRow' : 1800
-                    # 'srtRow' : 400
-                    # , 'endRow' : 1900
-                    , 'srcCol' : 1000
-                    , 'endCol' : 1060
+                    'srtRow': 430
+                    , 'endRow': 1800
+                    , 'srcCol': 1000
+                    , 'endCol': 1060
 
                     #
-                    , 'pyTesCmd' : '/SYSTEMS/anaconda3/envs/py38/bin/tesseract'
-                    , 'pyTesData' : '/SYSTEMS/anaconda3/envs/py38/share/tessdata'
+                    , 'pyTesCmd': '/SYSTEMS/anaconda3/envs/py38/bin/tesseract'
+                    , 'pyTesData': '/SYSTEMS/anaconda3/envs/py38/share/tessdata'
+
+                    , 'minLat': 30
+                    , 'maxLat': 40
+                    , 'minLon': 120
+                    , 'maxLon': 135
 
                     # 시간 임계값
-                    , 'timeThres' : 60
+                    , 'timeThres': 60
                 }
 
                 globalVar['inpPath'] = '/DATA/INPUT'
@@ -374,50 +379,29 @@ class DtaProcess(object):
                 # ********************************************************************************************
                 # 자료 병합
                 # **************************************************************************************
-                saveFile = '{}/{}/{}_{}.csv'.format(globalVar['outPath'], serviceName, fileNameNoExt, 'dataL1')
-                os.makedirs(os.path.dirname(saveFile), exist_ok=True)
-                dataL1.to_csv(saveFile, index=False)
-                log.info(f'[CHECK] saveFile : {saveFile}')
+                dataL1 = dataL1[
+                    (dataL1['lat'] >= sysOpt['minLat']) &
+                    (dataL1['lat'] <= sysOpt['maxLat']) &
+                    (dataL1['lon'] >= sysOpt['minLon']) &
+                    (dataL1['lon'] <= sysOpt['maxLon'])
+                    ]
 
                 statData = dataL1.groupby(['videoInfo']).agg(lambda x: x.value_counts().index[0])
                 # log.info(f'[CHECK] statData : {statData}')
-
-                saveFile = '{}/{}/{}_{}.csv'.format(globalVar['outPath'], serviceName, fileNameNoExt, 'statData')
-                os.makedirs(os.path.dirname(saveFile), exist_ok=True)
-                statData.to_csv(saveFile, index=False)
-                log.info(f'[CHECK] saveFile : {saveFile}')
-
 
                 # 데이터 필터링
                 dataL2 = dataL1[
                     (abs(dataL1['lat'] - statData['lat'][0]) <= 0.05) &
                     (abs(dataL1['lon'] - statData['lon'][0]) <= 0.05) &
-                    (abs(dataL1['dateTime'] - statData['dateTime'][0]) <= timedelta(seconds=playTime))
+                    (abs(pd.to_datetime(dataL1['dateTime']) - pd.to_datetime(statData['dateTime'][0])) <= timedelta(seconds=playTime))
                     ]
-
-                saveFile = '{}/{}/{}_{}.csv'.format(globalVar['outPath'], serviceName, fileNameNoExt, 'dataL2')
-                os.makedirs(os.path.dirname(saveFile), exist_ok=True)
-                dataL2.to_csv(saveFile, index=False)
-                log.info(f'[CHECK] saveFile : {saveFile}')
 
                 dataL3 = dataL2.groupby(['videoInfo', 'dateTime']).agg(lambda x: x.value_counts().index[0]).reset_index()
 
-                saveFile = '{}/{}/{}_{}.csv'.format(globalVar['outPath'], serviceName, fileNameNoExt, 'dataL3')
-                os.makedirs(os.path.dirname(saveFile), exist_ok=True)
-                dataL3.to_csv(saveFile, index=False)
-                log.info(f'[CHECK] saveFile : {saveFile}')
-
                 # dataL3 = procFile(dataL3, 'NEW-cnt', 'NEW-info', 'object_tracking8*/labels/{}_{}.txt', serviceName, fileNameNoExt)
                 # dataL3 = procFile(dataL3, 'NEW2-cnt', 'NEW2-info', 'exp9*/labels/{}_{}.txt', serviceName, fileNameNoExt)
-
                 dataL3 = procFile(dataL3, 'NEW-cnt', 'NEW-info', 'object_tracking18*/labels/{}_{}.txt', serviceName, fileNameNoExt)
                 dataL3 = procFile(dataL3, 'NEW2-cnt', 'NEW2-info', 'exp78*/labels/{}_{}.txt', serviceName, fileNameNoExt)
-
-                saveFile = '{}/{}/{}_{}.csv'.format(globalVar['outPath'], serviceName, fileNameNoExt, 'dataL3')
-                os.makedirs(os.path.dirname(saveFile), exist_ok=True)
-                dataL3.to_csv(saveFile, index=False)
-                log.info(f'[CHECK] saveFile : {saveFile}')
-
 
                 # for j, row in dataL3.iterrows():
                 #     saveImg = '{}/{}/{}-{}.png'.format(globalVar['figPath'], serviceName, fileNameNoExt, str(row.idx).zfill(10))
@@ -429,15 +413,6 @@ class DtaProcess(object):
                 #     log.info(f'[CHECK] saveImg : {saveImg}')
 
                 dataL3['dateTimeDiff'] = pd.to_datetime(dataL3['dateTime']).diff().dt.total_seconds()
-                saveFile = '{}/{}/{}_{}.csv'.format(globalVar['outPath'], serviceName, fileNameNoExt, 'PROP')
-                os.makedirs(os.path.dirname(saveFile), exist_ok=True)
-                dataL3.to_csv(saveFile, index=False)
-                log.info(f'[CHECK] saveFile : {saveFile}')
-
-                saveFile = '{}/{}/{}_{}.xlsx'.format(globalVar['outPath'], serviceName, fileNameNoExt, 'PROP')
-                os.makedirs(os.path.dirname(saveFile), exist_ok=True)
-                dataL3.to_excel(saveFile, index=False)
-                log.info(f'[CHECK] saveFile : {saveFile}')
 
                 # 특정 임계값 60초 이상
                 dataL4 = dataL3[dataL3['dateTimeDiff'] <= sysOpt['timeThres']]
