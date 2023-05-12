@@ -186,7 +186,6 @@ def calcMannKendall(x):
         return np.nan
         # return np.nan, np.nan, np.nan
 
-
 # ================================================
 # 4. 부 프로그램
 # ================================================
@@ -319,7 +318,8 @@ class DtaProcess(object):
                 log.error('[ERROR] inpFile : {} / {}'.format(inpFile, '입력 자료를 확인해주세요.'))
                 # continue
 
-            data = xr.open_mfdataset(fileList, chunks={'time': 10, 'lat': 10, 'lon': 10}).sel(time=slice(sysOpt['srtDate'], sysOpt['endDate']))
+            # data = xr.open_mfdataset(fileList, chunks={'time': 10, 'lat': 10, 'lon': 10}).sel(time=slice(sysOpt['srtDate'], sysOpt['endDate']))
+            data = xr.open_mfdataset(fileList).sel(time=slice(sysOpt['srtDate'], sysOpt['endDate']))
 
             # **********************************************************************************************************
             # 피어슨 상관계수 계산
