@@ -323,7 +323,8 @@ class DtaProcess(object):
                 fileInfo = fileList[0]
                 log.info('[CHECK] fileInfo : {}'.format(fileInfo))
 
-                # fileNameNoExt = os.path.basename(fileInfo).split('.')[0]
+                fileNameNoExt = os.path.basename(fileInfo).split('.tif')[0]
+
                 # data = xr.open_mfdataset(fileInfo)
                 data = xr.open_dataset(fileInfo)
                 # data = xr.open_dataset(fileInfo, engine="h5netcdf")
@@ -348,12 +349,12 @@ class DtaProcess(object):
                 )
 
                 # key = 'Land_Cover_Type_1_Percent'
-                # saveImg = '{}/{}/{}/{}.png'.format(globalVar['figPath'], serviceName, 'MCD12C1', key)
+                # saveImg = '{}/{}/{}/{}-{}.png'.format(globalVar['figPath'], serviceName, 'MCD12C1', fileNameNoExt, key)
                 # os.makedirs(os.path.dirname(saveImg), exist_ok=True)
                 # dataL2[key].plot()
                 # plt.savefig(saveImg, dpi=600, bbox_inches='tight', transparent=True)
                 # plt.tight_layout()
-                # # plt.show()
+                # plt.show()
                 # plt.close()
                 # log.info(f'[CHECK] saveImg : {saveImg}')
 
