@@ -347,6 +347,16 @@ class DtaProcess(object):
                     }
                 )
 
+                # key = 'Land_Cover_Type_1_Percent'
+                # saveImg = '{}/{}/{}/{}.png'.format(globalVar['figPath'], serviceName, 'MCD12C1', key)
+                # os.makedirs(os.path.dirname(saveImg), exist_ok=True)
+                # dataL2[key].plot()
+                # plt.savefig(saveImg, dpi=600, bbox_inches='tight', transparent=True)
+                # plt.tight_layout()
+                # # plt.show()
+                # plt.close()
+                # log.info(f'[CHECK] saveImg : {saveImg}')
+
                 dataL3 = xr.merge([dataL3, dataL2])
 
             # 자료 저장
