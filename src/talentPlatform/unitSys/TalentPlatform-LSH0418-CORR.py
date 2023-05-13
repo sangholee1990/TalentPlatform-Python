@@ -32,6 +32,7 @@ from dask.distributed import Client
 
 from scipy.stats import kendalltau
 from plotnine import ggplot, aes, geom_boxplot
+import gc
 
 # =================================================
 # 사용자 매뉴얼
@@ -347,12 +348,19 @@ class DtaProcess(object):
                     plt.savefig(saveImg, dpi=600, bbox_inches='tight', transparent=True)
                     plt.tight_layout()
                     # plt.show()
-                    plt.close()
+                    # plt.close()
                     log.info(f'[CHECK] saveImg : {saveImg}')
 
                     os.makedirs(os.path.dirname(saveFile), exist_ok=True)
                     peaCorr.to_netcdf(saveFile)
                     log.info(f'[CHECK] saveFile : {saveFile}')
+
+                    # 데이터셋 닫기 및 메모리에서 제거
+                    var1.close(), var2.close(), cov.close(), stdVar1.close(), stdVar2.close(), peaCorr.close()
+                    del var1, var2, cov, stdVar1, stdVar2, peaCorr
+
+                    # 가비지 수집기 강제 실행
+                    # gc.collect()
 
             # **********************************************************************************************************
             # 온실가스 배출량 계산
