@@ -21,42 +21,33 @@ from fastapi.responses import JSONResponse
 import os
 import glob
 import re
+from fastapi.middleware.cors import CORSMiddleware
 
 # from fastapi.security import OAuth2PasswordBearer
 # oauth2_scheme = OAuth2PasswordBearer(tokenUrl="token")
 
-
-# cd /SYSTEMS/PROG/PYTHON/FAST-API
-# conda activate py3
-# uvicorn main:app --reload --host=0.0.0.0 --port=8000
-#
-# gunicorn main:app --workers 5 --worker-class uvicorn.workers.UvicornWorker --daemon --access-logfile ./main.log --bind 0.0.0.0:8000 --reload
-#
-# # --workers : 프로세스 갯수다 (최대 vcpu 갯수 * 2 만큼 설정하기를 권장)
-# # --worker-class : 프로세스를 다중으로 실행하려면 필요한 옵션이다.
-# # --daemon : 백그라운드로 실행한다.
-# # --access-logfile ./log.log : log.log 이름으로 로그를 기록한다.
-#
-# {
-#   "cmd": {
-#     "cmd": "/usr/local/anaconda3/envs/py38/bin/python /SYSTEMS/PROG/PYTHON/FAST-API/unit-plot.py"
-#   },
-#   "input": {
-#     "input": "input1_value"
-#   },
-#   "output": {
-#     "output": "/DATA/UPLOAD/202305181524.png"
-#   }
-# }
-
-
 app = FastAPI()
+
+origins = [
+    "http://localhost:8080",
+    "http://localhost:9000",
+    "http://localhost:9100",
+]
+
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=origins, # 허용되는 출처 목록
+    allow_credentials=True,
+    allow_methods=["*"], # 허용되는 HTTP 메서드
+    allow_headers=["*"]  # 허용되는 HTTP 헤더
+)
 
 UPLOAD_PATH = "/DATA/UPLOAD" 
 
 # 공유폴더
 #app.mount('/UPLOAD', StaticFiles(directory='/DATA/UPLOAD'), name='/DATA/UPLOAD')
 app.mount('/UPLOAD', StaticFiles(directory=UPLOAD_PATH), name='/DATA/UPLOAD')
+
 
 def makePlot():
     x = np.linspace(-np.pi, np.pi, 256, endpoint=True)
