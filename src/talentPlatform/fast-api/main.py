@@ -15,35 +15,48 @@ from fastapi import FastAPI
 from io import BytesIO
 from starlette.responses import StreamingResponse
 import numpy as np
+from typing import List, Dict, Union
+from fastapi import FastAPI
+from fastapi.responses import JSONResponse
+import os
+import glob
+import re
 
 # from fastapi.security import OAuth2PasswordBearer
 # oauth2_scheme = OAuth2PasswordBearer(tokenUrl="token")
 
+
+# cd /SYSTEMS/PROG/PYTHON/FAST-API
+# conda activate py3
 # uvicorn main:app --reload --host=0.0.0.0 --port=8000
-
+#
 # gunicorn main:app --workers 5 --worker-class uvicorn.workers.UvicornWorker --daemon --access-logfile ./main.log --bind 0.0.0.0:8000 --reload
-# --workers : 프로세스 갯수다 (최대 vcpu 갯수 * 2 만큼 설정하기를 권장)
-# --worker-class : 프로세스를 다중으로 실행하려면 필요한 옵션이다.
-# --daemon : 백그라운드로 실행한다.
-# --access-logfile ./log.log : log.log 이름으로 로그를 기록한다.
-
+#
+# # --workers : 프로세스 갯수다 (최대 vcpu 갯수 * 2 만큼 설정하기를 권장)
+# # --worker-class : 프로세스를 다중으로 실행하려면 필요한 옵션이다.
+# # --daemon : 백그라운드로 실행한다.
+# # --access-logfile ./log.log : log.log 이름으로 로그를 기록한다.
+#
 # {
 #   "cmd": {
 #     "cmd": "/usr/local/anaconda3/envs/py38/bin/python /SYSTEMS/PROG/PYTHON/FAST-API/unit-plot.py"
 #   },
 #   "input": {
-#     "input": "'input1_value'"
+#     "input": "input1_value"
 #   },
 #   "output": {
-#     "output": "'/DATA/UPLOAD/202305181524.png'"
+#     "output": "/DATA/UPLOAD/202305181524.png"
 #   }
 # }
 
+
 app = FastAPI()
 
-# 공유폴더
-app.mount('/UPLOAD', StaticFiles(directory='/DATA/UPLOAD'), name='/DATA/UPLOAD')
+UPLOAD_PATH = "/DATA/UPLOAD" 
 
+# 공유폴더
+#app.mount('/UPLOAD', StaticFiles(directory='/DATA/UPLOAD'), name='/DATA/UPLOAD')
+app.mount('/UPLOAD', StaticFiles(directory=UPLOAD_PATH), name='/DATA/UPLOAD')
 
 def makePlot():
     x = np.linspace(-np.pi, np.pi, 256, endpoint=True)
@@ -79,7 +92,6 @@ def cmdProc(args):
                 cmd.extend([f'{value}'])
     return ' '.join(cmd)
 
-
 class DownloadResponse(BaseModel):
     filename: str
 
@@ -91,10 +103,25 @@ class ScriptRequest(BaseModel):
 class ScriptResponse(BaseModel):
     output_param: str
 
+@app.get("/file_list", response_model=List[Dict[str, Union[str, float]]])
+async def get_file_list():
+    try:
+        pathlist = glob.glob(UPLOAD_PATH + '/*.*')
+        files = []
+        for path in pathlist:
+            if not re.search(r"\.(zip|rar)$", path, re.I):
+                size_MB = round(os.path.getsize(path) / (1024.0 * 1024.0), 2)
+                files.append({"name": os.path.basename(path), "size": f"{size_MB} MB"})
+
+        return files
+    except Exception as e:
+        return {"error": str(e)}
+
 @app.post("/upload/")
 async def upload_file(file: UploadFile = File(...)):
     try:
-        file_path = f"/DATA/UPLOAD/{file.filename}"
+        #file_path = f"/DATA/UPLOAD/{file.filename}"
+        file_path = f"{UPLOAD_PATH}/{file.filename}"
         with open(file_path, "wb") as buffer:
             shutil.copyfileobj(file.file, buffer)
         return {"filename": file.filename, "content_type": file.content_type}
@@ -107,7 +134,8 @@ async def upload_multiple_files(files: List[UploadFile] = File(...)):
     errors = []
     for file in files:
         try:
-            file_path = f"/DATA/UPLOAD/{file.filename}"
+            #file_path = f"/DATA/UPLOAD/{file.filename}"
+            file_path = f"{UPLOAD_PATH}/{file.filename}"
             with open(file_path, "wb") as buffer:
                 shutil.copyfileobj(file.file, buffer)
             uploaded_files.append({"filename": file.filename, "content_type": file.content_type})
@@ -117,7 +145,8 @@ async def upload_multiple_files(files: List[UploadFile] = File(...)):
 
 @app.post("/download/")
 async def download_file(request: DownloadResponse):
-    file_path = f"/DATA/UPLOAD/{request.filename}"
+    #file_path = f"/DATA/UPLOAD/{request.filename}"
+    file_path = f"{UPLOAD_PATH}/{request.filename}"
     try:
         if os.path.exists(file_path):
             return FileResponse(file_path, media_type="application/octet-stream", filename=request.filename)
@@ -151,3 +180,4 @@ async def make_plot():
         return StreamingResponse(buf, media_type="image/png")
     except Exception as e:
         return {"error": str(e)}
+
