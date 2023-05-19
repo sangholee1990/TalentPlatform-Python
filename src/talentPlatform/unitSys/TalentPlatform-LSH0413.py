@@ -271,12 +271,15 @@ class DtaProcess(object):
 
                 # 옵션 설정
                 sysOpt = {
-                    'srtRow': 430
-                    , 'endRow': 1800
-                    , 'srcCol': 1000
-                    , 'endCol': 1060
+                    # 'srtRow': 430
+                    # , 'endRow': 1800
+                    # , 'srcCol': 1000
+                    # , 'endCol': 1060
+                    'srtRow': 290
+                    , 'endRow': 1030
+                    , 'srcCol': 670
+                    , 'endCol': 710
 
-                    #
                     , 'pyTesCmd': '/SYSTEMS/anaconda3/envs/py38/bin/tesseract'
                     , 'pyTesData': '/SYSTEMS/anaconda3/envs/py38/share/tessdata'
 
@@ -301,13 +304,17 @@ class DtaProcess(object):
             os.environ['TESSDATA_PREFIX'] = sysOpt['pyTesData']
 
             patterns = {
-                "lat": r".(\d{2}\/\d{2}\/\d{2})",
-                "lon": r".(\d{3}\/\d{2}\/\d{2})",
-                "dateTime": r"(\d{4}\/\d{2}\/\d{2} \d{2}:\d{2}:\d{2})"
+                # "lat": r".(\d{2}\/\d{2}\/\d{2})",
+                # "lon": r".(\d{3}\/\d{2}\/\d{2})",
+                # "dateTime": r"(\d{4}\/\d{2}\/\d{2} \d{2}:\d{2}:\d{2})"
+                "lat": r".(\d+\.\d+)",
+                "lon": r".(\d+\.\d+)",
+                "dateTime": r"(\d{4}/\d{2}/\d{2} \d{2}:\d{2}:\d{2})"
             }
 
             # inpFile = '{}/{}/{}'.format(globalVar['inpPath'], serviceName, '20230504_output.mp4')
-            inpFile = '{}/{}/{}'.format(globalVar['inpPath'], serviceName, '20230501122318_000005.mp4')
+            # inpFile = '{}/{}/{}'.format(globalVar['inpPath'], serviceName, '20230501122318_000005.mp4')
+            inpFile = '{}/{}/{}'.format(globalVar['inpPath'], serviceName, 'KakaoTalk_20230519_112032690.mp4')
             # inpFile = '{}/{}/{}'.format(globalVar['inpPath'], serviceName, 'object_tracking18/20230501122318_000005.MP4')
 
             fileList = sorted(glob.glob(inpFile))
@@ -342,7 +349,11 @@ class DtaProcess(object):
                         if not ret: break
 
                         cropImg = frame[y1:y2, x1:x2]
-                        # newImg = Image.fromarray(cropImg)
+                        # cropImg = frame[670:710, 290:1030]
+                        newImg = Image.fromarray(cropImg)
+
+                        # plt.imshow(newImg)
+                        # plt.show()
 
                         grayImg = cv2.cvtColor(cropImg, cv2.COLOR_BGR2GRAY)
                         thresVal, thresImg = cv2.threshold(grayImg, 0, 255, cv2.THRESH_BINARY | cv2.THRESH_OTSU)
@@ -400,8 +411,10 @@ class DtaProcess(object):
 
                 # dataL3 = procFile(dataL3, 'NEW-cnt', 'NEW-info', 'object_tracking8*/labels/{}_{}.txt', serviceName, fileNameNoExt)
                 # dataL3 = procFile(dataL3, 'NEW2-cnt', 'NEW2-info', 'exp9*/labels/{}_{}.txt', serviceName, fileNameNoExt)
-                dataL3 = procFile(dataL3, 'NEW-cnt', 'NEW-info', 'object_tracking18*/labels/{}_{}.txt', serviceName, fileNameNoExt)
-                dataL3 = procFile(dataL3, 'NEW2-cnt', 'NEW2-info', 'exp78*/labels/{}_{}.txt', serviceName, fileNameNoExt)
+                # dataL3 = procFile(dataL3, 'NEW-cnt', 'NEW-info', 'object_tracking18*/labels/{}_{}.txt', serviceName, fileNameNoExt)
+                # dataL3 = procFile(dataL3, 'NEW2-cnt', 'NEW2-info', 'exp78*/labels/{}_{}.txt', serviceName, fileNameNoExt)
+                dataL3 = procFile(dataL3, 'NEW-cnt', 'NEW-info', 'object_tracking19*/labels/{}_{}.txt', serviceName, fileNameNoExt)
+                dataL3 = procFile(dataL3, 'NEW2-cnt', 'NEW2-info', 'exp79*/labels/{}_{}.txt', serviceName, fileNameNoExt)
 
                 # for j, row in dataL3.iterrows():
                 #     saveImg = '{}/{}/{}-{}.png'.format(globalVar['figPath'], serviceName, fileNameNoExt, str(row.idx).zfill(10))
