@@ -307,10 +307,12 @@ class DtaProcess(object):
                 # "lat": r".(\d{2}\/\d{2}\/\d{2})",
                 # "lon": r".(\d{3}\/\d{2}\/\d{2})",
                 # "dateTime": r"(\d{4}\/\d{2}\/\d{2} \d{2}:\d{2}:\d{2})"
-                "lat": r".(\d+\.\d+)",
-                "lon": r".(\d+\.\d+)",
+                "lat": r'[-+]?[0-9]*\.?[0-9]+',
+                "lon": r'[-+]?[0-9]*\.?[0-9]+',
                 "dateTime": r"(\d{4}/\d{2}/\d{2} \d{2}:\d{2}:\d{2})"
             }
+
+            #     pattern = r"(N|S)*(\d+\.*\d*) (E|W|£)(\d+\.*\d*) (\d{4}/\d{2}/\d{2} \d{2}:\d{2}:\d{2})"
 
             # inpFile = '{}/{}/{}'.format(globalVar['inpPath'], serviceName, '20230504_output.mp4')
             # inpFile = '{}/{}/{}'.format(globalVar['inpPath'], serviceName, '20230501122318_000005.mp4')
@@ -342,6 +344,8 @@ class DtaProcess(object):
                 dataL1 = pd.DataFrame()
                 while cap.isOpened():
                     try:
+                        # cap.set(cv2.CAP_PROP_POS_FRAMES, 2000)
+                        # cap.set(cv2.CAP_PROP_POS_FRAMES, 3000)
                         # cap.set(cv2.CAP_PROP_POS_FRAMES, 8000)
                         # cap.set(cv2.CAP_PROP_POS_FRAMES, 9500)
                         # cap.set(cv2.CAP_PROP_POS_FRAMES, 10500)
@@ -349,36 +353,92 @@ class DtaProcess(object):
                         if not ret: break
 
                         cropImg = frame[y1:y2, x1:x2]
-                        # cropImg = frame[670:710, 290:1030]
                         newImg = Image.fromarray(cropImg)
 
                         # plt.imshow(newImg)
                         # plt.show()
 
+                        # plt.imshow(Image.fromarray(cropImg[:, 20:180]))
+                        # plt.show()
+                        #
+                        # plt.imshow(Image.fromarray(cropImg[:, 210:390]))
+                        # plt.show()
+                        #
+                        # plt.imshow(Image.fromarray(cropImg[:, 400:740]))
+                        # plt.show()
+
                         grayImg = cv2.cvtColor(cropImg, cv2.COLOR_BGR2GRAY)
                         thresVal, thresImg = cv2.threshold(grayImg, 0, 255, cv2.THRESH_BINARY | cv2.THRESH_OTSU)
-                        newImg = Image.fromarray(thresImg)
+                        # newImg = Image.fromarray(thresImg)
+
+                        # plt.imshow(newImg)
+                        # plt.show()
+
+                        # plt.imshow(Image.fromarray(thresImg))
+                        # plt.show()
+                        #
+                        # plt.imshow(Image.fromarray(thresImg[:, 210:265]))
+                        # plt.show()
+                        #
+                        # plt.imshow(Image.fromarray(thresImg[5:35, 280:385]))
+                        # plt.show()
 
                         idx += 1
+                        # log.info(f'[CHECK] idx : {idx}')
 
-                        # data = pytesseract.image_to_string(cropImg)
-                        data = pytesseract.image_to_string(newImg)
+                        extInfo = {}
+
+                        # if len(data) < 1: continue
+                        # data = pytesseract.image_to_string(newImg)
                         # log.info(f'[CHECK] data : {data}')
 
                         # 패턴에 따라 문자열에서 데이터 추출
-                        extInfo = {key: re.search(pattern, data).group(1) if re.search(pattern, data) else None for key, pattern in patterns.items()}
+                        # extInfo = {key: re.search(pattern, data).group(1) if re.search(pattern, data) else None for key, pattern in patterns.items()}
+                        # log.info(f'[CHECK] extInfo : {extInfo}')
 
-                        if extInfo['lat'] is None or len(extInfo['lat']) != 8: continue
-                        if extInfo['lon'] is None or len(extInfo['lon']) != 9: continue
-                        if extInfo['dateTime'] is None or len(extInfo['dateTime']) != 19: continue
+                        # getLat = pytesseract.image_to_string(Image.fromarray(thresImg[:, 0:180]))
+                        extInfo['lat'] = None
+                        try:
+                            extInfo['lat-imgToStr'] = pytesseract.image_to_string(Image.fromarray(thresImg[:, 20:55]))
+                            extInfo['lat-imgToStr2'] = pytesseract.image_to_string(Image.fromarray(thresImg[:, 70:180]))
+
+                            if len(extInfo['lat-imgToStr']) > 0 and len(extInfo['lat-imgToStr2']) > 0:
+                                extInfo['lat'] = pd.to_numeric(''.join(re.findall(patterns['lat'], f"{extInfo['lat-imgToStr']}.{extInfo['lat-imgToStr2']}")))
+                        except Exception as e:
+                            log.error("Exception : {}".format(e))
+
+                        # getLon = pytesseract.image_to_string(Image.fromarray(thresImg[:, 210:390]))
+                        extInfo['lon'] = None
+                        try:
+                            extInfo['lon-imgToStr'] = pytesseract.image_to_string(Image.fromarray(thresImg[:, 210:265]))
+                            extInfo['lon-imgToStr2'] = pytesseract.image_to_string(Image.fromarray(thresImg[:, 280:390]))
+
+                            if len(extInfo['lon-imgToStr']) > 0 and len(extInfo['lon-imgToStr2']) > 0:
+                                extInfo['lon'] = pd.to_numeric(''.join(re.findall(patterns['lon'], f"{extInfo['lon-imgToStr']}.{extInfo['lon-imgToStr2']}")))
+                        except Exception as e:
+                            log.error("Exception : {}".format(e))
+
+                        extInfo['dateTime'] = None
+                        try:
+                            extInfo['dateTime-imgToStr'] = pytesseract.image_to_string(Image.fromarray(thresImg[:, 400:740]))
+
+                            if len(extInfo['dateTime-imgToStr']) > 0:
+                                extInfo['dateTime'] = re.search(patterns['dateTime'], extInfo['dateTime-imgToStr']).group(1)
+                        except Exception as e:
+                            log.error("Exception : {}".format(e))
 
                         dict = {
                             'videoInfo': [fileInfo]
-                            # , 'frame': [frame]
                             , 'idx': [idx]
-                            , 'lat': [dmsToDecimal(extInfo['lat'])]
-                            , 'lon': [dmsToDecimal(extInfo['lon'])]
+                            # , 'frame': [frame]
+                            # , 'lat': [dmsToDecimal(extInfo['lat'])]
+                            # , 'lon': [dmsToDecimal(extInfo['lon'])]
+                            # , 'dateTime': [pd.to_datetime(extInfo['dateTime'])]
+                            # , 'data': [data]
+                            , 'lat': [extInfo['lat']]
+                            , 'lon': [extInfo['lon']]
                             , 'dateTime': [pd.to_datetime(extInfo['dateTime'])]
+                            , 'extInfo': [extInfo]
                         }
 
                         # log.info(f'[CHECK] dict : {dict}')
@@ -390,6 +450,13 @@ class DtaProcess(object):
                 # ********************************************************************************************
                 # 자료 병합
                 # **************************************************************************************
+                saveFile = '{}/{}/{}_{}.csv'.format(globalVar['outPath'], serviceName, fileNameNoExt, 'dataL1')
+                os.makedirs(os.path.dirname(saveFile), exist_ok=True)
+                dataL1.to_csv(saveFile, index=False)
+                log.info(f'[CHECK] saveFile : {saveFile}')
+
+                # dataL1 = pd.read_csv(saveFile)
+
                 dataL1 = dataL1[
                     (dataL1['lat'] >= sysOpt['minLat']) &
                     (dataL1['lat'] <= sysOpt['maxLat']) &
