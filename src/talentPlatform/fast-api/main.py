@@ -22,9 +22,18 @@ import os
 import glob
 import re
 from fastapi.middleware.cors import CORSMiddleware
+import uvicorn
+from fastapi import FastAPI
+from fastapi import FastAPI, UploadFile, File, HTTPException
+from sqlalchemy import create_engine, MetaData, Table, Column, Integer, String, select, delete, update
+from typing import List
+import pymysql
+import os
 
 # from fastapi.security import OAuth2PasswordBearer
 # oauth2_scheme = OAuth2PasswordBearer(tokenUrl="token")
+
+UPLOAD_PATH = "/DATA/UPLOAD"
 
 app = FastAPI()
 
@@ -36,18 +45,15 @@ origins = [
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=origins, # 허용되는 출처 목록
+    allow_origins=origins,  # 허용되는 출처 목록
     allow_credentials=True,
-    allow_methods=["*"], # 허용되는 HTTP 메서드
+    allow_methods=["*"],  # 허용되는 HTTP 메서드
     allow_headers=["*"]  # 허용되는 HTTP 헤더
 )
 
-UPLOAD_PATH = "/DATA/UPLOAD" 
-
 # 공유폴더
-#app.mount('/UPLOAD', StaticFiles(directory='/DATA/UPLOAD'), name='/DATA/UPLOAD')
+# app.mount('/UPLOAD', StaticFiles(directory='/DATA/UPLOAD'), name='/DATA/UPLOAD')
 app.mount('/UPLOAD', StaticFiles(directory=UPLOAD_PATH), name='/DATA/UPLOAD')
-
 
 def makePlot():
     x = np.linspace(-np.pi, np.pi, 256, endpoint=True)
@@ -73,6 +79,7 @@ def makePlot():
 
     return buf
 
+
 def cmdProc(args):
     cmd = []
     for section in ['cmd', 'input', 'output']:
@@ -82,6 +89,8 @@ def cmdProc(args):
             else:
                 cmd.extend([f'{value}'])
     return ' '.join(cmd)
+
+
 
 class DownloadResponse(BaseModel):
     filename: str
@@ -93,6 +102,8 @@ class ScriptRequest(BaseModel):
 
 class ScriptResponse(BaseModel):
     output_param: str
+
+
 
 @app.get("/file_list", response_model=List[Dict[str, Union[str, float]]])
 async def get_file_list():
@@ -108,10 +119,11 @@ async def get_file_list():
     except Exception as e:
         return {"error": str(e)}
 
+
 @app.post("/upload/")
 async def upload_file(file: UploadFile = File(...)):
     try:
-        #file_path = f"/DATA/UPLOAD/{file.filename}"
+        # file_path = f"/DATA/UPLOAD/{file.filename}"
         file_path = f"{UPLOAD_PATH}/{file.filename}"
         with open(file_path, "wb") as buffer:
             shutil.copyfileobj(file.file, buffer)
@@ -119,13 +131,14 @@ async def upload_file(file: UploadFile = File(...)):
     except Exception as e:
         return {"error": str(e)}
 
+
 @app.post("/upload_multiple/")
 async def upload_multiple_files(files: List[UploadFile] = File(...)):
     uploaded_files = []
     errors = []
     for file in files:
         try:
-            #file_path = f"/DATA/UPLOAD/{file.filename}"
+            # file_path = f"/DATA/UPLOAD/{file.filename}"
             file_path = f"{UPLOAD_PATH}/{file.filename}"
             with open(file_path, "wb") as buffer:
                 shutil.copyfileobj(file.file, buffer)
@@ -134,9 +147,10 @@ async def upload_multiple_files(files: List[UploadFile] = File(...)):
             errors.append({"filename": file.filename, "error": str(e)})
     return {"uploaded": uploaded_files, "errors": errors}
 
+
 @app.post("/download/")
 async def download_file(request: DownloadResponse):
-    #file_path = f"/DATA/UPLOAD/{request.filename}"
+    # file_path = f"/DATA/UPLOAD/{request.filename}"
     file_path = f"{UPLOAD_PATH}/{request.filename}"
     try:
         if os.path.exists(file_path):
@@ -145,6 +159,7 @@ async def download_file(request: DownloadResponse):
             return {"error": "File not found"}
     except Exception as e:
         return {"error": str(e)}
+
 
 @app.post("/run_cmd")
 # async def run_script(script_path: str, args: Dict[str, Dict[str, str]]):
@@ -161,6 +176,7 @@ async def run_cmd(args: Dict[str, Dict[str, str]]):
     except Exception as e:
         return {"error": str(e)}
 
+
 @app.get("/make_plot")
 async def make_plot():
     try:
@@ -172,3 +188,14 @@ async def make_plot():
     except Exception as e:
         return {"error": str(e)}
 
+
+if __name__ == "__main__":
+    # reload : 코드 변경 시 자동으로 저장되어 재시작 됨
+    # host : 모든 접근이 가능하게 하려면 0.0.0.0을 입력한다
+    # port : 접속 원하는 포트를 지정해준다.
+
+    # uvicorn main:app --reload --host=0.0.0.0 --port=8000
+    # uvicorn.run(app, host="0.0.0.0", port=8000, reload=True)
+
+    # iptables -I INPUT 1 -p tcp --dport 9998 -j ACCEPT
+    uvicorn.run(app, host="0.0.0.0", port=9998)
