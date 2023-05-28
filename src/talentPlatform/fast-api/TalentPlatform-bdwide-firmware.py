@@ -75,6 +75,9 @@ import json
 #   "bin": "/test/http_test.bin"
 # }
 
+# /SYSTEMS/PROG/NODE/NetIO.js
+# node NetIO.js
+
 # =================================================
 # 유틸리티 함수
 # =================================================
@@ -141,7 +144,8 @@ def getDb():
 #     if api_key != "my_secret_key":
 #         raise HTTPException(status_code=401, detail="Invalid API Key")
 async def chkApiKey(api_key: str = Depends(APIKeyHeader(name="api"))):
-    if api_key != "123":
+    # if api_key != "123":
+    if api_key != "eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzI1NiJ9.eyJ1c2VyX2FjY291bnQiOjI0fQ.pXluG0rOyeoO8xSvAFYCOrkIaYofUkUR3dIijJOT6xg":
         raise HTTPException(status_code=401, detail="Invalid API Key")
 
 def resRespone(status: str, code: int, message: str, cnt: int = 0, data: Any = None) -> dict:
@@ -271,9 +275,7 @@ def file_upload(
         db.commit()
         db.refresh(firmware)
 
-        # return db
-        # return {"status": "success", "code": 200, "message": "Firmware uploaded successfully", "data": db}
-        return resRespone("succ", 200, "처리 완료", len(db), db)
+        return resRespone("succ", 200, "처리 완료", 0, db)
 
     except Exception as e:
         log.error(f'Exception : {e}')
