@@ -290,8 +290,12 @@ class DtaProcess(object):
 
                     # 시간 임계값
                     , 'timeThres': 60
+
+                    , 'videoPath' : '202305/29/1840'
+                    , 'videoName' : '20230504_output.mp4'
                 }
 
+                globalVar['updPath'] = '/DATA/VIDEO'
                 globalVar['inpPath'] = '/DATA/INPUT'
                 globalVar['outPath'] = '/DATA/OUTPUT'
                 globalVar['figPath'] = '/DATA/FIG'
@@ -316,8 +320,8 @@ class DtaProcess(object):
 
             # inpFile = '{}/{}/{}'.format(globalVar['inpPath'], serviceName, '20230504_output.mp4')
             # inpFile = '{}/{}/{}'.format(globalVar['inpPath'], serviceName, '20230501122318_000005.mp4')
-            inpFile = '{}/{}/{}'.format(globalVar['inpPath'], serviceName, 'KakaoTalk_20230519_112032690.mp4')
-            # inpFile = '{}/{}/{}'.format(globalVar['inpPath'], serviceName, 'object_tracking18/20230501122318_000005.MP4')
+            # inpFile = '{}/{}/{}'.format(globalVar['inpPath'], serviceName, 'KakaoTalk_20230519_112032690.mp4')
+            inpFile = '{}/{}/{}'.format(globalVar['updPath'], sysOpt['videoPath'], sysOpt['videoName'])
 
             fileList = sorted(glob.glob(inpFile))
 
@@ -450,62 +454,63 @@ class DtaProcess(object):
                 # ********************************************************************************************
                 # 자료 병합
                 # **************************************************************************************
-                saveFile = '{}/{}/{}_{}.csv'.format(globalVar['outPath'], serviceName, fileNameNoExt, 'dataL1')
+                # saveFile = '{}/{}/{}_{}.csv'.format(globalVar['outPath'], serviceName, fileNameNoExt, 'dataL1')
+                saveFile = '{}/{}/{}_{}.csv'.format(globalVar['updPath'], sysOpt['videoPath'], sysOpt['videoName'], 'dataL1')
                 os.makedirs(os.path.dirname(saveFile), exist_ok=True)
                 dataL1.to_csv(saveFile, index=False)
                 log.info(f'[CHECK] saveFile : {saveFile}')
 
                 # dataL1 = pd.read_csv(saveFile)
 
-                dataL1 = dataL1[
-                    (dataL1['lat'] >= sysOpt['minLat']) &
-                    (dataL1['lat'] <= sysOpt['maxLat']) &
-                    (dataL1['lon'] >= sysOpt['minLon']) &
-                    (dataL1['lon'] <= sysOpt['maxLon'])
-                    ]
-
-                statData = dataL1.groupby(['videoInfo']).agg(lambda x: x.value_counts().index[0])
-                # log.info(f'[CHECK] statData : {statData}')
-
-                # 데이터 필터링
-                dataL2 = dataL1[
-                    (abs(dataL1['lat'] - statData['lat'][0]) <= 0.05) &
-                    (abs(dataL1['lon'] - statData['lon'][0]) <= 0.05) &
-                    (abs(pd.to_datetime(dataL1['dateTime']) - pd.to_datetime(statData['dateTime'][0])) <= timedelta(seconds=playTime))
-                    ]
-
-                dataL3 = dataL2.groupby(['videoInfo', 'dateTime']).agg(lambda x: x.value_counts().index[0]).reset_index()
-
-                # dataL3 = procFile(dataL3, 'NEW-cnt', 'NEW-info', 'object_tracking8*/labels/{}_{}.txt', serviceName, fileNameNoExt)
-                # dataL3 = procFile(dataL3, 'NEW2-cnt', 'NEW2-info', 'exp9*/labels/{}_{}.txt', serviceName, fileNameNoExt)
-                # dataL3 = procFile(dataL3, 'NEW-cnt', 'NEW-info', 'object_tracking18*/labels/{}_{}.txt', serviceName, fileNameNoExt)
-                # dataL3 = procFile(dataL3, 'NEW2-cnt', 'NEW2-info', 'exp78*/labels/{}_{}.txt', serviceName, fileNameNoExt)
-                dataL3 = procFile(dataL3, 'NEW-cnt', 'NEW-info', 'object_tracking19*/labels/{}_{}.txt', serviceName, fileNameNoExt)
-                dataL3 = procFile(dataL3, 'NEW2-cnt', 'NEW2-info', 'exp79*/labels/{}_{}.txt', serviceName, fileNameNoExt)
-
-                # for j, row in dataL3.iterrows():
-                #     saveImg = '{}/{}/{}-{}.png'.format(globalVar['figPath'], serviceName, fileNameNoExt, str(row.idx).zfill(10))
-                #     os.makedirs(os.path.dirname(saveImg), exist_ok=True)
-                #     plt.imshow(row.frame)
-                #     plt.axis("off")
-                #     plt.savefig(saveImg, dpi=600, bbox_inches='tight')
-                #     # plt.show()
-                #     log.info(f'[CHECK] saveImg : {saveImg}')
-
-                dataL3['dateTimeDiff'] = pd.to_datetime(dataL3['dateTime']).diff().dt.total_seconds()
-
-                # 특정 임계값 60초 이상
-                dataL4 = dataL3[dataL3['dateTimeDiff'] <= sysOpt['timeThres']]
-
-                saveFile = '{}/{}/{}_{}.csv'.format(globalVar['outPath'], serviceName, fileNameNoExt, 'FNL')
-                os.makedirs(os.path.dirname(saveFile), exist_ok=True)
-                dataL4.to_csv(saveFile, index=False)
-                log.info(f'[CHECK] saveFile : {saveFile}')
-
-                saveFile = '{}/{}/{}_{}.xlsx'.format(globalVar['outPath'], serviceName, fileNameNoExt, 'FNL')
-                os.makedirs(os.path.dirname(saveFile), exist_ok=True)
-                dataL4.to_excel(saveFile, index=False)
-                log.info(f'[CHECK] saveFile : {saveFile}')
+                # dataL1 = dataL1[
+                #     (dataL1['lat'] >= sysOpt['minLat']) &
+                #     (dataL1['lat'] <= sysOpt['maxLat']) &
+                #     (dataL1['lon'] >= sysOpt['minLon']) &
+                #     (dataL1['lon'] <= sysOpt['maxLon'])
+                #     ]
+                #
+                # statData = dataL1.groupby(['videoInfo']).agg(lambda x: x.value_counts().index[0])
+                # # log.info(f'[CHECK] statData : {statData}')
+                #
+                # # 데이터 필터링
+                # dataL2 = dataL1[
+                #     (abs(dataL1['lat'] - statData['lat'][0]) <= 0.05) &
+                #     (abs(dataL1['lon'] - statData['lon'][0]) <= 0.05) &
+                #     (abs(pd.to_datetime(dataL1['dateTime']) - pd.to_datetime(statData['dateTime'][0])) <= timedelta(seconds=playTime))
+                #     ]
+                #
+                # dataL3 = dataL2.groupby(['videoInfo', 'dateTime']).agg(lambda x: x.value_counts().index[0]).reset_index()
+                #
+                # # dataL3 = procFile(dataL3, 'NEW-cnt', 'NEW-info', 'object_tracking8*/labels/{}_{}.txt', serviceName, fileNameNoExt)
+                # # dataL3 = procFile(dataL3, 'NEW2-cnt', 'NEW2-info', 'exp9*/labels/{}_{}.txt', serviceName, fileNameNoExt)
+                # # dataL3 = procFile(dataL3, 'NEW-cnt', 'NEW-info', 'object_tracking18*/labels/{}_{}.txt', serviceName, fileNameNoExt)
+                # # dataL3 = procFile(dataL3, 'NEW2-cnt', 'NEW2-info', 'exp78*/labels/{}_{}.txt', serviceName, fileNameNoExt)
+                # dataL3 = procFile(dataL3, 'NEW-cnt', 'NEW-info', 'object_tracking19*/labels/{}_{}.txt', serviceName, fileNameNoExt)
+                # dataL3 = procFile(dataL3, 'NEW2-cnt', 'NEW2-info', 'exp79*/labels/{}_{}.txt', serviceName, fileNameNoExt)
+                #
+                # # for j, row in dataL3.iterrows():
+                # #     saveImg = '{}/{}/{}-{}.png'.format(globalVar['figPath'], serviceName, fileNameNoExt, str(row.idx).zfill(10))
+                # #     os.makedirs(os.path.dirname(saveImg), exist_ok=True)
+                # #     plt.imshow(row.frame)
+                # #     plt.axis("off")
+                # #     plt.savefig(saveImg, dpi=600, bbox_inches='tight')
+                # #     # plt.show()
+                # #     log.info(f'[CHECK] saveImg : {saveImg}')
+                #
+                # dataL3['dateTimeDiff'] = pd.to_datetime(dataL3['dateTime']).diff().dt.total_seconds()
+                #
+                # # 특정 임계값 60초 이상
+                # dataL4 = dataL3[dataL3['dateTimeDiff'] <= sysOpt['timeThres']]
+                #
+                # saveFile = '{}/{}/{}_{}.csv'.format(globalVar['outPath'], serviceName, fileNameNoExt, 'FNL')
+                # os.makedirs(os.path.dirname(saveFile), exist_ok=True)
+                # dataL4.to_csv(saveFile, index=False)
+                # log.info(f'[CHECK] saveFile : {saveFile}')
+                #
+                # saveFile = '{}/{}/{}_{}.xlsx'.format(globalVar['outPath'], serviceName, fileNameNoExt, 'FNL')
+                # os.makedirs(os.path.dirname(saveFile), exist_ok=True)
+                # dataL4.to_excel(saveFile, index=False)
+                # log.info(f'[CHECK] saveFile : {saveFile}')
 
         except Exception as e:
             log.error("Exception : {}".format(e))
