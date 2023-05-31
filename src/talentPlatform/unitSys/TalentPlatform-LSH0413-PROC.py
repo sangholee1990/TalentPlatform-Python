@@ -201,7 +201,6 @@ def procFile(data, column_cnt, column_info, path_pattern, serviceName, fileNameN
 
     return data
 
-
 # ================================================
 # 4. 부 프로그램
 # ================================================
@@ -291,8 +290,10 @@ class DtaProcess(object):
                     # 시간 임계값
                     , 'timeThres': 60
 
-                    , 'videoPath' : '202305/29/1840'
-                    , 'videoName' : '20230504_output.mp4'
+                    # , 'videoPath' : '202305/29/1840'
+                    # , 'videoName' : '20230504_output.mp4'
+                    , 'videoPath' : '202305/31/2333'
+                    , 'videoName' : 'test2.mp4'
                 }
 
                 globalVar['updPath'] = '/DATA/VIDEO'
@@ -455,7 +456,7 @@ class DtaProcess(object):
                 # 자료 병합
                 # **************************************************************************************
                 # saveFile = '{}/{}/{}_{}.csv'.format(globalVar['outPath'], serviceName, fileNameNoExt, 'dataL1')
-                saveFile = '{}/{}/{}_{}.csv'.format(globalVar['updPath'], sysOpt['videoPath'], sysOpt['videoName'], 'dataL1')
+                saveFile = '{}/{}/{}_{}.csv'.format(globalVar['updPath'], sysOpt['videoPath'], fileNameNoExt, 'dataL1')
                 os.makedirs(os.path.dirname(saveFile), exist_ok=True)
                 dataL1.to_csv(saveFile, index=False)
                 log.info(f'[CHECK] saveFile : {saveFile}')
