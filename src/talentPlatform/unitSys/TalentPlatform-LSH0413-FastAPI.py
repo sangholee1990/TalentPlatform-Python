@@ -350,8 +350,8 @@ async def file_upload(
 
         proc = findProceByCmdline('TalentPlatform-LSH0413-detect_and_track.py')
         proc2 = findProceByCmdline('TalentPlatform-LSH0413-deep_sort_tracking_id.py')
-        # maxProcCnt = 0
-        maxProcCnt = 1
+        maxProcCnt = 0
+        # maxProcCnt = 1
 
         if len(proc) > maxProcCnt or len(proc2) > maxProcCnt:
             raise Exception("현재 프로세스 수행 중이오니 1시간 이후로 다시 실행 부탁드립니다.")
