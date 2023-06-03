@@ -67,6 +67,9 @@ echo "[$(date +"%Y-%m-%d %H:%M:%S")] [CHECK] videoName : $videoName"
 #echo ${PY38_PATH} ${RUN_PATH}/yolov7-object-tracking/TalentPlatform-LSH0413-detect_and_track.py --weights yolov7.pt --source "${VIDEO_PATH}/${videoPath}/${videoName}" --classes 0 --save-txt --no-trace --exist-ok --project "result" --name "${videoPath}"
 #echo ${PY38_PATH} ${RUN_PATH}/YOLOv7-DeepSORT-Object-Tracking/TalentPlatform-LSH0413-deep_sort_tracking_id.py --weights yolov7.pt --source "${VIDEO_PATH}/${videoPath}/${videoName}" --classes 0 --save-txt --save-conf --exist-ok --project "result" --name "${videoPath}"
 
+ln -sf ${RUN_PATH}/yolov7-object-tracking/result/${videoPath} ${VIDEO_PATH}/${videoPath}/yolov7-object-tracking
+ln -sf ${RUN_PATH}/YOLOv7-DeepSORT-Object-Tracking/result/${videoPath} ${VIDEO_PATH}/${videoPath}/YOLOv7-DeepSORT-Object-Tracking
+
 cd ${RUN2_PATH}
 ${PY38_PATH} ${RUN2_PATH}/TalentPlatform-LSH0413-PROC.py --videoPath ${videoPath} --videoName ${videoName} &
 sleep 2s
@@ -80,9 +83,6 @@ ${PY38_PATH} ${RUN_PATH}/YOLOv7-DeepSORT-Object-Tracking/TalentPlatform-LSH0413-
 sleep 2s
 
 wait
-
-ln -sf ${RUN_PATH}/yolov7-object-tracking/result/${videoPath} ${VIDEO_PATH}/${videoPath}/yolov7-object-tracking
-ln -sf ${RUN_PATH}/YOLOv7-DeepSORT-Object-Tracking/result/${videoPath} ${VIDEO_PATH}/${videoPath}/YOLOv7-DeepSORT-Object-Tracking
 
 cd ${RUN2_PATH}
 ${PY38_PATH} ${RUN2_PATH}/TalentPlatform-LSH0413-FNL.py --videoPath ${videoPath} --videoName ${videoName}
