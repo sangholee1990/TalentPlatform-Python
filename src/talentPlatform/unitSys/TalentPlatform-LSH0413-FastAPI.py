@@ -62,6 +62,7 @@ from fastapi import FastAPI, UploadFile, File, BackgroundTasks
 import psutil
 import re
 
+
 # =================================================
 # 도움말
 # =================================================
@@ -72,7 +73,11 @@ import re
 # uvicorn TalentPlatform-LSH0413-FastAPI:app --reload --host=0.0.0.0 --port=9000
 # http://223.130.134.136:9000/docs
 
-# eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzI1NiJ9.eyJ1c2VyX2FjY291bnQiOjI0fQ.pXluG0rOyeoO8xSvAFYCOrkIaYofUkUR3dIijJOT6xg
+# gunicorn TalentPlatform-LSH0413-FastAPI:app --workers 2 --worker-class uvicorn.workers.UvicornWorker --daemon --access-logfile ./main.log --bind 0.0.0.0:8000 --reload
+
+# ps -ef | grep gunicorn | awk '{print $2}' | xargs kill -9
+# gunicorn TalentPlatform-LSH0413-FastAPI:app --workers 2 --worker-class uvicorn.workers.UvicornWorker --daemon --bind 0.0.0.0:9000 --reload
+
 
 # {
 #   "type": "esp-32-fota-https",
@@ -209,6 +214,7 @@ def firmwareToDict(firmware):
         "DOWN_LINK": f"{getPubliIp()}:9998/firm/down/?file={firmware.BIN}"
     }
 
+
 async def run_script(cmd):
     loop = asyncio.get_event_loop()
     process = await loop.run_in_executor(None, lambda: subprocess.Popen(cmd, shell=True, executable='/bin/bash', stdout=subprocess.PIPE, stderr=subprocess.PIPE, encoding='utf-8'))
@@ -221,6 +227,7 @@ async def run_script(cmd):
 
     # print(f'[CHECK] stdout : {stdout}')
 
+
 def findProceByCmdline(regex):
     pattern = re.compile(regex)
     matches = []
@@ -229,6 +236,7 @@ def findProceByCmdline(regex):
         if pattern.search(cmdline):
             matches.append(proc)
     return matches
+
 
 # ================================================================================================
 # 환경변수 설정
@@ -333,14 +341,19 @@ async def file_upload(
         db: Session = Depends(getDb)
 ):
     """
-    기능 : 펌웨어 업로드\n
-    파라미터 : API키, file 파일 (bin 컬럼), type 펌웨어 유형, ver 펌웨어 버전, host 호스트, port 포트  \n
+    기능 : 비디오 영상 파일 업로드 (mp4, MP4) \n
+    파라미터 : API키 없음, file 비디오 영상 파일 \n
     """
     try:
+        if re.search(r'\.(?!(mp4|MP4)$)[^.]*$', file.filename) is not None:
+            raise Exception("비디오 영상 파일 (mp4, MP4)을 확인해주세요.")
+
         proc = findProceByCmdline('TalentPlatform-LSH0413-detect_and_track.py')
         proc2 = findProceByCmdline('TalentPlatform-LSH0413-deep_sort_tracking_id.py')
+        # maxProcCnt = 0
+        maxProcCnt = 1
 
-        if len(proc) > 0 or len(proc2) > 0:
+        if len(proc) > maxProcCnt or len(proc2) > maxProcCnt:
             raise Exception("현재 프로세스 수행 중이오니 1시간 이후로 다시 실행 부탁드립니다.")
 
         dtDateTime = datetime.datetime.now(pytz.timezone('Asia/Seoul'))
@@ -371,9 +384,9 @@ async def file_upload(
 @app.get("/file/down/")
 async def file_down(file: str):
     """
-    기능 : 펌웨어 다운로드\n
-    파라미터 : API키, file 파일 (file_info 또는 file_list에서 bin 컬럼 정보) \n
-    파일 저장소 : /DATA/UPLOAD/%Y%m/%d/%H/DrivePro_Toolbox_Setup_v4.0 (64bit).exe \n
+    기능 : 비디오 영상 파일 다운로드\n
+    파라미터 : API키 없음, file 비디오 영상 파일 \n
+    파일 저장소 : /DATA/UPLOAD/%Y%m/%d/%H/파일명.zip \n
     """
     try:
         fileInfo = os.path.join(UPLOAD_PATH, file)
@@ -386,7 +399,6 @@ async def file_down(file: str):
     except Exception as e:
         log.error(f'Exception : {e}')
         raise HTTPException(status_code=400, detail=resRespone("fail", 400, "처리 실패", str(e)))
-
 
 # @app.post("/firm/file_info", dependencies=[Depends(chkApiKey)])
 # @app.post("/firm/file_info")
