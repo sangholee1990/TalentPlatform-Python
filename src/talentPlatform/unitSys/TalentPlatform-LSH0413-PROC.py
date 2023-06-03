@@ -292,8 +292,10 @@ class DtaProcess(object):
 
                     # , 'videoPath' : '202305/29/1840'
                     # , 'videoName' : '20230504_output.mp4'
-                    , 'videoPath' : '202305/31/2333'
-                    , 'videoName' : 'test2.mp4'
+                    # , 'videoPath' : '202305/31/2333'
+                    # , 'videoName' : 'test2.mp4'
+                    , 'videoPath' : globalVar['videoPath']
+                    , 'videoName' : globalVar['videoName']
                 }
 
                 globalVar['updPath'] = '/DATA/VIDEO'

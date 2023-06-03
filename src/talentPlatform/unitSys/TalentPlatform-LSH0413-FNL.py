@@ -9,8 +9,12 @@ import sys
 import traceback
 import warnings
 from datetime import datetime
-from sqlalchemy import Column, Float
 
+from osgeo_utils.gdal_merge import file_info
+from sqlalchemy import Column, Float
+from sqlalchemy.dialects.mysql import DOUBLE
+from sqlalchemy import Table, Column, Integer, String, MetaData
+from sqlalchemy import Column, Numeric
 import matplotlib as mpl
 import matplotlib.cm as cm
 import matplotlib.pyplot as plt
@@ -26,7 +30,7 @@ import csv
 import pytesseract
 from PIL import Image
 import glob
-
+import zipfile
 import cv2
 import pytesseract
 import io
@@ -43,8 +47,11 @@ from urllib.parse import quote_plus
 import configparser
 import pymysql
 
+from sqlalchemy.dialects.mysql import insert
+
 from sqlalchemy import Boolean, Column, ForeignKey, Integer, String, DateTime, create_engine
 from sqlalchemy.ext.declarative import declarative_base
+from sqlalchemy.exc import SQLAlchemyError
 
 # =================================================
 # 사용자 매뉴얼
@@ -70,6 +77,8 @@ plt.rc('axes', unicode_minus=False)
 
 # 그래프에서 마이너스 글꼴 깨지는 문제에 대한 대처
 mpl.rcParams['axes.unicode_minus'] = False
+
+Base = declarative_base()
 
 
 # =================================================
@@ -203,7 +212,8 @@ def procFile(data, column_cnt, column_info, path_pattern, serviceName, fileNameN
     for j, row in data.iterrows():
         log.info(f'[CHECK] row : {row.idx}')
 
-        inpFile = os.path.join(globalVar['inpPath'], serviceName, path_pattern.format(fileNameNoExt, row.idx))
+        # inpFile = os.path.join(globalVar['inpPath'], serviceName, path_pattern.format(fileNameNoExt, row.idx))
+        inpFile = os.path.join(path_pattern.format(fileNameNoExt, row.idx))
         fileList = sorted(glob.glob(inpFile), key=sortKeyNum)
 
         data.loc[j, column_cnt] = None
@@ -216,9 +226,11 @@ def procFile(data, column_cnt, column_info, path_pattern, serviceName, fileNameN
 
     return data
 
+
 def getPubliIp():
     response = requests.get('https://api.ipify.org')
     return response.text
+
 
 def initCfgInfo(sysPath):
     log.info('[START] {}'.format('initCfgInfo'))
@@ -269,22 +281,22 @@ def initCfgInfo(sysPath):
         # try, catch 구문이 종료되기 전에 무조건 실행
         log.info('[END] {}'.format('initCfgInfo'))
 
+
 # ================================================
 # 4. 부 프로그램
 # ================================================
 # class VideoInfoDtl(Base):
-class VideoInfoDtl():
-    __tablename__ = "TB_VIDEO_INFO_DTL"
-
-    VIEDO_PATH = Column(String(200), primary_key=True, index=True, comment="비디오 경로")
-    VIEDO_NAME = Column(String(200), primary_key=True, index=True, comment="비디오 이름")
-    DATE_TIME = Column(DateTime, comment="날짜")
-    IDX = Column(Integer, comment="인덱스")
-    LAT = Column(Float(precision=64), comment="위도")
-    LON = Column(Float(precision=64), comment="경도")
-    CNT = Column(Integer, comment="인덱스")
-    CNT2 = Column(Integer, comment="인덱스")
-    DATE_TIME_DIFF = Column(Integer, comment="시간 간격")
+#     __tablename__ = "TB_VIDEO_INFO_DTL"
+#
+#     VIEDO_PATH = Column(String(200), primary_key=True, index=True, comment="비디오 경로")
+#     VIEDO_NAME = Column(String(200), primary_key=True, index=True, comment="비디오 이름")
+#     DATE_TIME = Column(DateTime, comment="날짜")
+#     IDX = Column(Integer, comment="인덱스")
+#     LAT = Column(Float, comment="위도")
+#     LON = Column(Float, comment="경도")
+#     CNT = Column(Integer, comment="인덱스")
+#     CNT2 = Column(Integer, comment="인덱스")
+#     DATE_TIME_DIFF = Column(Integer, comment="시간 간격")
 
 
 class DtaProcess(object):
@@ -364,6 +376,7 @@ class DtaProcess(object):
 
                     , 'pyTesCmd': '/SYSTEMS/anaconda3/envs/py38/bin/tesseract'
                     , 'pyTesData': '/SYSTEMS/anaconda3/envs/py38/share/tessdata'
+                    , 'pyHumanCnt': '/SYSTEMS/PROG/PYTHON/HUMAN-CNT'
 
                     , 'minLat': 30
                     , 'maxLat': 40
@@ -375,8 +388,10 @@ class DtaProcess(object):
 
                     # , 'videoPath' : '202305/29/1840'
                     # , 'videoName' : '20230504_output.mp4'
-                    , 'videoPath' : '202305/31/2333'
-                    , 'videoName' : 'test2.mp4'
+                    # , 'videoPath': '202305/31/2333'
+                    # , 'videoName': 'test2.mp4'
+                    , 'videoPath': globalVar['videoPath']
+                    , 'videoName': globalVar['videoName']
                 }
 
                 globalVar['updPath'] = '/DATA/VIDEO'
@@ -390,9 +405,27 @@ class DtaProcess(object):
             # DB 정보
             cfgInfo = initCfgInfo(f"{globalVar['cfgPath']}/system.cfg")
             dbEngine = cfgInfo['dbEngine']
+            session = cfgInfo['session']
 
-            Base = declarative_base()
-            Base.metadata.create_all(bind=dbEngine)
+            metadata = MetaData()
+
+            makeTable = Table(
+                'TB_VIDEO_INFO_DTL'
+                , metadata
+                , Column('VIDEO_PATH', String(500), primary_key=True, index=True, comment="비디오 경로")
+                , Column('VIDEO_NAME', String(500), primary_key=True, index=True, comment="비디오 이름")
+                , Column('DATE_TIME', DateTime, comment="날짜")
+                , Column('IDX', Integer, primary_key=True, index=True, comment="인덱스")
+                , Column('LAT', Float, comment="위도")
+                , Column('LON', Float, comment="경도")
+                , Column('CNT', Integer, comment="AI인파")
+                , Column('CNT2', Integer, comment="AI인파2")
+                , Column('DATE_TIME_DIFF', Float, comment="시간 간격")
+                , Column('DOWN', String(500), comment="다운로드")
+                , extend_existing=True
+            )
+
+            metadata.create_all(bind=dbEngine)
 
             x1, x2, y1, y2 = sysOpt['srtRow'], sysOpt['endRow'], sysOpt['srcCol'], sysOpt['endCol']
             pytesseract.pytesseract.tesseract_cmd = sysOpt['pyTesCmd']
@@ -572,12 +605,11 @@ class DtaProcess(object):
 
                 dataL3 = dataL2.groupby(['videoInfo', 'dateTime']).agg(lambda x: x.value_counts().index[0]).reset_index()
 
-                # dataL3 = procFile(dataL3, 'NEW-cnt', 'NEW-info', 'object_tracking8*/labels/{}_{}.txt', serviceName, fileNameNoExt)
-                # dataL3 = procFile(dataL3, 'NEW2-cnt', 'NEW2-info', 'exp9*/labels/{}_{}.txt', serviceName, fileNameNoExt)
-                # dataL3 = procFile(dataL3, 'NEW-cnt', 'NEW-info', 'object_tracking18*/labels/{}_{}.txt', serviceName, fileNameNoExt)
-                # dataL3 = procFile(dataL3, 'NEW2-cnt', 'NEW2-info', 'exp78*/labels/{}_{}.txt', serviceName, fileNameNoExt)
-                dataL3 = procFile(dataL3, 'NEW-cnt', 'NEW-info', 'object_tracking19*/labels/{}_{}.txt', serviceName, fileNameNoExt)
-                dataL3 = procFile(dataL3, 'NEW2-cnt', 'NEW2-info', 'exp79*/labels/{}_{}.txt', serviceName, fileNameNoExt)
+                # yolov7-object-tracking
+                dataL3 = procFile(dataL3, 'NEW-cnt', 'NEW-info', f"{sysOpt['pyHumanCnt']}/yolov7-object-tracking/result/{sysOpt['videoPath']}/labels/" + "{}_{}.txt", serviceName, fileNameNoExt)
+
+                # YOLOv7-DeepSORT-Object-Tracking
+                dataL3 = procFile(dataL3, 'NEW2-cnt', 'NEW2-info',   f"{sysOpt['pyHumanCnt']}/YOLOv7-DeepSORT-Object-Tracking/result/{sysOpt['videoPath']}/labels/" + "{}_{}.txt", serviceName, fileNameNoExt)
 
                 # for j, row in dataL3.iterrows():
                 #     saveImg = '{}/{}/{}-{}.png'.format(globalVar['figPath'], serviceName, fileNameNoExt, str(row.idx).zfill(10))
@@ -593,15 +625,55 @@ class DtaProcess(object):
                 # 특정 임계값 60초 이상
                 dataL4 = dataL3[dataL3['dateTimeDiff'] <= sysOpt['timeThres']]
 
-                saveFile = '{}/{}/{}_{}.csv'.format(globalVar['outPath'], serviceName, fileNameNoExt, 'FNL')
+                # saveFile = '{}/{}/{}_{}.csv'.format(globalVar['outPath'], serviceName, fileNameNoExt, 'FNL')
+                saveFile = '{}/{}/{}_{}.csv'.format(globalVar['updPath'], sysOpt['videoPath'], fileNameNoExt, 'FNL')
                 os.makedirs(os.path.dirname(saveFile), exist_ok=True)
                 dataL4.to_csv(saveFile, index=False)
                 log.info(f'[CHECK] saveFile : {saveFile}')
 
-                saveFile = '{}/{}/{}_{}.xlsx'.format(globalVar['outPath'], serviceName, fileNameNoExt, 'FNL')
+                # saveFile = '{}/{}/{}_{}.xlsx'.format(globalVar['outPath'], serviceName, fileNameNoExt, 'FNL')
+                saveFile = '{}/{}/{}_{}.xlsx'.format(globalVar['updPath'], sysOpt['videoPath'], fileNameNoExt, 'FNL')
                 os.makedirs(os.path.dirname(saveFile), exist_ok=True)
                 dataL4.to_excel(saveFile, index=False)
                 log.info(f'[CHECK] saveFile : {saveFile}')
+
+                # 알집 압축
+                # inpFile = '{}/{}/**/*'.format(globalVar['updPath'], sysOpt['videoPath'], fileNameNoExt)
+                inpFile = '{}/{}/**/*'.format(globalVar['updPath'], sysOpt['videoPath'])
+                orgFileList = sorted(glob.glob(inpFile, recursive=True))
+                fileList = sorted(filter(re.compile('.*\.(csv|xlsx|mp4)$').match, orgFileList))
+
+                zipFile = '{}/{}/{}.zip'.format(globalVar['updPath'], sysOpt['videoPath'], fileNameNoExt)
+                with zipfile.ZipFile(zipFile, 'w', compresslevel=9) as zipf:
+                    for fileInfo in fileList:
+                        zipf.write(fileInfo, arcname=fileInfo.replace(globalVar['updPath'], '').replace(sysOpt['videoPath'], ''))
+
+                log.info(f'[CHECK] zipFile : {zipFile}')
+
+                # DB 저장
+                dbData = dataL4[['dateTime', 'idx', 'lat', 'lon', 'NEW-cnt', 'NEW2-cnt', 'dateTimeDiff']].rename(
+                    {
+                        'dateTime': 'DATE_TIME'
+                        , 'idx': 'IDX'
+                        , 'lat': 'LAT'
+                        , 'lon': 'LON'
+                        , 'NEW-cnt': 'CNT'
+                        , 'NEW2-cnt': 'CNT2'
+                        , 'dateTimeDiff': 'DATE_TIME_DIFF'
+                    }
+                    , axis=1
+                )
+
+                dbData['VIDEO_PATH'] = sysOpt['videoPath']
+                dbData['VIDEO_NAME'] = sysOpt['videoName']
+                dbData['DOWN'] = f"http://{getPubliIp()}:9000/file/down?file={sysOpt['videoPath']}/{fileNameNoExt}.zip"
+
+                try:
+                    dbData.to_sql(name=makeTable.name, con=dbEngine, if_exists='append', index=False)
+                    session.commit()
+                except SQLAlchemyError as e:
+                    session.rollback()
+                    log.error(f'Exception : {e}')
 
         except Exception as e:
             log.error("Exception : {}".format(e))

@@ -360,7 +360,7 @@ async def file_upload(
         os.chmod(f'{os.getcwd()}/RunShell-LSH0413-PROC.sh', 0o755)
         asyncio.create_task(run_script(cmd))
 
-        return resRespone("succ", 200, "처리 완료", 0, file.filename)
+        return resRespone("succ", 200, "처리 완료", 0, f"{dtDateTime.strftime('%Y%m/%d/%H%M')}/{file.filename}")
 
     except Exception as e:
         log.error(f'Exception : {e}')
@@ -368,7 +368,7 @@ async def file_upload(
 
 
 # @app.post("/firm/down/", dependencies=[Depends(chkApiKey)])
-@app.get("/firm/down/")
+@app.get("/file/down/")
 async def file_down(file: str):
     """
     기능 : 펌웨어 다운로드\n
@@ -389,57 +389,57 @@ async def file_down(file: str):
 
 
 # @app.post("/firm/file_info", dependencies=[Depends(chkApiKey)])
-@app.post("/firm/file_info")
-def file_info(id: int = None, db: Session = Depends(getDb)):
-    """
-    기능 : 최근 파일 정보 가져오기\n
-    파라미터 : API키, id 인덱스 (없을 시 최신 목록) \n
-    """
-    try:
-        if id:
-            selData = db.query(FileInfo).filter(FileInfo.ID == id)
-            file_info = selData.first()
-            cnt = selData.count()
-
-        else:
-            # file_info = db.query(Firmware).order_by(Firmware.ID.desc()).first()
-            selData = db.query(FileInfo).order_by(FileInfo.ID.desc())
-            file_info = selData.first()
-            cnt = selData.count()
-
-        if file_info is None:
-            raise Exception("파일 정보가 없습니다.")
-
-        return resRespone("succ", 200, "처리 완료", cnt, file_info)
-
-        # return file_info
-
-    except Exception as e:
-        log.error(f'Exception : {e}')
-        raise HTTPException(status_code=400, detail=resRespone("fail", 400, "처리 실패", str(e)))
+# @app.post("/firm/file_info")
+# def file_info(id: int = None, db: Session = Depends(getDb)):
+#     """
+#     기능 : 최근 파일 정보 가져오기\n
+#     파라미터 : API키, id 인덱스 (없을 시 최신 목록) \n
+#     """
+#     try:
+#         if id:
+#             selData = db.query(FileInfo).filter(FileInfo.ID == id)
+#             file_info = selData.first()
+#             cnt = selData.count()
+#
+#         else:
+#             # file_info = db.query(Firmware).order_by(Firmware.ID.desc()).first()
+#             selData = db.query(FileInfo).order_by(FileInfo.ID.desc())
+#             file_info = selData.first()
+#             cnt = selData.count()
+#
+#         if file_info is None:
+#             raise Exception("파일 정보가 없습니다.")
+#
+#         return resRespone("succ", 200, "처리 완료", cnt, file_info)
+#
+#         # return file_info
+#
+#     except Exception as e:
+#         log.error(f'Exception : {e}')
+#         raise HTTPException(status_code=400, detail=resRespone("fail", 400, "처리 실패", str(e)))
 
 
 # @app.post("/firm/file_list", dependencies=[Depends(chkApiKey)])
-@app.post("/firm/file_list")
-def file_list(page: int = 1, per_page: int = 10, db: Session = Depends(getDb)):
-    """
-    기능 : 모든 파일 목록 가져오기 \n
-    파라미터 : API키, page 페이지 번호, per_page : 페이지당 개수 \n
-    """
-    try:
-        offset = (page - 1) * per_page
-        selData = db.query(FileInfo).offset(offset).limit(per_page)
-        file_list = selData.all()
-        cnt = selData.count()
-
-        if file_list is None:
-            raise Exception("파일 목록이 없습니다.")
-
-        return resRespone("succ", 200, "처리 완료", cnt, file_list)
-
-    except Exception as e:
-        log.error(f'Exception : {e}')
-        raise HTTPException(status_code=400, detail=resRespone("fail", 400, "처리 실패", str(e)))
+# @app.post("/firm/file_list")
+# def file_list(page: int = 1, per_page: int = 10, db: Session = Depends(getDb)):
+#     """
+#     기능 : 모든 파일 목록 가져오기 \n
+#     파라미터 : API키, page 페이지 번호, per_page : 페이지당 개수 \n
+#     """
+#     try:
+#         offset = (page - 1) * per_page
+#         selData = db.query(FileInfo).offset(offset).limit(per_page)
+#         file_list = selData.all()
+#         cnt = selData.count()
+#
+#         if file_list is None:
+#             raise Exception("파일 목록이 없습니다.")
+#
+#         return resRespone("succ", 200, "처리 완료", cnt, file_list)
+#
+#     except Exception as e:
+#         log.error(f'Exception : {e}')
+#         raise HTTPException(status_code=400, detail=resRespone("fail", 400, "처리 실패", str(e)))
 
 # @app.post("/firm/send_data", dependencies=[Depends(chkApiKey)])
 # def send_data(id: int = None, db: Session = Depends(getDb)):

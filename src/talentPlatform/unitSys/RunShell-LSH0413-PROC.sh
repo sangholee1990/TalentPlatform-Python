@@ -14,6 +14,7 @@ PY38_PATH=/usr/local/anaconda3/envs/py38/bin/python3.8
 #CTX_PATH=/SYSTEMS/PROG/SHELL/CDS-API
 CTX_PATH=$(pwd)
 RUN_PATH=/SYSTEMS/PROG/PYTHON/HUMAN-CNT
+RUN2_PATH=/SYSTEMS/PROG/PYTHON/PyCharm/src/talentPlatform/unitSys
 VIDEO_PATH=/DATA/VIDEO
 #SRC_PATH=/SYSTEMS/TMP
 #INP_PATH=/DATA/INPUT/LSH0398/WFDE5
@@ -44,14 +45,8 @@ if [ "$#" -ne 2 ]; then
    echo
    echo "$# is Illegal Number of Arguments"
 
-   #echo 'Example) bash '$0' "2022-03-04 23:30" "2021-03-04 23:40"'
-   #echo 'Example) bash '$0' "2020-03-01" "2022-12-01"'
-#   echo 'Example) bash '$0' "1979-01-01" "2020-01-01"'
-#   echo 'Example) bash '$0' "1979-01-01" "2020-01-01"'
-   echo 'Example) bash '$0' "202305/29/1840" "20230504_output.mp4"'
-#   echo 'Example) bash '$0' "19790101" "20200101"'
-   #echo 'Example) bash '$0' "2022-06-01" "2022-06-02"'
-   #echo 'Example) bash '$0' "2020301" "20200331"'
+   echo 'Example) bash '$0' "202306/03/0242" "20230504_output.mp4"'
+#   echo 'Example) bash '$0' "202305/29/1840" "20230504_output.mp4"'
    echo
 
    exit
@@ -72,13 +67,31 @@ echo "[$(date +"%Y-%m-%d %H:%M:%S")] [CHECK] videoName : $videoName"
 #echo ${PY38_PATH} ${RUN_PATH}/yolov7-object-tracking/TalentPlatform-LSH0413-detect_and_track.py --weights yolov7.pt --source "${VIDEO_PATH}/${videoPath}/${videoName}" --classes 0 --save-txt --no-trace --exist-ok --project "result" --name "${videoPath}"
 #echo ${PY38_PATH} ${RUN_PATH}/YOLOv7-DeepSORT-Object-Tracking/TalentPlatform-LSH0413-deep_sort_tracking_id.py --weights yolov7.pt --source "${VIDEO_PATH}/${videoPath}/${videoName}" --classes 0 --save-txt --save-conf --exist-ok --project "result" --name "${videoPath}"
 
+cd ${RUN2_PATH}
+${PY38_PATH} ${RUN2_PATH}/TalentPlatform-LSH0413-PROC.py --videoPath ${videoPath} --videoName ${videoName} &
+sleep 2s
+
 cd ${RUN_PATH}/yolov7-object-tracking
 ${PY38_PATH} ${RUN_PATH}/yolov7-object-tracking/TalentPlatform-LSH0413-detect_and_track.py --weights yolov7.pt --source "${VIDEO_PATH}/${videoPath}/${videoName}" --classes 0 --save-txt --no-trace --exist-ok --project "result" --name "${videoPath}" &
+sleep 2s
 
 cd ${RUN_PATH}/YOLOv7-DeepSORT-Object-Tracking
 ${PY38_PATH} ${RUN_PATH}/YOLOv7-DeepSORT-Object-Tracking/TalentPlatform-LSH0413-deep_sort_tracking_id.py --weights yolov7.pt --source "${VIDEO_PATH}/${videoPath}/${videoName}" --classes 0 --save-txt --save-conf --exist-ok --project "result" --name "${videoPath}" &
+sleep 2s
 
 wait
+
+ln -sf ${RUN_PATH}/yolov7-object-tracking/result/${videoPath} ${VIDEO_PATH}/${videoPath}/yolov7-object-tracking
+ln -sf ${RUN_PATH}/YOLOv7-DeepSORT-Object-Tracking/result/${videoPath} ${VIDEO_PATH}/${videoPath}/YOLOv7-DeepSORT-Object-Tracking
+
+cd ${RUN2_PATH}
+${PY38_PATH} ${RUN2_PATH}/TalentPlatform-LSH0413-FNL.py --videoPath ${videoPath} --videoName ${videoName}
+
+echo
+echo "[$(date +"%Y-%m-%d %H:%M:%S")] [END] Main Shell : $0"
+
+exit 0
+
 
 #cnt=0
 #incDate=$srtDate
@@ -154,8 +167,3 @@ wait
 #   fi
 #
 #done
-
-echo
-echo "[$(date +"%Y-%m-%d %H:%M:%S")] [END] Main Shell : $0"
-
-exit 0
