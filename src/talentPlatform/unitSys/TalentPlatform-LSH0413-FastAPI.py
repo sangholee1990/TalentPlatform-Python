@@ -14,6 +14,7 @@ from pydantic import BaseModel, Field
 from typing import List, Any, Dict
 import configparser
 import pymysql
+from fastapi.staticfiles import StaticFiles
 import os
 from urllib.parse import quote_plus
 import requests
@@ -283,6 +284,7 @@ SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
 UPLOAD_PATH = "/DATA/VIDEO"
 
 app = FastAPI()
+app.mount('/VIDEO', StaticFiles(directory=UPLOAD_PATH), name='/DATA/VIDEO')
 
 # Enable CORS middleware
 # app.add_middleware(

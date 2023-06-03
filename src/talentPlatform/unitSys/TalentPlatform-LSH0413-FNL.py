@@ -666,7 +666,8 @@ class DtaProcess(object):
 
                 dbData['VIDEO_PATH'] = sysOpt['videoPath']
                 dbData['VIDEO_NAME'] = sysOpt['videoName']
-                dbData['DOWN'] = f"http://{getPubliIp()}:9000/file/down?file={sysOpt['videoPath']}/{fileNameNoExt}.zip"
+                # dbData['DOWN'] = f"http://{getPubliIp()}:9000/file/down?file={sysOpt['videoPath']}/{fileNameNoExt}.zip"
+                dbData['DOWN'] = f"http://{getPubliIp()}:9000/VIDEO/{sysOpt['videoPath']}/{fileNameNoExt}.zip"
 
                 try:
                     dbData.to_sql(name=makeTable.name, con=dbEngine, if_exists='append', index=False)
