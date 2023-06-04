@@ -18,14 +18,10 @@ import xarray as xr
 from pyproj import Proj
 import pymannkendall as mk
 
-# Xarray
 import xarray as xr
-from numba import njit
-# Dask stuff
 import dask.array as da
 from dask.diagnostics import ProgressBar
 from xarrayMannKendall import *
-from numba import jit  # Speedup for python functions
 import dask.array as da
 import dask
 from dask.distributed import Client
@@ -335,9 +331,76 @@ class DtaProcess(object):
             # data['pr'].isel(time = 0).plot()
             # plt.show()
 
+            # xarray 및 conv3D LSTM에서 시공간 데이터 이미지 변환 없이 사용 방법
+            # 독립변수 : 온도, 평균온도, 최대온도, 최저온도 (시간, 위도, 경도)
+            # 종속변수 : 강수량 (시간, 위도, 경도)
+
+
             # CPU 활용
             os.environ["CUDA_VISIBLE_DEVICES"] = "-1"
             os.environ['TF_CPP_MIN_LOG_LEVEL'] = '3'
+
+
+            # import xarray as xr
+            from tensorflow.keras.models import Sequential
+            from tensorflow.keras.layers import ConvLSTM2D, BatchNormalization, Conv3D
+
+            # Assuming you have an xarray dataset 'ds'
+            temperature = data['tas'].values  # replace 'temperature' with the actual variable name
+            max_temperature = data['tasmax'].values
+            min_temperature = data['tasmin'].values
+            rainfall = data['pr'].values
+
+            time = data['time']
+            lat = data['lat']
+            lon = data['lon']
+
+            # Combine the features into one array of shape (time_steps, lat_dim, lon_dim, num_features)
+            x_data = np.stack([temperature, max_temperature, min_temperature], axis=-1)
+
+            # Ensure the target has shape (time_steps, lat_dim, lon_dim, 1)
+            y_data = np.expand_dims(rainfall, axis=-1)
+
+            # 가정: time_steps는 시간 차원에서 사용할 연속적인 데이터 포인트의 수를 나타냅니다.
+            time_steps = len(time)
+
+
+            # 데이터를 재구조화하여 새로운 시간 차원을 추가합니다.
+            x_data2 = np.reshape(x_data, (-1, time_steps, x_data.shape[1], x_data.shape[2], x_data.shape[3]))
+            y_data2 = np.reshape(y_data, (-1, time_steps, y_data.shape[1], y_data.shape[2], y_data.shape[3]))
+
+
+            # Define a simple ConvLSTM model
+            model = Sequential()
+
+            model.add(ConvLSTM2D(filters=64, kernel_size=(3, 3), input_shape=(None, len(lat), len(lon), 3), padding='same', return_sequences=True))
+            model.add(BatchNormalization())
+            model.add(ConvLSTM2D(filters=64, kernel_size=(3, 3), padding='same', return_sequences=True))
+            model.add(BatchNormalization())
+            model.add(Conv3D(filters=1, kernel_size=(3, 3, 3), activation='sigmoid', padding='same', data_format='channels_last'))
+
+            model.compile(loss='mean_squared_error', optimizer='adam')
+
+            # Train the model
+            model.fit(x_data2, y_data2, batch_size=2, epochs=1)
+            print(model)
+            #
+            # predictions = model.predict(train_dataset)
+            #
+            # predictions_da = xr.DataArray(predictions)
+            #
+            # # 시각화
+            # predictions_da.plot()
+            # plt.show()
+
+
+
+
+
+
+
+
+
 
             time = data['time']
             latitude = data['lat']
