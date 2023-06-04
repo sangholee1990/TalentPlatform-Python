@@ -72,8 +72,8 @@ import re
 # cd /SYSTEMS/PROG/PYTHON/PyCharm/src/talentPlatform/unitSys
 # conda activate py38
 # uvicorn TalentPlatform-LSH0413-FastAPI:app --reload --host=0.0.0.0 --port=9000
+# ps -ef | grep uvicorn | awk '{print $2}' | xargs kill -9
 # http://223.130.134.136:9000/docs
-
 # gunicorn TalentPlatform-LSH0413-FastAPI:app --workers 2 --worker-class uvicorn.workers.UvicornWorker --daemon --access-logfile ./main.log --bind 0.0.0.0:8000 --reload
 
 # ps -ef | grep gunicorn | awk '{print $2}' | xargs kill -9
@@ -187,11 +187,10 @@ def getDb():
 # async def checkApiKey(api_key: str = Header(...)):
 #     if api_key != "my_secret_key":
 #         raise HTTPException(status_code=401, detail="Invalid API Key")
-# async def chkApiKey(api_key: str = Depends(APIKeyHeader(name="api"))):
-#     # if api_key != "123":
-#     if api_key != "eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzI1NiJ9.eyJ1c2VyX2FjY291bnQiOjI0fQ.pXluG0rOyeoO8xSvAFYCOrkIaYofUkUR3dIijJOT6xg":
-#         raise HTTPException(status_code=401, detail="Invalid API Key")
-# ps -ef | grep HUMAN-CNT | awk '{print $2}' | xargs kill -9
+async def chkApiKey(api_key: str = Depends(APIKeyHeader(name="api"))):
+    # if api_key != "123":
+    if api_key != "api-20230604":
+        raise HTTPException(status_code=401, detail="Invalid API Key")
 
 def resRespone(status: str, code: int, message: str, cnt: int = 0, data: Any = None) -> dict:
     return {
@@ -286,14 +285,22 @@ UPLOAD_PATH = "/DATA/VIDEO"
 app = FastAPI()
 app.mount('/VIDEO', StaticFiles(directory=UPLOAD_PATH), name='/DATA/VIDEO')
 
+origins = [
+    "http://localhost:8080"
+    , "http://localhost:9000"
+    , "http://localhost:9100"
+    , "http://riakorea.co.kr"
+    , "http://riakorea.co.kr"
+]
+
 # Enable CORS middleware
-# app.add_middleware(
-#     CORSMiddleware,
-#     allow_origins=["*"],  # Set the appropriate origins
-#     allow_credentials=True,
-#     allow_methods=["*"],
-#     allow_headers=["*"],
-# )
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],  # Set the appropriate origins
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
 
 # 미들웨어 함수를 적용하여 헤더 인증키 확인
 # app.middleware("http")(check_api_key)
@@ -336,8 +343,7 @@ class DownloadResponse(BaseModel):
     filename: str
 
 
-# @app.post("/file/upload", dependencies=[Depends(chkApiKey)])
-@app.post("/file/upload")
+@app.post("/file/upload", dependencies=[Depends(chkApiKey)])
 async def file_upload(
         file: UploadFile = File(...),
         db: Session = Depends(getDb)
@@ -382,8 +388,7 @@ async def file_upload(
         raise HTTPException(status_code=400, detail=resRespone("fail", 400, "처리 실패", len(str(e)), str(e)))
 
 
-# @app.post("/firm/down/", dependencies=[Depends(chkApiKey)])
-@app.get("/file/down/")
+@app.get("/file/down/", dependencies=[Depends(chkApiKey)])
 async def file_down(file: str):
     """
     기능 : 비디오 영상 파일 다운로드\n

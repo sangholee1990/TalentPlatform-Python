@@ -270,14 +270,15 @@ class DtaProcess(object):
 
                 # 옵션 설정
                 sysOpt = {
-                    # 'srtRow': 430
-                    # , 'endRow': 1800
-                    # , 'srcCol': 1000
-                    # , 'endCol': 1060
                     'srtRow': 290
                     , 'endRow': 1030
                     , 'srcCol': 670
                     , 'endCol': 710
+
+                    , 'srtRow2': 430
+                    , 'endRow2': 1550
+                    , 'srcCol2': 1000
+                    , 'endCol2': 1060
 
                     , 'pyTesCmd': '/SYSTEMS/anaconda3/envs/py38/bin/tesseract'
                     , 'pyTesData': '/SYSTEMS/anaconda3/envs/py38/share/tessdata'
@@ -294,6 +295,8 @@ class DtaProcess(object):
                     # , 'videoName' : '20230504_output.mp4'
                     # , 'videoPath' : '202305/31/2333'
                     # , 'videoName' : 'test2.mp4'
+                    # , 'videoPath' : '202306/04/1050'
+                    # , 'videoName' : '20230604.mp4'
                     , 'videoPath' : globalVar['videoPath']
                     , 'videoName' : globalVar['videoName']
                 }
@@ -306,7 +309,6 @@ class DtaProcess(object):
             # ********************************************************************************************
             #
             # ********************************************************************************************
-            x1, x2, y1, y2 = sysOpt['srtRow'], sysOpt['endRow'], sysOpt['srcCol'], sysOpt['endCol']
             pytesseract.pytesseract.tesseract_cmd = sysOpt['pyTesCmd']
             os.environ['TESSDATA_PREFIX'] = sysOpt['pyTesData']
 
@@ -334,7 +336,8 @@ class DtaProcess(object):
             for i, fileInfo in enumerate(fileList):
                 log.info(f'[CHECK] fileInfo : {fileInfo}')
 
-                fileNameNoExt = os.path.basename(fileInfo).split('.mp4')[0]
+                # fileNameNoExt = os.path.basename(fileInfo).split('.mp4')[0]
+                fileNameNoExt = os.path.splitext(os.path.basename(fileInfo))[0]
 
                 cap = cv2.VideoCapture(fileInfo)
 
@@ -346,6 +349,15 @@ class DtaProcess(object):
 
                 # 재생 시간 초 단위
                 playTime = cnt / fps
+
+                # 가로 및 세로 크기
+                rowSize = cap.get(cv2.CAP_PROP_FRAME_WIDTH)
+                colSize = cap.get(cv2.CAP_PROP_FRAME_HEIGHT)
+
+                if rowSize == 1280:
+                    x1, x2, y1, y2 = sysOpt['srtRow'], sysOpt['endRow'], sysOpt['srcCol'], sysOpt['endCol']
+                else:
+                    x1, x2, y1, y2 = sysOpt['srtRow2'], sysOpt['endRow2'], sysOpt['srcCol2'], sysOpt['endCol2']
 
                 idx = 0
                 dataL1 = pd.DataFrame()
@@ -359,11 +371,9 @@ class DtaProcess(object):
                         ret, frame = cap.read()
                         if not ret: break
 
+                        # cropImg = frame[y1:y2, x1:x2]
                         cropImg = frame[y1:y2, x1:x2]
                         newImg = Image.fromarray(cropImg)
-
-                        # plt.imshow(newImg)
-                        # plt.show()
 
                         # plt.imshow(Image.fromarray(cropImg[:, 20:180]))
                         # plt.show()
@@ -378,7 +388,7 @@ class DtaProcess(object):
                         thresVal, thresImg = cv2.threshold(grayImg, 0, 255, cv2.THRESH_BINARY | cv2.THRESH_OTSU)
                         # newImg = Image.fromarray(thresImg)
 
-                        # plt.imshow(newImg)
+                        # plt.imshow(thresImg)
                         # plt.show()
 
                         # plt.imshow(Image.fromarray(thresImg))
@@ -393,8 +403,6 @@ class DtaProcess(object):
                         idx += 1
                         # log.info(f'[CHECK] idx : {idx}')
 
-                        extInfo = {}
-
                         # if len(data) < 1: continue
                         # data = pytesseract.image_to_string(newImg)
                         # log.info(f'[CHECK] data : {data}')
@@ -403,11 +411,20 @@ class DtaProcess(object):
                         # extInfo = {key: re.search(pattern, data).group(1) if re.search(pattern, data) else None for key, pattern in patterns.items()}
                         # log.info(f'[CHECK] extInfo : {extInfo}')
 
-                        # getLat = pytesseract.image_to_string(Image.fromarray(thresImg[:, 0:180]))
+                        # plt.imshow(Image.fromarray(thresImg[:, 605:1120]))
+                        # plt.show()
+
+                        extInfo = {}
+
                         extInfo['lat'] = None
                         try:
-                            extInfo['lat-imgToStr'] = pytesseract.image_to_string(Image.fromarray(thresImg[:, 20:55]))
-                            extInfo['lat-imgToStr2'] = pytesseract.image_to_string(Image.fromarray(thresImg[:, 70:180]))
+                            if rowSize == 1280:
+                                extInfo['lat-imgToStr'] = pytesseract.image_to_string(Image.fromarray(thresImg[:, 20:55]))
+                                extInfo['lat-imgToStr2'] = pytesseract.image_to_string(Image.fromarray(thresImg[:, 70:180]))
+                            else:
+                                extInfo['lat-imgToStr'] = pytesseract.image_to_string(Image.fromarray(thresImg[:, 38:87]))
+                                extInfo['lat-imgToStr2'] = pytesseract.image_to_string(Image.fromarray(thresImg[:, 110:270]))
+
 
                             if len(extInfo['lat-imgToStr']) > 0 and len(extInfo['lat-imgToStr2']) > 0:
                                 extInfo['lat'] = pd.to_numeric(''.join(re.findall(patterns['lat'], f"{extInfo['lat-imgToStr']}.{extInfo['lat-imgToStr2']}")))
@@ -417,8 +434,12 @@ class DtaProcess(object):
                         # getLon = pytesseract.image_to_string(Image.fromarray(thresImg[:, 210:390]))
                         extInfo['lon'] = None
                         try:
-                            extInfo['lon-imgToStr'] = pytesseract.image_to_string(Image.fromarray(thresImg[:, 210:265]))
-                            extInfo['lon-imgToStr2'] = pytesseract.image_to_string(Image.fromarray(thresImg[:, 280:390]))
+                            if rowSize == 1280:
+                                extInfo['lon-imgToStr'] = pytesseract.image_to_string(Image.fromarray(thresImg[:, 210:265]))
+                                extInfo['lon-imgToStr2'] = pytesseract.image_to_string(Image.fromarray(thresImg[:, 280:390]))
+                            else:
+                                extInfo['lon-imgToStr'] = pytesseract.image_to_string(Image.fromarray(thresImg[:, 320:400]))
+                                extInfo['lon-imgToStr2'] = pytesseract.image_to_string(Image.fromarray(thresImg[:, 420:590]))
 
                             if len(extInfo['lon-imgToStr']) > 0 and len(extInfo['lon-imgToStr2']) > 0:
                                 extInfo['lon'] = pd.to_numeric(''.join(re.findall(patterns['lon'], f"{extInfo['lon-imgToStr']}.{extInfo['lon-imgToStr2']}")))
@@ -427,7 +448,10 @@ class DtaProcess(object):
 
                         extInfo['dateTime'] = None
                         try:
-                            extInfo['dateTime-imgToStr'] = pytesseract.image_to_string(Image.fromarray(thresImg[:, 400:740]))
+                            if rowSize == 1280:
+                                extInfo['dateTime-imgToStr'] = pytesseract.image_to_string(Image.fromarray(thresImg[:, 400:740]))
+                            else:
+                                extInfo['dateTime-imgToStr'] = pytesseract.image_to_string(Image.fromarray(thresImg[:, 605:1120]))
 
                             if len(extInfo['dateTime-imgToStr']) > 0:
                                 extInfo['dateTime'] = re.search(patterns['dateTime'], extInfo['dateTime-imgToStr']).group(1)

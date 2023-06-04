@@ -390,6 +390,10 @@ class DtaProcess(object):
                     # , 'videoName' : '20230504_output.mp4'
                     # , 'videoPath': '202305/31/2333'
                     # , 'videoName': 'test2.mp4'
+                    # , 'videoPath': '202306/04/1225'
+                    # , 'videoName': '20230604.mp4'
+                    # , 'videoPath': '202306/04/1306'
+                    # , 'videoName': '20230519100347_095553.MP4'
                     , 'videoPath': globalVar['videoPath']
                     , 'videoName': globalVar['videoName']
                 }
@@ -455,7 +459,8 @@ class DtaProcess(object):
             for i, fileInfo in enumerate(fileList):
                 log.info(f'[CHECK] fileInfo : {fileInfo}')
 
-                fileNameNoExt = os.path.basename(fileInfo).split('.mp4')[0]
+                # fileNameNoExt = os.path.basename(fileInfo).split('.mp4')[0]
+                fileNameNoExt = os.path.splitext(os.path.basename(fileInfo))[0]
 
                 cap = cv2.VideoCapture(fileInfo)
 
@@ -641,7 +646,7 @@ class DtaProcess(object):
                 # inpFile = '{}/{}/**/*'.format(globalVar['updPath'], sysOpt['videoPath'], fileNameNoExt)
                 inpFile = '{}/{}/**/*'.format(globalVar['updPath'], sysOpt['videoPath'])
                 orgFileList = sorted(glob.glob(inpFile, recursive=True))
-                fileList = sorted(filter(re.compile('.*\.(csv|xlsx|mp4)$').match, orgFileList))
+                fileList = sorted(filter(re.compile('.*\.(csv|xlsx|mp4|MP4)$').match, orgFileList))
 
                 zipFile = '{}/{}/{}.zip'.format(globalVar['updPath'], sysOpt['videoPath'], fileNameNoExt)
                 with zipfile.ZipFile(zipFile, 'w', compresslevel=9) as zipf:
