@@ -407,7 +407,7 @@ def makeUserHist2dPlot(prdVal, refVal, xlab, ylab, mainTitle, saveImg, minVal, m
 
         plt.tight_layout()
         plt.savefig(saveImg, dpi=600, bbox_inches='tight', transparent=True)
-        plt.show()
+        # plt.show()
         plt.close()
 
         result = {
@@ -497,6 +497,7 @@ class DtaProcess(object):
                     # 시작/종료 시간
                     'srtDate': '2019-01-01'
                     , 'endDate': '2023-01-01'
+                    , 'refDate': '2010-01-01'
 
                     #  머신러닝
                     , 'mlModel': {
@@ -559,7 +560,7 @@ class DtaProcess(object):
             dataL2 = pd.melt(dataL1, id_vars=['Period', 'type'], var_name='key', value_name='val')
             dataL3 = dataL2.pivot(index=['Period', 'key'], columns='type', values='val').reset_index(drop=False)
 
-            keyList = set(dataL3['key'])
+            keyList = sorted(set(dataL3['key']))
             for j, keyInfo in enumerate(keyList):
                 log.info(f'[CHECK] keyInfo : {keyInfo}')
 
@@ -630,11 +631,12 @@ class DtaProcess(object):
                 try:
                     mainTitle = '{}'.format('xgb-importance')
                     saveImg = '{}/{}/{}-{}.png'.format(globalVar['figPath'], serviceName, keyInfo, mainTitle)
+                    os.makedirs(os.path.dirname(saveImg), exist_ok=True)
                     xgb.plot_importance(xgbModel)
                     plt.title(mainTitle)
                     plt.tight_layout()
                     plt.savefig(saveImg, dpi=600, bbox_inches='tight')
-                    plt.show()
+                    # plt.show()
                     plt.close()
                 except Exception as e:
                     log.error('Exception : {}'.format(e))
@@ -687,11 +689,12 @@ class DtaProcess(object):
                 try:
                     mainTitle = '{}'.format('lgb-importance')
                     saveImg = '{}/{}/{}-{}.png'.format(globalVar['figPath'], serviceName, keyInfo, mainTitle)
+                    os.makedirs(os.path.dirname(saveImg), exist_ok=True)
                     lgb.plot_importance(lgbModel)
                     plt.title(mainTitle)
                     plt.tight_layout()
                     plt.savefig(saveImg, dpi=600, bbox_inches='tight')
-                    plt.show()
+                    # plt.show()
                     plt.close()
                 except Exception as e:
                     log.error('Exception : {}'.format(e))
@@ -730,12 +733,13 @@ class DtaProcess(object):
                 try:
                     mainTitle = '{}'.format('AutoML-importance')
                     saveImg = '{}/{}/{}-{}.png'.format(globalVar['figPath'], serviceName, keyInfo, mainTitle)
+                    os.makedirs(os.path.dirname(saveImg), exist_ok=True)
                     featData = pd.DataFrame([flamlModel.feature_names_in_, flamlModel.feature_importances_], index=['key', 'val']).transpose().sort_values(by=['val'], ascending=True)
                     plt.barh(featData['key'], featData['val'])
                     plt.title(mainTitle)
                     plt.tight_layout()
                     plt.savefig(saveImg, dpi=600, bbox_inches='tight')
-                    plt.show()
+                    # plt.show()
                     plt.close()
                 except Exception as e:
                     log.error('Exception : {}'.format(e))
@@ -764,7 +768,7 @@ class DtaProcess(object):
                 plt.legend()
                 plt.tight_layout()
                 plt.savefig(saveImg, dpi=600, bbox_inches='tight', transparent=True)
-                plt.show()
+                # plt.show()
 
                 # ****************************************************************************
                 # 산점도 시각화
