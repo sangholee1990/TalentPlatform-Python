@@ -18,6 +18,7 @@ import numpy as np
 import pandas as pd
 import xmltodict
 from sklearn.neighbors import BallTree
+import requests
 
 # =================================================
 # 사용자 매뉴얼
@@ -333,9 +334,11 @@ class DtaProcess(object):
 
                                 # json 읽기
                                 # resData = json.loads(res.read().decode('utf-8'))
+                                # resData = json.loads(res.content.decode('utf-8'))
 
                                 # xml to json 읽기
-                                resData = xmltodict.parse(res.read().decode('utf-8'))
+                                # resData = xmltodict.parse(res.read().decode('utf-8'))
+                                resData = xmltodict.parse(res.content.decode('utf-8'))
                                 resultCode = resData['response']['header']['resultCode']
                                 if (resultCode != '00'): continue
 
