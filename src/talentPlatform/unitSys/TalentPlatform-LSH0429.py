@@ -57,21 +57,12 @@ from sklearn.metrics import mean_absolute_percentage_error, mean_squared_error
 from sklearn.ensemble import RandomForestRegressor
 import xgboost
 # from sklearn.utils import safe_indexing
-
 import os
 import pickle
-import ray
-
 import optuna.integration.lightgbm as lgb
 import pandas as pd
 import xgboost as xgb
 from teddynote import models
-
-
-import os
-import pickle
-import ray
-
 import optuna.integration.lightgbm as lgb
 import pandas as pd
 import xgboost as xgb
@@ -84,6 +75,7 @@ from sklearn.model_selection import train_test_split
 import json
 from sklearn.cluster import KMeans
 from scipy.stats import linregress
+import matplotlib.cm as cm
 
 # =================================================
 # 사용자 매뉴얼
@@ -753,15 +745,15 @@ class DtaProcess(object):
                 os.makedirs(os.path.dirname(saveImg), exist_ok=True)
                 log.info('[CHECK] saveImg : {}'.format(saveImg))
 
-                plt.plot(prdData.index, prdData['wealthpooled'], marker='o', label='obs')
+                plt.plot(prdData.index, prdData[yCol], marker='o', label='obs')
                 plt.plot(prdData.index, prdData['ML2'], label='xgb (MAE : {:.2f}, RMSE : {:.2f}, R : {:.2f})'.format(
-                    mean_absolute_error(prdData['wealthpooled'], prdData['ML2']), np.sqrt(mean_squared_error(prdData['wealthpooled'], prdData['ML2'])), linregress(prdData['wealthpooled'], prdData['ML2']).rvalue
+                    mean_absolute_error(prdData[yCol], prdData['ML2']), np.sqrt(mean_squared_error(prdData[yCol], prdData['ML2'])), linregress(prdData[yCol], prdData['ML2']).rvalue
                 ))
                 plt.plot(prdData.index, prdData['ML4'], label='lgb (MAE : {:.2f}, RMSE : {:.2f}, R : {:.2f})'.format(
-                    mean_absolute_error(prdData['wealthpooled'], prdData['ML4']), np.sqrt(mean_squared_error(prdData['wealthpooled'], prdData['ML4'])), linregress(prdData['wealthpooled'], prdData['ML4']).rvalue
+                    mean_absolute_error(prdData[yCol], prdData['ML4']), np.sqrt(mean_squared_error(prdData[yCol], prdData['ML4'])), linregress(prdData[yCol], prdData['ML4']).rvalue
                 ))
                 plt.plot(prdData.index, prdData['ML6'], label='AutoML (MAE : {:.2f}, RMSE : {:.2f}, R : {:.2f})'.format(
-                    mean_absolute_error(prdData['wealthpooled'], prdData['ML6']), np.sqrt(mean_squared_error(prdData['wealthpooled'], prdData['ML6'])), linregress(prdData['wealthpooled'], prdData['ML6']).rvalue
+                    mean_absolute_error(prdData[yCol], prdData['ML6']), np.sqrt(mean_squared_error(prdData[yCol], prdData['ML6'])), linregress(prdData[yCol], prdData['ML6']).rvalue
                 ))
 
                 plt.title(mainTitle)
@@ -777,15 +769,15 @@ class DtaProcess(object):
                 # colInfo = colList[0]
                 for j, colInfo in enumerate(sorted(set(colList))):
 
-                    selData = prdData[['wealthpooled', colInfo]].dropna()
+                    selData = prdData[[yCol, colInfo]].dropna()
                     if (len(selData) < 1): continue
 
                     colName = {'ML2': 'xgb', 'ML4': 'lgb', 'ML6': 'AutoML'}.get(colInfo, 'NA')
 
-                    mainTitle = 'African deep learning prediction result ({} vs wealthpooled)'.format(colName)
+                    mainTitle = 'African deep learning prediction result ({} vs pr)'.format(colName)
                     saveImg = '{}/{}/{}-{}.png'.format(globalVar['figPath'], serviceName, keyInfo, mainTitle)
                     os.makedirs(os.path.dirname(saveImg), exist_ok=True)
-                    rtnInfo = makeUserHist2dPlot(selData[colInfo], selData['wealthpooled'], colName, 'obs', mainTitle, saveImg, -1.5, 3.0, 0.05, 0.15, 30, True)
+                    rtnInfo = makeUserHist2dPlot(selData[colInfo], selData[yCol], colName, 'obs', mainTitle, saveImg, -1.5, 3.0, 0.05, 0.15, 30, True)
                     log.info('[CHECK] rtnInfo : {}'.format(rtnInfo))
 
         except Exception as e:
