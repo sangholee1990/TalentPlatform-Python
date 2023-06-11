@@ -18,22 +18,72 @@ import xarray as xr
 from pyproj import Proj
 import pymannkendall as mk
 
-import xarray as xr
-import dask.array as da
-from dask.diagnostics import ProgressBar
-from xarrayMannKendall import *
-import dask.array as da
-import dask
-from dask.distributed import Client
+import matplotlib as mpl
+import matplotlib.pyplot as plt
+# import numpy as np
+import pandas as pd
+from matplotlib import font_manager, rc
+import geopandas as gpd
+import seaborn as sns
+from sklearn.metrics import *
 
-from scipy.stats import kendalltau
-from plotnine import ggplot, aes, geom_boxplot
-import gc
+from flaml import AutoML
+from lightgbm import plot_importance
+import pandas as pd
+import numpy as np
+from sklearn.preprocessing import MinMaxScaler
+from keras import regularizers
+from sklearn.metrics import mean_absolute_percentage_error, mean_squared_error
+from sklearn.ensemble import RandomForestRegressor
+import xgboost
+# from sklearn.utils import safe_indexing
 
-from tensorflow.keras.layers import ConvLSTM2D, Dense, Flatten
-import tensorflow as tf
-from tensorflow.keras.models import Sequential
-from tensorflow.keras.layers import ConvLSTM2D, BatchNormalization
+import matplotlib as mpl
+import matplotlib.pyplot as plt
+# import numpy as np
+import pandas as pd
+from matplotlib import font_manager, rc
+import geopandas as gpd
+import seaborn as sns
+from sklearn.metrics import *
+
+from flaml import AutoML
+from lightgbm import plot_importance
+import pandas as pd
+import numpy as np
+from sklearn.preprocessing import MinMaxScaler
+from keras import regularizers
+from sklearn.metrics import mean_absolute_percentage_error, mean_squared_error
+from sklearn.ensemble import RandomForestRegressor
+import xgboost
+# from sklearn.utils import safe_indexing
+
+import os
+import pickle
+import ray
+
+import optuna.integration.lightgbm as lgb
+import pandas as pd
+import xgboost as xgb
+from teddynote import models
+
+
+import os
+import pickle
+import ray
+
+import optuna.integration.lightgbm as lgb
+import pandas as pd
+import xgboost as xgb
+from teddynote import models
+
+import matplotlib.dates as mdates
+from sklearn.model_selection import train_test_split
+import matplotlib.dates as mdates
+from sklearn.model_selection import train_test_split
+import json
+from sklearn.cluster import KMeans
+from scipy.stats import linregress
 
 # =================================================
 # 사용자 매뉴얼
@@ -187,6 +237,195 @@ def calcMannKendall(x):
         return np.nan
         # return np.nan, np.nan, np.nan
 
+
+# 머신러닝 예측
+def makeFlamlModel(subOpt=None, xCol=None, yCol=None, trainData=None, testData=None):
+    log.info('[START] {}'.format('makeFlamlModel'))
+    log.info('[CHECK] subOpt : {}'.format(subOpt))
+
+    result = None
+
+    try:
+        # saveModel = '{}/{}/{}-{}-{}-{}-{}-{}.model'.format(globalVar['outPath'], subOpt['keyInfo'], serviceName, subOpt['srvId'], 'final', 'flaml', 'for', '*')
+        # saveModel = '{}/{}/{}-{}-{}-{}-{}.model'.format(globalVar['outPath'], serviceName, subOpt['keyInfo'], 'final', 'flaml', 'for', '*')
+        saveModel = '{}/{}/{}-{}-{}-{}.model'.format(globalVar['outPath'], serviceName, subOpt['keyInfo'], 'final', 'flaml', 'for')
+        saveModelList = sorted(glob.glob(saveModel), reverse=True)
+        xyCol = xCol.copy()
+        xyCol.append(yCol)
+
+        trainDataL1 = trainData[xyCol]
+        trainDataL2 = trainDataL1.dropna()
+
+        testDataL1 = testData[xyCol]
+        testDataL2 = testDataL1.dropna()
+
+        # 학습 모델이 없을 경우
+        if (subOpt['isOverWrite']) or (len(saveModelList) < 1):
+
+            # 7:3에 대한 학습/테스트 분류
+            # trainData, validData = train_test_split(dataL1, test_size=0.3)
+
+            # 전체 학습 데이터
+            # trainData = dataL1
+
+            # ray.init(num_cpus=12, ignore_reinit_error=True)
+            # ray.init(num_cpus=12)
+
+            flModel = AutoML(
+                # 회귀
+                task="regression"
+                , metric='rmse'
+
+                # 이진 분류
+                # task="classification"
+                # , metric='accuracy'
+                , ensemble = False
+                # , ensemble = True
+                , seed = 123
+                , time_budget=60
+                # , time_budget=600
+            )
+
+            # 각 모형에 따른 자동 머신러닝
+            flModel.fit(X_train=trainData[xCol], y_train=trainData[yCol])
+            # flModel.fit(X_train=trainData[xCol], y_train=trainData[yCol], n_jobs=12, n_concurrent_trials=4)
+
+            # 학습 모형 저장
+            # saveModel = '{}/{}/{}-{}-{}-{}-{}-{}.model'.format(globalVar['outPath'], subOpt['keyInfo'], serviceName, subOpt['srvId'], 'final', 'flaml', 'for', datetime.datetime.now().strftime('%Y%m%d'))
+            # saveModel = '{}/{}/{}-{}-{}-{}-{}.model'.format(globalVar['outPath'], serviceName, subOpt['keyInfo'], 'final', 'flaml', 'for', datetime.now().strftime('%Y%m%d'))
+            saveModel = '{}/{}/{}-{}-{}-{}.model'.format(globalVar['outPath'], serviceName, subOpt['keyInfo'], 'final', 'flaml', 'for')
+            log.info('[CHECK] saveModel : {}'.format(saveModel))
+            os.makedirs(os.path.dirname(saveModel), exist_ok=True)
+
+            with open(saveModel, 'wb') as f:
+                pickle.dump(flModel, f, pickle.HIGHEST_PROTOCOL)
+
+        else:
+            saveModel = saveModelList[0]
+            log.info('[CHECK] saveModel : {}'.format(saveModel))
+
+            with open(saveModel, 'rb') as f:
+                flModel = pickle.load(f)
+
+        result = {
+            'msg': 'succ'
+            , 'mlModel': flModel
+            , 'saveModel': saveModel
+            , 'isExist': os.path.exists(saveModel)
+        }
+
+        return result
+
+    except Exception as e:
+        log.error('Exception : {}'.format(e))
+        return result
+
+    finally:
+        # try, catch 구문이 종료되기 전에 무조건 실행
+        log.info('[END] {}'.format('makeFlamlModel'))
+
+
+# 빈도분포 2D 시각화
+def makeUserHist2dPlot(prdVal, refVal, xlab, ylab, mainTitle, saveImg, minVal, maxVal, xIntVal, yIntVal, nbinVal, isSame):
+
+    log.info('[START] {}'.format('makeUserHist2dPlot'))
+
+    result = None
+
+    try:
+
+        # 그리드 설정
+        plt.grid(True)
+
+        # 결측값 마스킹
+        mask = ~np.isnan(refVal)
+        N = len(refVal[mask])
+
+        # plt.scatter(prdVal, refVal)
+        # nbins = 250
+        hist2D, xEdge, yEdge = np.histogram2d(prdVal[mask], refVal[mask], bins=nbinVal)
+        # hist2D, xEdge, yEdge = np.histogram2d(prdVal, refVal)
+
+        # hist2D 전처리
+        hist2D = np.rot90(hist2D)
+        hist2D = np.flipud(hist2D)
+
+        # 마스킹
+        hist2DVal = np.ma.masked_where(hist2D == 0, hist2D)
+
+        plt.pcolormesh(xEdge, yEdge, hist2DVal, cmap=cm.get_cmap('jet'), vmin=0, vmax=50)
+
+        # 제목, x축, y축 설정
+        plt.title(mainTitle)
+        plt.xlabel(xlab)
+        plt.ylabel(ylab)
+
+        # 검증스코어 계산 : Bias (Relative Bias), RMSE (Relative RMSE)
+        Bias = np.mean(prdVal - refVal)
+        rBias = (Bias / np.mean(refVal)) * 100.0
+        RMSE = np.sqrt(np.mean((prdVal - refVal) ** 2))
+        rRMSE = (RMSE / np.mean(refVal)) * 100.0
+        # MAPE = np.mean(np.abs((prdVal - refVal) / prdVal)) * 100.0
+
+        # 선형회귀곡선에 대한 계산
+        slope, intercept, rVal, pVal, stdErr = linregress(prdVal[mask], refVal[mask])
+
+        lmfit = (slope * prdVal) + intercept
+        # plt.plot(prdVal, lmfit, color='red', linewidth=2,linestyle="-")
+        plt.plot([minVal, maxVal], [minVal, maxVal], color="black", linestyle="--", linewidth=2)
+        plt.plot(prdVal, lmfit, color='red', linewidth=2, linestyle="-")
+
+        # 컬러바
+        cbar = plt.colorbar()
+        cbar.ax.set_ylabel('Frequency')
+
+        # 라벨 추가
+        plt.annotate('%s = %.2f x (%s) + %.2f' % (ylab, slope, xlab, intercept),
+                     xy=(minVal + xIntVal, maxVal - yIntVal),
+                     color='red', xycoords='data', horizontalalignment='left', verticalalignment='center')
+        plt.annotate('R = %.2f  (p-value < %.2f)' % (rVal, pVal), xy=(minVal + xIntVal, maxVal - yIntVal * 2),
+                     color='red', xycoords='data', horizontalalignment='left', verticalalignment='center')
+
+        if (isSame == True):
+            # plt.axes().set_aspect('equal')
+            # plt.axes().set_aspect(1)
+            # plt.gca().set_aspect('equal')
+            plt.xlim(minVal, maxVal)
+            plt.ylim(minVal, maxVal)
+
+            plt.annotate('Bias = %.2f  (%%Bias = %.2f %%)' % (Bias, rBias), xy=(minVal + xIntVal, maxVal - yIntVal * 3),
+                         color='black', xycoords='data', horizontalalignment='left', verticalalignment='center')
+            plt.annotate('RMSE = %.2f  (%%RMSE = %.2f %%)' % (RMSE, rRMSE), xy=(minVal + xIntVal, maxVal - yIntVal * 4),
+                         color='black', xycoords='data', horizontalalignment='left', verticalalignment='center')
+            # plt.annotate('MAPE = %.2f %%' % (MAPE), xy=(minVal + xIntVal, maxVal - yIntVal * 5),
+            #              color='black', xycoords='data', horizontalalignment='left', verticalalignment='center')
+            plt.annotate('N = %d' % N, xy=(minVal + xIntVal, maxVal - yIntVal * 5), color='black',
+                         xycoords='data', horizontalalignment='left', verticalalignment='center')
+        else:
+            plt.annotate('N = %d' % N, xy=(minVal + xIntVal, maxVal - yIntVal * 3), color='black',
+                         xycoords='data', horizontalalignment='left', verticalalignment='center')
+
+        plt.tight_layout()
+        plt.savefig(saveImg, dpi=600, bbox_inches='tight', transparent=True)
+        plt.show()
+        plt.close()
+
+        result = {
+            'msg': 'succ'
+            , 'saveImg': saveImg
+            , 'isExist': os.path.exists(saveImg)
+        }
+
+        return result
+
+    except Exception as e:
+        log.error("Exception : {}".format(e))
+        return result
+
+    finally:
+        # try, catch 구문이 종료되기 전에 무조건 실행
+        log.info('[END] {}'.format('makeUserHist2dPlot'))
+
 # ================================================
 # 4. 부 프로그램
 # ================================================
@@ -256,20 +495,18 @@ class DtaProcess(object):
                 # 옵션 설정
                 sysOpt = {
                     # 시작/종료 시간
-                    'srtDate': '2001-01-01'
-                    , 'endDate': '2018-01-01'
+                    'srtDate': '2019-01-01'
+                    , 'endDate': '2023-01-01'
 
-                    # 경도 최소/최대/간격
-                    , 'lonMin': -180
-                    , 'lonMax': 180
-                    , 'lonInv': 0.1
-                    # , 'lonInv': 5
+                    #  머신러닝
+                    , 'mlModel': {
+                        # 모델 업데이트 여부
+                        'isOverWrite': True
+                        # 'isOverWrite': False
 
-                    # 위도 최소/최대/간격
-                    , 'latMin': -90
-                    , 'latMax': 90
-                    , 'latInv': 0.1
-                    # , 'latInv': 5
+                        # 모형 버전 (날짜)
+                        , 'modelVer': '*'
+                    }
                 }
 
             else:
@@ -277,465 +514,275 @@ class DtaProcess(object):
                 # 옵션 설정
                 sysOpt = {
                     # 시작/종료 시간
-                    # 'srtDate': '1950-01-01'
-                    # , 'endDate': '2015-01-01'
-                    'srtDate': '2014-01-01'
-                    , 'endDate': '2015-01-01'
+                    'srtDate': '1985-01-01'
+                    , 'endDate': '2023-01-01'
+                    , 'refDate': '2010-01-01'
 
-                    # 경도 최소/최대/간격
-                    , 'lonMin': -180
-                    , 'lonMax': 180
-                    , 'lonInv': 0.1
+                    #  머신러닝
+                    , 'mlModel': {
+                        # 모델 업데이트 여부
+                        'isOverWrite': True
+                        # 'isOverWrite': False
 
-                    # 위도 최소/최대/간격
-                    , 'latMin': -90
-                    , 'latMax': 90
-                    , 'latInv': 0.1
-
-                    , 'typeList': ['EC', 'GDP', 'Land_Cover_Type_1_Percent', 'landscan']
-                    # , 'typeList': ['Land_Cover_Type_1_Percent']
-                    # , 'keyList': ['CH4', 'CO2_excl', 'CO2_org', 'N2O', 'NH3', 'NMVOC', 'OC', 'NH3', 'SO2']
-                    , 'keyList': ['emi_co', 'emi_n2o', 'emi_nh3', 'emi_nmvoc', 'emi_nox', 'emi_oc', 'emi_so2']
-                    # , 'keyList': ['emi_nmvoc']
+                        # 모형 버전 (날짜)
+                        , 'modelVer': '*'
+                    }
                 }
 
                 globalVar['inpPath'] = '/DATA/INPUT'
                 globalVar['outPath'] = '/DATA/OUTPUT'
                 globalVar['figPath'] = '/DATA/FIG'
 
+            # ****************************************************************************
+            # 파일 읽기
+            # ****************************************************************************
             # inpFile = '{}/{}/{}.nc'.format(globalVar['inpPath'], serviceName, 'ACCESS-CM2*')
-            inpFile = '{}/{}/{}.nc'.format(globalVar['inpPath'], serviceName, '*')
+            inpFile = '{}/{}/{}'.format(globalVar['inpPath'], serviceName, 'real*.csv')
             # inpFile = '{}/{}/{}.nc'.format(globalVar['inpPath'], serviceName, 'ACCESS-CM2*')
             fileList = sorted(glob.glob(inpFile))
 
             if fileList is None or len(fileList) < 1:
                 log.error('[ERROR] inpFile : {} / {}'.format(inpFile, '입력 자료를 확인해주세요.'))
 
-            data = xr.Dataset()
+            # fileInfo = fileList[1]
+
+            dataL1 = pd.DataFrame()
             for i, fileInfo in enumerate(fileList):
-                if fileInfo == '/DATA/INPUT/LSH0429/ACCESS-CM2 historical_195001-201412_pr.nc': continue
-                log.info(f'[CHECK] fileInfo : {fileInfo}')
-                # selData = xr.open_dataset(fileInfo).sel(time=slice(sysOpt['srtDate'], sysOpt['endDate']))
-                selData = xr.open_mfdataset(fileInfo).sel(time=slice(sysOpt['srtDate'], sysOpt['endDate']))
-
-                # 날짜 변환 (연-월을 기준)
-                selData['time'] = pd.to_datetime(pd.to_datetime(selData['time'].values).strftime("%Y-%m"), format='%Y-%m')
-                data = xr.merge([data, selData])
-
-            # data['hurs'].isel(time = 0).plot()
-            # data['rsds'].isel(time = 0).plot()
-            # data['sfcWind'].isel(time = 0).plot()
-            # data['tas'].isel(time = 0).plot()
-            # data['tasmax'].isel(time = 0).plot()
-            # data['tasmin'].isel(time = 0).plot()
-            # data['pr'].isel(time = 0).plot()
-            # plt.show()
-
-            # xarray 및 conv3D LSTM에서 시공간 데이터 이미지 변환 없이 사용 방법
-            # 독립변수 : 온도, 평균온도, 최대온도, 최저온도 (시간, 위도, 경도)
-            # 종속변수 : 강수량 (시간, 위도, 경도)
-
-
-            # CPU 활용
-            os.environ["CUDA_VISIBLE_DEVICES"] = "-1"
-            os.environ['TF_CPP_MIN_LOG_LEVEL'] = '3'
-
-
-            # import xarray as xr
-            from tensorflow.keras.models import Sequential
-            from tensorflow.keras.layers import ConvLSTM2D, BatchNormalization, Conv3D
-
-            # Assuming you have an xarray dataset 'ds'
-            temperature = data['tas'].values  # replace 'temperature' with the actual variable name
-            max_temperature = data['tasmax'].values
-            min_temperature = data['tasmin'].values
-            rainfall = data['pr'].values
-
-            time = data['time']
-            lat = data['lat']
-            lon = data['lon']
-
-            # Combine the features into one array of shape (time_steps, lat_dim, lon_dim, num_features)
-            x_data = np.stack([temperature, max_temperature, min_temperature], axis=-1)
-
-            # Ensure the target has shape (time_steps, lat_dim, lon_dim, 1)
-            y_data = np.expand_dims(rainfall, axis=-1)
-
-            # 가정: time_steps는 시간 차원에서 사용할 연속적인 데이터 포인트의 수를 나타냅니다.
-            time_steps = len(time)
-
-
-            # 데이터를 재구조화하여 새로운 시간 차원을 추가합니다.
-            x_data2 = np.reshape(x_data, (-1, time_steps, x_data.shape[1], x_data.shape[2], x_data.shape[3]))
-            y_data2 = np.reshape(y_data, (-1, time_steps, y_data.shape[1], y_data.shape[2], y_data.shape[3]))
-
-
-            # Define a simple ConvLSTM model
-            model = Sequential()
-
-            model.add(ConvLSTM2D(filters=64, kernel_size=(3, 3), input_shape=(None, len(lat), len(lon), 3), padding='same', return_sequences=True))
-            model.add(BatchNormalization())
-            model.add(ConvLSTM2D(filters=64, kernel_size=(3, 3), padding='same', return_sequences=True))
-            model.add(BatchNormalization())
-            model.add(Conv3D(filters=1, kernel_size=(3, 3, 3), activation='sigmoid', padding='same', data_format='channels_last'))
-
-            model.compile(loss='mean_squared_error', optimizer='adam')
-
-            # Train the model
-            model.fit(x_data2, y_data2, batch_size=2, epochs=1)
-            print(model)
-            #
-            # predictions = model.predict(train_dataset)
-            #
-            # predictions_da = xr.DataArray(predictions)
-            #
-            # # 시각화
-            # predictions_da.plot()
-            # plt.show()
-
-
-
-
-
-
-
-
-
-
-            time = data['time']
-            latitude = data['lat']
-            longitude = data['lon']
-            independent_var1 = data['tas']
-            independent_var2 = data['tasmax']
-            independent_var3 = data['tasmin']
-            dependent_var = data['pr']
-
-            # 재구성 (시간, 위도, 경도, 변수)
-            independent_var1 = np.reshape(independent_var1.values, (len(time), len(latitude), len(longitude), 1))
-            independent_var2 = np.reshape(independent_var2.values, (len(time), len(latitude), len(longitude), 1))
-            independent_var3 = np.reshape(independent_var3.values, (len(time), len(latitude), len(longitude), 1))
-            dependent_var = np.reshape(dependent_var.values, (len(time), len(latitude), len(longitude), 1))
-
-            # 독립변수 결합
-            input_data = np.concatenate((independent_var1, independent_var2, independent_var3), axis=-1)
-
-            # 학습 및 검증 데이터 분할
-            train_size = int(0.8 * len(time))
-            x_train, x_val = input_data[:train_size], input_data[train_size:]
-            y_train, y_val = dependent_var[:train_size], dependent_var[train_size:]
-
-            # 배치 차원 추가 (ConvLSTM2D는 5D 입력을 요구함)
-            x_train = np.expand_dims(x_train, axis=0)
-            x_val = np.expand_dims(x_val, axis=0)
-            y_train = np.expand_dims(y_train, axis=0)
-            y_val = np.expand_dims(y_val, axis=0)
-
-            # ConvLSTM 모델 정의
-            # model = Sequential([
-            #     ConvLSTM2D(filters=64, kernel_size=(3, 3), padding='same', return_sequences=True, input_shape=(None, len(latitude), len(longitude), 3)),
-            #     BatchNormalization(),
-            #     ConvLSTM2D(filters=1, kernel_size=(3, 3), padding='same', return_sequences=True),
-            # ])
-            model = Sequential([
-                ConvLSTM2D(filters=32, kernel_size=(3, 3), padding='same', return_sequences=True, input_shape=(None, len(latitude), len(longitude), 3)),
-                BatchNormalization(),
-                ConvLSTM2D(filters=1, kernel_size=(3, 3), padding='same', return_sequences=True),
-            ])
-
-            # 모델 컴파일
-            model.compile(loss='mse', optimizer='adam')
-
-            # 모델 학습
-            # history = model.fit(x_train, y_train, epochs=1, validation_data=(x_val, y_val))
-            # history = model.fit(x_train, y_train, epochs=1, validation_data=(x_val, y_val), batch_size=32)
-
-            train_dataset = tf.data.Dataset.from_tensor_slices((x_train, y_train)).batch(2)
-            val_dataset = tf.data.Dataset.from_tensor_slices((x_val, y_val)).batch(2)
-
-            history = model.fit(train_dataset, epochs=1, validation_data=val_dataset)
-
-            print(history)
-
-            predictions = model.predict(train_dataset)
-
-
-            predictions_da = xr.DataArray(predictions)
-
-            # 시각화
-            predictions_da.plot()
-            plt.show()
-
-            # predicted_labels = np.argmax(predictions, axis=1)
-
-            # Validate the model using test data
-            # 'test_labels' should be your actual labels for the test data
-            test_loss, test_acc = model.evaluate(val_dataset, verbose=2)
-
-            from sklearn.metrics import accuracy_score
-
-            # 예측의 정확도를 계산합니다.
-            accuracy = accuracy_score(val_dataset, predictions)
-
-
-            # Print the loss and accuracy on the test data
-            print("Test loss: ", test_loss)
-            print("Test accuracy: ", test_accuracy)
-
-            print('asdfasdf')
-
-
-
-
-
-            # import xarray as xr
-            # import numpy as np
-
-            # xarray 데이터 로드
-            # # 시간, 위도, 경도에 따른 독립변수와 종속변수 선택
-            # independent_var1 = data['tas'].values
-            # independent_var2 = data['tasmax'].values
-            # independent_var3 = data['tasmin'].values
-            # dependent_var = data['pr'].values  # 예를 들어 강수량 데이터
-            #
-            # # 데이터셋 준비
-            # X = np.stack((independent_var1, independent_var2, independent_var3), axis=-1)
-            # Y = dependent_var
-            #
-            # # 데이터셋 차원 변경 (샘플, 타임스텝, 행, 열, 채널)
-            # X = X.reshape((X.shape[0], 1, X.shape[1], X.shape[2], X.shape[3]))
-            # Y = Y.reshape((Y.shape[0], 1, Y.shape[1], Y.shape[2], 1))
-            #
-            # # ConvLSTM 모델 정의
-            # model = tf.keras.models.Sequential([
-            #     tf.keras.layers.ConvLSTM2D(filters=64, kernel_size=(3, 3), padding='same', return_sequences=True,
-            #                                input_shape=(None, X.shape[2], X.shape[3], X.shape[4])),
-            #     tf.keras.layers.BatchNormalization(),
-            #     tf.keras.layers.ConvLSTM2D(filters=64, kernel_size=(3, 3), padding='same', return_sequences=True),
-            #     tf.keras.layers.BatchNormalization(),
-            #     tf.keras.layers.Conv3D(filters=1, kernel_size=(3, 3, 3), activation='sigmoid', padding='same', data_format='channels_last')
-            # ])
-            #
-            # # 모델 컴파일
-            # model.compile(loss='mae', optimizer='adam')
-            #
-            # # 모델 학습
-            # model.fit(X, Y, batch_size=100, epochs=10)
-
-
-            # 독립변수는 GPCC 입니다!
-            # 종속변수는 ACCESS 데이터인데
-            # 1950.01~2014.12  7:3
-            # 아무래도 시계열이다보니까 RNN으로해야될거같습니다!
-
-
-            # data = xr.open_mfdataset(fileList)
-            # data = xr.open_dataset(fileList[0])
-            # data = xr.open_dataset(fileList[7])
-
-
-
-            # Dimensions:  (time: 780, lat: 300, lon: 720)
-            # Coordinates:
-            #   * lat      (lat) float64 -60.0 -59.5 -59.0 -58.5 -58.0 ... 88.0 88.5 89.0 89.5
-            #   * lon      (lon) float64 0.0 0.5 1.0 1.5 2.0 ... 357.5 358.0 358.5 359.0 359.5
-            #   * time     (time) datetime64[ns] 1950-01-01 1950-02-01 ... 2014-12-01
-
-            # Dimensions:  (lat: 360, lon: 720, time: 1980)
-            # Coordinates:
-            #   * lat      (lat) float64 -90.0 -89.5 -89.0 -88.5 -88.0 ... 88.0 88.5 89.0 89.5
-            #   * lon      (lon) float64 0.0 0.5 1.0 1.5 2.0 ... 357.5 358.0 358.5 359.0 359.5
-            #   * time     (time) datetime64[ns] 1850-01-16T12:00:00 ... 2014-12-16T12:00:00
-            # Data variables:
-            #     hurs     (time, lat, lon) float64 dask.array<chunksize=(1980, 360, 720), meta=np.ndarray>
-            #     pr       (time, lat, lon) float64 dask.array<chunksize=(1980, 360, 720), meta=np.ndarray>
-            #     isLand   (time, lat, lon) float64 dask.array<chunksize=(1980, 360, 720), meta=np.ndarray>
-            #     rsds     (time, lat, lon) float64 dask.array<chunksize=(1980, 360, 720), meta=np.ndarray>
-            #     sfcWind  (time, lat, lon) float64 dask.array<chunksize=(1980, 360, 720), meta=np.ndarray>
-            #     tas      (time, lat, lon) float64 dask.array<chunksize=(1980, 360, 720), meta=np.ndarray>
-            #     tasmax   (time, lat, lon) float64 dask.array<chunksize=(1980, 360, 720), meta=np.ndarray>
-            #     tasmin   (time, lat, lon) float64 dask.array<chunksize=(1980, 360, 720), meta=np.ndarray>
-
-
-
-
-
-            # data = xr.open_mfdataset(fileList, chunks={'time': 10, 'lat': 10, 'lon': 10}).sel(time=slice(sysOpt['srtDate'], sysOpt['endDate']))
-            # data = xr.open_mfdataset(fileList).sel(time=slice(sysOpt['srtDate'], sysOpt['endDate']))
-            # data = xr.open_mfdataset(fileList)
-
-
-            # **********************************************************************************************************
-            # 피어슨 상관계수 계산
-            # **********************************************************************************************************
-            # for i, typeInfo in enumerate(sysOpt['typeList']):
-            #     for j, keyInfo in enumerate(sysOpt['keyList']):
-            #         log.info(f'[CHECK] typeInfo : {typeInfo} / keyInfo : {keyInfo}')
-            #
-            #         saveFile = '{}/{}/{}/{}_{}_{}.nc'.format(globalVar['outPath'], serviceName, 'CORR', 'corr', typeInfo, keyInfo)
-            #         fileChkList = glob.glob(saveFile)
-            #         if (len(fileChkList) > 0): continue
-            #
-            #         var1 = data[typeInfo]
-            #         var2 = data[keyInfo]
-            #
-            #         cov = ((var1 - var1.mean(dim='time', skipna=True)) * (var2 - var2.mean(dim='time', skipna=True))).mean(dim='time', skipna=True)
-            #         stdVar1 = var1.std(dim='time', skipna=True)
-            #         stdVar2 = var2.std(dim='time', skipna=True)
-            #         peaCorr = cov / (stdVar1 * stdVar2)
-            #         peaCorr = peaCorr.rename(f'{typeInfo}_{keyInfo}')
-            #
-            #         saveImg = '{}/{}/{}/{}_{}_{}.png'.format(globalVar['figPath'], serviceName, 'CORR', 'corr', typeInfo, keyInfo)
-            #         os.makedirs(os.path.dirname(saveImg), exist_ok=True)
-            #         peaCorr.plot(vmin=-1.0, vmax=1.0)
-            #         plt.savefig(saveImg, dpi=600, bbox_inches='tight', transparent=True)
-            #         plt.tight_layout()
-            #         # plt.show()
-            #         # plt.close()
-            #         log.info(f'[CHECK] saveImg : {saveImg}')
-            #
-            #         os.makedirs(os.path.dirname(saveFile), exist_ok=True)
-            #         peaCorr.to_netcdf(saveFile)
-            #         log.info(f'[CHECK] saveFile : {saveFile}')
-            #
-            #         # 데이터셋 닫기 및 메모리에서 제거
-            #         var1.close(), var2.close(), cov.close(), stdVar1.close(), stdVar2.close(), peaCorr.close()
-            #         del var1, var2, cov, stdVar1, stdVar2, peaCorr
-            #
-            #         # 가비지 수집기 강제 실행
-            #         # gc.collect()
-
-            # **********************************************************************************************************
-            # 온실가스 배출량 계산
-            # **********************************************************************************************************
-            # for i, keyInfo in enumerate(sysOpt['keyList']):
-            #     log.info(f'[CHECK] keyInfo : {keyInfo}')
-            #
-            #     var = data[keyInfo]
-            #
-            #     meanData = var.mean(dim=('time'), skipna=True)
-            #     # meanData = meanData.where(meanData > 0)
-            #     meanData = meanData.where(meanData != 0)
-            #
-            #     meanDataL1 = np.log10(meanData)
-            #
-            #     saveImg = '{}/{}/{}/{}.png'.format(globalVar['figPath'], serviceName, 'EMI', keyInfo)
-            #     os.makedirs(os.path.dirname(saveImg), exist_ok=True)
-            #     meanDataL1.plot()
-            #     plt.savefig(saveImg, dpi=600, bbox_inches='tight', transparent=True)
-            #     plt.tight_layout()
-            #     # plt.show()
-            #     plt.close()
-            #     log.info(f'[CHECK] saveImg : {saveImg}')
-            #
-            #     saveFile = '{}/{}/{}/{}.nc'.format(globalVar['outPath'], serviceName, 'EMI', keyInfo)
-            #     os.makedirs(os.path.dirname(saveFile), exist_ok=True)
-            #     meanDataL1.to_netcdf(saveFile)
-            #     log.info(f'[CHECK] saveFile : {saveFile}')
-
-            # **********************************************************************************************************
-            # Mann-Kendall 계산
-            # **********************************************************************************************************
-            # for i, keyInfo in enumerate(sysOpt['keyList']):
-            #     log.info(f'[CHECK] keyInfo : {keyInfo}')
-            #
-            #     var = data[keyInfo]
-            #
-            #     client = Client(n_workers=os.cpu_count(), threads_per_worker=os.cpu_count())
-            #     dask.config.set(scheduler='processes')
-            #
-            #     mannKendall = xr.apply_ufunc(
-            #         calcMannKendall,
-            #         var,
-            #         input_core_dims=[['time']],
-            #         output_core_dims=[[]],
-            #         vectorize=True,
-            #         dask='parallelized',
-            #         output_dtypes=[np.float64],
-            #         dask_gufunc_kwargs={'allow_rechunk': True}
-            #     ).compute()
-            #
-            #     saveImg = '{}/{}/{}/{}_{}.png'.format(globalVar['figPath'], serviceName, 'MANN', 'mann', keyInfo)
-            #     os.makedirs(os.path.dirname(saveImg), exist_ok=True)
-            #     mannKendall.plot(vmin=-1.0, vmax=1.0)
-            #     plt.savefig(saveImg, dpi=600, bbox_inches='tight', transparent=True)
-            #     plt.tight_layout()
-            #     # plt.show()
-            #     plt.close()
-            #     log.info(f'[CHECK] saveImg : {saveImg}')
-            #
-            #     saveFile = '{}/{}/{}/{}_{}.nc'.format(globalVar['outPath'], serviceName, 'MANN', 'mann', keyInfo)
-            #     os.makedirs(os.path.dirname(saveFile), exist_ok=True)
-            #     mannKendall.to_netcdf(saveFile)
-            #     log.info(f'[CHECK] saveFile : {saveFile}')
-            #
-            #     client.close()
-
-            # **********************************************************************************************************
-            # Mann Kendall 상자 그림
-            # **********************************************************************************************************
-            # inpFile = '{}/{}/{}/{}.nc'.format(globalVar['outPath'], serviceName, 'MANN', '*')
-            # fileList = sorted(glob.glob(inpFile))
-            #
-            # if fileList is None or len(fileList) < 1:
-            #     log.error('[ERROR] inpFile : {} / {}'.format(inpFile, '입력 자료를 확인해주세요.'))
-            #
-            # data = xr.open_mfdataset(fileList)
-            # dataL1 = data.to_dataframe().reset_index(drop=True)
-            # dataL1.columns = dataL1.columns.str.replace('emi_', '')
-            #
-            # dataL2 = pd.melt(dataL1, id_vars=[], var_name='key', value_name='val')
-            #
-            # mainTitle = '{}'.format('EDGAR Mann-Kendall Trend (2001~2018)')
-            # saveImg = '{}/{}/{}.png'.format(globalVar['figPath'], serviceName, mainTitle)
-            # os.makedirs(os.path.dirname(saveImg), exist_ok=True)
-            #
-            # sns.set_style("whitegrid")
-            # sns.set_palette(sns.color_palette("husl", len(dataL1.columns)))
-            # sns.boxplot(x='key', y='val', data=dataL2, dodge=False, hue='key')
-            # plt.xlabel(None)
-            # plt.ylabel('Mann-Kendall Trend')
-            # plt.title(mainTitle)
-            # plt.legend(loc='upper center', bbox_to_anchor=(0.5, -0.2), ncol=4, title=None)
-            # plt.savefig(saveImg, dpi=600, bbox_inches='tight', transparent=True)
-            # plt.tight_layout()
-            # plt.show()
-            # plt.close()
-            # log.info(f'[CHECK] saveImg : {saveImg}')
-
-            # **********************************************************************************************************
-            # typeList에 따른 상자 그림
-            # **********************************************************************************************************
-            # for i, typeInfo in enumerate(sysOpt['typeList']):
-            #     log.info(f'[CHECK] typeInfo : {typeInfo}')
-            #
-            #     inpFile = '{}/{}/{}/*{}*.nc'.format(globalVar['outPath'], serviceName, 'CORR', typeInfo)
-            #     fileList = sorted(glob.glob(inpFile))
-            #
-            #     if fileList is None or len(fileList) < 1:
-            #         log.error('[ERROR] inpFile : {} / {}'.format(inpFile, '입력 자료를 확인해주세요.'))
-            #
-            #     data = xr.open_mfdataset(fileList)
-            #     dataL1 = data.to_dataframe().reset_index(drop=True)
-            #     dataL1.columns = dataL1.columns.str.replace(f'{typeInfo}-emi_', '')
-            #
-            #     dataL2 = pd.melt(dataL1, id_vars=[], var_name='key', value_name='val')
-            #
-            #     mainTitle = f'EDGAR Pearson-Corr {typeInfo} (2001~2018)'
-            #     saveImg = '{}/{}/{}.png'.format(globalVar['figPath'], serviceName, mainTitle)
-            #     os.makedirs(os.path.dirname(saveImg), exist_ok=True)
-            #
-            #     sns.set_style("whitegrid")
-            #     sns.set_palette(sns.color_palette("husl", len(dataL1.columns)))
-            #     sns.boxplot(x='key', y='val', data=dataL2, dodge=False, hue='key')
-            #     plt.xlabel(None)
-            #     plt.ylabel('Pearson-Corr')
-            #     plt.title(mainTitle)
-            #     plt.legend(loc='upper center', bbox_to_anchor=(0.5, -0.2), ncol=4, title=None)
-            #     plt.savefig(saveImg, dpi=600, bbox_inches='tight', transparent=True)
-            #     plt.tight_layout()
-            #     # plt.show()
-            #     # plt.close()
-            #     log.info(f'[CHECK] saveImg : {saveImg}')
+                data = pd.read_csv(fileInfo, encoding='EUC-KR')
+
+                fileNameNoExt = os.path.basename(fileInfo).split(' ')[1]
+                data['type'] = fileNameNoExt
+                data['Period'] = pd.to_datetime(data['Period'])
+
+                dataL1 = pd.concat([dataL1, data], ignore_index=True)
+
+            dataL2 = pd.melt(dataL1, id_vars=['Period', 'type'], var_name='key', value_name='val')
+            dataL3 = dataL2.pivot(index=['Period', 'key'], columns='type', values='val').reset_index(drop=False)
+
+            keyList = set(dataL3['key'])
+            for j, keyInfo in enumerate(keyList):
+                log.info(f'[CHECK] keyInfo : {keyInfo}')
+
+                dataL4 = dataL3.loc[(dataL3['key'] == keyInfo)].reset_index(drop=True)
+                if (len(dataL4) < 1): continue
+
+                # 카테고리형 변환
+                # data['URBAN_RURA'] = data['URBAN_RURA'].astype('category')
+                # data['hv000'] = data['hv000'].astype('category')
+                # data['svyid'] = data['svyid'].astype('category')
+                #
+                # 7:3에 대한 훈련/테스트 데이터 분류
+                # trainData, testData = train_test_split(data, test_size=0.3, random_state=123)
+
+                # 인덱스 재 정렬
+                trainData = dataL4[dataL4['Period'] < sysOpt['refDate']].reset_index(drop=True)
+                testData = dataL4[dataL4['Period'] >= sysOpt['refDate']].reset_index(drop=True)
+
+                # ****************************************************************************
+                # 독립/종속 변수 설정
+                # ****************************************************************************
+                # 독립 변수
+                xCol = list(dataL4.columns.difference(['Period', 'key', 'hurs', 'pr']))
+
+                # 종속 변수
+                yCol = 'pr'
+
+                prdData = testData
+
+                # 컬럼 확인
+                # trainData[xCol].dtypes
+                # trainData[yCol].dtypes
+
+                # ****************************************************************************
+                # 수동 학습 모델링 (xgboost)
+                # ****************************************************************************
+                xgbTrainData = xgb.DMatrix(trainData[xCol], trainData[yCol], enable_categorical=True)
+                xgbTestData = xgb.DMatrix(testData[xCol], testData[yCol], enable_categorical=True)
+
+                xgbParams = {
+                    # 회귀
+                    'objective': 'reg:squarederror'
+                    , 'eval_metric': 'rmse'
+
+                    # 이진 분류
+                    # 'objective': 'binary:logistic'
+                    # , 'random_state': 123
+                }
+
+                # 학습
+                xgbModel = xgb.train(
+                    params=xgbParams
+                    , dtrain=xgbTrainData
+                    , evals=[(xgbTrainData, "train"), (xgbTestData, "valid")]
+                    , num_boost_round=10000
+                    , verbose_eval=False
+                    , early_stopping_rounds=1000
+                    # , early_stopping_rounds=10000
+                )
+
+                # 학습모형 저장
+                saveModel = '{}/{}/{}-{}-{}-{}.model'.format(globalVar['outPath'], serviceName, keyInfo, 'final', 'xgb', 'for')
+                os.makedirs(os.path.dirname(saveModel), exist_ok=True)
+                pickle.dump(xgbModel, open(saveModel, 'wb'))
+                log.info('[CHECK] saveFile : {}'.format(saveModel))
+
+                # 변수 중요도 저장
+                try:
+                    mainTitle = '{}'.format('xgb-importance')
+                    saveImg = '{}/{}/{}-{}.png'.format(globalVar['figPath'], serviceName, keyInfo, mainTitle)
+                    xgb.plot_importance(xgbModel)
+                    plt.title(mainTitle)
+                    plt.tight_layout()
+                    plt.savefig(saveImg, dpi=600, bbox_inches='tight')
+                    plt.show()
+                    plt.close()
+                except Exception as e:
+                    log.error('Exception : {}'.format(e))
+
+                # 학습모형 불러오기
+                xgbModel = pickle.load(open(saveModel, 'rb'))
+
+                # 예측
+                prdData['ML'] = xgbModel.predict(xgb.DMatrix(testData[xCol], enable_categorical=True))
+                # prdData['ML2'] = np.where(prdData['ML'] > 0.5, 1.0, 0.0)
+                prdData['ML2'] = prdData['ML']
+
+                # ****************************************************************************
+                # 수동 학습 모델링 (lightgbm)
+                # ****************************************************************************
+                lgbTrainData = lgb.Dataset(trainData[xCol], trainData[yCol])
+                lgbTestData = lgb.Dataset(testData[xCol], testData[yCol], reference=lgbTrainData)
+
+                lgbParams = {
+                    # 회귀
+                    'objective': 'regression'
+                    , 'metric': 'rmse'
+
+                    # 이진 분류
+                    # 'objective': 'binary'
+
+                    , 'verbosity': -1
+                    , 'n_jobs': -1
+                    , 'seed': 123
+                }
+
+                # 학습
+                lgbModel = lgb.train(
+                    params=lgbParams
+                    , train_set=lgbTrainData
+                    , num_boost_round=10000
+                    , early_stopping_rounds=1000
+                    # , early_stopping_rounds=10000
+                    , valid_sets=[lgbTrainData, lgbTestData]
+                    , verbose_eval=False
+                )
+
+                # 학습모형 저장
+                saveModel = '{}/{}/{}-{}-{}-{}.model'.format(globalVar['outPath'], serviceName, keyInfo, 'final', 'lgb', 'for')
+                os.makedirs(os.path.dirname(saveModel), exist_ok=True)
+                pickle.dump(lgbModel, open(saveModel, 'wb'))
+                log.info('[CHECK] saveFile : {}'.format(saveModel))
+
+                # 변수 중요도 저장
+                try:
+                    mainTitle = '{}'.format('lgb-importance')
+                    saveImg = '{}/{}/{}-{}.png'.format(globalVar['figPath'], serviceName, keyInfo, mainTitle)
+                    lgb.plot_importance(lgbModel)
+                    plt.title(mainTitle)
+                    plt.tight_layout()
+                    plt.savefig(saveImg, dpi=600, bbox_inches='tight')
+                    plt.show()
+                    plt.close()
+                except Exception as e:
+                    log.error('Exception : {}'.format(e))
+
+                # 학습모형 불러오기
+                lgbModel = pickle.load(open(saveModel, 'rb'))
+
+                # 예측
+                prdData['ML3'] = lgbModel.predict(data=testData[xCol])
+                # prdData['ML4'] = np.where(prdData['ML3'] > 0.5, 1.0, 0.0)
+                prdData['ML4'] = prdData['ML3']
+
+                # ****************************************************************************
+                # 자동 학습 모델링 (flaml)
+                # ****************************************************************************
+                # 머신러닝 불러오기
+                sysOpt['mlModel'].update(
+                    {
+                        'srvId': serviceName
+                        , 'keyInfo': keyInfo
+                        , 'isOverWrite': True
+                    }
+                )
+
+                # resFlaml = makeFlamlModel(sysOpt['mlModel'], xCol, yCol, trainData)
+                resFlaml = makeFlamlModel(sysOpt['mlModel'], xCol, yCol, trainData, testData)
+                log.info('[CHECK] resFlaml : {}'.format(resFlaml))
+
+                # 머신러닝 예측
+                flamlModel = resFlaml['mlModel']
+                prdData['ML5'] = flamlModel.predict(prdData)
+                prdData['ML6'] = prdData['ML5']
+                # prdData['ML6'] = np.where(prdData['ML5'] > 0.5, 1.0, 0.0)
+
+                # 변수 중요도 저장
+                try:
+                    mainTitle = '{}'.format('AutoML-importance')
+                    saveImg = '{}/{}/{}-{}.png'.format(globalVar['figPath'], serviceName, keyInfo, mainTitle)
+                    featData = pd.DataFrame([flamlModel.feature_names_in_, flamlModel.feature_importances_], index=['key', 'val']).transpose().sort_values(by=['val'], ascending=True)
+                    plt.barh(featData['key'], featData['val'])
+                    plt.title(mainTitle)
+                    plt.tight_layout()
+                    plt.savefig(saveImg, dpi=600, bbox_inches='tight')
+                    plt.show()
+                    plt.close()
+                except Exception as e:
+                    log.error('Exception : {}'.format(e))
+
+                # ****************************************************************************
+                # 검증 시각화
+                # ****************************************************************************
+                # mainTitle = '{}'.format('인덱스에 따른 아프리카 빈민가 딥러닝 예측 결과')
+                mainTitle = '{}'.format('African deep learning prediction result according to index')
+                saveImg = '{}/{}/{}-{}.png'.format(globalVar['figPath'], serviceName, keyInfo, mainTitle)
+                os.makedirs(os.path.dirname(saveImg), exist_ok=True)
+                log.info('[CHECK] saveImg : {}'.format(saveImg))
+
+                plt.plot(prdData.index, prdData['wealthpooled'], marker='o', label='obs')
+                plt.plot(prdData.index, prdData['ML2'], label='xgb (MAE : {:.2f}, RMSE : {:.2f}, R : {:.2f})'.format(
+                    mean_absolute_error(prdData['wealthpooled'], prdData['ML2']), np.sqrt(mean_squared_error(prdData['wealthpooled'], prdData['ML2'])), linregress(prdData['wealthpooled'], prdData['ML2']).rvalue
+                ))
+                plt.plot(prdData.index, prdData['ML4'], label='lgb (MAE : {:.2f}, RMSE : {:.2f}, R : {:.2f})'.format(
+                    mean_absolute_error(prdData['wealthpooled'], prdData['ML4']), np.sqrt(mean_squared_error(prdData['wealthpooled'], prdData['ML4'])), linregress(prdData['wealthpooled'], prdData['ML4']).rvalue
+                ))
+                plt.plot(prdData.index, prdData['ML6'], label='AutoML (MAE : {:.2f}, RMSE : {:.2f}, R : {:.2f})'.format(
+                    mean_absolute_error(prdData['wealthpooled'], prdData['ML6']), np.sqrt(mean_squared_error(prdData['wealthpooled'], prdData['ML6'])), linregress(prdData['wealthpooled'], prdData['ML6']).rvalue
+                ))
+
+                plt.title(mainTitle)
+                plt.legend()
+                plt.tight_layout()
+                plt.savefig(saveImg, dpi=600, bbox_inches='tight', transparent=True)
+                plt.show()
+
+                # ****************************************************************************
+                # 산점도 시각화
+                # ****************************************************************************
+                colList = ['ML2', 'ML4', 'ML6']
+                # colInfo = colList[0]
+                for j, colInfo in enumerate(sorted(set(colList))):
+
+                    selData = prdData[['wealthpooled', colInfo]].dropna()
+                    if (len(selData) < 1): continue
+
+                    colName = {'ML2': 'xgb', 'ML4': 'lgb', 'ML6': 'AutoML'}.get(colInfo, 'NA')
+
+                    mainTitle = 'African deep learning prediction result ({} vs wealthpooled)'.format(colName)
+                    saveImg = '{}/{}/{}-{}.png'.format(globalVar['figPath'], serviceName, keyInfo, mainTitle)
+                    os.makedirs(os.path.dirname(saveImg), exist_ok=True)
+                    rtnInfo = makeUserHist2dPlot(selData[colInfo], selData['wealthpooled'], colName, 'obs', mainTitle, saveImg, -1.5, 3.0, 0.05, 0.15, 30, True)
+                    log.info('[CHECK] rtnInfo : {}'.format(rtnInfo))
 
         except Exception as e:
             log.error("Exception : {}".format(e))
@@ -743,6 +790,7 @@ class DtaProcess(object):
 
         finally:
             log.info('[END] {}'.format("exec"))
+
 
 # ================================================
 # 3. 주 프로그램
