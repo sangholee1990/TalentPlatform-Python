@@ -173,8 +173,7 @@ def initGlobalVar(env=None, contextPath=None, prjName=None):
         , 'logPath': contextPath if env in 'local' else os.path.join(contextPath, 'resources', 'log', prjName)
         , 'mapPath': contextPath if env in 'local' else os.path.join(contextPath, 'resources', 'mapInfo')
         , 'sysPath': contextPath if env in 'local' else os.path.join(contextPath, 'resources', 'config', 'system.cfg')
-        ,
-        'seleniumPath': contextPath if env in 'local' else os.path.join(contextPath, 'resources', 'config', 'selenium')
+        , 'seleniumPath': contextPath if env in 'local' else os.path.join(contextPath, 'resources', 'config', 'selenium')
         , 'fontPath': contextPath if env in 'local' else os.path.join(contextPath, 'resources', 'config', 'fontInfo')
     }
 
@@ -575,7 +574,8 @@ class DtaProcess(object):
                 # 독립/종속 변수 설정
                 # ****************************************************************************
                 # 독립 변수
-                xCol = list(dataL4.columns.difference(['Period', 'key', 'hurs', 'pr']))
+                # xCol = list(dataL4.columns.difference(['Period', 'key', 'hurs', 'pr']))
+                xCol = list(dataL4.columns.difference(['Period', 'key', 'pr']))
 
                 # 종속 변수
                 yCol = 'pr'

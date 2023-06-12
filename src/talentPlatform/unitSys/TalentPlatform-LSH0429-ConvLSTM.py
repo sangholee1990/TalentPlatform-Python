@@ -34,6 +34,12 @@ from tensorflow.keras.layers import ConvLSTM2D, Dense, Flatten
 import tensorflow as tf
 from tensorflow.keras.models import Sequential
 from tensorflow.keras.layers import ConvLSTM2D, BatchNormalization
+from keras.models import Sequential
+from keras.layers.convolutional import Conv3D
+# from keras.layers.convolutional_recurrent import ConvLSTM2D
+# from keras.layers.normalization import BatchNormalization
+import numpy as np
+
 
 # =================================================
 # 사용자 매뉴얼
@@ -60,6 +66,7 @@ plt.rc('axes', unicode_minus=False)
 # 그래프에서 마이너스 글꼴 깨지는 문제에 대한 대처
 mpl.rcParams['axes.unicode_minus'] = False
 
+os.environ["CUDA_VISIBLE_DEVICES"] = "-1"
 
 # =================================================
 # 2. 유틸리티 함수
@@ -131,8 +138,7 @@ def initGlobalVar(env=None, contextPath=None, prjName=None):
         , 'logPath': contextPath if env in 'local' else os.path.join(contextPath, 'resources', 'log', prjName)
         , 'mapPath': contextPath if env in 'local' else os.path.join(contextPath, 'resources', 'mapInfo')
         , 'sysPath': contextPath if env in 'local' else os.path.join(contextPath, 'resources', 'config', 'system.cfg')
-        ,
-        'seleniumPath': contextPath if env in 'local' else os.path.join(contextPath, 'resources', 'config', 'selenium')
+        , 'seleniumPath': contextPath if env in 'local' else os.path.join(contextPath, 'resources', 'config', 'selenium')
         , 'fontPath': contextPath if env in 'local' else os.path.join(contextPath, 'resources', 'config', 'fontInfo')
     }
 
@@ -175,17 +181,6 @@ def initArgument(globalVar, inParams):
         # setattr(self, key, val)
 
     return globalVar
-
-
-def calcMannKendall(x):
-    try:
-        result = mk.original_test(x)
-        return result.Tau
-        # return result.trend, result.p, result.Tau
-
-    except Exception:
-        return np.nan
-        # return np.nan, np.nan, np.nan
 
 # ================================================
 # 4. 부 프로그램
@@ -303,430 +298,487 @@ class DtaProcess(object):
                 globalVar['outPath'] = '/DATA/OUTPUT'
                 globalVar['figPath'] = '/DATA/FIG'
 
-            # inpFile = '{}/{}/{}.nc'.format(globalVar['inpPath'], serviceName, 'ACCESS-CM2*')
-            inpFile = '{}/{}/{}.nc'.format(globalVar['inpPath'], serviceName, '*')
-            # inpFile = '{}/{}/{}.nc'.format(globalVar['inpPath'], serviceName, 'ACCESS-CM2*')
+            # ****************************************************************************
+            # 파일 읽기
+            # ****************************************************************************
+            inpFile = '{}/{}/{}'.format(globalVar['inpPath'], serviceName, 'real*.csv')
             fileList = sorted(glob.glob(inpFile))
 
             if fileList is None or len(fileList) < 1:
                 log.error('[ERROR] inpFile : {} / {}'.format(inpFile, '입력 자료를 확인해주세요.'))
 
-            data = xr.Dataset()
+            # fileInfo = fileList[1]
+            dataL1 = pd.DataFrame()
             for i, fileInfo in enumerate(fileList):
-                if fileInfo == '/DATA/INPUT/LSH0429/ACCESS-CM2 historical_195001-201412_pr.nc': continue
-                log.info(f'[CHECK] fileInfo : {fileInfo}')
-                # selData = xr.open_dataset(fileInfo).sel(time=slice(sysOpt['srtDate'], sysOpt['endDate']))
-                selData = xr.open_mfdataset(fileInfo).sel(time=slice(sysOpt['srtDate'], sysOpt['endDate']))
+                data = pd.read_csv(fileInfo, encoding='EUC-KR')
 
-                # 날짜 변환 (연-월을 기준)
-                selData['time'] = pd.to_datetime(pd.to_datetime(selData['time'].values).strftime("%Y-%m"), format='%Y-%m')
-                data = xr.merge([data, selData])
+                fileNameNoExt = os.path.basename(fileInfo).split(' ')[1]
+                data['type'] = fileNameNoExt
+                data['Period'] = pd.to_datetime(data['Period'])
 
-            # data['hurs'].isel(time = 0).plot()
-            # data['rsds'].isel(time = 0).plot()
-            # data['sfcWind'].isel(time = 0).plot()
-            # data['tas'].isel(time = 0).plot()
-            # data['tasmax'].isel(time = 0).plot()
-            # data['tasmin'].isel(time = 0).plot()
-            # data['pr'].isel(time = 0).plot()
-            # plt.show()
+                dataL1 = pd.concat([dataL1, data], ignore_index=True)
 
-            # xarray 및 conv3D LSTM에서 시공간 데이터 이미지 변환 없이 사용 방법
-            # 독립변수 : 온도, 평균온도, 최대온도, 최저온도 (시간, 위도, 경도)
-            # 종속변수 : 강수량 (시간, 위도, 경도)
+            dataL2 = pd.melt(dataL1, id_vars=['Period', 'type'], var_name='key', value_name='val')
+            dataL3 = dataL2.pivot(index=['Period', 'key'], columns='type', values='val').reset_index(drop=False)
 
+            keyList = sorted(set(dataL3['key']))
+            for j, keyInfo in enumerate(keyList):
+                log.info(f'[CHECK] keyInfo : {keyInfo}')
 
-            # CPU 활용
-            os.environ["CUDA_VISIBLE_DEVICES"] = "-1"
-            os.environ['TF_CPP_MIN_LOG_LEVEL'] = '3'
+                dataL4 = dataL3.loc[(dataL3['key'] == keyInfo)].reset_index(drop=True)
+                if (len(dataL4) < 1): continue
 
+                n_variables = 4
+                n_steps, n_rows, n_cols = 1000, 1, 1
 
-            # import xarray as xr
-            from tensorflow.keras.models import Sequential
-            from tensorflow.keras.layers import ConvLSTM2D, BatchNormalization, Conv3D
+                # 임의의 학습 데이터를 생성합니다.
+                x_train = np.random.rand(4000, n_steps, n_variables, n_rows, n_cols)
+                y_train = np.random.rand(4000, n_rows, n_cols)
 
-            # Assuming you have an xarray dataset 'ds'
-            temperature = data['tas'].values  # replace 'temperature' with the actual variable name
-            max_temperature = data['tasmax'].values
-            min_temperature = data['tasmin'].values
-            rainfall = data['pr'].values
+                # ConvLSTM 모델을 구축합니다.
+                model = Sequential()
+                model.add(ConvLSTM2D(filters=40, kernel_size=(3, 3), input_shape=(None, n_variables, n_rows, n_cols), padding='same', return_sequences=True))
+                model.add(BatchNormalization())
 
-            time = data['time']
-            lat = data['lat']
-            lon = data['lon']
+                model.add(ConvLSTM2D(filters=40, kernel_size=(3, 3), padding='same', return_sequences=True))
+                model.add(BatchNormalization())
 
-            # Combine the features into one array of shape (time_steps, lat_dim, lon_dim, num_features)
-            x_data = np.stack([temperature, max_temperature, min_temperature], axis=-1)
+                model.add(ConvLSTM2D(filters=40, kernel_size=(3, 3), padding='same', return_sequences=False))
+                model.add(BatchNormalization())
 
-            # Ensure the target has shape (time_steps, lat_dim, lon_dim, 1)
-            y_data = np.expand_dims(rainfall, axis=-1)
+                model.add(Conv3D(filters=1, kernel_size=(3, 3, 3), activation='sigmoid', padding='same', data_format='channels_last'))
 
-            # 가정: time_steps는 시간 차원에서 사용할 연속적인 데이터 포인트의 수를 나타냅니다.
-            time_steps = len(time)
+                model.compile(loss='mean_squared_error', optimizer='adam')
+
+                # 학습 데이터로 모델을 학습시킵니다.
+                model.fit(x_train, y_train, batch_size=10, epochs=10, validation_split=0.05)
 
 
-            # 데이터를 재구조화하여 새로운 시간 차원을 추가합니다.
-            x_data2 = np.reshape(x_data, (-1, time_steps, x_data.shape[1], x_data.shape[2], x_data.shape[3]))
-            y_data2 = np.reshape(y_data, (-1, time_steps, y_data.shape[1], y_data.shape[2], y_data.shape[3]))
-
-
-            # Define a simple ConvLSTM model
-            model = Sequential()
-
-            model.add(ConvLSTM2D(filters=64, kernel_size=(3, 3), input_shape=(None, len(lat), len(lon), 3), padding='same', return_sequences=True))
-            model.add(BatchNormalization())
-            model.add(ConvLSTM2D(filters=64, kernel_size=(3, 3), padding='same', return_sequences=True))
-            model.add(BatchNormalization())
-            model.add(Conv3D(filters=1, kernel_size=(3, 3, 3), activation='sigmoid', padding='same', data_format='channels_last'))
-
-            model.compile(loss='mean_squared_error', optimizer='adam')
-
-            # Train the model
-            model.fit(x_data2, y_data2, batch_size=2, epochs=1)
-            print(model)
+            #
+            # # inpFile = '{}/{}/{}.nc'.format(globalVar['inpPath'], serviceName, 'ACCESS-CM2*')
+            # inpFile = '{}/{}/{}.nc'.format(globalVar['inpPath'], serviceName, '*')
+            # # inpFile = '{}/{}/{}.nc'.format(globalVar['inpPath'], serviceName, 'ACCESS-CM2*')
+            # fileList = sorted(glob.glob(inpFile))
+            #
+            # if fileList is None or len(fileList) < 1:
+            #     log.error('[ERROR] inpFile : {} / {}'.format(inpFile, '입력 자료를 확인해주세요.'))
+            #
+            # data = xr.Dataset()
+            # for i, fileInfo in enumerate(fileList):
+            #     if fileInfo == '/DATA/INPUT/LSH0429/ACCESS-CM2 historical_195001-201412_pr.nc': continue
+            #     log.info(f'[CHECK] fileInfo : {fileInfo}')
+            #     # selData = xr.open_dataset(fileInfo).sel(time=slice(sysOpt['srtDate'], sysOpt['endDate']))
+            #     selData = xr.open_mfdataset(fileInfo).sel(time=slice(sysOpt['srtDate'], sysOpt['endDate']))
+            #
+            #     # 날짜 변환 (연-월을 기준)
+            #     selData['time'] = pd.to_datetime(pd.to_datetime(selData['time'].values).strftime("%Y-%m"), format='%Y-%m')
+            #     data = xr.merge([data, selData])
+            #
+            # # data['hurs'].isel(time = 0).plot()
+            # # data['rsds'].isel(time = 0).plot()
+            # # data['sfcWind'].isel(time = 0).plot()
+            # # data['tas'].isel(time = 0).plot()
+            # # data['tasmax'].isel(time = 0).plot()
+            # # data['tasmin'].isel(time = 0).plot()
+            # # data['pr'].isel(time = 0).plot()
+            # # plt.show()
+            #
+            # # xarray 및 conv3D LSTM에서 시공간 데이터 이미지 변환 없이 사용 방법
+            # # 독립변수 : 온도, 평균온도, 최대온도, 최저온도 (시간, 위도, 경도)
+            # # 종속변수 : 강수량 (시간, 위도, 경도)
+            #
+            #
+            # # CPU 활용
+            # os.environ["CUDA_VISIBLE_DEVICES"] = "-1"
+            # os.environ['TF_CPP_MIN_LOG_LEVEL'] = '3'
+            #
+            #
+            # # import xarray as xr
+            # from tensorflow.keras.models import Sequential
+            # from tensorflow.keras.layers import ConvLSTM2D, BatchNormalization, Conv3D
+            #
+            # # Assuming you have an xarray dataset 'ds'
+            # temperature = data['tas'].values  # replace 'temperature' with the actual variable name
+            # max_temperature = data['tasmax'].values
+            # min_temperature = data['tasmin'].values
+            # rainfall = data['pr'].values
+            #
+            # time = data['time']
+            # lat = data['lat']
+            # lon = data['lon']
+            #
+            # # Combine the features into one array of shape (time_steps, lat_dim, lon_dim, num_features)
+            # x_data = np.stack([temperature, max_temperature, min_temperature], axis=-1)
+            #
+            # # Ensure the target has shape (time_steps, lat_dim, lon_dim, 1)
+            # y_data = np.expand_dims(rainfall, axis=-1)
+            #
+            # # 가정: time_steps는 시간 차원에서 사용할 연속적인 데이터 포인트의 수를 나타냅니다.
+            # time_steps = len(time)
+            #
+            #
+            # # 데이터를 재구조화하여 새로운 시간 차원을 추가합니다.
+            # x_data2 = np.reshape(x_data, (-1, time_steps, x_data.shape[1], x_data.shape[2], x_data.shape[3]))
+            # y_data2 = np.reshape(y_data, (-1, time_steps, y_data.shape[1], y_data.shape[2], y_data.shape[3]))
+            #
+            #
+            # # Define a simple ConvLSTM model
+            # model = Sequential()
+            #
+            # model.add(ConvLSTM2D(filters=64, kernel_size=(3, 3), input_shape=(None, len(lat), len(lon), 3), padding='same', return_sequences=True))
+            # model.add(BatchNormalization())
+            # model.add(ConvLSTM2D(filters=64, kernel_size=(3, 3), padding='same', return_sequences=True))
+            # model.add(BatchNormalization())
+            # model.add(Conv3D(filters=1, kernel_size=(3, 3, 3), activation='sigmoid', padding='same', data_format='channels_last'))
+            #
+            # model.compile(loss='mean_squared_error', optimizer='adam')
+            #
+            # # Train the model
+            # model.fit(x_data2, y_data2, batch_size=2, epochs=1)
+            # print(model)
+            # #
+            # # predictions = model.predict(train_dataset)
+            # #
+            # # predictions_da = xr.DataArray(predictions)
+            # #
+            # # # 시각화
+            # # predictions_da.plot()
+            # # plt.show()
+            #
+            #
+            #
+            #
+            #
+            #
+            #
+            #
+            #
+            #
+            # time = data['time']
+            # latitude = data['lat']
+            # longitude = data['lon']
+            # independent_var1 = data['tas']
+            # independent_var2 = data['tasmax']
+            # independent_var3 = data['tasmin']
+            # dependent_var = data['pr']
+            #
+            # # 재구성 (시간, 위도, 경도, 변수)
+            # independent_var1 = np.reshape(independent_var1.values, (len(time), len(latitude), len(longitude), 1))
+            # independent_var2 = np.reshape(independent_var2.values, (len(time), len(latitude), len(longitude), 1))
+            # independent_var3 = np.reshape(independent_var3.values, (len(time), len(latitude), len(longitude), 1))
+            # dependent_var = np.reshape(dependent_var.values, (len(time), len(latitude), len(longitude), 1))
+            #
+            # # 독립변수 결합
+            # input_data = np.concatenate((independent_var1, independent_var2, independent_var3), axis=-1)
+            #
+            # # 학습 및 검증 데이터 분할
+            # train_size = int(0.8 * len(time))
+            # x_train, x_val = input_data[:train_size], input_data[train_size:]
+            # y_train, y_val = dependent_var[:train_size], dependent_var[train_size:]
+            #
+            # # 배치 차원 추가 (ConvLSTM2D는 5D 입력을 요구함)
+            # x_train = np.expand_dims(x_train, axis=0)
+            # x_val = np.expand_dims(x_val, axis=0)
+            # y_train = np.expand_dims(y_train, axis=0)
+            # y_val = np.expand_dims(y_val, axis=0)
+            #
+            # # ConvLSTM 모델 정의
+            # # model = Sequential([
+            # #     ConvLSTM2D(filters=64, kernel_size=(3, 3), padding='same', return_sequences=True, input_shape=(None, len(latitude), len(longitude), 3)),
+            # #     BatchNormalization(),
+            # #     ConvLSTM2D(filters=1, kernel_size=(3, 3), padding='same', return_sequences=True),
+            # # ])
+            # model = Sequential([
+            #     ConvLSTM2D(filters=32, kernel_size=(3, 3), padding='same', return_sequences=True, input_shape=(None, len(latitude), len(longitude), 3)),
+            #     BatchNormalization(),
+            #     ConvLSTM2D(filters=1, kernel_size=(3, 3), padding='same', return_sequences=True),
+            # ])
+            #
+            # # 모델 컴파일
+            # model.compile(loss='mse', optimizer='adam')
+            #
+            # # 모델 학습
+            # # history = model.fit(x_train, y_train, epochs=1, validation_data=(x_val, y_val))
+            # # history = model.fit(x_train, y_train, epochs=1, validation_data=(x_val, y_val), batch_size=32)
+            #
+            # train_dataset = tf.data.Dataset.from_tensor_slices((x_train, y_train)).batch(2)
+            # val_dataset = tf.data.Dataset.from_tensor_slices((x_val, y_val)).batch(2)
+            #
+            # history = model.fit(train_dataset, epochs=1, validation_data=val_dataset)
+            #
+            # print(history)
             #
             # predictions = model.predict(train_dataset)
+            #
             #
             # predictions_da = xr.DataArray(predictions)
             #
             # # 시각화
             # predictions_da.plot()
             # plt.show()
-
-
-
-
-
-
-
-
-
-
-            time = data['time']
-            latitude = data['lat']
-            longitude = data['lon']
-            independent_var1 = data['tas']
-            independent_var2 = data['tasmax']
-            independent_var3 = data['tasmin']
-            dependent_var = data['pr']
-
-            # 재구성 (시간, 위도, 경도, 변수)
-            independent_var1 = np.reshape(independent_var1.values, (len(time), len(latitude), len(longitude), 1))
-            independent_var2 = np.reshape(independent_var2.values, (len(time), len(latitude), len(longitude), 1))
-            independent_var3 = np.reshape(independent_var3.values, (len(time), len(latitude), len(longitude), 1))
-            dependent_var = np.reshape(dependent_var.values, (len(time), len(latitude), len(longitude), 1))
-
-            # 독립변수 결합
-            input_data = np.concatenate((independent_var1, independent_var2, independent_var3), axis=-1)
-
-            # 학습 및 검증 데이터 분할
-            train_size = int(0.8 * len(time))
-            x_train, x_val = input_data[:train_size], input_data[train_size:]
-            y_train, y_val = dependent_var[:train_size], dependent_var[train_size:]
-
-            # 배치 차원 추가 (ConvLSTM2D는 5D 입력을 요구함)
-            x_train = np.expand_dims(x_train, axis=0)
-            x_val = np.expand_dims(x_val, axis=0)
-            y_train = np.expand_dims(y_train, axis=0)
-            y_val = np.expand_dims(y_val, axis=0)
-
-            # ConvLSTM 모델 정의
-            # model = Sequential([
-            #     ConvLSTM2D(filters=64, kernel_size=(3, 3), padding='same', return_sequences=True, input_shape=(None, len(latitude), len(longitude), 3)),
-            #     BatchNormalization(),
-            #     ConvLSTM2D(filters=1, kernel_size=(3, 3), padding='same', return_sequences=True),
-            # ])
-            model = Sequential([
-                ConvLSTM2D(filters=32, kernel_size=(3, 3), padding='same', return_sequences=True, input_shape=(None, len(latitude), len(longitude), 3)),
-                BatchNormalization(),
-                ConvLSTM2D(filters=1, kernel_size=(3, 3), padding='same', return_sequences=True),
-            ])
-
-            # 모델 컴파일
-            model.compile(loss='mse', optimizer='adam')
-
-            # 모델 학습
-            # history = model.fit(x_train, y_train, epochs=1, validation_data=(x_val, y_val))
-            # history = model.fit(x_train, y_train, epochs=1, validation_data=(x_val, y_val), batch_size=32)
-
-            train_dataset = tf.data.Dataset.from_tensor_slices((x_train, y_train)).batch(2)
-            val_dataset = tf.data.Dataset.from_tensor_slices((x_val, y_val)).batch(2)
-
-            history = model.fit(train_dataset, epochs=1, validation_data=val_dataset)
-
-            print(history)
-
-            predictions = model.predict(train_dataset)
-
-
-            predictions_da = xr.DataArray(predictions)
-
-            # 시각화
-            predictions_da.plot()
-            plt.show()
-
-            # predicted_labels = np.argmax(predictions, axis=1)
-
-            # Validate the model using test data
-            # 'test_labels' should be your actual labels for the test data
-            test_loss, test_acc = model.evaluate(val_dataset, verbose=2)
-
-            from sklearn.metrics import accuracy_score
-
-            # 예측의 정확도를 계산합니다.
-            accuracy = accuracy_score(val_dataset, predictions)
-
-
-            # Print the loss and accuracy on the test data
-            print("Test loss: ", test_loss)
-            print("Test accuracy: ", test_accuracy)
-
-            print('asdfasdf')
-
-
-
-
-
-            # import xarray as xr
-            # import numpy as np
-
-            # xarray 데이터 로드
-            # # 시간, 위도, 경도에 따른 독립변수와 종속변수 선택
-            # independent_var1 = data['tas'].values
-            # independent_var2 = data['tasmax'].values
-            # independent_var3 = data['tasmin'].values
-            # dependent_var = data['pr'].values  # 예를 들어 강수량 데이터
             #
-            # # 데이터셋 준비
-            # X = np.stack((independent_var1, independent_var2, independent_var3), axis=-1)
-            # Y = dependent_var
+            # # predicted_labels = np.argmax(predictions, axis=1)
             #
-            # # 데이터셋 차원 변경 (샘플, 타임스텝, 행, 열, 채널)
-            # X = X.reshape((X.shape[0], 1, X.shape[1], X.shape[2], X.shape[3]))
-            # Y = Y.reshape((Y.shape[0], 1, Y.shape[1], Y.shape[2], 1))
+            # # Validate the model using test data
+            # # 'test_labels' should be your actual labels for the test data
+            # test_loss, test_acc = model.evaluate(val_dataset, verbose=2)
             #
-            # # ConvLSTM 모델 정의
-            # model = tf.keras.models.Sequential([
-            #     tf.keras.layers.ConvLSTM2D(filters=64, kernel_size=(3, 3), padding='same', return_sequences=True,
-            #                                input_shape=(None, X.shape[2], X.shape[3], X.shape[4])),
-            #     tf.keras.layers.BatchNormalization(),
-            #     tf.keras.layers.ConvLSTM2D(filters=64, kernel_size=(3, 3), padding='same', return_sequences=True),
-            #     tf.keras.layers.BatchNormalization(),
-            #     tf.keras.layers.Conv3D(filters=1, kernel_size=(3, 3, 3), activation='sigmoid', padding='same', data_format='channels_last')
-            # ])
+            # from sklearn.metrics import accuracy_score
             #
-            # # 모델 컴파일
-            # model.compile(loss='mae', optimizer='adam')
+            # # 예측의 정확도를 계산합니다.
+            # accuracy = accuracy_score(val_dataset, predictions)
             #
-            # # 모델 학습
-            # model.fit(X, Y, batch_size=100, epochs=10)
-
-
-            # 독립변수는 GPCC 입니다!
-            # 종속변수는 ACCESS 데이터인데
-            # 1950.01~2014.12  7:3
-            # 아무래도 시계열이다보니까 RNN으로해야될거같습니다!
-
-
-            # data = xr.open_mfdataset(fileList)
-            # data = xr.open_dataset(fileList[0])
-            # data = xr.open_dataset(fileList[7])
-
-
-
-            # Dimensions:  (time: 780, lat: 300, lon: 720)
-            # Coordinates:
-            #   * lat      (lat) float64 -60.0 -59.5 -59.0 -58.5 -58.0 ... 88.0 88.5 89.0 89.5
-            #   * lon      (lon) float64 0.0 0.5 1.0 1.5 2.0 ... 357.5 358.0 358.5 359.0 359.5
-            #   * time     (time) datetime64[ns] 1950-01-01 1950-02-01 ... 2014-12-01
-
-            # Dimensions:  (lat: 360, lon: 720, time: 1980)
-            # Coordinates:
-            #   * lat      (lat) float64 -90.0 -89.5 -89.0 -88.5 -88.0 ... 88.0 88.5 89.0 89.5
-            #   * lon      (lon) float64 0.0 0.5 1.0 1.5 2.0 ... 357.5 358.0 358.5 359.0 359.5
-            #   * time     (time) datetime64[ns] 1850-01-16T12:00:00 ... 2014-12-16T12:00:00
-            # Data variables:
-            #     hurs     (time, lat, lon) float64 dask.array<chunksize=(1980, 360, 720), meta=np.ndarray>
-            #     pr       (time, lat, lon) float64 dask.array<chunksize=(1980, 360, 720), meta=np.ndarray>
-            #     isLand   (time, lat, lon) float64 dask.array<chunksize=(1980, 360, 720), meta=np.ndarray>
-            #     rsds     (time, lat, lon) float64 dask.array<chunksize=(1980, 360, 720), meta=np.ndarray>
-            #     sfcWind  (time, lat, lon) float64 dask.array<chunksize=(1980, 360, 720), meta=np.ndarray>
-            #     tas      (time, lat, lon) float64 dask.array<chunksize=(1980, 360, 720), meta=np.ndarray>
-            #     tasmax   (time, lat, lon) float64 dask.array<chunksize=(1980, 360, 720), meta=np.ndarray>
-            #     tasmin   (time, lat, lon) float64 dask.array<chunksize=(1980, 360, 720), meta=np.ndarray>
-
-
-
-
-
-            # data = xr.open_mfdataset(fileList, chunks={'time': 10, 'lat': 10, 'lon': 10}).sel(time=slice(sysOpt['srtDate'], sysOpt['endDate']))
-            # data = xr.open_mfdataset(fileList).sel(time=slice(sysOpt['srtDate'], sysOpt['endDate']))
-            # data = xr.open_mfdataset(fileList)
-
-
-            # **********************************************************************************************************
-            # 피어슨 상관계수 계산
-            # **********************************************************************************************************
-            # for i, typeInfo in enumerate(sysOpt['typeList']):
-            #     for j, keyInfo in enumerate(sysOpt['keyList']):
-            #         log.info(f'[CHECK] typeInfo : {typeInfo} / keyInfo : {keyInfo}')
             #
-            #         saveFile = '{}/{}/{}/{}_{}_{}.nc'.format(globalVar['outPath'], serviceName, 'CORR', 'corr', typeInfo, keyInfo)
-            #         fileChkList = glob.glob(saveFile)
-            #         if (len(fileChkList) > 0): continue
+            # # Print the loss and accuracy on the test data
+            # print("Test loss: ", test_loss)
+            # print("Test accuracy: ", test_accuracy)
             #
-            #         var1 = data[typeInfo]
-            #         var2 = data[keyInfo]
+            # print('asdfasdf')
             #
-            #         cov = ((var1 - var1.mean(dim='time', skipna=True)) * (var2 - var2.mean(dim='time', skipna=True))).mean(dim='time', skipna=True)
-            #         stdVar1 = var1.std(dim='time', skipna=True)
-            #         stdVar2 = var2.std(dim='time', skipna=True)
-            #         peaCorr = cov / (stdVar1 * stdVar2)
-            #         peaCorr = peaCorr.rename(f'{typeInfo}_{keyInfo}')
             #
-            #         saveImg = '{}/{}/{}/{}_{}_{}.png'.format(globalVar['figPath'], serviceName, 'CORR', 'corr', typeInfo, keyInfo)
-            #         os.makedirs(os.path.dirname(saveImg), exist_ok=True)
-            #         peaCorr.plot(vmin=-1.0, vmax=1.0)
-            #         plt.savefig(saveImg, dpi=600, bbox_inches='tight', transparent=True)
-            #         plt.tight_layout()
-            #         # plt.show()
-            #         # plt.close()
-            #         log.info(f'[CHECK] saveImg : {saveImg}')
             #
-            #         os.makedirs(os.path.dirname(saveFile), exist_ok=True)
-            #         peaCorr.to_netcdf(saveFile)
-            #         log.info(f'[CHECK] saveFile : {saveFile}')
             #
-            #         # 데이터셋 닫기 및 메모리에서 제거
-            #         var1.close(), var2.close(), cov.close(), stdVar1.close(), stdVar2.close(), peaCorr.close()
-            #         del var1, var2, cov, stdVar1, stdVar2, peaCorr
             #
-            #         # 가비지 수집기 강제 실행
-            #         # gc.collect()
-
-            # **********************************************************************************************************
-            # 온실가스 배출량 계산
-            # **********************************************************************************************************
-            # for i, keyInfo in enumerate(sysOpt['keyList']):
-            #     log.info(f'[CHECK] keyInfo : {keyInfo}')
+            # # import xarray as xr
+            # # import numpy as np
             #
-            #     var = data[keyInfo]
+            # # xarray 데이터 로드
+            # # # 시간, 위도, 경도에 따른 독립변수와 종속변수 선택
+            # # independent_var1 = data['tas'].values
+            # # independent_var2 = data['tasmax'].values
+            # # independent_var3 = data['tasmin'].values
+            # # dependent_var = data['pr'].values  # 예를 들어 강수량 데이터
+            # #
+            # # # 데이터셋 준비
+            # # X = np.stack((independent_var1, independent_var2, independent_var3), axis=-1)
+            # # Y = dependent_var
+            # #
+            # # # 데이터셋 차원 변경 (샘플, 타임스텝, 행, 열, 채널)
+            # # X = X.reshape((X.shape[0], 1, X.shape[1], X.shape[2], X.shape[3]))
+            # # Y = Y.reshape((Y.shape[0], 1, Y.shape[1], Y.shape[2], 1))
+            # #
+            # # # ConvLSTM 모델 정의
+            # # model = tf.keras.models.Sequential([
+            # #     tf.keras.layers.ConvLSTM2D(filters=64, kernel_size=(3, 3), padding='same', return_sequences=True,
+            # #                                input_shape=(None, X.shape[2], X.shape[3], X.shape[4])),
+            # #     tf.keras.layers.BatchNormalization(),
+            # #     tf.keras.layers.ConvLSTM2D(filters=64, kernel_size=(3, 3), padding='same', return_sequences=True),
+            # #     tf.keras.layers.BatchNormalization(),
+            # #     tf.keras.layers.Conv3D(filters=1, kernel_size=(3, 3, 3), activation='sigmoid', padding='same', data_format='channels_last')
+            # # ])
+            # #
+            # # # 모델 컴파일
+            # # model.compile(loss='mae', optimizer='adam')
+            # #
+            # # # 모델 학습
+            # # model.fit(X, Y, batch_size=100, epochs=10)
             #
-            #     meanData = var.mean(dim=('time'), skipna=True)
-            #     # meanData = meanData.where(meanData > 0)
-            #     meanData = meanData.where(meanData != 0)
             #
-            #     meanDataL1 = np.log10(meanData)
+            # # 독립변수는 GPCC 입니다!
+            # # 종속변수는 ACCESS 데이터인데
+            # # 1950.01~2014.12  7:3
+            # # 아무래도 시계열이다보니까 RNN으로해야될거같습니다!
             #
-            #     saveImg = '{}/{}/{}/{}.png'.format(globalVar['figPath'], serviceName, 'EMI', keyInfo)
-            #     os.makedirs(os.path.dirname(saveImg), exist_ok=True)
-            #     meanDataL1.plot()
-            #     plt.savefig(saveImg, dpi=600, bbox_inches='tight', transparent=True)
-            #     plt.tight_layout()
-            #     # plt.show()
-            #     plt.close()
-            #     log.info(f'[CHECK] saveImg : {saveImg}')
             #
-            #     saveFile = '{}/{}/{}/{}.nc'.format(globalVar['outPath'], serviceName, 'EMI', keyInfo)
-            #     os.makedirs(os.path.dirname(saveFile), exist_ok=True)
-            #     meanDataL1.to_netcdf(saveFile)
-            #     log.info(f'[CHECK] saveFile : {saveFile}')
-
-            # **********************************************************************************************************
-            # Mann-Kendall 계산
-            # **********************************************************************************************************
-            # for i, keyInfo in enumerate(sysOpt['keyList']):
-            #     log.info(f'[CHECK] keyInfo : {keyInfo}')
+            # # data = xr.open_mfdataset(fileList)
+            # # data = xr.open_dataset(fileList[0])
+            # # data = xr.open_dataset(fileList[7])
             #
-            #     var = data[keyInfo]
             #
-            #     client = Client(n_workers=os.cpu_count(), threads_per_worker=os.cpu_count())
-            #     dask.config.set(scheduler='processes')
             #
-            #     mannKendall = xr.apply_ufunc(
-            #         calcMannKendall,
-            #         var,
-            #         input_core_dims=[['time']],
-            #         output_core_dims=[[]],
-            #         vectorize=True,
-            #         dask='parallelized',
-            #         output_dtypes=[np.float64],
-            #         dask_gufunc_kwargs={'allow_rechunk': True}
-            #     ).compute()
+            # # Dimensions:  (time: 780, lat: 300, lon: 720)
+            # # Coordinates:
+            # #   * lat      (lat) float64 -60.0 -59.5 -59.0 -58.5 -58.0 ... 88.0 88.5 89.0 89.5
+            # #   * lon      (lon) float64 0.0 0.5 1.0 1.5 2.0 ... 357.5 358.0 358.5 359.0 359.5
+            # #   * time     (time) datetime64[ns] 1950-01-01 1950-02-01 ... 2014-12-01
             #
-            #     saveImg = '{}/{}/{}/{}_{}.png'.format(globalVar['figPath'], serviceName, 'MANN', 'mann', keyInfo)
-            #     os.makedirs(os.path.dirname(saveImg), exist_ok=True)
-            #     mannKendall.plot(vmin=-1.0, vmax=1.0)
-            #     plt.savefig(saveImg, dpi=600, bbox_inches='tight', transparent=True)
-            #     plt.tight_layout()
-            #     # plt.show()
-            #     plt.close()
-            #     log.info(f'[CHECK] saveImg : {saveImg}')
+            # # Dimensions:  (lat: 360, lon: 720, time: 1980)
+            # # Coordinates:
+            # #   * lat      (lat) float64 -90.0 -89.5 -89.0 -88.5 -88.0 ... 88.0 88.5 89.0 89.5
+            # #   * lon      (lon) float64 0.0 0.5 1.0 1.5 2.0 ... 357.5 358.0 358.5 359.0 359.5
+            # #   * time     (time) datetime64[ns] 1850-01-16T12:00:00 ... 2014-12-16T12:00:00
+            # # Data variables:
+            # #     hurs     (time, lat, lon) float64 dask.array<chunksize=(1980, 360, 720), meta=np.ndarray>
+            # #     pr       (time, lat, lon) float64 dask.array<chunksize=(1980, 360, 720), meta=np.ndarray>
+            # #     isLand   (time, lat, lon) float64 dask.array<chunksize=(1980, 360, 720), meta=np.ndarray>
+            # #     rsds     (time, lat, lon) float64 dask.array<chunksize=(1980, 360, 720), meta=np.ndarray>
+            # #     sfcWind  (time, lat, lon) float64 dask.array<chunksize=(1980, 360, 720), meta=np.ndarray>
+            # #     tas      (time, lat, lon) float64 dask.array<chunksize=(1980, 360, 720), meta=np.ndarray>
+            # #     tasmax   (time, lat, lon) float64 dask.array<chunksize=(1980, 360, 720), meta=np.ndarray>
+            # #     tasmin   (time, lat, lon) float64 dask.array<chunksize=(1980, 360, 720), meta=np.ndarray>
             #
-            #     saveFile = '{}/{}/{}/{}_{}.nc'.format(globalVar['outPath'], serviceName, 'MANN', 'mann', keyInfo)
-            #     os.makedirs(os.path.dirname(saveFile), exist_ok=True)
-            #     mannKendall.to_netcdf(saveFile)
-            #     log.info(f'[CHECK] saveFile : {saveFile}')
             #
-            #     client.close()
-
-            # **********************************************************************************************************
-            # Mann Kendall 상자 그림
-            # **********************************************************************************************************
-            # inpFile = '{}/{}/{}/{}.nc'.format(globalVar['outPath'], serviceName, 'MANN', '*')
-            # fileList = sorted(glob.glob(inpFile))
             #
-            # if fileList is None or len(fileList) < 1:
-            #     log.error('[ERROR] inpFile : {} / {}'.format(inpFile, '입력 자료를 확인해주세요.'))
             #
-            # data = xr.open_mfdataset(fileList)
-            # dataL1 = data.to_dataframe().reset_index(drop=True)
-            # dataL1.columns = dataL1.columns.str.replace('emi_', '')
             #
-            # dataL2 = pd.melt(dataL1, id_vars=[], var_name='key', value_name='val')
+            # # data = xr.open_mfdataset(fileList, chunks={'time': 10, 'lat': 10, 'lon': 10}).sel(time=slice(sysOpt['srtDate'], sysOpt['endDate']))
+            # # data = xr.open_mfdataset(fileList).sel(time=slice(sysOpt['srtDate'], sysOpt['endDate']))
+            # # data = xr.open_mfdataset(fileList)
             #
-            # mainTitle = '{}'.format('EDGAR Mann-Kendall Trend (2001~2018)')
-            # saveImg = '{}/{}/{}.png'.format(globalVar['figPath'], serviceName, mainTitle)
-            # os.makedirs(os.path.dirname(saveImg), exist_ok=True)
             #
-            # sns.set_style("whitegrid")
-            # sns.set_palette(sns.color_palette("husl", len(dataL1.columns)))
-            # sns.boxplot(x='key', y='val', data=dataL2, dodge=False, hue='key')
-            # plt.xlabel(None)
-            # plt.ylabel('Mann-Kendall Trend')
-            # plt.title(mainTitle)
-            # plt.legend(loc='upper center', bbox_to_anchor=(0.5, -0.2), ncol=4, title=None)
-            # plt.savefig(saveImg, dpi=600, bbox_inches='tight', transparent=True)
-            # plt.tight_layout()
-            # plt.show()
-            # plt.close()
-            # log.info(f'[CHECK] saveImg : {saveImg}')
-
-            # **********************************************************************************************************
-            # typeList에 따른 상자 그림
-            # **********************************************************************************************************
-            # for i, typeInfo in enumerate(sysOpt['typeList']):
-            #     log.info(f'[CHECK] typeInfo : {typeInfo}')
+            # # **********************************************************************************************************
+            # # 피어슨 상관계수 계산
+            # # **********************************************************************************************************
+            # # for i, typeInfo in enumerate(sysOpt['typeList']):
+            # #     for j, keyInfo in enumerate(sysOpt['keyList']):
+            # #         log.info(f'[CHECK] typeInfo : {typeInfo} / keyInfo : {keyInfo}')
+            # #
+            # #         saveFile = '{}/{}/{}/{}_{}_{}.nc'.format(globalVar['outPath'], serviceName, 'CORR', 'corr', typeInfo, keyInfo)
+            # #         fileChkList = glob.glob(saveFile)
+            # #         if (len(fileChkList) > 0): continue
+            # #
+            # #         var1 = data[typeInfo]
+            # #         var2 = data[keyInfo]
+            # #
+            # #         cov = ((var1 - var1.mean(dim='time', skipna=True)) * (var2 - var2.mean(dim='time', skipna=True))).mean(dim='time', skipna=True)
+            # #         stdVar1 = var1.std(dim='time', skipna=True)
+            # #         stdVar2 = var2.std(dim='time', skipna=True)
+            # #         peaCorr = cov / (stdVar1 * stdVar2)
+            # #         peaCorr = peaCorr.rename(f'{typeInfo}_{keyInfo}')
+            # #
+            # #         saveImg = '{}/{}/{}/{}_{}_{}.png'.format(globalVar['figPath'], serviceName, 'CORR', 'corr', typeInfo, keyInfo)
+            # #         os.makedirs(os.path.dirname(saveImg), exist_ok=True)
+            # #         peaCorr.plot(vmin=-1.0, vmax=1.0)
+            # #         plt.savefig(saveImg, dpi=600, bbox_inches='tight', transparent=True)
+            # #         plt.tight_layout()
+            # #         # plt.show()
+            # #         # plt.close()
+            # #         log.info(f'[CHECK] saveImg : {saveImg}')
+            # #
+            # #         os.makedirs(os.path.dirname(saveFile), exist_ok=True)
+            # #         peaCorr.to_netcdf(saveFile)
+            # #         log.info(f'[CHECK] saveFile : {saveFile}')
+            # #
+            # #         # 데이터셋 닫기 및 메모리에서 제거
+            # #         var1.close(), var2.close(), cov.close(), stdVar1.close(), stdVar2.close(), peaCorr.close()
+            # #         del var1, var2, cov, stdVar1, stdVar2, peaCorr
+            # #
+            # #         # 가비지 수집기 강제 실행
+            # #         # gc.collect()
             #
-            #     inpFile = '{}/{}/{}/*{}*.nc'.format(globalVar['outPath'], serviceName, 'CORR', typeInfo)
-            #     fileList = sorted(glob.glob(inpFile))
+            # # **********************************************************************************************************
+            # # 온실가스 배출량 계산
+            # # **********************************************************************************************************
+            # # for i, keyInfo in enumerate(sysOpt['keyList']):
+            # #     log.info(f'[CHECK] keyInfo : {keyInfo}')
+            # #
+            # #     var = data[keyInfo]
+            # #
+            # #     meanData = var.mean(dim=('time'), skipna=True)
+            # #     # meanData = meanData.where(meanData > 0)
+            # #     meanData = meanData.where(meanData != 0)
+            # #
+            # #     meanDataL1 = np.log10(meanData)
+            # #
+            # #     saveImg = '{}/{}/{}/{}.png'.format(globalVar['figPath'], serviceName, 'EMI', keyInfo)
+            # #     os.makedirs(os.path.dirname(saveImg), exist_ok=True)
+            # #     meanDataL1.plot()
+            # #     plt.savefig(saveImg, dpi=600, bbox_inches='tight', transparent=True)
+            # #     plt.tight_layout()
+            # #     # plt.show()
+            # #     plt.close()
+            # #     log.info(f'[CHECK] saveImg : {saveImg}')
+            # #
+            # #     saveFile = '{}/{}/{}/{}.nc'.format(globalVar['outPath'], serviceName, 'EMI', keyInfo)
+            # #     os.makedirs(os.path.dirname(saveFile), exist_ok=True)
+            # #     meanDataL1.to_netcdf(saveFile)
+            # #     log.info(f'[CHECK] saveFile : {saveFile}')
             #
-            #     if fileList is None or len(fileList) < 1:
-            #         log.error('[ERROR] inpFile : {} / {}'.format(inpFile, '입력 자료를 확인해주세요.'))
+            # # **********************************************************************************************************
+            # # Mann-Kendall 계산
+            # # **********************************************************************************************************
+            # # for i, keyInfo in enumerate(sysOpt['keyList']):
+            # #     log.info(f'[CHECK] keyInfo : {keyInfo}')
+            # #
+            # #     var = data[keyInfo]
+            # #
+            # #     client = Client(n_workers=os.cpu_count(), threads_per_worker=os.cpu_count())
+            # #     dask.config.set(scheduler='processes')
+            # #
+            # #     mannKendall = xr.apply_ufunc(
+            # #         calcMannKendall,
+            # #         var,
+            # #         input_core_dims=[['time']],
+            # #         output_core_dims=[[]],
+            # #         vectorize=True,
+            # #         dask='parallelized',
+            # #         output_dtypes=[np.float64],
+            # #         dask_gufunc_kwargs={'allow_rechunk': True}
+            # #     ).compute()
+            # #
+            # #     saveImg = '{}/{}/{}/{}_{}.png'.format(globalVar['figPath'], serviceName, 'MANN', 'mann', keyInfo)
+            # #     os.makedirs(os.path.dirname(saveImg), exist_ok=True)
+            # #     mannKendall.plot(vmin=-1.0, vmax=1.0)
+            # #     plt.savefig(saveImg, dpi=600, bbox_inches='tight', transparent=True)
+            # #     plt.tight_layout()
+            # #     # plt.show()
+            # #     plt.close()
+            # #     log.info(f'[CHECK] saveImg : {saveImg}')
+            # #
+            # #     saveFile = '{}/{}/{}/{}_{}.nc'.format(globalVar['outPath'], serviceName, 'MANN', 'mann', keyInfo)
+            # #     os.makedirs(os.path.dirname(saveFile), exist_ok=True)
+            # #     mannKendall.to_netcdf(saveFile)
+            # #     log.info(f'[CHECK] saveFile : {saveFile}')
+            # #
+            # #     client.close()
             #
-            #     data = xr.open_mfdataset(fileList)
-            #     dataL1 = data.to_dataframe().reset_index(drop=True)
-            #     dataL1.columns = dataL1.columns.str.replace(f'{typeInfo}-emi_', '')
+            # # **********************************************************************************************************
+            # # Mann Kendall 상자 그림
+            # # **********************************************************************************************************
+            # # inpFile = '{}/{}/{}/{}.nc'.format(globalVar['outPath'], serviceName, 'MANN', '*')
+            # # fileList = sorted(glob.glob(inpFile))
+            # #
+            # # if fileList is None or len(fileList) < 1:
+            # #     log.error('[ERROR] inpFile : {} / {}'.format(inpFile, '입력 자료를 확인해주세요.'))
+            # #
+            # # data = xr.open_mfdataset(fileList)
+            # # dataL1 = data.to_dataframe().reset_index(drop=True)
+            # # dataL1.columns = dataL1.columns.str.replace('emi_', '')
+            # #
+            # # dataL2 = pd.melt(dataL1, id_vars=[], var_name='key', value_name='val')
+            # #
+            # # mainTitle = '{}'.format('EDGAR Mann-Kendall Trend (2001~2018)')
+            # # saveImg = '{}/{}/{}.png'.format(globalVar['figPath'], serviceName, mainTitle)
+            # # os.makedirs(os.path.dirname(saveImg), exist_ok=True)
+            # #
+            # # sns.set_style("whitegrid")
+            # # sns.set_palette(sns.color_palette("husl", len(dataL1.columns)))
+            # # sns.boxplot(x='key', y='val', data=dataL2, dodge=False, hue='key')
+            # # plt.xlabel(None)
+            # # plt.ylabel('Mann-Kendall Trend')
+            # # plt.title(mainTitle)
+            # # plt.legend(loc='upper center', bbox_to_anchor=(0.5, -0.2), ncol=4, title=None)
+            # # plt.savefig(saveImg, dpi=600, bbox_inches='tight', transparent=True)
+            # # plt.tight_layout()
+            # # plt.show()
+            # # plt.close()
+            # # log.info(f'[CHECK] saveImg : {saveImg}')
             #
-            #     dataL2 = pd.melt(dataL1, id_vars=[], var_name='key', value_name='val')
-            #
-            #     mainTitle = f'EDGAR Pearson-Corr {typeInfo} (2001~2018)'
-            #     saveImg = '{}/{}/{}.png'.format(globalVar['figPath'], serviceName, mainTitle)
-            #     os.makedirs(os.path.dirname(saveImg), exist_ok=True)
-            #
-            #     sns.set_style("whitegrid")
-            #     sns.set_palette(sns.color_palette("husl", len(dataL1.columns)))
-            #     sns.boxplot(x='key', y='val', data=dataL2, dodge=False, hue='key')
+            # # **********************************************************************************************************
+            # # typeList에 따른 상자 그림
+            # # **********************************************************************************************************
+            # # for i, typeInfo in enumerate(sysOpt['typeList']):
+            # #     log.info(f'[CHECK] typeInfo : {typeInfo}')
+            # #
+            # #     inpFile = '{}/{}/{}/*{}*.nc'.format(globalVar['outPath'], serviceName, 'CORR', typeInfo)
+            # #     fileList = sorted(glob.glob(inpFile))
+            # #
+            # #     if fileList is None or len(fileList) < 1:
+            # #         log.error('[ERROR] inpFile : {} / {}'.format(inpFile, '입력 자료를 확인해주세요.'))
+            # #
+            # #     data = xr.open_mfdataset(fileList)
+            # #     dataL1 = data.to_dataframe().reset_index(drop=True)
+            # #     dataL1.columns = dataL1.columns.str.replace(f'{typeInfo}-emi_', '')
+            # #
+            # #     dataL2 = pd.melt(dataL1, id_vars=[], var_name='key', value_name='val')
+            # #
+            # #     mainTitle = f'EDGAR Pearson-Corr {typeInfo} (2001~2018)'
+            # #     saveImg = '{}/{}/{}.png'.format(globalVar['figPath'], serviceName, mainTitle)
+            # #     os.makedirs(os.path.dirname(saveImg), exist_ok=True)
+            # #
+            # #     sns.set_style("whitegrid")
+            # #     sns.set_palette(sns.color_palette("husl", len(dataL1.columns)))
+            # #     sns.boxplot(x='key', y='val', data=dataL2, dodge=False, hue='key')
             #     plt.xlabel(None)
             #     plt.ylabel('Pearson-Corr')
             #     plt.title(mainTitle)
