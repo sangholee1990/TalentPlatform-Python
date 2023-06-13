@@ -212,8 +212,6 @@ def initCfgInfo(sysPath):
         result = {
             'dbEngine': dbEngine
             , 'session': session
-            # , 'apiUrl': apiUrl
-            # , 'apiToken': apiToken
         }
 
         return result
@@ -229,6 +227,24 @@ def initCfgInfo(sysPath):
 # ================================================
 # 4. 부 프로그램
 # ================================================
+class SaleInfo(Base):
+    __tablename__ = 'TB_SALE_INFO'
+
+    TYPE = Column(String(255), primary_key=True)
+    NAME = Column(String(255), primary_key=True)
+    ADDR = Column(String(255), primary_key=True)
+    SALE_DATE = Column(DateTime, primary_key=True)
+    CONV_YEAR = Column(Integer, primary_key=True)
+    YEAR = Column(Integer, primary_key=True)
+    AREA = Column(Integer)
+    SALE_PRICE = Column(Float)
+    SALE_PRICE_CONV = Column(Float)
+    SALE_TYPE = Column(String(255))
+    FLOOR = Column(Integer)
+    PYEONG = Column(String(255))
+    LAT = Column(Float)
+    LON = Column(Float)
+
 class DtaProcess(object):
     # ================================================
     # 요구사항
@@ -317,23 +333,15 @@ class DtaProcess(object):
                     }
 
                     # 검색 목록
-                    , 'addrList': ['서울특별시 강북구']
-                    # , 'addrList': ['서울특별시']
-
-                    # 네이버 API 정보
-                    , 'naverId': 'q6rz1sjycu'
-                    , 'naverPw': 'KYof7RAjdDffoyEyQPFzb0mUiiPc3DKy2qxvaaZf'
-                    , 'naverApi': 'https://naveropenapi.apigw.ntruss.com/map-geocode/v2/geocode'
-
-                    # 구글 API 정보
-                    # , 'googleApiKey': 'AIzaSyCkYokUFIcH5OYDaYU0IrFLX89wX1o7-qc'
-                    # , 'googleApiKey': 'AIzaSyDP7-1okYV0RchVpAT4nS0DZ39dteCG5xA'
+                    # , 'addrList': ['서울특별시 강북구']
+                    , 'addrList': ['서울특별시']
                 }
 
                 globalVar['inpPath'] = '/DATA/INPUT'
                 globalVar['outPath'] = '/DATA/OUTPUT'
                 globalVar['figPath'] = '/DATA/FIG'
 
+            # 변수 설정
             dtSrtDate = pd.to_datetime(sysOpt['srtDate'], format='%Y-%m-%d')
             dtEndDate = pd.to_datetime(sysOpt['endDate'], format='%Y-%m-%d')
             dtMonthList = pd.date_range(start=dtSrtDate, end=dtEndDate, freq='1M')
@@ -346,25 +354,31 @@ class DtaProcess(object):
             dbEngine = cfgInfo['dbEngine']
             session = cfgInfo['session']
 
-            # metadata = MetaData()
-            #
-            # makeTable = Table(
-            #     'TB_VIDEO_INFO'
-            #     , metadata
-            #     , Column('VIDEO_PATH', String(500), primary_key=True, index=True, comment="비디오 경로")
-            #     , Column('VIDEO_NAME', String(500), primary_key=True, index=True, comment="비디오 이름")
-            #     , Column('DATE_TIME', DateTime, comment="날짜")
-            #     , Column('IDX', Integer, primary_key=True, index=True, comment="인덱스")
-            #     , Column('LAT', Float, comment="위도")
-            #     , Column('LON', Float, comment="경도")
-            #     , Column('CNT', Integer, comment="AI인파")
-            #     , Column('CNT2', Integer, comment="AI인파2")
-            #     , Column('DATE_TIME_DIFF', Float, comment="시간 간격")
-            #     , Column('DOWN', String(500), comment="다운로드")
-            #     , extend_existing=True
-            # )
-            #
-            # metadata.create_all(bind=dbEngine)
+            metadata = MetaData()
+
+            makeTable = Table(
+                'TB_SALE_INFO'
+                , metadata
+                , Column('ID', Integer, primary_key=True, index=True, autoincrement=True, comment="번호")
+                , Column('TYPE', String(500), comment="종류")
+                , Column('NAME', String(500), comment="이름")
+                , Column('ADDR', String(500), comment="주소")
+                , Column('DONG', String(500), comment="법정동")
+                , Column('SALE_DATE', DateTime, comment="계약 날짜")
+                , Column('CONV_YEAR', Integer, comment="건축년도")
+                , Column('YEAR', Integer, comment="연도")
+                , Column('AREA', Integer, comment="평형")
+                , Column('SALE_PRICE', Float, comment="거래금액")
+                , Column('SALE_PRICE_CONV', Float, comment="거래금액 억원")
+                , Column('SALE_TYPE', String(500), comment="거래가 분류")
+                , Column('FLOOR', Integer, comment="층")
+                , Column('PYEONG', String(500), comment="평수")
+                , Column('LAT', Float, comment="위도")
+                , Column('LON', Float, comment="경도")
+                , extend_existing=True
+            )
+
+            metadata.create_all(bind=dbEngine)
 
             # *********************************************************************************
             # 법정동 코드 읽기
@@ -382,212 +396,270 @@ class DtaProcess(object):
             # *********************************************************************************
             # [자료 수집] 오픈API를 이용한 아파트/오피스텔/단독다가구/연립다세대 매매 실거래
             # # *********************************************************************************
-            # # 요청 API
-            # for i, apiInfo in enumerate(sysOpt['apiList']):
-            #     log.info(f'[CHECK] apiInfo : {apiInfo}')
-            #
-            #     apiUrl = sysOpt['apiList'][apiInfo]
-            #
-            #     # addrInfo = sysOpt['addrList'][0]
-            #     for ii, addrInfo in enumerate(sysOpt['addrList']):
-            #         log.info(f'[CHECK] addrInfo : {addrInfo}')
-            #
-            #         # admDataL1 = admData[admData['법정동명'].str.contains('서울')]
-            #         admDataL1 = admData[admData['법정동명'].str.contains(addrInfo)]
-            #         if (len(admDataL1) < 1): continue
-            #
-            #         # 시군구 목록
-            #         sigunguCdList = set(admDataL1['sigunguCd'])
-            #
-            #         # 페이지 설정
-            #         pageList = np.arange(0, 9999, 1)
-            #
-            #         for i, sigunguCdInfo in enumerate(sigunguCdList):
-            #             log.info(f'[CHECK] sigunguCdInfo : {sigunguCdInfo}')
-            #
-            #             for j, dtMonthInfo in enumerate(dtMonthList):
-            #                 # log.info(f'[CHECK] dtMonthInfo : {dtMonthInfo}')
-            #
-            #                 dtYearMonth = dtMonthInfo.strftime('%Y%m')
-            #
-            #                 saveFile = '{}/{}/{}/{}/{}_{}_{}.csv'.format(globalVar['outPath'], serviceName, apiInfo, addrInfo, apiInfo, addrInfo, dtYearMonth)
-            #                 os.makedirs(os.path.dirname(saveFile), exist_ok=True)
-            #
-            #                 dataL1 = pd.DataFrame()
-            #
-            #                 fileChkList = glob.glob(saveFile)
-            #                 # if (len(fileChkList) > 0): continue
-            #
-            #                 for k, pageInfo in enumerate(pageList):
-            #
-            #                     try:
-            #                         # reqUrl = f'{apiUrl}?serviceKey={apiKey}&pageNo=1&numOfRows=100&LAWD_CD={sigunguCdInfo}&DEAL_YMD={dtYearMonth}'
-            #                         #
-            #                         # res = urllib.request.urlopen(reqUrl)
-            #                         # resCode = res.getcode()
-            #
-            #                         inParams = {'serviceKey': sysOpt['apiKey'], 'pageNo': 1, 'numOfRows': 100, 'LAWD_CD': sigunguCdInfo, 'DEAL_YMD': dtYearMonth}
-            #                         apiParams = urllib.parse.urlencode(inParams).encode('UTF-8')
-            #
-            #                         res = requests.get(apiUrl, params=apiParams)
-            #
-            #                         resCode = res.status_code
-            #                         if resCode != 200: continue
-            #
-            #                         # json 읽기
-            #                         # resData = json.loads(res.read().decode('utf-8'))
-            #                         # resData = json.loads(res.content.decode('utf-8'))
-            #
-            #                         # xml to json 읽기
-            #                         # resData = xmltodict.parse(res.read().decode('utf-8'))
-            #                         resData = xmltodict.parse(res.content.decode('utf-8'))
-            #                         resultCode = resData['response']['header']['resultCode']
-            #                         if (resultCode != '00'): continue
-            #
-            #                         resBody = resData['response']['body']
-            #                         totalCnt = int(resBody['totalCount'])
-            #                         if (totalCnt < 1): break
-            #
-            #                         itemList = resBody['items']['item']
-            #                         if (len(itemList) < 1): break
-            #
-            #                         if (totalCnt == 1):
-            #                             data = pd.DataFrame.from_dict([itemList])
-            #                         else:
-            #                             data = pd.DataFrame.from_dict(itemList)
-            #
-            #                         data['addrInfo'] = addrInfo
-            #                         data['sigunguCdInfo'] = sigunguCdInfo
-            #                         data['dtYearMonth'] = dtYearMonth
-            #                         data['pageInfo'] = pageInfo
-            #                         data['type'] = apiInfo
-            #
-            #                         dataL1 = pd.concat([dataL1, data], ignore_index=True)
-            #
-            #                         if (totalCnt < (pageInfo * 100)): break
-            #
-            #                     except Exception as e:
-            #                         log.error("Exception : {}".format(e))
-            #
-            #                 # 자료 저장
-            #                 if (len(dataL1) > 0):
-            #                     data.to_csv(saveFile, index=False)
-            #                     log.info(f'[CHECK] saveFile : {saveFile}')
+            # 요청 API
+            for i, apiInfo in enumerate(sysOpt['apiList']):
+                log.info(f'[CHECK] apiInfo : {apiInfo}')
+
+                apiUrl = sysOpt['apiList'][apiInfo]
+
+                # addrInfo = sysOpt['addrList'][0]
+                for ii, addrInfo in enumerate(sysOpt['addrList']):
+                    log.info(f'[CHECK] addrInfo : {addrInfo}')
+
+                    # admDataL1 = admData[admData['법정동명'].str.contains('서울')]
+                    admDataL1 = admData[
+                        (admData['법정동명'].str.contains(addrInfo))
+                        & (admData['d1'].notna())
+                        & (admData['d2'].notna())
+                        & (admData['d3'].isna())
+                        & (admData['d4'].isna())
+                        & (admData['d5'].isna())
+                    ]
+                    if (len(admDataL1) < 1): continue
+
+                    # 시군구 목록
+                    sigunguCdList = set(admDataL1['sigunguCd'])
+                    log.info(f'[CHECK] sigunguCdList : {sigunguCdList}')
+
+                    # 페이지 설정
+                    pageList = np.arange(0, 9999, 1)
+
+                    for i, sigunguCdInfo in enumerate(sigunguCdList):
+
+                        selAddrInfo = admData[
+                            (admData['sigunguCd'] == sigunguCdInfo)
+                            & (admData['bjdongCd'] == '00000')
+                        ]['법정동명'].values[0]
+
+                        log.info(f'[CHECK] sigunguCdInfo : {sigunguCdInfo}')
+                        log.info(f'[CHECK] selAddrInfo : {selAddrInfo}')
+
+                        for j, dtMonthInfo in enumerate(dtMonthList):
+                            # log.info(f'[CHECK] dtMonthInfo : {dtMonthInfo}')
+
+                            dtYearMonth = dtMonthInfo.strftime('%Y%m')
+
+                            saveFile = '{}/{}/{}/{}/{}_{}_{}.csv'.format(globalVar['outPath'], serviceName, apiInfo, selAddrInfo, apiInfo, selAddrInfo, dtYearMonth)
+                            os.makedirs(os.path.dirname(saveFile), exist_ok=True)
+
+                            dataL1 = pd.DataFrame()
+
+                            fileChkList = glob.glob(saveFile)
+                            if (len(fileChkList) > 0): continue
+
+                            for k, pageInfo in enumerate(pageList):
+
+                                try:
+                                    # reqUrl = f'{apiUrl}?serviceKey={apiKey}&pageNo=1&numOfRows=100&LAWD_CD={sigunguCdInfo}&DEAL_YMD={dtYearMonth}'
+                                    #
+                                    # res = urllib.request.urlopen(reqUrl)
+                                    # resCode = res.getcode()
+
+                                    inParams = {'serviceKey': sysOpt['apiKey'], 'pageNo': 1, 'numOfRows': 100, 'LAWD_CD': sigunguCdInfo, 'DEAL_YMD': dtYearMonth}
+                                    apiParams = urllib.parse.urlencode(inParams).encode('UTF-8')
+
+                                    res = requests.get(apiUrl, params=apiParams)
+
+                                    resCode = res.status_code
+                                    if resCode != 200: continue
+
+                                    # json 읽기
+                                    # resData = json.loads(res.read().decode('utf-8'))
+                                    # resData = json.loads(res.content.decode('utf-8'))
+
+                                    # xml to json 읽기
+                                    # resData = xmltodict.parse(res.read().decode('utf-8'))
+                                    resData = xmltodict.parse(res.content.decode('utf-8'))
+                                    resultCode = resData['response']['header']['resultCode']
+                                    if (resultCode != '00'): continue
+
+                                    resBody = resData['response']['body']
+                                    totalCnt = int(resBody['totalCount'])
+                                    if (totalCnt < 1): break
+
+                                    itemList = resBody['items']['item']
+                                    if (len(itemList) < 1): break
+
+                                    if (totalCnt == 1):
+                                        data = pd.DataFrame.from_dict([itemList])
+                                    else:
+                                        data = pd.DataFrame.from_dict(itemList)
+
+                                    data['addrInfo'] = selAddrInfo
+                                    data['sigunguCdInfo'] = sigunguCdInfo
+                                    data['dtYearMonth'] = dtYearMonth
+                                    data['pageInfo'] = pageInfo
+                                    data['type'] = apiInfo
+
+                                    dataL1 = pd.concat([dataL1, data], ignore_index=True)
+
+                                    if (totalCnt < (pageInfo * 100)): break
+
+                                except Exception as e:
+                                    log.error("Exception : {}".format(e))
+
+                            # 자료 저장
+                            if (len(dataL1) > 0):
+                                data.to_csv(saveFile, index=False)
+                                log.info(f'[CHECK] saveFile : {saveFile}')
 
             # *********************************************************************************
             # [자료 전처리] 아파트 실거래
             # *********************************************************************************
-            posDataL1 = pd.DataFrame()
-            for i, apiInfo in enumerate(sysOpt['apiList']):
-                log.info(f'[CHECK] apiInfo : {apiInfo}')
-
-                for ii, addrInfo in enumerate(sysOpt['addrList']):
-                    log.info(f'[CHECK] addrInfo : {addrInfo}')
-
-                    inpFile = '{}/{}/{}/{}/{}*.csv'.format(globalVar['outPath'], serviceName, apiInfo, addrInfo, apiInfo)
-                    fileList = sorted(glob.glob(inpFile))
-                    if fileList is None or len(fileList) < 1:
-                        log.error('[ERROR] inpFile : {} / {}'.format(inpFile, '입력 자료를 확인해주세요.'))
-                        raise Exception('[ERROR] inpFile : {} / {}'.format(inpFile, '입력 자료를 확인해주세요.'))
-
-                    posData = pd.DataFrame()
-                    for fileInfo in fileList:
-                        tmpData = pd.read_csv(fileInfo)
-                        posData = pd.concat([posData, tmpData], ignore_index=True)
-
-                    posData['거래금액'] = pd.to_numeric(posData['거래금액'].str.replace(',', ''))
-
-                    binList = [(posData['전용면적'] >= 114), (posData['전용면적'] >= 80), (posData['전용면적'] >= 60), (posData['전용면적'] >= 40), (posData['전용면적'] >= 20), (posData['전용면적'] >= 10)]
-                    labelList = ["43평형", "32평형", "24평형", "18평형", "9평형", "5평형"]
-                    posData['평수'] = np.select(binList, labelList, default=None)
-
-                    posData['val'] = round(posData['거래금액'] / 10000, 1)
-
-                    binList = [(posData['val'] > 15), (posData['val'] >= 9), (posData['val'] >= 6), (posData['val'] > 3), (posData['val'] <= 3)]
-                    labelList = ["15억 초과", "9-15억", "6-9억", "3-6억", "3억 이하"]
-                    posData['분류'] = np.select(binList, labelList, default=None)
-
-                    if (apiInfo in '아파트'):
-                        posData['addrDtlInfo'] = posData['addrInfo'] + ' ' + posData['법정동'] + ' ' + posData['아파트'] + ' ' + posData['지번']
-                    elif (apiInfo in '오피스텔'):
-                        posData['addrDtlInfo'] = posData['addrInfo'] + ' ' + posData['법정동'] + ' ' + posData['단지'] + ' ' + posData['지번']
-                    elif (apiInfo in '단독다가구'):
-                        #  서울특별시 강북구 우이동 7*
-                        posData['addrDtlInfo'] = posData['addrInfo'] + ' ' + posData['법정동']
-                    elif (apiInfo in '연립다세대'):
-                        posData['addrDtlInfo'] = posData['addrInfo'] + ' ' + posData['법정동'] + ' ' + posData['연립다세대'] + ' ' + posData['지번']
-                    else:
-                        continue
-                    # posData['val'] = round(posData['거래금액'] / 100000000, 1)
-                    # =IFS(L3 > 15, "15억 초과", L3 >= 9, "9-15억", L3 >= 6, "6-9억", L3 > 3, "3-6억", L3 <= 3, "3억 이하")
-                    # =ROUND(K3/100000000, 1)
-
-                    posDataL1 = pd.concat([posData, posData], ignore_index=True)
-
-                    addDtlrList = set(posDataL1['addrDtlInfo'])
-
-                    posDataL2 = pd.DataFrame()
-
-                    # 구글 지오코딩
-                    # for i, addrDtlInfo in enumerate(addDtlrList):
-                    #     log.info(f'[CHECK] addrDtlInfo : {addrDtlInfo}')
-                    #
-                    #     posDataL1.loc[i, 'addrDtlInfo'] = addrDtlInfo
-                    #     posDataL1.loc[i, 'lat'] = None
-                    #     posDataL1.loc[i, 'lon'] = None
-                    #
-                    #     try:
-                    #         rtnGeo = gmap.geocode(addrDtlInfo, language='ko')
-                    #         if (len(rtnGeo) < 1): continue
-                    #
-                    #         # 위/경도 반환
-                    #         posDataL1.loc[i, 'lat'] = rtnGeo[0]['geometry']['location']['lat']
-                    #         posDataL1.loc[i, 'lon'] = rtnGeo[0]['geometry']['location']['lng']
-                    #
-                    #     except Exception as e:
-                    #         log.error("Exception : {}".format(e))
-
-                    # 네이버 지오코딩
-                    # for i, addrInfo in enumerate(addrList):
-                    #     log.info(f'[CHECK] addrInfo : {addrInfo}')
-                    #
-                    #     addUrlenc = parse.quote(addrInfo)
-                    #     url = f'{sysOpt["naverApi"]}?query={addUrlenc}'
-                    #     request = Request(url)
-                    #     request.add_header('X-NCP-APIGW-API-KEY-ID', sysOpt['naverId'])
-                    #     request.add_header('X-NCP-APIGW-API-KEY', sysOpt['naverPw'])
-                    #
-                    #     # posDataL1.loc[i, '주소'] = addrInfo
-                    #     # posDataL1.loc[i, 'lat'] = None
-                    #     # posDataL1.loc[i, 'lon'] = None
-                    #
-                    #     try:
-                    #         response = urlopen(request)
-                    #         resCode = response.getcode()
-                    #
-                    #         if (resCode != 200): continue
-                    #
-                    #         responseBody = response.read().decode('utf-8')
-                    #         responseBody = json.loads(responseBody)
-                    #
-                    #         resCnt = responseBody['meta']['count']
-                    #         if (resCnt < 1): continue
-                    #
-                    #         log.info("[CHECK] [{}] {}".format(i, addrInfo))
-                    #
-                    #         posDataL1.loc[i, 'lat'] = responseBody['addresses'][0]['y']
-                    #         posDataL1.loc[i, 'lon'] = responseBody['addresses'][0]['x']
-                    #
-                    #     except HTTPError as e:
-                    #         log.error("Exception : {}".format(e))
-
-                    # posDataL2 = pd.merge(left=posData, right=posDataL1, how='left', left_on='addrDtlInfo', right_on='addrDtlInfo')
-                    # posDataL2.drop(['index'], axis=1, inplace=True)
-
-                    # saveFile = '{}/{}/{}/{}/{}_{}_{}.csv'.format(globalVar['outPath'], serviceName, '전처리', addrInfo, '아파트 실거래', addrInfo, datetime.now().strftime('%Y%m%d'))
-                    # os.makedirs(os.path.dirname(saveFile), exist_ok=True)
-                    # posDataL2.to_csv(saveFile, index_label=False)
-                    # log.info('[CHECK] saveFile : {}'.format(saveFile))
+            # posDataL1 = pd.DataFrame()
+            # for i, apiInfo in enumerate(sysOpt['apiList']):
+            #     log.info(f'[CHECK] apiInfo : {apiInfo}')
+            #
+            #     for ii, addrInfo in enumerate(sysOpt['addrList']):
+            #         log.info(f'[CHECK] addrInfo : {addrInfo}')
+            #
+            #         inpFile = '{}/{}/{}/{}/{}*.csv'.format(globalVar['outPath'], serviceName, apiInfo, addrInfo, apiInfo)
+            #         fileList = sorted(glob.glob(inpFile))
+            #         if fileList is None or len(fileList) < 1:
+            #             log.error('[ERROR] inpFile : {} / {}'.format(inpFile, '입력 자료를 확인해주세요.'))
+            #             raise Exception('[ERROR] inpFile : {} / {}'.format(inpFile, '입력 자료를 확인해주세요.'))
+            #
+            #         posData = pd.DataFrame()
+            #         for fileInfo in fileList:
+            #             tmpData = pd.read_csv(fileInfo)
+            #             posData = pd.concat([posData, tmpData], ignore_index=True)
+            #
+            #         if (apiInfo in '아파트'):
+            #             posData['addrDtlInfo'] = posData['addrInfo'] + ' ' + posData['법정동'] + ' ' + posData['아파트'] + ' ' + posData['지번']
+            #             posData['면적'] = posData['전용면적']
+            #             posData['이름'] = posData['아파트']
+            #         elif (apiInfo in '오피스텔'):
+            #             posData['addrDtlInfo'] = posData['addrInfo'] + ' ' + posData['법정동'] + ' ' + posData['단지'] + ' ' + posData['지번']
+            #             posData['면적'] = posData['전용면적']
+            #             posData['이름'] = posData['단지']
+            #         elif (apiInfo in '단독다가구'):
+            #             posData['addrDtlInfo'] = posData['addrInfo'] + ' ' + posData['법정동']
+            #             posData['면적'] = posData['대지면적']
+            #             posData['이름'] = None
+            #         elif (apiInfo in '연립다세대'):
+            #             posData['addrDtlInfo'] = posData['addrInfo'] + ' ' + posData['법정동'] + ' ' + posData['연립다세대'] + ' ' + posData['지번']
+            #             posData['면적'] = posData['대지권면적']
+            #             posData['이름'] = posData['연립다세대']
+            #         else:
+            #             continue
+            #
+            #         posData['종류'] = apiInfo
+            #         posData['계약일'] = pd.to_datetime( posData['년'].astype(str) + '-' + posData['월'].astype(str) + '-' + posData['일'].astype(str), format='%Y-%m-%d')
+            #
+            #         binList = [(posData['면적'] >= 330), (posData['면적'] >= 264), (posData['면적'] >= 198), (posData['면적'] >= 114), (posData['면적'] >= 80), (posData['면적'] >= 60), (posData['면적'] >= 40), (posData['면적'] >= 20), (posData['면적'] >= 10)]
+            #         labelList = ["100평형", "80평형", "60평형", "43평형", "32평형", "24평형", "18평형", "9평형", "5평형"]
+            #         posData['평형'] = np.select(binList, labelList, default=None)
+            #
+            #         posData['거래금액'] = pd.to_numeric(posData['거래금액'].str.replace(',', ''))
+            #         posData['거래가'] = posData['거래금액'] * 10000
+            #         posData['val'] = round(posData['거래금액'] / 10000, 1)
+            #
+            #         binList = [(posData['val'] > 15), (posData['val'] >= 9), (posData['val'] >= 6), (posData['val'] > 3), (posData['val'] <= 3)]
+            #         labelList = ["15억 초과", "9-15억", "6-9억", "3-6억", "3억 이하"]
+            #         posData['분류'] = np.select(binList, labelList, default=None)
+            #
+            #         posDataL1['lat'] = None
+            #         posDataL1['lon'] = None
+            #
+            #         posDataL1 = pd.concat([posDataL1, posData], ignore_index=True)
+            #
+            # # *********************************************************************************
+            # # 주소를 통해 위경도 환산
+            # # *********************************************************************************
+            # # addDtlrList = set(posDataL1['addrDtlInfo'].dropna())
+            # # posDataL2 = pd.DataFrame()
+            #
+            # # 구글 지오코딩
+            # # for i, addrDtlInfo in enumerate(addDtlrList):
+            # #     log.info(f'[CHECK] addrDtlInfo : {addrDtlInfo}')
+            # #
+            # #     posDataL2.loc[i, 'addrDtlInfo'] = addrDtlInfo
+            # #     posDataL2.loc[i, 'lat'] = None
+            # #     posDataL2.loc[i, 'lon'] = None
+            # #
+            # #     try:
+            # #         rtnGeo = gmap.geocode(addrDtlInfo, language='ko')
+            # #         if (len(rtnGeo) < 1): continue
+            # #
+            # #         # 위/경도 반환
+            # #         posDataL2.loc[i, 'lat'] = rtnGeo[0]['geometry']['location']['lat']
+            # #         posDataL2.loc[i, 'lon'] = rtnGeo[0]['geometry']['location']['lng']
+            # #
+            # #     except Exception as e:
+            # #         log.error("Exception : {}".format(e))
+            #
+            # # 네이버 지오코딩
+            # # for i, addrInfo in enumerate(addrList):
+            # #     log.info(f'[CHECK] addrInfo : {addrInfo}')
+            # #
+            # #     addUrlenc = parse.quote(addrInfo)
+            # #     url = f'{sysOpt["naverApi"]}?query={addUrlenc}'
+            # #     request = Request(url)
+            # #     request.add_header('X-NCP-APIGW-API-KEY-ID', sysOpt['naverId'])
+            # #     request.add_header('X-NCP-APIGW-API-KEY', sysOpt['naverPw'])
+            # #
+            # #     posDataL2.loc[i, '주소'] = addrInfo
+            # #     posDataL2.loc[i, 'lat'] = None
+            # #     posDataL2.loc[i, 'lon'] = None
+            # #
+            # #     try:
+            # #         response = urlopen(request)
+            # #         resCode = response.getcode()
+            # #
+            # #         if (resCode != 200): continue
+            # #
+            # #         responseBody = response.read().decode('utf-8')
+            # #         responseBody = json.loads(responseBody)
+            # #
+            # #         resCnt = responseBody['meta']['count']
+            # #         if (resCnt < 1): continue
+            # #
+            # #         log.info("[CHECK] [{}] {}".format(i, addrInfo))
+            # #
+            # #         posDataL2.loc[i, 'lat'] = responseBody['addresses'][0]['y']
+            # #         posDataL2.loc[i, 'lon'] = responseBody['addresses'][0]['x']
+            # #
+            # #     except HTTPError as e:
+            # #         log.error("Exception : {}".format(e))
+            # #
+            # # posDataL3 = pd.merge(left=posDataL1, right=posDataL2, how='left', left_on='addrDtlInfo', right_on='addrDtlInfo')
+            # posDataL3 = posDataL1
+            #
+            # # 82982 데이터 검사
+            # # posDataL1.drop_duplicates(subset=['종류', '이름', 'addrDtlInfo', '계약일', '면적', '거래금액', '건축년도', '층'], inplace=False)
+            #
+            # addrInfo
+            # # DB 저장
+            # dbData = posDataL3[['종류', '이름', 'addrDtlInfo', '계약일', '면적', '거래가', 'val', '분류', '층', '건축년도', '년', '평형', 'lat', 'lon']].rename(
+            #     {
+            #         '종류': 'TYPE'
+            #         , '이름': 'NAME'
+            #         , 'addrDtlInfo': 'ADDR'
+            #         , '계약일': 'SALE_DATE'
+            #         , '면적': 'AREA'
+            #         , '거래가': 'SALE_PRICE'
+            #         , 'val': 'SALE_PRICE_CONV'
+            #         , '분류': 'SALE_TYPE'
+            #         , '층': 'FLOOR'
+            #         , '건축년도': 'CONV_YEAR'
+            #         , '년': 'YEAR'
+            #         , '평형': 'PYEONG'
+            #         , 'lat': 'LAT'
+            #         , 'lon': 'LON'
+            #     }
+            #     , axis=1
+            # )
+            #
+            # # for idx, row in dbData.iterrows():
+            # #     record = SaleInfo(**row.to_dict())
+            # #     session.merge(record)
+            #
+            # try:
+            #     dbData.to_sql(name=makeTable.name, con=dbEngine, if_exists='replace', index=True)
+            #     session.commit()
+            # except SQLAlchemyError as e:
+            #     session.rollback()
+            #     log.error(f'Exception : {e}')
 
         except Exception as e:
             log.error("Exception : {}".format(e))
