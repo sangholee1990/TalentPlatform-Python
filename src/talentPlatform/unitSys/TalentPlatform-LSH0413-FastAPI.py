@@ -281,9 +281,11 @@ SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
 # 공유 폴더
 # UPLOAD_PATH = "/DATA/UPLOAD"
 UPLOAD_PATH = "/DATA/VIDEO"
+UPLOAD_PATH = "/DATA/CSV"
 
 app = FastAPI()
 app.mount('/VIDEO', StaticFiles(directory=UPLOAD_PATH), name='/DATA/VIDEO')
+app.mount('/CSV', StaticFiles(directory=UPLOAD_PATH), name='/DATA/CSV')
 
 origins = [
     "http://localhost:8080"

@@ -10,7 +10,7 @@ import traceback
 import urllib
 import warnings
 from datetime import datetime
-
+import pytz
 import googlemaps
 import matplotlib as mpl
 import matplotlib.pyplot as plt
@@ -25,6 +25,7 @@ import requests
 from urllib.parse import quote_plus
 import configparser
 import pymysql
+import zipfile
 
 from sqlalchemy.dialects.mysql import insert
 from sqlalchemy import Boolean, Column, ForeignKey, Integer, String, DateTime, create_engine
@@ -235,24 +236,6 @@ def getRentType(row):
 # ================================================
 # 4. 부 프로그램
 # ================================================
-class SaleInfo(Base):
-    __tablename__ = 'TB_SALE_INFO'
-
-    TYPE = Column(String(255), primary_key=True)
-    NAME = Column(String(255), primary_key=True)
-    ADDR = Column(String(255), primary_key=True)
-    SALE_DATE = Column(DateTime, primary_key=True)
-    CONV_YEAR = Column(Integer, primary_key=True)
-    YEAR = Column(Integer, primary_key=True)
-    AREA = Column(Integer)
-    SALE_PRICE = Column(Float)
-    SALE_PRICE_CONV = Column(Float)
-    SALE_TYPE = Column(String(255))
-    FLOOR = Column(Integer)
-    PYEONG = Column(String(255))
-    LAT = Column(Float)
-    LON = Column(Float)
-
 class DtaProcess(object):
     # ================================================
     # 요구사항
@@ -344,12 +327,18 @@ class DtaProcess(object):
 
                     # 검색 목록
                     # , 'addrList': ['서울특별시 강북구']
+                    # , 'addrList': ['서울특별시 양천구']
                     , 'addrList': ['서울특별시']
+                    # , 'addrList': ['서울특별시', '부산광역시', '대구광역시', '인천광역시', '광주광역시', '대전광역시', '울산광역시', '세종특별자치시', '경기도', '강원도', '충청북도', '충청남도', '전라북도', '전라남도', '경상북도', '경상남도', '제주특별자치도']
+                    # , 'addrList': ['제주특별자치도']
+                    # , 'addrList': ['부산광역시']
+                    # , 'addrList':  [globalVar['addrList']]
                 }
 
                 globalVar['inpPath'] = '/DATA/INPUT'
                 globalVar['outPath'] = '/DATA/OUTPUT'
                 globalVar['figPath'] = '/DATA/FIG'
+                globalVar['updPath'] = '/DATA/CSV'
 
             # 변수 설정
             dtSrtDate = pd.to_datetime(sysOpt['srtDate'], format='%Y-%m-%d')
@@ -366,19 +355,33 @@ class DtaProcess(object):
 
             metadata = MetaData()
 
-            makeTable = Table(
+            tbSaleDown = Table(
+                'TB_SALE_DOWN'
+                , metadata
+                , Column('ID', Integer, primary_key=True, index=True, autoincrement=True, comment="번호")
+                , Column('TYPE', String(500), comment="시군구")
+                , Column('CSV_INFO', String(500), comment="가공 파일")
+                , Column('ZIP_INFO', String(500), comment="원본 파일")
+                , Column('REG_DATE', DateTime, default=datetime.now(pytz.timezone('Asia/Seoul')), onupdate=datetime.now(pytz.timezone('Asia/Seoul')), comment="등록일")
+                , extend_existing=True
+            )
+
+            tbSaleInfo = Table(
                 'TB_SALE_INFO'
                 , metadata
                 , Column('ID', Integer, primary_key=True, index=True, autoincrement=True, comment="번호")
                 , Column('TYPE', String(500), comment="종류")
                 , Column('NAME', String(500), comment="이름")
                 , Column('ADDR', String(500), comment="주소")
+                , Column('SI_DONG', String(500), comment="시도 법정동")
                 , Column('DONG', String(500), comment="법정동")
                 , Column('SALE_DATE', DateTime, comment="계약 날짜")
                 , Column('CONV_YEAR', Integer, comment="건축년도")
                 , Column('YEAR', Integer, comment="연도")
                 , Column('AREA', Integer, comment="평형")
-                , Column('SALE_PRICE', Float, comment="거래금액")
+                , Column('SALE_PRICE', Float, comment="매매가")
+                , Column('SALE_PRICE2', Float, comment="보증가")
+                , Column('SALE_PRICE3', Float, comment="월세가")
                 , Column('SALE_PRICE_CONV', Float, comment="거래금액 억원")
                 , Column('SALE_TYPE', String(500), comment="거래가 분류")
                 , Column('FLOOR', Integer, comment="층")
@@ -387,6 +390,7 @@ class DtaProcess(object):
                 , Column('LON', Float, comment="경도")
                 , Column('RENT_TYPE', String(500), comment="거래 유형")
                 , Column('DONG', String(500), comment="법정동")
+                , Column('REG_DATE', DateTime, default=datetime.now(pytz.timezone('Asia/Seoul')), onupdate=datetime.now(pytz.timezone('Asia/Seoul')), comment="등록일")
                 , extend_existing=True
             )
 
@@ -404,6 +408,9 @@ class DtaProcess(object):
             admData[['d1', 'd2', 'd3', 'd4', 'd5']] = admData['법정동명'].str.split(expand=True)
             admData['sigunguCd'] = admData['법정동코드'].astype('str').str.slice(0, 5)
             admData['bjdongCd'] = admData['법정동코드'].astype('str').str.slice(5, 10)
+            admData = admData[(admData['폐지여부'] == '존재')]
+
+            # set(admData['d1'])
 
             # *********************************************************************************
             # [자료 수집] 오픈API를 이용한 아파트/오피스텔/단독다가구/연립다세대 매매 실거래
@@ -565,7 +572,7 @@ class DtaProcess(object):
             #                 dataL1 = pd.DataFrame()
             #
             #                 fileChkList = glob.glob(saveFile)
-            #                 # if (len(fileChkList) > 0): continue
+            #                 if (len(fileChkList) > 0): continue
             #
             #                 for k, pageInfo in enumerate(pageList):
             #
@@ -626,15 +633,16 @@ class DtaProcess(object):
             # *********************************************************************************
             # [자료 전처리] 실거래가, 전월세가
             # *********************************************************************************
-            posDataL1 = pd.DataFrame()
-            for i, apiInfo in enumerate(sysOpt['apiList']):
-                log.info(f'[CHECK] apiInfo : {apiInfo}')
+            colList = ['종류', '이름', 'addrDtlInfo', 'addrInfo', '계약일', '면적', '거래가', '보증가', '층', '월세가', '분류', '건축년도', '년', '평형', 'lat', 'lon', '거래유형', '법정동']
+            for ii, addrInfo in enumerate(sysOpt['addrList']):
+                log.info(f'[CHECK] addrInfo : {addrInfo}')
 
-                for ii, addrInfo in enumerate(sysOpt['addrList']):
-                    log.info(f'[CHECK] addrInfo : {addrInfo}')
+                posDataL1 = pd.DataFrame()
+                for i, apiInfo in enumerate(sysOpt['apiList']):
+                    log.info(f'[CHECK] apiInfo : {apiInfo}')
 
-                    # inpFile = '{}/{}/{}/{}/{}*.csv'.format(globalVar['outPath'], serviceName, apiInfo, addrInfo, apiInfo)
-                    inpFile = '{}/{}/*/{}/*{}*/{}*.csv'.format(globalVar['outPath'], serviceName, apiInfo, addrInfo, apiInfo)
+                    inpFile = '{}/{}/*/{}/*{}*/*{}*.csv'.format(globalVar['outPath'], serviceName, apiInfo, addrInfo, apiInfo)
+                    # inpFile = '{}/{}/*/{}/*{}*/{}*.csv'.format(globalVar['outPath'], serviceName, apiInfo, addrInfo, apiInfo)
                     fileList = sorted(glob.glob(inpFile))
                     if fileList is None or len(fileList) < 1:
                         log.error('[ERROR] inpFile : {} / {}'.format(inpFile, '입력 자료를 확인해주세요.'))
@@ -645,13 +653,16 @@ class DtaProcess(object):
                         tmpData = pd.read_csv(fileInfo)
                         posData = pd.concat([posData, tmpData], ignore_index=True)
 
+                    colInfo = ['보증금액', '월세금액']
                     if (apiInfo in '아파트'):
-                        posData['addrDtlInfo'] = posData['addrInfo'] + ' ' + posData['법정동'] + ' ' + posData['아파트'] + ' ' + posData['지번'].astype(str)
+                        # posData['addrDtlInfo'] = posData['addrInfo'] + ' ' + posData['법정동'] + ' ' + posData['아파트'] + ' ' + posData['지번'].astype(str)
+                        posData['addrDtlInfo'] = posData['addrInfo'] + ' ' + posData['법정동'] + ' ' + posData['아파트'].astype(str) + ' ' + posData['지번'].astype(str)
                         posData['면적'] = posData['전용면적']
                         posData['이름'] = posData['아파트']
-                        colInfo = ['보증금액', '월세금액']
+
                     elif (apiInfo in '오피스텔'):
-                        posData['addrDtlInfo'] = posData['addrInfo'] + ' ' + posData['법정동'] + ' ' + posData['단지'] + ' ' + posData['지번'].astype(str)
+                        # posData['addrDtlInfo'] = posData['addrInfo'] + ' ' + posData['법정동'] + ' ' + posData['단지'] + ' ' + posData['지번'].astype(str)
+                        posData['addrDtlInfo'] = posData['addrInfo'] + ' ' + posData['법정동'] + ' ' + posData['단지'].astype(str) + ' ' + posData['지번'].astype(str)
                         posData['면적'] = posData['전용면적']
                         posData['이름'] = posData['단지']
                         colInfo = ['보증금', '월세']
@@ -659,12 +670,11 @@ class DtaProcess(object):
                         posData['addrDtlInfo'] = posData['addrInfo'] + ' ' + posData['법정동']
                         posData['면적'] = posData['대지면적']
                         posData['이름'] = None
-                        colInfo = ['보증금액', '월세금액']
                     elif (apiInfo in '연립다세대'):
-                        posData['addrDtlInfo'] = posData['addrInfo'] + ' ' + posData['법정동'] + ' ' + posData['연립다세대'] + ' ' + posData['지번'].astype(str)
+                        # posData['addrDtlInfo'] = posData['addrInfo'] + ' ' + posData['법정동'] + ' ' + posData['연립다세대'] + ' ' + posData['지번'].astype(str)
+                        posData['addrDtlInfo'] = posData['addrInfo'] + ' ' + posData['법정동'] + ' ' + posData['연립다세대'].astype(str) + ' ' + posData['지번'].astype(str)
                         posData['면적'] = posData['대지권면적']
                         posData['이름'] = posData['연립다세대']
-                        colInfo = ['보증금액', '월세금액']
                     else:
                         continue
 
@@ -676,17 +686,17 @@ class DtaProcess(object):
                     posData['평형'] = np.select(binList, labelList, default=None)
 
                     # 매매가
-                    posData['거래금액'] = pd.to_numeric(posData['거래금액'].str.replace(',', ''))
+                    posData['거래금액'] = pd.to_numeric(posData['거래금액'].astype(str).str.replace(',', ''), errors='coerce').astype(float)
                     posData['거래가'] = posData['거래금액'] * 10000
                     posData['val'] = round(posData['거래금액'] / 10000, 1)
 
                     # 보증가
-                    posData['보증금액'] = pd.to_numeric(posData[colInfo[0]].str.replace(',', ''))
+                    posData['보증금액'] = pd.to_numeric(posData[colInfo[0]].astype(str).str.replace(',', ''), errors='coerce').astype(float)
                     posData['보증가'] = posData['보증금액'] * 10000
                     posData['val2'] = round(posData['보증금액'] / 10000, 1)
 
                     # 월세가
-                    posData['월세금액'] = pd.to_numeric(posData[colInfo[1]])
+                    posData['월세금액'] = pd.to_numeric(posData[colInfo[1]].astype(str).str.replace(',', ''), errors='coerce').astype(float)
                     posData['월세가'] = posData['월세금액'] * 10000
                     posData['val3'] = round(posData['월세금액'] / 10000, 1)
 
@@ -699,7 +709,78 @@ class DtaProcess(object):
 
                     posData['거래유형'] = posData.apply(getRentType, axis=1)
 
-                    posDataL1 = pd.concat([posDataL1, posData], ignore_index=True)
+                    # posDataL1 = pd.concat([posDataL1, posData], ignore_index=True)
+
+                    # 중복 제거
+                    posDataL2 = posData.drop_duplicates(subset=colList, inplace=False)
+
+                    # DB 저장
+                    dbData2 = posDataL2[colList].rename(
+                        {
+                            '종류': 'TYPE'
+                            , '이름': 'NAME'
+                            , 'addrDtlInfo': 'ADDR'
+                            , 'addrInfo': 'SI_DONG'
+                            , '계약일': 'SALE_DATE'
+                            , '면적': 'AREA'
+                            , '거래가': 'SALE_PRICE'
+                            , '보증가': 'SALE_PRICE2'
+                            , '월세가': 'SALE_PRICE3'
+                            , '분류': 'SALE_TYPE'
+                            , '층': 'FLOOR'
+                            , '건축년도': 'CONV_YEAR'
+                            , '년': 'YEAR'
+                            , '평형': 'PYEONG'
+                            , 'lat': 'LAT'
+                            , 'lon': 'LON'
+                            , '거래유형': 'RENT_TYPE'
+                            , '법정동': 'DONG'
+                        }
+                        , axis=1
+                    )
+
+                    try:
+                        # dbData2.to_sql(name=tbSaleInfo.name, con=dbEngine, if_exists='replace', index=False)
+                        dbData2.to_sql(name=tbSaleInfo.name, con=dbEngine, if_exists='append', index=False)
+                        session.commit()
+                    except SQLAlchemyError as e:
+                        session.rollback()
+                        log.error(f'Exception : {e}')
+
+                # # 중복 제거
+                # posDataL3 = posDataL1.drop_duplicates(subset=colList, inplace=False)
+                #
+                # # 알집 압축
+                # zipFile = '{}/{}/{}.zip'.format(globalVar['updPath'], addrInfo, addrInfo)
+                # zipInpFile = '{}/{}/*/*/*{}*/*{}*.csv'.format(globalVar['outPath'], serviceName, addrInfo, addrInfo)
+                # zipFileList = sorted(glob.glob(zipInpFile))
+                #
+                # os.makedirs(os.path.dirname(zipFile), exist_ok=True)
+                # with zipfile.ZipFile(zipFile, 'w', compresslevel=9) as zipf:
+                #     for zipFileInfo in zipFileList:
+                #         zipf.write(zipFileInfo, arcname=zipFileInfo.replace(globalVar['outPath'], '').replace(serviceName, ''))
+                # log.info(f'[CHECK] zipFile : {zipFile}')
+                #
+                # # 자료 저장
+                # saveFile = '{}/{}/{}.csv'.format(globalVar['updPath'], addrInfo, addrInfo)
+                # os.makedirs(os.path.dirname(saveFile), exist_ok=True)
+                # posDataL3.to_csv(saveFile, index=False)
+                # log.info(f'[CHECK] saveFile : {saveFile}')
+                #
+                # dbData = pd.DataFrame(
+                #     {
+                #         'TYPE': [addrInfo],
+                #         'ZIP_INFO': [f"http://{getPubliIp()}:9000/CSV{zipFile.replace(globalVar['updPath'], '')}"],
+                #         'CSV_INFO': [f"http://{getPubliIp()}:9000/CSV{saveFile.replace(globalVar['updPath'], '')}"]
+                #     }
+                # )
+                #
+                # try:
+                #     dbData.to_sql(name=tbSaleDown.name, con=dbEngine, if_exists='append', index=False)
+                #     session.commit()
+                # except SQLAlchemyError as e:
+                #     session.rollback()
+                #     log.error(f'Exception : {e}')
 
             # *********************************************************************************
             # 주소를 통해 위경도 환산
@@ -761,45 +842,44 @@ class DtaProcess(object):
             #         log.error("Exception : {}".format(e))
             #
             # posDataL3 = pd.merge(left=posDataL1, right=posDataL2, how='left', left_on='addrDtlInfo', right_on='addrDtlInfo')
-            posDataL3 = posDataL1
-
-            # 82982 데이터 검사
-            # posDataL1.drop_duplicates(subset=['종류', '이름', 'addrDtlInfo', '계약일', '면적', '거래금액', '건축년도', '층'], inplace=False)
-
-            # DB 저장
-            dbData = posDataL3[['종류', '이름', 'addrDtlInfo', '계약일', '면적', '거래가', '보증가', '월세가', '분류', '층', '건축년도', '년', '평형', 'lat', 'lon', '거래유형', '법정동']].rename(
-                {
-                    '종류': 'TYPE'
-                    , '이름': 'NAME'
-                    , 'addrDtlInfo': 'ADDR'
-                    , '계약일': 'SALE_DATE'
-                    , '면적': 'AREA'
-                    , '거래가': 'SALE_PRICE'
-                    , '보증가': 'SALE_PRICE2'
-                    , '월세가': 'SALE_PRICE3'
-                    , '분류': 'SALE_TYPE'
-                    , '층': 'FLOOR'
-                    , '건축년도': 'CONV_YEAR'
-                    , '년': 'YEAR'
-                    , '평형': 'PYEONG'
-                    , 'lat': 'LAT'
-                    , 'lon': 'LON'
-                    , '거래유형': 'RENT_TYPE'
-                    , '법정동': 'DONG'
-                }
-                , axis=1
-            )
-
-            # for idx, row in dbData.iterrows():
-            #     record = SaleInfo(**row.to_dict())
-            #     session.merge(record)
-
-            try:
-                dbData.to_sql(name=makeTable.name, con=dbEngine, if_exists='replace', index=False)
-                session.commit()
-            except SQLAlchemyError as e:
-                session.rollback()
-                log.error(f'Exception : {e}')
+            # posDataL3 = posDataL1
+            #
+            # colList = ['종류', '이름', 'addrDtlInfo', '계약일', '면적', '거래가', '보증가', '월세가', '분류', '층', '건축년도', '년', '평형', 'lat', 'lon', '거래유형', '법정동']
+            #
+            # # 중복 제거
+            # posDataL3  = posDataL1.drop_duplicates(subset=colList, inplace=False)
+            #
+            # # DB 저장
+            # dbData = posDataL3[colList].rename(
+            #     {
+            #         '종류': 'TYPE'
+            #         , '이름': 'NAME'
+            #         , 'addrDtlInfo': 'ADDR'
+            #         , '계약일': 'SALE_DATE'
+            #         , '면적': 'AREA'
+            #         , '거래가': 'SALE_PRICE'
+            #         , '보증가': 'SALE_PRICE2'
+            #         , '월세가': 'SALE_PRICE3'
+            #         , '분류': 'SALE_TYPE'
+            #         , '층': 'FLOOR'
+            #         , '건축년도': 'CONV_YEAR'
+            #         , '년': 'YEAR'
+            #         , '평형': 'PYEONG'
+            #         , 'lat': 'LAT'
+            #         , 'lon': 'LON'
+            #         , '거래유형': 'RENT_TYPE'
+            #         , '법정동': 'DONG'
+            #     }
+            #     , axis=1
+            # )
+            #
+            # try:
+            #     # dbData.to_sql(name=tbSaleInfoDtl.name, con=dbEngine, if_exists='replace', index=False)
+            #     dbData.to_sql(name=tbSaleInfoDtl.name, con=dbEngine, if_exists='append', index=False)
+            #     session.commit()
+            # except SQLAlchemyError as e:
+            #     session.rollback()
+            #     log.error(f'Exception : {e}')
 
         except Exception as e:
             log.error("Exception : {}".format(e))
