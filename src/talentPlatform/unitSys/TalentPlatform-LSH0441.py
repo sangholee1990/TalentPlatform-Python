@@ -42,12 +42,12 @@ plt.rc('axes', unicode_minus=False)
 # 그래프에서 마이너스 글꼴 깨지는 문제에 대한 대처
 mpl.rcParams['axes.unicode_minus'] = False
 
+
 # =================================================
 # 2. 유틸리티 함수
 # =================================================
 # 로그 설정
 def initLog(env=None, contextPath=None, prjName=None):
-
     if env is None: env = 'local'
     if contextPath is None: contextPath = os.getcwd()
     if prjName is None: prjName = 'test'
@@ -123,7 +123,6 @@ def initGlobalVar(env=None, contextPath=None, prjName=None):
 
 #  초기 전달인자 설정
 def initArgument(globalVar, inParams):
-
     # 원도우 또는 맥 환경
     if globalVar['sysOs'] in 'Windows' or globalVar['sysOs'] in 'Darwin':
         inParInfo = inParams
@@ -159,11 +158,11 @@ def initArgument(globalVar, inParams):
 
     return globalVar
 
+
 # ================================================
 # 4. 부 프로그램
 # ================================================
 class DtaProcess(object):
-
     # ================================================
     # 요구사항
     # ================================================
@@ -175,7 +174,7 @@ class DtaProcess(object):
     global env, contextPath, prjName, serviceName, log, globalVar
 
     # env = 'local'  # 로컬 : 원도우 환경, 작업환경 (현재 소스 코드 환경 시 .) 설정
-    env = 'dev'      # 개발 : 원도우 환경, 작업환경 (사용자 환경 시 contextPath) 설정
+    env = 'dev'  # 개발 : 원도우 환경, 작업환경 (사용자 환경 시 contextPath) 설정
     # env = 'oper'  # 운영 : 리눅스 환경, 작업환경 (사용자 환경 시 contextPath) 설정
 
     if (platform.system() == 'Windows'):
@@ -228,10 +227,10 @@ class DtaProcess(object):
                     , 'endDate': '2022-01-01'
 
                     # 목록
-                    , 'keyList' : ['ACCESS-CM2']
+                    , 'keyList': ['ACCESS-CM2']
 
                     # 극한 가뭄값
-                    , 'extDrgVal' : -2
+                    , 'extDrgVal': -2
                 }
 
             else:
@@ -239,15 +238,30 @@ class DtaProcess(object):
                 # 옵션 설정
                 sysOpt = {
                     # 시작/종료 시간
-                    'srtDate': '1990-01-01'
-                    , 'endDate': '2022-01-01'
+                    'dateList': {
+                        'all': ('2000-01-01', '2100-12-31')
+                        , 'case': ('2031-01-01', '2065-12-31')
+                        , 'case2': ('2066-01-01', '2100-12-31')
+                    }
 
                     # 목록
-                    , 'keyList' : ['ACCESS-CM2']
+                    , 'keyList': ['ACCESS-CM2']
+
+                    # 가뭄 목록
+                    , 'drgCondList': {
+                        'EW': (2.0, 4.0)
+                        , 'VW': (1.50, 1.99)
+                        , 'MW': (1.00, 1.49)
+                        , 'NN': (-0.99, 0.99)
+                        , 'MD': (-1.00, -1.49)
+                        , 'SD': (-1.50, -1.99)
+                        , 'ED': (-2.00, -4.00)
+                    }
 
                     # 극한 가뭄값
-                    , 'extDrgVal' : -2
+                    , 'extDrgVal': -2
                 }
+
 
                 globalVar['inpPath'] = '/DATA/INPUT'
                 globalVar['outPath'] = '/DATA/OUTPUT'
@@ -265,73 +279,174 @@ class DtaProcess(object):
 
                 log.info(f'[CHECK] fileList : {fileList}')
 
-                data = xr.open_mfdataset(fileList)
+                orgData = xr.open_mfdataset(fileList)
 
-                # 극한 가뭄
-                dataL1 = data.where(data <= sysOpt['extDrgVal']).count(dim='time')
-                dataL1 = dataL1.where(dataL1 != 0)
+                mergeData = xr.Dataset()
+                for dateInfo, (srtDate, endDate) in sysOpt['dateList'].items():
+                    log.info(f"[CHECK] dateInfo : {dateInfo}")
 
-                # 각 변수마다 시각화
-                for j, varInfo in enumerate(dataL1.data_vars.keys()):
-                    log.info(f'[CHECK] varInfo : {varInfo}')
+                    data = orgData.sel(time=slice(srtDate, endDate))
 
-                    # 시각화
-                    saveImg = '{}/{}/{}_{}.png'.format(globalVar['figPath'], serviceName, keyInfo, varInfo)
-                    # 파일 검사
-                    if os.path.exists(saveImg): continue
+                    for drgCondInfo, (srtVal, endVal) in sysOpt['drgCondList'].items():
+                        log.info(f"[CHECK] drgCondInfo : {drgCondInfo}")
+                        dataL1 = data.where((data >= srtVal) & (data <= endVal)).count(dim='time')
+                        dataL1 = dataL1.where(dataL1 != 0)
+
+                        # 동적으로 생성
+                        lat1D = dataL1['lat'].values
+                        lon1D = dataL1['lon'].values
+
+
+                        for varName in dataL1.data_vars:
+                            log.info(f"[CHECK] varName : {varName}")
+
+                            dataL2 = xr.Dataset(
+                                {
+                                    varName : (('type', 'lat', 'lon'), (dataL1[varName].values.reshape(1, len(lat1D), len(lon1D))))
+                                }
+                                , coords={
+                                    'lon': lon1D
+                                    , 'lat': lat1D
+                                    , 'type': [drgCondInfo]
+                                }
+                            )
+
+                            mergeData = xr.merge([mergeData, dataL2])
+
+                            # if (len(mergeData) < 1):
+                            #     mergeData = dataL2
+                            # else:
+                            #     mergeData = xr.concat([mergeData, dataL2], dim = type)
+
+
+
+                        dictData = {}
+                        # 각 데이터 변수에 대해 반복하며, 데이터와 관련된 정보를 딕셔너리에 추가합니다.
+                        for varName in dataL1.data_vars:
+                            varData = dataL1[varName].values
+                            dictData[varName] = (('type', 'date', 'lat', 'lon'), varData.reshape(1, len(time1D), len(lat1D), len(lon1D)))
+
+                        # 생성한 딕셔너리를 이용해 xarray.Dataset을 생성합니다.
+                        ds = xr.Dataset(
+                            dictData,
+                            coords={
+                                'type': [drgCondInfo],
+                                'date': time1D,
+                                'lat': lat1D,
+                                'lon': lon1D
+                            }
+                        )
+
+
+
+                        dictData = {}
+                        # for var, data in enumerate(dataL1.data_vars.items()):
+                        for k, varInfo in enumerate(dataL1.data_vars.keys()):
+                            dictData[varInfo] = (('type', 'lat', 'lon'), dataL1[varInfo].values.reshape(1, len(lat1D), len(lon1D)))
+
+                        # dictData['spei_pearson_06'] = (('type', 'lat', 'lon', 'time'), dataL1['spei_pearson_06'].values.reshape(1, len(lat1D), len(lon1D), len(time1D)))
+
+                        # for k, varInfo in enumerate(dataL1.data_vars.keys()):
+                        #     print(k, varInfo)
+                        # #
+                        for var, data in dataVars.items():
+                            dictData[var] = (('type', 'lat', 'lon'), data.values.reshape(1, len(lat1D), len(lon1D)))
+
+
+
+                        dataL2 = xr.Dataset(
+                            {
+                                'ems': (('key', 'date', 'lat', 'lon'), (dataL4['ems'].values.reshape(1, 1, len(lat1D), len(lon1D))))
+                            }
+                            , coords={
+                                'lon': lon1D
+                                , 'lat': lat1D
+                                , 'time': time1D
+                                , 'drgCond': [drgCondInfo]
+                            }
+                        )
+
+
+
+                        # # 좌표 설정
+                        # dataL1 = dataL1.assign_coords(type=drgCondInfo)
+                        #
+                        # # 차원 생성
+                        # dataL1 = dataL1.expand_dims('type')
+                        #
+                        # if (len(dataL2) < 1):
+                        #     dataL2 = dataL1
+                        # else:
+                        #     dataL2 = xr.concat([dataL2, dataL1], dim='type')
+
+                        dataL2 = xr.concat([dataL2, dataL1])
+
+                        # 극한 가뭄
+                        # dataL1 = data.where(data <= sysOpt['extDrgVal']).count(dim='time')
+                        # dataL1 = dataL1.where(dataL1 != 0)
+
+                        # 각 변수마다 시각화
+                        for k, varInfo in enumerate(dataL2.data_vars.keys()):
+                            log.info(f'[CHECK] varInfo : {varInfo}')
+
+                            # 시각화
+                            saveImg = '{}/{}/{}_{}_{}_{}.png'.format(globalVar['figPath'], serviceName, keyInfo, dateInfo, drgCondInfo, varInfo)
+                            # 파일 검사
+                            if os.path.exists(saveImg): continue
+                            os.makedirs(os.path.dirname(saveImg), exist_ok=True)
+                            dataL1.sel(type = drgCondInfo)[varInfo].plot()
+                            plt.savefig(saveImg, dpi=600, bbox_inches='tight', transparent=True)
+                            plt.tight_layout()
+                            plt.show()
+                            plt.close()
+                            log.info(f'[CHECK] saveImg : {saveImg}')
+
+                    # NetCDF 자료 저장
+                    saveFile = '{}/{}/{}_{}_{}.nc'.format(globalVar['outPath'], serviceName, keyInfo, dateInfo, 'cnt')
+                    os.makedirs(os.path.dirname(saveFile), exist_ok=True)
+                    dataL1.to_netcdf(saveFile)
+                    log.info(f'[CHECK] saveFile : {saveFile}')
+
+                    dataL2 = dataL1.to_dataframe().reset_index(drop=True)
+                    dataL2.columns = dataL2.columns.to_series().replace(
+                        {
+                            'spei_gamma_': 'gam'
+                            , 'spei_pearson_': 'pea'
+                        }
+                        , regex=True
+                    )
+
+                    dataL3 = pd.melt(dataL2, var_name='key', value_name='val')
+
+                    # CSV 자료 저장
+                    saveFile = '{}/{}/{}_{}.csv'.format(globalVar['outPath'], serviceName, keyInfo, 'cnt')
+                    os.makedirs(os.path.dirname(saveFile), exist_ok=True)
+                    dataL2.to_csv(saveFile, index=False)
+                    log.info(f'[CHECK] saveFile : {saveFile}')
+
+                    saveImg = '{}/{}/{}_{}.png'.format(globalVar['figPath'], serviceName, keyInfo, 'boxplot')
                     os.makedirs(os.path.dirname(saveImg), exist_ok=True)
-                    dataL1[varInfo].plot()
-                    plt.savefig(saveImg, dpi=600, bbox_inches='tight', transparent=True)
+                    sns.boxplot(
+                        x='key', y='val', hue='key', data=dataL3, showmeans=True, width=0.5, dodge=False
+                        , meanprops={'marker': 'o', 'markerfacecolor': 'black', 'markeredgecolor': 'black', 'markersize': 3}
+                    )
+                    plt.xticks(rotation=45, ha='right')
+                    plt.xlabel(None)
+                    plt.ylabel(None)
+                    # plt.legend(title=None)
+                    plt.legend([], [], frameon=False)
                     plt.tight_layout()
+                    plt.savefig(saveImg, dpi=600, transparent=True)
                     plt.show()
                     plt.close()
                     log.info(f'[CHECK] saveImg : {saveImg}')
-
-                # NetCDF 자료 저장
-                saveFile = '{}/{}/{}_{}.nc'.format(globalVar['outPath'], serviceName, keyInfo, 'cnt')
-                os.makedirs(os.path.dirname(saveFile), exist_ok=True)
-                dataL1.to_netcdf(saveFile)
-                log.info(f'[CHECK] saveFile : {saveFile}')
-
-                dataL2 = dataL1.to_dataframe().reset_index(drop=True)
-                dataL2.columns = dataL2.columns.to_series().replace(
-                    {
-                        'spei_gamma_': 'gam'
-                        , 'spei_pearson_': 'pea'
-                    }
-                    , regex=True
-                )
-
-                # CSV 자료 저장
-                saveFile = '{}/{}/{}_{}.csv'.format(globalVar['outPath'], serviceName, keyInfo, 'cnt')
-                os.makedirs(os.path.dirname(saveFile), exist_ok=True)
-                dataL2.to_csv(saveFile, index=False)
-                log.info(f'[CHECK] saveFile : {saveFile}')
-
-                dataL3 = pd.melt(dataL2, var_name='key', value_name='val')
-
-                saveImg = '{}/{}/{}_{}.png'.format(globalVar['figPath'], serviceName, keyInfo, 'boxplot')
-                os.makedirs(os.path.dirname(saveImg), exist_ok=True)
-                sns.boxplot(
-                    x='key', y='val', hue='key', data=dataL3, showmeans=True, width=0.5, dodge=False
-                    , meanprops={'marker': 'o', 'markerfacecolor': 'black', 'markeredgecolor': 'black', 'markersize': 3}
-                )
-                plt.xticks(rotation=45, ha='right')
-                plt.xlabel(None)
-                plt.ylabel(None)
-                # plt.legend(title=None)
-                plt.legend([], [], frameon=False)
-                plt.tight_layout()
-                plt.savefig(saveImg, dpi=600, transparent=True)
-                plt.show()
-                plt.close()
-                log.info(f'[CHECK] saveImg : {saveImg}')
 
         except Exception as e:
             log.error("Exception : {}".format(e))
             raise e
         finally:
             log.info('[END] {}'.format("exec"))
+
 
 # ================================================
 # 3. 주 프로그램
@@ -343,7 +458,7 @@ if __name__ == '__main__':
     try:
 
         # 파이썬 실행 시 전달인자를 초기 환경변수 설정
-        inParams = { }
+        inParams = {}
 
         print("[CHECK] inParams : {}".format(inParams))
 

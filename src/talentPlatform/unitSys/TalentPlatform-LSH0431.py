@@ -328,8 +328,8 @@ class DtaProcess(object):
                     # 검색 목록
                     # , 'addrList': ['서울특별시 강북구']
                     # , 'addrList': ['서울특별시 양천구']
-                    , 'addrList': ['서울특별시']
-                    # , 'addrList': ['서울특별시', '부산광역시', '대구광역시', '인천광역시', '광주광역시', '대전광역시', '울산광역시', '세종특별자치시', '경기도', '강원도', '충청북도', '충청남도', '전라북도', '전라남도', '경상북도', '경상남도', '제주특별자치도']
+                    # , 'addrList': ['서울특별시']
+                    , 'addrList': ['서울특별시', '부산광역시', '대구광역시', '인천광역시', '광주광역시', '대전광역시', '울산광역시', '세종특별자치시', '경기도', '강원특별자치도', '충청북도', '충청남도', '전라북도', '전라남도', '경상북도', '경상남도', '제주특별자치도']
                     # , 'addrList': ['제주특별자치도']
                     # , 'addrList': ['부산광역시']
                     # , 'addrList':  [globalVar['addrList']]
@@ -709,63 +709,63 @@ class DtaProcess(object):
 
                     posData['거래유형'] = posData.apply(getRentType, axis=1)
 
-                    # posDataL1 = pd.concat([posDataL1, posData], ignore_index=True)
+                    posDataL1 = pd.concat([posDataL1, posData], ignore_index=True)
 
-                    # 중복 제거
-                    posDataL2 = posData.drop_duplicates(subset=colList, inplace=False)
+                    # # 중복 제거
+                    # posDataL2 = posData.drop_duplicates(subset=colList, inplace=False)
+                    #
+                    # # DB 저장
+                    # dbData2 = posDataL2[colList].rename(
+                    #     {
+                    #         '종류': 'TYPE'
+                    #         , '이름': 'NAME'
+                    #         , 'addrDtlInfo': 'ADDR'
+                    #         , 'addrInfo': 'SI_DONG'
+                    #         , '계약일': 'SALE_DATE'
+                    #         , '면적': 'AREA'
+                    #         , '거래가': 'SALE_PRICE'
+                    #         , '보증가': 'SALE_PRICE2'
+                    #         , '월세가': 'SALE_PRICE3'
+                    #         , '분류': 'SALE_TYPE'
+                    #         , '층': 'FLOOR'
+                    #         , '건축년도': 'CONV_YEAR'
+                    #         , '년': 'YEAR'
+                    #         , '평형': 'PYEONG'
+                    #         , 'lat': 'LAT'
+                    #         , 'lon': 'LON'
+                    #         , '거래유형': 'RENT_TYPE'
+                    #         , '법정동': 'DONG'
+                    #     }
+                    #     , axis=1
+                    # )
+                    #
+                    # try:
+                    #     # dbData2.to_sql(name=tbSaleInfo.name, con=dbEngine, if_exists='replace', index=False)
+                    #     dbData2.to_sql(name=tbSaleInfo.name, con=dbEngine, if_exists='append', index=False)
+                    #     session.commit()
+                    # except SQLAlchemyError as e:
+                    #     session.rollback()
+                    #     log.error(f'Exception : {e}')
 
-                    # DB 저장
-                    dbData2 = posDataL2[colList].rename(
-                        {
-                            '종류': 'TYPE'
-                            , '이름': 'NAME'
-                            , 'addrDtlInfo': 'ADDR'
-                            , 'addrInfo': 'SI_DONG'
-                            , '계약일': 'SALE_DATE'
-                            , '면적': 'AREA'
-                            , '거래가': 'SALE_PRICE'
-                            , '보증가': 'SALE_PRICE2'
-                            , '월세가': 'SALE_PRICE3'
-                            , '분류': 'SALE_TYPE'
-                            , '층': 'FLOOR'
-                            , '건축년도': 'CONV_YEAR'
-                            , '년': 'YEAR'
-                            , '평형': 'PYEONG'
-                            , 'lat': 'LAT'
-                            , 'lon': 'LON'
-                            , '거래유형': 'RENT_TYPE'
-                            , '법정동': 'DONG'
-                        }
-                        , axis=1
-                    )
+                # 중복 제거
+                posDataL3 = posDataL1.drop_duplicates(subset=colList, inplace=False)
 
-                    try:
-                        # dbData2.to_sql(name=tbSaleInfo.name, con=dbEngine, if_exists='replace', index=False)
-                        dbData2.to_sql(name=tbSaleInfo.name, con=dbEngine, if_exists='append', index=False)
-                        session.commit()
-                    except SQLAlchemyError as e:
-                        session.rollback()
-                        log.error(f'Exception : {e}')
+                # 알집 압축
+                zipFile = '{}/{}/{}.zip'.format(globalVar['updPath'], addrInfo, addrInfo)
+                zipInpFile = '{}/{}/*/*/*{}*/*{}*.csv'.format(globalVar['outPath'], serviceName, addrInfo, addrInfo)
+                zipFileList = sorted(glob.glob(zipInpFile))
 
-                # # 중복 제거
-                # posDataL3 = posDataL1.drop_duplicates(subset=colList, inplace=False)
-                #
-                # # 알집 압축
-                # zipFile = '{}/{}/{}.zip'.format(globalVar['updPath'], addrInfo, addrInfo)
-                # zipInpFile = '{}/{}/*/*/*{}*/*{}*.csv'.format(globalVar['outPath'], serviceName, addrInfo, addrInfo)
-                # zipFileList = sorted(glob.glob(zipInpFile))
-                #
-                # os.makedirs(os.path.dirname(zipFile), exist_ok=True)
-                # with zipfile.ZipFile(zipFile, 'w', compresslevel=9) as zipf:
-                #     for zipFileInfo in zipFileList:
-                #         zipf.write(zipFileInfo, arcname=zipFileInfo.replace(globalVar['outPath'], '').replace(serviceName, ''))
-                # log.info(f'[CHECK] zipFile : {zipFile}')
-                #
-                # # 자료 저장
-                # saveFile = '{}/{}/{}.csv'.format(globalVar['updPath'], addrInfo, addrInfo)
-                # os.makedirs(os.path.dirname(saveFile), exist_ok=True)
-                # posDataL3.to_csv(saveFile, index=False)
-                # log.info(f'[CHECK] saveFile : {saveFile}')
+                os.makedirs(os.path.dirname(zipFile), exist_ok=True)
+                with zipfile.ZipFile(zipFile, 'w', compresslevel=9) as zipf:
+                    for zipFileInfo in zipFileList:
+                        zipf.write(zipFileInfo, arcname=zipFileInfo.replace(globalVar['outPath'], '').replace(serviceName, ''))
+                log.info(f'[CHECK] zipFile : {zipFile}')
+
+                # 자료 저장
+                saveFile = '{}/{}/{}.csv'.format(globalVar['updPath'], addrInfo, addrInfo)
+                os.makedirs(os.path.dirname(saveFile), exist_ok=True)
+                posDataL3.to_csv(saveFile, index=False)
+                log.info(f'[CHECK] saveFile : {saveFile}')
                 #
                 # dbData = pd.DataFrame(
                 #     {
