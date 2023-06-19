@@ -659,7 +659,6 @@ class DtaProcess(object):
                         posData['addrDtlInfo'] = posData['addrInfo'] + ' ' + posData['법정동'] + ' ' + posData['아파트'].astype(str) + ' ' + posData['지번'].astype(str)
                         posData['면적'] = posData['전용면적']
                         posData['이름'] = posData['아파트']
-
                     elif (apiInfo in '오피스텔'):
                         # posData['addrDtlInfo'] = posData['addrInfo'] + ' ' + posData['법정동'] + ' ' + posData['단지'] + ' ' + posData['지번'].astype(str)
                         posData['addrDtlInfo'] = posData['addrInfo'] + ' ' + posData['법정동'] + ' ' + posData['단지'].astype(str) + ' ' + posData['지번'].astype(str)
@@ -670,6 +669,7 @@ class DtaProcess(object):
                         posData['addrDtlInfo'] = posData['addrInfo'] + ' ' + posData['법정동']
                         posData['면적'] = posData['대지면적']
                         posData['이름'] = None
+                        posData['층'] = None
                     elif (apiInfo in '연립다세대'):
                         # posData['addrDtlInfo'] = posData['addrInfo'] + ' ' + posData['법정동'] + ' ' + posData['연립다세대'] + ' ' + posData['지번'].astype(str)
                         posData['addrDtlInfo'] = posData['addrInfo'] + ' ' + posData['법정동'] + ' ' + posData['연립다세대'].astype(str) + ' ' + posData['지번'].astype(str)
