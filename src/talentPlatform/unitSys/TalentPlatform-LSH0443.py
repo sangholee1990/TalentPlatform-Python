@@ -17,6 +17,12 @@ import pandas as pd
 import xarray as xr
 import seaborn as sns
 
+import tkinter as tk
+from tkinter import filedialog
+import pandas as pd
+import requests
+import json
+
 # =================================================
 # 사용자 매뉴얼
 # =================================================
@@ -267,181 +273,152 @@ class DtaProcess(object):
                 globalVar['outPath'] = '/DATA/OUTPUT'
                 globalVar['figPath'] = '/DATA/FIG'
 
-            for i, keyInfo in enumerate(sysOpt['keyList']):
-                log.info(f"[CHECK] keyInfo : {keyInfo}")
+            import os
 
-                inpFile = '{}/{}/{}/*{}*.nc'.format(globalVar['inpPath'], serviceName, keyInfo, keyInfo)
-                fileList = sorted(glob.glob(inpFile))
+            os.environ['DISPLAY'] = 'localhost:10.0'
 
-                if fileList is None or len(fileList) < 1:
-                    log.error('[ERROR] inpFile : {} / {}'.format(inpFile, '입력 자료를 확인해주세요.'))
-                    continue
+            display_value = os.environ.get('DISPLAY')
+            print(display_value)
 
-                log.info(f'[CHECK] fileList : {fileList}')
+            import sys
+            from PyQt5.QtWidgets import (QApplication, QWidget, QVBoxLayout, QPushButton,
+                                         QLineEdit, QFileDialog, QLabel, QRadioButton, QHBoxLayout)
 
-                orgData = xr.open_mfdataset(fileList)
-
-                mergeData = xr.Dataset()
-                for dateInfo, (srtDate, endDate) in sysOpt['dateList'].items():
-                    log.info(f"[CHECK] dateInfo : {dateInfo}")
-
-                    data = orgData.sel(time=slice(srtDate, endDate))
-
-                    for drgCondInfo, (srtVal, endVal) in sysOpt['drgCondList'].items():
-                        log.info(f"[CHECK] drgCondInfo : {drgCondInfo}")
-                        dataL1 = data.where((data >= srtVal) & (data <= endVal)).count(dim='time')
-                        dataL1 = dataL1.where(dataL1 != 0)
-
-                        # 동적으로 생성
-                        lat1D = dataL1['lat'].values
-                        lon1D = dataL1['lon'].values
+            from PyQt5.QtWidgets import (QApplication, QWidget, QVBoxLayout, QPushButton, QLineEdit, QFileDialog, QLabel, QComboBox)
 
 
-                        for varName in dataL1.data_vars:
-                            log.info(f"[CHECK] varName : {varName}")
+            # from geopy.geocoders import GoogleV3
+            from geopy.geocoders import Nominatim
+            import pandas as pd
+            class MyApp(QWidget):
+                def __init__(self):
+                    super().__init__()
+                    self.api_key_entry = QLineEdit()
+                    self.file_entry = QLineEdit()
+                    self.column_combo = QComboBox()
+                    self.df = None
+                    self.initUI()
 
-                            dataL2 = xr.Dataset(
-                                {
-                                    varName : (('type', 'lat', 'lon'), (dataL1[varName].values.reshape(1, len(lat1D), len(lon1D))))
-                                }
-                                , coords={
-                                    'lon': lon1D
-                                    , 'lat': lat1D
-                                    , 'type': [drgCondInfo]
-                                }
-                            )
+                def initUI(self):
+                    self.setWindowTitle('지오코딩 변환기')
 
-                            mergeData = xr.merge([mergeData, dataL2])
+                    # API 키 입력창
+                    self.api_key_entry.setPlaceholderText("API 키를 입력하세요.")
+                    upload_button = QPushButton('파일 업로드')
+                    upload_button.clicked.connect(self.upload_file)
 
-                print('asdasdasd')
+                    # 변환 버튼
+                    convert_button = QPushButton('변환')
+                    convert_button.clicked.connect(self.geocode)
 
-                            # if (len(mergeData) < 1):
-                            #     mergeData = dataL2
-                            # else:
-                            #     mergeData = xr.concat([mergeData, dataL2], dim = type)
+                    # 레이아웃 설정
+                    layout = QVBoxLayout()
+                    layout.addWidget(QLabel('API Key:'))
+                    layout.addWidget(self.api_key_entry)
+                    layout.addWidget(upload_button)
+                    layout.addWidget(self.file_entry)
+                    layout.addWidget(QLabel('주소 컬럼 선택:'))
+                    layout.addWidget(self.column_combo)
+                    layout.addWidget(convert_button)
 
+                    self.setLayout(layout)
+                    self.show()
 
+                def upload_file(self):
+                    filename, _ = QFileDialog.getOpenFileName()
+                    self.file_entry.setText(filename)
 
-                        # dictData = {}
-                        # # 각 데이터 변수에 대해 반복하며, 데이터와 관련된 정보를 딕셔너리에 추가합니다.
-                        # for varName in dataL1.data_vars:
-                        #     varData = dataL1[varName].values
-                        #     dictData[varName] = (('type', 'date', 'lat', 'lon'), varData.reshape(1, len(time1D), len(lat1D), len(lon1D)))
-                        #
-                        # # 생성한 딕셔너리를 이용해 xarray.Dataset을 생성합니다.
-                        # ds = xr.Dataset(
-                        #     dictData,
-                        #     coords={
-                        #         'type': [drgCondInfo],
-                        #         'date': time1D,
-                        #         'lat': lat1D,
-                        #         'lon': lon1D
-                        #     }
-                        # )
-                        #
-                        #
-                        #
-                        # dictData = {}
-                        # # for var, data in enumerate(dataL1.data_vars.items()):
-                        # for k, varInfo in enumerate(dataL1.data_vars.keys()):
-                        #     dictData[varInfo] = (('type', 'lat', 'lon'), dataL1[varInfo].values.reshape(1, len(lat1D), len(lon1D)))
-                        #
-                        # # dictData['spei_pearson_06'] = (('type', 'lat', 'lon', 'time'), dataL1['spei_pearson_06'].values.reshape(1, len(lat1D), len(lon1D), len(time1D)))
-                        #
-                        # # for k, varInfo in enumerate(dataL1.data_vars.keys()):
-                        # #     print(k, varInfo)
-                        # # #
-                        # for var, data in dataVars.items():
-                        #     dictData[var] = (('type', 'lat', 'lon'), data.values.reshape(1, len(lat1D), len(lon1D)))
-                        #
-                        #
-                        #
-                        # dataL2 = xr.Dataset(
-                        #     {
-                        #         'ems': (('key', 'date', 'lat', 'lon'), (dataL4['ems'].values.reshape(1, 1, len(lat1D), len(lon1D))))
-                        #     }
-                        #     , coords={
-                        #         'lon': lon1D
-                        #         , 'lat': lat1D
-                        #         , 'time': time1D
-                        #         , 'drgCond': [drgCondInfo]
-                        #     }
-                        # )
+                    # 데이터 로드
+                    file_path = self.file_entry.text()
+                    if file_path.endswith('.csv'):
+                        self.df = pd.read_csv(file_path)
+                    elif file_path.endswith('.xlsx'):
+                        self.df = pd.read_excel(file_path)
+
+                    # 콤보 박스에 컬럼 이름 채우기
+                    self.column_combo.addItems(self.df.columns)
+
+                def geocode(self):
+                    geolocator = GoogleV3(api_key=self.api_key_entry.text())
+
+                    # 주소 컬럼 이름
+                    address_column = self.column_combo.currentText()
+
+                    # 주소를 위경도로 변환
+                    self.df['location'] = self.df[address_column].apply(geolocator.geocode)
+                    self.df['point'] = self.df['location'].apply(lambda loc: tuple(loc.point) if loc else None)
+
+                    # 결과를 새 파일로 저장
+                    output_file, _ = QFileDialog.getSaveFileName(self, "Save file", "", "CSV Files (*.csv)")
+                    if output_file:
+                        self.df.to_csv(output_file)
+
+            if __name__ == '__main__':
+                app = QApplication(sys.argv)
+                ex = MyApp()
+                sys.exit(app.exec_())
 
 
 
-                        # # 좌표 설정
-                        # dataL1 = dataL1.assign_coords(type=drgCondInfo)
-                        #
-                        # # 차원 생성
-                        # dataL1 = dataL1.expand_dims('type')
-                        #
-                        # if (len(dataL2) < 1):
-                        #     dataL2 = dataL1
-                        # else:
-                        #     dataL2 = xr.concat([dataL2, dataL1], dim='type')
+            # GUI 생성
+            window = tk.Tk()
+            window.title("지오코딩 변환기")
 
-                        dataL2 = xr.concat([dataL2, dataL1])
+            # API 키 입력창
+            api_label = tk.Label(window, text="Google API 키:")
+            api_label.pack()
+            api_entry = tk.Entry(window)
+            api_entry.pack()
 
-                        # 극한 가뭄
-                        # dataL1 = data.where(data <= sysOpt['extDrgVal']).count(dim='time')
-                        # dataL1 = dataL1.where(dataL1 != 0)
+            # 파일 경로 출력창
+            file_label = tk.Label(window, text="파일 경로:")
+            file_label.pack()
+            file_entry = tk.Entry(window)
+            file_entry.pack()
 
-                        # 각 변수마다 시각화
-                        for k, varInfo in enumerate(dataL2.data_vars.keys()):
-                            log.info(f'[CHECK] varInfo : {varInfo}')
+            # 주소를 위경도로 변환하는 함수
+            def geocode():
+                # API 키 가져오기
+                api_key = api_entry.get()
 
-                            # 시각화
-                            saveImg = '{}/{}/{}_{}_{}_{}.png'.format(globalVar['figPath'], serviceName, keyInfo, dateInfo, drgCondInfo, varInfo)
-                            # 파일 검사
-                            if os.path.exists(saveImg): continue
-                            os.makedirs(os.path.dirname(saveImg), exist_ok=True)
-                            dataL1.sel(type = drgCondInfo)[varInfo].plot()
-                            plt.savefig(saveImg, dpi=600, bbox_inches='tight', transparent=True)
-                            plt.tight_layout()
-                            plt.show()
-                            plt.close()
-                            log.info(f'[CHECK] saveImg : {saveImg}')
+                # 파일 업로드 다이얼로그
+                file_path = filedialog.askopenfilename()
+                file_entry.delete(0, tk.END)
+                file_entry.insert(0, file_path)
 
-                    # NetCDF 자료 저장
-                    saveFile = '{}/{}/{}_{}_{}.nc'.format(globalVar['outPath'], serviceName, keyInfo, dateInfo, 'cnt')
-                    os.makedirs(os.path.dirname(saveFile), exist_ok=True)
-                    dataL1.to_netcdf(saveFile)
-                    log.info(f'[CHECK] saveFile : {saveFile}')
+                # 파일 불러오기
+                if file_path.endswith('.csv'):
+                    data = pd.read_csv(file_path)
+                else:  # xlsx 파일로 가정
+                    data = pd.read_excel(file_path, engine='openpyxl')
 
-                    dataL2 = dataL1.to_dataframe().reset_index(drop=True)
-                    dataL2.columns = dataL2.columns.to_series().replace(
-                        {
-                            'spei_gamma_': 'gam'
-                            , 'spei_pearson_': 'pea'
-                        }
-                        , regex=True
-                    )
+                # 위경도 변환
+                geocoded = []
+                for address in data['address']:  # 'address'는 주소를 포함하는 열 이름
+                    url = f"https://maps.googleapis.com/maps/api/geocode/json?address={address}&key={api_key}"
+                    response = requests.get(url)
+                    json_response = json.loads(response.text)
+                    if json_response['status'] == 'OK':
+                        location = json_response['results'][0]['geometry']['location']
+                        geocoded.append([location['lat'], location['lng']])
+                    else:
+                        geocoded.append([None, None])
 
-                    dataL3 = pd.melt(dataL2, var_name='key', value_name='val')
+                # 변환된 결과를 새 열로 추가
+                data['latitude'], data['longitude'] = zip(*geocoded)
 
-                    # CSV 자료 저장
-                    saveFile = '{}/{}/{}_{}.csv'.format(globalVar['outPath'], serviceName, keyInfo, 'cnt')
-                    os.makedirs(os.path.dirname(saveFile), exist_ok=True)
-                    dataL2.to_csv(saveFile, index=False)
-                    log.info(f'[CHECK] saveFile : {saveFile}')
+                # 파일 저장 다이얼로그
+                save_path = filedialog.asksaveasfilename(defaultextension=".xlsx")
+                if save_path.endswith('.csv'):
+                    data.to_csv(save_path, index=False)
+                else:  # xlsx 파일로 가정
+                    data.to_excel(save_path, index=False, engine='openpyxl')
 
-                    saveImg = '{}/{}/{}_{}.png'.format(globalVar['figPath'], serviceName, keyInfo, 'boxplot')
-                    os.makedirs(os.path.dirname(saveImg), exist_ok=True)
-                    sns.boxplot(
-                        x='key', y='val', hue='key', data=dataL3, showmeans=True, width=0.5, dodge=False
-                        , meanprops={'marker': 'o', 'markerfacecolor': 'black', 'markeredgecolor': 'black', 'markersize': 3}
-                    )
-                    plt.xticks(rotation=45, ha='right')
-                    plt.xlabel(None)
-                    plt.ylabel(None)
-                    # plt.legend(title=None)
-                    plt.legend([], [], frameon=False)
-                    plt.tight_layout()
-                    plt.savefig(saveImg, dpi=600, transparent=True)
-                    plt.show()
-                    plt.close()
-                    log.info(f'[CHECK] saveImg : {saveImg}')
+            # 변환 버튼
+            convert_button = tk.Button(window, text="변환", command=geocode)
+            convert_button.pack()
+
+            window.mainloop()
 
         except Exception as e:
             log.error("Exception : {}".format(e))
