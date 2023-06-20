@@ -262,7 +262,6 @@ class DtaProcess(object):
                     , 'extDrgVal': -2
                 }
 
-
                 globalVar['inpPath'] = '/DATA/INPUT'
                 globalVar['outPath'] = '/DATA/OUTPUT'
                 globalVar['figPath'] = '/DATA/FIG'
@@ -281,136 +280,47 @@ class DtaProcess(object):
 
                 orgData = xr.open_mfdataset(fileList)
 
-                mergeData = xr.Dataset()
+                # ***************************************************************************
+                # 극한 가뭄에 따른 빈도수 계산
+                # ***************************************************************************
                 for dateInfo, (srtDate, endDate) in sysOpt['dateList'].items():
                     log.info(f"[CHECK] dateInfo : {dateInfo}")
 
                     data = orgData.sel(time=slice(srtDate, endDate))
 
-                    for drgCondInfo, (srtVal, endVal) in sysOpt['drgCondList'].items():
-                        log.info(f"[CHECK] drgCondInfo : {drgCondInfo}")
-                        dataL1 = data.where((data >= srtVal) & (data <= endVal)).count(dim='time')
-                        dataL1 = dataL1.where(dataL1 != 0)
+                    # 극한 가뭄
+                    dataL1 = data.where(data <= sysOpt['extDrgVal']).count(dim='time')
+                    dataL1 = dataL1.where(dataL1 != 0)
 
-                        # 동적으로 생성
-                        lat1D = dataL1['lat'].values
-                        lon1D = dataL1['lon'].values
+                    dataL2 = dataL1
 
-
-                        for varName in dataL1.data_vars:
-                            log.info(f"[CHECK] varName : {varName}")
-
-                            dataL2 = xr.Dataset(
-                                {
-                                    varName : (('type', 'lat', 'lon'), (dataL1[varName].values.reshape(1, len(lat1D), len(lon1D))))
-                                }
-                                , coords={
-                                    'lon': lon1D
-                                    , 'lat': lat1D
-                                    , 'type': [drgCondInfo]
-                                }
-                            )
-
-                            mergeData = xr.merge([mergeData, dataL2])
-
-                print('asdasdasd')
-
-                            # if (len(mergeData) < 1):
-                            #     mergeData = dataL2
-                            # else:
-                            #     mergeData = xr.concat([mergeData, dataL2], dim = type)
-
-
-
-                        # dictData = {}
-                        # # 각 데이터 변수에 대해 반복하며, 데이터와 관련된 정보를 딕셔너리에 추가합니다.
-                        # for varName in dataL1.data_vars:
-                        #     varData = dataL1[varName].values
-                        #     dictData[varName] = (('type', 'date', 'lat', 'lon'), varData.reshape(1, len(time1D), len(lat1D), len(lon1D)))
-                        #
-                        # # 생성한 딕셔너리를 이용해 xarray.Dataset을 생성합니다.
-                        # ds = xr.Dataset(
-                        #     dictData,
-                        #     coords={
-                        #         'type': [drgCondInfo],
-                        #         'date': time1D,
-                        #         'lat': lat1D,
-                        #         'lon': lon1D
-                        #     }
-                        # )
-                        #
-                        #
-                        #
-                        # dictData = {}
-                        # # for var, data in enumerate(dataL1.data_vars.items()):
-                        # for k, varInfo in enumerate(dataL1.data_vars.keys()):
-                        #     dictData[varInfo] = (('type', 'lat', 'lon'), dataL1[varInfo].values.reshape(1, len(lat1D), len(lon1D)))
-                        #
-                        # # dictData['spei_pearson_06'] = (('type', 'lat', 'lon', 'time'), dataL1['spei_pearson_06'].values.reshape(1, len(lat1D), len(lon1D), len(time1D)))
-                        #
-                        # # for k, varInfo in enumerate(dataL1.data_vars.keys()):
-                        # #     print(k, varInfo)
-                        # # #
-                        # for var, data in dataVars.items():
-                        #     dictData[var] = (('type', 'lat', 'lon'), data.values.reshape(1, len(lat1D), len(lon1D)))
-                        #
-                        #
-                        #
-                        # dataL2 = xr.Dataset(
-                        #     {
-                        #         'ems': (('key', 'date', 'lat', 'lon'), (dataL4['ems'].values.reshape(1, 1, len(lat1D), len(lon1D))))
-                        #     }
-                        #     , coords={
-                        #         'lon': lon1D
-                        #         , 'lat': lat1D
-                        #         , 'time': time1D
-                        #         , 'drgCond': [drgCondInfo]
-                        #     }
-                        # )
-
-
-
-                        # # 좌표 설정
-                        # dataL1 = dataL1.assign_coords(type=drgCondInfo)
-                        #
-                        # # 차원 생성
-                        # dataL1 = dataL1.expand_dims('type')
-                        #
-                        # if (len(dataL2) < 1):
-                        #     dataL2 = dataL1
-                        # else:
-                        #     dataL2 = xr.concat([dataL2, dataL1], dim='type')
-
-                        dataL2 = xr.concat([dataL2, dataL1])
-
-                        # 극한 가뭄
-                        # dataL1 = data.where(data <= sysOpt['extDrgVal']).count(dim='time')
-                        # dataL1 = dataL1.where(dataL1 != 0)
-
-                        # 각 변수마다 시각화
-                        for k, varInfo in enumerate(dataL2.data_vars.keys()):
-                            log.info(f'[CHECK] varInfo : {varInfo}')
-
-                            # 시각화
-                            saveImg = '{}/{}/{}_{}_{}_{}.png'.format(globalVar['figPath'], serviceName, keyInfo, dateInfo, drgCondInfo, varInfo)
-                            # 파일 검사
-                            if os.path.exists(saveImg): continue
-                            os.makedirs(os.path.dirname(saveImg), exist_ok=True)
-                            dataL1.sel(type = drgCondInfo)[varInfo].plot()
-                            plt.savefig(saveImg, dpi=600, bbox_inches='tight', transparent=True)
-                            plt.tight_layout()
-                            plt.show()
-                            plt.close()
-                            log.info(f'[CHECK] saveImg : {saveImg}')
+                    for k, varInfo in enumerate(dataL2.data_vars.keys()):
+                        # log.info(f'[CHECK] varInfo : {varInfo}')
+                        saveImg = '{}/{}/{}_{}_{}.png'.format(globalVar['figPath'], serviceName, keyInfo, dateInfo, 'ins', varInfo)
+                        if os.path.exists(saveImg): continue
+                        os.makedirs(os.path.dirname(saveImg), exist_ok=True)
+                        dataL2[varInfo].plot()
+                        plt.savefig(saveImg, dpi=600, bbox_inches='tight', transparent=True)
+                        plt.tight_layout()
+                        plt.show()
+                        plt.close()
+                        log.info(f'[CHECK] saveImg : {saveImg}')
 
                     # NetCDF 자료 저장
-                    saveFile = '{}/{}/{}_{}_{}.nc'.format(globalVar['outPath'], serviceName, keyInfo, dateInfo, 'cnt')
+                    saveFile = '{}/{}/{}_{}_{}.nc'.format(globalVar['outPath'], serviceName, keyInfo, dateInfo, 'ins')
                     os.makedirs(os.path.dirname(saveFile), exist_ok=True)
-                    dataL1.to_netcdf(saveFile)
+                    dataL2.to_netcdf(saveFile)
                     log.info(f'[CHECK] saveFile : {saveFile}')
 
-                    dataL2 = dataL1.to_dataframe().reset_index(drop=True)
-                    dataL2.columns = dataL2.columns.to_series().replace(
+                    # CSV 자료 저장
+                    saveFile = '{}/{}/{}_{}_{}.csv'.format(globalVar['outPath'], serviceName, keyInfo, dateInfo, 'ins')
+                    os.makedirs(os.path.dirname(saveFile), exist_ok=True)
+                    dataL2.to_dataframe().reset_index(drop=False).to_csv(saveFile, index=False)
+                    log.info(f'[CHECK] saveFile : {saveFile}')
+
+                    dataL3 = dataL2
+                    dataL4 = dataL3.to_dataframe().reset_index(drop=False)
+                    dataL4.columns = dataL4.columns.to_series().replace(
                         {
                             'spei_gamma_': 'gam'
                             , 'spei_pearson_': 'pea'
@@ -418,30 +328,150 @@ class DtaProcess(object):
                         , regex=True
                     )
 
-                    dataL3 = pd.melt(dataL2, var_name='key', value_name='val')
+                    dataL5 = pd.melt(dataL4, id_vars=['lat', 'lon'], var_name='key', value_name='val')
 
                     # CSV 자료 저장
-                    saveFile = '{}/{}/{}_{}.csv'.format(globalVar['outPath'], serviceName, keyInfo, 'cnt')
+                    saveFile = '{}/{}/{}_{}_{}.csv'.format(globalVar['outPath'], serviceName, keyInfo, dateInfo, 'ins')
                     os.makedirs(os.path.dirname(saveFile), exist_ok=True)
-                    dataL2.to_csv(saveFile, index=False)
+                    dataL5.to_csv(saveFile, index=False)
                     log.info(f'[CHECK] saveFile : {saveFile}')
 
-                    saveImg = '{}/{}/{}_{}.png'.format(globalVar['figPath'], serviceName, keyInfo, 'boxplot')
+                    dataL6 = dataL5
+
+                    # 시각화 저장
+                    saveImg = '{}/{}/{}_{}_{}_{}.png'.format(globalVar['figPath'], serviceName, keyInfo, dateInfo, 'ins', 'boxplot')
                     os.makedirs(os.path.dirname(saveImg), exist_ok=True)
                     sns.boxplot(
-                        x='key', y='val', hue='key', data=dataL3, showmeans=True, width=0.5, dodge=False
+                        x='key', y='val', hue='key', data=dataL6, showmeans=True, width=0.5, dodge=False
                         , meanprops={'marker': 'o', 'markerfacecolor': 'black', 'markeredgecolor': 'black', 'markersize': 3}
                     )
                     plt.xticks(rotation=45, ha='right')
                     plt.xlabel(None)
                     plt.ylabel(None)
-                    # plt.legend(title=None)
-                    plt.legend([], [], frameon=False)
+                    plt.legend([], [], frameon=False, title=None)
                     plt.tight_layout()
                     plt.savefig(saveImg, dpi=600, transparent=True)
                     plt.show()
-                    plt.close()
+                    # plt.close()
                     log.info(f'[CHECK] saveImg : {saveImg}')
+
+                # ***************************************************************************
+                # 구간에 따른 빈도수 계산
+                # ***************************************************************************
+                for dateInfo, (srtDate, endDate) in sysOpt['dateList'].items():
+                    log.info(f"[CHECK] dateInfo : {dateInfo}")
+
+                    data = orgData.sel(time=slice(srtDate, endDate))
+
+                    # 동적으로 생성
+                    lat1D = data['lat'].values
+                    lon1D = data['lon'].values
+
+                    for drgCond, (srtVal, endVal) in sysOpt['drgCondList'].items():
+                        log.info(f"[CHECK] drgCond : {drgCond}")
+                        dataL1 = data.where((data >= srtVal) & (data <= endVal)).count(dim='time')
+                        dataL1 = dataL1.where(dataL1 != 0)
+
+                        dataL2 = xr.Dataset(
+                            {
+                                'spei_gamma_03': (('type', 'lat', 'lon'), (dataL1['spei_gamma_03'].values.reshape(1, len(lat1D), len(lon1D))))
+                                , 'spei_gamma_06': (('type', 'lat', 'lon'), (dataL1['spei_gamma_06'].values.reshape(1, len(lat1D), len(lon1D))))
+                                , 'spei_gamma_09': (('type', 'lat', 'lon'), (dataL1['spei_gamma_09'].values.reshape(1, len(lat1D), len(lon1D))))
+                                , 'spei_gamma_12': (('type', 'lat', 'lon'), (dataL1['spei_gamma_12'].values.reshape(1, len(lat1D), len(lon1D))))
+                                , 'spei_gamma_18': (('type', 'lat', 'lon'), (dataL1['spei_gamma_18'].values.reshape(1, len(lat1D), len(lon1D))))
+                                , 'spei_gamma_24': (('type', 'lat', 'lon'), (dataL1['spei_gamma_24'].values.reshape(1, len(lat1D), len(lon1D))))
+                                , 'spei_pearson_03': (('type', 'lat', 'lon'), (dataL1['spei_pearson_03'].values.reshape(1, len(lat1D), len(lon1D))))
+                                , 'spei_pearson_06': (('type', 'lat', 'lon'), (dataL1['spei_pearson_06'].values.reshape(1, len(lat1D), len(lon1D))))
+                                , 'spei_pearson_09': (('type', 'lat', 'lon'), (dataL1['spei_pearson_09'].values.reshape(1, len(lat1D), len(lon1D))))
+                                , 'spei_pearson_12': (('type', 'lat', 'lon'), (dataL1['spei_pearson_12'].values.reshape(1, len(lat1D), len(lon1D))))
+                                , 'spei_pearson_18': (('type', 'lat', 'lon'), (dataL1['spei_pearson_18'].values.reshape(1, len(lat1D), len(lon1D))))
+                                , 'spei_pearson_24': (('type', 'lat', 'lon'), (dataL1['spei_pearson_24'].values.reshape(1, len(lat1D), len(lon1D))))
+                            }
+                            , coords={
+                                'lon': lon1D
+                                , 'lat': lat1D
+                                , 'type': [drgCond]
+                            }
+                        )
+
+                        # 각 변수마다 시각화
+                        for k, varInfo in enumerate(dataL2.data_vars.keys()):
+                            # log.info(f'[CHECK] varInfo : {varInfo}')
+                            saveImg = '{}/{}/{}_{}_{}_{}.png'.format(globalVar['figPath'], serviceName, keyInfo, dateInfo, drgCond, varInfo)
+                            if os.path.exists(saveImg): continue
+                            os.makedirs(os.path.dirname(saveImg), exist_ok=True)
+                            dataL2.sel(type = drgCond)[varInfo].plot()
+                            plt.savefig(saveImg, dpi=600, bbox_inches='tight', transparent=True)
+                            plt.tight_layout()
+                            plt.show()
+                            plt.close()
+                            log.info(f'[CHECK] saveImg : {saveImg}')
+
+                        # NetCDF 자료 저장
+                        saveFile = '{}/{}/{}_{}_{}_{}.nc'.format(globalVar['outPath'], serviceName, keyInfo, dateInfo, drgCond, 'cnt')
+                        os.makedirs(os.path.dirname(saveFile), exist_ok=True)
+                        dataL2.to_netcdf(saveFile)
+                        log.info(f'[CHECK] saveFile : {saveFile}')
+
+                        # CSV 자료 저장
+                        saveFile = '{}/{}/{}_{}_{}_{}.csv'.format(globalVar['outPath'], serviceName, keyInfo, dateInfo, drgCond, 'cnt')
+                        os.makedirs(os.path.dirname(saveFile), exist_ok=True)
+                        dataL2.to_dataframe().reset_index(drop=False).to_csv(saveFile, index=False)
+                        log.info(f'[CHECK] saveFile : {saveFile}')
+
+                for dateInfo, (srtDate, endDate) in sysOpt['dateList'].items():
+                    log.info(f"[CHECK] dateInfo : {dateInfo}")
+
+                    inpFile = '{}/{}/{}*{}*.nc'.format(globalVar['outPath'], serviceName, keyInfo, dateInfo)
+                    fileList = sorted(glob.glob(inpFile))
+
+                    if fileList is None or len(fileList) < 1:
+                        log.error('[ERROR] inpFile : {} / {}'.format(inpFile, '입력 자료를 확인해주세요.'))
+                        continue
+
+                    log.info(f'[CHECK] fileList : {fileList}')
+
+                    dataL3 = xr.open_mfdataset(fileList)
+
+                    dataL4 = dataL3.to_dataframe().reset_index(drop=False)
+                    dataL4.columns = dataL4.columns.to_series().replace(
+                        {
+                            'spei_gamma_': 'gam'
+                            , 'spei_pearson_': 'pea'
+                        }
+                        , regex=True
+                    )
+
+                    dataL5 = pd.melt(dataL4, id_vars=['type', 'lat', 'lon'], var_name='key', value_name='val')
+
+                    # CSV 자료 저장
+                    saveFile = '{}/{}/{}_{}_{}.csv'.format(globalVar['outPath'], serviceName, keyInfo, dateInfo, 'cnt')
+                    os.makedirs(os.path.dirname(saveFile), exist_ok=True)
+                    dataL5.to_csv(saveFile, index=False)
+                    log.info(f'[CHECK] saveFile : {saveFile}')
+
+                    typeList = set(dataL5['type'])
+                    for k, typeInfo in enumerate(typeList):
+                        log.info(f'[CHECK] typeInfo : {typeInfo}')
+
+                        dataL6 = dataL5.loc[dataL5['type'] == typeInfo]
+
+                        # 시각화 저장
+                        saveImg = '{}/{}/{}_{}_{}_{}.png'.format(globalVar['figPath'], serviceName, keyInfo, dateInfo, typeList, 'boxplot')
+                        os.makedirs(os.path.dirname(saveImg), exist_ok=True)
+                        sns.boxplot(
+                            x='key', y='val', hue='key', data=dataL6, showmeans=True, width=0.5, dodge=False
+                            , meanprops={'marker': 'o', 'markerfacecolor': 'black', 'markeredgecolor': 'black', 'markersize': 3}
+                        )
+                        plt.xticks(rotation=45, ha='right')
+                        plt.xlabel(None)
+                        plt.ylabel(None)
+                        plt.legend([], [], frameon=False, title=None)
+                        plt.tight_layout()
+                        plt.savefig(saveImg, dpi=600, transparent=True)
+                        plt.show()
+                        # plt.close()
+                        log.info(f'[CHECK] saveImg : {saveImg}')
 
         except Exception as e:
             log.error("Exception : {}".format(e))
