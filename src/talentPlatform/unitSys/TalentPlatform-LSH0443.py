@@ -14,14 +14,12 @@ import matplotlib as mpl
 import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
-import xarray as xr
 import seaborn as sns
-
-import tkinter as tk
-from tkinter import filedialog
+import matplotlib.pyplot as plt
 import pandas as pd
-import requests
-import json
+from wordcloud import WordCloud
+from collections import Counter
+import seaborn as sns
 
 # =================================================
 # 사용자 매뉴얼
@@ -172,7 +170,7 @@ class DtaProcess(object):
     # ================================================
     # 요구사항
     # ================================================
-    # Python을 이용한 3차원 극한가뭄 빈도수 및 상자그림
+    # Python을 이용한 점포정보에 대한 키워드 추출 및 상위 20% 팔레트 및 워드클라우드 시각화
 
     # ================================================================================================
     # 환경변수 설정
@@ -189,7 +187,7 @@ class DtaProcess(object):
         contextPath = os.getcwd() if env in 'local' else '/SYSTEMS/PROG/PYTHON/PyCharm'
 
     prjName = 'test'
-    serviceName = 'LSH0441'
+    serviceName = 'LSH0443'
 
     # 4.1. 환경 변수 설정 (로그 설정)
     log = initLog(env, contextPath, prjName)
@@ -228,197 +226,110 @@ class DtaProcess(object):
 
                 # 옵션 설정
                 sysOpt = {
-                    # 시작/종료 시간
-                    'srtDate': '1990-01-01'
-                    , 'endDate': '2022-01-01'
-
-                    # 목록
-                    , 'keyList': ['ACCESS-CM2']
-
-                    # 극한 가뭄값
-                    , 'extDrgVal': -2
+                    # 상위 비율
+                    'topPerList': [10, 20, 30, 40, 60, 80]
                 }
 
             else:
 
                 # 옵션 설정
                 sysOpt = {
-                    # 시작/종료 시간
-                    'dateList': {
-                        'all': ('2000-01-01', '2100-12-31')
-                        , 'case': ('2031-01-01', '2065-12-31')
-                        , 'case2': ('2066-01-01', '2100-12-31')
-                    }
-
-                    # 목록
-                    , 'keyList': ['ACCESS-CM2']
-
-                    # 가뭄 목록
-                    , 'drgCondList': {
-                        'EW': (2.0, 4.0)
-                        , 'VW': (1.50, 1.99)
-                        , 'MW': (1.00, 1.49)
-                        , 'NN': (-0.99, 0.99)
-                        , 'MD': (-1.00, -1.49)
-                        , 'SD': (-1.50, -1.99)
-                        , 'ED': (-2.00, -4.00)
-                    }
-
-                    # 극한 가뭄값
-                    , 'extDrgVal': -2
+                    # 상위 비율
+                    'topPerList': [10, 20, 30, 40, 60, 80]
                 }
-
 
                 globalVar['inpPath'] = '/DATA/INPUT'
                 globalVar['outPath'] = '/DATA/OUTPUT'
                 globalVar['figPath'] = '/DATA/FIG'
 
-            import os
+            # 전역 설정
+            plt.rcParams['font.family'] = 'NanumGothic'
 
-            os.environ['DISPLAY'] = 'localhost:10.0'
+            # 데이터 읽기
+            inpFile = '{}/{}/{}'.format(globalVar['inpPath'], serviceName, '*')
+            fileList = sorted(glob.glob(inpFile))
 
-            display_value = os.environ.get('DISPLAY')
-            print(display_value)
+            # fileInfo = fileList[1]
+            for i, fileInfo in enumerate(fileList):
+                log.info(f'[CHECK] fileInfo: {fileInfo}')
 
-            import sys
-            from PyQt5.QtWidgets import (QApplication, QWidget, QVBoxLayout, QPushButton,
-                                         QLineEdit, QFileDialog, QLabel, QRadioButton, QHBoxLayout)
+                fileNameNoExt = os.path.basename(fileInfo).split('.')[0]
+                data = pd.read_csv(fileInfo, encoding='UTF-8')
 
-            from PyQt5.QtWidgets import (QApplication, QWidget, QVBoxLayout, QPushButton, QLineEdit, QFileDialog, QLabel, QComboBox)
+                # 명사만 추출
+                # nounList = nlpy.nouns(getDataTextAll)
+                nounList = data['상권업종중분류명'].tolist()
 
+                # 빈도 계산
+                countList = Counter(nounList)
 
-            # from geopy.geocoders import GoogleV3
-            from geopy.geocoders import Nominatim
-            import pandas as pd
-            class MyApp(QWidget):
-                def __init__(self):
-                    super().__init__()
-                    self.api_key_entry = QLineEdit()
-                    self.file_entry = QLineEdit()
-                    self.column_combo = QComboBox()
-                    self.df = None
-                    self.initUI()
+                for i, topPer in enumerate(sysOpt['topPerList']):
+                    log.info(f'[CHECK] topPer: {topPer}')
 
-                def initUI(self):
-                    self.setWindowTitle('지오코딩 변환기')
+                    # 상위 20% 선정
+                    maxCnt = int(len(countList) * topPer / 100)
+                    log.info(f'[CHECK] maxCnt : {maxCnt}')
 
-                    # API 키 입력창
-                    self.api_key_entry.setPlaceholderText("API 키를 입력하세요.")
-                    upload_button = QPushButton('파일 업로드')
-                    upload_button.clicked.connect(self.upload_file)
+                    dictData = {}
+                    for none, cnt in countList.most_common(maxCnt):
+                        # 빈도수 2 이상
+                        if (cnt < 2): continue
+                        # 명사  2 글자 이상
+                        if (len(none) < 2): continue
 
-                    # 변환 버튼
-                    convert_button = QPushButton('변환')
-                    convert_button.clicked.connect(self.geocode)
+                        dictData[none] = cnt
 
-                    # 레이아웃 설정
-                    layout = QVBoxLayout()
-                    layout.addWidget(QLabel('API Key:'))
-                    layout.addWidget(self.api_key_entry)
-                    layout.addWidget(upload_button)
-                    layout.addWidget(self.file_entry)
-                    layout.addWidget(QLabel('주소 컬럼 선택:'))
-                    layout.addWidget(self.column_combo)
-                    layout.addWidget(convert_button)
+                    # 빈도분포
+                    saveData = pd.DataFrame.from_dict(dictData.items()).rename(
+                        {
+                            0: 'none'
+                            , 1: 'cnt'
+                        }
+                        , axis=1
+                    )
+                    saveData['cum'] = saveData['cnt'].cumsum() / saveData['cnt'].sum() * 100
 
-                    self.setLayout(layout)
-                    self.show()
+                    saveFile = '{}/{}/{}_{}_{}.csv'.format(globalVar['outPath'], serviceName, fileNameNoExt, topPer, 'cnt')
+                    os.makedirs(os.path.dirname(saveFile), exist_ok=True)
+                    saveData.to_csv(saveFile, index=False)
+                    log.info(f'[CHECK] saveFile : {saveFile}')
 
-                def upload_file(self):
-                    filename, _ = QFileDialog.getOpenFileName()
-                    self.file_entry.setText(filename)
+                    # 빈도 분포
+                    saveImg = '{}/{}/{}_{}_{}.png'.format(globalVar['figPath'], serviceName, fileNameNoExt, topPer, 'cnt')
+                    os.makedirs(os.path.dirname(saveImg), exist_ok=True)
+                    bar = sns.barplot(x='none', y='cnt', data=saveData)
+                    plt.title(f'상위{topPer}% 빈도 분포')
+                    plt.xlabel(None)
+                    plt.ylabel('빈도 개수')
+                    plt.xticks(rotation=45, ha='right')
+                    line = bar.twinx()
+                    line.plot(saveData.index, saveData['cum'], color='black', marker='o', linewidth=1)
+                    line.set_ylabel('누적 비율', color='black')
+                    plt.tight_layout()
+                    plt.savefig(saveImg, dpi=600, bbox_inches='tight', transparent=True)
+                    plt.show()
+                    plt.close()
+                    log.info(f'[CHECK] saveImg : {saveImg}')
 
-                    # 데이터 로드
-                    file_path = self.file_entry.text()
-                    if file_path.endswith('.csv'):
-                        self.df = pd.read_csv(file_path)
-                    elif file_path.endswith('.xlsx'):
-                        self.df = pd.read_excel(file_path)
+                    # 단어 구름
+                    wordcloud = WordCloud(
+                        width=1000
+                        , height=1000
+                        , background_color = None
+                        , mode = 'RGBA'
+                        , font_path="NanumGothic.ttf"
+                    ).generate_from_frequencies(dictData)
 
-                    # 콤보 박스에 컬럼 이름 채우기
-                    self.column_combo.addItems(self.df.columns)
-
-                def geocode(self):
-                    geolocator = GoogleV3(api_key=self.api_key_entry.text())
-
-                    # 주소 컬럼 이름
-                    address_column = self.column_combo.currentText()
-
-                    # 주소를 위경도로 변환
-                    self.df['location'] = self.df[address_column].apply(geolocator.geocode)
-                    self.df['point'] = self.df['location'].apply(lambda loc: tuple(loc.point) if loc else None)
-
-                    # 결과를 새 파일로 저장
-                    output_file, _ = QFileDialog.getSaveFileName(self, "Save file", "", "CSV Files (*.csv)")
-                    if output_file:
-                        self.df.to_csv(output_file)
-
-            if __name__ == '__main__':
-                app = QApplication(sys.argv)
-                ex = MyApp()
-                sys.exit(app.exec_())
-
-
-
-            # GUI 생성
-            window = tk.Tk()
-            window.title("지오코딩 변환기")
-
-            # API 키 입력창
-            api_label = tk.Label(window, text="Google API 키:")
-            api_label.pack()
-            api_entry = tk.Entry(window)
-            api_entry.pack()
-
-            # 파일 경로 출력창
-            file_label = tk.Label(window, text="파일 경로:")
-            file_label.pack()
-            file_entry = tk.Entry(window)
-            file_entry.pack()
-
-            # 주소를 위경도로 변환하는 함수
-            def geocode():
-                # API 키 가져오기
-                api_key = api_entry.get()
-
-                # 파일 업로드 다이얼로그
-                file_path = filedialog.askopenfilename()
-                file_entry.delete(0, tk.END)
-                file_entry.insert(0, file_path)
-
-                # 파일 불러오기
-                if file_path.endswith('.csv'):
-                    data = pd.read_csv(file_path)
-                else:  # xlsx 파일로 가정
-                    data = pd.read_excel(file_path, engine='openpyxl')
-
-                # 위경도 변환
-                geocoded = []
-                for address in data['address']:  # 'address'는 주소를 포함하는 열 이름
-                    url = f"https://maps.googleapis.com/maps/api/geocode/json?address={address}&key={api_key}"
-                    response = requests.get(url)
-                    json_response = json.loads(response.text)
-                    if json_response['status'] == 'OK':
-                        location = json_response['results'][0]['geometry']['location']
-                        geocoded.append([location['lat'], location['lng']])
-                    else:
-                        geocoded.append([None, None])
-
-                # 변환된 결과를 새 열로 추가
-                data['latitude'], data['longitude'] = zip(*geocoded)
-
-                # 파일 저장 다이얼로그
-                save_path = filedialog.asksaveasfilename(defaultextension=".xlsx")
-                if save_path.endswith('.csv'):
-                    data.to_csv(save_path, index=False)
-                else:  # xlsx 파일로 가정
-                    data.to_excel(save_path, index=False, engine='openpyxl')
-
-            # 변환 버튼
-            convert_button = tk.Button(window, text="변환", command=geocode)
-            convert_button.pack()
-
-            window.mainloop()
+                    saveImg = '{}/{}/{}_{}_{}.png'.format(globalVar['figPath'], serviceName, fileNameNoExt, topPer, 'wordCloud')
+                    os.makedirs(os.path.dirname(saveImg), exist_ok=True)
+                    plt.imshow(wordcloud, interpolation="bilinear")
+                    plt.axis("off")
+                    plt.title(f'상위{topPer}% 단어 구름')
+                    plt.tight_layout()
+                    plt.savefig(saveImg, dpi=600, bbox_inches='tight', transparent=True)
+                    plt.show()
+                    plt.close()
+                    log.info(f'[CHECK] saveImg : {saveImg}')
 
         except Exception as e:
             log.error("Exception : {}".format(e))
