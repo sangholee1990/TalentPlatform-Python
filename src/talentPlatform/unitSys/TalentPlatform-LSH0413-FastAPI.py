@@ -27,7 +27,6 @@ from typing import List
 from sqlalchemy.orm import Session
 import os
 import shutil
-# from datetime import datetime
 from pydantic import BaseModel, Field, constr
 from fastapi import FastAPI, UploadFile, File
 from pydantic import BaseModel
@@ -62,7 +61,21 @@ from threading import Thread
 from fastapi import FastAPI, UploadFile, File, BackgroundTasks
 import psutil
 import re
+import warnings
 
+import matplotlib as mpl
+import matplotlib.pyplot as plt
+import numpy as np
+import pandas as pd
+import seaborn as sns
+import matplotlib.pyplot as plt
+import pandas as pd
+from wordcloud import WordCloud
+from collections import Counter
+import seaborn as sns
+import io
+import os
+from enum import Enum
 
 # =================================================
 # 도움말
@@ -71,11 +84,16 @@ import re
 # cd /SYSTEMS/PROG/PYTHON/PyCharm/src/talentPlatform/fast-api
 # cd /SYSTEMS/PROG/PYTHON/PyCharm/src/talentPlatform/unitSys
 # conda activate py38
-# uvicorn TalentPlatform-LSH0413-FastAPI:app --reload --host=0.0.0.0 --port=9000
+
+# 테스트
 # ps -ef | grep uvicorn | awk '{print $2}' | xargs kill -9
+# uvicorn TalentPlatform-LSH0413-FastAPI:app --reload --host=0.0.0.0 --port=9000
+# uvicorn TalentPlatform-LSH0413-FastAPI:app --reload --host=0.0.0.0 --port=9001
+
 # http://223.130.134.136:9000/docs
 # gunicorn TalentPlatform-LSH0413-FastAPI:app --workers 2 --worker-class uvicorn.workers.UvicornWorker --daemon --access-logfile ./main.log --bind 0.0.0.0:8000 --reload
 
+# 현업
 # ps -ef | grep gunicorn | awk '{print $2}' | xargs kill -9
 # gunicorn TalentPlatform-LSH0413-FastAPI:app --workers 2 --worker-class uvicorn.workers.UvicornWorker --daemon --bind 0.0.0.0:9000 --reload
 
@@ -278,14 +296,22 @@ engine = create_engine(SQLALCHEMY_DATABASE_URL)
 SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
 # SessionLocal().execute('SELECT * FROM TB_FILE_INFO_DTL').fetchall()
 
+# 전역 설정
+plt.rcParams['font.family'] = 'NanumGothic'
+
+# 옵션 설정
+sysOpt = {
+    # 상위 비율
+    'topPerInfo': 20
+}
+
 # 공유 폴더
-# UPLOAD_PATH = "/DATA/UPLOAD"
-UPLOAD_PATH = "/DATA/VIDEO"
-UPLOAD_PATH = "/DATA/CSV"
+UPLOAD_PATH = "/DATA/UPLOAD"
+CSV_PATH = "/DATA/CSV"
 
 app = FastAPI()
 app.mount('/VIDEO', StaticFiles(directory=UPLOAD_PATH), name='/DATA/VIDEO')
-app.mount('/CSV', StaticFiles(directory=UPLOAD_PATH), name='/DATA/CSV')
+app.mount('/CSV', StaticFiles(directory=CSV_PATH), name='/DATA/CSV')
 
 origins = [
     "http://localhost:8080"
@@ -344,9 +370,13 @@ class FirmwareBase(BaseModel):
 class DownloadResponse(BaseModel):
     filename: str
 
+class Encoding(str, Enum):
+    UTF_8 = "UTF-8"
+    EUC_KR = "EUC-KR"
+    CP949 = "CP949"
 
-@app.post("/file/upload", dependencies=[Depends(chkApiKey)])
-async def file_upload(
+@app.post("/video/upload", dependencies=[Depends(chkApiKey)])
+async def viedo_upload(
         file: UploadFile = File(...),
         db: Session = Depends(getDb)
 ):
@@ -390,8 +420,8 @@ async def file_upload(
         raise HTTPException(status_code=400, detail=resRespone("fail", 400, "처리 실패", len(str(e)), str(e)))
 
 
-@app.get("/file/down/", dependencies=[Depends(chkApiKey)])
-async def file_down(file: str):
+@app.get("/video/down", dependencies=[Depends(chkApiKey)])
+async def video_down(file: str):
     """
     기능 : 비디오 영상 파일 다운로드\n
     파라미터 : API키 없음, file 비디오 영상 파일 \n
@@ -408,6 +438,106 @@ async def file_down(file: str):
     except Exception as e:
         log.error(f'Exception : {e}')
         raise HTTPException(status_code=400, detail=resRespone("fail", 400, "처리 실패", str(e)))
+
+@app.post("/file/upload")
+async def file_upload(
+        file: UploadFile = File(...)
+        , column: str = Form(...)
+        , encoding: Encoding = Form(Encoding.UTF_8)
+):
+    """
+    기능 : 단어 구름 및 업종 빈도 시각화 \n
+    파라미터 : API키 없음, file 파일 업로드 (csv, xlsx), column 컬럼, encoding CSV 인코딩 (UTF-8, EUC-KR, CP949) \n
+    """
+    try:
+        if re.search(r'\.(?!(csv|xlsx)$)[^.]*$', file.filename, re.IGNORECASE) is not None:
+            raise Exception("csv 또는 xlsx 파일을 확인해주세요.")
+
+        try:
+            contents = await file.read()
+            basename, extension = os.path.splitext(file.filename)
+
+            # log.info(f'[CHECK] encoding : {encoding.value}')
+            if extension.lower() == '.csv': data = pd.read_csv(io.StringIO(contents.decode(encoding.value)))[column]
+            if extension.lower() == '.xlsx': data =  pd.read_excel(io.BytesIO(contents))[column]
+        except Exception as e:
+            log.error(f'Exception : {e}')
+            raise Exception("파일 읽기를 실패했습니다 (EUC-KR 인코딩 필요 또는 컬럼명 불일치).")
+
+        dtDateTime = datetime.datetime.now(pytz.timezone('Asia/Seoul'))
+        fileNameNoExt = os.path.basename(file.filename).split('.')[0]
+
+        nounList = data.tolist()
+        countList = Counter(nounList)
+
+        dictData = {}
+        for none, cnt in countList.most_common():
+            if (cnt < 2): continue
+            if (len(none) < 2): continue
+
+            dictData[none] = cnt
+
+        # 빈도분포
+        saveData = pd.DataFrame.from_dict(dictData.items()).rename(
+            {
+                0: 'none'
+                , 1: 'cnt'
+            }
+            , axis=1
+        )
+        saveData['cum'] = saveData['cnt'].cumsum() / saveData['cnt'].sum() * 100
+        maxCnt = (saveData['cum'] > 20).idxmax()
+
+        fig, axs = plt.subplots(2, 1, figsize=(10, 10))
+
+        # 단어 구름
+        wordcloud = WordCloud(
+            width=1500
+            , height=1500
+            , background_color=None
+            , mode='RGBA'
+            , font_path="NanumGothic.ttf"
+        ).generate_from_frequencies(dictData)
+
+        ax1 = axs[0]
+        ax1.imshow(wordcloud, interpolation="bilinear")
+        ax1.axis("off")
+
+        # 빈도 분포
+        ax2 = axs[1]
+        bar = sns.barplot(x='none', y='cnt', data=saveData, ax=ax2, linewidth=0)
+        ax2.set_title('업종 빈도 분포도')
+        ax2.set_xlabel(None)
+        ax2.set_ylabel('빈도 개수')
+        ax2.set_xlim([-1.0, len(countList)])
+        # ax2.tick_params(axis='x', rotation=45)
+        ax2.set_xticklabels(ax2.get_xticklabels(), fontsize=7, rotation=45, horizontalalignment='right')
+        line = ax2.twinx()
+        line.plot(saveData.index, saveData['cum'], color='black', marker='o', linewidth=1)
+        line.set_ylabel('누적 비율', color='black')
+        line.set_ylim(0, 101)
+
+        # 20% 누적비율에 해당하는 가로줄 추가
+        line.axhline(y=20, color='r', linestyle='-')
+
+        # 7번째 막대에 대한 세로줄 추가
+        ax2.axvline(x=maxCnt, color='r', linestyle='-')
+
+        saveImg = '{}/{}/{}.png'.format(UPLOAD_PATH, dtDateTime.strftime('%Y%m/%d/%H%M'), fileNameNoExt)
+        downImg =  f"http://{getPubliIp()}:9000/VIDEO/{dtDateTime.strftime('%Y%m/%d/%H%M')}/{fileNameNoExt}.png"
+        os.makedirs(os.path.dirname(saveImg), exist_ok=True)
+        plt.tight_layout()
+        plt.savefig(saveImg, dpi=600, bbox_inches='tight', transparent=True)
+        # plt.show()
+        plt.close()
+        log.info(f'[CHECK] downImg : {downImg}')
+
+        return resRespone("succ", 200, "처리 완료", 0, f"{downImg}")
+
+    except Exception as e:
+        log.error(f'Exception : {e}')
+        raise HTTPException(status_code=400, detail=resRespone("fail", 400, "처리 실패", len(str(e)), str(e)))
+
 
 # @app.post("/firm/file_info", dependencies=[Depends(chkApiKey)])
 # @app.post("/firm/file_info")
