@@ -227,7 +227,7 @@ class DtaProcess(object):
                 # 옵션 설정
                 sysOpt = {
                     # 상위 비율
-                    'topPerList': [10, 20, 30, 40, 60, 80]
+                    'topPerInfo': 20
                 }
 
             else:
@@ -235,7 +235,7 @@ class DtaProcess(object):
                 # 옵션 설정
                 sysOpt = {
                     # 상위 비율
-                    'topPerList': [10, 20, 30, 40, 60, 80]
+                    'topPerInfo': 20
                 }
 
                 globalVar['inpPath'] = '/DATA/INPUT'
@@ -263,73 +263,129 @@ class DtaProcess(object):
                 # 빈도 계산
                 countList = Counter(nounList)
 
-                for i, topPer in enumerate(sysOpt['topPerList']):
-                    log.info(f'[CHECK] topPer: {topPer}')
+                # for i, topPer in enumerate(sysOpt['topPerList']):
+                #     log.info(f'[CHECK] topPer: {topPer}')
 
-                    # 상위 20% 선정
-                    maxCnt = int(len(countList) * topPer / 100)
-                    log.info(f'[CHECK] maxCnt : {maxCnt}')
+                # 상위 20% 선정
+                # maxCnt = int(len(countList) * sysOpt['topPerInfo'] / 100)
+                # log.info(f'[CHECK] maxCnt : {maxCnt}')
 
-                    dictData = {}
-                    for none, cnt in countList.most_common(maxCnt):
-                        # 빈도수 2 이상
-                        if (cnt < 2): continue
-                        # 명사  2 글자 이상
-                        if (len(none) < 2): continue
+                dictData = {}
+                for none, cnt in countList.most_common():
+                    # 빈도수 2 이상
+                    if (cnt < 2): continue
+                    # 명사  2 글자 이상
+                    if (len(none) < 2): continue
 
-                        dictData[none] = cnt
+                    dictData[none] = cnt
 
-                    # 빈도분포
-                    saveData = pd.DataFrame.from_dict(dictData.items()).rename(
-                        {
-                            0: 'none'
-                            , 1: 'cnt'
-                        }
-                        , axis=1
-                    )
-                    saveData['cum'] = saveData['cnt'].cumsum() / saveData['cnt'].sum() * 100
+                # 빈도분포
+                saveData = pd.DataFrame.from_dict(dictData.items()).rename(
+                    {
+                        0: 'none'
+                        , 1: 'cnt'
+                    }
+                    , axis=1
+                )
+                saveData['cum'] = saveData['cnt'].cumsum() / saveData['cnt'].sum() * 100
+                maxCnt = (saveData['cum'] > 20).idxmax()
 
-                    saveFile = '{}/{}/{}_{}_{}.csv'.format(globalVar['outPath'], serviceName, fileNameNoExt, topPer, 'cnt')
-                    os.makedirs(os.path.dirname(saveFile), exist_ok=True)
-                    saveData.to_csv(saveFile, index=False)
-                    log.info(f'[CHECK] saveFile : {saveFile}')
+                # saveFile = '{}/{}/{}_{}_{}.csv'.format(globalVar['outPath'], serviceName, fileNameNoExt, topPer, 'cnt')
+                saveFile = '{}/{}/{}_{}.csv'.format(globalVar['outPath'], serviceName, fileNameNoExt, 'cnt')
+                os.makedirs(os.path.dirname(saveFile), exist_ok=True)
+                saveData.to_csv(saveFile, index=False)
+                log.info(f'[CHECK] saveFile : {saveFile}')
 
-                    # 빈도 분포
-                    saveImg = '{}/{}/{}_{}_{}.png'.format(globalVar['figPath'], serviceName, fileNameNoExt, topPer, 'cnt')
-                    os.makedirs(os.path.dirname(saveImg), exist_ok=True)
-                    bar = sns.barplot(x='none', y='cnt', data=saveData)
-                    plt.title(f'상위{topPer}% 빈도 분포')
-                    plt.xlabel(None)
-                    plt.ylabel('빈도 개수')
-                    plt.xticks(rotation=45, ha='right')
-                    line = bar.twinx()
-                    line.plot(saveData.index, saveData['cum'], color='black', marker='o', linewidth=1)
-                    line.set_ylabel('누적 비율', color='black')
-                    plt.tight_layout()
-                    plt.savefig(saveImg, dpi=600, bbox_inches='tight', transparent=True)
-                    plt.show()
-                    plt.close()
-                    log.info(f'[CHECK] saveImg : {saveImg}')
+                # *********************************************************
+                # 빈도 분포
+                # *********************************************************
+                # saveImg = '{}/{}/{}_{}.png'.format(globalVar['figPath'], serviceName, fileNameNoExt, 'cnt')
+                # os.makedirs(os.path.dirname(saveImg), exist_ok=True)
+                # bar = sns.barplot(x='none', y='cnt', data=saveData)
+                # # plt.title(f'상위{topPer}% 빈도 분포')
+                # plt.title(f'업종 빈도 분포도')
+                # plt.xlabel(None)
+                # plt.ylabel('빈도 개수')
+                # plt.xticks(rotation=45, ha='right')
+                # line = bar.twinx()
+                # line.plot(saveData.index, saveData['cum'], color='black', marker='o', linewidth=1)
+                # line.set_ylabel('누적 비율', color='black')
+                # plt.tight_layout()
+                # plt.savefig(saveImg, dpi=600, width=1000, height=800, bbox_inches='tight', transparent=True)
+                # plt.show()
+                # plt.close()
+                # log.info(f'[CHECK] saveImg : {saveImg}')
 
-                    # 단어 구름
-                    wordcloud = WordCloud(
-                        width=1000
-                        , height=1000
-                        , background_color = None
-                        , mode = 'RGBA'
-                        , font_path="NanumGothic.ttf"
-                    ).generate_from_frequencies(dictData)
+                # *********************************************************
+                # 단어 구름
+                # *********************************************************
+                # wordcloud = WordCloud(
+                #     width=1000
+                #     , height=1000
+                #     , background_color = None
+                #     , mode = 'RGBA'
+                #     , font_path="NanumGothic.ttf"
+                # ).generate_from_frequencies(dictData)
+                #
+                # saveImg = '{}/{}/{}_{}.png'.format(globalVar['figPath'], serviceName, fileNameNoExt, 'wordCloud')
+                # os.makedirs(os.path.dirname(saveImg), exist_ok=True)
+                # plt.imshow(wordcloud, interpolation="bilinear")
+                # plt.axis("off")
+                # # plt.title(f'상위{topPer}% 단어 구름')
+                # plt.tight_layout()
+                # plt.savefig(saveImg, dpi=600, bbox_inches='tight', transparent=True)
+                # plt.show()
+                # plt.close()
+                # log.info(f'[CHECK] saveImg : {saveImg}')
 
-                    saveImg = '{}/{}/{}_{}_{}.png'.format(globalVar['figPath'], serviceName, fileNameNoExt, topPer, 'wordCloud')
-                    os.makedirs(os.path.dirname(saveImg), exist_ok=True)
-                    plt.imshow(wordcloud, interpolation="bilinear")
-                    plt.axis("off")
-                    plt.title(f'상위{topPer}% 단어 구름')
-                    plt.tight_layout()
-                    plt.savefig(saveImg, dpi=600, bbox_inches='tight', transparent=True)
-                    plt.show()
-                    plt.close()
-                    log.info(f'[CHECK] saveImg : {saveImg}')
+
+                # *********************************************************
+                # 그래프 병합
+                # *********************************************************
+                fig, axs = plt.subplots(2, 1, figsize=(10, 10))
+
+                # 단어 구름
+                wordcloud = WordCloud(
+                    width=1500
+                    , height=1500
+                    , background_color=None
+                    , mode='RGBA'
+                    , font_path="NanumGothic.ttf"
+                ).generate_from_frequencies(dictData)
+
+                ax1 = axs[0]
+                ax1.imshow(wordcloud, interpolation="bilinear")
+                ax1.axis("off")
+
+                # 빈도 분포
+                ax2 = axs[1]
+                bar = sns.barplot(x='none', y='cnt', data=saveData, ax=ax2, linewidth=0)
+                ax2.set_title('업종 빈도 분포도')
+                ax2.set_xlabel(None)
+                ax2.set_ylabel('빈도 개수')
+                ax2.set_xlim([-1.0, len(countList)])
+                # ax2.tick_params(axis='x', rotation=45)
+                ax2.set_xticklabels(ax2.get_xticklabels(), fontsize=7, rotation=45, horizontalalignment='right')
+                line = ax2.twinx()
+                line.plot(saveData.index, saveData['cum'], color='black', marker='o', linewidth=1)
+                line.set_ylabel('누적 비율', color='black')
+                line.set_ylim(0, 101)
+
+                # 20% 누적비율에 해당하는 가로줄 추가
+                line.axhline(y=20, color='r', linestyle='-')
+
+                # 7번째 막대에 대한 세로줄 추가
+                ax2.axvline(x=maxCnt, color='r', linestyle='-')
+
+                saveImg = '{}/{}/{}.png'.format(globalVar['figPath'], serviceName, fileNameNoExt)
+                os.makedirs(os.path.dirname(saveImg), exist_ok=True)
+                plt.tight_layout()
+                # plt.subplots_adjust(hspace=1)
+                # plt.subplots_adjust(hspace=0, left=0, right=1)
+                plt.savefig(saveImg, dpi=600, bbox_inches='tight', transparent=True)
+                plt.show()
+                plt.close()
+                log.info(f'[CHECK] saveImg : {saveImg}')
 
         except Exception as e:
             log.error("Exception : {}".format(e))
