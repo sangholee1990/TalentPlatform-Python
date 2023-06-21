@@ -246,7 +246,8 @@ class DtaProcess(object):
             plt.rcParams['font.family'] = 'NanumGothic'
 
             # 데이터 읽기
-            inpFile = '{}/{}/{}'.format(globalVar['inpPath'], serviceName, '*')
+            # inpFile = '{}/{}/{}'.format(globalVar['inpPath'], serviceName, '*')
+            inpFile = '{}/{}/{}'.format(globalVar['inpPath'], serviceName, '키워드 입력 자료.txt')
             fileList = sorted(glob.glob(inpFile))
 
             # fileInfo = fileList[1]
@@ -254,11 +255,13 @@ class DtaProcess(object):
                 log.info(f'[CHECK] fileInfo: {fileInfo}')
 
                 fileNameNoExt = os.path.basename(fileInfo).split('.')[0]
-                data = pd.read_csv(fileInfo, encoding='UTF-8')
+                # data = pd.read_csv(fileInfo, encoding='UTF-8')
+                data = pd.read_csv(fileInfo, header=None)
 
                 # 명사만 추출
                 # nounList = nlpy.nouns(getDataTextAll)
-                nounList = data['상권업종중분류명'].tolist()
+                # nounList = data['상권업종중분류명'].tolist()
+                nounList = data[0].tolist()
 
                 # 빈도 계산
                 countList = Counter(nounList)
