@@ -2,25 +2,10 @@
 import glob
 import os
 import platform
-
-import numpy as np
+import pandas as pd
 import pandas as pd
 import matplotlib.pyplot as plt
-import nltk
-import pandas as pd
-from konlpy.tag import Twitter
-from wordcloud import WordCloud
-from collections import Counter
-import seaborn as sns
-
-import pandas as pd
-from konlpy.tag import Mecab
-from collections import Counter
-import matplotlib.pyplot as plt
-from matplotlib import font_manager
 import os
-from adjustText import adjust_text
-import sys
 from PyQt5.QtWidgets import (QApplication, QWidget, QVBoxLayout, QPushButton, QLineEdit, QFileDialog, QLabel, QComboBox, QRadioButton, QHBoxLayout)
 from geopy.geocoders import Nominatim
 import pandas as pd
@@ -29,11 +14,23 @@ from PyQt5.QtCore import Qt, pyqtSlot
 from PyQt5 import QtWidgets, QtGui
 from PyQt5.QtWidgets import QMainWindow, QApplication
 import sys
-
 from PyQt5.QtWidgets import QMainWindow, QApplication
 from PyQt5.QtCore import Qt
 import sys
 from PyQt5.QtWidgets import QApplication, QMainWindow, QVBoxLayout, QWidget, QListWidget, QPushButton, QFileDialog
+import sys
+from PyQt5.QtWidgets import QApplication, QWidget, QGridLayout, QLabel, QLineEdit, QComboBox, QPushButton, QFileDialog, QTableWidget, QTableWidgetItem, QHeaderView, QCheckBox
+from PyQt5.QtCore import Qt
+from PyQt5.QtGui import QIcon
+from PyQt5.QtWidgets import QApplication, QMainWindow, QDesktopWidget
+from PyQt5.QtGui import QFont
+from PyQt5.QtWidgets import QWidget
+from PyQt5.QtWidgets import QWidget, QHBoxLayout
+from PyQt5.QtCore import QTimer
+import googlemaps
+import pandas as pd
+import qtmodern.styles
+import qtmodern.windows
 
 
 # ============================================
@@ -45,6 +42,12 @@ from PyQt5.QtWidgets import QApplication, QMainWindow, QVBoxLayout, QWidget, QLi
 # ============================================
 # 보조
 # ============================================
+def get_encoding(file):
+    # 바이너리로 파일을 열어 인코딩을 추정한다.
+    with open(file, 'rb') as f:
+        result = chardet.detect(f.read())
+    return result['encoding']
+
 
 # ============================================
 # 주요
@@ -54,6 +57,8 @@ serviceName = 'LSH0444'
 
 # 옵션 설정
 sysOpt = {
+    # 구글 API 정보
+    'googleApiKey': 'AIzaSyDP7-1okYV0RchVpAT4nS0DZ39dteCG5xA'
 }
 
 if (platform.system() == 'Windows'):
@@ -65,321 +70,300 @@ else:
     globalVar['outPath'] = '/DATA/OUTPUT'
     globalVar['figPath'] = '/DATA/FIG'
 
+
 # 전역 설정
-plt.rcParams['font.family'] = 'NanumGothic'
-plt.rcParams['axes.unicode_minus'] = False
+# plt.rcParams['font.family'] = 'NanumGothic'
+# plt.rcParams['axes.unicode_minus'] = False
 
 
-class FileUploadWidget(QWidget):
-    def __init__(self, parent=None):
-        super().__init__(parent)
-        self.initUI()
-
-    def initUI(self):
-        self.layout = QVBoxLayout()
-
-        self.uploadButton = QPushButton("Upload")
-        self.uploadButton.clicked.connect(self.onUpload)
-
-        self.checkbox = QCheckBox("Enable Drag and Drop")
-        self.checkbox.setChecked(True)
-
-        self.layout.addWidget(self.uploadButton)
-        self.layout.addWidget(self.checkbox)
-        self.setLayout(self.layout)
-        self.setAcceptDrops(True)
-
-    @pyqtSlot()
-    def onUpload(self):
-        options = QFileDialog.Options()
-        options |= QFileDialog.ReadOnly
-        fileName, _ = QFileDialog.getOpenFileName(self, "QFileDialog.getOpenFileName()", "",
-                                                  "CSV Files (*.csv);;Excel Files (*.xlsx)", options=options)
-        if fileName:
-            print(fileName)
-
-    def dragEnterEvent(self, event):
-        if self.checkbox.isChecked():
-            if event.mimeData().hasUrls():
-                event.accept()
-            else:
-                event.ignore()
-        else:
-            event.ignore()
-
-    def dropEvent(self, event):
-        if self.checkbox.isChecked():
-            files = [u.toLocalFile() for u in event.mimeData().urls()]
-            for file in files:
-                print(file)
-
-class MyApp(QWidget):
+# 메인 윈도우 클래스 정의
+class MainWindow(QWidget):
     def __init__(self):
         super().__init__()
-        self.api_key_entry = QLineEdit()
-        self.file_entry = QLineEdit()
-        self.column_combo = QComboBox()
-        self.df = None
+        # 전체 선택 상태를 추적하는 변수 추가
+        self.select_all_status = False
         self.initUI()
 
     def initUI(self):
-        self.setWindowTitle('지오코딩 변환기')
-        self.setAcceptDrops(True)
+        # 윈도우 타이틀 및 아이콘 설정
+        self.setWindowTitle('PyQt5 원도우 GUI 기반 지오코딩 프로그램')
+        self.setWindowIcon(QIcon('icon.png'))
 
-        # API 키 입력창
-        self.api_key_entry.setPlaceholderText("API 키를 입력하세요.")
-        upload_button = QPushButton('파일 업로드')
-        upload_button.clicked.connect(self.upload_file)
+        # 그리드 레이아웃 생성
+        grid = QGridLayout()
+        grid.setColumnStretch(0, 1)
+        grid.setColumnStretch(1, 1)
+        grid.setColumnStretch(2, 1)
+        grid.setColumnStretch(3, 1)
 
-        # 변환 버튼
-        convert_button = QPushButton('변환')
-        convert_button.clicked.connect(self.geocode)
+        self.search_label = QLabel('(선택) 인증키')
+        self.search_edit = QLineEdit()
+        self.search_edit.setPlaceholderText('없을 시 기본값 설정')
+        self.column_label = QLabel('(필수) 주소 컬럼')
+        self.column_combo = QComboBox()
+        self.column_combo.addItem('선택')
 
-        # 레이아웃 설정
-        # layout = QVBoxLayout()
-        # layout.addWidget(QLabel('API Key:'))
-        # layout.addWidget(self.api_key_entry)
-        # layout.addWidget(upload_button)
-        # layout.addWidget(self.file_entry)
-        # layout.addWidget(QLabel('주소 컬럼 선택:'))
-        # layout.addWidget(self.column_combo)
-        # layout.addWidget(convert_button)
-        #
-        # self.setLayout(layout)
-        # self.show()
+        grid.addWidget(self.search_label, 0, 0, alignment=Qt.AlignCenter)
+        grid.addWidget(self.search_edit, 0, 1)
+        grid.addWidget(self.column_label, 0, 2, alignment=Qt.AlignCenter)
+        grid.addWidget(self.column_combo, 0, 3)
 
-        # # 좌측 레이아웃 설정
-        # mainLayout = QHBoxLayout()
-        #
-        # # 좌측 레이아웃에 추가할 위젯
-        # leftLayout = QVBoxLayout()
-        # mainLayout.addLayout(leftLayout)
-        #
-        # # API 키 입력창
-        # self.api_key_entry.setPlaceholderText("API 키를 입력하세요.")
-        # upload_button = QPushButton('파일 업로드')
-        # upload_button.clicked.connect(self.upload_file)
-        #
-        # # 변환 버튼
-        # convert_button = QPushButton('변환')
-        # convert_button.clicked.connect(self.geocode)
-        #
-        # # 레이아웃에 위젯 추가
-        # leftLayout.addWidget(QLabel('API Key:'))
-        # leftLayout.addWidget(self.api_key_entry)
-        # leftLayout.addWidget(upload_button)
-        # leftLayout.addWidget(self.file_entry)
-        # leftLayout.addWidget(QLabel('주소 컬럼 선택:'))
-        # leftLayout.addWidget(self.column_combo)
-        # leftLayout.addWidget(convert_button)
-        #
-        # self.setLayout(mainLayout)
-        # self.show()
+        self.setLayout(grid)
 
+        # 대상 파일 영역 위젯 생성 및 배치
+        self.upload_button = QPushButton('파일 업로드')
+        self.upload_button.clicked.connect(self.upload_files)
+        self.convert_button = QPushButton('위경도 변환')
+        self.convert_button.clicked.connect(self.convert_files)
+        self.delete_button = QPushButton('삭제')
+        self.delete_button.clicked.connect(self.delete_files)
+        self.select_all_button = QPushButton('전체 선택')
+        self.select_all_button.clicked.connect(self.select_all_files)
+        self.file_table = QTableWidget(0, 2)
+        self.file_table.setHorizontalHeaderLabels(['선택', '파일명'])
+        header = self.file_table.horizontalHeader()
+        header.setSectionResizeMode(0, QHeaderView.ResizeToContents)
+        header.setSectionResizeMode(1, QHeaderView.Stretch)
+        grid.addWidget(self.select_all_button, 1, 0)
+        grid.addWidget(self.upload_button, 1, 1)
+        grid.addWidget(self.convert_button, 1, 2)
+        grid.addWidget(self.delete_button, 1, 3)
+        grid.addWidget(self.file_table, 2, 0, 1, 4)
 
-        # 레이아웃 설정
-        layout = QVBoxLayout()
-        leftLayout = QVBoxLayout() # 좌측 레이아웃 추가
-        layout.addLayout(leftLayout) # 메인 레이아웃에 추가
+        # 변환 파일 영역 위젯 생성 및 배치
+        self.select_all_button2 = QPushButton('전체 선택')
+        self.select_all_button2.clicked.connect(self.select_all_files2)
+        self.download_button = QPushButton('다운로드')
+        self.download_button.clicked.connect(self.download_files)
+        self.result_table = QTableWidget(0, 2)
+        self.result_table.setHorizontalHeaderLabels(['선택', '파일명'])
+        header = self.result_table.horizontalHeader()
+        header.setSectionResizeMode(0, QHeaderView.ResizeToContents)
+        header.setSectionResizeMode(1, QHeaderView.Stretch)
+        grid.addWidget(self.select_all_button2, 3, 0)
+        grid.addWidget(self.download_button, 3, 1)
+        grid.addWidget(self.result_table, 4, 0, 1, 4)
 
-        leftLayout.addWidget(QLabel('API Key:'))
-        leftLayout.addWidget(self.api_key_entry)
-        leftLayout.addWidget(upload_button)
-        leftLayout.addWidget(self.file_entry)
-        leftLayout.addWidget(QLabel('주소 컬럼 선택:'))
-        leftLayout.addWidget(self.column_combo)
-        leftLayout.addWidget(convert_button)
+        # 폰트 설정
+        font = QFont("Arial", 12)
+        self.setFont(font)
 
-        self.setLayout(layout)
+        # 그리드 레이아웃 간격 조정
+        # grid.setHorizontalSpacing(20)
+        # grid.setVerticalSpacing(10)
+
+        # 윈도우 크기 및 위치 조정
+        self.resize(1000, 800)
+        # self.center()
+
+        # 윈도우 보이기
         self.show()
 
-    # 드래그 앤 드롭 관련 이벤트 핸들러 추가
-    def dragEnterEvent(self, event):
-        if event.mimeData().hasUrls():
-            event.accept()
-        else:
-            event.ignore()
+    def center(self):
+        # 윈도우를 화면 가운데로 이동하는 메소드
+        qr = self.frameGeometry()
+        cp = QDesktopWidget().availableGeometry().center()
+        qr.moveCenter(cp)
+        self.move(qr.topLeft())
 
-    def dropEvent(self, event):
-        files = [u.toLocalFile() for u in event.mimeData().urls()]
-        self.file_entry.setText(files[0])
-        self.upload_file()
+    def upload_files(self):
+        # 파일 업로드 버튼을 눌렀을 때 실행되는 메소드
+        # 파일 다이얼로그를 통해 csv/xlsx 파일을 선택하고 테이블에 추가한다.
+        # 파일이 이미 존재하면 중복 검사를 한다.
+        files, _ = QFileDialog.getOpenFileNames(self, '파일 업로드', '', 'CSV files (*.csv);;Excel files (*.xlsx)')
 
-    def upload_file(self):
-        if not self.file_entry.text():
-            filename, _ = QFileDialog.getOpenFileName()
-            self.file_entry.setText(filename)
+        # 콤보박스를 초기화한다.
+        self.column_combo.clear()
 
-        # 데이터 로드
-        file_path = self.file_entry.text()
-        if file_path.endswith('.csv'):
-            self.df = pd.read_csv(file_path)
-        elif file_path.endswith('.xlsx'):
-            self.df = pd.read_excel(file_path)
+        columns_set = set()  # 중복되지 않는 컬럼명을 저장할 set
+        for file in files:
+            filename = file.split('/')[-1]
+            if self.check_duplicate(filename): continue
 
-        # 콤보 박스에 컬럼 이름 채우기
-        self.column_combo.addItems(self.df.columns)
+            row = self.file_table.rowCount()
+            self.file_table.insertRow(row)
+            self.file_table.setItem(row, 1, QTableWidgetItem(filename))
 
-    def geocode(self):
-        geolocator = GoogleV3(api_key=self.api_key_entry.text())
+            check = QCheckBox()
+            check.setChecked(True)
+            check.stateChanged.connect(self.check_state_changed)
 
-        # 주소 컬럼 이름
-        address_column = self.column_combo.currentText()
+            # Use QWidget to hold checkbox and center it within cell.
+            widget = QWidget()
+            layout = QHBoxLayout(widget)
+            layout.addWidget(check)
+            layout.setAlignment(Qt.AlignCenter)
+            layout.setContentsMargins(0, 0, 0, 0)
+            widget.setLayout(layout)
 
-        # 주소를 위경도로 변환
-        self.df['location'] = self.df[address_column].apply(geolocator.geocode)
-        self.df['point'] = self.df['location'].apply(lambda loc: tuple(loc.point) if loc else None)
+            self.file_table.setCellWidget(row, 0, widget)
 
-        # 결과를 새 파일로 저장
-        output_file, _ = QFileDialog.getSaveFileName(self, "Save file", "", "CSV Files (*.csv)")
-        if output_file:
-            self.df.to_csv(output_file)
+            # check = QCheckBox()
+            # check.setChecked(True)
+            # check.stateChanged.connect(self.check_state_changed)
+            # self.file_table.setCellWidget(row, 0, check)
 
+            # 초기 데이터프레임 설정
+            df = pd.DataFrame()
 
-# class DropArea(QtWidgets.QLabel):
-#     def __init__(self, parent=None):
-#         super().__init__(parent)
-#         self.setAcceptDrops(True)
-#
-#     def dragEnterEvent(self, e):
-#         m = e.mimeData()
-#         if m.hasUrls():
-#             e.accept()
-#         else:
-#             e.ignore()
-#
-#     def dropEvent(self, e):
-#         for url in e.mimeData().urls():
-#             path = url.toLocalFile()
-#             if path.endswith('.csv') or path.endswith('.xlsx'):
-#                 print('Uploaded: ', path)   # 파일 경로 출력
-#                 # TODO: 파일 처리 코드
-#                 # 파일의 확장자에 따라 다른 동작을 수행할 수 있음
-#
-# class LeftLayout(QtWidgets.QWidget):
-#     def __init__(self):
-#         super().__init__()
-#
-#         self.upload_button = QtWidgets.QPushButton('Upload CSV/XLSX')
-#         self.upload_button.clicked.connect(self.open_file_dialog)
-#
-#         self.drop_area = DropArea()
-#
-#         self.checkbox = QtWidgets.QCheckBox('Enable drag and drop')
-#         self.checkbox.toggled.connect(self.drop_area.setAcceptDrops)
-#
-#         layout = QtWidgets.QVBoxLayout(self)
-#         layout.addWidget(self.upload_button)
-#         layout.addWidget(self.drop_area)
-#         layout.addWidget(self.checkbox)
-#
-#     def open_file_dialog(self):
-#         options = QtWidgets.QFileDialog.Options()
-#         options |= QtWidgets.QFileDialog.ReadOnly
-#         file_name, _ = QtWidgets.QFileDialog.getOpenFileName(self, "QFileDialog.getOpenFileName()", "",
-#                                                              "CSV Files (*.csv);;XLSX Files (*.xlsx)", options=options)
-#         if file_name:
-#             print('Uploaded: ', file_name)  # 파일 경로 출력
-#             # TODO: 파일 처리 코드
-            # 업로드 된 파일 처리
+            # 파일의 확장자를 체크하고 알맞은 pandas 함수를 이용해 파일을 읽는다.
+            extension = filename.split('.')[-1]
+            # encoding = get_encoding(file)
+            if extension == 'csv':
+                df = pd.read_csv(file, encoding='EUC-KR')
+            elif extension == 'xlsx':
+                df = pd.read_excel(file)
+            else:
+                continue
 
+            # 데이터프레임의 컬럼명을 set에 추가한다.
+            columns_set.update(df.columns)
 
-# class DropArea(QtWidgets.QLabel):
-#     def __init__(self, parent=None):
-#         super().__init__(parent)
-#         self.setAcceptDrops(True)
-#
-#     def dragEnterEvent(self, e):
-#         m = e.mimeData()
-#         if m.hasUrls():
-#             e.accept()
-#         else:
-#             e.ignore()
-#
-#     def dropEvent(self, e):
-#         for url in e.mimeData().urls():
-#             path = url.toLocalFile()
-#             if path.endswith('.csv') or path.endswith('.xlsx'):
-#                 print('Uploaded: ', path)   # 파일 경로 출력
-#                 # TODO: 파일 처리 코드
-#                 # 파일의 확장자에 따라 다른 동작을 수행할 수 있음
+        # set의 모든 요소를 콤보박스에 추가한다.
+        self.column_combo.addItems(list(columns_set))
 
-# class LeftLayout(QtWidgets.QWidget):
-#     def __init__(self):
-#         super().__init__()
-#
-#         self.drop_area = DropArea()
-#
-#         self.checkbox = QtWidgets.QCheckBox('Enable drag and drop')
-#         self.checkbox.setChecked(True)
-#         self.checkbox.toggled.connect(self.toggle_drag_and_drop)
-#
-#         layout = QtWidgets.QVBoxLayout(self)
-#         layout.addWidget(self.drop_area)
-#         layout.addWidget(self.checkbox)
-#
-#     def toggle_drag_and_drop(self, checked):
-        self.drop_area.setAcceptDrops(checked)
+    def check_duplicate(self, filename):
+        # 파일 중복 검사를 하는 메소드
+        # 테이블에 이미 존재하는 파일명과 비교하고 결과를 반환한다.
+        for i in range(self.file_table.rowCount()):
+            if filename == self.file_table.item(i, 1).text():
+                return True
+        return False
 
-# class MainWidget(QMainWindow):
-#     def __init__(self):
-#         super().__init__()
-#         self.setWindowTitle("Drag and Drop")
-#         self.resize(720, 480)
-#         self.setAcceptDrops(True)
-#
-#     def dragEnterEvent(self, event):
-#         if event.mimeData().hasUrls():
-#             event.accept()
-#         else:
-#             event.ignore()
-#
-#     def dropEvent(self, event):
-#         files = [u.toLocalFile() for u in event.mimeData().urls()]
-#         for f in files:
-#             print(f)
+    def convert_files(self):
+        # 위경도 변환 버튼을 눌렀을 때 실행되는 메소드
+        # 구글 API 인증키를 입력하거나 기본값을 사용하고 컬럼을 선택한다.
+        # 체크된 파일들에 대해 지오코딩을 수행하고 결과를 테이블에 추가한다.
 
+        checked_files = [self.file_table.cellWidget(i, 0).isChecked() for i in range(self.file_table.rowCount())]
+        if not any(checked_files):
+            self.show_toast_message('대상 파일을 선택해 주세요.')
+            return False
 
-# class MyMainWindow(QMainWindow):
-#     def __init__(self, parent=None):
-#         super(MyMainWindow, self).__init__(parent)
-#         self.setAcceptDrops(True)
-#
-#     def dragEnterEvent(self, event):
-#         if event.mimeData().hasUrls():
-#             event.accept()
-#         else:
-#             event.ignore()
-#
-#     def dropEvent(self, event):
-#         files = [u.toLocalFile() for u in event.mimeData().urls()]
-#         for f in files:
-#             print(f)
+        selected_column = self.column_combo.currentText()
+        if not selected_column or selected_column == '선택':
+            self.show_toast_message('주소 컬럼을 선택해 주세요.')
+            return False
 
+        key = self.search_edit.text()
+        if not key:
+            key = sysOpt['googleApiKey']
 
-class MyMainWindow(QMainWindow):
-    def __init__(self, parent=None):
-        super(MyMainWindow, self).__init__(parent)
-        self.setWindowTitle("Multiple File Upload")
+        gmaps = googlemaps.Client(key=key)
+        selected_column = self.column_combo.currentText()
 
-        layout = QVBoxLayout()
-        central_widget = QWidget()
-        central_widget.setLayout(layout)
-        self.setCentralWidget(central_widget)
+        for i in range(self.file_table.rowCount()):
+            check = self.file_table.cellWidget(i, 0)
 
-        self.file_list = QListWidget()
-        layout.addWidget(self.file_list)
+            if not check.isChecked(): continue
 
-        add_button = QPushButton("Add Files")
-        add_button.clicked.connect(self.add_files)
-        layout.addWidget(add_button)
+            filename = self.file_table.item(i, 1).text()
+            extension = filename.split('.')[-1]
 
-    def add_files(self):
-        file_dialog = QFileDialog()
-        files, _ = file_dialog.getOpenFileNames(self, "Select Files")
-        if files:
-            for file in files:
-                self.file_list.addItem(file)
+            if extension == 'csv':
+                df = pd.read_csv(filename, encoding='EUC-KR')
+            elif extension == 'xlsx':
+                df = pd.read_excel(filename)
+            else:
+                continue
+
+            df['latitude'] = None
+            df['longitude'] = None
+
+            for i in df.index:
+                geocode_result = gmaps.geocode(df.at[i, selected_column])
+                df.at[i, 'latitude'] = geocode_result[0]['geometry']['location']['lat']
+                df.at[i, 'longitude'] = geocode_result[0]['geometry']['location']['lng']
+
+            df.to_csv(filename[:-4] + '_converted.csv', index=False)
+            row = self.result_table.rowCount()
+            self.result_table.insertRow(row)
+            self.result_table.setItem(row, 1, QTableWidgetItem(filename[:-4] + '_converted.csv'))
+            check = QCheckBox()
+            check.setChecked(True)
+            self.result_table.setCellWidget(row, 0, check)
+
+    def delete_files(self):
+        # 삭제 버튼을 눌렀을 때 실행되는 메소드
+        # 체크된 파일들을 테이블에서 삭제한다.
+        rows = []
+        for i in range(self.file_table.rowCount()):
+            # check = self.file_table.cellWidget(i, 0)
+            widget = self.file_table.cellWidget(i, 0)
+            check = widget.layout().itemAt(0).widget()
+
+            if not check.isChecked(): continue
+            rows.append(i)
+
+        rows.reverse()  # 역순으로 삭제해야 올바르게 동작함
+
+        for row in rows:
+            self.file_table.removeRow(row)
+            self.show_toast_message('삭제')
+
+    def select_all_files(self):
+        # 전체 선택 버튼을 눌렀을 때 실행되는 메소드
+        # 업로드 대상 파일을 전체 선택하거나 해제한다.
+        self.select_all_status = not self.select_all_status  # 상태를 반전시킨다.
+        for i in range(self.file_table.rowCount()):
+            # check = self.file_table.cellWidget(i, 0)
+            # check.setChecked(self.select_all_status)  # 상태에 따라 체크박스를 설정한다.
+
+            widget = self.file_table.cellWidget(i, 0)
+            check = widget.layout().itemAt(0).widget()
+            check.setChecked(self.select_all_status)
+
+    def select_all_files2(self):
+        # 전체 선택 버튼2를 눌렀을 때 실행되는 메소드
+        # 변환 파일을 전체 선택하거나 해제한다.
+        for i in range(self.result_table.rowCount()):
+            # check = self.result_table.cellWidget(i, 0)
+            # check.setChecked(True)
+
+            widget = self.file_table.cellWidget(i, 0)
+            check = widget.layout().itemAt(0).widget()
+            # check.setChecked(True)
+            check.setChecked(self.select_all_status)
+
+    def download_files(self):
+        # 다운로드 버튼을 눌렀을 때 실행되는 메소드
+        # 체크된 변환 파일들을 다운로드한다.
+        rows = []
+        for i in range(self.result_table.rowCount()):
+            check = self.result_table.cellWidget(i, 0)
+            if not check.isChecked(): continue
+            rows.append(i)
+
+        if not rows:
+            self.show_toast_message('다운로드 파일을 선택해 주세요.')
+            return False;
+
+        for row in rows:
+            filename = self.result_table.item(row, 1).text()
+            self.show_toast_message(f"{filename} 파일 다운로드 중")
+
+    def show_toast_message(self, message):
+        # Toast 메시지를 보여주는 메소드
+        toast = QLabel(message, self)
+        toast.setStyleSheet("background-color:#333;color:#fff;padding:8px;border-radius:4px;")
+        toast.setAlignment(Qt.AlignCenter)
+        toast.setGeometry(10, 10, toast.sizeHint().width(), toast.sizeHint().height())
+        toast.show()
+        toast.raise_()
+        # QTimer.singleShot(3000, toast.close)
+        QTimer.singleShot(1000, toast.close)
+
+    def check_state_changed(self):
+        # 체크 박스의 상태가 변경될 때 실행되는 메소드
+        for i in range(self.file_table.rowCount()):
+            # checkbox = self.file_table.cellWidget(i, 0)
+            widget = self.file_table.cellWidget(i, 0)
+            checkbox = widget.layout().itemAt(0).widget()
+
+            if checkbox.isChecked():
+                self.show_toast_message('선택')
+            else:
+                self.show_toast_message('해제')
 
 
 if __name__ == '__main__':
@@ -387,25 +371,7 @@ if __name__ == '__main__':
     display_value = os.environ.get('DISPLAY')
 
     app = QApplication(sys.argv)
-    mainWin = MyMainWindow()
-    mainWin.show()
+    mainWindow = MainWindow()
+    mw = qtmodern.windows.ModernWindow(mainWindow)
+    mw.show()
     sys.exit(app.exec_())
-
-    # app = QApplication(sys.argv)
-    # widget = FileUploadWidget()
-    # widget.show()
-    # ex = MyApp()
-    # sys.exit(app.exec_())
-
-    # app = QtWidgets.QApplication(sys.argv)
-    #
-    # left_layout = LeftLayout()
-    # left_layout.show()
-    #
-    # sys.exit(app.exec_())
-
-
-    # app = QApplication(sys.argv)
-    # ui = MainWidget()
-    # ui.show()
-    # sys.exit(app.exec_())
