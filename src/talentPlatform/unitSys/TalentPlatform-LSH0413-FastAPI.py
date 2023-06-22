@@ -76,6 +76,18 @@ import seaborn as sns
 import io
 import os
 from enum import Enum
+from fastapi.responses import StreamingResponse
+from fastapi.responses import Response
+from fastapi.encoders import jsonable_encoder
+from fastapi.responses import JSONResponse
+from typing import Any
+from starlette.responses import FileResponse
+from starlette.requests import Request
+# from fastapi.responses import FileResponse, MultipartForm
+import multipart
+from fastapi.responses import HTMLResponse
+import zipfile
+import urllib.parse
 
 # =================================================
 # 도움말
@@ -90,12 +102,17 @@ from enum import Enum
 # uvicorn TalentPlatform-LSH0413-FastAPI:app --reload --host=0.0.0.0 --port=9000
 # uvicorn TalentPlatform-LSH0413-FastAPI:app --reload --host=0.0.0.0 --port=9001
 
+# nohup uvicorn TalentPlatform-LSH0413-FastAPI:app --reload --host=0.0.0.0 --port=9000 &
+
 # http://223.130.134.136:9000/docs
+# http://223.130.134.136:9001/docs
 # gunicorn TalentPlatform-LSH0413-FastAPI:app --workers 2 --worker-class uvicorn.workers.UvicornWorker --daemon --access-logfile ./main.log --bind 0.0.0.0:8000 --reload
 
 # 현업
 # ps -ef | grep gunicorn | awk '{print $2}' | xargs kill -9
-# gunicorn TalentPlatform-LSH0413-FastAPI:app --workers 2 --worker-class uvicorn.workers.UvicornWorker --daemon --bind 0.0.0.0:9000 --reload
+# netstat -ntlp | grep 9000
+
+# gunicorn TalentPlatform-LSH0413-FastAPI:app --workers 1 --worker-class uvicorn.workers.UvicornWorker --daemon --bind 0.0.0.0:9000 --reload
 
 
 # {
@@ -256,6 +273,119 @@ def findProceByCmdline(regex):
     return matches
 
 
+# 맵 시각화
+def makeProc(data, saveFile, saveImg):
+    log.info(f'[START] makeProc')
+    result = None
+
+    try:
+        # 명사만 추출
+        nounList = data.tolist()
+
+        # 빈도 계산
+        countList = Counter(nounList)
+
+        dictData = {}
+        for none, cnt in countList.most_common():
+            # 빈도수 2 이상
+            if (cnt < 2): continue
+            # 명사  2 글자 이상
+            if (len(none) < 2): continue
+
+            dictData[none] = cnt
+
+        # 빈도분포
+        saveData = pd.DataFrame.from_dict(dictData.items()).rename(
+            {
+                0: 'none'
+                , 1: 'cnt'
+            }
+            , axis=1
+        )
+        saveData['cum'] = saveData['cnt'].cumsum() / saveData['cnt'].sum() * 100
+        maxCnt = (saveData['cum'] > 20).idxmax()
+
+        # 자료 저장
+        os.makedirs(os.path.dirname(saveFile), exist_ok=True)
+        saveData.to_csv(saveFile, index=False)
+
+        # 시각화
+        fig, axs = plt.subplots(2, 1, figsize=(10, 10))
+
+        # 단어 구름
+        wordcloud = WordCloud(
+            width=1500
+            , height=1500
+            , background_color=None
+            , mode='RGBA'
+            , font_path="NanumGothic.ttf"
+        ).generate_from_frequencies(dictData)
+
+        ax1 = axs[0]
+        ax1.imshow(wordcloud, interpolation="bilinear")
+        ax1.axis("off")
+
+        # 빈도 분포
+        ax2 = axs[1]
+        bar = sns.barplot(x='none', y='cnt', data=saveData, ax=ax2, linewidth=0)
+        ax2.set_title('업종 빈도 분포도')
+        ax2.set_xlabel(None)
+        ax2.set_ylabel('빈도 개수')
+        # ax2.set_xlim([-1.0, len(countList)])
+        ax2.set_xlim([-1.0, len(dictData)])
+        # ax2.set_xticklabels(ax2.get_xticklabels(), fontsize=7, rotation=45, horizontalalignment='right')
+        ax2.set_xticklabels(ax2.get_xticklabels(), fontsize=6, rotation=90)
+        line = ax2.twinx()
+        line.plot(saveData.index, saveData['cum'], color='black', marker='o', linewidth=1)
+        line.set_ylabel('누적 비율', color='black')
+        line.set_ylim(0, 101)
+
+        # 20% 누적비율에 해당하는 가로줄 추가
+        line.axhline(y=20, color='r', linestyle='-')
+
+        # 7번째 막대에 대한 세로줄 추가
+        ax2.axvline(x=maxCnt, color='r', linestyle='-')
+
+        # saveImg = '{}/{}/{}.png'.format(globalVar['figPath'], serviceName, fileNameNoExt)
+        os.makedirs(os.path.dirname(saveImg), exist_ok=True)
+        plt.tight_layout()
+        # plt.subplots_adjust(hspace=1)
+        # plt.subplots_adjust(hspace=0, left=0, right=1)
+        # plt.savefig(saveImg, dpi=600, bbox_inches='tight', transparent=True)
+        plt.savefig(saveImg, dpi=600, bbox_inches='tight', transparent=False)
+        # plt.show()
+        plt.close()
+        # log.info(f'[CHECK] saveImg : {saveImg}')
+
+        result = {
+            'msg': 'succ'
+            , 'saveFile': saveFile
+            , 'isFileExist': os.path.exists(saveFile)
+            , 'saveImg': saveImg
+            , 'isImgExist': os.path.exists(saveImg)
+        }
+
+        return result
+
+    except Exception as e:
+        print("Exception : {}".format(e))
+        return result
+    finally:
+        # try, catch 구문이 종료되기 전에 무조건 실행
+        log.info(f'[END] makeProc')
+
+
+async def makeZip(fileList):
+    buffer = io.BytesIO()
+    with zipfile.ZipFile(buffer, "w") as zipf:
+        for fileInfo in fileList:
+            with open(fileInfo, "rb") as file:
+                file_contents = file.read()
+                zipf.writestr(os.path.basename(fileInfo), file_contents)
+
+    buffer.seek(0)
+    yield buffer.read()
+
 # ================================================================================================
 # 환경변수 설정
 # ================================================================================================
@@ -306,12 +436,14 @@ sysOpt = {
 }
 
 # 공유 폴더
-UPLOAD_PATH = "/DATA/UPLOAD"
+VIDEO_PATH = "/DATA/VIDEO"
 CSV_PATH = "/DATA/CSV"
+UPLOAD_PATH = "/DATA/UPLOAD"
 
 app = FastAPI()
-app.mount('/VIDEO', StaticFiles(directory=UPLOAD_PATH), name='/DATA/VIDEO')
-app.mount('/CSV', StaticFiles(directory=CSV_PATH), name='/DATA/CSV')
+app.mount('/VIDEO', StaticFiles(directory=VIDEO_PATH), name=VIDEO_PATH)
+app.mount('/CSV', StaticFiles(directory=CSV_PATH), name=CSV_PATH)
+app.mount('/UPLOAD', StaticFiles(directory=UPLOAD_PATH), name=UPLOAD_PATH)
 
 origins = [
     "http://localhost:8080"
@@ -399,7 +531,7 @@ async def viedo_upload(
         dtDateTime = datetime.datetime.now(pytz.timezone('Asia/Seoul'))
 
         # Save the uploaded file
-        updFileInfo = f"{UPLOAD_PATH}/{dtDateTime.strftime('%Y%m/%d/%H%M')}/{file.filename}"
+        updFileInfo = f"{VIDEO_PATH}/{dtDateTime.strftime('%Y%m/%d/%H%M')}/{file.filename}"
         os.makedirs(os.path.dirname(updFileInfo), exist_ok=True)
         with open(updFileInfo, "wb") as buffer:
             shutil.copyfileobj(file.file, buffer)
@@ -425,10 +557,10 @@ async def video_down(file: str):
     """
     기능 : 비디오 영상 파일 다운로드\n
     파라미터 : API키 없음, file 비디오 영상 파일 \n
-    파일 저장소 : /DATA/UPLOAD/%Y%m/%d/%H/파일명.zip \n
+    파일 저장소 : /DATA/VIDEO/%Y%m/%d/%H/파일명.zip \n
     """
     try:
-        fileInfo = os.path.join(UPLOAD_PATH, file)
+        fileInfo = os.path.join(VIDEO_PATH, file)
 
         if not os.path.exists(fileInfo):
             raise Exception("다운로드 파일이 없습니다.")
@@ -467,77 +599,225 @@ async def file_upload(
         dtDateTime = datetime.datetime.now(pytz.timezone('Asia/Seoul'))
         fileNameNoExt = os.path.basename(file.filename).split('.')[0]
 
-        nounList = data.tolist()
-        countList = Counter(nounList)
-
-        dictData = {}
-        for none, cnt in countList.most_common():
-            if (cnt < 2): continue
-            if (len(none) < 2): continue
-
-            dictData[none] = cnt
-
-        # 빈도분포
-        saveData = pd.DataFrame.from_dict(dictData.items()).rename(
-            {
-                0: 'none'
-                , 1: 'cnt'
-            }
-            , axis=1
-        )
-        saveData['cum'] = saveData['cnt'].cumsum() / saveData['cnt'].sum() * 100
-        maxCnt = (saveData['cum'] > 20).idxmax()
-
-        fig, axs = plt.subplots(2, 1, figsize=(10, 10))
-
-        # 단어 구름
-        wordcloud = WordCloud(
-            width=1500
-            , height=1500
-            , background_color=None
-            , mode='RGBA'
-            , font_path="NanumGothic.ttf"
-        ).generate_from_frequencies(dictData)
-
-        ax1 = axs[0]
-        ax1.imshow(wordcloud, interpolation="bilinear")
-        ax1.axis("off")
-
-        # 빈도 분포
-        ax2 = axs[1]
-        bar = sns.barplot(x='none', y='cnt', data=saveData, ax=ax2, linewidth=0)
-        ax2.set_title('업종 빈도 분포도')
-        ax2.set_xlabel(None)
-        ax2.set_ylabel('빈도 개수')
-        ax2.set_xlim([-1.0, len(countList)])
-        # ax2.tick_params(axis='x', rotation=45)
-        ax2.set_xticklabels(ax2.get_xticklabels(), fontsize=7, rotation=45, horizontalalignment='right')
-        line = ax2.twinx()
-        line.plot(saveData.index, saveData['cum'], color='black', marker='o', linewidth=1)
-        line.set_ylabel('누적 비율', color='black')
-        line.set_ylim(0, 101)
-
-        # 20% 누적비율에 해당하는 가로줄 추가
-        line.axhline(y=20, color='r', linestyle='-')
-
-        # 7번째 막대에 대한 세로줄 추가
-        ax2.axvline(x=maxCnt, color='r', linestyle='-')
-
+        saveFile = '{}/{}/{}.csv'.format(UPLOAD_PATH, dtDateTime.strftime('%Y%m/%d/%H%M'), fileNameNoExt)
         saveImg = '{}/{}/{}.png'.format(UPLOAD_PATH, dtDateTime.strftime('%Y%m/%d/%H%M'), fileNameNoExt)
-        downImg =  f"http://{getPubliIp()}:9000/VIDEO/{dtDateTime.strftime('%Y%m/%d/%H%M')}/{fileNameNoExt}.png"
-        os.makedirs(os.path.dirname(saveImg), exist_ok=True)
-        plt.tight_layout()
-        plt.savefig(saveImg, dpi=600, bbox_inches='tight', transparent=True)
-        # plt.show()
-        plt.close()
-        log.info(f'[CHECK] downImg : {downImg}')
+        result = makeProc(data=data, saveFile=saveFile, saveImg=saveImg)
+        log.info(f'[CHECK] result : {result}')
 
-        return resRespone("succ", 200, "처리 완료", 0, f"{downImg}")
+        if not (result['isImgExist'] and result['isFileExist']):
+            raise Exception("이미지 또는 파일 저장을 실패")
+
+        resData = {
+            'downFile' : f"http://{getPubliIp()}:9000/UPLOAD/{dtDateTime.strftime('%Y%m/%d/%H%M')}/{fileNameNoExt}.csv"
+            , 'downImg' : f"http://{getPubliIp()}:9000/UPLOAD/{dtDateTime.strftime('%Y%m/%d/%H%M')}/{fileNameNoExt}.png"
+        }
+
+        return resRespone("succ", 200, "처리 완료", 0, f"{resData}")
 
     except Exception as e:
         log.error(f'Exception : {e}')
         raise HTTPException(status_code=400, detail=resRespone("fail", 400, "처리 실패", len(str(e)), str(e)))
 
+@app.post("/file/down")
+async def file_down(
+        file: UploadFile = File(...)
+        , column: str = Form(...)
+        , encoding: Encoding = Form(Encoding.UTF_8)
+):
+    """
+    기능 : 단어 구름 및 업종 빈도 다운로드 \n
+    파라미터 : API키 없음, file 파일 업로드 (csv, xlsx), column 컬럼, encoding CSV 인코딩 (UTF-8, EUC-KR, CP949) \n
+    """
+    try:
+        if re.search(r'\.(?!(csv|xlsx)$)[^.]*$', file.filename, re.IGNORECASE) is not None:
+            raise Exception("csv 또는 xlsx 파일을 확인해주세요.")
+
+        try:
+            contents = await file.read()
+            basename, extension = os.path.splitext(file.filename)
+
+            if extension.lower() == '.csv': data = pd.read_csv(io.StringIO(contents.decode(encoding.value)))[column]
+            if extension.lower() == '.xlsx': data =  pd.read_excel(io.BytesIO(contents))[column]
+        except Exception as e:
+            log.error(f'Exception : {e}')
+            raise Exception("파일 읽기를 실패했습니다 (EUC-KR 인코딩 필요 또는 컬럼명 불일치).")
+
+        dtDateTime = datetime.datetime.now(pytz.timezone('Asia/Seoul'))
+        fileNameNoExt = os.path.basename(file.filename).split('.')[0]
+
+        saveFile = '{}/{}/{}.csv'.format(UPLOAD_PATH, dtDateTime.strftime('%Y%m/%d/%H%M'), fileNameNoExt)
+        saveImg = '{}/{}/{}.png'.format(UPLOAD_PATH, dtDateTime.strftime('%Y%m/%d/%H%M'), fileNameNoExt)
+        result = makeProc(data=data, saveFile=saveFile, saveImg=saveImg)
+        log.info(f'[CHECK] result : {result}')
+
+        if not (result['isImgExist'] and result['isFileExist']):
+            raise Exception("이미지 또는 파일 저장을 실패")
+
+        # 파일 경로 및 파일명 리스트
+        fileList = [saveFile, saveImg]
+
+        zipFileNmae = urllib.parse.quote(fileNameNoExt, safe='')
+
+        headers = {
+            "Content-Disposition": f"attachment; filename={zipFileNmae}.zip"
+        }
+
+        return StreamingResponse(makeZip(fileList), media_type="application/zip", headers=headers)
+
+    except Exception as e:
+        log.error(f'Exception : {e}')
+        raise HTTPException(status_code=400, detail=resRespone("fail", 400, "처리 실패", len(str(e)), str(e)))
+
+# resData = {
+#     'downFile' : f"http://{getPubliIp()}:9001/UPLOAD/{dtDateTime.strftime('%Y%m/%d/%H%M')}/{fileNameNoExt}.csv"
+#     , 'downImg' : f"http://{getPubliIp()}:9001/UPLOAD/{dtDateTime.strftime('%Y%m/%d/%H%M')}/{fileNameNoExt}.png"
+# }
+
+# csv_data = open(saveFile, "r")
+# csv_response = FileResponse(saveFile, media_type="text/csv")
+#
+# image_data = open(saveImg, "rb")
+# image_response = FileResponse(saveImg, media_type="image/png")
+#
+# async def zip_generator():
+#     buffer = io.BytesIO()
+#     with zipfile.ZipFile(buffer, "w") as zipf:
+#         zipf.writestr(f"{fileNameNoExt}.csv", csv_response)
+#         zipf.writestr(f"{fileNameNoExt}.png", image_response)
+#
+#     buffer.seek(0)
+#     yield buffer.read()
+#     buffer.close()
+#
+# headers = {
+#     "Content-Disposition": f"attachment; filename={fileNameNoExt}.zip"
+# }
+#
+# return StreamingResponse(zip_generator(), headers=headers, media_type="application/zip")
+
+# html_content = f"""
+# <html>
+#     <head>
+#         <title>Streaming HTML</title>
+#     </head>
+#     <body>
+#         <h1>Streaming Example</h1>
+#         <img src="{resData['downImg']}" alt="{fileNameNoExt}.png">
+#         <a href="{resData['downFile']}">{fileNameNoExt}.csv</a>
+#     </body>
+# </html>
+# """
+#
+# async def stream_generator():
+#     yield html_content.encode()
+#
+# return StreamingResponse(stream_generator(), media_type="text/html")
+
+
+# csv_data = open(saveFile, "r")
+# csv_response = FileResponse(saveFile, media_type="text/csv")
+#
+# image_data = open(saveImg, "rb")
+# image_response = FileResponse(saveImg, media_type="image/png")
+#
+# multipart_response = multipart(
+#     parts=[
+#         ("image", image_response),
+#         ("csv", csv_response),
+#     ]
+# )
+
+# multipart_response = Request.multipart()
+# multipart_response.append(image_response)
+# multipart_response.append(csv_response)
+
+# return multipart_response
+
+
+# async def image_stream():
+#     # with open(resData['downImg'], mode='rb') as file:
+#     with open(saveImg, mode='rb') as file:
+#         yield await file.read()
+#
+# async def csv_stream():
+#     # with open(resData['downFile'], mode='rb') as file:
+#     with open(saveImg, mode='rb') as file:
+#         yield await file.read()
+#
+# html_content = f"""
+# <html>
+#     <head>
+#         <title>Some HTML in here</title>
+#     </head>
+#     <body>
+#         <h1>Look ma! HTML!</h1>
+#         <img src="/image" alt="{fileNameNoExt}.png">
+#         <a href="/csv">{fileNameNoExt}.csv</a>
+#     </body>
+# </html>
+# """
+#
+# return StreamingResponse(content=html_content, media_type='text/html')
+
+#
+# html_content = f"""
+# <html>
+#     <head>
+#         <title>Some HTML in here</title>
+#     </head>
+#     <body>
+#         <h1>Look ma! HTML!</h1>
+#         <img src="{resData['downImg']}" alt="{fileNameNoExt}.png">
+#         <a href="{resData['downFile']}">{fileNameNoExt}.csv</a>
+#     </body>
+# </html>
+# """
+#
+# return HTMLResponse(content=html_content, status_code=200, media_type='text/html')
+
+# html_content = f"""
+# <html>
+#     <head>
+#         <title>Some HTML in here</title>
+#     </head>
+#     <body>
+#         <h1>Look ma! HTML!</h1>
+#         <img src={resData}img><
+#     </body>
+# </html>
+# """
+# return HTMLResponse(content=html_content, status_code=200)
+
+# # Stream CSV data
+# csv_data = open(saveFile, "r")
+# csv_response = StreamingResponse(iter(csv_data), media_type="text/csv")
+#
+# # Stream image data
+# image_data = open(saveImg, "rb")  # Replace "image.png" with your own image file path
+# image_response = StreamingResponse(image_data, media_type="image/png")
+#
+# # Create multipart response
+# boundary = "boundary"
+# multipart_data = (
+#     f"--{boundary}\n"
+#     f"Content-Disposition: form-data; name=csv\n"
+#     f"Content-Type: text/csv\n\n"
+# )
+# multipart_data += csv_data.decode('UTF-8') + "\n"
+# # multipart_data += csv_data + "\n"
+#
+# multipart_data += (
+#     f"--{boundary}\n"
+#     f"Content-Disposition: form-data; name=image; filename=image.png\n"
+#     f"Content-Type: image/png\n\n"
+# )
+#
+# multipart_response = StreamingResponse(
+#     iter([multipart_data.encode(), image_data.read(), f"\n--{boundary}--\n".encode()]),
+#     media_type="multipart/form-data; boundary=boundary"
+# )
+#
+# return multipart_response
 
 # @app.post("/firm/file_info", dependencies=[Depends(chkApiKey)])
 # @app.post("/firm/file_info")
