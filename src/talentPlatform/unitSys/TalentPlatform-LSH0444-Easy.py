@@ -32,6 +32,11 @@ import pandas as pd
 import qtmodern.styles
 import qtmodern.windows
 
+import zipfile
+import os
+from PyQt5.QtWidgets import QFileDialog
+from datetime import datetime
+import pytz
 
 # ============================================
 # 요구사항
@@ -58,7 +63,7 @@ serviceName = 'LSH0444'
 # 옵션 설정
 sysOpt = {
     # 구글 API 정보
-    'googleApiKey': 'AIzaSyDP7-1okYV0RchVpAT4nS0DZ39dteCG5xA'
+    # , 'endList' : ['EUC-KR', 'UTF-8', 'CP949']
 }
 
 if (platform.system() == 'Windows'):
@@ -81,7 +86,8 @@ class MainWindow(QWidget):
     def __init__(self):
         super().__init__()
         # 전체 선택 상태를 추적하는 변수 추가
-        self.select_all_status = False
+        self.select_all_status = True
+        self.select_all_status2 = True
         self.initUI()
 
     def initUI(self):
@@ -210,7 +216,13 @@ class MainWindow(QWidget):
             extension = filename.split('.')[-1]
             # encoding = get_encoding(file)
             if extension == 'csv':
-                df = pd.read_csv(file, encoding='EUC-KR')
+                encList = ['EUC-KR', 'UTF-8', 'CP949']
+                for enc in encList:
+                    try:
+                        df = pd.read_csv(file, encoding=enc)
+                        break
+                    except Exception as e:
+                        continue
             elif extension == 'xlsx':
                 df = pd.read_excel(file)
             else:
@@ -230,12 +242,22 @@ class MainWindow(QWidget):
                 return True
         return False
 
+    def check_duplicate2(self, filename):
+        # 파일 중복 검사를 하는 메소드
+        # 테이블에 이미 존재하는 파일명과 비교하고 결과를 반환한다.
+        for i in range(self.result_table.rowCount()):
+            if filename == self.result_table.item(i, 1).text():
+                return True
+        return False
+
     def convert_files(self):
         # 위경도 변환 버튼을 눌렀을 때 실행되는 메소드
         # 구글 API 인증키를 입력하거나 기본값을 사용하고 컬럼을 선택한다.
         # 체크된 파일들에 대해 지오코딩을 수행하고 결과를 테이블에 추가한다.
 
-        checked_files = [self.file_table.cellWidget(i, 0).isChecked() for i in range(self.file_table.rowCount())]
+        checked_files = [self.file_table.cellWidget(i, 0).layout().itemAt(0).widget().isChecked() for i in range(self.file_table.rowCount()) if isinstance(self.file_table.cellWidget(i, 0).layout().itemAt(0).widget(), QCheckBox)]
+        print(checked_files)
+
         if not any(checked_files):
             self.show_toast_message('대상 파일을 선택해 주세요.')
             return False
@@ -248,41 +270,94 @@ class MainWindow(QWidget):
         key = self.search_edit.text()
         if not key:
             key = sysOpt['googleApiKey']
+        print(f'[CHECK] key : {key}')
 
-        gmaps = googlemaps.Client(key=key)
+        try:
+            gmaps = googlemaps.Client(key=key)
+        except Exception as e:
+            self.show_toast_message('구글 API키를 인증해 주세요.')
+            return False
+
         selected_column = self.column_combo.currentText()
 
         for i in range(self.file_table.rowCount()):
-            check = self.file_table.cellWidget(i, 0)
+            # check = self.file_table.cellWidget(i, 0)
+            widget = self.file_table.cellWidget(i, 0)
+            check = widget.layout().itemAt(0).widget()
 
             if not check.isChecked(): continue
-
             filename = self.file_table.item(i, 1).text()
+            fileNameNoExt = os.path.basename(filename).split('.')[0]
+
+            if self.check_duplicate2(filename): continue
+
             extension = filename.split('.')[-1]
 
             if extension == 'csv':
-                df = pd.read_csv(filename, encoding='EUC-KR')
-            elif extension == 'xlsx':
+                encList = ['EUC-KR', 'UTF-8', 'CP949']
+                for enc in encList:
+                    try:
+                        df = pd.read_csv(filename, encoding=enc)
+                        break
+                    except Exception as e:
+                        continue
+
+            if extension == 'xlsx':
                 df = pd.read_excel(filename)
-            else:
-                continue
 
-            df['latitude'] = None
-            df['longitude'] = None
+            # 구글 위경도 변환
+            addrList = set(df[selected_column])
 
-            for i in df.index:
-                geocode_result = gmaps.geocode(df.at[i, selected_column])
-                df.at[i, 'latitude'] = geocode_result[0]['geometry']['location']['lat']
-                df.at[i, 'longitude'] = geocode_result[0]['geometry']['location']['lng']
+            matData = pd.DataFrame()
+            for j, addrInfo in enumerate(addrList):
+                print(f'[CHECK] [{round((i / len(addrList)) * 100.0, 2)}] addrInfo : {addrInfo}')
+                self.show_toast_message(f'[{round((i / len(addrList)) * 100.0, 2)}] {fileNameNoExt}')
 
-            df.to_csv(filename[:-4] + '_converted.csv', index=False)
+                # 초기값 설정
+                matData.loc[j, selected_column] = addrInfo
+                matData.loc[j, '위도'] = None
+                matData.loc[j, '경도'] = None
+
+                try:
+                    rtnGeo = gmaps.geocode(addrInfo, language='ko')
+                    if (len(rtnGeo) < 1): continue
+
+                    # 위/경도 반환
+                    matData.loc[j, '위도'] = rtnGeo[0]['geometry']['location']['lat']
+                    matData.loc[j, '경도'] = rtnGeo[0]['geometry']['location']['lng']
+
+                except Exception as e:
+                    print(f"Exception : {e}")
+
+            # addr를 기준으로 병합
+            df = df.merge(matData, left_on=[selected_column], right_on=[selected_column], how='inner')
+
+            saveFile = f'{fileNameNoExt}_위경도 변환.csv'
+
+            # 파일 저장
+            df.to_csv(saveFile, index=False)
+
+            # [변환 목록]에 행 추가
             row = self.result_table.rowCount()
             self.result_table.insertRow(row)
-            self.result_table.setItem(row, 1, QTableWidgetItem(filename[:-4] + '_converted.csv'))
+            self.result_table.setItem(row, 1, QTableWidgetItem(saveFile))
+
             check = QCheckBox()
             check.setChecked(True)
-            self.result_table.setCellWidget(row, 0, check)
+            check.stateChanged.connect(self.check_state_changed2)
 
+            # Use QWidget to hold checkbox and center it within cell.
+            widget = QWidget()
+            layout = QHBoxLayout(widget)
+            layout.addWidget(check)
+            layout.setAlignment(Qt.AlignCenter)
+            layout.setContentsMargins(0, 0, 0, 0)
+            widget.setLayout(layout)
+
+            self.result_table.setCellWidget(row, 0, widget)
+
+
+    # [대상 목록]에서 [삭제] 기능
     def delete_files(self):
         # 삭제 버튼을 눌렀을 때 실행되는 메소드
         # 체크된 파일들을 테이블에서 삭제한다.
@@ -301,6 +376,7 @@ class MainWindow(QWidget):
             self.file_table.removeRow(row)
             self.show_toast_message('삭제')
 
+    # [대상 목록]에서 [전체 선택] 기능
     def select_all_files(self):
         # 전체 선택 버튼을 눌렀을 때 실행되는 메소드
         # 업로드 대상 파일을 전체 선택하거나 해제한다.
@@ -313,34 +389,49 @@ class MainWindow(QWidget):
             check = widget.layout().itemAt(0).widget()
             check.setChecked(self.select_all_status)
 
+    # [변환 목록]에서 [전체 선택] 기능
     def select_all_files2(self):
         # 전체 선택 버튼2를 눌렀을 때 실행되는 메소드
         # 변환 파일을 전체 선택하거나 해제한다.
+        self.select_all_status2 = not self.select_all_status2  # 상태를 반전시킨다.
         for i in range(self.result_table.rowCount()):
-            # check = self.result_table.cellWidget(i, 0)
-            # check.setChecked(True)
-
-            widget = self.file_table.cellWidget(i, 0)
+            widget = self.result_table.cellWidget(i, 0)
             check = widget.layout().itemAt(0).widget()
-            # check.setChecked(True)
-            check.setChecked(self.select_all_status)
+            check.setChecked(self.select_all_status2)
 
+    # [변환 목록]에서 [다운로드] 기능
     def download_files(self):
         # 다운로드 버튼을 눌렀을 때 실행되는 메소드
         # 체크된 변환 파일들을 다운로드한다.
         rows = []
         for i in range(self.result_table.rowCount()):
-            check = self.result_table.cellWidget(i, 0)
+            widget = self.result_table.cellWidget(i, 0)
+            check = widget.layout().itemAt(0).widget()
             if not check.isChecked(): continue
             rows.append(i)
 
-        if not rows:
+        if len(rows) < 1:
             self.show_toast_message('다운로드 파일을 선택해 주세요.')
-            return False;
+            return False
 
-        for row in rows:
-            filename = self.result_table.item(row, 1).text()
-            self.show_toast_message(f"{filename} 파일 다운로드 중")
+        # for row in rows:
+        #     filename = self.result_table.item(row, 1).text()
+            # self.show_toast_message(f"{filename} 파일 다운로드 중")
+
+        # Choose where to save the zip file
+        # zip_path, _ = QFileDialog.getSaveFileName(self, "Save Zip", "", "ZIP files (*.zip)")
+        zipFile = f'{datetime.now(pytz.timezone("Asia/Seoul")).strftime("%Y%m%d_%H%M%S")}_다운로드.zip'
+        with zipfile.ZipFile(zipFile, "w") as zipf:
+            for row in rows:
+                filename = self.result_table.item(row, 1).text()
+                csv_path = os.path.join(os.getcwd(), filename)
+                zipf.write(csv_path, arcname=os.path.basename(csv_path))
+
+            if (os.path.exists(zipFile)):
+                self.show_toast_message("다운로드 완료")
+            else:
+                self.show_toast_message("다운로드 실패")
+
 
     def show_toast_message(self, message):
         # Toast 메시지를 보여주는 메소드
@@ -358,6 +449,18 @@ class MainWindow(QWidget):
         for i in range(self.file_table.rowCount()):
             # checkbox = self.file_table.cellWidget(i, 0)
             widget = self.file_table.cellWidget(i, 0)
+            checkbox = widget.layout().itemAt(0).widget()
+
+            if checkbox.isChecked():
+                self.show_toast_message('선택')
+            else:
+                self.show_toast_message('해제')
+
+    def check_state_changed2(self):
+        # 체크 박스의 상태가 변경될 때 실행되는 메소드
+        for i in range(self.result_table.rowCount()):
+            # checkbox = self.file_table.cellWidget(i, 0)
+            widget = self.result_table.cellWidget(i, 0)
             checkbox = widget.layout().itemAt(0).widget()
 
             if checkbox.isChecked():
