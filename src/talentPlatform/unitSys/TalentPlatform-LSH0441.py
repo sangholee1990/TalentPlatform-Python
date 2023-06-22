@@ -224,11 +224,25 @@ class DtaProcess(object):
                 # 옵션 설정
                 sysOpt = {
                     # 시작/종료 시간
-                    'srtDate': '1990-01-01'
-                    , 'endDate': '2022-01-01'
+                    'dateList': {
+                        'all': ('2000-01-01', '2100-12-31')
+                        , 'case': ('2031-01-01', '2065-12-31')
+                        , 'case2': ('2066-01-01', '2100-12-31')
+                    }
 
                     # 목록
                     , 'keyList': ['ACCESS-CM2']
+
+                    # 가뭄 목록
+                    , 'drgCondList': {
+                        'EW': (2.0, 4.0)
+                        , 'VW': (1.50, 1.99)
+                        , 'MW': (1.00, 1.49)
+                        , 'NN': (-0.99, 0.99)
+                        , 'MD': (-1.49, -1.00)
+                        , 'SD': (-1.99, -1.50)
+                        , 'ED': (-4.00, -2.00)
+                    }
 
                     # 극한 가뭄값
                     , 'extDrgVal': -2
@@ -298,12 +312,12 @@ class DtaProcess(object):
                     for k, varInfo in enumerate(dataL2.data_vars.keys()):
                         # log.info(f'[CHECK] varInfo : {varInfo}')
                         saveImg = '{}/{}/{}_{}_{}.png'.format(globalVar['figPath'], serviceName, keyInfo, dateInfo, 'ins', varInfo)
-                        if os.path.exists(saveImg): continue
+                        # if os.path.exists(saveImg): continue
                         os.makedirs(os.path.dirname(saveImg), exist_ok=True)
                         dataL2[varInfo].plot()
                         plt.savefig(saveImg, dpi=600, bbox_inches='tight', transparent=True)
                         plt.tight_layout()
-                        plt.show()
+                        # plt.show()
                         plt.close()
                         log.info(f'[CHECK] saveImg : {saveImg}')
 
@@ -352,8 +366,8 @@ class DtaProcess(object):
                     plt.legend([], [], frameon=False, title=None)
                     plt.tight_layout()
                     plt.savefig(saveImg, dpi=600, transparent=True)
-                    plt.show()
-                    # plt.close()
+                    # plt.show()
+                    plt.close()
                     log.info(f'[CHECK] saveImg : {saveImg}')
 
                 # ***************************************************************************
@@ -399,12 +413,12 @@ class DtaProcess(object):
                         for k, varInfo in enumerate(dataL2.data_vars.keys()):
                             # log.info(f'[CHECK] varInfo : {varInfo}')
                             saveImg = '{}/{}/{}_{}_{}_{}.png'.format(globalVar['figPath'], serviceName, keyInfo, dateInfo, drgCond, varInfo)
-                            if os.path.exists(saveImg): continue
+                            # if os.path.exists(saveImg): continue
                             os.makedirs(os.path.dirname(saveImg), exist_ok=True)
                             dataL2.sel(type = drgCond)[varInfo].plot()
                             plt.savefig(saveImg, dpi=600, bbox_inches='tight', transparent=True)
                             plt.tight_layout()
-                            plt.show()
+                            # plt.show()
                             plt.close()
                             log.info(f'[CHECK] saveImg : {saveImg}')
 
@@ -423,16 +437,16 @@ class DtaProcess(object):
                 for dateInfo, (srtDate, endDate) in sysOpt['dateList'].items():
                     log.info(f"[CHECK] dateInfo : {dateInfo}")
 
-                    inpFile = '{}/{}/{}*{}*.nc'.format(globalVar['outPath'], serviceName, keyInfo, dateInfo)
-                    fileList = sorted(glob.glob(inpFile))
+                    inpFile = '{}/{}/{}*{}*{}*.nc'.format(globalVar['outPath'], serviceName, keyInfo, dateInfo, 'cnt')
+                    fileList2 = sorted(glob.glob(inpFile))
 
-                    if fileList is None or len(fileList) < 1:
+                    if fileList2 is None or len(fileList2) < 1:
                         log.error('[ERROR] inpFile : {} / {}'.format(inpFile, '입력 자료를 확인해주세요.'))
                         continue
 
-                    log.info(f'[CHECK] fileList : {fileList}')
+                    log.info(f'[CHECK] fileList2 : {fileList2}')
 
-                    dataL3 = xr.open_mfdataset(fileList)
+                    dataL3 = xr.open_mfdataset(fileList2)
 
                     dataL4 = dataL3.to_dataframe().reset_index(drop=False)
                     dataL4.columns = dataL4.columns.to_series().replace(
@@ -458,7 +472,7 @@ class DtaProcess(object):
                         dataL6 = dataL5.loc[dataL5['type'] == typeInfo]
 
                         # 시각화 저장
-                        saveImg = '{}/{}/{}_{}_{}_{}.png'.format(globalVar['figPath'], serviceName, keyInfo, dateInfo, typeList, 'boxplot')
+                        saveImg = '{}/{}/{}_{}_{}_{}.png'.format(globalVar['figPath'], serviceName, keyInfo, dateInfo, typeInfo, 'boxplot')
                         os.makedirs(os.path.dirname(saveImg), exist_ok=True)
                         sns.boxplot(
                             x='key', y='val', hue='key', data=dataL6, showmeans=True, width=0.5, dodge=False
@@ -470,8 +484,8 @@ class DtaProcess(object):
                         plt.legend([], [], frameon=False, title=None)
                         plt.tight_layout()
                         plt.savefig(saveImg, dpi=600, transparent=True)
-                        plt.show()
-                        # plt.close()
+                        # plt.show()
+                        plt.close()
                         log.info(f'[CHECK] saveImg : {saveImg}')
 
         except Exception as e:

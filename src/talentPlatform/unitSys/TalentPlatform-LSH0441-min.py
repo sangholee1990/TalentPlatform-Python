@@ -160,10 +160,11 @@ def initArgument(globalVar, inParams):
     return globalVar
 
 def getDrgCond(value, sysOpt):
-    condition = np.nan
+    data = xr.full_like(value, np.nan, dtype=object)
     for cond, (min_val, max_val) in sorted(sysOpt['drgCondList'].items(), reverse=True):
-        condition = np.where((min_val <= value) & (value <= max_val), cond, condition)
-    return condition.astype(str)
+        mask = (min_val <= value) & (value <= max_val)
+        data = xr.where(mask, cond, data)
+    return data
 
 def getDrgCondToNum(drgCondNumList, data):
     fun = np.vectorize(lambda c: drgCondNumList.get(c, np.nan))
@@ -322,7 +323,7 @@ class DtaProcess(object):
                         # 위경도에 따른 최소값
                         dataL2 = dataL1.min(dim='time', skipna=True)
 
-                        dataL2['drgCond'] = xr.apply_ufunc(getDrgCond, dataL2, sysOpt, dask='parallelized', output_dtypes=[str])
+                        dataL2['drgCond'] = getDrgCond(dataL2, sysOpt)
                         dataL2['drgCondNum'] = getDrgCondToNum(drgCondNumList, dataL2['drgCond'])
 
                         # 시각화
@@ -334,18 +335,18 @@ class DtaProcess(object):
                         cbar.set_ticklabels(list(drgCondNumList.keys()))
                         plt.savefig(saveImg, dpi=600, bbox_inches='tight', transparent=True)
                         plt.tight_layout()
-                        plt.show()
+                        # plt.show()
                         plt.close()
                         log.info(f'[CHECK] saveImg : {saveImg}')
 
                         # NetCDF 자료 저장
-                        saveFile = '{}/{}/{}_{}_{}.nc'.format(globalVar['figPath'], serviceName, keyInfo, dateInfo, varInfo, 'cate')
+                        saveFile = '{}/{}/{}_{}_{}.nc'.format(globalVar['outPath'], serviceName, keyInfo, dateInfo, varInfo, 'cate')
                         os.makedirs(os.path.dirname(saveFile), exist_ok=True)
                         dataL2.to_netcdf(saveFile)
                         log.info(f'[CHECK] saveFile : {saveFile}')
 
                         # CSV 자료 저장
-                        saveFile = '{}/{}/{}_{}_{}.csv'.format(globalVar['figPath'], serviceName, keyInfo, dateInfo, varInfo, 'cate')
+                        saveFile = '{}/{}/{}_{}_{}.csv'.format(globalVar['outPath'], serviceName, keyInfo, dateInfo, varInfo, 'cate')
                         os.makedirs(os.path.dirname(saveFile), exist_ok=True)
                         dataL2.to_dataframe().reset_index(drop=False).to_csv(saveFile, index=False)
                         log.info(f'[CHECK] saveFile : {saveFile}')
