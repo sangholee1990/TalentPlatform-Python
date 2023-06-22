@@ -575,11 +575,11 @@ async def video_down(file: str):
 async def file_upload(
         file: UploadFile = File(...)
         , column: str = Form(...)
-        , encoding: Encoding = Form(Encoding.UTF_8)
+        # , encoding: Encoding = Form(Encoding.UTF_8)
 ):
     """
     기능 : 단어 구름 및 업종 빈도 시각화 \n
-    파라미터 : API키 없음, file 파일 업로드 (csv, xlsx), column 컬럼, encoding CSV 인코딩 (UTF-8, EUC-KR, CP949) \n
+    파라미터 : API키 없음, file 파일 업로드 (csv, xlsx), column 컬럼 \n
     """
     try:
         if re.search(r'\.(?!(csv|xlsx)$)[^.]*$', file.filename, re.IGNORECASE) is not None:
@@ -589,12 +589,20 @@ async def file_upload(
             contents = await file.read()
             basename, extension = os.path.splitext(file.filename)
 
-            # log.info(f'[CHECK] encoding : {encoding.value}')
-            if extension.lower() == '.csv': data = pd.read_csv(io.StringIO(contents.decode(encoding.value)))[column]
-            if extension.lower() == '.xlsx': data =  pd.read_excel(io.BytesIO(contents))[column]
+            if extension.lower() == '.csv':
+                encList = ['EUC-KR', 'UTF-8', 'CP949']
+                for encInfo in encList:
+                    try:
+                        data = pd.read_csv(io.StringIO(contents.decode(encInfo)))[column]
+                        break
+                    except Exception as e:
+                        log.error(f'Exception : {e}')
+                        continue
+            if extension.lower() == '.xlsx':
+                data =  pd.read_excel(io.BytesIO(contents))[column]
         except Exception as e:
             log.error(f'Exception : {e}')
-            raise Exception("파일 읽기를 실패했습니다 (EUC-KR 인코딩 필요 또는 컬럼명 불일치).")
+            raise Exception("파일 읽기를 실패했습니다 (UTF-8, EUC-KR, CP949 인코딩 필요 또는 컬럼명 불일치).")
 
         dtDateTime = datetime.datetime.now(pytz.timezone('Asia/Seoul'))
         fileNameNoExt = os.path.basename(file.filename).split('.')[0]
@@ -622,11 +630,11 @@ async def file_upload(
 async def file_down(
         file: UploadFile = File(...)
         , column: str = Form(...)
-        , encoding: Encoding = Form(Encoding.UTF_8)
+        # , encoding: Encoding = Form(Encoding.UTF_8)
 ):
     """
     기능 : 단어 구름 및 업종 빈도 다운로드 \n
-    파라미터 : API키 없음, file 파일 업로드 (csv, xlsx), column 컬럼, encoding CSV 인코딩 (UTF-8, EUC-KR, CP949) \n
+    파라미터 : API키 없음, file 파일 업로드 (csv, xlsx), column 컬럼 \n
     """
     try:
         if re.search(r'\.(?!(csv|xlsx)$)[^.]*$', file.filename, re.IGNORECASE) is not None:
@@ -636,11 +644,20 @@ async def file_down(
             contents = await file.read()
             basename, extension = os.path.splitext(file.filename)
 
-            if extension.lower() == '.csv': data = pd.read_csv(io.StringIO(contents.decode(encoding.value)))[column]
-            if extension.lower() == '.xlsx': data =  pd.read_excel(io.BytesIO(contents))[column]
+            if extension.lower() == '.csv':
+                encList = ['EUC-KR', 'UTF-8', 'CP949']
+                for encInfo in encList:
+                    try:
+                        data = pd.read_csv(io.StringIO(contents.decode(encInfo)))[column]
+                        break
+                    except Exception as e:
+                        log.error(f'Exception : {e}')
+                        continue
+            if extension.lower() == '.xlsx':
+                data =  pd.read_excel(io.BytesIO(contents))[column]
         except Exception as e:
             log.error(f'Exception : {e}')
-            raise Exception("파일 읽기를 실패했습니다 (EUC-KR 인코딩 필요 또는 컬럼명 불일치).")
+            raise Exception("파일 읽기를 실패했습니다 (UTF-8, EUC-KR, CP949 인코딩 필요 또는 컬럼명 불일치).")
 
         dtDateTime = datetime.datetime.now(pytz.timezone('Asia/Seoul'))
         fileNameNoExt = os.path.basename(file.filename).split('.')[0]
