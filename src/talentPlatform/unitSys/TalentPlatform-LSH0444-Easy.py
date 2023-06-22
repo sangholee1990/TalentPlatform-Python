@@ -63,7 +63,7 @@ serviceName = 'LSH0444'
 # 옵션 설정
 sysOpt = {
     # 구글 API 정보
-    # , 'endList' : ['EUC-KR', 'UTF-8', 'CP949']
+    'googleApiKey': 'testapi'
 }
 
 if (platform.system() == 'Windows'):
