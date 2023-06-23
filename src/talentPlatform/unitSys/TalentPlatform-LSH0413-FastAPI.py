@@ -288,9 +288,9 @@ def makeProc(data, saveFile, saveImg):
         dictData = {}
         for none, cnt in countList.most_common():
             # 빈도수 2 이상
-            if (cnt < 2): continue
+            #if (cnt < 2): continue
             # 명사  2 글자 이상
-            if (len(none) < 2): continue
+            #if (len(none) < 2): continue
 
             dictData[none] = cnt
 
@@ -344,7 +344,7 @@ def makeProc(data, saveFile, saveImg):
         line.axhline(y=20, color='r', linestyle='-')
 
         # 7번째 막대에 대한 세로줄 추가
-        ax2.axvline(x=maxCnt, color='r', linestyle='-')
+        #ax2.axvline(x=maxCnt, color='r', linestyle='-')
 
         # saveImg = '{}/{}/{}.png'.format(globalVar['figPath'], serviceName, fileNameNoExt)
         os.makedirs(os.path.dirname(saveImg), exist_ok=True)

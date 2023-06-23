@@ -7,7 +7,6 @@ import pandas as pd
 import matplotlib.pyplot as plt
 import os
 from PyQt5.QtWidgets import (QApplication, QWidget, QVBoxLayout, QPushButton, QLineEdit, QFileDialog, QLabel, QComboBox, QRadioButton, QHBoxLayout)
-from geopy.geocoders import Nominatim
 import pandas as pd
 from PyQt5.QtWidgets import QApplication, QWidget, QVBoxLayout, QPushButton, QCheckBox, QFileDialog
 from PyQt5.QtCore import Qt, pyqtSlot
@@ -38,6 +37,7 @@ from PyQt5.QtWidgets import QFileDialog
 from datetime import datetime
 import pytz
 
+
 # ============================================
 # 요구사항
 # ============================================
@@ -47,12 +47,6 @@ import pytz
 # ============================================
 # 보조
 # ============================================
-def get_encoding(file):
-    # 바이너리로 파일을 열어 인코딩을 추정한다.
-    with open(file, 'rb') as f:
-        result = chardet.detect(f.read())
-    return result['encoding']
-
 
 # ============================================
 # 주요
@@ -63,7 +57,7 @@ serviceName = 'LSH0444'
 # 옵션 설정
 sysOpt = {
     # 구글 API 정보
-    'googleApiKey': 'testapi'
+    'googleApiKey': 'AIzaSyDP7-1okYV0RchVpAT4nS0DZ39dteCG5xA'
 }
 
 if (platform.system() == 'Windows'):
@@ -79,7 +73,6 @@ else:
 # 전역 설정
 # plt.rcParams['font.family'] = 'NanumGothic'
 # plt.rcParams['axes.unicode_minus'] = False
-
 
 # 메인 윈도우 클래스 정의
 class MainWindow(QWidget):
@@ -117,19 +110,21 @@ class MainWindow(QWidget):
         self.setLayout(grid)
 
         # 대상 파일 영역 위젯 생성 및 배치
-        self.upload_button = QPushButton('파일 업로드')
-        self.upload_button.clicked.connect(self.upload_files)
-        self.convert_button = QPushButton('위경도 변환')
-        self.convert_button.clicked.connect(self.convert_files)
-        self.delete_button = QPushButton('삭제')
-        self.delete_button.clicked.connect(self.delete_files)
         self.select_all_button = QPushButton('전체 선택')
-        self.select_all_button.clicked.connect(self.select_all_files)
+        self.select_all_button.clicked.connect(lambda: self.selectFileCheck(self.file_table, 'select_all_status'))
         self.file_table = QTableWidget(0, 2)
         self.file_table.setHorizontalHeaderLabels(['선택', '파일명'])
         header = self.file_table.horizontalHeader()
         header.setSectionResizeMode(0, QHeaderView.ResizeToContents)
         header.setSectionResizeMode(1, QHeaderView.Stretch)
+
+        self.upload_button = QPushButton('파일 업로드')
+        self.upload_button.clicked.connect(self.upload_files)
+        self.convert_button = QPushButton('위경도 변환')
+        self.convert_button.clicked.connect(self.convert_files)
+        self.delete_button = QPushButton('삭제')
+        self.delete_button.clicked.connect(lambda: self.delete_files(self.file_table))
+        
         grid.addWidget(self.select_all_button, 1, 0)
         grid.addWidget(self.upload_button, 1, 1)
         grid.addWidget(self.convert_button, 1, 2)
@@ -137,17 +132,22 @@ class MainWindow(QWidget):
         grid.addWidget(self.file_table, 2, 0, 1, 4)
 
         # 변환 파일 영역 위젯 생성 및 배치
-        self.select_all_button2 = QPushButton('전체 선택')
-        self.select_all_button2.clicked.connect(self.select_all_files2)
-        self.download_button = QPushButton('다운로드')
-        self.download_button.clicked.connect(self.download_files)
         self.result_table = QTableWidget(0, 2)
         self.result_table.setHorizontalHeaderLabels(['선택', '파일명'])
         header = self.result_table.horizontalHeader()
         header.setSectionResizeMode(0, QHeaderView.ResizeToContents)
         header.setSectionResizeMode(1, QHeaderView.Stretch)
+
+        self.select_all_button2 = QPushButton('전체 선택')
+        self.select_all_button2.clicked.connect(lambda: self.selectFileCheck(self.result_table, 'select_all_status2'))
+        self.download_button = QPushButton('다운로드')
+        self.download_button.clicked.connect(self.download_files)
+        self.delete_button2 = QPushButton('삭제')
+        self.delete_button2.clicked.connect(lambda: self.delete_files(self.result_table))
+      
         grid.addWidget(self.select_all_button2, 3, 0)
         grid.addWidget(self.download_button, 3, 1)
+        grid.addWidget(self.delete_button2, 3, 2)
         grid.addWidget(self.result_table, 4, 0, 1, 4)
 
         # 폰트 설정
@@ -165,6 +165,7 @@ class MainWindow(QWidget):
         # 윈도우 보이기
         self.show()
 
+    # [화면 GUI]에서 중앙 정렬 기능 
     def center(self):
         # 윈도우를 화면 가운데로 이동하는 메소드
         qr = self.frameGeometry()
@@ -172,10 +173,8 @@ class MainWindow(QWidget):
         qr.moveCenter(cp)
         self.move(qr.topLeft())
 
+    # [대상 목록]에서 [파일 업로드] 기능
     def upload_files(self):
-        # 파일 업로드 버튼을 눌렀을 때 실행되는 메소드
-        # 파일 다이얼로그를 통해 csv/xlsx 파일을 선택하고 테이블에 추가한다.
-        # 파일이 이미 존재하면 중복 검사를 한다.
         files, _ = QFileDialog.getOpenFileNames(self, '파일 업로드', '', 'CSV files (*.csv);;Excel files (*.xlsx)')
 
         # 콤보박스를 초기화한다.
@@ -183,80 +182,37 @@ class MainWindow(QWidget):
 
         columns_set = set()  # 중복되지 않는 컬럼명을 저장할 set
         for file in files:
-            filename = file.split('/')[-1]
-            if self.check_duplicate(filename): continue
-
-            row = self.file_table.rowCount()
-            self.file_table.insertRow(row)
-            self.file_table.setItem(row, 1, QTableWidgetItem(filename))
-
-            check = QCheckBox()
-            check.setChecked(True)
-            check.stateChanged.connect(self.check_state_changed)
-
-            # Use QWidget to hold checkbox and center it within cell.
-            widget = QWidget()
-            layout = QHBoxLayout(widget)
-            layout.addWidget(check)
-            layout.setAlignment(Qt.AlignCenter)
-            layout.setContentsMargins(0, 0, 0, 0)
-            widget.setLayout(layout)
-
-            self.file_table.setCellWidget(row, 0, widget)
-
-            # check = QCheckBox()
-            # check.setChecked(True)
-            # check.stateChanged.connect(self.check_state_changed)
-            # self.file_table.setCellWidget(row, 0, check)
-
-            # 초기 데이터프레임 설정
-            df = pd.DataFrame()
-
-            # 파일의 확장자를 체크하고 알맞은 pandas 함수를 이용해 파일을 읽는다.
-            extension = filename.split('.')[-1]
-            # encoding = get_encoding(file)
-            if extension == 'csv':
-                encList = ['EUC-KR', 'UTF-8', 'CP949']
-                for enc in encList:
-                    try:
-                        df = pd.read_csv(file, encoding=enc)
-                        break
-                    except Exception as e:
-                        continue
-            elif extension == 'xlsx':
-                df = pd.read_excel(file)
-            else:
+            # filename = file.split('/')[-1]
+            if self.isFileDup(file, self.file_table): 
+                self.show_toast_message('[변환 목록] 파일 중복 발생')
                 continue
 
+            # [대상 목록]에서 행 추가
+            row = self.file_table.rowCount()
+            self.file_table.insertRow(row)
+            self.file_table.setItem(row, 1, QTableWidgetItem(file))
+            self.file_table.setCellWidget(row, 0, self.createCheckBox(True, self.file_table))
+            
+            # 파일 읽기
+            df = self.read_file(file)
+
             # 데이터프레임의 컬럼명을 set에 추가한다.
-            columns_set.update(df.columns)
+            if df is not None and len(df.columns) > 0:
+                columns_set.update(df.columns)
 
         # set의 모든 요소를 콤보박스에 추가한다.
         self.column_combo.addItems(list(columns_set))
 
-    def check_duplicate(self, filename):
-        # 파일 중복 검사를 하는 메소드
-        # 테이블에 이미 존재하는 파일명과 비교하고 결과를 반환한다.
-        for i in range(self.file_table.rowCount()):
-            if filename == self.file_table.item(i, 1).text():
+    # [대상/변환 목록]에서 파일 중복 검사
+    def isFileDup(self, filename, table):
+        for i in range(table.rowCount()):
+            if filename == table.item(i, 1).text():
                 return True
         return False
-
-    def check_duplicate2(self, filename):
-        # 파일 중복 검사를 하는 메소드
-        # 테이블에 이미 존재하는 파일명과 비교하고 결과를 반환한다.
-        for i in range(self.result_table.rowCount()):
-            if filename == self.result_table.item(i, 1).text():
-                return True
-        return False
-
+    
+    # [대상 목록]에서 위경도 변환 및 [변환 목록] 추가
     def convert_files(self):
-        # 위경도 변환 버튼을 눌렀을 때 실행되는 메소드
-        # 구글 API 인증키를 입력하거나 기본값을 사용하고 컬럼을 선택한다.
-        # 체크된 파일들에 대해 지오코딩을 수행하고 결과를 테이블에 추가한다.
-
         checked_files = [self.file_table.cellWidget(i, 0).layout().itemAt(0).widget().isChecked() for i in range(self.file_table.rowCount()) if isinstance(self.file_table.cellWidget(i, 0).layout().itemAt(0).widget(), QCheckBox)]
-        print(checked_files)
 
         if not any(checked_files):
             self.show_toast_message('대상 파일을 선택해 주세요.')
@@ -281,29 +237,21 @@ class MainWindow(QWidget):
         selected_column = self.column_combo.currentText()
 
         for i in range(self.file_table.rowCount()):
-            # check = self.file_table.cellWidget(i, 0)
             widget = self.file_table.cellWidget(i, 0)
             check = widget.layout().itemAt(0).widget()
 
             if not check.isChecked(): continue
             filename = self.file_table.item(i, 1).text()
+
+            filePath = os.path.dirname(filename) 
             fileNameNoExt = os.path.basename(filename).split('.')[0]
+            
+            saveFile = f'{filePath}/{fileNameNoExt}_위경도 변환.csv'
+            if self.isFileDup(saveFile, self.result_table):
+                self.show_toast_message('[대상 목록] 파일 중복 발생')
+                continue
 
-            if self.check_duplicate2(filename): continue
-
-            extension = filename.split('.')[-1]
-
-            if extension == 'csv':
-                encList = ['EUC-KR', 'UTF-8', 'CP949']
-                for enc in encList:
-                    try:
-                        df = pd.read_csv(filename, encoding=enc)
-                        break
-                    except Exception as e:
-                        continue
-
-            if extension == 'xlsx':
-                df = pd.read_excel(filename)
+            df = self.read_file(filename)
 
             # 구글 위경도 변환
             addrList = set(df[selected_column])
@@ -332,8 +280,6 @@ class MainWindow(QWidget):
             # addr를 기준으로 병합
             df = df.merge(matData, left_on=[selected_column], right_on=[selected_column], how='inner')
 
-            saveFile = f'{fileNameNoExt}_위경도 변환.csv'
-
             # 파일 저장
             df.to_csv(saveFile, index=False)
 
@@ -341,68 +287,42 @@ class MainWindow(QWidget):
             row = self.result_table.rowCount()
             self.result_table.insertRow(row)
             self.result_table.setItem(row, 1, QTableWidgetItem(saveFile))
-
-            check = QCheckBox()
-            check.setChecked(True)
-            check.stateChanged.connect(self.check_state_changed2)
-
-            # Use QWidget to hold checkbox and center it within cell.
-            widget = QWidget()
-            layout = QHBoxLayout(widget)
-            layout.addWidget(check)
-            layout.setAlignment(Qt.AlignCenter)
-            layout.setContentsMargins(0, 0, 0, 0)
-            widget.setLayout(layout)
-
-            self.result_table.setCellWidget(row, 0, widget)
+            self.result_table.setCellWidget(row, 0, self.createCheckBox(True, self.result_table))
 
 
-    # [대상 목록]에서 [삭제] 기능
-    def delete_files(self):
-        # 삭제 버튼을 눌렀을 때 실행되는 메소드
-        # 체크된 파일들을 테이블에서 삭제한다.
+    # [대상/변환 목록]에서 [삭제] 기능
+    def delete_files(self, table):
         rows = []
-        for i in range(self.file_table.rowCount()):
-            # check = self.file_table.cellWidget(i, 0)
-            widget = self.file_table.cellWidget(i, 0)
+        for i in range(table.rowCount()):
+            widget = table.cellWidget(i, 0)
             check = widget.layout().itemAt(0).widget()
 
             if not check.isChecked(): continue
             rows.append(i)
 
-        rows.reverse()  # 역순으로 삭제해야 올바르게 동작함
+        if len(rows) < 1:
+            self.show_toast_message('삭제 파일을 선택해 주세요.')
+            return False
+
+        rows.reverse()
 
         for row in rows:
-            self.file_table.removeRow(row)
+            table.removeRow(row)
+
+        if len(rows) > 0:
             self.show_toast_message('삭제')
 
-    # [대상 목록]에서 [전체 선택] 기능
-    def select_all_files(self):
-        # 전체 선택 버튼을 눌렀을 때 실행되는 메소드
-        # 업로드 대상 파일을 전체 선택하거나 해제한다.
-        self.select_all_status = not self.select_all_status  # 상태를 반전시킨다.
-        for i in range(self.file_table.rowCount()):
-            # check = self.file_table.cellWidget(i, 0)
-            # check.setChecked(self.select_all_status)  # 상태에 따라 체크박스를 설정한다.
-
-            widget = self.file_table.cellWidget(i, 0)
+    # [대상/변환 목록]에서 [전체 선택] 기능
+    def selectFileCheck(self, table, status_attribute):
+        status = getattr(self, status_attribute)
+        setattr(self, status_attribute, not status)
+        for i in range(table.rowCount()):
+            widget = table.cellWidget(i, 0)
             check = widget.layout().itemAt(0).widget()
-            check.setChecked(self.select_all_status)
-
-    # [변환 목록]에서 [전체 선택] 기능
-    def select_all_files2(self):
-        # 전체 선택 버튼2를 눌렀을 때 실행되는 메소드
-        # 변환 파일을 전체 선택하거나 해제한다.
-        self.select_all_status2 = not self.select_all_status2  # 상태를 반전시킨다.
-        for i in range(self.result_table.rowCount()):
-            widget = self.result_table.cellWidget(i, 0)
-            check = widget.layout().itemAt(0).widget()
-            check.setChecked(self.select_all_status2)
+            check.setChecked(getattr(self, status_attribute))
 
     # [변환 목록]에서 [다운로드] 기능
     def download_files(self):
-        # 다운로드 버튼을 눌렀을 때 실행되는 메소드
-        # 체크된 변환 파일들을 다운로드한다.
         rows = []
         for i in range(self.result_table.rowCount()):
             widget = self.result_table.cellWidget(i, 0)
@@ -414,64 +334,85 @@ class MainWindow(QWidget):
             self.show_toast_message('다운로드 파일을 선택해 주세요.')
             return False
 
-        # for row in rows:
-        #     filename = self.result_table.item(row, 1).text()
-            # self.show_toast_message(f"{filename} 파일 다운로드 중")
+        for row in rows:
+            filename = self.result_table.item(row, 1).text()
+            filePathFirst = os.path.dirname(filename)
+            break
 
-        # Choose where to save the zip file
-        # zip_path, _ = QFileDialog.getSaveFileName(self, "Save Zip", "", "ZIP files (*.zip)")
-        zipFile = f'{datetime.now(pytz.timezone("Asia/Seoul")).strftime("%Y%m%d_%H%M%S")}_다운로드.zip'
+        zipFile = f'{filePathFirst}/{datetime.now(pytz.timezone("Asia/Seoul")).strftime("%Y%m%d_%H%M%S")}_다운로드.zip'
         with zipfile.ZipFile(zipFile, "w") as zipf:
             for row in rows:
                 filename = self.result_table.item(row, 1).text()
-                csv_path = os.path.join(os.getcwd(), filename)
-                zipf.write(csv_path, arcname=os.path.basename(csv_path))
+                zipf.write(filename, arcname= os.path.basename(filename))
 
             if (os.path.exists(zipFile)):
-                self.show_toast_message("다운로드 완료")
+                self.show_toast_message(f'다운로드 완료 : {zipFile}', 3000)
             else:
                 self.show_toast_message("다운로드 실패")
 
-
-    def show_toast_message(self, message):
-        # Toast 메시지를 보여주는 메소드
+    # 메시지 알림
+    def show_toast_message(self, message, display=1000):
         toast = QLabel(message, self)
         toast.setStyleSheet("background-color:#333;color:#fff;padding:8px;border-radius:4px;")
         toast.setAlignment(Qt.AlignCenter)
         toast.setGeometry(10, 10, toast.sizeHint().width(), toast.sizeHint().height())
         toast.show()
         toast.raise_()
-        # QTimer.singleShot(3000, toast.close)
-        QTimer.singleShot(1000, toast.close)
+        QTimer.singleShot(display, toast.close)
 
-    def check_state_changed(self):
-        # 체크 박스의 상태가 변경될 때 실행되는 메소드
-        for i in range(self.file_table.rowCount()):
-            # checkbox = self.file_table.cellWidget(i, 0)
-            widget = self.file_table.cellWidget(i, 0)
-            checkbox = widget.layout().itemAt(0).widget()
+    # [대상/변환 목록]에서 상태 활성화/비활성화
+    def setCheckState(self, table):
+      for i in range(table.rowCount()):
+          widget = table.cellWidget(i, 0)
+          checkbox = widget.layout().itemAt(0).widget()
 
-            if checkbox.isChecked():
-                self.show_toast_message('선택')
-            else:
-                self.show_toast_message('해제')
+          if checkbox.isChecked():
+              self.show_toast_message('선택')
+          else:
+              self.show_toast_message('해제')
 
-    def check_state_changed2(self):
-        # 체크 박스의 상태가 변경될 때 실행되는 메소드
-        for i in range(self.result_table.rowCount()):
-            # checkbox = self.file_table.cellWidget(i, 0)
-            widget = self.result_table.cellWidget(i, 0)
-            checkbox = widget.layout().itemAt(0).widget()
+    # [대상/변환 목록]에서 체크 박스 생성
+    def createCheckBox(self, checked, table):
+        check = QCheckBox()
+        check.setChecked(checked)
+        check.stateChanged.connect(lambda: self.setCheckState(table))
 
-            if checkbox.isChecked():
-                self.show_toast_message('선택')
-            else:
-                self.show_toast_message('해제')
+        widget = QWidget()
+        layout = QHBoxLayout(widget)
+        layout.addWidget(check)
+        layout.setAlignment(Qt.AlignCenter)
+        layout.setContentsMargins(0, 0, 0, 0)
+        widget.setLayout(layout)
 
+        return widget
+
+    # [CSV 또는 XLSX] 파일 읽기 기능
+    def read_file(self, filename):
+
+        df = pd.DataFrame()
+        extension = filename.split('.')[-1]
+
+        if extension == 'csv':
+            encList = ['EUC-KR', 'UTF-8', 'CP949']
+            for enc in encList:
+                try:
+                    df = pd.read_csv(filename, encoding=enc)
+                    return df
+                except Exception as e:
+                    continue
+
+        elif extension == 'xlsx':
+            df = pd.read_excel(filename)
+            return df
+        else:
+            return df
 
 if __name__ == '__main__':
-    os.environ['DISPLAY'] = 'localhost:10.0'
-    display_value = os.environ.get('DISPLAY')
+    if (platform.system() == 'Windows'):
+        pass
+    else:
+        os.environ['DISPLAY'] = 'localhost:10.0'
+        display_value = os.environ.get('DISPLAY')
 
     app = QApplication(sys.argv)
     mainWindow = MainWindow()
