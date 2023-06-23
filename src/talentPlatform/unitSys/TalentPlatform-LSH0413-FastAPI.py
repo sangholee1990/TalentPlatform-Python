@@ -89,6 +89,7 @@ from fastapi.responses import HTMLResponse
 import zipfile
 import urllib.parse
 
+
 # =================================================
 # 도움말
 # =================================================
@@ -227,6 +228,7 @@ async def chkApiKey(api_key: str = Depends(APIKeyHeader(name="api"))):
     if api_key != "api-20230604":
         raise HTTPException(status_code=401, detail="Invalid API Key")
 
+
 def resRespone(status: str, code: int, message: str, cnt: int = 0, data: Any = None) -> dict:
     return {
         "status": status
@@ -287,10 +289,13 @@ def makeProc(data, saveFile, saveImg):
 
         dictData = {}
         for none, cnt in countList.most_common():
+            none = str(none)
+
             # 빈도수 2 이상
-            #if (cnt < 2): continue
+            if (cnt < 2): continue
+
             # 명사  2 글자 이상
-            #if (len(none) < 2): continue
+            if (len(none) < 2): continue
 
             dictData[none] = cnt
 
@@ -344,7 +349,7 @@ def makeProc(data, saveFile, saveImg):
         line.axhline(y=20, color='r', linestyle='-')
 
         # 7번째 막대에 대한 세로줄 추가
-        #ax2.axvline(x=maxCnt, color='r', linestyle='-')
+        # ax2.axvline(x=maxCnt, color='r', linestyle='-')
 
         # saveImg = '{}/{}/{}.png'.format(globalVar['figPath'], serviceName, fileNameNoExt)
         os.makedirs(os.path.dirname(saveImg), exist_ok=True)
@@ -385,6 +390,7 @@ async def makeZip(fileList):
 
     buffer.seek(0)
     yield buffer.read()
+
 
 # ================================================================================================
 # 환경변수 설정
@@ -502,10 +508,12 @@ class FirmwareBase(BaseModel):
 class DownloadResponse(BaseModel):
     filename: str
 
+
 class Encoding(str, Enum):
     UTF_8 = "UTF-8"
     EUC_KR = "EUC-KR"
     CP949 = "CP949"
+
 
 @app.post("/video/upload", dependencies=[Depends(chkApiKey)])
 async def viedo_upload(
@@ -571,6 +579,7 @@ async def video_down(file: str):
         log.error(f'Exception : {e}')
         raise HTTPException(status_code=400, detail=resRespone("fail", 400, "처리 실패", str(e)))
 
+
 @app.post("/file/upload")
 async def file_upload(
         file: UploadFile = File(...)
@@ -599,7 +608,7 @@ async def file_upload(
                         log.error(f'Exception : {e}')
                         continue
             if extension.lower() == '.xlsx':
-                data =  pd.read_excel(io.BytesIO(contents))[column]
+                data = pd.read_excel(io.BytesIO(contents))[column]
         except Exception as e:
             log.error(f'Exception : {e}')
             raise Exception("파일 읽기를 실패했습니다 (UTF-8, EUC-KR, CP949 인코딩 필요 또는 컬럼명 불일치).")
@@ -616,8 +625,8 @@ async def file_upload(
             raise Exception("이미지 또는 파일 저장을 실패")
 
         resData = {
-            'downFile' : f"http://{getPubliIp()}:9000/UPLOAD/{dtDateTime.strftime('%Y%m/%d/%H%M')}/{fileNameNoExt}.csv"
-            , 'downImg' : f"http://{getPubliIp()}:9000/UPLOAD/{dtDateTime.strftime('%Y%m/%d/%H%M')}/{fileNameNoExt}.png"
+            'downFile': f"http://{getPubliIp()}:9000/UPLOAD/{dtDateTime.strftime('%Y%m/%d/%H%M')}/{fileNameNoExt}.csv"
+            , 'downImg': f"http://{getPubliIp()}:9000/UPLOAD/{dtDateTime.strftime('%Y%m/%d/%H%M')}/{fileNameNoExt}.png"
         }
 
         return resRespone("succ", 200, "처리 완료", 0, f"{resData}")
@@ -625,6 +634,7 @@ async def file_upload(
     except Exception as e:
         log.error(f'Exception : {e}')
         raise HTTPException(status_code=400, detail=resRespone("fail", 400, "처리 실패", len(str(e)), str(e)))
+
 
 @app.post("/file/down")
 async def file_down(
@@ -654,7 +664,7 @@ async def file_down(
                         log.error(f'Exception : {e}')
                         continue
             if extension.lower() == '.xlsx':
-                data =  pd.read_excel(io.BytesIO(contents))[column]
+                data = pd.read_excel(io.BytesIO(contents))[column]
         except Exception as e:
             log.error(f'Exception : {e}')
             raise Exception("파일 읽기를 실패했습니다 (UTF-8, EUC-KR, CP949 인코딩 필요 또는 컬럼명 불일치).")

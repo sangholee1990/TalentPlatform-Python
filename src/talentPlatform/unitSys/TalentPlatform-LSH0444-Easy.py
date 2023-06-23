@@ -37,7 +37,6 @@ from PyQt5.QtWidgets import QFileDialog
 from datetime import datetime
 import pytz
 
-
 # ============================================
 # 요구사항
 # ============================================
@@ -124,7 +123,7 @@ class MainWindow(QWidget):
         self.convert_button.clicked.connect(self.convert_files)
         self.delete_button = QPushButton('삭제')
         self.delete_button.clicked.connect(lambda: self.delete_files(self.file_table))
-        
+
         grid.addWidget(self.select_all_button, 1, 0)
         grid.addWidget(self.upload_button, 1, 1)
         grid.addWidget(self.convert_button, 1, 2)
@@ -144,7 +143,7 @@ class MainWindow(QWidget):
         self.download_button.clicked.connect(self.download_files)
         self.delete_button2 = QPushButton('삭제')
         self.delete_button2.clicked.connect(lambda: self.delete_files(self.result_table))
-      
+
         grid.addWidget(self.select_all_button2, 3, 0)
         grid.addWidget(self.download_button, 3, 1)
         grid.addWidget(self.delete_button2, 3, 2)
@@ -183,7 +182,7 @@ class MainWindow(QWidget):
         columns_set = set()  # 중복되지 않는 컬럼명을 저장할 set
         for file in files:
             # filename = file.split('/')[-1]
-            if self.isFileDup(file, self.file_table): 
+            if self.isFileDup(file, self.file_table):
                 self.show_toast_message('[변환 목록] 파일 중복 발생')
                 continue
 
@@ -192,7 +191,7 @@ class MainWindow(QWidget):
             self.file_table.insertRow(row)
             self.file_table.setItem(row, 1, QTableWidgetItem(file))
             self.file_table.setCellWidget(row, 0, self.createCheckBox(True, self.file_table))
-            
+
             # 파일 읽기
             df = self.read_file(file)
 
@@ -209,7 +208,7 @@ class MainWindow(QWidget):
             if filename == table.item(i, 1).text():
                 return True
         return False
-    
+
     # [대상 목록]에서 위경도 변환 및 [변환 목록] 추가
     def convert_files(self):
         checked_files = [self.file_table.cellWidget(i, 0).layout().itemAt(0).widget().isChecked() for i in range(self.file_table.rowCount()) if isinstance(self.file_table.cellWidget(i, 0).layout().itemAt(0).widget(), QCheckBox)]
@@ -243,9 +242,9 @@ class MainWindow(QWidget):
             if not check.isChecked(): continue
             filename = self.file_table.item(i, 1).text()
 
-            filePath = os.path.dirname(filename) 
+            filePath = os.path.dirname(filename)
             fileNameNoExt = os.path.basename(filename).split('.')[0]
-            
+
             saveFile = f'{filePath}/{fileNameNoExt}_위경도 변환.csv'
             if self.isFileDup(saveFile, self.result_table):
                 self.show_toast_message('[대상 목록] 파일 중복 발생')
@@ -288,7 +287,6 @@ class MainWindow(QWidget):
             self.result_table.insertRow(row)
             self.result_table.setItem(row, 1, QTableWidgetItem(saveFile))
             self.result_table.setCellWidget(row, 0, self.createCheckBox(True, self.result_table))
-
 
     # [대상/변환 목록]에서 [삭제] 기능
     def delete_files(self, table):
@@ -343,7 +341,7 @@ class MainWindow(QWidget):
         with zipfile.ZipFile(zipFile, "w") as zipf:
             for row in rows:
                 filename = self.result_table.item(row, 1).text()
-                zipf.write(filename, arcname= os.path.basename(filename))
+                zipf.write(filename, arcname=os.path.basename(filename))
 
             if (os.path.exists(zipFile)):
                 self.show_toast_message(f'다운로드 완료 : {zipFile}', 3000)
@@ -362,14 +360,14 @@ class MainWindow(QWidget):
 
     # [대상/변환 목록]에서 상태 활성화/비활성화
     def setCheckState(self, table):
-      for i in range(table.rowCount()):
-          widget = table.cellWidget(i, 0)
-          checkbox = widget.layout().itemAt(0).widget()
+        for i in range(table.rowCount()):
+            widget = table.cellWidget(i, 0)
+            checkbox = widget.layout().itemAt(0).widget()
 
-          if checkbox.isChecked():
-              self.show_toast_message('선택')
-          else:
-              self.show_toast_message('해제')
+            if checkbox.isChecked():
+                self.show_toast_message('선택')
+            else:
+                self.show_toast_message('해제')
 
     # [대상/변환 목록]에서 체크 박스 생성
     def createCheckBox(self, checked, table):
@@ -406,6 +404,7 @@ class MainWindow(QWidget):
             return df
         else:
             return df
+
 
 if __name__ == '__main__':
     if (platform.system() == 'Windows'):
