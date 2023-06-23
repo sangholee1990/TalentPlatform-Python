@@ -59,16 +59,6 @@ sysOpt = {
     'googleApiKey': 'AIzaSyDP7-1okYV0RchVpAT4nS0DZ39dteCG5xA'
 }
 
-if (platform.system() == 'Windows'):
-    globalVar['inpPath'] = './INPUT'
-    globalVar['outPath'] = './OUTPUT'
-    globalVar['figPath'] = './FIG'
-else:
-    globalVar['inpPath'] = '/DATA/INPUT'
-    globalVar['outPath'] = '/DATA/OUTPUT'
-    globalVar['figPath'] = '/DATA/FIG'
-
-
 # 전역 설정
 # plt.rcParams['font.family'] = 'NanumGothic'
 # plt.rcParams['axes.unicode_minus'] = False
@@ -225,7 +215,6 @@ class MainWindow(QWidget):
         key = self.search_edit.text()
         if not key:
             key = sysOpt['googleApiKey']
-        print(f'[CHECK] key : {key}')
 
         try:
             gmaps = googlemaps.Client(key=key)
