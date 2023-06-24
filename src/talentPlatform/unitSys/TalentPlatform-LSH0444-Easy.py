@@ -36,6 +36,10 @@ import os
 from PyQt5.QtWidgets import QFileDialog
 from datetime import datetime
 import pytz
+# from tqdm import tqdm
+from PyQt5.QtWidgets import QApplication, QMainWindow, QProgressBar, QPushButton, QVBoxLayout, QWidget
+from PyQt5.QtCore import Qt, QBasicTimer
+import sys
 
 # ============================================
 # 요구사항
@@ -56,7 +60,6 @@ serviceName = 'LSH0444'
 # 옵션 설정
 sysOpt = {
     # 구글 API 정보
-    'googleApiKey': 'AIzaSyDP7-1okYV0RchVpAT4nS0DZ39dteCG5xA'
 }
 
 # 전역 설정
@@ -67,10 +70,10 @@ sysOpt = {
 class MainWindow(QWidget):
     def __init__(self):
         super().__init__()
-        # 전체 선택 상태를 추적하는 변수 추가
+        self.initUI()
+
         self.select_all_status = True
         self.select_all_status2 = True
-        self.initUI()
 
     def initUI(self):
         # 윈도우 타이틀 및 아이콘 설정
@@ -89,14 +92,12 @@ class MainWindow(QWidget):
         self.search_edit.setPlaceholderText('없을 시 기본값 설정')
         self.column_label = QLabel('(필수) 주소 컬럼')
         self.column_combo = QComboBox()
-        self.column_combo.addItem('선택')
+        # self.column_combo.addItem('선택')
 
         grid.addWidget(self.search_label, 0, 0, alignment=Qt.AlignCenter)
         grid.addWidget(self.search_edit, 0, 1)
         grid.addWidget(self.column_label, 0, 2, alignment=Qt.AlignCenter)
         grid.addWidget(self.column_combo, 0, 3)
-
-        self.setLayout(grid)
 
         # 대상 파일 영역 위젯 생성 및 배치
         self.select_all_button = QPushButton('전체 선택')
@@ -133,10 +134,13 @@ class MainWindow(QWidget):
         self.download_button.clicked.connect(self.download_files)
         self.delete_button2 = QPushButton('삭제')
         self.delete_button2.clicked.connect(lambda: self.delete_files(self.result_table))
+        self.pbar = QProgressBar(self)
+        self.setLayout(grid)
 
         grid.addWidget(self.select_all_button2, 3, 0)
         grid.addWidget(self.download_button, 3, 1)
         grid.addWidget(self.delete_button2, 3, 2)
+        grid.addWidget(self.pbar, 3, 3)
         grid.addWidget(self.result_table, 4, 0, 1, 4)
 
         # 폰트 설정
@@ -166,10 +170,14 @@ class MainWindow(QWidget):
     def upload_files(self):
         files, _ = QFileDialog.getOpenFileNames(self, '파일 업로드', '', 'CSV files (*.csv);;Excel files (*.xlsx)')
 
-        # 콤보박스를 초기화한다.
-        self.column_combo.clear()
+        itemList = [self.column_combo.itemText(i) for i in range(self.column_combo.count())]
 
-        columns_set = set()  # 중복되지 않는 컬럼명을 저장할 set
+        # 콤보박스를 초기화한다.
+        if len(files) < 1 or len(itemList) < 1:
+            self.column_combo.clear()
+
+        # 중복되지 않는 컬럼명을 저장할 set
+        columns_set = set()
         for file in files:
             # filename = file.split('/')[-1]
             if self.isFileDup(file, self.file_table):
@@ -184,6 +192,10 @@ class MainWindow(QWidget):
 
             # 파일 읽기
             df = self.read_file(file)
+
+            if df is None or len(df) < 1:
+                self.show_toast_message('[대상 목록] 파일 읽기 실패')
+                continue
 
             # 데이터프레임의 컬럼명을 set에 추가한다.
             if df is not None and len(df.columns) > 0:
@@ -218,6 +230,7 @@ class MainWindow(QWidget):
 
         try:
             gmaps = googlemaps.Client(key=key)
+            self.show_toast_message('구글 API키 인증 완료')
         except Exception as e:
             self.show_toast_message('구글 API키를 인증해 주세요.')
             return False
@@ -241,13 +254,25 @@ class MainWindow(QWidget):
 
             df = self.read_file(filename)
 
+            if df is None or len(df) < 1:
+                self.show_toast_message('[대상 목록] 파일 읽기 실패')
+                continue
+
             # 구글 위경도 변환
             addrList = set(df[selected_column])
 
+            # 진행바 생성
+            # pbar = tqdm(total=len(addrList))
+            self.pbar.setMaximum(len(addrList))
+            self.pbar.setValue(0)
+
             matData = pd.DataFrame()
             for j, addrInfo in enumerate(addrList):
-                print(f'[CHECK] [{round((i / len(addrList)) * 100.0, 2)}] addrInfo : {addrInfo}')
-                self.show_toast_message(f'[{round((i / len(addrList)) * 100.0, 2)}] {fileNameNoExt}')
+                # print(f'[CHECK] [{round((i / len(addrList)) * 100.0, 2)}] addrInfo : {addrInfo}')
+                # self.show_toast_message(f'[{round((i / len(addrList)) * 100.0, 2)}] {fileNameNoExt}')
+
+                # pbar.update(1)
+                self.pbar.setValue(j + 1)
 
                 # 초기값 설정
                 matData.loc[j, selected_column] = addrInfo
@@ -267,6 +292,8 @@ class MainWindow(QWidget):
 
             # addr를 기준으로 병합
             df = df.merge(matData, left_on=[selected_column], right_on=[selected_column], how='inner')
+
+            # pbar.close()
 
             # 파일 저장
             df.to_csv(saveFile, index=False)
