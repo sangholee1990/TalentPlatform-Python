@@ -394,106 +394,106 @@ async def makeZip(fileList):
 
 
 # 맵 시각화
-def makeGeo(data, column, saveFile):
-    log.info(f'[START] makeGeo')
-    result = None
+# def makeGeo(data, column, saveFile):
+#     log.info(f'[START] makeGeo')
+#     result = None
+#
+#     try:
+#         # 구글 위경도 변환
+#         addrList = set(data[column])
+#
+#         matData = pd.DataFrame()
+#         for j, addrInfo in enumerate(addrList):
+#
+#             # 초기값 설정
+#             matData.loc[j, column] = addrInfo
+#             matData.loc[j, '위도'] = None
+#             matData.loc[j, '경도'] = None
+#
+#             try:
+#                 rtnGeo = gmaps.geocode(addrInfo, language='ko')
+#                 if (len(rtnGeo) < 1): continue
+#
+#                 # 위/경도 반환
+#                 matData.loc[j, '위도'] = rtnGeo[0]['geometry']['location']['lat']
+#                 matData.loc[j, '경도'] = rtnGeo[0]['geometry']['location']['lng']
+#
+#             except Exception as e:
+#                 print(f"Exception : {e}")
+#
+#         # addr를 기준으로 병합
+#         data = data.merge(matData, left_on=[column], right_on=[column], how='inner')
+#
+#         # 자료 저장
+#         os.makedirs(os.path.dirname(saveFile), exist_ok=True)
+#         data.to_csv(saveFile, index=False)
+#
+#         result = {
+#             'msg': 'succ'
+#             , 'saveFile': saveFile
+#             , 'isFileExist': os.path.exists(saveFile)
+#         }
+#
+#         return result
+#
+#     except Exception as e:
+#         print("Exception : {}".format(e))
+#         return result
+#     finally:
+#         # try, catch 구문이 종료되기 전에 무조건 실행
+#         log.info(f'[END] makeGeo')
 
-    try:
-        # 구글 위경도 변환
-        addrList = set(data[column])
 
-        matData = pd.DataFrame()
-        for j, addrInfo in enumerate(addrList):
+# def worker(addrInfo):
+#     try:
+#         rtnGeo = gmaps.geocode(addrInfo, language='ko')
+#         if (len(rtnGeo) < 1):
+#             return addrInfo, None, None
+#
+#         # 위/경도 반환
+#         lat = rtnGeo[0]['geometry']['location']['lat']
+#         lng = rtnGeo[0]['geometry']['location']['lng']
+#         return addrInfo, lat, lng
+#
+#     except Exception as e:
+#         print(f"Exception : {e}")
+#         return addrInfo, None, None
 
-            # 초기값 설정
-            matData.loc[j, column] = addrInfo
-            matData.loc[j, '위도'] = None
-            matData.loc[j, '경도'] = None
-
-            try:
-                rtnGeo = gmaps.geocode(addrInfo, language='ko')
-                if (len(rtnGeo) < 1): continue
-
-                # 위/경도 반환
-                matData.loc[j, '위도'] = rtnGeo[0]['geometry']['location']['lat']
-                matData.loc[j, '경도'] = rtnGeo[0]['geometry']['location']['lng']
-
-            except Exception as e:
-                print(f"Exception : {e}")
-
-        # addr를 기준으로 병합
-        data = data.merge(matData, left_on=[column], right_on=[column], how='inner')
-
-        # 자료 저장
-        os.makedirs(os.path.dirname(saveFile), exist_ok=True)
-        data.to_csv(saveFile, index=False)
-
-        result = {
-            'msg': 'succ'
-            , 'saveFile': saveFile
-            , 'isFileExist': os.path.exists(saveFile)
-        }
-
-        return result
-
-    except Exception as e:
-        print("Exception : {}".format(e))
-        return result
-    finally:
-        # try, catch 구문이 종료되기 전에 무조건 실행
-        log.info(f'[END] makeGeo')
-
-
-def worker(addrInfo):
-    try:
-        rtnGeo = gmaps.geocode(addrInfo, language='ko')
-        if (len(rtnGeo) < 1):
-            return addrInfo, None, None
-
-        # 위/경도 반환
-        lat = rtnGeo[0]['geometry']['location']['lat']
-        lng = rtnGeo[0]['geometry']['location']['lng']
-        return addrInfo, lat, lng
-
-    except Exception as e:
-        print(f"Exception : {e}")
-        return addrInfo, None, None
-
-def makeGeo(data, column, saveFile):
-    log.info(f'[START] makeGeo')
-    result = None
-
-    try:
-        # 구글 위경도 변환
-        addrList = set(data[column])
-
-        matData = pd.DataFrame()
-        with ThreadPoolExecutor(max_workers=3) as executor:
-            results = list(executor.map(worker, addrList))
-
-        matData = pd.concat([pd.DataFrame([result], columns=[column, '위도', '경도']) for result in results], ignore_index=True)
-
-        # addr를 기준으로 병합
-        data = data.merge(matData, left_on=[column], right_on=[column], how='inner')
-
-        # 자료 저장
-        os.makedirs(os.path.dirname(saveFile), exist_ok=True)
-        data.to_csv(saveFile, index=False)
-
-        result = {
-            'msg': 'succ',
-            'saveFile': saveFile,
-            'isFileExist': os.path.exists(saveFile)
-        }
-
-        return result
-
-    except Exception as e:
-        print("Exception : {}".format(e))
-        return result
-    finally:
-        # try, catch 구문이 종료되기 전에 무조건 실행
-        log.info(f'[END] makeGeo')
+# def makeGeo(data, column, saveFile):
+#     log.info(f'[START] makeGeo')
+#     result = None
+#
+#     try:
+#         # 구글 위경도 변환
+#         addrList = set(data[column])
+#
+#         matData = pd.DataFrame()
+#         with ThreadPoolExecutor(max_workers=3) as executor:
+#             results = list(executor.map(worker, addrList))
+#
+#         matData = pd.concat([pd.DataFrame([result], columns=[column, '위도', '경도']) for result in results], ignore_index=True)
+#
+#         # addr를 기준으로 병합
+#         data = data.merge(matData, left_on=[column], right_on=[column], how='inner')
+#
+#         # 자료 저장
+#         os.makedirs(os.path.dirname(saveFile), exist_ok=True)
+#         data.to_csv(saveFile, index=False)
+#
+#         result = {
+#             'msg': 'succ',
+#             'saveFile': saveFile,
+#             'isFileExist': os.path.exists(saveFile)
+#         }
+#
+#         return result
+#
+#     except Exception as e:
+#         print("Exception : {}".format(e))
+#         return result
+#     finally:
+#         # try, catch 구문이 종료되기 전에 무조건 실행
+#         log.info(f'[END] makeGeo')
 
 # ================================================================================================
 # 환경변수 설정
@@ -543,7 +543,6 @@ sysOpt = {
 
 # 전역 설정
 plt.rcParams['font.family'] = 'NanumGothic'
-gmaps = googlemaps.Client(key=sysOpt['googleApiKey'])
 
 # 공유 폴더
 VIDEO_PATH = "/DATA/VIDEO"
