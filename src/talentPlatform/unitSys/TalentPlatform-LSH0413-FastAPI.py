@@ -88,7 +88,10 @@ import multipart
 from fastapi.responses import HTMLResponse
 import zipfile
 import urllib.parse
-
+import googlemaps
+import asyncio
+from concurrent.futures import ThreadPoolExecutor
+from concurrent.futures import ThreadPoolExecutor
 
 # =================================================
 # 도움말
@@ -100,9 +103,10 @@ import urllib.parse
 
 # 테스트
 # ps -ef | grep uvicorn | awk '{print $2}' | xargs kill -9
-# uvicorn TalentPlatform-LSH0413-FastAPI:app --reload --host=0.0.0.0 --port=9000
+# uvicorn TalentPlatform-LSH0413-FastAPI:app --reload --host=0.0.0.0 --port=9000 --workers 5
 # uvicorn TalentPlatform-LSH0413-FastAPI:app --reload --host=0.0.0.0 --port=9001
 
+# nohup uvicorn TalentPlatform-LSH0413-FastAPI:app --reload --host=0.0.0.0 --port=9000 --workers 5 &
 # nohup uvicorn TalentPlatform-LSH0413-FastAPI:app --reload --host=0.0.0.0 --port=9000 &
 
 # http://223.130.134.136:9000/docs
@@ -113,7 +117,7 @@ import urllib.parse
 # ps -ef | grep gunicorn | awk '{print $2}' | xargs kill -9
 # netstat -ntlp | grep 9000
 
-# gunicorn TalentPlatform-LSH0413-FastAPI:app --workers 1 --worker-class uvicorn.workers.UvicornWorker --daemon --bind 0.0.0.0:9000 --reload
+# gunicorn TalentPlatform-LSH0413-FastAPI:app --workers 5 --worker-class uvicorn.workers.UvicornWorker --daemon --bind 0.0.0.0:9000 --reload
 
 
 # {
@@ -291,10 +295,8 @@ def makeProc(data, saveFile, saveImg):
         for none, cnt in countList.most_common():
             none = str(none)
 
-            # 빈도수 2 이상
+            # 빈도수 및 글자수 제한
             if (cnt < 2): continue
-
-            # 명사  2 글자 이상
             if (len(none) < 2): continue
 
             dictData[none] = cnt
@@ -379,7 +381,6 @@ def makeProc(data, saveFile, saveImg):
         # try, catch 구문이 종료되기 전에 무조건 실행
         log.info(f'[END] makeProc')
 
-
 async def makeZip(fileList):
     buffer = io.BytesIO()
     with zipfile.ZipFile(buffer, "w") as zipf:
@@ -391,6 +392,108 @@ async def makeZip(fileList):
     buffer.seek(0)
     yield buffer.read()
 
+
+# 맵 시각화
+def makeGeo(data, column, saveFile):
+    log.info(f'[START] makeGeo')
+    result = None
+
+    try:
+        # 구글 위경도 변환
+        addrList = set(data[column])
+
+        matData = pd.DataFrame()
+        for j, addrInfo in enumerate(addrList):
+
+            # 초기값 설정
+            matData.loc[j, column] = addrInfo
+            matData.loc[j, '위도'] = None
+            matData.loc[j, '경도'] = None
+
+            try:
+                rtnGeo = gmaps.geocode(addrInfo, language='ko')
+                if (len(rtnGeo) < 1): continue
+
+                # 위/경도 반환
+                matData.loc[j, '위도'] = rtnGeo[0]['geometry']['location']['lat']
+                matData.loc[j, '경도'] = rtnGeo[0]['geometry']['location']['lng']
+
+            except Exception as e:
+                print(f"Exception : {e}")
+
+        # addr를 기준으로 병합
+        data = data.merge(matData, left_on=[column], right_on=[column], how='inner')
+
+        # 자료 저장
+        os.makedirs(os.path.dirname(saveFile), exist_ok=True)
+        data.to_csv(saveFile, index=False)
+
+        result = {
+            'msg': 'succ'
+            , 'saveFile': saveFile
+            , 'isFileExist': os.path.exists(saveFile)
+        }
+
+        return result
+
+    except Exception as e:
+        print("Exception : {}".format(e))
+        return result
+    finally:
+        # try, catch 구문이 종료되기 전에 무조건 실행
+        log.info(f'[END] makeGeo')
+
+
+def worker(addrInfo):
+    try:
+        rtnGeo = gmaps.geocode(addrInfo, language='ko')
+        if (len(rtnGeo) < 1):
+            return addrInfo, None, None
+
+        # 위/경도 반환
+        lat = rtnGeo[0]['geometry']['location']['lat']
+        lng = rtnGeo[0]['geometry']['location']['lng']
+        return addrInfo, lat, lng
+
+    except Exception as e:
+        print(f"Exception : {e}")
+        return addrInfo, None, None
+
+def makeGeo(data, column, saveFile):
+    log.info(f'[START] makeGeo')
+    result = None
+
+    try:
+        # 구글 위경도 변환
+        addrList = set(data[column])
+
+        matData = pd.DataFrame()
+        with ThreadPoolExecutor(max_workers=3) as executor:
+            results = list(executor.map(worker, addrList))
+
+        matData = pd.concat([pd.DataFrame([result], columns=[column, '위도', '경도']) for result in results], ignore_index=True)
+
+        # addr를 기준으로 병합
+        data = data.merge(matData, left_on=[column], right_on=[column], how='inner')
+
+        # 자료 저장
+        os.makedirs(os.path.dirname(saveFile), exist_ok=True)
+        data.to_csv(saveFile, index=False)
+
+        result = {
+            'msg': 'succ',
+            'saveFile': saveFile,
+            'isFileExist': os.path.exists(saveFile)
+        }
+
+        return result
+
+    except Exception as e:
+        print("Exception : {}".format(e))
+        return result
+    finally:
+        # try, catch 구문이 종료되기 전에 무조건 실행
+        log.info(f'[END] makeGeo')
 
 # ================================================================================================
 # 환경변수 설정
@@ -432,14 +535,15 @@ engine = create_engine(SQLALCHEMY_DATABASE_URL)
 SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
 # SessionLocal().execute('SELECT * FROM TB_FILE_INFO_DTL').fetchall()
 
-# 전역 설정
-plt.rcParams['font.family'] = 'NanumGothic'
-
 # 옵션 설정
 sysOpt = {
     # 상위 비율
     'topPerInfo': 20
 }
+
+# 전역 설정
+plt.rcParams['font.family'] = 'NanumGothic'
+gmaps = googlemaps.Client(key=sysOpt['googleApiKey'])
 
 # 공유 폴더
 VIDEO_PATH = "/DATA/VIDEO"
@@ -613,6 +717,9 @@ async def file_upload(
             log.error(f'Exception : {e}')
             raise Exception("파일 읽기를 실패했습니다 (UTF-8, EUC-KR, CP949 인코딩 필요 또는 컬럼명 불일치).")
 
+        if data is None or len(data) < 1:
+            raise Exception("데이터 개수가 0입니다.")
+
         dtDateTime = datetime.datetime.now(pytz.timezone('Asia/Seoul'))
         fileNameNoExt = os.path.basename(file.filename).split('.')[0]
 
@@ -622,7 +729,7 @@ async def file_upload(
         log.info(f'[CHECK] result : {result}')
 
         if not (result['isImgExist'] and result['isFileExist']):
-            raise Exception("이미지 또는 파일 저장을 실패")
+            raise Exception("이미지 또는 파일 저장을 실패하였습니다.")
 
         resData = {
             'downFile': f"http://{getPubliIp()}:9000/UPLOAD/{dtDateTime.strftime('%Y%m/%d/%H%M')}/{fileNameNoExt}.csv"
@@ -669,6 +776,9 @@ async def file_down(
             log.error(f'Exception : {e}')
             raise Exception("파일 읽기를 실패했습니다 (UTF-8, EUC-KR, CP949 인코딩 필요 또는 컬럼명 불일치).")
 
+        if data is None or len(data) < 1:
+            raise Exception("데이터 개수가 0입니다.")
+
         dtDateTime = datetime.datetime.now(pytz.timezone('Asia/Seoul'))
         fileNameNoExt = os.path.basename(file.filename).split('.')[0]
 
@@ -678,7 +788,7 @@ async def file_down(
         log.info(f'[CHECK] result : {result}')
 
         if not (result['isImgExist'] and result['isFileExist']):
-            raise Exception("이미지 또는 파일 저장을 실패")
+            raise Exception("이미지 또는 파일 저장을 실패하였습니다.")
 
         # 파일 경로 및 파일명 리스트
         fileList = [saveFile, saveImg]
@@ -694,6 +804,69 @@ async def file_down(
     except Exception as e:
         log.error(f'Exception : {e}')
         raise HTTPException(status_code=400, detail=resRespone("fail", 400, "처리 실패", len(str(e)), str(e)))
+
+# @app.post("/geo/down")
+# async def geo_down(
+#         file: UploadFile = File(...)
+#         , column: str = Form(...)
+# ):
+#     """
+#     기능 : 오픈API 기반 지오코딩 (지번/법정동 주소 to 구글 위경도 변환) 및 다운로드 \n
+#     파라미터 : API키 없음, file 파일 업로드 (csv, xlsx), column 주소 컬럼 \n
+#     """
+#     try:
+#         if re.search(r'\.(?!(csv|xlsx)$)[^.]*$', file.filename, re.IGNORECASE) is not None:
+#             raise Exception("csv 또는 xlsx 파일을 확인해주세요.")
+#
+#         try:
+#             contents = await file.read()
+#             basename, extension = os.path.splitext(file.filename)
+#
+#             if extension.lower() == '.csv':
+#                 encList = ['EUC-KR', 'UTF-8', 'CP949']
+#                 for encInfo in encList:
+#                     try:
+#                         data = pd.read_csv(io.StringIO(contents.decode(encInfo)))
+#                         break
+#                     except Exception as e:
+#                         log.error(f'Exception : {e}')
+#                         continue
+#             if extension.lower() == '.xlsx':
+#                 data = pd.read_excel(io.BytesIO(contents))
+#         except Exception as e:
+#             log.error(f'Exception : {e}')
+#             raise Exception("파일 읽기를 실패했습니다 (UTF-8, EUC-KR, CP949 인코딩 필요 또는 컬럼명 불일치).")
+#
+#         if data is None or len(data) < 1:
+#             raise Exception("데이터 개수가 0입니다.")
+#
+#         dtDateTime = datetime.datetime.now(pytz.timezone('Asia/Seoul'))
+#         fileNameNoExt = os.path.basename(file.filename).split('.')[0]
+#
+#         saveFile = '{}/{}/{}.csv'.format(UPLOAD_PATH, dtDateTime.strftime('%Y%m/%d/%H%M'), fileNameNoExt)
+#         result = makeGeo(data=data, column=column, saveFile=saveFile)
+#         # loop = asyncio.get_event_loop()
+#         # result = loop.run_until_complete(makeGeoAsync(data, column, saveFile))
+#         log.info(f'[CHECK] result : {result}')
+#
+#         if not (result['isFileExist']):
+#             raise Exception("파일 저장을 실패하였습니다.")
+#
+#         # 파일 경로 및 파일명 리스트
+#         fileList = [saveFile]
+#         zipFileNmae = urllib.parse.quote(fileNameNoExt, safe='')
+#
+#         headers = {
+#             "Content-Disposition": f"attachment; filename={zipFileNmae}.zip"
+#         }
+#
+#         return StreamingResponse(makeZip(fileList), media_type="application/zip", headers=headers)
+#
+#     except Exception as e:
+#         log.error(f'Exception : {e}')
+#         raise HTTPException(status_code=400, detail=resRespone("fail", 400, "처리 실패", len(str(e)), str(e)))
+
+
 
 # resData = {
 #     'downFile' : f"http://{getPubliIp()}:9001/UPLOAD/{dtDateTime.strftime('%Y%m/%d/%H%M')}/{fileNameNoExt}.csv"
