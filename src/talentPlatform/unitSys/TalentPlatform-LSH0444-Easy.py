@@ -28,8 +28,6 @@ from PyQt5.QtWidgets import QWidget, QHBoxLayout
 from PyQt5.QtCore import QTimer
 import googlemaps
 import pandas as pd
-import qtmodern.styles
-import qtmodern.windows
 
 import zipfile
 import os
@@ -40,6 +38,8 @@ import pytz
 from PyQt5.QtWidgets import QApplication, QMainWindow, QProgressBar, QPushButton, QVBoxLayout, QWidget
 from PyQt5.QtCore import Qt, QBasicTimer
 import sys
+from PyQt5.QtWidgets import QMainWindow, QApplication
+from PyQt5.QtCore import QEventLoop, QTimer
 
 # ============================================
 # 요구사항
@@ -60,6 +60,7 @@ serviceName = 'LSH0444'
 # 옵션 설정
 sysOpt = {
     # 구글 API 정보
+    'googleApiKey': ''
 }
 
 # 전역 설정
@@ -68,16 +69,19 @@ sysOpt = {
 
 # 메인 윈도우 클래스 정의
 class MainWindow(QWidget):
+
     def __init__(self):
         super().__init__()
-        self.initUI()
 
+        self.initUI()
         self.select_all_status = True
         self.select_all_status2 = True
+        self.isStopProc = False
 
     def initUI(self):
         # 윈도우 타이틀 및 아이콘 설정
-        self.setWindowTitle('PyQt5 원도우 GUI 기반 지오코딩 프로그램')
+        # self.setWindowTitle('PyQt5 원도우 GUI 기반 지오코딩 프로그램')
+        self.setWindowTitle('RIA-Geocoding')
         self.setWindowIcon(QIcon('icon.png'))
 
         # 그리드 레이아웃 생성
@@ -230,7 +234,7 @@ class MainWindow(QWidget):
 
         try:
             gmaps = googlemaps.Client(key=key)
-            self.show_toast_message('구글 API키 인증 완료')
+            # self.show_toast_message('구글 API키 인증 완료')
         except Exception as e:
             self.show_toast_message('구글 API키를 인증해 주세요.')
             return False
@@ -262,17 +266,21 @@ class MainWindow(QWidget):
             addrList = set(df[selected_column])
 
             # 진행바 생성
-            # pbar = tqdm(total=len(addrList))
-            self.pbar.setMaximum(len(addrList))
+            maxCnt = len(addrList)
+            self.pbar.setMaximum(maxCnt)
             self.pbar.setValue(0)
 
             matData = pd.DataFrame()
             for j, addrInfo in enumerate(addrList):
-                # print(f'[CHECK] [{round((i / len(addrList)) * 100.0, 2)}] addrInfo : {addrInfo}')
-                # self.show_toast_message(f'[{round((i / len(addrList)) * 100.0, 2)}] {fileNameNoExt}')
 
-                # pbar.update(1)
-                self.pbar.setValue(j + 1)
+                if self.isStopProc:
+                    break
+
+                if j % 10 == 0:
+                    # print(f'[CHECK] j : {j}')
+                    self.pbar.setValue(j)
+                    self.pbar.setFormat("{:.2f}%".format((j + 1) / maxCnt * 100))
+                    QApplication.processEvents()
 
                 # 초기값 설정
                 matData.loc[j, selected_column] = addrInfo
@@ -293,7 +301,10 @@ class MainWindow(QWidget):
             # addr를 기준으로 병합
             df = df.merge(matData, left_on=[selected_column], right_on=[selected_column], how='inner')
 
-            # pbar.close()
+            self.isStopProc = False
+            self.pbar.setValue(maxCnt)
+            self.pbar.setFormat("{:.2f}%".format((j + 1) / maxCnt * 100))
+            QApplication.processEvents()
 
             # 파일 저장
             df.to_csv(saveFile, index=False)
@@ -421,6 +432,10 @@ class MainWindow(QWidget):
         else:
             return df
 
+    # [X 버튼] 선택
+    def closeEvent(self, event):
+        self.isStopProc = True
+        event.accept()
 
 if __name__ == '__main__':
     if (platform.system() == 'Windows'):
@@ -431,6 +446,6 @@ if __name__ == '__main__':
 
     app = QApplication(sys.argv)
     mainWindow = MainWindow()
-    mw = qtmodern.windows.ModernWindow(mainWindow)
-    mw.show()
+    # mw = qtmodern.windows.ModernWindow(mainWindow)
+    mainWindow.show()
     sys.exit(app.exec_())
