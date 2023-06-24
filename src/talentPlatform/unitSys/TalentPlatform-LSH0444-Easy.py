@@ -63,6 +63,7 @@ sysOpt = {
     'googleApiKey': ''
 }
 
+
 # 전역 설정
 # plt.rcParams['font.family'] = 'NanumGothic'
 # plt.rcParams['axes.unicode_minus'] = False
@@ -437,6 +438,7 @@ class MainWindow(QWidget):
         self.isStopProc = True
         event.accept()
 
+
 if __name__ == '__main__':
     if (platform.system() == 'Windows'):
         pass
@@ -446,6 +448,7 @@ if __name__ == '__main__':
 
     app = QApplication(sys.argv)
     mainWindow = MainWindow()
-    # mw = qtmodern.windows.ModernWindow(mainWindow)
     mainWindow.show()
     sys.exit(app.exec_())
+
+    # mw = qtmodern.windows.ModernWindow(mainWindow)
