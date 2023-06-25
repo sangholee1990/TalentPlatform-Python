@@ -60,7 +60,7 @@ serviceName = 'LSH0444'
 # 옵션 설정
 sysOpt = {
     # 구글 API 정보
-    'googleApiKey': ''
+    # 'googleApiKey': ''
 }
 
 
@@ -92,9 +92,11 @@ class MainWindow(QWidget):
         grid.setColumnStretch(2, 1)
         grid.setColumnStretch(3, 1)
 
-        self.search_label = QLabel('(선택) 인증키')
+        # self.search_label = QLabel('(선택) 인증키')
+        self.search_label = QLabel('(필수) 인증키')
         self.search_edit = QLineEdit()
-        self.search_edit.setPlaceholderText('없을 시 기본값 설정')
+        # self.search_edit.setPlaceholderText('없을 시 기본값 설정')
+        self.search_edit.setPlaceholderText('구글 지오코딩 인증키')
         self.column_label = QLabel('(필수) 주소 컬럼')
         self.column_combo = QComboBox()
         # self.column_combo.addItem('선택')
@@ -230,14 +232,14 @@ class MainWindow(QWidget):
             return False
 
         key = self.search_edit.text()
-        if not key:
-            key = sysOpt['googleApiKey']
+        if key is None or len(key) < 1:
+            self.show_toast_message('구글 지오코딩 인증키를 입력해 주세요.')
+            return False
 
         try:
             gmaps = googlemaps.Client(key=key)
-            # self.show_toast_message('구글 API키 인증 완료')
         except Exception as e:
-            self.show_toast_message('구글 API키를 인증해 주세요.')
+            self.show_toast_message('구글 지오코딩 인증키에서 오류가 발생하오니 신규 또는 재발급을 부탁드립니다.')
             return False
 
         selected_column = self.column_combo.currentText()
@@ -443,8 +445,9 @@ if __name__ == '__main__':
     if (platform.system() == 'Windows'):
         pass
     else:
-        os.environ['DISPLAY'] = 'localhost:10.0'
-        display_value = os.environ.get('DISPLAY')
+        pass
+        # os.environ['DISPLAY'] = 'localhost:10.0'
+        # display_value = os.environ.get('DISPLAY')
 
     app = QApplication(sys.argv)
     mainWindow = MainWindow()
