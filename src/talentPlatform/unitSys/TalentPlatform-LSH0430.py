@@ -26,11 +26,9 @@ import scipy.io as sio
 import pyart
 
 import xarray as xr
-from numba import njit
 import dask.array as da
 from dask.diagnostics import ProgressBar
 from xarrayMannKendall import *
-from numba import jit  # Speedup for python functions
 import dask.array as da
 import dask
 from dask.distributed import Client
@@ -38,6 +36,18 @@ from dask.distributed import Client
 from scipy.stats import kendalltau
 from plotnine import ggplot, aes, geom_boxplot
 import gc
+import numpy as np
+import pandas as pd
+from scipy.signal import find_peaks
+
+# 반복 추세 적합
+from scipy.optimize import curve_fit
+import os
+import numpy as np
+from scipy.io import loadmat
+from scipy.ndimage import uniform_filter1d
+import matplotlib.pyplot as plt
+
 
 # =================================================
 # 사용자 매뉴얼
@@ -190,6 +200,12 @@ def calcMannKendall(x):
         return np.nan
         # return np.nan, np.nan, np.nan
 
+
+
+def func(x, a, b, c):
+    return a * np.sin(b * x + c)
+
+
 # ================================================
 # 4. 부 프로그램
 # ================================================
@@ -329,7 +345,6 @@ class DtaProcess(object):
                 globalVar['outPath'] = '/DATA/OUTPUT'
                 globalVar['figPath'] = '/DATA/FIG'
 
-            # inpFile = '{}/{}/{}.nc'.format(globalVar['inpPath'], serviceName, 'ACCESS-CM2*')
             inpFile = '{}/{}/{}'.format(globalVar['inpPath'], serviceName, '*.uf')
             # inpFile = '{}/{}/{}.nc'.format(globalVar['inpPath'], serviceName, 'ACCESS-CM2*')
             fileList = sorted(glob.glob(inpFile))
@@ -340,7 +355,7 @@ class DtaProcess(object):
             fileInfo = fileList[0]
             data = pyart.io.read(fileInfo)
 
-            fileNameNoExt = os.path.splitext(os.path.basename(fileInfo))[0]
+            fileNameNoExt = os.path.basename(fileInfo).split('.')[0]
 
             rnam = data.metadata['instrument_name']
             rlat = data.latitude['data']
@@ -443,6 +458,247 @@ class DtaProcess(object):
                 'arr_phv': fdat_phv,
                 'arr_ecf': fdat_ecf
             }
+
+            print('asdfasdfadsf')
+
+            window_size = 5  # 이동평균에 사용될 윈도우 사이즈
+
+            # 방위각 데이터
+            fazm = dict['arr_azm_rng_elv'][0]
+
+
+            # 차등반사도 데이터
+            zdr = dict['arr_zdr']
+            data = zdr.data
+
+            # 초기 차등반사도 데이터를 거리 방향으로 평균
+            mean_zdr = np.nanmean(data, axis=0)
+
+            # 1. 초기 차등반사도 관측치 거리방향 평균에서 주기 성분만큼의 이동평균을 취하여 선형추세를 산정한다
+            moving_avg = np.convolve(mean_zdr, np.ones(window_size), 'valid') / window_size
+
+            # 2. 차등반사도 초기 관측치 평균에서 이동평균 선형추세를 빼서 선형추세가 제거된 성분의 반복 추세를 추출한다
+            trend_removed = mean_zdr[window_size - 1:] - moving_avg
+
+            # 3. 선형추세 제거된 반복 추세를 주기함수(예, sin 함수)를 이용하여 적합(fitting)한다
+            x = np.linspace(0, 2 * np.pi, len(trend_removed))
+
+            def func(x, a, b, c):
+                return a * np.sin(b * x) + c
+
+            popt, pcov = curve_fit(func, x, trend_removed)
+
+            # 4. 반복 추세에서 반복 추세 적합을 빼면 반복 추세가 제거된 잔차 성분만을 추출할 수 있다
+            residual = trend_removed - func(x, *popt)
+
+            # 5. ①에서 분리한 호우에 의한 선형 추세와 ④에서 분리한 잔차 성분을 더하면 반복 추세가 제거된 차등반사도를 구할 수 있다
+            final_diff_reflectivity = moving_avg + residual
+
+            # Show the final result
+            plt.plot(zdr)
+            plt.plot(mean_zdr)
+            plt.plot(residual)
+            plt.plot(final_diff_reflectivity)
+            plt.plot(fazm)
+            plt.show()
+
+            plt.plot(zdr[2])
+            plt.show()
+
+
+
+
+
+
+
+
+            # 방위각 데이터
+            fazm = dict['arr_azm_rng_elv'][0]
+
+            # 초기 차등반사도 데이터를 거리 방향으로 평균
+            mean_zdr = np.mean(zdr, axis=1)
+
+            # Define the window size for the moving average
+            window_size = 10  # Adjust this value based on your data
+
+            # 이동 평균
+            moving_avg = np.convolve(mean_zdr, np.ones(window_size) / window_size, mode='valid')
+
+            # Subtract the moving average from the original data to remove the linear trend
+            detrended_diff_refl = mean_zdr[window_size - 1:] - moving_avg
+
+            plt.figure(figsize=(10, 5))
+            plt.plot(detrended_diff_refl)
+            plt.title('Detrended Differential Reflectivity Change in Azimuth Direction')
+            plt.xlabel('Azimuth Angle')
+            plt.ylabel('Detrended Average Differential Reflectivity')
+            plt.show()
+
+
+            # Define a threshold for anomaly detection
+            threshold = 0.2  # Adjust this value based on your data
+
+            # Identify where the absolute value of the detrended data exceeds the threshold
+            anomalies = np.abs(detrended_diff_refl) > threshold
+
+            # Print the azimuth angles where anomalies were detected
+            anomaly_angles = np.where(anomalies)[0]
+            print(f"Anomalies detected at azimuth angles: {anomaly_angles}")
+
+
+
+
+
+
+            # 방위각 방향으로 변동 관찰
+            azimuth_change = np.diff(mean_zdr)
+
+            # 차등반사도 변동의 주기성을 찾기 위해 peaks 찾기
+            peaks, _ = find_peaks(azimuth_change)
+
+            # 변동 주기성 시각화
+            plt.figure(figsize=(10, 6))
+            plt.plot(azimuth_change, label="Azimuth Change")
+            plt.plot(peaks, azimuth_change[peaks], "x", label="Peaks")
+            plt.title("Periodicity in Differential Reflectivity Change")
+            plt.legend()
+            plt.show()
+
+            import numpy as np
+            import matplotlib.pyplot as plt
+            from scipy.signal import detrend
+
+            def remove_linear_trend(df, column_name):
+                # ① 선형 추세 산정
+                df['linear_trend'] = df[column_name].rolling(window=period).mean()
+
+                # ② 선형 추세 제거
+                df['detrended'] = df[column_name] - df['linear_trend']
+
+                # ③ 주기 함수 적합
+                sine_model = scipy.optimize.curve_fit(lambda t, a, b, c: a * np.sin(b * t + c),
+                                                      df.index.values,
+                                                      df['detrended'].values,
+                                                      p0=[1, 2 * np.pi / period, 0])
+
+                df['fit'] = sine_model[0][0] * np.sin(sine_model[0][1] * df.index.values + sine_model[0][2])
+
+                # ④ 반복 추세 제거
+                df['residual'] = df['detrended'] - df['fit']
+
+                # ⑤ 반복 추세가 제거된 차등반사도
+                df['corrected'] = df['linear_trend'] + df['residual']
+
+                return df
+
+            # 이 코드에서 'data'는 차등반사도 데이터이며, window는 이동평균 창의 크기입니다.
+            # period는 주기적인 성분의 주기입니다.
+
+            # 사용 예시
+            column_name = 'column_name'  # 해당하는 열 이름
+            period = 10  # 주기 성분
+            df = pd.DataFrame(zdr)  # 차등반사도 데이터가 있는 DataFrame
+            corrected_df = remove_linear_trend(df, column_name)
+
+            # 결과를 그래프로 표시
+            plt.figure(figsize=(12, 8))
+            plt.subplot(211)
+            plt.plot(data, label='Original')
+            plt.plot(trend, label='Trend')
+            plt.legend()
+
+            plt.subplot(212)
+            plt.plot(detrended, label='Detrended')
+            plt.plot(fit_data, label='Fit')
+            plt.plot(residual, label='Residual')
+            plt.legend()
+
+            plt.show()
+
+
+
+
+
+            # 테스트
+
+            # 가상의 데이터 생성
+            # np.random.seed(0)
+            # data = np.random.normal(0, 0.1, 360) + np.sin(np.linspace(0, 2. * np.pi, 360))  # 반사도 변화 모니터링 데이터
+            # data_df = pd.DataFrame(data, columns=['Reflectivity'])
+
+            # # 선형 추세 제거
+            # data_df['Rolling_Mean'] = data_df['Reflectivity'].rolling(window=10).mean()
+            # data_df['Deseasonalized'] = data_df['Reflectivity'] - data_df['Rolling_Mean']
+            #
+            # # x = np.array(range(len(data_df['Deseasonalized'].dropna())))
+            # # y = np.array(data_df['Deseasonalized'].dropna())
+            #
+            # data_df2 = data_df.dropna()
+            # x = np.array(range(len(data_df2['Deseasonalized'])))
+            # y = np.array(data_df2['Deseasonalized'])
+            # params, params_covariance = curve_fit(func, x, y, p0=[1, 1, 1])
+            # data_df2['Fitted'] = func(x, params[0], params[1], params[2])
+            #
+            # # 잔차 성분 추출
+            # data_df2['Residual'] = data_df2['Deseasonalized'] - data_df2['Fitted']
+            #
+            # # 잔차 성분에서 이상치 탐색
+            # threshold = 0.2
+            # data_df2['Anomaly'] = np.where(abs(data_df2['Residual']) > threshold, 1, 0)
+            #
+            # print(data_df2)
+            #
+            # plt.plot(data_df2['Anomaly'])
+            # plt.show()
+
+
+
+
+
+
+            # RdrNamA = ['BSL', 'SBS']
+            # datDRA = [r'\Data303\']
+            #           drvLet = 'j'
+            # srtEA = 3
+            # endEA = srtEA
+            # vnamB = ['ZDR', 'PDP', 'PHV', 'REF']
+            #
+            # for datDR in datDRA:
+            #     for
+            # RdrNam in RdrNamA:
+            # # Filter parameters
+            # refFlt = 'no'
+            # refThz = 0
+            # phvFlt = 'no'
+            # phvThz = 0.95
+            # appPDPelim = 'no'
+            # pdpThz = 15
+            # ntex = 7
+            # mtex = 7
+            # spwFlt = 'no'
+            # spwThz = 0.1
+            # pco = 0.9925
+            #
+            # # Directories
+            # frDir = drvLet + datDR + RdrNam + '_OUT\\'
+            # fwDir = drvLet + datDR + RdrNam + '_OUT_COR_EA' + str(srtEA) + '\\'
+            #
+            # # Make directory if it doesn't exist
+            # if not os.path.exists(fwDir):
+            #     os.mkdir(fwDir)
+            #
+            # # File list
+            # flist = [f for f in os.listdir(frDir) if f.endswith('.mat')]
+            # nflst = len(flist)
+            #
+            # # Loop through all files
+            # for j, fname in enumerate(flist):
+            #     print(f"Processing file {j + 1} of {nflst}")
+            #
+            # # Load data
+            # a = loadmat(frDir + fname)
+
+
 
             # sio.savemat(str(sfmat), mdict=dict_to_save, do_compression=True)
 
