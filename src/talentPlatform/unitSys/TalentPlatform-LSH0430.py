@@ -9,14 +9,14 @@ import sys
 import traceback
 import warnings
 from datetime import datetime
-import seaborn as sns
+#import seaborn as sns
 import matplotlib as mpl
 import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
 import xarray as xr
-from pyproj import Proj
-import pymannkendall as mk
+#from pyproj import Proj
+#import pymannkendall as mk
 
 import sys
 import glob, os
@@ -25,16 +25,16 @@ import matplotlib.pyplot as plt
 import scipy.io as sio
 import pyart
 
-import xarray as xr
-import dask.array as da
-from dask.diagnostics import ProgressBar
-from xarrayMannKendall import *
-import dask.array as da
-import dask
-from dask.distributed import Client
+#import xarray as xr
+#import dask.array as da
+#from dask.diagnostics import ProgressBar
+#from xarrayMannKendall import *
+#import dask.array as da
+#import dask
+#from dask.distributed import Client
 
-from scipy.stats import kendalltau
-from plotnine import ggplot, aes, geom_boxplot
+#from scipy.stats import kendalltau
+#from plotnine import ggplot, aes, geom_boxplot
 import gc
 import numpy as np
 import pandas as pd
@@ -228,8 +228,8 @@ class DtaProcess(object):
     # 라. (차등반사도의 방위각 종속성) 특정 사상에 대하여 방위각 방향의 차등반사도 변화를 모니터링 하는 방법'
     # 참고 매트랩 프로그램 :
     # zdr_tst2_pdp_2022.m
-    # dspCycl.m,
-    # sineFit201208.zip,
+    # dspCycl.m
+    # sineFit201208.zip
     # 정리1.pptx
 
     # 2. 두번째 프로그램 (변수가 ZDR, PDP로 2가지 일뿐 방법은 같음)
@@ -300,18 +300,6 @@ class DtaProcess(object):
                     # 시작/종료 시간
                     'srtDate': '2001-01-01'
                     , 'endDate': '2018-01-01'
-
-                    # 경도 최소/최대/간격
-                    , 'lonMin': -180
-                    , 'lonMax': 180
-                    , 'lonInv': 0.1
-                    # , 'lonInv': 5
-
-                    # 위도 최소/최대/간격
-                    , 'latMin': -90
-                    , 'latMax': 90
-                    , 'latInv': 0.1
-                    # , 'latInv': 5
                 }
 
             else:
@@ -319,44 +307,34 @@ class DtaProcess(object):
                 # 옵션 설정
                 sysOpt = {
                     # 시작/종료 시간
-                    # 'srtDate': '1950-01-01'
-                    # , 'endDate': '2015-01-01'
                     'srtDate': '2010-01-01'
                     , 'endDate': '2015-01-01'
-
-                    # 경도 최소/최대/간격
-                    , 'lonMin': -180
-                    , 'lonMax': 180
-                    , 'lonInv': 0.1
-
-                    # 위도 최소/최대/간격
-                    , 'latMin': -90
-                    , 'latMax': 90
-                    , 'latInv': 0.1
-
-                    , 'typeList': ['EC', 'GDP', 'Land_Cover_Type_1_Percent', 'landscan']
-                    # , 'typeList': ['Land_Cover_Type_1_Percent']
-                    # , 'keyList': ['CH4', 'CO2_excl', 'CO2_org', 'N2O', 'NH3', 'NMVOC', 'OC', 'NH3', 'SO2']
-                    , 'keyList': ['emi_co', 'emi_n2o', 'emi_nh3', 'emi_nmvoc', 'emi_nox', 'emi_oc', 'emi_so2']
-                    # , 'keyList': ['emi_nmvoc']
                 }
 
                 globalVar['inpPath'] = '/DATA/INPUT'
                 globalVar['outPath'] = '/DATA/OUTPUT'
                 globalVar['figPath'] = '/DATA/FIG'
 
+
+            #======================================================================================
+            # 파일 검색
+            #======================================================================================
             inpFile = '{}/{}/{}'.format(globalVar['inpPath'], serviceName, '*.uf')
-            # inpFile = '{}/{}/{}.nc'.format(globalVar['inpPath'], serviceName, 'ACCESS-CM2*')
             fileList = sorted(glob.glob(inpFile))
 
             if fileList is None or len(fileList) < 1:
                 log.error('[ERROR] inpFile : {} / {}'.format(inpFile, '입력 자료를 확인해주세요.'))
 
             fileInfo = fileList[0]
+
+            #======================================================================================
+            # 파일 읽기
+            #======================================================================================
             data = pyart.io.read(fileInfo)
 
             fileNameNoExt = os.path.basename(fileInfo).split('.')[0]
 
+            # 속성 추출
             rnam = data.metadata['instrument_name']
             rlat = data.latitude['data']
             rlon = data.longitude['data']
@@ -438,6 +416,7 @@ class DtaProcess(object):
             # ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
             # sfmat = os.path.join(dirname + '_OUT', (fileInfo[0:len(fileInfo) - trm] + '.mat'))
 
+            # 주요 정보
             dict = {
                 'str_nam': [rnam],
                 'arr_lat_lon_alt_bwh': [rlat, rlon, ralt, fbwh],
@@ -459,20 +438,47 @@ class DtaProcess(object):
                 'arr_ecf': fdat_ecf
             }
 
-            print('asdfasdfadsf')
+            #======================================================================================
+            # (차등반사도의 방위각 종속성) 특정 사상에 대하여 방위각 방향의 차등반사도 변화를 모니터링
+            #======================================================================================
+            def func(x, a, b, c):
+                return a * np.sin(b * x) + c
 
-            window_size = 5  # 이동평균에 사용될 윈도우 사이즈
+            # 이동평균에 사용될 윈도우 사이즈
+            window_size = 3
 
-            # 방위각 데이터
+            # 방위각 정보
             fazm = dict['arr_azm_rng_elv'][0]
 
+            # 방위각 범위 변경: -180~180 -> 0~360
+            fazm[fazm < 0] += 360
 
-            # 차등반사도 데이터
+            #(1079,)
+            print(fazm.shape)
+
+            # 차등반사도 정보
             zdr = dict['arr_zdr']
+            #(1079,993)
+            print(zdr.shape)
+
+            zdr[(zdr < -10) | (zdr > 10)] = np.nan
+
+#            exit
+
             data = zdr.data
 
             # 초기 차등반사도 데이터를 거리 방향으로 평균
-            mean_zdr = np.nanmean(data, axis=0)
+            mean_zdr = np.nanmean(data, axis=1)
+            #(1079,)
+            print(mean_zdr.shape)
+   
+            plt.plot(fazm, mean_zdr)
+            plt.legend()
+            plt.savefig('1.png', dpi=600, bbox_inches='tight', transparent=False)
+            plt.close()
+            #plt.show()
+
+#            exit
 
             # 1. 초기 차등반사도 관측치 거리방향 평균에서 주기 성분만큼의 이동평균을 취하여 선형추세를 산정한다
             moving_avg = np.convolve(mean_zdr, np.ones(window_size), 'valid') / window_size
@@ -483,9 +489,7 @@ class DtaProcess(object):
             # 3. 선형추세 제거된 반복 추세를 주기함수(예, sin 함수)를 이용하여 적합(fitting)한다
             x = np.linspace(0, 2 * np.pi, len(trend_removed))
 
-            def func(x, a, b, c):
-                return a * np.sin(b * x) + c
-
+            # 반복 추세 계산
             popt, pcov = curve_fit(func, x, trend_removed)
 
             # 4. 반복 추세에서 반복 추세 적합을 빼면 반복 추세가 제거된 잔차 성분만을 추출할 수 있다
@@ -494,134 +498,151 @@ class DtaProcess(object):
             # 5. ①에서 분리한 호우에 의한 선형 추세와 ④에서 분리한 잔차 성분을 더하면 반복 추세가 제거된 차등반사도를 구할 수 있다
             final_diff_reflectivity = moving_avg + residual
 
+            print(moving_avg.shape)            
+            print(residual.shape)            
+            print(final_diff_reflectivity.shape)
+      
+            
+            # fazm에서 이동 평균 크기의 반만큼 앞뒤를 잘라냄
+            trim_size = window_size // 2
+            fazm = fazm[trim_size:-trim_size]
+
             # Show the final result
-            plt.plot(zdr)
-            plt.plot(mean_zdr)
-            plt.plot(residual)
-            plt.plot(final_diff_reflectivity)
-            plt.plot(fazm)
-            plt.show()
-
-            plt.plot(zdr[2])
-            plt.show()
-
-
-
-
-
-
-
-
-            # 방위각 데이터
-            fazm = dict['arr_azm_rng_elv'][0]
-
-            # 초기 차등반사도 데이터를 거리 방향으로 평균
-            mean_zdr = np.mean(zdr, axis=1)
-
-            # Define the window size for the moving average
-            window_size = 10  # Adjust this value based on your data
-
-            # 이동 평균
-            moving_avg = np.convolve(mean_zdr, np.ones(window_size) / window_size, mode='valid')
-
-            # Subtract the moving average from the original data to remove the linear trend
-            detrended_diff_refl = mean_zdr[window_size - 1:] - moving_avg
-
-            plt.figure(figsize=(10, 5))
-            plt.plot(detrended_diff_refl)
-            plt.title('Detrended Differential Reflectivity Change in Azimuth Direction')
-            plt.xlabel('Azimuth Angle')
-            plt.ylabel('Detrended Average Differential Reflectivity')
-            plt.show()
-
-
-            # Define a threshold for anomaly detection
-            threshold = 0.2  # Adjust this value based on your data
-
-            # Identify where the absolute value of the detrended data exceeds the threshold
-            anomalies = np.abs(detrended_diff_refl) > threshold
-
-            # Print the azimuth angles where anomalies were detected
-            anomaly_angles = np.where(anomalies)[0]
-            print(f"Anomalies detected at azimuth angles: {anomaly_angles}")
-
-
-
-
-
-
-            # 방위각 방향으로 변동 관찰
-            azimuth_change = np.diff(mean_zdr)
-
-            # 차등반사도 변동의 주기성을 찾기 위해 peaks 찾기
-            peaks, _ = find_peaks(azimuth_change)
-
-            # 변동 주기성 시각화
-            plt.figure(figsize=(10, 6))
-            plt.plot(azimuth_change, label="Azimuth Change")
-            plt.plot(peaks, azimuth_change[peaks], "x", label="Peaks")
-            plt.title("Periodicity in Differential Reflectivity Change")
+            plt.plot(fazm, moving_avg)
             plt.legend()
-            plt.show()
+            plt.savefig('2.png', dpi=600, bbox_inches='tight', transparent=False)
+            plt.close()
+            #plt.show()
 
-            import numpy as np
-            import matplotlib.pyplot as plt
-            from scipy.signal import detrend
-
-            def remove_linear_trend(df, column_name):
-                # ① 선형 추세 산정
-                df['linear_trend'] = df[column_name].rolling(window=period).mean()
-
-                # ② 선형 추세 제거
-                df['detrended'] = df[column_name] - df['linear_trend']
-
-                # ③ 주기 함수 적합
-                sine_model = scipy.optimize.curve_fit(lambda t, a, b, c: a * np.sin(b * t + c),
-                                                      df.index.values,
-                                                      df['detrended'].values,
-                                                      p0=[1, 2 * np.pi / period, 0])
-
-                df['fit'] = sine_model[0][0] * np.sin(sine_model[0][1] * df.index.values + sine_model[0][2])
-
-                # ④ 반복 추세 제거
-                df['residual'] = df['detrended'] - df['fit']
-
-                # ⑤ 반복 추세가 제거된 차등반사도
-                df['corrected'] = df['linear_trend'] + df['residual']
-
-                return df
-
-            # 이 코드에서 'data'는 차등반사도 데이터이며, window는 이동평균 창의 크기입니다.
-            # period는 주기적인 성분의 주기입니다.
-
-            # 사용 예시
-            column_name = 'column_name'  # 해당하는 열 이름
-            period = 10  # 주기 성분
-            df = pd.DataFrame(zdr)  # 차등반사도 데이터가 있는 DataFrame
-            corrected_df = remove_linear_trend(df, column_name)
-
-            # 결과를 그래프로 표시
-            plt.figure(figsize=(12, 8))
-            plt.subplot(211)
-            plt.plot(data, label='Original')
-            plt.plot(trend, label='Trend')
+            plt.plot(fazm, residual)
             plt.legend()
+            plt.savefig('3.png', dpi=600, bbox_inches='tight', transparent=False)
+            plt.close()
+            #plt.show()
 
-            plt.subplot(212)
-            plt.plot(detrended, label='Detrended')
-            plt.plot(fit_data, label='Fit')
-            plt.plot(residual, label='Residual')
+
+            plt.plot(fazm, final_diff_reflectivity)
             plt.legend()
-
-            plt.show()
-
-
-
+            plt.savefig('4.png', dpi=600, bbox_inches='tight', transparent=False)
+            plt.close()
+            #plt.show()
 
 
-            # 테스트
+            # plt.plot(zdr)
+            # plt.plot(mean_zdr)
+            # plt.plot(residual)
+            # plt.plot(final_diff_reflectivity)
+            # plt.plot(fazm)
+            # plt.show()
 
-            # 가상의 데이터 생성
+            # plt.plot(zdr[2])
+            # plt.show()
+
+
+            # # 방위각 데이터
+            # fazm = dict['arr_azm_rng_elv'][0]
+
+            # # 초기 차등반사도 데이터를 거리 방향으로 평균
+            # mean_zdr = np.mean(zdr, axis=1)
+
+            # # Define the window size for the moving average
+            # window_size = 10  # Adjust this value based on your data
+
+            # # 이동 평균
+            # moving_avg = np.convolve(mean_zdr, np.ones(window_size) / window_size, mode='valid')
+
+            # # Subtract the moving average from the original data to remove the linear trend
+            # detrended_diff_refl = mean_zdr[window_size - 1:] - moving_avg
+
+            # plt.figure(figsize=(10, 5))
+            # plt.plot(detrended_diff_refl)
+            # plt.title('Detrended Differential Reflectivity Change in Azimuth Direction')
+            # plt.xlabel('Azimuth Angle')
+            # plt.ylabel('Detrended Average Differential Reflectivity')
+            # plt.show()
+
+
+            # # Define a threshold for anomaly detection
+            # threshold = 0.2  # Adjust this value based on your data
+
+            # # Identify where the absolute value of the detrended data exceeds the threshold
+            # anomalies = np.abs(detrended_diff_refl) > threshold
+
+            # # Print the azimuth angles where anomalies were detected
+            # anomaly_angles = np.where(anomalies)[0]
+            # print(f"Anomalies detected at azimuth angles: {anomaly_angles}")
+
+
+
+            # # 방위각 방향으로 변동 관찰
+            # azimuth_change = np.diff(mean_zdr)
+
+            # # 차등반사도 변동의 주기성을 찾기 위해 peaks 찾기
+            # peaks, _ = find_peaks(azimuth_change)
+
+            # # 변동 주기성 시각화
+            # plt.figure(figsize=(10, 6))
+            # plt.plot(azimuth_change, label="Azimuth Change")
+            # plt.plot(peaks, azimuth_change[peaks], "x", label="Peaks")
+            # plt.title("Periodicity in Differential Reflectivity Change")
+            # plt.legend()
+            # plt.show()
+
+            # #import numpy as np
+            # #import matplotlib.pyplot as plt
+            # #from scipy.signal import detrend
+
+            # #def remove_linear_trend(df, column_name):
+            # #    # ① 선형 추세 산정
+            # #    df['linear_trend'] = df[column_name].rolling(window=period).mean()
+
+            # #    # ② 선형 추세 제거
+            # #    df['detrended'] = df[column_name] - df['linear_trend']
+
+            # #    # ③ 주기 함수 적합
+            # #    sine_model = scipy.optimize.curve_fit(lambda t, a, b, c: a * np.sin(b * t + c),
+            # #                                          df.index.values,
+            # #                                          df['detrended'].values,
+            # #                                          p0=[1, 2 * np.pi / period, 0])
+
+            # #    df['fit'] = sine_model[0][0] * np.sin(sine_model[0][1] * df.index.values + sine_model[0][2])
+
+            # #    # ④ 반복 추세 제거
+            # #    df['residual'] = df['detrended'] - df['fit']
+
+            # #    # ⑤ 반복 추세가 제거된 차등반사도
+            # #    df['corrected'] = df['linear_trend'] + df['residual']
+
+            # #    return df
+
+            # ## 이 코드에서 'data'는 차등반사도 데이터이며, window는 이동평균 창의 크기입니다.
+            # # period는 주기적인 성분의 주기입니다.
+
+            # # 사용 예시
+            # column_name = 'column_name'  # 해당하는 열 이름
+            # period = 10  # 주기 성분
+            # df = pd.DataFrame(zdr)  # 차등반사도 데이터가 있는 DataFrame
+            # corrected_df = remove_linear_trend(df, column_name)
+
+            # # 결과를 그래프로 표시
+            # plt.figure(figsize=(12, 8))
+            # plt.subplot(211)
+            # plt.plot(data, label='Original')
+            # plt.plot(trend, label='Trend')
+            # plt.legend()
+
+            # plt.subplot(212)
+            # plt.plot(detrended, label='Detrended')
+            # plt.plot(fit_data, label='Fit')
+            # plt.plot(residual, label='Residual')
+            # plt.legend()
+
+            # plt.show()
+
+
+            #**************************************************************************************
+            # 가상 데이터를 통해 테스트
+            #**************************************************************************************
             # np.random.seed(0)
             # data = np.random.normal(0, 0.1, 360) + np.sin(np.linspace(0, 2. * np.pi, 360))  # 반사도 변화 모니터링 데이터
             # data_df = pd.DataFrame(data, columns=['Reflectivity'])
@@ -654,390 +675,125 @@ class DtaProcess(object):
 
 
 
-
-
-            # RdrNamA = ['BSL', 'SBS']
-            # datDRA = [r'\Data303\']
-            #           drvLet = 'j'
-            # srtEA = 3
-            # endEA = srtEA
-            # vnamB = ['ZDR', 'PDP', 'PHV', 'REF']
-            #
-            # for datDR in datDRA:
-            #     for
-            # RdrNam in RdrNamA:
-            # # Filter parameters
-            # refFlt = 'no'
-            # refThz = 0
-            # phvFlt = 'no'
-            # phvThz = 0.95
-            # appPDPelim = 'no'
-            # pdpThz = 15
-            # ntex = 7
-            # mtex = 7
-            # spwFlt = 'no'
-            # spwThz = 0.1
-            # pco = 0.9925
-            #
-            # # Directories
-            # frDir = drvLet + datDR + RdrNam + '_OUT\\'
-            # fwDir = drvLet + datDR + RdrNam + '_OUT_COR_EA' + str(srtEA) + '\\'
-            #
-            # # Make directory if it doesn't exist
-            # if not os.path.exists(fwDir):
-            #     os.mkdir(fwDir)
-            #
-            # # File list
-            # flist = [f for f in os.listdir(frDir) if f.endswith('.mat')]
-            # nflst = len(flist)
-            #
-            # # Loop through all files
-            # for j, fname in enumerate(flist):
-            #     print(f"Processing file {j + 1} of {nflst}")
-            #
-            # # Load data
-            # a = loadmat(frDir + fname)
-
-
-
-            # sio.savemat(str(sfmat), mdict=dict_to_save, do_compression=True)
-
-
-
-
-
-
-
-
-
-
-
-            #  data = xr.Dataset()
-            # for i, fileInfo in enumerate(fileList):
-            #     if fileInfo == '/DATA/INPUT/LSH0429/ACCESS-CM2 historical_195001-201412_pr.nc': continue
-            #     log.info(f'[CHECK] fileInfo : {fileInfo}')
-            #     # selData = xr.open_dataset(fileInfo).sel(time=slice(sysOpt['srtDate'], sysOpt['endDate']))
-            #     selData = xr.open_mfdataset(fileInfo).sel(time=slice(sysOpt['srtDate'], sysOpt['endDate']))
-            #
-            #     # 날짜 변환 (연-월을 기준)
-            #     selData['time'] = pd.to_datetime(pd.to_datetime(selData['time'].values).strftime("%Y-%m"), format='%Y-%m')
-            #     data = xr.merge([data, selData])
-
-            # data['hurs'].isel(time = 0).plot()
-            # data['rsds'].isel(time = 0).plot()
-            # data['sfcWind'].isel(time = 0).plot()
-            # data['tas'].isel(time = 0).plot()
-            # data['tasmax'].isel(time = 0).plot()
-            # data['tasmin'].isel(time = 0).plot()
-            # data['pr'].isel(time = 0).plot()
-            # plt.show()
-
-            # # CPU 활용
-            # os.environ["CUDA_VISIBLE_DEVICES"] = "-1"
-            # os.environ['TF_CPP_MIN_LOG_LEVEL'] = '3'
-            #
-            # time = data['time']
-            # latitude = data['lat']
-            # longitude = data['lon']
-            # independent_var1 = data['tas']
-            # independent_var2 = data['tasmax']
-            # independent_var3 = data['tasmin']
-            # dependent_var = data['pr']
-            #
-            # # 재구성 (시간, 위도, 경도, 변수)
-            # independent_var1 = np.reshape(independent_var1.values, (len(time), len(latitude), len(longitude), 1))
-            # independent_var2 = np.reshape(independent_var2.values, (len(time), len(latitude), len(longitude), 1))
-            # independent_var3 = np.reshape(independent_var3.values, (len(time), len(latitude), len(longitude), 1))
-            # dependent_var = np.reshape(dependent_var.values, (len(time), len(latitude), len(longitude), 1))
-            #
-            # # 독립변수 결합
-            # input_data = np.concatenate((independent_var1, independent_var2, independent_var3), axis=-1)
-            #
-            # # 학습 및 검증 데이터 분할
-            # train_size = int(0.8 * len(time))
-            # x_train, x_val = input_data[:train_size], input_data[train_size:]
-            # y_train, y_val = dependent_var[:train_size], dependent_var[train_size:]
-            #
-            # # 배치 차원 추가 (ConvLSTM2D는 5D 입력을 요구함)
-            # x_train = np.expand_dims(x_train, axis=0)
-            # x_val = np.expand_dims(x_val, axis=0)
-            # y_train = np.expand_dims(y_train, axis=0)
-            # y_val = np.expand_dims(y_val, axis=0)
-            #
-            # # ConvLSTM 모델 정의
-            # # model = Sequential([
-            # #     ConvLSTM2D(filters=64, kernel_size=(3, 3), padding='same', return_sequences=True, input_shape=(None, len(latitude), len(longitude), 3)),
-            # #     BatchNormalization(),
-            # #     ConvLSTM2D(filters=1, kernel_size=(3, 3), padding='same', return_sequences=True),
-            # # ])
-            # model = Sequential([
-            #     ConvLSTM2D(filters=32, kernel_size=(3, 3), padding='same', return_sequences=True, input_shape=(None, len(latitude), len(longitude), 3)),
-            #     BatchNormalization(),
-            #     ConvLSTM2D(filters=1, kernel_size=(3, 3), padding='same', return_sequences=True),
-            # ])
-            #
-            # # 모델 컴파일
-            # model.compile(loss='mse', optimizer='adam')
-            #
-            # # 모델 학습
-            # # history = model.fit(x_train, y_train, epochs=1, validation_data=(x_val, y_val))
-            # # history = model.fit(x_train, y_train, epochs=1, validation_data=(x_val, y_val), batch_size=32)
-            #
-            # train_dataset = tf.data.Dataset.from_tensor_slices((x_train, y_train)).batch(2)
-            # val_dataset = tf.data.Dataset.from_tensor_slices((x_val, y_val)).batch(2)
-            #
-            # history = model.fit(train_dataset, epochs=1, validation_data=val_dataset)
-            # print('asdfasdf')
-
-            # import xarray as xr
-            # import numpy as np
-
-            # xarray 데이터 로드
-            # # 시간, 위도, 경도에 따른 독립변수와 종속변수 선택
-            # independent_var1 = data['tas'].values
-            # independent_var2 = data['tasmax'].values
-            # independent_var3 = data['tasmin'].values
-            # dependent_var = data['pr'].values  # 예를 들어 강수량 데이터
-            #
-            # # 데이터셋 준비
-            # X = np.stack((independent_var1, independent_var2, independent_var3), axis=-1)
-            # Y = dependent_var
-            #
-            # # 데이터셋 차원 변경 (샘플, 타임스텝, 행, 열, 채널)
-            # X = X.reshape((X.shape[0], 1, X.shape[1], X.shape[2], X.shape[3]))
-            # Y = Y.reshape((Y.shape[0], 1, Y.shape[1], Y.shape[2], 1))
-            #
-            # # ConvLSTM 모델 정의
-            # model = tf.keras.models.Sequential([
-            #     tf.keras.layers.ConvLSTM2D(filters=64, kernel_size=(3, 3), padding='same', return_sequences=True,
-            #                                input_shape=(None, X.shape[2], X.shape[3], X.shape[4])),
-            #     tf.keras.layers.BatchNormalization(),
-            #     tf.keras.layers.ConvLSTM2D(filters=64, kernel_size=(3, 3), padding='same', return_sequences=True),
-            #     tf.keras.layers.BatchNormalization(),
-            #     tf.keras.layers.Conv3D(filters=1, kernel_size=(3, 3, 3), activation='sigmoid', padding='same', data_format='channels_last')
-            # ])
-            #
-            # # 모델 컴파일
-            # model.compile(loss='mae', optimizer='adam')
-            #
-            # # 모델 학습
-            # model.fit(X, Y, batch_size=100, epochs=10)
-
-
-            # 독립변수는 GPCC 입니다!
-            # 종속변수는 ACCESS 데이터인데
-            # 1950.01~2014.12  7:3
-            # 아무래도 시계열이다보니까 RNN으로해야될거같습니다!
-
-
-            # data = xr.open_mfdataset(fileList)
-            # data = xr.open_dataset(fileList[0])
-            # data = xr.open_dataset(fileList[7])
-
-
-
-            # Dimensions:  (time: 780, lat: 300, lon: 720)
-            # Coordinates:
-            #   * lat      (lat) float64 -60.0 -59.5 -59.0 -58.5 -58.0 ... 88.0 88.5 89.0 89.5
-            #   * lon      (lon) float64 0.0 0.5 1.0 1.5 2.0 ... 357.5 358.0 358.5 359.0 359.5
-            #   * time     (time) datetime64[ns] 1950-01-01 1950-02-01 ... 2014-12-01
-
-            # Dimensions:  (lat: 360, lon: 720, time: 1980)
-            # Coordinates:
-            #   * lat      (lat) float64 -90.0 -89.5 -89.0 -88.5 -88.0 ... 88.0 88.5 89.0 89.5
-            #   * lon      (lon) float64 0.0 0.5 1.0 1.5 2.0 ... 357.5 358.0 358.5 359.0 359.5
-            #   * time     (time) datetime64[ns] 1850-01-16T12:00:00 ... 2014-12-16T12:00:00
-            # Data variables:
-            #     hurs     (time, lat, lon) float64 dask.array<chunksize=(1980, 360, 720), meta=np.ndarray>
-            #     pr       (time, lat, lon) float64 dask.array<chunksize=(1980, 360, 720), meta=np.ndarray>
-            #     isLand   (time, lat, lon) float64 dask.array<chunksize=(1980, 360, 720), meta=np.ndarray>
-            #     rsds     (time, lat, lon) float64 dask.array<chunksize=(1980, 360, 720), meta=np.ndarray>
-            #     sfcWind  (time, lat, lon) float64 dask.array<chunksize=(1980, 360, 720), meta=np.ndarray>
-            #     tas      (time, lat, lon) float64 dask.array<chunksize=(1980, 360, 720), meta=np.ndarray>
-            #     tasmax   (time, lat, lon) float64 dask.array<chunksize=(1980, 360, 720), meta=np.ndarray>
-            #     tasmin   (time, lat, lon) float64 dask.array<chunksize=(1980, 360, 720), meta=np.ndarray>
-
-
-
-
-
-            # data = xr.open_mfdataset(fileList, chunks={'time': 10, 'lat': 10, 'lon': 10}).sel(time=slice(sysOpt['srtDate'], sysOpt['endDate']))
-            # data = xr.open_mfdataset(fileList).sel(time=slice(sysOpt['srtDate'], sysOpt['endDate']))
-            # data = xr.open_mfdataset(fileList)
-
-
-            # **********************************************************************************************************
-            # 피어슨 상관계수 계산
-            # **********************************************************************************************************
-            # for i, typeInfo in enumerate(sysOpt['typeList']):
-            #     for j, keyInfo in enumerate(sysOpt['keyList']):
-            #         log.info(f'[CHECK] typeInfo : {typeInfo} / keyInfo : {keyInfo}')
-            #
-            #         saveFile = '{}/{}/{}/{}_{}_{}.nc'.format(globalVar['outPath'], serviceName, 'CORR', 'corr', typeInfo, keyInfo)
-            #         fileChkList = glob.glob(saveFile)
-            #         if (len(fileChkList) > 0): continue
-            #
-            #         var1 = data[typeInfo]
-            #         var2 = data[keyInfo]
-            #
-            #         cov = ((var1 - var1.mean(dim='time', skipna=True)) * (var2 - var2.mean(dim='time', skipna=True))).mean(dim='time', skipna=True)
-            #         stdVar1 = var1.std(dim='time', skipna=True)
-            #         stdVar2 = var2.std(dim='time', skipna=True)
-            #         peaCorr = cov / (stdVar1 * stdVar2)
-            #         peaCorr = peaCorr.rename(f'{typeInfo}_{keyInfo}')
-            #
-            #         saveImg = '{}/{}/{}/{}_{}_{}.png'.format(globalVar['figPath'], serviceName, 'CORR', 'corr', typeInfo, keyInfo)
-            #         os.makedirs(os.path.dirname(saveImg), exist_ok=True)
-            #         peaCorr.plot(vmin=-1.0, vmax=1.0)
-            #         plt.savefig(saveImg, dpi=600, bbox_inches='tight', transparent=True)
-            #         plt.tight_layout()
-            #         # plt.show()
-            #         # plt.close()
-            #         log.info(f'[CHECK] saveImg : {saveImg}')
-            #
-            #         os.makedirs(os.path.dirname(saveFile), exist_ok=True)
-            #         peaCorr.to_netcdf(saveFile)
-            #         log.info(f'[CHECK] saveFile : {saveFile}')
-            #
-            #         # 데이터셋 닫기 및 메모리에서 제거
-            #         var1.close(), var2.close(), cov.close(), stdVar1.close(), stdVar2.close(), peaCorr.close()
-            #         del var1, var2, cov, stdVar1, stdVar2, peaCorr
-            #
-            #         # 가비지 수집기 강제 실행
-            #         # gc.collect()
-
-            # **********************************************************************************************************
-            # 온실가스 배출량 계산
-            # **********************************************************************************************************
-            # for i, keyInfo in enumerate(sysOpt['keyList']):
-            #     log.info(f'[CHECK] keyInfo : {keyInfo}')
-            #
-            #     var = data[keyInfo]
-            #
-            #     meanData = var.mean(dim=('time'), skipna=True)
-            #     # meanData = meanData.where(meanData > 0)
-            #     meanData = meanData.where(meanData != 0)
-            #
-            #     meanDataL1 = np.log10(meanData)
-            #
-            #     saveImg = '{}/{}/{}/{}.png'.format(globalVar['figPath'], serviceName, 'EMI', keyInfo)
-            #     os.makedirs(os.path.dirname(saveImg), exist_ok=True)
-            #     meanDataL1.plot()
-            #     plt.savefig(saveImg, dpi=600, bbox_inches='tight', transparent=True)
-            #     plt.tight_layout()
-            #     # plt.show()
-            #     plt.close()
-            #     log.info(f'[CHECK] saveImg : {saveImg}')
-            #
-            #     saveFile = '{}/{}/{}/{}.nc'.format(globalVar['outPath'], serviceName, 'EMI', keyInfo)
-            #     os.makedirs(os.path.dirname(saveFile), exist_ok=True)
-            #     meanDataL1.to_netcdf(saveFile)
-            #     log.info(f'[CHECK] saveFile : {saveFile}')
-
-            # **********************************************************************************************************
-            # Mann-Kendall 계산
-            # **********************************************************************************************************
-            # for i, keyInfo in enumerate(sysOpt['keyList']):
-            #     log.info(f'[CHECK] keyInfo : {keyInfo}')
-            #
-            #     var = data[keyInfo]
-            #
-            #     client = Client(n_workers=os.cpu_count(), threads_per_worker=os.cpu_count())
-            #     dask.config.set(scheduler='processes')
-            #
-            #     mannKendall = xr.apply_ufunc(
-            #         calcMannKendall,
-            #         var,
-            #         input_core_dims=[['time']],
-            #         output_core_dims=[[]],
-            #         vectorize=True,
-            #         dask='parallelized',
-            #         output_dtypes=[np.float64],
-            #         dask_gufunc_kwargs={'allow_rechunk': True}
-            #     ).compute()
-            #
-            #     saveImg = '{}/{}/{}/{}_{}.png'.format(globalVar['figPath'], serviceName, 'MANN', 'mann', keyInfo)
-            #     os.makedirs(os.path.dirname(saveImg), exist_ok=True)
-            #     mannKendall.plot(vmin=-1.0, vmax=1.0)
-            #     plt.savefig(saveImg, dpi=600, bbox_inches='tight', transparent=True)
-            #     plt.tight_layout()
-            #     # plt.show()
-            #     plt.close()
-            #     log.info(f'[CHECK] saveImg : {saveImg}')
-            #
-            #     saveFile = '{}/{}/{}/{}_{}.nc'.format(globalVar['outPath'], serviceName, 'MANN', 'mann', keyInfo)
-            #     os.makedirs(os.path.dirname(saveFile), exist_ok=True)
-            #     mannKendall.to_netcdf(saveFile)
-            #     log.info(f'[CHECK] saveFile : {saveFile}')
-            #
-            #     client.close()
-
-            # **********************************************************************************************************
-            # Mann Kendall 상자 그림
-            # **********************************************************************************************************
-            # inpFile = '{}/{}/{}/{}.nc'.format(globalVar['outPath'], serviceName, 'MANN', '*')
-            # fileList = sorted(glob.glob(inpFile))
-            #
-            # if fileList is None or len(fileList) < 1:
-            #     log.error('[ERROR] inpFile : {} / {}'.format(inpFile, '입력 자료를 확인해주세요.'))
-            #
-            # data = xr.open_mfdataset(fileList)
-            # dataL1 = data.to_dataframe().reset_index(drop=True)
-            # dataL1.columns = dataL1.columns.str.replace('emi_', '')
-            #
-            # dataL2 = pd.melt(dataL1, id_vars=[], var_name='key', value_name='val')
-            #
-            # mainTitle = '{}'.format('EDGAR Mann-Kendall Trend (2001~2018)')
-            # saveImg = '{}/{}/{}.png'.format(globalVar['figPath'], serviceName, mainTitle)
-            # os.makedirs(os.path.dirname(saveImg), exist_ok=True)
-            #
-            # sns.set_style("whitegrid")
-            # sns.set_palette(sns.color_palette("husl", len(dataL1.columns)))
-            # sns.boxplot(x='key', y='val', data=dataL2, dodge=False, hue='key')
-            # plt.xlabel(None)
-            # plt.ylabel('Mann-Kendall Trend')
-            # plt.title(mainTitle)
-            # plt.legend(loc='upper center', bbox_to_anchor=(0.5, -0.2), ncol=4, title=None)
-            # plt.savefig(saveImg, dpi=600, bbox_inches='tight', transparent=True)
-            # plt.tight_layout()
-            # plt.show()
-            # plt.close()
-            # log.info(f'[CHECK] saveImg : {saveImg}')
-
-            # **********************************************************************************************************
-            # typeList에 따른 상자 그림
-            # **********************************************************************************************************
-            # for i, typeInfo in enumerate(sysOpt['typeList']):
-            #     log.info(f'[CHECK] typeInfo : {typeInfo}')
-            #
-            #     inpFile = '{}/{}/{}/*{}*.nc'.format(globalVar['outPath'], serviceName, 'CORR', typeInfo)
-            #     fileList = sorted(glob.glob(inpFile))
-            #
-            #     if fileList is None or len(fileList) < 1:
-            #         log.error('[ERROR] inpFile : {} / {}'.format(inpFile, '입력 자료를 확인해주세요.'))
-            #
-            #     data = xr.open_mfdataset(fileList)
-            #     dataL1 = data.to_dataframe().reset_index(drop=True)
-            #     dataL1.columns = dataL1.columns.str.replace(f'{typeInfo}-emi_', '')
-            #
-            #     dataL2 = pd.melt(dataL1, id_vars=[], var_name='key', value_name='val')
-            #
-            #     mainTitle = f'EDGAR Pearson-Corr {typeInfo} (2001~2018)'
-            #     saveImg = '{}/{}/{}.png'.format(globalVar['figPath'], serviceName, mainTitle)
-            #     os.makedirs(os.path.dirname(saveImg), exist_ok=True)
-            #
-            #     sns.set_style("whitegrid")
-            #     sns.set_palette(sns.color_palette("husl", len(dataL1.columns)))
-            #     sns.boxplot(x='key', y='val', data=dataL2, dodge=False, hue='key')
-            #     plt.xlabel(None)
-            #     plt.ylabel('Pearson-Corr')
-            #     plt.title(mainTitle)
-            #     plt.legend(loc='upper center', bbox_to_anchor=(0.5, -0.2), ncol=4, title=None)
-            #     plt.savefig(saveImg, dpi=600, bbox_inches='tight', transparent=True)
-            #     plt.tight_layout()
-            #     # plt.show()
-            #     # plt.close()
-            #     log.info(f'[CHECK] saveImg : {saveImg}')
+            #**************************************************************************************
+            # Matlab에서 단순 변환
+            #**************************************************************************************
+#            RdrNamA = ['BSL', 'SBS']
+#            datDRA = [':\\Data303\\']
+#            drvLet = 'j'
+#            
+#            for datDR in datDRA:
+#                for RdrNam in RdrNamA:
+#                    refFlt = 'no'
+#                    refThz = 0
+#                    phvFlt = 'no'
+#                    phvThz = 0.95
+#                    appPDPelim = 'no'
+#                    pdpThz = 15
+#                    ntex = 7
+#                    mtex = 7
+#                    spwFlt = 'no'
+#                    spwThz = 0.1
+#                    vnamB = ['ZDR', 'PDP', 'PHV', 'REF']
+#                    pco = 0.9925
+#                    srtEA = 3
+#                    endEA = srtEA
+#                    frDir = os.path.join(drvLet + datDR + RdrNam + '_OUT\\')
+#                    fwDir = os.path.join(drvLet + datDR + RdrNam + '_OUT_COR_EA' + str(srtEA) + '\\')
+#            
+#                    if not os.path.isdir(fwDir):
+#                        os.makedirs(fwDir)
+#            
+#                    flist = [f for f in os.listdir(frDir) if f.endswith('.mat')]
+#                    nflst = len(flist)
+#            
+#                    for j in range(nflst):
+#                        print(f'file no= {j+1}')
+#            
+#                        fname = flist[j]
+#                        a = loadmat(os.path.join(frDir, fname))
+#            
+#                        azm_r = a['arr_azm_rng_elv'][0].T
+#                        rng_r = a['arr_azm_rng_elv'][1].T
+#                        elv_r = a['arr_azm_rng_elv'][2].T
+#            
+#                        Tang = a['fix_ang']
+#                        Tang[Tang > 180] -= 360
+#            
+#                        # code continues...
+#                            if datDR == ':\\Data190\\' or datDR == ':\\Data191\\':
+#                    didxs = a['arr_etc'][4].astype(int)
+#                    didxe = a['arr_etc'][5].astype(int)
+#                else:
+#                    didxs = a['arr_etc'][2].astype(int)
+#                    didxe = a['arr_etc'][3].astype(int)
+#                
+#                didxs += 1  # set '0' to '1'
+#                didxe += 1
+#                didX2 = [didxs, didxe]
+#            
+#                Fang = elv_r[didxs - 1].T
+#            
+#                if a['arr_prt_prm_vel'][0][0] == a['arr_prt_prm_vel'][0][-1]:
+#                    Tprf = 'sing'
+#                else:
+#                    Tprf = 'dual'
+#                
+#                print(Fang)
+#                bw = a['arr_lat_lon_alt_bwh'][3]  
+#            
+#                for ip, vnam_b in enumerate(vnamB):
+#                    vnam_b = vnam_b.lower()
+#            
+#                    for i in range(srtEA - 1, endEA):
+#                        Arng = list(range(didxs[i] - 1, didxe[i]))
+#            
+#                        # Assuming getVarInfo191013 is a user-defined function
+#                        rVar_b, rVarI_b = getVarInfo191013(a, vnam_b)
+#                        rVarI_bA[ip] = rVarI_b
+#            
+#                        rVarf_R = a['arr_ref'].T  # REF
+#                        rVarc_R = a['arr_phv'].T  # PHV
+#                        rVarp_R = a['arr_pdp'].T  # PDP
+#            
+#                        rVar_bT = rVar_b[:, Arng]  # PDP
+#            
+#                        rVarf = rVarf_R[:, Arng]
+#                        rVarc = rVarc_R[:, Arng]
+#                        rVarp = rVarp_R[:, Arng]
+#            
+#                        # Assuming prepcss_new is a user-defined function
+#                        rVarT_b, vidx_b = prepcss_new(refFlt, phvFlt, appPDPelim, refThz, phvThz, pdpThz, ntex, mtex, rVarf, rVarc, rVarp, rVar_bT)
+#            
+#                        rVarT_bt = rVarT_b  # PDP
+#            
+#                        if vnam_b == 'zdr':
+#                            rVarT_bt[(rVarT_bt < -10) | (rVarT_bt > 10)] = np.nan
+#                        elif vnam_b == 'pdp':
+#                            rVarT_bt[(rVarT_bt < -300) | (rVarT_bt > 300)] = np.nan
+#                        elif vnam_b == 'phv':
+#                            rVarT_bt[(rVarT_bt < 0) | (rVarT_bt > 1)] = np.nan
+#                        elif vnam_b == 'ref':
+#                            rVarT_bt[(rVarT_bt < -100) | (rVarT_bt > 100)] = np.nan
+#            
+#                        mrVarT_bt = np.nanmean(rVarT_bt)
+#                        mrVarT_bt = np.convolve(mrVarT_bt, np.ones(3), 'valid') / 3  # moving average
+#                        ta = np.full(360, np.nan)
+#                        ta[:len(mrVarT_bt)] = mrVarT_bt
+#                        mrVarT_btA[ip, j, :] = ta
+#            
+#                        # Assuming dspCycl is a user-defined function
+#                        if vnam_b in ['zdr', 'pdp']:
+#                            dspCycl(fwDir, vnam_b, None, ta, 'fix', 'each', j, rVarI_bA[ip])
+#            
+#                toc = time.time()  # assuming you started a timer at the beginning of your script
+#            
+#            for ipi in range(len(vnamB)):
+#                vnam_b = vnamB[ipi].lower()
+#                mrVarT_btAs = np.squeeze(mrVarT_btA[ipi, :, :])
+#            
+#                # Assuming dspCycl is a user-defined function
+#                dspCycl(fwDir, vnam_b, mrVarT_btA, mrVarT_btAs, 'fix', 'total', None, rVarI_bA[ipi])
 
         except Exception as e:
             log.error("Exception : {}".format(e))
