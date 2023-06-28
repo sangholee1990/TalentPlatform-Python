@@ -281,6 +281,23 @@ class DtaProcess(object):
                 globalVar['outPath'] = '/DATA/OUTPUT'
                 globalVar['figPath'] = '/DATA/FIG'
 
+            # ********************************************************************
+            # 대륙별 분류 전처리
+            # ********************************************************************
+            inpFile = '{}/{}/{}'.format(globalVar['inpPath'], serviceName, 'detailCont.csv')
+            fileList = glob.glob(inpFile)
+            if fileList is None or len(fileList) < 1:
+                log.error('[ERROR] inpFile : {} / {}'.format(fileList, '입력 자료를 확인해주세요.'))
+                raise Exception('[ERROR] inpFile : {} / {}'.format(fileList, '입력 자료를 확인해주세요.'))
+
+            contData = pd.read_csv(fileList[0]).rename(columns={'type': 'idx'})
+            contDataL1 = contData[['lon', 'lat', 'isLand', 'idx']]
+            contDataL2 = contDataL1.set_index(['lat', 'lon'])
+            contDataL3 = contDataL2.to_xarray()
+
+            # ********************************************************************
+            # 가뭄 전처리
+            # ********************************************************************
             for i, keyInfo in enumerate(sysOpt['keyList']):
                 log.info(f"[CHECK] keyInfo : {keyInfo}")
 
@@ -307,7 +324,8 @@ class DtaProcess(object):
                     dataL1 = data.where(data <= sysOpt['extDrgVal']).count(dim='time')
                     dataL1 = dataL1.where(dataL1 != 0)
 
-                    dataL2 = dataL1
+                    # dataL2 = dataL1
+                    dataL2 = xr.merge([dataL1, contDataL3])
 
                     for k, varInfo in enumerate(dataL2.data_vars.keys()):
                         # log.info(f'[CHECK] varInfo : {varInfo}')
@@ -408,6 +426,8 @@ class DtaProcess(object):
                                 , 'type': [drgCond]
                             }
                         )
+
+                        dataL2 = xr.merge([dataL2, contDataL3])
 
                         # 각 변수마다 시각화
                         for k, varInfo in enumerate(dataL2.data_vars.keys()):

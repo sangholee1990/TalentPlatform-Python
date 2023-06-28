@@ -286,6 +286,23 @@ class DtaProcess(object):
                 globalVar['outPath'] = '/DATA/OUTPUT'
                 globalVar['figPath'] = '/DATA/FIG'
 
+            # ********************************************************************
+            # 대륙별 분류 전처리
+            # ********************************************************************
+            inpFile = '{}/{}/{}'.format(globalVar['inpPath'], serviceName, 'detailCont.csv')
+            fileList = glob.glob(inpFile)
+            if fileList is None or len(fileList) < 1:
+                log.error('[ERROR] inpFile : {} / {}'.format(fileList, '입력 자료를 확인해주세요.'))
+                raise Exception('[ERROR] inpFile : {} / {}'.format(fileList, '입력 자료를 확인해주세요.'))
+
+            contData = pd.read_csv(fileList[0]).rename(columns={'type': 'idx'})
+            contDataL1 = contData[['lon', 'lat', 'isLand', 'idx']]
+            contDataL2 = contDataL1.set_index(['lat', 'lon'])
+            contDataL3 = contDataL2.to_xarray()
+
+            # ********************************************************************
+            # 가뭄 전처리
+            # ********************************************************************
             drgCondNumList = {}
             for i, key in enumerate(sysOpt['drgCondList']):
                 drgCondNumList[key] = i + 1
@@ -322,9 +339,9 @@ class DtaProcess(object):
 
                         # 위경도에 따른 최소값
                         dataL2 = dataL1.min(dim='time', skipna=True)
-
                         dataL2['drgCond'] = getDrgCond(dataL2, sysOpt)
                         dataL2['drgCondNum'] = getDrgCondToNum(drgCondNumList, dataL2['drgCond'])
+                        dataL2 = xr.merge([dataL2, contDataL3])
 
                         # 시각화
                         saveImg = '{}/{}/{}_{}_{}.png'.format(globalVar['figPath'], serviceName, keyInfo, dateInfo, varInfo, 'cate')
