@@ -397,21 +397,22 @@ class DtaProcess(object):
             dataL2['OFF_RAT'] = dataL2.groupby('GID')['OFF_CNT'].pct_change()
 
             # 해당 컬럼에서 NA 시 제거
+            dataL2 = dataL2.drop(['index'], axis=1)
             dataL2 = dataL2.dropna(subset=['SIDO', 'SIGUNGU']).reset_index(drop=True)
 
             colList = ['GID', 'SIDO', 'SIGUNGU', 'YEAR', 'COR_CNT', 'OFF_CNT', 'COR_RAT', 'OFF_RAT', 'LAT', 'LON']
             dbData = dataL2[colList]
             dbData['REG_DATE'] = datetime.now(pytz.timezone('Asia/Seoul'))
 
-            try:
-                dbData.to_sql(name=tbPopInfo.name, con=dbEngine, if_exists='append', index=False)
-                session.commit()
-            except SQLAlchemyError as e:
-                session.rollback()
-                log.error(f'Exception : {e}')
+            # try:
+            #     dbData.to_sql(name=tbPopInfo.name, con=dbEngine, if_exists='append', index=False)
+            #     session.commit()
+            # except SQLAlchemyError as e:
+            #     session.rollback()
+            #     log.error(f'Exception : {e}')
 
             # 기본정보 가공
-            typeList = set(dataL2['SIDO'])
+            typeList = sorted(set(dataL2['SIDO']))
             for i, typeInfo in enumerate(typeList):
                 log.info(f'[CHECK] typeInfo : {typeInfo}')
 
@@ -430,12 +431,12 @@ class DtaProcess(object):
                 )
                 dbData['REG_DATE'] = datetime.now(pytz.timezone('Asia/Seoul'))
 
-                try:
-                    dbData.to_sql(name=tbPopDown.name, con=dbEngine, if_exists='append', index=False)
-                    session.commit()
-                except SQLAlchemyError as e:
-                    session.rollback()
-                    log.error(f'Exception : {e}')
+                # try:
+                #     dbData.to_sql(name=tbPopDown.name, con=dbEngine, if_exists='append', index=False)
+                #     session.commit()
+                # except SQLAlchemyError as e:
+                #     session.rollback()
+                #     log.error(f'Exception : {e}')
 
         except Exception as e:
             log.error("Exception : {}".format(e))

@@ -252,7 +252,7 @@ def firmwareToDict(firmware):
         "PORT": firmware.PORT,
         "BIN": firmware.BIN,
         "REG_DATE": firmware.REG_DATE.strftime("%Y-%m-%d %H:%M:%S"),  # Assuming REG_DATE is a datetime
-        "DOWN_LINK": f"{getPubliIp()}:9998/firm/down/?file={firmware.BIN}"
+        "DOWN_LINK": f"http://{sysOpt['updIp']}:9998/firm/down/?file={firmware.BIN}"
     }
 
 
@@ -525,7 +525,7 @@ configKey = 'mysql-clova-dms02user01'
 dbUser = config.get(configKey, 'user')
 dbPwd = quote_plus(config.get(configKey, 'pwd'))
 dbHost = config.get(configKey, 'host')
-dbHost = 'localhost' if dbHost == getPubliIp() else dbHost
+dbHost = 'localhost' if dbHost == sysOpt['updIp'] else dbHost
 dbPort = config.get(configKey, 'port')
 dbName = config.get(configKey, 'dbName')
 
@@ -539,6 +539,10 @@ SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
 sysOpt = {
     # 상위 비율
     'topPerInfo': 20
+
+   # 업로드 아이피 및 포트
+   , 'updIp': '223.130.134.136'
+   , 'updPort': '9000'
 }
 
 # 전역 설정
@@ -731,8 +735,8 @@ async def file_upload(
             raise Exception("이미지 또는 파일 저장을 실패하였습니다.")
 
         resData = {
-            'downFile': f"http://{getPubliIp()}:9000/UPLOAD/{dtDateTime.strftime('%Y%m/%d/%H%M')}/{fileNameNoExt}.csv"
-            , 'downImg': f"http://{getPubliIp()}:9000/UPLOAD/{dtDateTime.strftime('%Y%m/%d/%H%M')}/{fileNameNoExt}.png"
+            'downFile': f"http://{sysOpt['updIp']}:{sysOpt['updPort']}/UPLOAD/{dtDateTime.strftime('%Y%m/%d/%H%M')}/{fileNameNoExt}.csv"
+            , 'downImg': f"http://{sysOpt['updIp']}:{sysOpt['updPort']}/UPLOAD/{dtDateTime.strftime('%Y%m/%d/%H%M')}/{fileNameNoExt}.png"
         }
 
         return resRespone("succ", 200, "처리 완료", 0, f"{resData}")

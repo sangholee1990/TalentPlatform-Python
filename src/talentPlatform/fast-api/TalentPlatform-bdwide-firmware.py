@@ -63,6 +63,7 @@ import json
 # cd /SYSTEMS/PROG/PYTHON/PyCharm/src/talentPlatform/fast-api
 # conda activate py38
 # uvicorn TalentPlatform-bdwide-firmware:app --reload --host=0.0.0.0 --port=9998
+# nohup uvicorn TalentPlatform-bdwide-firmware:app --reload --host=0.0.0.0 --port=9998 &
 # http://223.130.134.136:9998/docs
 
 # eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzI1NiJ9.eyJ1c2VyX2FjY291bnQiOjI0fQ.pXluG0rOyeoO8xSvAFYCOrkIaYofUkUR3dIijJOT6xg
