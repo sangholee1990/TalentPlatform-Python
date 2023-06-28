@@ -1,14 +1,12 @@
 # -*- coding: utf-8 -*-
 
-import glob
-import sys
 import traceback
 
 from PIL import Image
 
 # 초기 환경변수 정의
-from src.talentPlatform.unitSysHelper.InitConfig import *
-from src.talentPlatform.unitSysHelper.central_limit_theorem import CentralLimitTheorem
+from src.talentPlatform.unitSys.helper.InitConfig import *
+from src.talentPlatform.unitSys.helper.central_limit_theorem import CentralLimitTheorem
 
 
 class DtaProcess(object):

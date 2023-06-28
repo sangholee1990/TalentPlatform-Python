@@ -1,24 +1,10 @@
 # -*- coding: utf-8 -*-
 
-from src.talentPlatform.unitSysHelper.InitConfig import *
-import logging
-import logging.handlers
-import os
-import sys
-import warnings
+from src.talentPlatform.unitSys.helper.InitConfig import *
 import matplotlib.pyplot as plt
-import seaborn as sns
-import matplotlib as mpl
-import glob
-import platform
 import pandas as pd
-from datetime import timedelta, date
-import numpy as np
-from fbprophet import Prophet
-from statsmodels.tsa.arima_model import ARIMA
 # from pyramid.arima import auto_arima
 import pmdarima as pm
-import statsmodels.api as sm
 
 #================================================
 # 요구사항

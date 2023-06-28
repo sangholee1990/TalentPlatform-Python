@@ -1,47 +1,36 @@
 # -*- coding: utf-8 -*-
 
-import logging
-import logging.handlers
-import os
-import sys
 # from plotnine import *
 # from plotnine.data import *
 # from dfply import *
 # import hydroeval
-import dfply
-import matplotlib as mpl
-import matplotlib.pyplot as plt
-import warnings
-from pathlib import Path
-import glob
-import pprint
-import platform
-from datetime import datetime
-import numpy as np
-import pandas as pd
-import seaborn as sns
-from sklearn.model_selection import KFold, GridSearchCV, train_test_split
-from pandas.tseries.offsets import MonthEnd
-from sklearn.preprocessing import MinMaxScaler
 # from keras.layers import LSTM
 # from keras.models import Sequential
 #
 # from keras.layers import Dense
 # import keras.backend as K
 # from keras.callbacks import EarlyStopping
-from multiprocessing import Pool, Process
 import traceback
-import sys
+from urllib.request import urlopen
+from bs4 import BeautifulSoup
+from wordcloud import WordCloud
+from dfply import filter_by, group_by, summarize, ungroup, arrange, n, X
+from nltk.corpus import stopwords
+from nltk.tokenize import word_tokenize
 
 # 초기 환경변수 정의
-from src.talentPlatform.unitSysHelper.InitConfig import *
+from src.talentPlatform.unitSys.helper.InitConfig import *
 
 
 class DtaProcess(object):
     # ================================================
     # 요구사항
     # ================================================
-    # Python을 이용한 GPS 데이터셋 병합 및 전처리
+    # Python을 이용한 웹 크롤링 및 워드 클라우드 시각화
+
+    # 제출할 내용 :
+    # 파이썬 코드 파일
+    # 단어 구름 시각화를위한 이미지 파일
 
     # ================================================================================================
     # 초기 환경변수 설정
@@ -54,7 +43,8 @@ class DtaProcess(object):
 
     contextPath = os.getcwd() if env in 'local' else 'E:/04. TalentPlatform/Github/TalentPlatform-Python'
     prjName = 'test'
-    serviceName = 'LSH0196'
+    serviceName = 'LSH0009'
+
     log = initLog(env, contextPath, prjName)
     globalVar = initGlobalVar(env, contextPath, prjName)
 
@@ -105,56 +95,88 @@ class DtaProcess(object):
         try:
             log.info('[START] {}'.format("exec"))
 
-            fileInfoPattrn = '{}/{}'.format(globalVar['inpPath'], 'LSH0196_GPS.xlsx')
-            fileInfo = glob.glob(fileInfoPattrn)
+            # breakpoint()
 
-            if (len(fileInfo) < 1):
-                raise Exception("[ERROR] fileInfo : {} : {}".format("입력 자료를 확인해주세요.", fileInfoPattrn))
+            # python -c "import nltk; nltk.download('punkt')"
+            # nltk.download('stopwords')
 
-            #++++++++++++++++++++++++++++++++++++
-            # 엑셀 파일에서 시트 A 읽기
-            # ++++++++++++++++++++++++++++++++++++
-            dataA = pd.read_excel(fileInfo[0], sheet_name = 'A')
-            dataA.columns = ['col1', 'time', 'col2', 'y', 'x']
+            # 1) https://edition.cnn.com/2020/06/02/world/nodosaur-fossil-stomach-contents-scn-trnd/index.html에서 기사 내용을 스크랩하십시오.
+            html = urlopen(
+                "https://edition.cnn.com/2020/06/02/world/nodosaur-fossil-stomach-contents-scn-trnd/index.html")
+            # html = requests.get(url)
+            soup = BeautifulSoup(html, 'html.parser')
 
-            dtTime = pd.to_datetime(dataA['time'], format='%H:%M:%S')
+            section = soup.select('section.zn-body-text')
 
-            sYear = '2021'
-            sMonth = '07'
-            sDay = '29'
-            sHour = dtTime.dt.hour.astype('str')
-            sMinute = dtTime.dt.minute.astype('str')
-            sSec = (dtTime.dt.second.astype('int') + (dataA['col1'] - dataA['col1'].astype(int))).astype('str')
-            sDateTime = sYear + '-' + sMonth + '-' + sDay + ' ' + sHour + ':' + sMinute + ':' + sSec
+            liGetText = []
+            for i in section:
+                getText = i.get_text()
 
-            dataA['dtDateTime'] = pd.to_datetime(sDateTime, format='%Y-%m-%d %H:%M:%S.%f')
+                log.info("getText : {%s} : {%s}", len(getText), getText)
 
-            # ++++++++++++++++++++++++++++++++++++
-            # 엑셀 파일에서 시트 B 읽기
-            # ++++++++++++++++++++++++++++++++++++
-            dataB = pd.read_excel(fileInfo[0], sheet_name='B')
-            dataB.columns = ['col1', 'x']
+                # 단어 추출
+                wordTokens = word_tokenize(getText)
+                # 불용어
+                stopWords = set(stopwords.words('english'))
 
-            dataB['dtDateTime'] = pd.to_datetime(dataB['col1'], format='%Y-%m-%d %H:%M:%S.%f')
+                # log.info("wordTokens : {%s} : {%s}", len(wordTokens), wordTokens)
+                # log.info("stopWords : {%s} : {%s}", len(stopWords), stopWords)
 
-            for i in dataB.index:
-                if i >= (len(dataB) - 1): continue
+                # 2) 기사 내용을 사전 처리하여 불용어없이 단수 명사 목록을 얻습니다.
+                for j in wordTokens:
+                    if j not in stopWords:
+                        liGetText.append(j)
 
-                dtUnix = dataB._get_value(i, 'col1').timestamp()
-                dtNextUnix = int(dataB._get_value(i + 1, 'col1').timestamp())
+            log.info("liGetText : {%s} : {%s}", len(liGetText), liGetText)
 
-                # 정수형의 경우
-                if dtUnix == int(dtUnix):
-                    dataB._set_value(i, 'dtDateTime', pd.to_datetime(dtNextUnix, unit='s'))
+            data = pd.DataFrame({
+                'type': liGetText
+            })
 
-            # dtDateTime 기준으로 데이터 병합
-            dataL1 = pd.merge(dataA, dataB, how="left", on="dtDateTime")
-            dataL2 = dataL1[['dtDateTime', 'col1_x', 'time', 'col2', 'y', 'x_x', 'col1_y', 'x_y']]
+            # 3) 빈도분포 및 워드 클라우드 시각화
+            dataL1 = (
+                (
+                        data >>
+                        filter_by(
+                            X.type != '.'
+                            , X.type != ','
+                            , X.type != "'"
+                            , X.type != "''"
+                            , X.type != "``"
+                            , X.type != "'s"
+                        ) >>
+                        group_by(X.type) >>
+                        summarize(number=n(X.type)) >>
+                        ungroup() >>
+                        arrange(X.number, ascending=False)
+                )
+            )
 
-            saveFile = '{}/{}_{}'.format(globalVar['outPath'], serviceName, 'GPS.csv')
-            log.info('[CHECK] saveFile : {}'.format(saveFile))
+            log.info("dataL1 : {%s} : {%s}", len(dataL1), dataL1)
 
-            dataL2.to_csv(saveFile, index=False)
+            # 데이터 시각화를 위한 전처리
+            objData = {}
+            for i in dataL1.values:
+                key = i[0]
+                val = i[1]
+
+                objData[key] = val
+
+            log.info("objData : {%s} : {%s}", len(objData), objData)
+
+            wordcloud = WordCloud(
+                width=1000
+                , height=1000
+                , background_color="white"
+            ).generate_from_frequencies(objData)
+
+            saveImg = '{}/{}_{}'.format(globalVar['figPath'], serviceName, '워드 클라우드.png')
+            log.info('[CHECK] saveFile : {}'.format(saveImg))
+
+            plt.imshow(wordcloud, interpolation="bilinear")
+            plt.axis("off")
+            plt.savefig(saveImg, dpi=600, bbox_inches='tight')
+            plt.show()
 
         except Exception as e:
             log.error("Exception : {}".format(e))

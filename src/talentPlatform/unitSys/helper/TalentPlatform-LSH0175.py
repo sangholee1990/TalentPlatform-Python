@@ -1,20 +1,13 @@
 # -*- coding: utf-8 -*-
 
-from src.talentPlatform.unitSysHelper.InitConfig import *
-import logging
-import logging.handlers
-import os
-import sys
+from src.talentPlatform.unitSys.helper.InitConfig import *
 import warnings
 import matplotlib.pyplot as plt
 import seaborn as sns
 import matplotlib as mpl
 import glob
-import platform
-import xarray as xr
 import cfgrib
 import pandas as pd
-from datetime import timedelta, date
 import numpy as np
 
 warnings.filterwarnings("ignore")

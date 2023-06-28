@@ -10,22 +10,12 @@
 # Revisions: V1.0 May 28, 2020 First release (MS. 해솔)
 # ===============================================================================================
 
-from src.talentPlatform.unitSysHelper.InitConfig import *
+from src.talentPlatform.unitSys.helper.InitConfig import *
 from plotnine import *
-import logging
-import logging.handlers
 # from plotnine import *
 # from plotnine.data import *
 # import hydroeval
-import matplotlib as mpl
-import matplotlib.pyplot as plt
-import platform
 
-import boto3
-import pymysql
-from datetime import datetime
-
-from plotnine.data import *
 import dfply as dfply
 
 # =================================================

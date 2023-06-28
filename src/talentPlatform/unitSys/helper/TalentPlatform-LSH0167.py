@@ -1,39 +1,15 @@
 # -*- coding: utf-8 -*-
 
-from src.talentPlatform.unitSysHelper.InitConfig import *
-import logging
-import logging.handlers
-import os
-import sys
-import plotnine as plotnine
-import hydroeval
+from src.talentPlatform.unitSys.helper.InitConfig import *
 import matplotlib as mpl
 import matplotlib.pyplot as plt
 import warnings
-from pathlib import Path
 import glob
-import pprint
-import platform
-from datetime import datetime
-import dfply as dfply
-import numpy as np
 import pandas as pd
-import seaborn as sns
-from scipy.stats import linregress
-import re
-from sklearn.linear_model import LinearRegression
-from sklearn.linear_model import Ridge
-from sklearn.model_selection import train_test_split
-from src.talentPlatform.unitSysHelper.forecasting_metrics import mase
-from sklearn.model_selection import KFold, GridSearchCV
-from sklearn import metrics
-from datetime import datetime
 import dfply as dfply
-from sklearn.metrics import r2_score
 import seaborn as sns
 import statsmodels.api as sm
 import statsmodels.formula.api as smf
-from scipy import stats
 
 warnings.filterwarnings("ignore")
 

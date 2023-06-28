@@ -1,40 +1,20 @@
 # -*- coding: utf-8 -*-
 
-import logging
-import logging.handlers
-import os
-import sys
 # from plotnine import *
 # from plotnine.data import *
 # from dfply import *
 # import hydroeval
 import dfply
-import matplotlib as mpl
-import matplotlib.pyplot as plt
-import warnings
-from pathlib import Path
-import glob
-import pprint
-import platform
-from datetime import datetime
-import numpy as np
-import pandas as pd
-import seaborn as sns
-from sklearn.model_selection import KFold, GridSearchCV, train_test_split
-from pandas.tseries.offsets import MonthEnd
-from sklearn.preprocessing import MinMaxScaler
 # from keras.layers import LSTM
 # from keras.models import Sequential
 #
 # from keras.layers import Dense
 # import keras.backend as K
 # from keras.callbacks import EarlyStopping
-from multiprocessing import Pool, Process
 import traceback
-import sys
 
 # 초기 환경변수 정의
-from src.talentPlatform.unitSysHelper.InitConfig import *
+from src.talentPlatform.unitSys.helper.InitConfig import *
 
 class DtaProcess(object):
     # ================================================================================================
