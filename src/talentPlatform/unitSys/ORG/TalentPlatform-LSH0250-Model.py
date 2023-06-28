@@ -39,6 +39,7 @@ from pycaret.regression import *
 import matplotlib.dates as mdates
 from autots import AutoTS
 from scipy.interpolate import interp1d
+import re
 
 # =================================================
 # 사용자 매뉴얼
@@ -313,94 +314,9 @@ def makeUserTimeSeriesPlot(dtDate, mlPrdVal, dlPrdVal, refVal, mlPrdValLabel, dl
         # try, catch 구문이 종료되기 전에 무조건 실행
         log.info('[END] {}'.format('makeUserTimeSeriesPlot'))
 
-
-#
-# # 시계열 시각화
-# def makeUserTimeSeriesPlot(dtDate, prdVal1, prdVal2, refVal, prdValLabel1, prdValLabel2, refValLabel, xlab, ylab, mainTitle, saveImg):
-#     #####################################################################################
-#     # 검증스코어 계산 : Bias (Relative Bias), RMSE (Relative RMSE)
-#     RMSE_ml = np.sqrt(np.mean((prdVal1 - refVal) ** 2))
-#     rRMSE_ml = (RMSE_ml / np.mean(refVal)) * 100.0
-#
-#     RMSE_dnn = np.sqrt(np.mean((prdVal2 - refVal) ** 2))
-#     rRMSE_dnn = (RMSE_dnn / np.mean(refVal)) * 100.0
-#
-#     # 선형회귀곡선에 대한 계산
-#     lmFit1 = linregress(prdVal1, refVal)
-#     R_ml = lmFit1[2]
-#
-#     lmFit2 = linregress(prdVal2, refVal)
-#     R_dnn = lmFit2[2]
-#
-#     prdValLabel_ml = '{0:s} : R = {1:.3f}, %RMSE = {2:.3f} %'.format(prdValLabel1, R_ml, rRMSE_ml)
-#     prdValLabel_dnn = '{0:s} : R = {1:.3f}, %RMSE = {2:.3f} %'.format(prdValLabel2, R_dnn, rRMSE_dnn)
-#     #####################################################################################
-#
-#     plt.grid(True)
-#
-#     plt.plot(dtDate, prdVal1, label=prdValLabel_ml, marker='o')
-#     plt.plot(dtDate, prdVal2, label=prdValLabel_dnn, marker='o')
-#     plt.plot(dtDate, refVal, label=refValLabel, marker='o')
-#
-#     # 제목, x축, y축 설정
-#     plt.title(mainTitle)
-#     plt.xlabel(xlab)
-#     plt.ylabel(ylab)
-#
-#     plt.xticks(rotation=45, ha='right')
-#     plt.legend(loc='upper left')
-#
-#     plt.savefig(saveImg, dpi=600, bbox_inches='tight')
-#     plt.show()
-#     plt.close()
-
-
-# 시계열 시각화2
-def makeUserTimeSeriesPlot2(dtDate, prdVal1, prdVal2, refVal, dtDate2, afterVal1, afterVal2, prdValLabel1, prdValLabel2, refValLabel, xlab, ylab, mainTitle, saveImg):
-    #####################################################################################
-    # 검증스코어 계산 : Bias (Relative Bias), RMSE (Relative RMSE)
-    RMSE_ml = np.sqrt(np.mean((prdVal1 - refVal) ** 2))
-    rRMSE_ml = (RMSE_ml / np.mean(refVal)) * 100.0
-
-    RMSE_dnn = np.sqrt(np.mean((prdVal2 - refVal) ** 2))
-    rRMSE_dnn = (RMSE_dnn / np.mean(refVal)) * 100.0
-
-    # 선형회귀곡선에 대한 계산
-    lmFit1 = linregress(prdVal1, refVal)
-    R_ml = lmFit1[2]
-
-    lmFit2 = linregress(prdVal2, refVal)
-    R_dnn = lmFit2[2]
-
-    prdValLabel_ml = '{0:s} : R = {1:.3f}, %RMSE = {2:.3f} %'.format(prdValLabel1, R_ml, rRMSE_ml)
-    prdValLabel_dnn = '{0:s} : R = {1:.3f}, %RMSE = {2:.3f} %'.format(prdValLabel2, R_dnn, rRMSE_dnn)
-    #####################################################################################
-
-    plt.grid(True)
-
-    plt.plot(dtDate2, afterVal1, label=prdValLabel_ml, marker='o')
-    plt.plot(dtDate2, afterVal2, label=prdValLabel_dnn, marker='o')
-
-    # plt.plot(dtDate2, afterVal1,marker='o')
-    # plt.plot(dtDate2, afterVal2,marker='x')
-
-    plt.plot(dtDate, refVal, label=refValLabel, marker='o')
-
-    # 제목, x축, y축 설정
-    plt.title(mainTitle)
-    plt.xlabel(xlab)
-    plt.ylabel(ylab)
-
-    plt.xticks(rotation=45, ha='right')
-    plt.legend(loc='upper left')
-
-    plt.savefig(saveImg, dpi=600, bbox_inches='tight')
-    plt.show()
-    plt.close()
-
-
 # 딥러닝 매매가/전세가 예측
 def makeDlModel(subOpt=None, xCol=None, yCol=None, inpData=None, modelKey=None):
+
     log.info('[START] {}'.format('makeDlModel'))
 
     result = None
@@ -411,24 +327,26 @@ def makeDlModel(subOpt=None, xCol=None, yCol=None, inpData=None, modelKey=None):
         saveModelList = sorted(glob.glob(saveModel), reverse=True)
         xyCol = xCol.copy()
         xyCol.append(yCol)
-        inpDataL1 = inpData[xyCol]
+        data = inpData[xyCol]
 
-        if (not subOpt['isDlModelInit']):
+        # h2o.shutdown(prompt=False)
+
+        if (not subOpt['isInit']):
             h2o.init()
             h2o.no_progress()
-            subOpt['isDlModelInit'] = True
+            subOpt['isInit'] = True
 
         # 학습 모델이 없을 경우
         if (subOpt['isOverWrite']) or (len(saveModelList) < 1):
 
             # 7:3에 대한 학습/테스트 분류
-            trainData, validData = train_test_split(inpDataL1, test_size=0.3)
+            trainData, validData = train_test_split(data, test_size=0.3)
             # trainData = inpData
 
             # dlModel = H2OAutoML(max_models=30, max_runtime_secs=99999, balance_classes=True, seed=123)
             dlModel = H2OAutoML(max_models=20, max_runtime_secs=99999, balance_classes=True, seed=123)
             dlModel.train(x=xCol, y=yCol, training_frame=h2o.H2OFrame(trainData), validation_frame=h2o.H2OFrame(validData))
-            # dlModel.train(x=xCol, y=yCol, training_frame=h2o.H2OFrame(inpDataL1))
+            # dlModel.train(x=xCol, y=yCol, training_frame=h2o.H2OFrame(data))
             fnlModel = dlModel.get_best_model()
 
             # 학습 모델 저장
@@ -473,13 +391,13 @@ def makeMlModel(subOpt=None, xCol=None, yCol=None, inpData=None, modelKey=None):
         saveModelList = sorted(glob.glob(saveModel), reverse=True)
         xyCol = xCol.copy()
         xyCol.append(yCol)
-        inpDataL1 = inpData[xyCol]
+        data = inpData[xyCol]
 
         # 학습 모델이 없을 경우
         if (subOpt['isOverWrite']) or (len(saveModelList) < 1):
 
             # 7:3에 대한 학습/테스트 분류
-            trainData, validData = train_test_split(inpDataL1, test_size=0.3)
+            trainData, validData = train_test_split(data, test_size=0.3)
             # trainData = inpData
 
             pyModel = setup(
@@ -593,11 +511,11 @@ class DtaProcess(object):
                 #  딥러닝
                 'dlModel': {
                     # 초기화
-                    # 'isDlModelInit': False
-                    'isDlModelInit': True
+                    'isInit': False
+
                     # 모델 업데이트 여부
-                    , 'isOverWrite': True
-                    # , 'isOverWrite': False
+                    # , 'isOverWrite': True
+                    , 'isOverWrite': False
                 }
 
                 #  머신러닝
@@ -609,18 +527,18 @@ class DtaProcess(object):
 
                 #  시계열
                 , 'tsModel': {
-                    # 모델 업데이트 여부
-                    'isOverWrite': True
-                    # 'isOverWrite': False
+                    # 미래 예측 연도
+                    'forYear': 2
                     # 아파트 설정
-                    , 'aptList': ['미아동부센트레빌(숭인로7가길 37)', '송천센트레빌(숭인로 39)', '에스케이북한산시티(솔샘로 174)']
+                    , 'aptList': [] # 전체 아파트 검색
+                    # , 'aptList': ['미아동부센트레빌']
+                    # , 'aptList': ['미아동부센트레빌', '송천센트레빌', '에스케이북한산시티']
                 }
             }
 
             # *****************************************************
             # 인허가 데이터
             # *****************************************************
-            # 서울특별시 강북구 인허가.csv
             lcnsInpFile = '{}/{}/{}'.format(globalVar['inpPath'], serviceName, '서울특별시 강북구 인허가.csv')
             lcnsFileList = glob.glob(lcnsInpFile)
             if lcnsFileList is None or len(lcnsFileList) < 1:
@@ -634,7 +552,6 @@ class DtaProcess(object):
             # *****************************************************
             # 전월세 데이터
             # *****************************************************
-            # prvsMntsrInpFile = '{}/{}/{}'.format(globalVar['inpPath'], serviceName, '서울특별시 강북구 아파트 전월세가_20111101_20201101.csv')
             prvsMntsrInpFile = '{}/{}/{}'.format(globalVar['inpPath'], serviceName, '서울특별시 강북구 아파트 전월세가_인허가_20111101_20201101.csv')
 
             prvsMntsrFileList = glob.glob(prvsMntsrInpFile)
@@ -647,7 +564,6 @@ class DtaProcess(object):
             prvsMntsrData.drop(['Unnamed: 0.1'], axis=1, inplace=True)
 
             prvsMntsrData['name'] = prvsMntsrData['단지명'] + '(' + prvsMntsrData['도로명'] + ')'
-            # prvsMntsrDataL1 = prvsMntsrData[['name', '전용면적(㎡)', '보증금(만원)', '층', '건축년도', 'lat', 'lon', '계약년월', '전월세구분']]
             prvsMntsrDataL2 = prvsMntsrData.loc[
                 (prvsMntsrData['전월세구분'] == '전세')
                 & (prvsMntsrData['층'] != 1)
@@ -658,10 +574,6 @@ class DtaProcess(object):
             prvsMntsrDataL2['year'] = prvsMntsrDataL2['date'].dt.strftime("%Y").astype('int')
             prvsMntsrDataL2['month'] = prvsMntsrDataL2['date'].dt.strftime("%m").astype('int')
             prvsMntsrDataL2['보증금(만원)'] = prvsMntsrDataL2['보증금(만원)'].astype(str).str.replace(',', '').astype('float')
-
-            # prvsMntsrDataL3 = prvsMntsrDataL2
-            # prvsMntsrDataL3 = prvsMntsrDataL2.groupby(['name', '전용면적(㎡)', '건축년도', 'lat', 'lon', 'year'], as_index=False)['보증금(만원)'].mean()
-            # prvsMntsrDataL3 = prvsMntsrDataL2.groupby(['name', '전용면적(㎡)', '건축년도', 'lat', 'lon', 'date', 'year', 'month'], as_index=False)['보증금(만원)'].mean()
 
             prvsMntsrDataL3 = pd.merge(
                 left=prvsMntsrDataL2
@@ -676,13 +588,13 @@ class DtaProcess(object):
                 }
             )
 
-            prvsMntsrDataL4 = prvsMntsrDataL3.rename(
+            prvsMntsrdataL2 = prvsMntsrDataL3.rename(
                 columns={
                     '전용면적(㎡)': 'capacity'
                     , '건축년도': 'conYear'
-                    , '보증금(만원)': 'real_bjprice'
+                    , '보증금(만원)': 'realBjprice'
                     , 'archGbCdNm': 'inhuga'
-                    , '거래금액(만원)': 'real_price'
+                    , '거래금액(만원)': 'realPrice'
                 }
             ).sort_values(by=['name', 'capacity', 'year']).reset_index(drop=True)
 
@@ -706,19 +618,13 @@ class DtaProcess(object):
                 (realPriceData['층'] != 1)
             ].reset_index(drop=True)
 
-            # pd.to_datetime(prvsMntsrDataL2['계약년월'], format='%Y%m')
-            # realPriceDataL2['계약년도'] = realPriceDataL2['계약년월'].astype(str).str.slice(0, 4)
             realPriceDataL2['date'] = pd.to_datetime(realPriceDataL2['계약년월'], format='%Y%m')
             realPriceDataL2['year'] = realPriceDataL2['date'].dt.strftime("%Y").astype('int')
             realPriceDataL2['month'] = realPriceDataL2['date'].dt.strftime("%m").astype('int')
             realPriceDataL2['거래금액(만원)'] = realPriceDataL2['거래금액(만원)'].astype(str).str.replace(',', '').astype('float')
 
-            # realPriceDataL3 = realPriceDataL2.groupby(['name', '전용면적(㎡)', '건축년도', 'lat', 'lon', 'date', 'year', 'month', '인허가addr'], as_index=False)['거래금액(만원)'].mean()
-            # realPriceDataL3 = realPriceDataL2.groupby(['name', '전용면적(㎡)', '건축년도', 'lat', 'lon', 'year', '인허가addr'], as_index=False)['거래금액(만원)'].mean()
-            # realPriceDataL3 = realPriceDataL2
             realPriceDataL3 = pd.merge(
                 left=realPriceDataL2
-                # , right=lcnsData[['archGbCdNm', '주소', 'lat', 'lon']]
                 , right=lcnsDataL1[['archGbCdNm', '주소']]
                 , left_on=['인허가addr']
                 , right_on=['주소']
@@ -729,131 +635,24 @@ class DtaProcess(object):
                 }
             )
 
-            realPriceDataL4 = realPriceDataL3.rename(
+            realPricedataL2 = realPriceDataL3.rename(
                 columns={
                     '전용면적(㎡)': 'capacity'
                     , '건축년도': 'conYear'
-                    , '보증금(만원)': 'real_bjprice'
+                    , '보증금(만원)': 'realBjprice'
                     , 'archGbCdNm': 'inhuga'
-                    , '거래금액(만원)': 'real_price'
+                    , '거래금액(만원)': 'realPrice'
                 }
             ).sort_values(by=['name', 'capacity', 'year']).reset_index(drop=True)
 
-            # gg = realPriceDataL2.loc[
-            #     (realPriceDataL2['name'] == apaInfo)
-            #     & (realPriceDataL2['전용면적(㎡)'] == capInfo)
-            #     ].reset_index(drop=True)
-            #
-            # gg2 = realPriceDataL3.loc[
-            #     (realPriceDataL3['name'] == apaInfo)
-            #     & (realPriceDataL3['전용면적(㎡)'] == capInfo)
-            #     ].reset_index(drop=True)
 
             # *****************************************************
             # 데이터 통합
             # *****************************************************
-            # data = pd.merge(
-            #     left=prvsMntsrDataL3[['name', '전용면적(㎡)', '건축년도', '보증금(만원)', 'year', 'lat', 'lon']]
-            #     , right=realPriceDataL3[['name', '전용면적(㎡)', '건축년도', '거래금액(만원)', 'year', 'lat', 'lon', '인허가addr']]
-            #     , left_on=['name', '전용면적(㎡)', '건축년도', 'year', 'lat', 'lon']
-            #     , right_on=['name', '전용면적(㎡)', '건축년도', 'year', 'lat', 'lon']
-            #     # left=prvsMntsrDataL3[['name', '전용면적(㎡)', '보증금(만원)', 'date', 'year', 'month', 'lat', 'lon']]
-            #     # , right=realPriceDataL3[['name', '전용면적(㎡)', '거래금액(만원)', 'date', 'year', 'month', 'lat', 'lon', '인허가addr']]
-            #     # , left_on=['name', '전용면적(㎡)', 'date', 'year', 'month', 'lat', 'lon']
-            #     # , right_on=['name', '전용면적(㎡)', 'date', 'year', 'month', 'lat', 'lon']
-            #     , how='outer'
-            #     )
-            #
-            # dataL1 = data.rename(
-            #         columns={
-            #             '전용면적(㎡)': 'capacity'
-            #             , '건축년도': 'conYear'
-            #             , '보증금(만원)': 'real_bjprice'
-            #             , 'archGbCdNm': 'inhuga'
-            #             , '거래금액(만원)': 'real_price'
-            #         }
-            #     )
+            prvsMntsrDataL5 = prvsMntsrdataL2.groupby(['name', 'conYear', 'capacity', 'lat', 'lon', 'year', 'inhuga'], as_index=False)['realBjprice'].mean()
+            realPriceDataL5 = realPricedataL2.groupby(['name', 'conYear', 'capacity', 'lat', 'lon', 'year', 'inhuga'], as_index=False)['realPrice'].mean()
 
-            # dataL2 = pd.DataFrame()
-            # nameList = dataL1['name'].unique()
-            # # nameInfo = nameList[0]
-            # for i, nameInfo in enumerate(nameList):
-            #     selData = dataL1.loc[
-            #         (dataL1['name'] == nameInfo)
-            #         ].reset_index(drop=True)
-            #
-            #     if (len(selData) < 1): continue
-            #
-            #     capList = selData['capacity'].unique()
-            #     # capInfo = capList[0]
-            #     for j, capInfo in enumerate(capList):
-            #         selDataL1 = selData.loc[
-            #             (selData['capacity'] == capInfo)
-            #         ].reset_index(drop=True)
-            #
-            #         if (len(selDataL1) < 1):continue
-            #
-            #         selDataL2 = selDataL1.sort_values(by='year').reset_index(drop=True)
-            #         # selDataL2.index = selDataL2['date']
-            #         selDataL2.index = selDataL2['year']
-            #         selDataL2 = selDataL2.interpolate(method='linear')
-            #         # selDataL2 = selDataL2.interpolate(method='polynomial')
-            #
-            #         getAddr = selDataL1['인허가addr'].dropna().unique()
-            #         if (len(getAddr) > 0):
-            #             selDataL2['인허가addr'] = getAddr[0]
-            #
-            #         dataL2 = pd.concat([dataL2, selDataL2])
-            #
-            # dataL3 = pd.merge(
-            #     left=dataL2
-            #     # , right=lcnsData[['archGbCdNm', '주소', 'lat', 'lon']]
-            #     , right=lcnsDataL1[['archGbCdNm', '주소']]
-            #     , left_on=['인허가addr']
-            #     , right_on=['주소']
-            #     , how='left'
-            # ).rename(
-            #     columns={
-            #         'archGbCdNm': 'inhuga'
-            #     }
-            # )
-
-            # tmpData = dataL1.loc[
-            #     (dataL1['capacity'] == capInfo)
-            #     & (dataL1['capacity'] == capInfo)
-            #     ].reset_index(drop=True)
-            #
-            # tmpData2 = dataL2.loc[
-            #     (dataL2['capacity'] == capInfo)
-            #     & (dataL2['capacity'] == capInfo)
-            #     ].reset_index(drop=True)
-            #
-            # plt.scatter(tmpData2['date'], tmpData2['real_bjprice'], c='black', label='b')
-            # plt.scatter(tmpData['date'], tmpData['real_bjprice'], c='blue', label='a')
-            # plt.legend()
-            # plt.show()
-
-            # 데이터 유형
-            # dataL3.info()
-
-            # sysData = realPriceDataL4[['name', 'year', 'conYear', 'capacity', 'lat', 'lon', 'inhuga', 'real_price']]
-            #
-            # sysData = pd.merge(
-            #     left=prvsMntsrDataL3[['name', '전용면적(㎡)', '건축년도', '보증금(만원)', 'year', 'lat', 'lon']]
-            #     , right=realPriceDataL3[['name', '전용면적(㎡)', '건축년도', '거래금액(만원)', 'year', 'lat', 'lon', '인허가addr']]
-            #     , left_on=['name', '전용면적(㎡)', '건축년도', 'year', 'lat', 'lon']
-            #     , right_on=['name', '전용면적(㎡)', '건축년도', 'year', 'lat', 'lon']
-            #     # left=prvsMntsrDataL3[['name', '전용면적(㎡)', '보증금(만원)', 'date', 'year', 'month', 'lat', 'lon']]
-            #     # , right=realPriceDataL3[['name', '전용면적(㎡)', '거래금액(만원)', 'date', 'year', 'month', 'lat', 'lon', '인허가addr']]
-            #     # , left_on=['name', '전용면적(㎡)', 'date', 'year', 'month', 'lat', 'lon']
-            #     # , right_on=['name', '전용면적(㎡)', 'date', 'year', 'month', 'lat', 'lon']
-            #     , how='outer'
-            #     )
-
-            prvsMntsrDataL5 = prvsMntsrDataL4.groupby(['name', 'conYear', 'capacity', 'lat', 'lon', 'year', 'inhuga'], as_index=False)['real_bjprice'].mean()
-            realPriceDataL5 = realPriceDataL4.groupby(['name', 'conYear', 'capacity', 'lat', 'lon', 'year', 'inhuga'], as_index=False)['real_price'].mean()
-
-            inpDataL1 = pd.merge(
+            data = pd.merge(
                 left=prvsMntsrDataL5
                 , right=realPriceDataL5
                 , left_on=['name', 'conYear', 'capacity', 'lat', 'lon', 'year', 'inhuga']
@@ -861,51 +660,13 @@ class DtaProcess(object):
                 , how='outer'
             )
 
-            # 데이터 보간
-            # dataL1 = inpDataL1
-            #
-            # dataL2 = pd.DataFrame()
-            # nameList = dataL1['name'].unique()
-            # # nameInfo = nameList[0]
-            # for i, nameInfo in enumerate(nameList):
-            #     selData = dataL1.loc[
-            #         (dataL1['name'] == nameInfo)
-            #         ].reset_index(drop=True)
-            #
-            #     if (len(selData) < 1): continue
-            #
-            #     capList = selData['capacity'].unique()
-            #     # capInfo = capList[0]
-            #     for j, capInfo in enumerate(capList):
-            #         selDataL1 = selData.loc[
-            #             (selData['capacity'] == capInfo)
-            #         ].reset_index(drop=True)
-            #
-            #         if (len(selDataL1) < 1):continue
-            #
-            #         selDataL2 = selDataL1.sort_values(by='year').reset_index(drop=True)
-            #         # selDataL2.index = selDataL2['date']
-            #         selDataL2.index = selDataL2['year']
-            #         selDataL2 = selDataL2.interpolate(method='linear')
-            #         # selDataL2 = selDataL2.interpolate(method='polynomial')
-            #
-            #         # getAddr = selDataL1['인허가addr'].dropna().unique()
-            #         # if (len(getAddr) > 0):
-            #         #     selDataL2['인허가addr'] = getAddr[0]
-            #
-            #         dataL2 = pd.concat([dataL2, selDataL2])
-            #
-            # inpDataL1 = dataL2
-
             # **********************************************************************************************************
             # 딥러닝 매매가
             # **********************************************************************************************************
-            inpData = realPriceDataL4
+            inpData = realPricedataL2
             # inpData ㅊ= realPriceDataL5
 
-            # inpData.info()
-
-            # xCol = ['times', 'capacity', 'construction_year', 'lat', 'lon', 'real_bjprice', 'inhuga']
+            # xCol = ['times', 'capacity', 'construction_year', 'lat', 'lon', 'realBjprice', 'inhuga']
             # xCol = ['times', 'capacity', 'lat', 'lon', 'inhuga']
             # xCol = ['year', 'capacity', 'lat', 'lon', 'inhuga']
             # xCol = ['year', 'conYear', 'capacity', 'lat', 'lon', 'inhuga']
@@ -914,7 +675,7 @@ class DtaProcess(object):
             # xCol = ['year', 'capacity', 'lat', 'lon', 'inhuga']
             xCol = ['year', 'conYear', 'capacity', 'lat', 'lon', 'inhuga']
             # xCol = ['year', 'month', 'capacity', 'lat', 'lon', 'inhuga']
-            yCol = 'real_price'
+            yCol = 'realPrice'
             modelKey = 'realPrice'
 
             # 딥러닝 매매가 불러오기
@@ -923,23 +684,23 @@ class DtaProcess(object):
 
             # 딥러닝 매매가 예측
             realPriceDlModel = result['dlModel']
-            inpDataL1['realPriceDL'] = realPriceDlModel.predict(h2o.H2OFrame(inpDataL1)).as_data_frame()
+            data['realPriceDL'] = realPriceDlModel.predict(h2o.H2OFrame(data)).as_data_frame()
 
             mainTitle = '강북구 아파트 매매가 예측 결과 (딥러닝)'
             saveImg = '{}/{}_{}.png'.format(globalVar['figPath'], serviceName, mainTitle)
-            makeUserScatterPlot(inpDataL1['realPriceDL'], inpDataL1['real_price'], '예측', '실측', mainTitle, saveImg, 0, 140000, 2000, 10000, True)
+            makeUserScatterPlot(data['realPriceDL'], data['realPrice'], '예측', '실측', mainTitle, saveImg, 0, 140000, 2000, 10000, True)
 
             # **********************************************************************************************************
             # 딥러닝 전세가
             # **********************************************************************************************************
-            inpData = prvsMntsrDataL4
+            inpData = prvsMntsrdataL2
 
             # inpData.info()
 
-            # xCol = ['times', 'capacity', 'construction_year', 'lat', 'lon', 'real_price', 'inhuga']
+            # xCol = ['times', 'capacity', 'construction_year', 'lat', 'lon', 'realPrice', 'inhuga']
             # xCol = ['times', 'capacity', 'lat', 'lon', 'inhuga']
             xCol = ['year', 'conYear', 'capacity', 'lat', 'lon', 'inhuga']
-            yCol = 'real_bjprice'
+            yCol = 'realBjprice'
             modelKey = 'realBjPrice'
 
             # 딥러닝 전세가 불러오기
@@ -948,23 +709,23 @@ class DtaProcess(object):
 
             # 딥러닝 전세가 예측
             realBjPriceDlModel = result['dlModel']
-            inpDataL1['realBjPriceDL'] = realBjPriceDlModel.predict(h2o.H2OFrame(inpDataL1)).as_data_frame()
+            data['realBjPriceDL'] = realBjPriceDlModel.predict(h2o.H2OFrame(data)).as_data_frame()
 
             mainTitle = '강북구 아파트 전세가 예측 결과 (딥러닝)'
             saveImg = '{}/{}_{}.png'.format(globalVar['figPath'], serviceName, mainTitle)
-            makeUserScatterPlot(inpDataL1['realBjPriceDL'], inpDataL1['real_bjprice'], '예측', '실측', mainTitle, saveImg, 0, 140000, 2000, 10000, True)
+            makeUserScatterPlot(data['realBjPriceDL'], data['realBjprice'], '예측', '실측', mainTitle, saveImg, 0, 140000, 2000, 10000, True)
 
             # **********************************************************************************************************
             # 머신러닝 매매가
             # **********************************************************************************************************
-            inpData = realPriceDataL4
+            inpData = realPricedataL2
 
-            # xCol = ['times', 'capacity', 'construction_year', 'lat', 'lon', 'real_bjprice', 'inhuga']
+            # xCol = ['times', 'capacity', 'construction_year', 'lat', 'lon', 'realBjprice', 'inhuga']
             # xCol = ['times', 'capacity', 'lat', 'lon', 'inhuga']
             # xCol = ['year', 'capacity', 'lat', 'lon', 'inhuga']
             xCol = ['year', 'conYear', 'capacity', 'lat', 'lon', 'inhuga']
             # xCol = ['year', 'month', 'capacity', 'lat', 'lon', 'inhuga']
-            yCol = 'real_price'
+            yCol = 'realPrice'
             modelKey = 'realPrice'
 
             # 머신러닝 매매가 불러오기
@@ -973,23 +734,23 @@ class DtaProcess(object):
 
             # 머신러닝 매매가 예측
             realPriceMlModel = result['mlModel']
-            inpDataL1['realPriceML'] = predict_model(realPriceMlModel, data=inpDataL1)['Label']
+            data['realPriceML'] = predict_model(realPriceMlModel, data=data)['Label']
 
             mainTitle = '강북구 아파트 매매가 예측 결과 (머신러닝)'
             saveImg = '{}/{}_{}.png'.format(globalVar['figPath'], serviceName, mainTitle)
-            makeUserScatterPlot(inpDataL1['realPriceML'], inpDataL1['real_price'], '예측', '실측', mainTitle, saveImg, 0, 140000, 2000, 10000, True)
+            makeUserScatterPlot(data['realPriceML'], data['realPrice'], '예측', '실측', mainTitle, saveImg, 0, 140000, 2000, 10000, True)
 
             # **********************************************************************************************************
             # 머신러닝 전세가
             # **********************************************************************************************************
-            inpData = prvsMntsrDataL4
-            # xCol = ['times', 'capacity', 'construction_year', 'lat', 'lon', 'real_price', 'inhuga']
+            inpData = prvsMntsrdataL2
+            # xCol = ['times', 'capacity', 'construction_year', 'lat', 'lon', 'realPrice', 'inhuga']
             # xCol = ['times', 'capacity', 'lat', 'lon', 'inhuga']
             # xCol = ['year', 'capacity', 'lat', 'lon', 'inhuga']
             # xCol = ['year', 'conYear', 'capacity', 'lat', 'lon', 'inhuga']
             # xCol = ['year', 'month', 'capacity', 'lat', 'lon', 'inhuga']
             xCol = ['year', 'conYear', 'capacity', 'lat', 'lon', 'inhuga']
-            yCol = 'real_bjprice'
+            yCol = 'realBjprice'
             modelKey = 'realBjPrice'
 
             # 머신러닝 전세가 불러오기
@@ -998,44 +759,37 @@ class DtaProcess(object):
 
             # 머신러닝 전세가 예측
             realBjPriceMlModel = result['mlModel']
-            inpDataL1['realBjPriceML'] = predict_model(realBjPriceMlModel, data=inpDataL1)['Label']
+            data['realBjPriceML'] = predict_model(realBjPriceMlModel, data=data)['Label']
 
             mainTitle = '강북구 아파트 전세가 예측 결과 (머신러닝)'
             saveImg = '{}/{}_{}.png'.format(globalVar['figPath'], serviceName, mainTitle)
-            makeUserScatterPlot(inpDataL1['realBjPriceML'], inpDataL1['real_bjprice'], '예측', '실측', mainTitle, saveImg, 0, 140000, 2000, 10000, True)
+            makeUserScatterPlot(data['realBjPriceML'], data['realBjprice'], '예측', '실측', mainTitle, saveImg, 0, 140000, 2000, 10000, True)
 
-            # sys.exit()
 
             # **********************************************************************************************************
             # 시계열 갭투자
             # **********************************************************************************************************
-            # result_data = inpDataL1
+            nameList = data['name'].unique()
+            searchAptList = sysOpt['tsModel']['aptList']
 
-            # real_price: 거래금액(만원) = 매매가
-            # real_bjprice: 보증금(만원) = 전세금
-            # 갭투자 : 매매가 - 보증금
-            # result_data['gap_real'] = result_data['real_price'] - result_data['real_bjprice']
-            # result_data['dnn_gap'] = result_data['realPriceDL'] - result_data['realBjPriceDL']
-            # result_data['ml_gap'] = result_data['realPriceML'] - result_data['realBjPriceML']
-
-            # apaList = result_data['name'].unique()
-            # capList = result_data['capacity'].unique()
-            #
-            # # ind = 0
-            # # apaInfo = '북한산굿모닝(삼양로171길 21)'
-            # apaInfo = apaList[3]
-            # # capInfo = 81.98530
-            # capInfo = 62.7103
-
-            resData = inpDataL1
-
-            nameList = resData['name'].unique()
-            # nameInfo = nameList[2]
-            # nameInfo = nameList[3]
-            # nameInfo = nameList[36]
+            fnlData = pd.DataFrame()
             for i, nameInfo in enumerate(nameList):
-                selData = resData.loc[
-                    (resData['name'] == nameInfo)
+
+                # 아파트 검색 모듈
+                # sysOpt['tsModel']['aptList'] = [] : 전체 아파트에 대한 수익률 예측
+                # sysOpt['tsModel']['aptList'] = ['미아동부센트레빌'] : 미아동부센트레빌 아파트에 대한 수익률 예측
+                isSearch = True if (len(searchAptList) < 1) else False
+                for ii, aptInfo in enumerate(searchAptList):
+                    if (aptInfo in nameInfo):
+                        isSearch = True
+                        break
+
+                if (isSearch == False): continue
+
+                log.info('[CHECK] isSearch : {} / nameInfo : {}'.format(isSearch, nameInfo))
+
+                selData = data.loc[
+                    (data['name'] == nameInfo)
                 ].reset_index(drop=True)
 
                 if (len(selData) < 1): continue
@@ -1048,25 +802,18 @@ class DtaProcess(object):
                     ].reset_index(drop=True)
 
                     if (len(selDataL1) < 1): continue
+                    selInfoFirst = selDataL1.loc[0]
 
                     log.info('[CHECK] nameInfo : {} / capInfo : {} / cnt : {}'.format(nameInfo, capInfo, len(selDataL1)))
 
-                    # srtDate = selDataL1['date'].min()
-                    # endDate = selDataL1['date'].max()
                     srtDate = pd.to_datetime(selDataL1['year'].min(), format='%Y')
                     endDate = pd.to_datetime(selDataL1['year'].max(), format='%Y')
-                    # endDate = selDataL1['date'].max() + pd.DateOffset(years=2)
-                    # endDate = selDataL1['date'].max() + pd.DateOffset(years=2)
-                    # dtDateList = pd.date_range(start=srtDate, end=endDate, freq=pd.DateOffset(months=1))
                     dtDateList = pd.date_range(start=srtDate, end=endDate, freq=pd.DateOffset(years=1))
 
-                    dataL4 = pd.DataFrame()
+                    dataL2 = pd.DataFrame()
                     # dtDateInfo = dtDateList[0]
                     for k, dtDateInfo in enumerate(dtDateList):
                         iYear = int(dtDateInfo.strftime('%Y'))
-                        # iMonth = int(dtDateInfo.strftime('%m'))
-
-                        selInfoFirst = selDataL1.loc[0]
 
                         selInfo = selDataL1.loc[
                             (selDataL1['year'] == iYear)
@@ -1078,16 +825,15 @@ class DtaProcess(object):
                             , 'capacity': [capInfo]
                             , 'date': [dtDateInfo]
                             , 'year': [iYear]
-                            # , 'month': [iMonth]
                             , 'lat': [selInfoFirst['lat']]
                             , 'lon': [selInfoFirst['lon']]
                             , 'inhuga': [selInfoFirst['inhuga']]
-                            # , 'inhuga': [np.nan if (len(selInfo) < 1) else selInfo['inhuga'][0]]
+                            , 'conYear': [selInfoFirst['conYear']]
                         }
 
                         dictDtl = {
-                            'real_price': [np.nan if (len(selInfo) < 1) else selInfo['real_price'][0]]
-                            , 'real_bjprice': [np.nan if (len(selInfo) < 1) else selInfo['real_bjprice'][0]]
+                            'realPrice': [np.nan if (len(selInfo) < 1) else selInfo['realPrice'][0]]
+                            , 'realBjprice': [np.nan if (len(selInfo) < 1) else selInfo['realBjprice'][0]]
                             , 'realPriceDL': [realPriceDlModel.predict(h2o.H2OFrame(pd.DataFrame.from_dict(dictInfo))).as_data_frame()['predict'][0] if (len(selInfo) < 1) else selInfo['realPriceDL'][0]]
                             , 'realBjPriceDL': [realBjPriceDlModel.predict(h2o.H2OFrame(pd.DataFrame.from_dict(dictInfo))).as_data_frame()['predict'][0] if (len(selInfo) < 1) else selInfo['realBjPriceDL'][0]]
                             , 'realPriceML': [predict_model(realPriceMlModel, data=pd.DataFrame.from_dict(dictInfo))['Label'][0] if (len(selInfo) < 1) else selInfo['realPriceML'][0]]
@@ -1097,91 +843,102 @@ class DtaProcess(object):
                         dict = {**dictInfo, **dictDtl}
 
                         # dataL1 = pd.concat([dataL1, pd.DataFrame.from_dict(dictInfo)], ignore_index=True)
-                        dataL4 = pd.concat([dataL4, pd.DataFrame.from_dict(dict)], ignore_index=True)
+                        dataL2 = pd.concat([dataL2, pd.DataFrame.from_dict(dict)], ignore_index=True)
 
-                    dataL4['gap_real'] = dataL4['real_price'] - dataL4['real_bjprice']
-                    dataL4['gapML'] = dataL4['realPriceML'] - dataL4['realBjPriceML']
-                    dataL4['gapDL'] = dataL4['realPriceDL'] - dataL4['realBjPriceDL']
+                    if (len(dataL2.dropna()) < 1): continue
 
-                    # 아파트 갭 투자 시계열
-                    mainTitle = '[{}, {}] 아파트 갭 투자 시계열'.format(nameInfo, capInfo)
+                    dataL2['gapReal'] = dataL2['realPrice'] - dataL2['realBjprice']
+                    dataL2['gapML'] = dataL2['realPriceML'] - dataL2['realBjPriceML']
+                    dataL2['gapDL'] = dataL2['realPriceDL'] - dataL2['realBjPriceDL']
+
+                    # 아파트 전세가 시계열
+                    mainTitle = '[{}, {}] 아파트 전세가 시계열'.format(nameInfo, capInfo)
                     saveImg = '{}/{}_{}.png'.format(globalVar['figPath'], serviceName, mainTitle)
-                    makeUserTimeSeriesPlot(dataL4['date'], dataL4['gapML'], dataL4['gapDL'], dataL4['gap_real'], '예측 (머신러닝)', '예측 (딥러닝)', '실측', '날짜 [연도]', '갭 투자 [만원]', mainTitle, saveImg, False)
-                    makeUserTimeSeriesPlot(dataL4['date'], dataL4['realBjPriceML'], dataL4['realBjPriceDL'], dataL4['real_bjprice'], '예측 (머신러닝)', '예측 (딥러닝)', '실측', '날짜 [연도]', '갭 투자 [만원]', mainTitle, saveImg, False)
-                    makeUserTimeSeriesPlot(dataL4['date'], dataL4['realPriceML'], dataL4['realPriceDL'], dataL4['real_price'], '예측 (머신러닝)', '예측 (딥러닝)', '실측', '날짜 [연도]', '갭 투자 [만원]', mainTitle, saveImg, False)
+                    makeUserTimeSeriesPlot(dataL2['date'], dataL2['realBjPriceML'], dataL2['realBjPriceDL'], dataL2['realBjprice'], '예측 (머신러닝)', '예측 (딥러닝)', '실측', '날짜 [연도]', '전세가 [만원]', mainTitle, saveImg, False)
 
-                    # 시계열 예측
+                    # 아파트 매매가 시계열
+                    mainTitle = '[{}, {}] 아파트 매매가 시계열'.format(nameInfo, capInfo)
+                    saveImg = '{}/{}_{}.png'.format(globalVar['figPath'], serviceName, mainTitle)
+                    makeUserTimeSeriesPlot(dataL2['date'], dataL2['realPriceML'], dataL2['realPriceDL'], dataL2['realPrice'], '예측 (머신러닝)', '예측 (딥러닝)', '실측', '날짜 [연도]', '매매가 [만원]', mainTitle, saveImg, False)
+
+                    # 미래 2년 시계열 예측
                     try:
-                        tsModel = AutoTS(forecast_length=2, frequency='infer', ensemble='all', model_list='superfast', transformer_list='superfast')
-
-                        tsDlModel = tsModel.fit(dataL4, date_col='date', value_col='gapDL', id_col=None)
+                        tsModel = AutoTS(forecast_length=sysOpt['tsModel']['forYear'], frequency='infer', ensemble='all', model_list='superfast', transformer_list='superfast')
+                        tsDlModel = tsModel.fit(dataL2, date_col='date', value_col='gapDL', id_col=None)
                         tsDlFor = tsDlModel.predict().forecast
                         tsDlFor['date'] = tsDlFor.index
                         # tsDlFor.reset_index(drop=True, inplace=True)
 
-                        tsMlModel = tsModel.fit(dataL4, date_col='date', value_col='gapML', id_col=None)
+                        tsMlModel = tsModel.fit(dataL2, date_col='date', value_col='gapML', id_col=None)
                         tsMlFor = tsMlModel.predict().forecast
                         tsMlFor['date'] = tsMlFor.index
                         # tsMlFor.reset_index(drop=True, inplace=True)
 
                         tsForData = tsDlFor.merge(tsMlFor, left_on=['date'], right_on=['date'], how='inner')
                         tsForData['name'] = nameInfo
+                        tsForData['capacity'] = capInfo
+                        tsForData['year'] = iYear
+                        tsForData['lat'] = selInfoFirst['lat']
+                        tsForData['lon'] = selInfoFirst['lon']
+                        tsForData['inhuga'] = selInfoFirst['inhuga']
+                        tsForData['conYear'] = selInfoFirst['conYear']
                     except Exception as e:
                         log.error('Exception : {}'.format(e))
 
-                    valid_result_FIN_L4 = dataL4.merge(
+                    dataL3 = dataL2.merge(
                         tsForData
-                        , left_on=['name', 'date', 'gapDL', 'gapML']
-                        , right_on=['name', 'date', 'gapDL', 'gapML']
+                        , left_on=['name', 'capacity', 'year', 'lat', 'lon', 'inhuga', 'conYear', 'date', 'gapDL', 'gapML']
+                        , right_on=['name', 'capacity', 'year', 'lat', 'lon', 'inhuga', 'conYear', 'date', 'gapDL', 'gapML']
                         , how='outer'
                     )
 
-                    # valid_result_FIN_L5 = valid_resCult_FIN_L4.interpolate(method='values')
-
-                    # full_data_gapreal = pd.concat([full_data_gapreal, valid_result_FIN_L5])
-
-                    # 아파트 갭 투자 시계열
-                    mainTitle = '[{}, {}] 아파트 갭 투자 시계열'.format(nameInfo, capInfo)
+                    # 아파트 갭투자 시계열
+                    mainTitle = '[{}, {}] 아파트 갭투자 시계열'.format(nameInfo, capInfo)
                     saveImg = '{}/{}_{}.png'.format(globalVar['figPath'], serviceName, mainTitle)
-                    makeUserTimeSeriesPlot(valid_result_FIN_L4['date'], valid_result_FIN_L4['gapML'], valid_result_FIN_L4['gapDL'], valid_result_FIN_L4['gap_real'], '예측 (머신러닝)', '예측 (딥러닝)', '실측', '날짜 [연도]', '갭 투자 [만원]', mainTitle, saveImg, False)
+                    makeUserTimeSeriesPlot(dataL3['date'], dataL3['gapML'], dataL3['gapDL'], dataL3['gapReal'], '예측 (머신러닝)', '예측 (딥러닝)', '실측', '날짜 [연도]', '갭 투자 [만원]', mainTitle, saveImg, False)
 
-                    result_L2 = valid_result_FIN_L4
+                    # +++++++++++++++++++++++++++++++++++++++++++++++++++++
+                    # 수익률 테이블
+                    # +++++++++++++++++++++++++++++++++++++++++++++++++++++
+                    resData = dataL3[['gapReal', 'gapML', 'gapDL']]
 
-                    result_L3 = result_L2[['gap_real', 'gapML', 'gapDL']]
-
-                    resDiffData = result_L3.diff(periods=1).rename(
+                    resDiffData = resData.diff(periods=1).rename(
                         columns={
-                            'gap_real': 'gapDiffReal'
+                            'gapReal': 'gapDiffReal'
                             , 'gapML': 'gapDiffML'
                             , 'gapDL': 'gapDiffDL'
                         }
                         , inplace=False
                     )
 
-                    resPctData = result_L3.pct_change(periods=1).rename(
+                    resPctData = resData.pct_change(periods=1).rename(
                         columns={
-                            'gap_real': 'gapPctReal'
+                            'gapReal': 'gapPctReal'
                             , 'gapML': 'gapPctML'
                             , 'gapDL': 'gapPctDL'
                         }
                         , inplace=False
                     )
 
-                    result_L4 = pd.concat([result_L2, resDiffData, resPctData * 100], axis=1)
-
-                    result_L5 = result_L4.rename(
+                    resDataL2 = pd.concat([dataL3, resDiffData, resPctData * 100], axis=1)
+                    resDataL3 = resDataL2.sort_values(by=['date'], ascending=False).rename(
                         columns={
                             'name': '아파트(도로명)'
                             , 'capacity': '면적'
                             , 'construction_year': '건축연도'
                             , 'year': '연도'
+                            , 'date': '날짜'
+                            , 'lat': '위도'
+                            , 'lon': '경도'
+                            , 'inhuga': '인허가'
+                            , 'conYear': '건축년도'
                             , 'realPrice': '매매가'
-                            , 'realPriceML': '예측 머신러닝 매매가'
+                            , 'realBjprice': '전세가'
                             , 'realPriceDL': '예측 딥러닝 매매가'
-                            , 'real_bjprice': '전세가'
-                            , 'realBjpriceML': '예측 머신러닝 전세가 '
                             , 'realBjpriceDL': '예측 딥러닝 전세가'
-                            , 'gap_real': '실측 갭투자'
+                            , 'realPriceML': '예측 머신러닝 매매가'
+                            , 'realBjpriceML': '예측 머신러닝 전세가'
+                            , 'gapReal': '실측 갭투자'
                             , 'gapML': '예측 머신러닝 갭투자'
                             , 'gapDL': '예측 딥러닝 갭투자'
                             , 'gapDiffReal': '실측 수익금'
@@ -1193,203 +950,12 @@ class DtaProcess(object):
                         }
                     )
 
-                    saveFile = '{}/{}_{}_{}.xlsx'.format(globalVar['outPath'], serviceName, '수익률 테이블', datetime.now().strftime('%Y%m%d'))
-                    os.makedirs(os.path.dirname(saveFile), exist_ok=True)
-                    result_L5.to_excel(saveFile, index=False)
-                    log.info('[CHECK] saveFile : {}'.format(saveFile))
+                    fnlData = pd.concat([fnlData, resDataL3], ignore_index=True)
 
-
-                    # # for i, apaInfo in enumerate(apaList):
-                    # #     for j, capInfo in enumerate(capList):
-                    # # print(apaInfo)
-                    #
-                    # # valid_result_FIN_L1 = result_data.loc[
-                    # #     (result_data['name'] == apaInfo)
-                    # #     & (result_data['capacity'] == capInfo)
-                    # #     ].reset_index(drop=True)
-                    # #
-                    # # if (len(valid_result_FIN_L1) < 6): continue
-                    # #
-                    # # log.info('[CHECK] apaInfo : {} / capInfo : {} / cnt : {}'.format(apaInfo, capInfo, len(valid_result_FIN_L1)))
-                    #
-                    # # srtYear = pd.to_datetime(valid_result_FIN_L1['times'].min(), format='%Y')
-                    # # endYear = pd.to_datetime(valid_result_FIN_L1['times'].max(), format='%Y')
-                    # # # dtDateList = pd.date_range(start=srtYear, end=endYear, freq=pd.DateOffset(years=1))
-                    # #
-                    # # srtDate = valid_result_FIN_L1['date'].min()
-                    # # # endDate = valid_result_FIN_L1['date'].max()
-                    # # endDate = pd.to_datetime('2024-04', format='%Y-%m')
-                    # # dtDateList = pd.date_range(start=srtDate, end=endDate, freq=pd.DateOffset(months=1))
-                    # #
-                    # # dataL1 = pd.DataFrame()
-                    # # # dtDateInfo = dtDateList[0]
-                    # # for k, dtDateInfo in enumerate(dtDateList):
-                    # #     # log.info('[CHECK] dtDateInfo : {}'.format(dtDateInfo))
-                    # #
-                    # #     # tmpData = valid_result_FIN_L1
-                    # #     # predict_model(realBjPriceMlModel, data=tmpData)['Label']
-                    # #
-                    # #     iYear = int(dtDateInfo.strftime('%Y'))
-                    # #     iMonth = int(dtDateInfo.strftime('%m'))
-                    # #
-                    # #     selData = valid_result_FIN_L1.loc[
-                    # #         (valid_result_FIN_L1['year'] == iYear)
-                    # #         & (valid_result_FIN_L1['month'] == iMonth)
-                    # #     ].reset_index(drop=True)
-                    # #
-                    # #     tmpData = valid_result_FIN_L1.loc[0]
-                    # #     # tmpData['year'] = iYear
-                    # #     # tmpData['month'] = iMonth
-                    # #
-                    # #     # inpDataL1['realBjPriceML'] = predict_model(realBjPriceMlModel, data=inpData)['Label']
-                    # #
-                    # #     # valid_result_FIN_L2 = valid_result_FIN_L1.loc[
-                    # #     #     (valid_result_FIN_L1['times'] == iYear)
-                    # #     # ].reset_index(drop=True)
-                    # #     #
-                    # #     # iMonth = 1
-                    # #
-                    # #     dictInfo = {
-                    # #         'name': [apaInfo]
-                    # #         , 'capacity': [capInfo]
-                    # #         , 'date': [dtDateInfo]
-                    # #         , 'year': [iYear]
-                    # #         , 'month': [iMonth]
-                    # #         , 'lat': [tmpData['lat']]
-                    # #         , 'lon': [tmpData['lon']]
-                    # #         , 'inhuga': [tmpData['inhuga']]
-                    # #
-                    # #         # , 'realPriceDL': [np.nan if (len(tmpData) < 1) else tmpData['realPriceDL']]
-                    # #         # , 'realBjPriceDL': [np.nan if (len(tmpData) < 1) else tmpData['realBjPriceDL']]
-                    # #         # , 'realPriceML': [np.nan if (len(tmpData) < 1) else tmpData['realPriceML']]
-                    # #         # , 'realBjPriceML': [np.nan if (len(tmpData) < 1) else tmpData['realBjPriceML']]
-                    # #         # , 'gap_real': [np.nan if (len(tmpData) < 1) else tmpData['gap_real']]
-                    # #         # , 'gap_machine': [np.nan if (len(tmpData) < 1) else tmpData['ml_gap']]
-                    # #         # , 'gap_dnn': [np.nan if (len(tmpData) < 1) else tmpData['dnn_gap']]
-                    # #     }
-                    # #
-                    # #     dictDtl = {
-                    # #         'real_price': [np.nan if (len(selData) < 1) else selData['real_price'][0]]
-                    # #         , 'real_bjprice': [np.nan if (len(selData) < 1) else selData['real_bjprice'][0]]
-                    # #         , 'realPriceDL': [realPriceDlModel.predict(h2o.H2OFrame(pd.DataFrame.from_dict(dictInfo))).as_data_frame()['predict'][0] if (len(selData) < 1) else selData['realPriceDL'][0]]
-                    # #         , 'realBjPriceDL': [realBjPriceDlModel.predict(h2o.H2OFrame(pd.DataFrame.from_dict(dictInfo))).as_data_frame()['predict'][0] if (len(selData) < 1) else selData['realBjPriceDL'][0]]
-                    # #         , 'realPriceML': [predict_model(realPriceMlModel, data=pd.DataFrame.from_dict(dictInfo))['Label'][0] if (len(selData) < 1) else selData['realPriceML'][0]]
-                    # #         , 'realBjPriceML': [predict_model(realBjPriceMlModel, data=pd.DataFrame.from_dict(dictInfo))['Label'][0] if (len(selData) < 1) else selData['realBjPriceML'][0]]
-                    # #     }
-                    # #
-                    # #     dict = {**dictInfo, **dictDtl}
-                    # #
-                    # #     # dataL1 = pd.concat([dataL1, pd.DataFrame.from_dict(dictInfo)], ignore_index=True)
-                    # #     dataL1 = pd.concat([dataL1, pd.DataFrame.from_dict(dict)], ignore_index=True)
-                    # #
-                    # #
-                    # # dataL1['gap_real'] = dataL1['real_price'] - dataL1['real_bjprice']
-                    # # dataL1['gapML'] = dataL1['realPriceML'] - dataL1['realBjPriceML']
-                    # # dataL1['gapDL'] = dataL1['realPriceDL'] - dataL1['realBjPriceDL']
-                    # #
-                    # #
-                    # # # 아파트 갭 투자 시계열
-                    # # mainTitle = '[{}, {}] 아파트 갭 투자 시계열'.format(apaInfo, capInfo)
-                    # # saveImg = '{}/{}_{}.png'.format(globalVar['figPath'], serviceName, mainTitle)
-                    # # makeUserTimeSeriesPlot(dataL1['date'], dataL1['gapML'], dataL1['gapDL'], dataL1['gap_real'], '예측 (머신러닝)', '예측 (딥러닝)', '실측', '날짜 [연도]', '갭 투자 [만원]', mainTitle, saveImg, False)
-                    # #
-                    # #     # c = pd.DataFrame.fromC_dict(dict)
-                    # #     # pd.DataFrame.from_dict(dict)
-                    # #     # merged_dict = dict_one | dict_two | dict_three
-                    # #
-                    # #     # , 'realPriceDL': [np.nan if (len(tmpData) < 1) else tmpData['realPriceDL']]
-                    # #     # , 'realBjPriceDL': [np.nan if (len(tmpData) < 1) else tmpData['realBjPriceDL']]
-                    # #     # , 'realPriceML': [np.nan if (len(tmpData) < 1) else tmpData['realPriceML']]
-                    # #     # , 'realBjPriceML': [np.nan if (len(tmpData) < 1) else tmpData['realBjPriceML']]
-                    # #     # , 'gap_real': [np.nan if (len(tmpData) < 1) else tmpData['gap_real']]
-                    # #     # , 'gap_machine': [np.nan if (len(tmpData) < 1) else tmpData['ml_gap']]
-                    # #     # , 'gap_dnn': [np.nan if (len(tmpData) < 1) else tmpData['dnn_gap']]
-                    # #     # }
-                    # #
-                    # #     # b = aa.values
-                    # #
-                    # #     # aa = predict_model(realBjPriceMlModel, data=pd.DataFrame.from_dict(dict))['Label']
-                    # #
-                    # # # a = 10
-                    # #
-                    # # dataL1['date'] = pd.to_datetime(dataL1['times'], format='%Y')
-                    # # df_intp_values = dataL1.interpolate(method='values')
-                    #
-                    # try:
-                    #     tsModel = AutoTS(forecast_length=2, frequency='infer', ensemble='all', model_list='superfast', transformer_list='superfast')
-                    #
-                    #     tsDlModel = tsModel.fit(df_intp_values, date_col='date', value_col='gap_dnn', id_col=None)
-                    #     tsDlFor = tsDlModel.predict().forecast
-                    #     tsDlFor['date'] = tsDlFor.index
-                    #     # tsDlFor.reset_index(drop=True, inplace=True)
-                    #
-                    #     tsMlModel = tsModel.fit(df_intp_values, date_col='date', value_col='gap_machine', id_col=None)
-                    #     tsMlFor = tsMlModel.predict().forecast
-                    #     tsMlFor['date'] = tsMlFor.index
-                    #     # tsMlFor.reset_index(drop=True, inplace=True)
-                    #
-                    #     tsForData = tsDlFor.merge(tsMlFor, left_on=['date'], right_on=['date'], how='inner')
-                    #     tsForData['name'] = apaInfo
-                    # except Exception as e:
-                    #     log.error('Exception : {}'.format(e))
-                    #
-                    # valid_result_FIN_L4 = df_intp_values.merge(tsForData, left_on=['name', 'date', 'gap_dnn', 'gap_machine'], right_on=['name', 'date', 'gap_dnn', 'gap_machine'], how='outer')
-                    # valid_result_FIN_L5 = valid_result_FIN_L4.interpolate(method='values')
-                    #
-                    # # full_data_gapreal = pd.concat([full_data_gapreal, valid_result_FIN_L5])
-                    #
-                    # # 아파트 갭 투자 시계열
-                    # mainTitle = '[{}, {}] 아파트 갭 투자 시계열'.format(apaInfo, capInfo)
-                    # saveImg = '{}/{}_{}.png'.format(globalVar['figPath'], serviceName, mainTitle)
-                    # makeUserTimeSeriesPlot(valid_result_FIN_L4['date'], valid_result_FIN_L4['gap_machine'], valid_result_FIN_L4['gap_dnn'], valid_result_FIN_L4['gap_real'], '예측 (머신러닝)', '예측 (딥러닝)', '실측', '날짜 [연도]', '갭 투자 [만원]', mainTitle, saveImg, False)
-                    #
-                    # # 수익률 테이블
-                    # # valid_result_FIN_L5
-                    #
-                    # # result_L2 = valid_result_FIN_L5
-                    # result_L2 = valid_result_FIN_L4
-                    #
-                    # result_L3 = result_L2[['gap_real', 'gap_machine', 'gap_dnn']]
-                    # resDiff = result_L3.diff(periods=1).rename(
-                    #     columns={
-                    #         'gap_real': 'gap_real_diff'
-                    #         , 'gap_machine': 'gap_machine_diff'
-                    #         , 'gap_dnn': 'gap_dnn_diff'
-                    #     }
-                    #     , inplace=False
-                    # )
-                    #
-                    # resPct = result_L3.pct_change(periods=1).rename(
-                    #     columns={
-                    #         'gap_real': 'gap_real_pct'
-                    #         , 'gap_machine': 'gap_machine_pct'
-                    #         , 'gap_dnn': 'gap_dnn_pct'
-                    #     }
-                    #     , inplace=False
-                    # )
-                    #
-                    # result_L4 = pd.concat([result_L2, resDiff, resPct * 100], axis=1)
-                    # result_L5 = result_L4.rename(
-                    #     columns={
-                    #         'date': '연도'
-                    #         , 'construction_year': '건축연도'
-                    #         , 'name': '아파트'
-                    #         , 'capacity': '면적'
-                    #         , 'real_price': '매매가'
-                    #         , 'real_bjprice': '전세가'
-                    #         , 'gap_real': '실측 갭투자'
-                    #         , 'gap_machine': '예측 머신러닝 갭투자'
-                    #         , 'gap_dnn': '예측 딥러닝 갭투자'
-                    #         , 'gap_real_diff': '실측 수익금'
-                    #         , 'gap_dnn_diff': '예측 딥러닝 수익금'
-                    #         , 'gap_machine_diff': '예측 머신러닝 수익금'
-                    #         , 'gap_real_pct': '실측 수익률'
-                    #         , 'gap_dnn_pct': '예측 딥러닝 수익률'
-                    #         , 'gap_machine_pct': '예측 머신러닝 수익률'
-                    #     }
-                    # )
-                    #
-                    # result_L2.to_excel('./수익률테이블_결과/result_인허가포함학습.xlsx')
+            saveFile = '{}/{}_{}_{}.xlsx'.format(globalVar['outPath'], serviceName, '수익률 테이블', datetime.now().strftime('%Y%m%d'))
+            os.makedirs(os.path.dirname(saveFile), exist_ok=True)
+            fnlData.to_excel(saveFile, index=False)
+            log.info('[CHECK] saveFile : {}'.format(saveFile))
 
         except Exception as e:
             log.error('Exception : {}'.format(e))
