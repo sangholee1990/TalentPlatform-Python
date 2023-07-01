@@ -54,6 +54,7 @@ plt.rc('axes', unicode_minus=False)
 # 그래프에서 마이너스 글꼴 깨지는 문제에 대한 대처
 mpl.rcParams['axes.unicode_minus'] = False
 
+import_or_install('newspaper')
 
 # =================================================
 # 2. 유틸리티 함수
@@ -172,9 +173,6 @@ def initArgument(globalVar, inParams):
 
 def getFullArticle(url):
     try:
-        import_or_install('newspaper')
-        from newspaper import Article
-
         article = Article(url="%s" % url, language='en')
         article.download()
         article.parse()
@@ -208,21 +206,17 @@ def subCrawler(sysOpt):
             log.error('[ERROR] crawler : {} / {}'.format(crawler, '크롤러를 선택해주세요.'))
             raise Exception('[ERROR] crawler : {} / {}'.format(crawler, '크롤러를 선택해주세요.'))
 
-        domainList = subOpt['domainList']
         keywordList = subOpt['keywordList']
-        # domainInfo = 'Walmart'
-        # keywordInfo = 'gender'
 
-        saveCsvFile = '{}/{}/{}_{}.csv'.format(globalVar['outPath'], serviceName, '지역 및 키워드에 따른 구글 뉴스 크롤링', crawler)
+        saveCsvFile = '{}/{}/{}_{}.csv'.format(globalVar['outPath'], serviceName, '키워드에 따른 구글 뉴스 크롤링', crawler)
         os.makedirs(os.path.dirname(saveCsvFile), exist_ok=True)
 
-        for domainInfo in domainList:
-            for keywordInfo in keywordList:
+        for keywordInfo in keywordList:
 
-                if crawler == 'A':
-                    result = searchGoogleNews(unitGoogleNews, domainInfo, keywordInfo, subOpt['searchMaxPage'], Article, config, saveCsvFile)
-                elif crawler == 'B':
-                    result = searchGoogleNewsAll(unitGoogleNewsAll, domainInfo, keywordInfo, saveCsvFile)
+            if crawler == 'A':
+                result = searchGoogleNews(unitGoogleNews, keywordInfo, subOpt['searchMaxPage'], Article, config, saveCsvFile)
+            elif crawler == 'B':
+                result = searchGoogleNewsAll(unitGoogleNewsAll, keywordInfo, saveCsvFile)
 
         # log.info(f'[CHECK] result : {result}')
         log.info(f'[CHECK] saveCsvFile : {saveCsvFile}')
@@ -237,17 +231,27 @@ def subCrawler(sysOpt):
         dataL2 = dataL1.drop_duplicates()
 
         # 시작일/종료일에 대한 필터
-        dataL2['datetime'] = pd.to_datetime(dataL2['date'])
-        dataL3 = dataL2.loc[
-            (dataL2['datetime'] >= pd.to_datetime(subOpt['srtDate'])) & (dataL2['datetime'] <= pd.to_datetime(subOpt['endDate']))
-        ].reset_index(drop=True)
+        if subOpt['language'] == 'ko':
+            dataL2['datetime'] = pd.to_datetime(dataL2['date'], errors='coerce')
+        else:
+            if subOpt['crawler'] == 'A':
+                dataL2['datetime'] = pd.to_datetime(dataL2['date'].replace(subOpt['monthDict'], regex=True), errors='coerce')
+            else:
+                dataL2['datetime'] = pd.to_datetime(dataL2['published date'], errors='coerce').dt.tz_convert('UTC').dt.tz_localize(None)
 
-        saveCsvFnlFile = '{}/{}/{}_{}_FNL.csv'.format(globalVar['outPath'], serviceName, '지역 및 키워드에 따른 구글 뉴스 크롤링', crawler)
+        if subOpt['crawler'] == 'A':
+            dataL3 = dataL2.loc[
+                (pd.to_datetime(dataL2['datetime']) >= pd.to_datetime(subOpt['srtDate'])) & (dataL2['datetime'] <= pd.to_datetime(subOpt['endDate']))
+            ].reset_index(drop=True)
+        else:
+            dataL3 = dataL2
+
+        saveCsvFnlFile = '{}/{}/{}_{}_FNL.csv'.format(globalVar['outPath'], serviceName, '키워드에 따른 구글 뉴스 크롤링', crawler)
         os.makedirs(os.path.dirname(saveCsvFnlFile), exist_ok=True)
         dataL3.to_csv(saveCsvFnlFile, index=False)
         log.info(f'[CHECK] saveCsvFnlFile : {saveCsvFnlFile}')
 
-        saveXlsxFnlFile = '{}/{}/{}_{}_FNL.xlsx'.format(globalVar['outPath'], serviceName, '지역 및 키워드에 따른 구글 뉴스 크롤링', crawler)
+        saveXlsxFnlFile = '{}/{}/{}_{}_FNL.xlsx'.format(globalVar['outPath'], serviceName, '키워드에 따른 구글 뉴스 크롤링', crawler)
         os.makedirs(os.path.dirname(saveXlsxFnlFile), exist_ok=True)
         dataL3.to_excel(saveXlsxFnlFile, index=False)
         log.info(f'[CHECK] saveXlsxFnlFile : {saveXlsxFnlFile}')
@@ -259,15 +263,15 @@ def subCrawler(sysOpt):
         log.info('[END] {}'.format('subCrawler'))
 
 
-def searchGoogleNews(unitGoogleNews, domainInfo, keywordInfo, searchMaxPage, Article, config, saveFile):
+def searchGoogleNews(unitGoogleNews, keywordInfo, searchMaxPage, Article, config, saveFile):
 
     log.info('[START] {}'.format('searchGoogleNews'))
 
     result = None
 
     try:
-        searchInfo = '{} {}'.format(domainInfo, keywordInfo)
-        log.info("[CHECK] searchInfo : {}".format(searchInfo))
+        searchInfo = '{}'.format(keywordInfo).strip()
+        log.info(f"[CHECK] searchInfo : {searchInfo}")
 
         unitGoogleNews.search(searchInfo)
 
@@ -278,9 +282,7 @@ def searchGoogleNews(unitGoogleNews, domainInfo, keywordInfo, searchMaxPage, Art
             data = pd.DataFrame(result)
             if len(data) < 1: continue
 
-            data.insert(0, 'domainName', domainInfo)
-            data.insert(1, 'keyword', keywordInfo)
-            data.insert(2, 'searchName', searchInfo)
+            data.insert(0, 'searchName', searchInfo)
 
             for j in data.index:
                 dataDtl = getFullArticle(data.loc[j]['link'])
@@ -341,7 +343,7 @@ def webTextPrep(text):
         # try, catch 구문이 종료되기 전에 무조건 실행
         log.info('[END] {}'.format('webTextPrep'))
 
-def searchGoogleNewsAll(unitGoogleNews, domainInfo, keywordInfo, saveFile):
+def searchGoogleNewsAll(unitGoogleNews, keywordInfo, saveFile):
 
     log.info('[START] {}'.format('searchGoogleNewsAll'))
 
@@ -349,8 +351,9 @@ def searchGoogleNewsAll(unitGoogleNews, domainInfo, keywordInfo, saveFile):
 
     try:
 
-        searchInfo = '{} {}'.format(domainInfo, keywordInfo)
-        log.info("[CHECK] searchInfo : {}".format(searchInfo))
+        searchInfo = '{}'.format(keywordInfo).strip()
+        log.info(f"[CHECK] searchInfo : {searchInfo}")
+
 
         result = unitGoogleNews.get_news(searchInfo)
         if result is None or len(result) < 1: return None
@@ -358,9 +361,7 @@ def searchGoogleNewsAll(unitGoogleNews, domainInfo, keywordInfo, saveFile):
         data = json_normalize(result)
         if len(data) < 1: return None
 
-        data.insert(0, 'domainName', domainInfo)
-        data.insert(1, 'keyword', keywordInfo)
-        data.insert(2, 'searchName', searchInfo)
+        data.insert(0, 'searchName', searchInfo)
 
         for i in data.index:
             dataDtl = unitGoogleNews.get_full_article(data.loc[i]['url'])
@@ -449,113 +450,65 @@ class DtaProcess(object):
         log.info('[START] {}'.format("exec"))
 
         try:
-            if (platform.system() == 'Windows'):
-
-                # 옵션 설정
-                sysOpt = {
-                    # +++++++++++++++++++++++++++++++++++++++++
-                    #  [단위 시스템] 구글 뉴스 크롤러 선택
-                    # +++++++++++++++++++++++++++++++++++++++++
-                    'subCrawler': {
-                        # 시작/종료 날짜 설정 O
-                        'crawler': 'A'
-
-                        # 날짜 설정 X
-                        # 'crawler': 'B'
-
-                        # ++++++++++++++++++++++++++++++++++++++++++
-                        # 공통 옵션
-                        # +++++++++++++++++++++++++++++++++++++++++
-                        # 언어 설정
-                        # , 'language' : 'en'
-                        , 'language': 'ko'
-
-                        # 국가 설정
-                        # , 'country' : 'US'
-                        , 'country': 'KR'
-
-                        # 지역 설정
-                        , 'domainList':  ['강도', '절도', '성폭력', '살인', '사기']
-
-                        # 키워드 설정
-                        , 'keywordList': ['범죄']
-
-                        # ++++++++++++++++++++++++++++++++++++++++++
-                        # 크롤러 A 옵션
-                        # +++++++++++++++++++++++++++++++++++++++++
-                        # 시간 설정
-                        , 'srtDate': '10/05/2017'
-                        , 'endDate': '01/03/2018'
-
-                        # 검색 최대 페이지 (페이지 당 10개)
-                        , 'searchMaxPage': 2  # 테스트
-                        # , 'searchMaxPage': 10
-                        # , 'searchMaxPage': 99
-
-                        # ++++++++++++++++++++++++++++++++++++++++++
-                        # 크롤러 B 옵션
-                        # +++++++++++++++++++++++++++++++++++++++++
-                        # 최대 검색 개수
-                        , 'searchMaxCnt': 10  # 테스트
-                        # , searchMaxCnt = 100
-                    }
-                }
-
+            if platform.system() == 'Windows':
+                pass
             else:
-
-                # 옵션 설정
-                sysOpt = {
-                    # +++++++++++++++++++++++++++++++++++++++++
-                    #  [단위 시스템] 구글 뉴스 크롤러 선택
-                    # +++++++++++++++++++++++++++++++++++++++++
-                    'subCrawler': {
-                        # 시작/종료 날짜 설정 O
-                        'crawler': 'A'
-
-                        # 날짜 설정 X
-                        # 'crawler': 'B'
-
-                        # ++++++++++++++++++++++++++++++++++++++++++
-                        # 공통 옵션
-                        # +++++++++++++++++++++++++++++++++++++++++
-                        # 언어 설정
-                        # , 'language' : 'en'
-                        , 'language': 'ko'
-
-                        # 국가 설정
-                        # , 'country' : 'US'
-                        , 'country': 'KR'
-
-                        # 지역 설정
-                        , 'domainList': ['강도', '절도', '성폭력', '살인', '사기']
-
-                        # 키워드 설정
-                        , 'keywordList': ['범죄']
-
-                        # ++++++++++++++++++++++++++++++++++++++++++
-                        # 크롤러 A 옵션
-                        # +++++++++++++++++++++++++++++++++++++++++
-                        # 시간 설정
-                        , 'srtDate': '10/05/2017'
-                        , 'endDate': '01/03/2018'
-
-                        # 검색 최대 페이지 (페이지 당 10개)
-                        , 'searchMaxPage': 2  # 테스트
-                        # , 'searchMaxPage': 10
-                        # , 'searchMaxPage': 99
-
-                        # ++++++++++++++++++++++++++++++++++++++++++
-                        # 크롤러 B 옵션
-                        # +++++++++++++++++++++++++++++++++++++++++
-                        # 최대 검색 개수
-                        , 'searchMaxCnt': 10  # 테스트
-                        # , searchMaxCnt = 100
-                    }
-                }
-
                 globalVar['inpPath'] = '/DATA/INPUT'
                 globalVar['outPath'] = '/DATA/OUTPUT'
                 globalVar['figPath'] = '/DATA/FIG'
+
+            # 옵션 설정
+            sysOpt = {
+                # +++++++++++++++++++++++++++++++++++++++++
+                #  [단위 시스템] 구글 뉴스 크롤러 선택
+                # +++++++++++++++++++++++++++++++++++++++++
+                'subCrawler': {
+                    # 시작/종료 날짜 설정 O
+                    'crawler': 'A'
+
+                    # 날짜 설정 X
+                    # 'crawler': 'B'
+
+                    # ++++++++++++++++++++++++++++++++++++++++++
+                    # 공통 옵션
+                    # +++++++++++++++++++++++++++++++++++++++++
+                    # 언어 설정
+                    , 'language' : 'en'
+                    # , 'language': 'ko'
+
+                    # 국가 설정
+                    , 'country' : 'US'
+                    # , 'country': 'KR'
+
+                    # 키워드 설정
+                    , 'keywordList': ['robbery', 'theft', 'sexual assault', 'murder', 'fraud']
+                    # , 'keywordList': ['robbery']
+
+                    # ++++++++++++++++++++++++++++++++++++++++++
+                    # 크롤러 A 옵션
+                    # +++++++++++++++++++++++++++++++++++++++++
+                    # 시간 설정
+                    , 'srtDate': '01/01/2017'
+                    , 'endDate': '01/01/2018'
+
+                    # 검색 최대 페이지 (페이지 당 10개)
+                    , 'searchMaxPage': 2  # 테스트
+                    # , 'searchMaxPage': 10
+                    # , 'searchMaxPage': 99
+
+                    , 'monthDict': {
+                        'an ': 'Jan'
+                        , 'ct ': 'Oct'
+                    }
+
+                    # ++++++++++++++++++++++++++++++++++++++++++
+                    # 크롤러 B 옵션
+                    # +++++++++++++++++++++++++++++++++++++++++
+                    # 최대 검색 개수
+                    , 'searchMaxCnt': 10  # 테스트
+                    # , 'searchMaxCnt' : 1000
+                }
+            }
 
             # [서브 시스템] 구글 뉴스 크롤링
             subCrawler(sysOpt)

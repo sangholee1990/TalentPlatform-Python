@@ -285,28 +285,20 @@ class DtaProcess(object):
 
         try:
 
-            if (platform.system() == 'Windows'):
-
-                # 옵션 설정
-                sysOpt = {
-                    # 업로드 아이피 및 포트
-                    'updIp': '223.130.134.136'
-                    , 'updPort': '9000'
-                }
-
+            if platform.system() == 'Windows':
+                pass
             else:
-
-                # 옵션 설정
-                sysOpt = {
-                    # 업로드 아이피 및 포트
-                    'updIp': '223.130.134.136'
-                    , 'updPort': '9000'
-                }
-
                 globalVar['inpPath'] = '/DATA/INPUT'
                 globalVar['outPath'] = '/DATA/OUTPUT'
                 globalVar['figPath'] = '/DATA/FIG'
                 globalVar['updPath'] = '/DATA/CSV'
+
+            # 옵션 설정
+            sysOpt = {
+                # 업로드 아이피 및 포트
+                'updIp': '223.130.134.136'
+                , 'updPort': '9000'
+            }
 
             # DB 정보
             cfgInfo = initCfgInfo(sysOpt, f"{globalVar['cfgPath']}/system.cfg")
