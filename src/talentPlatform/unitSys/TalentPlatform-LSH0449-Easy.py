@@ -96,19 +96,22 @@ for i, keyInfo in enumerate(set(keyList)):
 
     if fileList is None or len(fileList) < 1: continue
 
-    shpList = []
+    shpData = gpd.GeoDataFrame()
     for j, fileInfo in enumerate(fileList):
-        gdf = gpd.read_file(fileInfo)
-        gdf['type'] = re.search(r'인구정보-(.*?)[ 인]', fileInfo).group(1)
-        shpList.append(gdf)
+        gdf = gpd.read_file(fileInfo, encoding='UTF-8')
+        type = re.search(r'인구정보-(.*?)[ 인]', fileInfo).group(1)
+        gdf = gdf.rename({'val': type}, axis='columns').drop('lbl', axis='columns')
 
-    if len(shpList) > 0:
         # SHP 통합
-        shpData = gpd.GeoDataFrame(pd.concat(shpList, ignore_index=True))
+        if len(shpData) < 1:
+            shpData = gdf
+        else:
+            shpData = shpData.merge(gdf, on=['gid', 'geometry'], how='left')
 
+    if len(shpData) > 0:
         saveFile = '{}/{}/{}.shp'.format(globalVar['outPath'], serviceName, keyInfo)
         os.makedirs(os.path.dirname(saveFile), exist_ok=True)
-        shpData.to_file(saveFile)
+        shpData.to_file(saveFile, encoding='EUC-KR')
         print(f'[CHECK] saveFile : {saveFile}')
 
 # 메인 윈도우 클래스 정의
