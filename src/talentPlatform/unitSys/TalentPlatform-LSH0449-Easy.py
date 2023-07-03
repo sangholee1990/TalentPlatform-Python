@@ -44,7 +44,6 @@ from PyQt5.QtCore import QEventLoop, QTimer
 import geopandas as gpd
 import re
 import shutil
-import pyogrio
 
 # ============================================
 # 요구사항
@@ -289,13 +288,14 @@ class MainWindow(QWidget):
                 else:
                     shpData = shpData.merge(gdf, on=['gid', 'geometry'], how='left')
 
-            print(f'[CHECK] shpData : {shpData}')
+            # print(f'[CHECK] shpData : {shpData}')
 
             # 파일 저장
             if len(shpData) > 0:
                 os.makedirs(os.path.dirname(saveFile), exist_ok=True)
-                # shpData.to_file(saveFile, encoding='utf-8')
-                shpData.to_file(saveFile, encoding='EUC-KR')
+                # shpData.to_file(saveFile, encoding='UTF-8')
+                # shpData.to_file(saveFile, encoding='EUC-KR')
+                shpData.to_file(saveFile, encoding='CP949')
 
                 # [변환 목록]에 행 추가
                 row = self.result_table.rowCount()
@@ -430,19 +430,14 @@ class MainWindow(QWidget):
         self.isStopProc = True
         event.accept()
 
-# 예외 발생 시 종료 방지
-# def excepHook(exctype, value, traceback):
-#     pass
-
-
 if __name__ == '__main__':
     if platform.system() == 'Windows':
         pass
     else:
+        # pass
         os.environ['DISPLAY'] = 'localhost:10.0'
         display_value = os.environ.get('DISPLAY')
 
-    # sys.excepthook = excepHook
     app = QApplication(sys.argv)
     mainWindow = MainWindow()
     mainWindow.show()
