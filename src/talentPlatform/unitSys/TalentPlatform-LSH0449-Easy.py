@@ -178,7 +178,9 @@ class MainWindow(QWidget):
         filePath = QFileDialog.getExistingDirectory(self, "폴더 선택", "", options=options)
 
         # 임시 폴더/파일 삭제
-        shutil.rmtree(f'{filePath}/임시')
+        tmpPath = f'{filePath}/임시'
+        if os.path.exists(tmpPath):
+            shutil.rmtree(tmpPath)
 
         # 압축 해제
         if filePath:
@@ -239,8 +241,10 @@ class MainWindow(QWidget):
             filename = self.file_table.item(i, 1).text()
             filePath = os.path.dirname(os.path.dirname(filename))
 
-            key = re.search(r'100M_(.*?)/', filename).group(1)
+            fileSep = re.escape(os.sep)
+            key = re.search(r'100M_(.*?){}'.format(fileSep), filename).group(1)
             keyList.append(key)
+        # print(f'[CHECK] keyList : {set(keyList)}')
 
         # 진행바 생성
         maxCnt = len(set(keyList))
@@ -269,6 +273,7 @@ class MainWindow(QWidget):
                 filename = self.file_table.item(i, 1).text()
                 if (not re.search(keyInfo, filename)): continue
 
+                # print(f'[CHECK] filename : {filename}')
                 gdf = gpd.read_file(filename, encoding='UTF-8')
                 type = re.search(r'인구정보-(.*?)[ 인]', filename).group(1)
                 gdf = gdf.rename({'val': type}, axis='columns').drop('lbl', axis='columns')
@@ -282,8 +287,10 @@ class MainWindow(QWidget):
             # 파일 저장
             if len(shpData) > 0:
                 os.makedirs(os.path.dirname(saveFile), exist_ok=True)
-                shpData.to_file(saveFile, encoding='EUC-KR')
-                # print(f'[CHECK] saveFile : {saveFile}')
+                if platform.system() == 'Windows':
+                    shpData.to_file(saveFile, encoding='UTF-8')
+                else:
+                    shpData.to_file(saveFile, encoding='EUC-KR')
 
             # [변환 목록]에 행 추가
             row = self.result_table.rowCount()
@@ -422,9 +429,8 @@ if __name__ == '__main__':
     if platform.system() == 'Windows':
         pass
     else:
-        pass
-        # os.environ['DISPLAY'] = 'localhost:10.0'
-        # display_value = os.environ.get('DISPLAY')
+        os.environ['DISPLAY'] = 'localhost:10.0'
+        display_value = os.environ.get('DISPLAY')
 
     app = QApplication(sys.argv)
     mainWindow = MainWindow()
