@@ -44,6 +44,7 @@ from PyQt5.QtCore import QEventLoop, QTimer
 import geopandas as gpd
 import re
 import shutil
+import pyogrio
 
 # ============================================
 # 요구사항
@@ -280,8 +281,7 @@ class MainWindow(QWidget):
                 # gdf = gpd.read_file(filename, encoding='EUC-KR')
 
                 type = re.search(r'인구정보-(.*?)[ 인]', filename).group(1)
-                gdf = gdf.rename({'val': type}, axis='columns').drop('lbl', axis='columns')
-                gdf['gid'] = gdf['gid'].str.encode('UTF-8', errors='ignore').str.decode('UTF-8')
+                gdf = gdf.rename({'val': str(type)}, axis='columns').drop('lbl', axis='columns')
 
                 # SHP 통합
                 if len(shpData) < 1:
@@ -289,21 +289,19 @@ class MainWindow(QWidget):
                 else:
                     shpData = shpData.merge(gdf, on=['gid', 'geometry'], how='left')
 
-            print(shpData)
+            print(f'[CHECK] shpData : {shpData}')
+
             # 파일 저장
             if len(shpData) > 0:
                 os.makedirs(os.path.dirname(saveFile), exist_ok=True)
-                if platform.system() == 'Windows':
-                    # shpData.to_file(saveFile, encoding='EUC-KR')
-                    shpData.to_file(saveFile, encoding='UTF-8')
-                else:
-                    shpData.to_file(saveFile, encoding='UTF-8')
+                # shpData.to_file(saveFile, encoding='utf-8')
+                shpData.to_file(saveFile, encoding='EUC-KR')
 
-            # [변환 목록]에 행 추가
-            row = self.result_table.rowCount()
-            self.result_table.insertRow(row)
-            self.result_table.setItem(row, 1, QTableWidgetItem(saveFile))
-            # self.result_table.setCellWidget(row, 0, self.createCheckBox(True, self.result_table))
+                # [변환 목록]에 행 추가
+                row = self.result_table.rowCount()
+                self.result_table.insertRow(row)
+                self.result_table.setItem(row, 1, QTableWidgetItem(saveFile))
+                self.result_table.setCellWidget(row, 0, self.createCheckBox(True, self.result_table))
 
         self.isStopProc = False
         self.pbar.setValue(maxCnt)
@@ -433,8 +431,8 @@ class MainWindow(QWidget):
         event.accept()
 
 # 예외 발생 시 종료 방지
-def excepHook(exctype, value, traceback):
-    pass
+# def excepHook(exctype, value, traceback):
+#     pass
 
 
 if __name__ == '__main__':
@@ -444,9 +442,8 @@ if __name__ == '__main__':
         os.environ['DISPLAY'] = 'localhost:10.0'
         display_value = os.environ.get('DISPLAY')
 
+    # sys.excepthook = excepHook
     app = QApplication(sys.argv)
-    sys.excepthook = excepHook
-
     mainWindow = MainWindow()
     mainWindow.show()
     sys.exit(app.exec_())
