@@ -178,31 +178,30 @@ class MainWindow(QWidget):
         filePath = QFileDialog.getExistingDirectory(self, "폴더 선택", "", options=options)
 
         # 임시 폴더/파일 삭제
-        tmpPath = f'{filePath}/임시'
+        tmpPath = os.path.join(filePath, '임시')
         if os.path.exists(tmpPath):
-            shutil.rmtree(tmpPath)
+            shutil.rmtree(tmpPath, ignore_errors=True)
 
         # 압축 해제
-        if filePath:
-            zipFileList = glob.glob(f'{filePath}/*.zip')
+        zipFileList = glob.glob(os.path.join(filePath, '*.zip'))
 
-            for fileInfo in zipFileList:
-                zipFileInfo = f'{os.path.dirname(fileInfo)}/임시/{os.path.basename(fileInfo)}'
-                os.makedirs(os.path.dirname(zipFileInfo), exist_ok=True)
+        for fileInfo in zipFileList:
+            zipFileInfo = os.path.join(os.path.dirname(fileInfo), '임시', os.path.basename(fileInfo))
+            os.makedirs(os.path.dirname(zipFileInfo), exist_ok=True)
 
-                with zipfile.ZipFile(fileInfo, 'r') as zip_ref:
-                    zip_ref.extractall(zipFileInfo.split('.')[0])
+            with zipfile.ZipFile(fileInfo, 'r') as zip_ref:
+                zip_ref.extractall(zipFileInfo.split('.')[0])
 
-        if zipFileList == None or len(zipFileList) < 1:
+        if zipFileList is None or len(zipFileList) < 1:
             self.show_toast_message(f'[오류] {filePath} 폴더에 zip 목록이 없습니다.', 3000)
             return
 
         # 파일 조회
-        if filePath:  # ensure a directory was selected
-            files = glob.glob(f'{filePath}/임시/*/*.shp', recursive=True)
+        files = glob.glob(os.path.join(filePath, '임시/*/*.shp'), recursive=True)
+
         # print(f'[CHECK] files : {files}')
 
-        if files == None or len(files) < 1:
+        if files is None or len(files) < 1:
             self.show_toast_message(f'[오류] {filePath} 폴더에 shp 목록이 없습니다.', 3000)
             return
 
@@ -259,7 +258,7 @@ class MainWindow(QWidget):
             self.pbar.setFormat("{:.2f}%".format((j + 1) / maxCnt * 100))
             QApplication.processEvents()
 
-            saveFile = f'{filePath}/{keyInfo}_통합.shp'
+            saveFile = os.path.join(filePath, f'{keyInfo}_통합.shp')
             if self.isFileDup(saveFile, self.result_table):
                 self.show_toast_message(f'[오류] 대상 파일 중복 발생')
                 continue
@@ -274,7 +273,9 @@ class MainWindow(QWidget):
                 if (not re.search(keyInfo, filename)): continue
 
                 # print(f'[CHECK] filename : {filename}')
+
                 gdf = gpd.read_file(filename, encoding='UTF-8')
+
                 type = re.search(r'인구정보-(.*?)[ 인]', filename).group(1)
                 gdf = gdf.rename({'val': type}, axis='columns').drop('lbl', axis='columns')
 
@@ -288,9 +289,9 @@ class MainWindow(QWidget):
             if len(shpData) > 0:
                 os.makedirs(os.path.dirname(saveFile), exist_ok=True)
                 if platform.system() == 'Windows':
-                    shpData.to_file(saveFile, encoding='UTF-8')
-                else:
                     shpData.to_file(saveFile, encoding='EUC-KR')
+                else:
+                    shpData.to_file(saveFile, encoding='UTF-8')
 
             # [변환 목록]에 행 추가
             row = self.result_table.rowCount()
