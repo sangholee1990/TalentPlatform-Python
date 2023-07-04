@@ -48,6 +48,7 @@ from scipy.io import loadmat
 from scipy.ndimage import uniform_filter1d
 import matplotlib.pyplot as plt
 
+from scipy import io
 
 # =================================================
 # 사용자 매뉴얼
@@ -189,22 +190,76 @@ def initArgument(globalVar, inParams):
 
     return globalVar
 
+def prepcss_new(refFlt, phvFlt, appPDPelim, refThz, phvThz, pdpThrd, ntex, mtex, rVarf, rVarc, rVarp, rVarT):
+    # (1) apply low value(const.) threshold
+    vidx = np.zeros_like(rVarT)
+    if refFlt == 'yes':
+        rVarT[rVarf < refThz] = np.nan
+        vidx[rVarf < refThz] = 1
 
-def calcMannKendall(x):
-    try:
-        result = mk.original_test(x)
-        return result.Tau
-        # return result.trend, result.p, result.Tau
+    # (2) phv filtering
+    if phvFlt == 'yes':
+        rVarT[rVarc < phvThz] = np.nan
+        vidx[rVarc < phvThz] = 1
 
-    except Exception:
-        return np.nan
-        # return np.nan, np.nan, np.nan
+    # (3) Tex(pdp) filtering
+    # ftex 정의되지 않음
+    # if appPDPelim == 'yes':
+    #     Rcalp, vidx_p = ftex(appPDPelim, pdpThrd, rVarp, ntex, mtex)  # Need to define 'ftex' function in Python
+    #     rVarT[vidx_p == 1] = np.nan
+    #     vidx = np.logical_or(vidx, vidx_p)
 
+    return rVarT, vidx
 
+def getVarInfo191013(data, vnam):
+
+    rVar = None
+    rVarI = None
+
+    if vnam in ['ref', 'Zh']:
+        rVarI = 'Reflectivity [dBZ]'
+        rVar = np.transpose(data['arr_ref'])
+    elif vnam in ['zdr', 'ZDR']:
+        rVarI = 'Differential reflectivity [dB]'
+        rVar = np.transpose(data['arr_zdr'])
+    elif vnam in ['pdp', 'PDP']:
+        rVarI = 'Differential phase [degrees]'
+        rVar = np.transpose(data['arr_pdp'])
+    elif vnam in ['kdp', 'KDP']:
+        rVarI = 'Specific differential phase [degrees/km]'
+        rVar = np.transpose(data['arr_kdp'])
+    elif vnam in ['phv', 'PHV']:
+        rVarI = 'Cross correlation ratio [ratio]'
+        rVar = np.transpose(data['arr_phv'])
+    elif vnam in ['vel', 'VEL']:
+        rVarI = 'Velocity [meters/second]'
+        rVar = np.transpose(data['arr_vel'])
+    elif vnam in ['ecf', 'ECF']:
+        rVarI = 'Radar echo classification'
+        rVar = np.transpose(data['arr_ecf'])
+    elif vnam in ['coh', 'COH']:
+        rVarI = 'Normalized coherent power [ratio]'
+        rVar = np.transpose(data['arr_coh'])
+    elif vnam in ['spw', 'SPW']:
+        rVarI = 'Spectrum width [meters/second]'
+        rVar = np.transpose(data['arr_spw'])
+    elif vnam in ['tpw', 'TPW']:
+        rVarI = 'Total power [dBZ]'
+        rVar = np.transpose(data['arr_tpw'])
+    elif vnam in ['k-z', 'KDP/Zh']:
+        rVarI = '10log10(Kdp[deg./km]/Zh[mm^{6}mm^{-3}])'
+        rVarz = np.power(10, np.transpose(data['arr_ref']) / 10)
+        rVark = np.transpose(data['arr_kdp'])
+        rVark[rVark <= 0] = np.nan
+        rVarz[rVarz <= 0] = np.nan
+        rVar = 10 * np.log10(np.divide(rVark, rVarz, where=(rVarz!=0)))
+        rVar[np.isinf(rVar)] = np.nan
+        rVar[np.isnan(rVar)] = np.nan
+
+    return rVar, rVarI
 
 def func(x, a, b, c):
     return a * np.sin(b * x + c)
-
 
 # ================================================
 # 4. 부 프로그램
@@ -410,8 +465,8 @@ class DtaProcess(object):
             # ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 
             # --------------------------------------------------------
-            _, ext = os.path.splitext(fileInfo)
-            trm = 8 if ext == 'RAW' else 3
+            # _, ext = os.path.splitext(fileInfo)
+            # trm = 8 if ext == 'RAW' else 3
             # --------------------------------------------------------
             # ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
             # sfmat = os.path.join(dirname + '_OUT', (fileInfo[0:len(fileInfo) - trm] + '.mat'))
@@ -438,11 +493,121 @@ class DtaProcess(object):
                 'arr_ecf': fdat_ecf
             }
 
+            # dict['arr_etc']
+
+            # ======================================================================================
+            # 파일 검색
+            # ======================================================================================
+            inpFile = '{}/{}/{}'.format(globalVar['inpPath'], serviceName, 'zdr_dom_all.mat')
+            fileList = sorted(glob.glob(inpFile))
+
+            if fileList is None or len(fileList) < 1:
+                log.error('[ERROR] inpFile : {} / {}'.format(inpFile, '입력 자료를 확인해주세요.'))
+
+            fileInfo = fileList[0]
+            matData = io.loadmat(fileInfo)
+            matData.keys()
+
             #======================================================================================
             # (차등반사도의 방위각 종속성) 특정 사상에 대하여 방위각 방향의 차등반사도 변화를 모니터링
             #======================================================================================
-            def func(x, a, b, c):
-                return a * np.sin(b * x) + c
+
+            # Reinitialize variables
+            refFlt = 'no'  # ref filter
+            refThz = 0  # 10 dBZ
+            phvFlt = 'no'  # phv filter
+            phvThz = 0.95  # 0.95 0.65
+            appPDPelim = 'no'
+            pdpThz = 15  # 15
+            ntex = 7  # odd, OPERA 9
+            mtex = 7
+            spwFlt = 'no'  # ((yes))
+            spwThz = 0.1  # 0.4m/s
+            vnamB = ['ZDR', 'PDP', 'PHV', 'REF']
+            pco = 0.9925
+            srtEA = 3
+            endEA = srtEA
+
+            data = dict
+            azm_r = np.transpose(data['arr_azm_rng_elv'][0])
+            rng_r = np.transpose(data['arr_azm_rng_elv'][1])
+            elv_r = np.transpose(data['arr_azm_rng_elv'][2])
+
+            Tang = data['fix_ang']
+            Tang[Tang > 180] -= 360
+
+            # if datDR == ':\\Data190\\' or datDR == ':\\Data191\\':
+            #     didxs = data['arr_etc'][4].astype(int)
+            #     didxe = data['arr_etc'][5].astype(int)
+            # else:
+            didxs = data['arr_etc'][2].astype(int)
+            didxe = data['arr_etc'][3].astype(int)
+
+            # set '0' to '1'
+            # didxs += 1
+            # didxe += 1
+            didX2 = np.vstack((didxs, didxe))
+
+            Fang = elv_r[didxs].T
+
+            if data['arr_prt_prm_vel'][0][0] == data['arr_prt_prm_vel'][0][-1]:
+                Tprf = 'sing'
+            else:
+                Tprf = 'dual'
+
+            print(Fang)
+
+            bw = data['arr_lat_lon_alt_bwh'][3]
+
+            rVarI_bA = {}
+            # mrVarT_btA = (ip_max, j_max, ta_len)
+            for ip, vnam_b in enumerate(vnamB):
+                vnam_b = vnam_b.lower()
+
+                print(vnam_b)
+
+                for i in range(srtEA - 1, endEA):
+                # for i in range(srtEA, endEA + 1):
+                    Arng = np.arange(didxs[i], didxe[i] + 1)
+
+                    print(Arng)
+
+                    # 아래에 있는 getVarInfo191013()는 MATLAB 코드에 정의된 함수로,
+                    # 해당 파이썬 버전이 필요하며 이는 상황에 맞게 정의해야 합니다.
+                    rVar_b, rVarI_b = getVarInfo191013(data, vnam_b)
+                    rVarI_bA[ip] = rVarI_b
+
+                    rVarf_R = np.transpose(data['arr_ref'])
+                    rVarc_R = np.transpose(data['arr_phv'])
+                    rVarp_R = np.transpose(data['arr_pdp'])
+
+                    rVar_bT = rVar_b[:, Arng]
+                    rVarf = rVarf_R[:, Arng]
+                    rVarc = rVarc_R[:, Arng]
+                    rVarp = rVarp_R[:, Arng]
+
+                    rVarT_b, vidx_b = prepcss_new(refFlt, phvFlt, appPDPelim, refThz, phvThz, pdpThz, ntex, mtex, rVarf, rVarc, rVarp, rVar_bT)
+
+                    rVarT_bt = rVarT_b
+
+                    if vnam_b == 'zdr':
+                        rVarT_bt[np.logical_or(rVarT_bt < -10, rVarT_bt > 10)] = np.nan
+                    elif vnam_b == 'pdp':
+                        rVarT_bt[np.logical_or(rVarT_bt < -300, rVarT_bt > 300)] = np.nan
+                    elif vnam_b == 'phv':
+                        rVarT_bt[np.logical_or(rVarT_bt < 0, rVarT_bt > 1)] = np.nan
+                    elif vnam_b == 'ref':
+                        rVarT_bt[np.logical_or(rVarT_bt < -100, rVarT_bt > 100)] = np.nan
+
+                    mrVarT_bt = np.nanmean(rVarT_bt)
+                    mrVarT_bt = np.convolve(mrVarT_bt, np.ones((3,)) / 3, mode='same')
+
+                    ta = np.nan * np.ones((360,))
+                    ta[:len(mrVarT_bt)] = mrVarT_bt
+                    # mrVarT_btA[ip, 0, :] = ta
+
+                    if vnam_b in ['zdr', 'pdp']:
+                        dspCycl(fwDir, vnam_b, None, ta, 'fix', 'each', j, rVarI_bA[ip])
 
             # 이동평균에 사용될 윈도우 사이즈
             window_size = 3
@@ -461,7 +626,7 @@ class DtaProcess(object):
             #(1079,993)
             print(zdr.shape)
 
-            zdr[(zdr < -10) | (zdr > 10)] = np.nan
+            # zdr[(zdr < -10) | (zdr > 10)] = np.nan
 
 #            exit
 
@@ -470,13 +635,13 @@ class DtaProcess(object):
             # 초기 차등반사도 데이터를 거리 방향으로 평균
             mean_zdr = np.nanmean(data, axis=1)
             #(1079,)
-            print(mean_zdr.shape)
+            # print(mean_zdr.shape)
    
             plt.plot(fazm, mean_zdr)
-            plt.legend()
-            plt.savefig('1.png', dpi=600, bbox_inches='tight', transparent=False)
+            # plt.legend()
+            # plt.savefig('1.png', dpi=600, bbox_inches='tight', transparent=False)
+            plt.show()
             plt.close()
-            #plt.show()
 
 #            exit
 
@@ -509,23 +674,24 @@ class DtaProcess(object):
 
             # Show the final result
             plt.plot(fazm, moving_avg)
-            plt.legend()
-            plt.savefig('2.png', dpi=600, bbox_inches='tight', transparent=False)
+            # plt.legend()
+            # plt.savefig('2.png', dpi=600, bbox_inches='tight', transparent=False)
+            plt.show()
             plt.close()
-            #plt.show()
+
 
             plt.plot(fazm, residual)
             plt.legend()
-            plt.savefig('3.png', dpi=600, bbox_inches='tight', transparent=False)
-            plt.close()
-            #plt.show()
+            # plt.savefig('3.png', dpi=600, bbox_inches='tight', transparent=False)
+            # plt.close()
+            plt.show()
 
 
             plt.plot(fazm, final_diff_reflectivity)
             plt.legend()
-            plt.savefig('4.png', dpi=600, bbox_inches='tight', transparent=False)
-            plt.close()
-            #plt.show()
+            # plt.savefig('4.png', dpi=600, bbox_inches='tight', transparent=False)
+            # plt.close()
+            plt.show()
 
 
             # plt.plot(zdr)
