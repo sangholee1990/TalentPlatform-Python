@@ -62,6 +62,7 @@ serviceName = 'LSH0449'
 
 # 옵션 설정
 sysOpt = {
+    'colList' : ['gid', 'geometry', '유아', '유소년', '초등학생', '중학생', '고등학생', '20대', '30대', '40대', '50대', '60대', '70대', '80대', '90대', '100세이상']
 }
 
 if platform.system() == 'Windows':
@@ -90,8 +91,8 @@ class MainWindow(QWidget):
 
     def initUI(self):
         # 윈도우 타이틀 및 아이콘 설정
-        # self.setWindowTitle('PyQt5 원도우 GUI 기반 지오코딩 프로그램')
-        self.setWindowTitle('Python을 이용한 원도우 GUI 기반 SHP 처리 프로그램')
+        # self.setWindowTitle('Python을 이용한 원도우 GUI 기반 SHP 처리 프로그램')
+        self.setWindowTitle('RIA 주거인구 결합 프로그램')
         self.setWindowIcon(QIcon('icon.png'))
 
         # 그리드 레이아웃 생성
@@ -292,6 +293,9 @@ class MainWindow(QWidget):
 
             # 파일 저장
             if len(shpData) > 0:
+                selColList = [col for col in sysOpt['colList'] if col in shpData.columns]
+                shpData = shpData[selColList]
+
                 os.makedirs(os.path.dirname(saveFile), exist_ok=True)
                 # shpData.to_file(saveFile, encoding='UTF-8')
                 # shpData.to_file(saveFile, encoding='EUC-KR')
