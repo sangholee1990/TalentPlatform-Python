@@ -38,6 +38,7 @@ import pyart
 import gc
 import numpy as np
 import pandas as pd
+from docutils.nodes import description
 from scipy.signal import find_peaks
 
 # 반복 추세 적합
@@ -49,6 +50,17 @@ from scipy.ndimage import uniform_filter1d
 import matplotlib.pyplot as plt
 
 from scipy import io
+import numpy as np
+import pandas as pd
+import matplotlib.pyplot as plt
+from scipy import signal
+from statsmodels.tsa.seasonal import STL
+from scipy.optimize import curve_fit
+import numpy as np
+import matplotlib.pyplot as plt
+from matplotlib.ticker import MultipleLocator
+import os
+
 
 # =================================================
 # 사용자 매뉴얼
@@ -258,8 +270,215 @@ def getVarInfo191013(data, vnam):
 
     return rVar, rVarI
 
-def func(x, a, b, c):
-    return a * np.sin(b * x + c)
+# def func(x, a, b, c):
+#     return a * np.sin(b * x + c)
+
+# def sineFit(tha, mrVarT_btAm, _):
+#     def func(tha, offset, amplitude, frequency, phase):
+#         return offset + amplitude * np.sin(2 * np.pi * frequency * tha + phase)
+#     params, _ = curve_fit(func, tha, mrVarT_btAm)
+#     return params
+
+
+def func(x, offs, amp, f, phi):
+    return offs + amp * np.sin(2 * np.pi * f * x + phi)
+
+def sineFit(x, y, isPlot=True):
+    # 샘플 테스트
+    # x = np.linspace(-4, 5, 100)
+    # y = 1 + 2 * (np.sin(2 * np.pi * 0.1 * x + 2) + 0.3 * np.random.normal(size=len(x)))  # Sine + noise
+    # SineParams = sineFit(x, y)
+    # print(SineParams)
+
+    # Initial guess
+    initial_guess = [np.mean(y), np.std(y), 1.0/np.ptp(x), 0.0] # offs, amp, f, phi
+
+    # Curve fitting
+    popt, pcov = curve_fit(func, x, y, p0=initial_guess)
+
+    # Calculate mean squared error
+    residuals = y - func(x, *popt)
+    mse = np.mean(residuals**2)
+
+    # Plotting
+    if isPlot:
+        plt.figure()
+        plt.plot(x, y, 'b-', label='data')
+        plt.plot(x, func(x, *popt), 'r-', label='fit: offs=%5.3f, amp=%5.3f, f=%5.3f, phi=%5.3f' % tuple(popt))
+        plt.xlabel('x')
+        plt.ylabel('y')
+        plt.legend()
+        plt.show()
+
+    return list(popt) + [mse]
+
+
+def dspCycl(fwDir, vnam_b, mrVarT_btA, mrVarT_btAs, dtrnTyp, dspSel, j, rVarI_bA):
+    if dspSel == 'total':
+        mrVarT_btAm = np.nanmean(mrVarT_btAs)
+    elif dspSel == 'each':
+        mrVarT_btAm = mrVarT_btAs
+
+    tha = np.arange(1, 361)
+
+    if dtrnTyp == 'fix':
+        mvStep = 90
+        mrVarT_btAmMV = pd.Series(mrVarT_btAm).rolling(window=mvStep).mean().values
+    elif dtrnTyp == 'aut1':
+        trnPol = 6
+        DTt = signal.detrend(mrVarT_btAm, type='linear', bp=trnPol)
+        mrVarT_btAmMV = mrVarT_btAm - DTt
+    elif dtrnTyp == 'aut2':
+        SinePO = sineFit(tha, mrVarT_btAm, 0)
+        mvStep = round(1/SinePO[2])
+        mrVarT_btAmMV = pd.Series(mrVarT_btAm).rolling(window=mvStep).mean().values
+
+    # xr.DataArray(mrVarT_btAmMV).plot()
+    # plt.show()
+
+    mrVarT_btAmDT = mrVarT_btAm - mrVarT_btAmMV
+    spa1 = np.nanmean(np.abs(mrVarT_btAmDT))*2
+    spa2 = np.nanmean(mrVarT_btAmDT)
+
+    mrVarT_btAmDT[np.isnan(mrVarT_btAmDT)] = 0
+    # SineP = sineFit(tha, mrVarT_btAmDT, 0)
+    SineP = sineFit(tha, mrVarT_btAmDT, isPlot=True)
+
+    spa2 = SineP[0]
+    spa1 = SineP[1]
+    spa3 = SineP[2]
+    spa4 = SineP[3]
+    spa5 = np.mean((mrVarT_btAmDT - (spa2 + spa1 * np.sin(2 * np.pi * spa3 * tha + spa4)))**2)
+
+    pdp1 = spa2 + spa1 * np.sin(2 * np.pi * spa3 * tha + spa4)
+    pdp2 = pdp1 + mrVarT_btAmMV
+    nos = mrVarT_btAmDT - pdp1
+    pdp3 = mrVarT_btAmMV + nos
+
+    if dspSel == 'total':
+        # plot 1
+        plt.figure()
+        plt.plot(mrVarT_btAs)
+        plt.plot(mrVarT_btAm, 'k-', linewidth=3)
+        plt.plot(mrVarT_btAmMV, 'w-', linewidth=2)
+        plt.xlim([0, 360])
+        plt.xticks(np.arange(0, 361, 30))
+        plt.grid(True)
+        plt.box(True)
+        fig = plt.gcf()
+        fig.set_size_inches(20 / 2.54, 20 / 2.54)  # Converting from centimeters to inches
+        plt.show()
+        # plt.savefig(f"{fwDir}{vnam_b.lower()}_dom_all.png", dpi=200)
+        plt.close()
+
+        # plot 2
+        plt.figure()
+        plt.plot(mrVarT_btAm, 'k-', linewidth=3)
+        plt.plot(mrVarT_btAmMV, 'b-', linewidth=2)
+        plt.xlim([0, 360])
+        plt.xticks(np.arange(0, 361, 30))
+        plt.grid(True)
+        plt.box(True)
+        fig = plt.gcf()
+        fig.set_size_inches(20 / 2.54, 20 / 2.54)  # Converting from centimeters to inches
+        plt.show()
+        # plt.savefig(f"{fwDir}{vnam_b.lower()}_dom_all2.png", dpi=200)
+        plt.close()
+
+        # plot 3
+        plt.figure()
+        plt.plot(mrVarT_btAmDT, 'r-', linewidth=2)
+        plt.xlim([0, 360])
+        plt.xticks(np.arange(0, 361, 30))
+        plt.grid(True)
+        plt.box(True)
+        fig = plt.gcf()
+        fig.set_size_inches(20 / 2.54, 20 / 2.54)  # Converting from centimeters to inches
+        plt.show()
+        # plt.savefig(f"{fwDir}{vnam_b.lower()}_dom_all3.png", dpi=200)
+        plt.close()
+
+    if dspSel == 'total':
+        fig, axs = plt.subplots(4, 1)
+        # fig, axs = plt.subplots(4, 1, figsize=(7, 24))
+        axs[0].plot(mrVarT_btAmMV + spa1, 'c-', linewidth=0.5)
+        axs[0].plot(mrVarT_btAmMV - spa1, 'c-', linewidth=0.5)
+        axs[0].fill_between(tha, mrVarT_btAmMV - spa1, mrVarT_btAmMV + spa1, color='m', linewidth=0.5)
+        axs[0].plot(mrVarT_btAm, 'k-', linewidth=2)
+        axs[0].plot(mrVarT_btAmMV, 'b-', linewidth=1)
+        axs[0].set_xlim([0, 360])
+        axs[0].xaxis.set_major_locator(MultipleLocator(30))
+        axs[0].grid(True)
+        axs[0].set_ylabel(rVarI_bA)
+
+        axs[1].plot(np.full_like(pdp1, +spa1), 'c-', linewidth=0.5)
+        axs[1].plot(np.full_like(pdp1, -spa1), 'c-', linewidth=0.5)
+        axs[1].fill_between(tha, -spa1, +spa1, color='m', linewidth=0.5)
+        axs[1].plot(mrVarT_btAmDT, 'k-', linewidth=1)
+        axs[1].plot(pdp1, 'r-', linewidth=1)
+        # text_str1 = f'Y = {spa2} + {spa1} x sin(2 x pi x {spa3} x X + {spa4}, MSE = {spa5}'
+        text_str1 = f'Y = {spa2:.2f} + {spa1:.2f} x sin(2 x pi x {spa3:.2f} x X + {spa4:.2f}, MSE = {spa5:.2f}'
+        text_str2 = f'Period = {round(1 / spa3)}'
+        axs[1].text(5, +spa1 * 1.5, text_str1, fontsize=8)
+        axs[1].text(5, -spa1 * 0.9, text_str2, fontsize=8)
+        axs[1].set_xlim([0, 360])
+        axs[1].xaxis.set_major_locator(MultipleLocator(30))
+        axs[1].grid(True)
+        axs[1].set_ylabel(f'Detrended {rVarI_bA}')
+
+        axs[2].plot(mrVarT_btAmMV + spa1, 'c-', linewidth=0.5)
+        axs[2].plot(mrVarT_btAmMV - spa1, 'c-', linewidth=0.5)
+        axs[2].fill_between(tha, mrVarT_btAmMV - spa1, mrVarT_btAmMV + spa1, color='m', linewidth=0.5)
+        axs[2].plot(nos, 'r-', linewidth=1)
+        axs[2].plot(mrVarT_btAmMV, 'b-', linewidth=1)
+        axs[2].set_xlim([0, 360])
+        axs[2].xaxis.set_major_locator(MultipleLocator(30))
+        axs[2].grid(True)
+        axs[2].set_ylabel(f'Detrended {rVarI_bA}')
+
+        axs[3].plot(pdp3 + spa1, 'c-', linewidth=0.5)
+        axs[3].plot(pdp3 - spa1, 'c-', linewidth=0.5)
+        axs[3].fill_between(tha, pdp3 - spa1, pdp3 + spa1, color='m', linewidth=0.5)
+        axs[3].plot(pdp3, 'r-', linewidth=2)
+        axs[3].plot(mrVarT_btAm, 'k-', linewidth=2)
+        axs[3].set_xlim([0, 360])
+        axs[3].xaxis.set_major_locator(MultipleLocator(30))
+        axs[3].grid(True)
+        axs[3].set_xlabel('Azimuth (degree)')
+        axs[3].set_ylabel(rVarI_bA)
+
+        fig.tight_layout()
+        plt.show()
+        # plt.savefig(f"{fwDir}{vnam_b.lower()}_dom_all4.png", dpi=300)
+        plt.close(fig)
+
+    if dspSel == 'each':
+        if ((vnam_b == 'zdr' and spa1 > 0.15) or (vnam_b == 'pdp' and spa1 > 2)):
+            plt.figure()
+            plt.plot(np.full_like(pdp1, +spa1), 'c-', linewidth=0.5)
+            plt.plot(np.full_like(pdp1, -spa1), 'c-', linewidth=0.5)
+            plt.fill_between(tha, -spa1, +spa1, color='m', linewidth=0.5)
+            plt.plot(mrVarT_btAmDT, 'k-', linewidth=1)
+            plt.plot(pdp1, 'r-', linewidth=1)
+            # text_str1 = f'Y = {spa2} + {spa1} x sin(2 x pi x {spa3} x X + {spa4}, MSE = {spa5}'
+            text_str1 = f'Y = {spa2:.2f} + {spa1:.2f} x sin(2 x pi x {spa3:.2f} x X + {spa4:.2f}, MSE = {spa5:.2f}'
+            text_str2 = f'Period = {round(1 / spa3)}'
+            plt.text(5, +spa1 * 1.5, text_str1, fontsize=8)
+            plt.text(5, -spa1 * 0.9, text_str2, fontsize=8)
+            plt.xlim([0, 360])
+            plt.xticks(np.arange(0, 361, 30))
+            plt.grid(True)
+            plt.ylabel(f'Detrended {rVarI_bA}')
+            plt.tight_layout()
+            plt.show()
+
+            # fwDirEc = os.path.join(fwDir, 'Ech/')
+            # create_directory(fwDirEc)
+            # plt.savefig(f"{fwDirEc}{vnam_b.lower()}_dom_{j}a.png", dpi=300)
+            plt.close()
+
+
+
 
 # ================================================
 # 4. 부 프로그램
@@ -588,6 +807,12 @@ class DtaProcess(object):
 
                     rVarT_b, vidx_b = prepcss_new(refFlt, phvFlt, appPDPelim, refThz, phvThz, pdpThz, ntex, mtex, rVarf, rVarc, rVarp, rVar_bT)
 
+                    # xr.DataArray(rVarT_b).plot()
+                    # plt.show()
+                    #
+                    # xr.DataArray(vidx_b).plot()
+                    # plt.show()
+
                     rVarT_bt = rVarT_b
 
                     if vnam_b == 'zdr':
@@ -599,99 +824,107 @@ class DtaProcess(object):
                     elif vnam_b == 'ref':
                         rVarT_bt[np.logical_or(rVarT_bt < -100, rVarT_bt > 100)] = np.nan
 
-                    mrVarT_bt = np.nanmean(rVarT_bt)
+                    xr.DataArray(rVarT_bt).plot()
+                    plt.show()
+
+                    # mrVarT_bt = np.nanmean(rVarT_bt)
+                    mrVarT_bt = np.nanmean(rVarT_bt, axis=0)
                     mrVarT_bt = np.convolve(mrVarT_bt, np.ones((3,)) / 3, mode='same')
 
                     ta = np.nan * np.ones((360,))
                     ta[:len(mrVarT_bt)] = mrVarT_bt
                     # mrVarT_btA[ip, 0, :] = ta
 
+                    # xr.DataArray(ta).plot()
+                    # plt.show()
+
+                    fwDir = None
                     if vnam_b in ['zdr', 'pdp']:
-                        dspCycl(fwDir, vnam_b, None, ta, 'fix', 'each', j, rVarI_bA[ip])
-
-            # 이동평균에 사용될 윈도우 사이즈
-            window_size = 3
-
-            # 방위각 정보
-            fazm = dict['arr_azm_rng_elv'][0]
-
-            # 방위각 범위 변경: -180~180 -> 0~360
-            fazm[fazm < 0] += 360
-
-            #(1079,)
-            print(fazm.shape)
-
-            # 차등반사도 정보
-            zdr = dict['arr_zdr']
-            #(1079,993)
-            print(zdr.shape)
-
-            # zdr[(zdr < -10) | (zdr > 10)] = np.nan
-
-#            exit
-
-            data = zdr.data
-
-            # 초기 차등반사도 데이터를 거리 방향으로 평균
-            mean_zdr = np.nanmean(data, axis=1)
-            #(1079,)
-            # print(mean_zdr.shape)
-   
-            plt.plot(fazm, mean_zdr)
-            # plt.legend()
-            # plt.savefig('1.png', dpi=600, bbox_inches='tight', transparent=False)
-            plt.show()
-            plt.close()
-
-#            exit
-
-            # 1. 초기 차등반사도 관측치 거리방향 평균에서 주기 성분만큼의 이동평균을 취하여 선형추세를 산정한다
-            moving_avg = np.convolve(mean_zdr, np.ones(window_size), 'valid') / window_size
-
-            # 2. 차등반사도 초기 관측치 평균에서 이동평균 선형추세를 빼서 선형추세가 제거된 성분의 반복 추세를 추출한다
-            trend_removed = mean_zdr[window_size - 1:] - moving_avg
-
-            # 3. 선형추세 제거된 반복 추세를 주기함수(예, sin 함수)를 이용하여 적합(fitting)한다
-            x = np.linspace(0, 2 * np.pi, len(trend_removed))
-
-            # 반복 추세 계산
-            popt, pcov = curve_fit(func, x, trend_removed)
-
-            # 4. 반복 추세에서 반복 추세 적합을 빼면 반복 추세가 제거된 잔차 성분만을 추출할 수 있다
-            residual = trend_removed - func(x, *popt)
-
-            # 5. ①에서 분리한 호우에 의한 선형 추세와 ④에서 분리한 잔차 성분을 더하면 반복 추세가 제거된 차등반사도를 구할 수 있다
-            final_diff_reflectivity = moving_avg + residual
-
-            print(moving_avg.shape)            
-            print(residual.shape)            
-            print(final_diff_reflectivity.shape)
-      
-            
-            # fazm에서 이동 평균 크기의 반만큼 앞뒤를 잘라냄
-            trim_size = window_size // 2
-            fazm = fazm[trim_size:-trim_size]
-
-            # Show the final result
-            plt.plot(fazm, moving_avg)
-            # plt.legend()
-            # plt.savefig('2.png', dpi=600, bbox_inches='tight', transparent=False)
-            plt.show()
-            plt.close()
-
-
-            plt.plot(fazm, residual)
-            plt.legend()
-            # plt.savefig('3.png', dpi=600, bbox_inches='tight', transparent=False)
-            # plt.close()
-            plt.show()
-
-
-            plt.plot(fazm, final_diff_reflectivity)
-            plt.legend()
-            # plt.savefig('4.png', dpi=600, bbox_inches='tight', transparent=False)
-            # plt.close()
-            plt.show()
+                        dspCycl(fwDir, vnam_b, None, ta, 'fix', 'each', 0, rVarI_bA[ip])
+#
+#             # 이동평균에 사용될 윈도우 사이즈
+#             window_size = 3
+#
+#             # 방위각 정보
+#             fazm = dict['arr_azm_rng_elv'][0]
+#
+#             # 방위각 범위 변경: -180~180 -> 0~360
+#             fazm[fazm < 0] += 360
+#
+#             #(1079,)
+#             print(fazm.shape)
+#
+#             # 차등반사도 정보
+#             zdr = dict['arr_zdr']
+#             #(1079,993)
+#             print(zdr.shape)
+#
+#             # zdr[(zdr < -10) | (zdr > 10)] = np.nan
+#
+# #            exit
+#
+#             data = zdr.data
+#
+#             # 초기 차등반사도 데이터를 거리 방향으로 평균
+#             mean_zdr = np.nanmean(data, axis=1)
+#             #(1079,)
+#             # print(mean_zdr.shape)
+#
+#             plt.plot(fazm, mean_zdr)
+#             # plt.legend()
+#             # plt.savefig('1.png', dpi=600, bbox_inches='tight', transparent=False)
+#             plt.show()
+#             plt.close()
+#
+# #            exit
+#
+#             # 1. 초기 차등반사도 관측치 거리방향 평균에서 주기 성분만큼의 이동평균을 취하여 선형추세를 산정한다
+#             moving_avg = np.convolve(mean_zdr, np.ones(window_size), 'valid') / window_size
+#
+#             # 2. 차등반사도 초기 관측치 평균에서 이동평균 선형추세를 빼서 선형추세가 제거된 성분의 반복 추세를 추출한다
+#             trend_removed = mean_zdr[window_size - 1:] - moving_avg
+#
+#             # 3. 선형추세 제거된 반복 추세를 주기함수(예, sin 함수)를 이용하여 적합(fitting)한다
+#             x = np.linspace(0, 2 * np.pi, len(trend_removed))
+#
+#             # 반복 추세 계산
+#             popt, pcov = curve_fit(func, x, trend_removed)
+#
+#             # 4. 반복 추세에서 반복 추세 적합을 빼면 반복 추세가 제거된 잔차 성분만을 추출할 수 있다
+#             residual = trend_removed - func(x, *popt)
+#
+#             # 5. ①에서 분리한 호우에 의한 선형 추세와 ④에서 분리한 잔차 성분을 더하면 반복 추세가 제거된 차등반사도를 구할 수 있다
+#             final_diff_reflectivity = moving_avg + residual
+#
+#             print(moving_avg.shape)
+#             print(residual.shape)
+#             print(final_diff_reflectivity.shape)
+#
+#
+#             # fazm에서 이동 평균 크기의 반만큼 앞뒤를 잘라냄
+#             trim_size = window_size // 2
+#             fazm = fazm[trim_size:-trim_size]
+#
+#             # Show the final result
+#             plt.plot(fazm, moving_avg)
+#             # plt.legend()
+#             # plt.savefig('2.png', dpi=600, bbox_inches='tight', transparent=False)
+#             plt.show()
+#             plt.close()
+#
+#
+#             plt.plot(fazm, residual)
+#             plt.legend()
+#             # plt.savefig('3.png', dpi=600, bbox_inches='tight', transparent=False)
+#             # plt.close()
+#             plt.show()
+#
+#
+#             plt.plot(fazm, final_diff_reflectivity)
+#             plt.legend()
+#             # plt.savefig('4.png', dpi=600, bbox_inches='tight', transparent=False)
+#             # plt.close()
+#             plt.show()
 
 
             # plt.plot(zdr)
