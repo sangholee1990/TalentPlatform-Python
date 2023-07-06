@@ -60,7 +60,17 @@ import numpy as np
 import matplotlib.pyplot as plt
 from matplotlib.ticker import MultipleLocator
 import os
-
+from scipy.ndimage import generic_filter
+from sklearn.ensemble import RandomForestRegressor
+from scipy.optimize import curve_fit
+import matplotlib.pyplot as plt
+from sklearn.ensemble import RandomForestRegressor
+from scipy.stats.mstats import mquantiles
+from scipy.optimize import curve_fit
+import seaborn as sns
+import matplotlib.pyplot as plt
+import matplotlib.colors as mcolors
+from scipy.stats import pearsonr
 
 # =================================================
 # 사용자 매뉴얼
@@ -477,6 +487,270 @@ def dspCycl(fwDir, vnam_b, mrVarT_btA, mrVarT_btAs, dtrnTyp, dspSel, j, rVarI_bA
             # plt.savefig(f"{fwDirEc}{vnam_b.lower()}_dom_{j}a.png", dpi=300)
             plt.close()
 
+def power1(x, a, b):
+    return a * np.power(x, b)
+
+def power2(x, a, b, c):
+    return a * np.power(x, 2) + b * x + c
+
+def power_func(x, a, b):
+    return a * np.power(x, b)
+
+def power_func2(x, a, b, c):
+    return a * np.power(x, b) + c
+
+def ccpltXY_191013_n(vardataX, vardataY, Xthd, Ythd,
+                     vnam_a, vnam_b,
+                     rVarI_a, rVarI_b, Tang,
+                     sp, fn,
+                     vidx,
+                     refFlt, phvFlt, appPDPelim,
+                     refThz, phvThz, pdpThz, ntex, mtex):
+
+    vardataX[vidx == 1] = np.nan
+    vardataY[vidx == 1] = np.nan
+
+    idxXY = np.where((vardataX < Xthd) | (vardataY < Ythd))
+    vardataX[idxXY] = np.nan
+    vardataY[idxXY] = np.nan
+
+    vardataO = vardataX[~np.isnan(vardataX)]
+    vardataA = vardataY[~np.isnan(vardataY)]
+
+    X = vardataO.ravel()
+    Y = vardataA.ravel()
+
+    if vnam_a == 'Zh' and vnam_b == 'KDP':
+        xL, yL, dL = [-10, 70], [-4, 4], [0.5, 0.09]
+    elif vnam_a == 'Zh' and vnam_b == 'ZDR':
+        xL, yL, dL = [-10, 70], [-6, 8], [0.5, 0.13]
+    elif vnam_a == 'ZDR' and vnam_b == 'KDP/Zh':
+        xL, yL, dL = [-6, 8], [-60, 0], [0.13, 0.5]
+    elif vnam_a == 'SPW' and vnam_b == 'ZDR':
+        xL, yL, dL = [0, 4], [0, 2], [0.01, 0.005]
+    elif vnam_a == 'SPW' and vnam_b == 'PDP':
+        xL, yL, dL = [0, 4], [0, 12], [0.01, 0.03]
+    else:
+        xL, yL, dL = [-np.inf, np.inf], [-30, 30], [0.5, 0.5]
+
+    H, xedges, yedges = np.histogram2d(X, Y, bins=[np.arange(xL[0], xL[1], dL[0]), np.arange(yL[0], yL[1], dL[1])], density=True)
+
+    fig, ax = plt.subplots()
+    pc = ax.pcolormesh(xedges, yedges, H.T)
+    fig.colorbar(pc, ax=ax)
+    plt.show()
+
+    eXfit = vardataO.copy()
+    eYfit = vardataA.copy()
+
+    nanIdxE = np.isnan(eXfit) | np.isnan(eYfit) | np.isinf(eXfit) | np.isinf(eYfit)
+    eXfit = eXfit[~nanIdxE]
+    eYfit = eYfit[~nanIdxE]
+
+    arXdata = eXfit.flatten()
+    arYdata = eYfit.flatten()
+
+    qmed = 0.50
+    xqmed = np.quantile(arXdata, qmed)
+    yqmed = np.quantile(arYdata, qmed)
+
+    arYdata = arYdata[arXdata > 0]
+    arXdata = arXdata[arXdata > 0]
+
+    qsrt = 0.05
+    qend = 0.95
+    qdt = 0.05
+    qmedA = np.arange(qsrt, qend + qdt, qdt)
+    dq = np.hstack([np.arange(0.5, qend + qdt, qdt), np.arange(qend - qdt, 0.5 - qdt, -qdt)]) / qend
+
+    xqmedA = np.quantile(arXdata, qmedA)
+    yqmedA = np.quantile(arYdata, qmedA)
+
+    xqmedIdx = xqmedA <= 0
+    xqmedA = xqmedA[~xqmedIdx]
+    yqmedA = yqmedA[~xqmedIdx]
+
+    Tbl = pd.DataFrame({'arXdata': arXdata, 'arYdata': arYdata})
+
+    Mdl = RandomForestRegressor(n_estimators=10)
+    Mdl.fit(Tbl[['arXdata']], Tbl['arYdata'])
+
+    tau = [0.25, 0.5, 0.75]
+    predT = np.linspace(xqmedA[0], xqmedA[-1], len(qmedA))
+
+    quartiles = np.percentile(Mdl.predict(predT.reshape(-1, 1)), tau, axis=0)
+    meanY = Mdl.predict(predT.reshape(-1, 1))
+    meanY[np.isnan(meanY)] = 0
+
+    from sklearn.ensemble import GradientBoostingRegressor
+    from sklearn.inspection import partial_dependence
+
+
+
+
+
+    fmed = [0, 0]
+    fmed2 = [0, 0, 0]
+    fmed25 = [0, 0]
+    fmed75 = [0, 0]
+    fmed225 = [0, 0, 0]
+    fmed275 = [0, 0, 0]
+    fmea = [0, 0]
+    fmea2 = [0, 0, 0]
+
+    # 중간값
+    try:
+        fmed, _ = curve_fit(power1, predT, quartiles[1])
+    except:
+        pass
+    try:
+        fmed2, _ = curve_fit(power2, predT, quartiles[1])
+    except:
+        pass
+
+    # 25%
+    try:
+        fmed25, _ = curve_fit(power1, predT, quartiles[0])
+    except:
+        pass
+    try:
+        fmed225, _ = curve_fit(power2, predT, quartiles[0])
+    except:
+        pass
+
+    # 75%
+    try:
+        fmed75, _ = curve_fit(power1, predT, quartiles[2])
+    except:
+        pass
+    try:
+        fmed275, _ = curve_fit(power2, predT, quartiles[2])
+    except:
+        pass
+
+    # 평균
+    try:
+        fmea, _ = curve_fit(power1, predT, meanY)
+    except:
+        pass
+    try:
+        fmea2, _ = curve_fit(power2, predT, meanY)
+    except:
+        pass
+
+    if vnam_a == 'Zh':
+        xVal = np.arange(1.0, xL[1], 0.1)
+    else:
+        xVal = np.arange(0.1, xL[1], 0.1)
+
+    # 중갑값
+    yValmed = power1(xVal, *fmed)
+    yValmed2 = power2(xVal, *fmed2)
+
+    # 25%
+    yValmed25 = power1(xVal, *fmed25)
+    yValmed225 = power2(xVal, *fmed225)
+
+    # 75%
+    yValmed75 = power1(xVal, *fmed75)
+    yValmed275 = power2(xVal, *fmed275)
+
+    # 평균
+    yValmea = power1(xVal, *fmea)
+    yValmea2 = power2(xVal, *fmea2)
+
+    # get fPar and mPar
+    fPar = fmed
+    fPar2 = fmed2
+    mPar = [xqmed, yqmed]
+
+    # Plotting section
+    fitTyp = 'poly2'
+    if fitTyp == 'poly1':
+        plt.plot(xVal, yValmed, '-', color='m', linewidth=4.0)
+        plt.plot(xVal, yValmed25, '--', color='m', linewidth=1.0)
+        plt.plot(xVal, yValmed75, '--', color='m', linewidth=1.0)
+        plt.plot(xVal, yValmea, '-', color='b', linewidth=1.5)
+    elif fitTyp == 'poly2':
+        plt.plot(xVal, yValmed2, '-', color='m', linewidth=4.0)
+        plt.plot(xVal, yValmed225, '--', color='m', linewidth=1.0)
+        plt.plot(xVal, yValmed275, '--', color='m', linewidth=1.0)
+
+        # For every predT plot median quartile
+    for i in range(len(predT)):
+        plt.plot(predT[i], quartiles[i, 2], 'k+', markersize=9 * dq[i] ** 2, linewidth=1.5 * dq[i])
+
+        # median point
+    plt.plot(xqmed, yqmed, 'w+', markersize=17, linewidth=3.0)
+    plt.plot(xqmed, yqmed, 'r+', markersize=15, linewidth=2.0)
+
+
+    srtCidx = 135
+    # cname = '../mapINF/cmap/precip2_17lev.rgb'
+    ncr = 256
+
+    # Assuming you have a function mkRGBmap in Python which is equivalent to MATLAB version
+    # RGBmap = mkRGBmap(cname, ncr)
+
+    # cmap = RGBmap[srtCidx - 1:]  # note that Python uses 0-based indexing
+    # plt.colormaps(cmap)
+
+    # colorbar
+    cb = plt.colorbar()
+    cb.set_label('Probability density function estimate')
+
+    # setting limits based on string comparison
+    ax = plt.gca()
+    if vnam_a == 'Zh' and vnam_b == 'KDP':
+        ax.set_clim([0.0, 0.015])
+    elif vnam_a == 'Zh' and vnam_b == 'ZDR':
+        ax.set_clim([0.0, 0.07])
+    elif vnam_a == 'ZDR' and vnam_b == 'KDP/Zh':
+        ax.set_clim([0.0, 0.07])
+    elif vnam_a == 'SPW' and vnam_b == 'ZDR':
+        ax.set_clim([0.0, 0.4])
+    elif vnam_a == 'SPW' and vnam_b == 'PDP':
+        ax.set_clim([0.0, 0.07])
+    else:
+        ax.set_clim([0.0, 0.07])
+
+    if vnam_b in ['KDP', 'ZDR', 'KDP/Zh', 'PDP']:
+        ax.set_xlim([xL[0], xL[1]])
+        ax.set_ylim([yL[0], yL[1]])
+
+    plt.grid(True)
+    plt.title(f"{fn} corr={r:.3f} (pval={p:.3f}) in {vnam_a} vs {vnam_b} (Zh({refFlt}){refThz}, PHV({phvFlt}){phvThz:.2f}, PDP({appPDPelim}){pdpThz}), elimd={100 * np.sum(vidx) / vidx.size:.1f}%", fontsize=7)
+    plt.xlabel(rVarI_a, fontsize=11, fontweight='normal', color='k')
+    plt.ylabel(rVarI_b, fontsize=11, fontweight='normal', color='k')
+
+    # calculating correlation and p-value
+    if len(X) + len(Y) > 0:
+        r, p = pearsonr(X, Y)
+        print(f"corr: {r:.3f}, pval: {p:.3f}")
+    else:
+        r, p = 0, 0
+
+    # Grid settings
+    plt.grid(True)
+
+    # Axes settings
+    ax = plt.gca()
+    ax.tick_params(axis='both', which='major', labelsize=11)
+
+    # Title settings
+    title_text = (
+        f"{fn} corr={r:.3f} (pval={p:.3f}) in {vnam_a} vs {vnam_b} "
+        f"(Zh({refFlt}){refThz:d}, PHV({phvFlt}){phvThz:.2f}, PDP({appPDPelim}){pdpThz:d}), "
+        f"elimd={np.sum(vidx) / np.prod(vidx.shape) * 100:.1f}%"
+    )
+    plt.title(title_text, fontsize=7)
+
+    # X and Y labels
+    plt.xlabel(rVarI_a, fontsize=11, fontweight='normal', color='k')
+    plt.ylabel(rVarI_b, fontsize=11, fontweight='normal', color='k')
+    plt.show()
+
+    return fPar, fPar2, mPar
 
 
 
@@ -484,6 +758,7 @@ def dspCycl(fwDir, vnam_b, mrVarT_btA, mrVarT_btAs, dtrnTyp, dspSel, j, rVarI_bA
 # 4. 부 프로그램
 # ================================================
 class DtaProcess(object):
+
     # ================================================
     # 요구사항
     # ================================================
@@ -717,482 +992,270 @@ class DtaProcess(object):
             # ======================================================================================
             # 파일 검색
             # ======================================================================================
-            inpFile = '{}/{}/{}'.format(globalVar['inpPath'], serviceName, 'zdr_dom_all.mat')
-            fileList = sorted(glob.glob(inpFile))
-
-            if fileList is None or len(fileList) < 1:
-                log.error('[ERROR] inpFile : {} / {}'.format(inpFile, '입력 자료를 확인해주세요.'))
-
-            fileInfo = fileList[0]
-            matData = io.loadmat(fileInfo)
-            matData.keys()
+            # inpFile = '{}/{}/{}'.format(globalVar['inpPath'], serviceName, 'zdr_dom_all.mat')
+            # fileList = sorted(glob.glob(inpFile))
+            #
+            # if fileList is None or len(fileList) < 1:
+            #     log.error('[ERROR] inpFile : {} / {}'.format(inpFile, '입력 자료를 확인해주세요.'))
+            #
+            # fileInfo = fileList[0]
+            # matData = io.loadmat(fileInfo)
+            # matData.keys()
+            #
+            # #======================================================================================
+            # # (차등반사도의 방위각 종속성) 특정 사상에 대하여 방위각 방향의 차등반사도 변화를 모니터링
+            # #======================================================================================
+            # # Reinitialize variables
+            # refFlt = 'no'  # ref filter
+            # refThz = 0  # 10 dBZ
+            # phvFlt = 'no'  # phv filter
+            # phvThz = 0.95  # 0.95 0.65
+            # appPDPelim = 'no'
+            # pdpThz = 15  # 15
+            # ntex = 7  # odd, OPERA 9
+            # mtex = 7
+            # spwFlt = 'no'  # ((yes))
+            # spwThz = 0.1  # 0.4m/s
+            # vnamB = ['ZDR', 'PDP', 'PHV', 'REF']
+            # pco = 0.9925
+            # srtEA = 3
+            # endEA = srtEA
+            #
+            # data = dict
+            # azm_r = np.transpose(data['arr_azm_rng_elv'][0])
+            # rng_r = np.transpose(data['arr_azm_rng_elv'][1])
+            # elv_r = np.transpose(data['arr_azm_rng_elv'][2])
+            #
+            # Tang = data['fix_ang']
+            # Tang[Tang > 180] -= 360
+            #
+            # # if datDR == ':\\Data190\\' or datDR == ':\\Data191\\':
+            # #     didxs = data['arr_etc'][4].astype(int)
+            # #     didxe = data['arr_etc'][5].astype(int)
+            # # else:
+            # didxs = data['arr_etc'][2].astype(int)
+            # didxe = data['arr_etc'][3].astype(int)
+            #
+            # # set '0' to '1'
+            # # didxs += 1
+            # # didxe += 1
+            # didX2 = np.vstack((didxs, didxe))
+            #
+            # Fang = elv_r[didxs].T
+            #
+            # if data['arr_prt_prm_vel'][0][0] == data['arr_prt_prm_vel'][0][-1]:
+            #     Tprf = 'sing'
+            # else:
+            #     Tprf = 'dual'
+            #
+            # print(Fang)
+            #
+            # bw = data['arr_lat_lon_alt_bwh'][3]
+            #
+            # rVarI_bA = {}
+            # # mrVarT_btA = (ip_max, j_max, ta_len)
+            # for ip, vnam_b in enumerate(vnamB):
+            #     vnam_b = vnam_b.lower()
+            #
+            #     print(vnam_b)
+            #
+            #     for i in range(srtEA - 1, endEA):
+            #     # for i in range(srtEA, endEA + 1):
+            #         Arng = np.arange(didxs[i], didxe[i] + 1)
+            #
+            #         print(Arng)
+            #
+            #         # 아래에 있는 getVarInfo191013()는 MATLAB 코드에 정의된 함수로,
+            #         # 해당 파이썬 버전이 필요하며 이는 상황에 맞게 정의해야 합니다.
+            #         rVar_b, rVarI_b = getVarInfo191013(data, vnam_b)
+            #         rVarI_bA[ip] = rVarI_b
+            #
+            #         rVarf_R = np.transpose(data['arr_ref'])
+            #         rVarc_R = np.transpose(data['arr_phv'])
+            #         rVarp_R = np.transpose(data['arr_pdp'])
+            #
+            #         rVar_bT = rVar_b[:, Arng]
+            #         rVarf = rVarf_R[:, Arng]
+            #         rVarc = rVarc_R[:, Arng]
+            #         rVarp = rVarp_R[:, Arng]
+            #
+            #         rVarT_b, vidx_b = prepcss_new(refFlt, phvFlt, appPDPelim, refThz, phvThz, pdpThz, ntex, mtex, rVarf, rVarc, rVarp, rVar_bT)
+            #
+            #         # xr.DataArray(rVarT_b).plot()
+            #         # plt.show()
+            #         #
+            #         # xr.DataArray(vidx_b).plot()
+            #         # plt.show()
+            #
+            #         rVarT_bt = rVarT_b
+            #
+            #         if vnam_b == 'zdr':
+            #             rVarT_bt[np.logical_or(rVarT_bt < -10, rVarT_bt > 10)] = np.nan
+            #         elif vnam_b == 'pdp':
+            #             rVarT_bt[np.logical_or(rVarT_bt < -300, rVarT_bt > 300)] = np.nan
+            #         elif vnam_b == 'phv':
+            #             rVarT_bt[np.logical_or(rVarT_bt < 0, rVarT_bt > 1)] = np.nan
+            #         elif vnam_b == 'ref':
+            #             rVarT_bt[np.logical_or(rVarT_bt < -100, rVarT_bt > 100)] = np.nan
+            #
+            #         xr.DataArray(rVarT_bt).plot()
+            #         plt.show()
+            #
+            #         # mrVarT_bt = np.nanmean(rVarT_bt)
+            #         mrVarT_bt = np.nanmean(rVarT_bt, axis=0)
+            #         mrVarT_bt = np.convolve(mrVarT_bt, np.ones((3,)) / 3, mode='same')
+            #
+            #         ta = np.nan * np.ones((360,))
+            #         ta[:len(mrVarT_bt)] = mrVarT_bt
+            #         # mrVarT_btA[ip, 0, :] = ta
+            #
+            #         # xr.DataArray(ta).plot()
+            #         # plt.show()
+            #
+            #         fwDir = None
+            #         if vnam_b in ['zdr', 'pdp']:
+            #             dspCycl(fwDir, vnam_b, None, ta, 'fix', 'each', 0, rVarI_bA[ip])
 
             #======================================================================================
-            # (차등반사도의 방위각 종속성) 특정 사상에 대하여 방위각 방향의 차등반사도 변화를 모니터링
+            # 편파 매개변수의 측정 오류 추정치를 이용하여 레이더 하드웨어 및 데이터 수집 시스템의 품질 평가
             #======================================================================================
 
-            # Reinitialize variables
+            # ---------------------------
+            # low (ref)
             refFlt = 'no'  # ref filter
             refThz = 0  # 10 dBZ
+            # ---------------------------
+            # low (phv)
             phvFlt = 'no'  # phv filter
             phvThz = 0.95  # 0.95 0.65
+            # ---------------------------
+            # large Tex(pdp)
             appPDPelim = 'no'
             pdpThz = 15  # 15
+            # ----------
+            # ----------
             ntex = 7  # odd, OPERA 9
             mtex = 7
+            # ---------------------------
+            # low (spw)
             spwFlt = 'no'  # ((yes))
             spwThz = 0.1  # 0.4m/s
-            vnamB = ['ZDR', 'PDP', 'PHV', 'REF']
+            # ---------------------------
+            vnamA = ['SPW', 'SPW']  # m/s
+            vnamB = ['ZDR', 'PDP']  # dB
+            # vnamA=['SPW']   # m/s
+            # vnamB=['ZDR']   # dB
             pco = 0.9925
-            srtEA = 3
-            endEA = srtEA
+            srtEA = 2
+            endEA = 2
 
             data = dict
-            azm_r = np.transpose(data['arr_azm_rng_elv'][0])
-            rng_r = np.transpose(data['arr_azm_rng_elv'][1])
-            elv_r = np.transpose(data['arr_azm_rng_elv'][2])
+            mrVarT_btA = {}
+            j = 0
 
+            azm_r = data['arr_azm_rng_elv'][0]  # 1080x1 (360x3)
+            rng_r = data['arr_azm_rng_elv'][1]  # 1196x1
+            elv_r = data['arr_azm_rng_elv'][2]  # 1080x1 (360x3)
             Tang = data['fix_ang']
-            Tang[Tang > 180] -= 360
-
-            # if datDR == ':\\Data190\\' or datDR == ':\\Data191\\':
-            #     didxs = data['arr_etc'][4].astype(int)
-            #     didxe = data['arr_etc'][5].astype(int)
-            # else:
-            didxs = data['arr_etc'][2].astype(int)
-            didxe = data['arr_etc'][3].astype(int)
-
-            # set '0' to '1'
-            # didxs += 1
-            # didxe += 1
-            didX2 = np.vstack((didxs, didxe))
-
-            Fang = elv_r[didxs].T
-
+            Tang[Tang > 180] = Tang[Tang > 180] - 360
+            didxs = data['arr_etc'][2] + 1
+            didxe = data['arr_etc'][3] + 1
+            didX2 = [didxs, didxe]
+            Fang = elv_r[didxs]
             if data['arr_prt_prm_vel'][0][0] == data['arr_prt_prm_vel'][0][-1]:
                 Tprf = 'sing'
             else:
                 Tprf = 'dual'
-
             print(Fang)
 
             bw = data['arr_lat_lon_alt_bwh'][3]
 
-            rVarI_bA = {}
-            # mrVarT_btA = (ip_max, j_max, ta_len)
-            for ip, vnam_b in enumerate(vnamB):
-                vnam_b = vnam_b.lower()
+            # << dual para >>
+            for ip in range(len(vnamA)):
+                vnam_a = vnamA[ip]
+                vnam_b = vnamB[ip]
 
-                print(vnam_b)
+            for i in range(srtEA, endEA + 1):
+                Arng = np.arange(didxs[i] - 1, didxe[i])
 
-                for i in range(srtEA - 1, endEA):
-                # for i in range(srtEA, endEA + 1):
-                    Arng = np.arange(didxs[i], didxe[i] + 1)
+                rVar_a, rVarI_a = getVarInfo191013(data, vnam_a)  # need translation of function getVarInfo191013
+                rVar_b, rVarI_b = getVarInfo191013(data, vnam_b)  # need translation of function getVarInfo191013
 
-                    print(Arng)
+                rVarf_R = np.transpose(data['arr_ref'])
+                rVarc_R = np.transpose(data['arr_phv'])
+                rVarp_R = np.transpose(data['arr_pdp'])
 
-                    # 아래에 있는 getVarInfo191013()는 MATLAB 코드에 정의된 함수로,
-                    # 해당 파이썬 버전이 필요하며 이는 상황에 맞게 정의해야 합니다.
-                    rVar_b, rVarI_b = getVarInfo191013(data, vnam_b)
-                    rVarI_bA[ip] = rVarI_b
+                rVar_aT = rVar_a[:, Arng]
+                rVar_bT = rVar_b[:, Arng]
 
-                    rVarf_R = np.transpose(data['arr_ref'])
-                    rVarc_R = np.transpose(data['arr_phv'])
-                    rVarp_R = np.transpose(data['arr_pdp'])
+                rVarf = rVarf_R[:, Arng]
+                rVarc = rVarc_R[:, Arng]
+                rVarp = rVarp_R[:, Arng]
 
-                    rVar_bT = rVar_b[:, Arng]
-                    rVarf = rVarf_R[:, Arng]
-                    rVarc = rVarc_R[:, Arng]
-                    rVarp = rVarp_R[:, Arng]
+                if ip == 1:
+                    rVarct0 = rVarc
+                    rVarct = np.where((rVarc < 0) | (rVarc > 1), np.nan, rVarc)
 
-                    rVarT_b, vidx_b = prepcss_new(refFlt, phvFlt, appPDPelim, refThz, phvThz, pdpThz, ntex, mtex, rVarf, rVarc, rVarp, rVar_bT)
+                    rVarft0 = rVarf
+                    rVarft = np.where((rVarf < -100) | (rVarf > 100), np.nan, rVarf)
 
-                    # xr.DataArray(rVarT_b).plot()
-                    # plt.show()
-                    #
-                    # xr.DataArray(vidx_b).plot()
-                    # plt.show()
+                    rVarpt0 = rVarp
+                    rVarpt = np.where((rVarp < -300) | (rVarp > 300), np.nan, rVarp)
 
+                    rVardt0 = rVar_bT
+                    rVardt = np.where((rVar_bT < -10) | (rVar_bT > 10), np.nan, rVar_bT)
+
+                rVarT_a, vidx_a = prepcss_new(refFlt, phvFlt, appPDPelim, refThz, phvThz, pdpThz, ntex, mtex, rVarf, rVarc, rVarp, rVar_aT)  # need translation of function prepcss_new
+                rVarT_b, vidx_b = prepcss_new(refFlt, phvFlt, appPDPelim, refThz, phvThz, pdpThz, ntex, mtex, rVarf, rVarc, rVarp, rVar_bT)  # need translation of function prepcss_new
+
+                if vnam_b == 'ZDR':
+                    rVarT_b = np.where(rVarc < pco, np.nan, rVarT_b)
+
+                if ip == 1:
                     rVarT_bt = rVarT_b
+                    rVarT_bt = np.where((rVarT_bt < -10) | (rVarT_bt > 10), np.nan, rVarT_bt)
 
-                    if vnam_b == 'zdr':
-                        rVarT_bt[np.logical_or(rVarT_bt < -10, rVarT_bt > 10)] = np.nan
-                    elif vnam_b == 'pdp':
-                        rVarT_bt[np.logical_or(rVarT_bt < -300, rVarT_bt > 300)] = np.nan
-                    elif vnam_b == 'phv':
-                        rVarT_bt[np.logical_or(rVarT_bt < 0, rVarT_bt > 1)] = np.nan
-                    elif vnam_b == 'ref':
-                        rVarT_bt[np.logical_or(rVarT_bt < -100, rVarT_bt > 100)] = np.nan
+                    mrVarT_bt = np.nanmean(rVarT_bt)
+                    mrVarT_bt = np.convolve(mrVarT_bt, np.ones(3), 'valid') / 3
 
-                    xr.DataArray(rVarT_bt).plot()
-                    plt.show()
-
-                    # mrVarT_bt = np.nanmean(rVarT_bt)
-                    mrVarT_bt = np.nanmean(rVarT_bt, axis=0)
-                    mrVarT_bt = np.convolve(mrVarT_bt, np.ones((3,)) / 3, mode='same')
-
-                    ta = np.nan * np.ones((360,))
+                    ta = np.full(360, np.nan)
                     ta[:len(mrVarT_bt)] = mrVarT_bt
-                    # mrVarT_btA[ip, 0, :] = ta
 
-                    # xr.DataArray(ta).plot()
-                    # plt.show()
+                    mrVarT_btA = np.empty((j, 360))
+                    mrVarT_btA = np.vstack((mrVarT_btA, ta))
+
+                    texRng = np.ones((ntex, mtex))  # std
+                    rVarT_b[np.isnan(rVarT_b)] = 0
+                    rVarT_b = generic_filter(rVarT_b, np.nanstd, footprint=texRng)
+
+                    atyp = data['str_typ']
+
+                    # if RdrNam in ['BSL', 'SBS']:
+                    #     TLE_fname = fname[8:-4]
+                    # else:
+                    #     TLE_fname = fname[:-4]
+                    TLE_fname = os.path.basename(fileInfo)[8:-4]
+
+                    if Tang[i] < 0:
+                        TLE_Tang = '-' + "{:.1f}".format(abs(Tang[i]))
+                    else:
+                        TLE_Tang = '+' + "{:.1f}".format(Tang[i])
+
+                    TLE = [atyp, '(' + TLE_Tang[0:2] + ',' + TLE_Tang[3] + ')deg' + ')_' + Tprf + '_' + vnam_a + '-' + vnam_b + '_' + TLE_fname]
+
+                    vidxAll = np.logical_or(vidx_a, vidx_b)
+
+                    # Apar = {rVarT_a, rVarT_b, 0, 0}
+                    Apar = [rVarT_a, rVarT_b, 0, 0]
 
                     fwDir = None
-                    if vnam_b in ['zdr', 'pdp']:
-                        dspCycl(fwDir, vnam_b, None, ta, 'fix', 'each', 0, rVarI_bA[ip])
-#
-#             # 이동평균에 사용될 윈도우 사이즈
-#             window_size = 3
-#
-#             # 방위각 정보
-#             fazm = dict['arr_azm_rng_elv'][0]
-#
-#             # 방위각 범위 변경: -180~180 -> 0~360
-#             fazm[fazm < 0] += 360
-#
-#             #(1079,)
-#             print(fazm.shape)
-#
-#             # 차등반사도 정보
-#             zdr = dict['arr_zdr']
-#             #(1079,993)
-#             print(zdr.shape)
-#
-#             # zdr[(zdr < -10) | (zdr > 10)] = np.nan
-#
-# #            exit
-#
-#             data = zdr.data
-#
-#             # 초기 차등반사도 데이터를 거리 방향으로 평균
-#             mean_zdr = np.nanmean(data, axis=1)
-#             #(1079,)
-#             # print(mean_zdr.shape)
-#
-#             plt.plot(fazm, mean_zdr)
-#             # plt.legend()
-#             # plt.savefig('1.png', dpi=600, bbox_inches='tight', transparent=False)
-#             plt.show()
-#             plt.close()
-#
-# #            exit
-#
-#             # 1. 초기 차등반사도 관측치 거리방향 평균에서 주기 성분만큼의 이동평균을 취하여 선형추세를 산정한다
-#             moving_avg = np.convolve(mean_zdr, np.ones(window_size), 'valid') / window_size
-#
-#             # 2. 차등반사도 초기 관측치 평균에서 이동평균 선형추세를 빼서 선형추세가 제거된 성분의 반복 추세를 추출한다
-#             trend_removed = mean_zdr[window_size - 1:] - moving_avg
-#
-#             # 3. 선형추세 제거된 반복 추세를 주기함수(예, sin 함수)를 이용하여 적합(fitting)한다
-#             x = np.linspace(0, 2 * np.pi, len(trend_removed))
-#
-#             # 반복 추세 계산
-#             popt, pcov = curve_fit(func, x, trend_removed)
-#
-#             # 4. 반복 추세에서 반복 추세 적합을 빼면 반복 추세가 제거된 잔차 성분만을 추출할 수 있다
-#             residual = trend_removed - func(x, *popt)
-#
-#             # 5. ①에서 분리한 호우에 의한 선형 추세와 ④에서 분리한 잔차 성분을 더하면 반복 추세가 제거된 차등반사도를 구할 수 있다
-#             final_diff_reflectivity = moving_avg + residual
-#
-#             print(moving_avg.shape)
-#             print(residual.shape)
-#             print(final_diff_reflectivity.shape)
-#
-#
-#             # fazm에서 이동 평균 크기의 반만큼 앞뒤를 잘라냄
-#             trim_size = window_size // 2
-#             fazm = fazm[trim_size:-trim_size]
-#
-#             # Show the final result
-#             plt.plot(fazm, moving_avg)
-#             # plt.legend()
-#             # plt.savefig('2.png', dpi=600, bbox_inches='tight', transparent=False)
-#             plt.show()
-#             plt.close()
-#
-#
-#             plt.plot(fazm, residual)
-#             plt.legend()
-#             # plt.savefig('3.png', dpi=600, bbox_inches='tight', transparent=False)
-#             # plt.close()
-#             plt.show()
-#
-#
-#             plt.plot(fazm, final_diff_reflectivity)
-#             plt.legend()
-#             # plt.savefig('4.png', dpi=600, bbox_inches='tight', transparent=False)
-#             # plt.close()
-#             plt.show()
-
-
-            # plt.plot(zdr)
-            # plt.plot(mean_zdr)
-            # plt.plot(residual)
-            # plt.plot(final_diff_reflectivity)
-            # plt.plot(fazm)
-            # plt.show()
-
-            # plt.plot(zdr[2])
-            # plt.show()
-
-
-            # # 방위각 데이터
-            # fazm = dict['arr_azm_rng_elv'][0]
-
-            # # 초기 차등반사도 데이터를 거리 방향으로 평균
-            # mean_zdr = np.mean(zdr, axis=1)
-
-            # # Define the window size for the moving average
-            # window_size = 10  # Adjust this value based on your data
-
-            # # 이동 평균
-            # moving_avg = np.convolve(mean_zdr, np.ones(window_size) / window_size, mode='valid')
-
-            # # Subtract the moving average from the original data to remove the linear trend
-            # detrended_diff_refl = mean_zdr[window_size - 1:] - moving_avg
-
-            # plt.figure(figsize=(10, 5))
-            # plt.plot(detrended_diff_refl)
-            # plt.title('Detrended Differential Reflectivity Change in Azimuth Direction')
-            # plt.xlabel('Azimuth Angle')
-            # plt.ylabel('Detrended Average Differential Reflectivity')
-            # plt.show()
-
-
-            # # Define a threshold for anomaly detection
-            # threshold = 0.2  # Adjust this value based on your data
-
-            # # Identify where the absolute value of the detrended data exceeds the threshold
-            # anomalies = np.abs(detrended_diff_refl) > threshold
-
-            # # Print the azimuth angles where anomalies were detected
-            # anomaly_angles = np.where(anomalies)[0]
-            # print(f"Anomalies detected at azimuth angles: {anomaly_angles}")
-
-
-
-            # # 방위각 방향으로 변동 관찰
-            # azimuth_change = np.diff(mean_zdr)
-
-            # # 차등반사도 변동의 주기성을 찾기 위해 peaks 찾기
-            # peaks, _ = find_peaks(azimuth_change)
-
-            # # 변동 주기성 시각화
-            # plt.figure(figsize=(10, 6))
-            # plt.plot(azimuth_change, label="Azimuth Change")
-            # plt.plot(peaks, azimuth_change[peaks], "x", label="Peaks")
-            # plt.title("Periodicity in Differential Reflectivity Change")
-            # plt.legend()
-            # plt.show()
-
-            # #import numpy as np
-            # #import matplotlib.pyplot as plt
-            # #from scipy.signal import detrend
-
-            # #def remove_linear_trend(df, column_name):
-            # #    # ① 선형 추세 산정
-            # #    df['linear_trend'] = df[column_name].rolling(window=period).mean()
-
-            # #    # ② 선형 추세 제거
-            # #    df['detrended'] = df[column_name] - df['linear_trend']
-
-            # #    # ③ 주기 함수 적합
-            # #    sine_model = scipy.optimize.curve_fit(lambda t, a, b, c: a * np.sin(b * t + c),
-            # #                                          df.index.values,
-            # #                                          df['detrended'].values,
-            # #                                          p0=[1, 2 * np.pi / period, 0])
-
-            # #    df['fit'] = sine_model[0][0] * np.sin(sine_model[0][1] * df.index.values + sine_model[0][2])
-
-            # #    # ④ 반복 추세 제거
-            # #    df['residual'] = df['detrended'] - df['fit']
-
-            # #    # ⑤ 반복 추세가 제거된 차등반사도
-            # #    df['corrected'] = df['linear_trend'] + df['residual']
-
-            # #    return df
-
-            # ## 이 코드에서 'data'는 차등반사도 데이터이며, window는 이동평균 창의 크기입니다.
-            # # period는 주기적인 성분의 주기입니다.
-
-            # # 사용 예시
-            # column_name = 'column_name'  # 해당하는 열 이름
-            # period = 10  # 주기 성분
-            # df = pd.DataFrame(zdr)  # 차등반사도 데이터가 있는 DataFrame
-            # corrected_df = remove_linear_trend(df, column_name)
-
-            # # 결과를 그래프로 표시
-            # plt.figure(figsize=(12, 8))
-            # plt.subplot(211)
-            # plt.plot(data, label='Original')
-            # plt.plot(trend, label='Trend')
-            # plt.legend()
-
-            # plt.subplot(212)
-            # plt.plot(detrended, label='Detrended')
-            # plt.plot(fit_data, label='Fit')
-            # plt.plot(residual, label='Residual')
-            # plt.legend()
-
-            # plt.show()
-
-
-            #**************************************************************************************
-            # 가상 데이터를 통해 테스트
-            #**************************************************************************************
-            # np.random.seed(0)
-            # data = np.random.normal(0, 0.1, 360) + np.sin(np.linspace(0, 2. * np.pi, 360))  # 반사도 변화 모니터링 데이터
-            # data_df = pd.DataFrame(data, columns=['Reflectivity'])
-
-            # # 선형 추세 제거
-            # data_df['Rolling_Mean'] = data_df['Reflectivity'].rolling(window=10).mean()
-            # data_df['Deseasonalized'] = data_df['Reflectivity'] - data_df['Rolling_Mean']
-            #
-            # # x = np.array(range(len(data_df['Deseasonalized'].dropna())))
-            # # y = np.array(data_df['Deseasonalized'].dropna())
-            #
-            # data_df2 = data_df.dropna()
-            # x = np.array(range(len(data_df2['Deseasonalized'])))
-            # y = np.array(data_df2['Deseasonalized'])
-            # params, params_covariance = curve_fit(func, x, y, p0=[1, 1, 1])
-            # data_df2['Fitted'] = func(x, params[0], params[1], params[2])
-            #
-            # # 잔차 성분 추출
-            # data_df2['Residual'] = data_df2['Deseasonalized'] - data_df2['Fitted']
-            #
-            # # 잔차 성분에서 이상치 탐색
-            # threshold = 0.2
-            # data_df2['Anomaly'] = np.where(abs(data_df2['Residual']) > threshold, 1, 0)
-            #
-            # print(data_df2)
-            #
-            # plt.plot(data_df2['Anomaly'])
-            # plt.show()
-
-
-
-
-            #**************************************************************************************
-            # Matlab에서 단순 변환
-            #**************************************************************************************
-#            RdrNamA = ['BSL', 'SBS']
-#            datDRA = [':\\Data303\\']
-#            drvLet = 'j'
-#            
-#            for datDR in datDRA:
-#                for RdrNam in RdrNamA:
-#                    refFlt = 'no'
-#                    refThz = 0
-#                    phvFlt = 'no'
-#                    phvThz = 0.95
-#                    appPDPelim = 'no'
-#                    pdpThz = 15
-#                    ntex = 7
-#                    mtex = 7
-#                    spwFlt = 'no'
-#                    spwThz = 0.1
-#                    vnamB = ['ZDR', 'PDP', 'PHV', 'REF']
-#                    pco = 0.9925
-#                    srtEA = 3
-#                    endEA = srtEA
-#                    frDir = os.path.join(drvLet + datDR + RdrNam + '_OUT\\')
-#                    fwDir = os.path.join(drvLet + datDR + RdrNam + '_OUT_COR_EA' + str(srtEA) + '\\')
-#            
-#                    if not os.path.isdir(fwDir):
-#                        os.makedirs(fwDir)
-#            
-#                    flist = [f for f in os.listdir(frDir) if f.endswith('.mat')]
-#                    nflst = len(flist)
-#            
-#                    for j in range(nflst):
-#                        print(f'file no= {j+1}')
-#            
-#                        fname = flist[j]
-#                        a = loadmat(os.path.join(frDir, fname))
-#            
-#                        azm_r = a['arr_azm_rng_elv'][0].T
-#                        rng_r = a['arr_azm_rng_elv'][1].T
-#                        elv_r = a['arr_azm_rng_elv'][2].T
-#            
-#                        Tang = a['fix_ang']
-#                        Tang[Tang > 180] -= 360
-#            
-#                        # code continues...
-#                            if datDR == ':\\Data190\\' or datDR == ':\\Data191\\':
-#                    didxs = a['arr_etc'][4].astype(int)
-#                    didxe = a['arr_etc'][5].astype(int)
-#                else:
-#                    didxs = a['arr_etc'][2].astype(int)
-#                    didxe = a['arr_etc'][3].astype(int)
-#                
-#                didxs += 1  # set '0' to '1'
-#                didxe += 1
-#                didX2 = [didxs, didxe]
-#            
-#                Fang = elv_r[didxs - 1].T
-#            
-#                if a['arr_prt_prm_vel'][0][0] == a['arr_prt_prm_vel'][0][-1]:
-#                    Tprf = 'sing'
-#                else:
-#                    Tprf = 'dual'
-#                
-#                print(Fang)
-#                bw = a['arr_lat_lon_alt_bwh'][3]  
-#            
-#                for ip, vnam_b in enumerate(vnamB):
-#                    vnam_b = vnam_b.lower()
-#            
-#                    for i in range(srtEA - 1, endEA):
-#                        Arng = list(range(didxs[i] - 1, didxe[i]))
-#            
-#                        # Assuming getVarInfo191013 is a user-defined function
-#                        rVar_b, rVarI_b = getVarInfo191013(a, vnam_b)
-#                        rVarI_bA[ip] = rVarI_b
-#            
-#                        rVarf_R = a['arr_ref'].T  # REF
-#                        rVarc_R = a['arr_phv'].T  # PHV
-#                        rVarp_R = a['arr_pdp'].T  # PDP
-#            
-#                        rVar_bT = rVar_b[:, Arng]  # PDP
-#            
-#                        rVarf = rVarf_R[:, Arng]
-#                        rVarc = rVarc_R[:, Arng]
-#                        rVarp = rVarp_R[:, Arng]
-#            
-#                        # Assuming prepcss_new is a user-defined function
-#                        rVarT_b, vidx_b = prepcss_new(refFlt, phvFlt, appPDPelim, refThz, phvThz, pdpThz, ntex, mtex, rVarf, rVarc, rVarp, rVar_bT)
-#            
-#                        rVarT_bt = rVarT_b  # PDP
-#            
-#                        if vnam_b == 'zdr':
-#                            rVarT_bt[(rVarT_bt < -10) | (rVarT_bt > 10)] = np.nan
-#                        elif vnam_b == 'pdp':
-#                            rVarT_bt[(rVarT_bt < -300) | (rVarT_bt > 300)] = np.nan
-#                        elif vnam_b == 'phv':
-#                            rVarT_bt[(rVarT_bt < 0) | (rVarT_bt > 1)] = np.nan
-#                        elif vnam_b == 'ref':
-#                            rVarT_bt[(rVarT_bt < -100) | (rVarT_bt > 100)] = np.nan
-#            
-#                        mrVarT_bt = np.nanmean(rVarT_bt)
-#                        mrVarT_bt = np.convolve(mrVarT_bt, np.ones(3), 'valid') / 3  # moving average
-#                        ta = np.full(360, np.nan)
-#                        ta[:len(mrVarT_bt)] = mrVarT_bt
-#                        mrVarT_btA[ip, j, :] = ta
-#            
-#                        # Assuming dspCycl is a user-defined function
-#                        if vnam_b in ['zdr', 'pdp']:
-#                            dspCycl(fwDir, vnam_b, None, ta, 'fix', 'each', j, rVarI_bA[ip])
-#            
-#                toc = time.time()  # assuming you started a timer at the beginning of your script
-#            
-#            for ipi in range(len(vnamB)):
-#                vnam_b = vnamB[ipi].lower()
-#                mrVarT_btAs = np.squeeze(mrVarT_btA[ipi, :, :])
-#            
-#                # Assuming dspCycl is a user-defined function
-#                dspCycl(fwDir, vnam_b, mrVarT_btA, mrVarT_btAs, 'fix', 'total', None, rVarI_bA[ipi])
+                    fPar, fPar2, mPar = ccpltXY_191013_n(Apar[0], Apar[1], Apar[2], Apar[3],
+                                                         vnam_a, vnam_b,
+                                                         rVarI_a, rVarI_b, Tang[i],
+                                                         fwDir, TLE,
+                                                         vidxAll,
+                                                         refFlt, phvFlt, appPDPelim,
+                                                         refThz, phvThz, pdpThz, ntex, mtex)
 
         except Exception as e:
             log.error("Exception : {}".format(e))
