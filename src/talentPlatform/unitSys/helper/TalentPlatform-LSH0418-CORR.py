@@ -20,12 +20,10 @@ import pymannkendall as mk
 
 # Xarray
 import xarray as xr
-from numba import njit
 # Dask stuff
 import dask.array as da
 from dask.diagnostics import ProgressBar
 from xarrayMannKendall import *
-from numba import jit  # Speedup for python functions
 import dask.array as da
 import dask
 from dask.distributed import Client
@@ -131,8 +129,7 @@ def initGlobalVar(env=None, contextPath=None, prjName=None):
         , 'logPath': contextPath if env in 'local' else os.path.join(contextPath, 'resources', 'log', prjName)
         , 'mapPath': contextPath if env in 'local' else os.path.join(contextPath, 'resources', 'mapInfo')
         , 'sysPath': contextPath if env in 'local' else os.path.join(contextPath, 'resources', 'config', 'system.cfg')
-        ,
-        'seleniumPath': contextPath if env in 'local' else os.path.join(contextPath, 'resources', 'config', 'selenium')
+        , 'seleniumPath': contextPath if env in 'local' else os.path.join(contextPath, 'resources', 'config', 'selenium')
         , 'fontPath': contextPath if env in 'local' else os.path.join(contextPath, 'resources', 'config', 'fontInfo')
     }
 
@@ -286,6 +283,7 @@ class DtaProcess(object):
                     , 'latInv': 0.1
 
                     , 'typeList': ['EC', 'GDP', 'Land_Cover_Type_1_Percent', 'landscan']
+                    # , 'typeList': ['landscan']
                     # , 'typeList': ['Land_Cover_Type_1_Percent']
                     # , 'keyList': ['CH4', 'CO2_excl', 'CO2_org', 'N2O', 'NH3', 'NMVOC', 'OC', 'NH3', 'SO2']
                     , 'keyList': ['emi_co', 'emi_n2o', 'emi_nh3', 'emi_nmvoc', 'emi_nox', 'emi_oc', 'emi_so2']
@@ -325,42 +323,42 @@ class DtaProcess(object):
             # **********************************************************************************************************
             # 피어슨 상관계수 계산
             # **********************************************************************************************************
-            for i, typeInfo in enumerate(sysOpt['typeList']):
-                for j, keyInfo in enumerate(sysOpt['keyList']):
-                    log.info(f'[CHECK] typeInfo : {typeInfo} / keyInfo : {keyInfo}')
-
-                    saveFile = '{}/{}/{}/{}_{}_{}.nc'.format(globalVar['outPath'], serviceName, 'CORR', 'corr', typeInfo, keyInfo)
-                    fileChkList = glob.glob(saveFile)
-                    if (len(fileChkList) > 0): continue
-
-                    var1 = data[typeInfo]
-                    var2 = data[keyInfo]
-
-                    cov = ((var1 - var1.mean(dim='time', skipna=True)) * (var2 - var2.mean(dim='time', skipna=True))).mean(dim='time', skipna=True)
-                    stdVar1 = var1.std(dim='time', skipna=True)
-                    stdVar2 = var2.std(dim='time', skipna=True)
-                    peaCorr = cov / (stdVar1 * stdVar2)
-                    peaCorr = peaCorr.rename(f'{typeInfo}_{keyInfo}')
-
-                    saveImg = '{}/{}/{}/{}_{}_{}.png'.format(globalVar['figPath'], serviceName, 'CORR', 'corr', typeInfo, keyInfo)
-                    os.makedirs(os.path.dirname(saveImg), exist_ok=True)
-                    peaCorr.plot(vmin=-1.0, vmax=1.0)
-                    plt.savefig(saveImg, dpi=600, bbox_inches='tight', transparent=True)
-                    plt.tight_layout()
-                    # plt.show()
-                    # plt.close()
-                    log.info(f'[CHECK] saveImg : {saveImg}')
-
-                    os.makedirs(os.path.dirname(saveFile), exist_ok=True)
-                    peaCorr.to_netcdf(saveFile)
-                    log.info(f'[CHECK] saveFile : {saveFile}')
-
-                    # 데이터셋 닫기 및 메모리에서 제거
-                    var1.close(), var2.close(), cov.close(), stdVar1.close(), stdVar2.close(), peaCorr.close()
-                    del var1, var2, cov, stdVar1, stdVar2, peaCorr
-
-                    # 가비지 수집기 강제 실행
-                    # gc.collect()
+            # for i, typeInfo in enumerate(sysOpt['typeList']):
+            #     for j, keyInfo in enumerate(sysOpt['keyList']):
+            #         log.info(f'[CHECK] typeInfo : {typeInfo} / keyInfo : {keyInfo}')
+            #
+            #         saveFile = '{}/{}/{}/{}_{}_{}.nc'.format(globalVar['outPath'], serviceName, 'CORR', 'corr', typeInfo, keyInfo)
+            #         fileChkList = glob.glob(saveFile)
+            #         if (len(fileChkList) > 0): continue
+            #
+            #         var1 = data[typeInfo]
+            #         var2 = data[keyInfo]
+            #
+            #         cov = ((var1 - var1.mean(dim='time', skipna=True)) * (var2 - var2.mean(dim='time', skipna=True))).mean(dim='time', skipna=True)
+            #         stdVar1 = var1.std(dim='time', skipna=True)
+            #         stdVar2 = var2.std(dim='time', skipna=True)
+            #         peaCorr = cov / (stdVar1 * stdVar2)
+            #         peaCorr = peaCorr.rename(f'{typeInfo}_{keyInfo}')
+            #
+            #         saveImg = '{}/{}/{}/{}_{}_{}.png'.format(globalVar['figPath'], serviceName, 'CORR', 'corr', typeInfo, keyInfo)
+            #         os.makedirs(os.path.dirname(saveImg), exist_ok=True)
+            #         peaCorr.plot(vmin=-1.0, vmax=1.0)
+            #         plt.savefig(saveImg, dpi=600, bbox_inches='tight', transparent=True)
+            #         plt.tight_layout()
+            #         # plt.show()
+            #         # plt.close()
+            #         log.info(f'[CHECK] saveImg : {saveImg}')
+            #
+            #         os.makedirs(os.path.dirname(saveFile), exist_ok=True)
+            #         peaCorr.to_netcdf(saveFile)
+            #         log.info(f'[CHECK] saveFile : {saveFile}')
+            #
+            #         # 데이터셋 닫기 및 메모리에서 제거
+            #         var1.close(), var2.close(), cov.close(), stdVar1.close(), stdVar2.close(), peaCorr.close()
+            #         del var1, var2, cov, stdVar1, stdVar2, peaCorr
+            #
+            #         # 가비지 수집기 강제 실행
+            #         # gc.collect()
 
             # **********************************************************************************************************
             # 온실가스 배출량 계산
@@ -463,37 +461,37 @@ class DtaProcess(object):
             # **********************************************************************************************************
             # typeList에 따른 상자 그림
             # **********************************************************************************************************
-            # for i, typeInfo in enumerate(sysOpt['typeList']):
-            #     log.info(f'[CHECK] typeInfo : {typeInfo}')
-            #
-            #     inpFile = '{}/{}/{}/*{}*.nc'.format(globalVar['outPath'], serviceName, 'CORR', typeInfo)
-            #     fileList = sorted(glob.glob(inpFile))
-            #
-            #     if fileList is None or len(fileList) < 1:
-            #         log.error('[ERROR] inpFile : {} / {}'.format(inpFile, '입력 자료를 확인해주세요.'))
-            #
-            #     data = xr.open_mfdataset(fileList)
-            #     dataL1 = data.to_dataframe().reset_index(drop=True)
-            #     dataL1.columns = dataL1.columns.str.replace(f'{typeInfo}-emi_', '')
-            #
-            #     dataL2 = pd.melt(dataL1, id_vars=[], var_name='key', value_name='val')
-            #
-            #     mainTitle = f'EDGAR Pearson-Corr {typeInfo} (2001~2018)'
-            #     saveImg = '{}/{}/{}.png'.format(globalVar['figPath'], serviceName, mainTitle)
-            #     os.makedirs(os.path.dirname(saveImg), exist_ok=True)
-            #
-            #     sns.set_style("whitegrid")
-            #     sns.set_palette(sns.color_palette("husl", len(dataL1.columns)))
-            #     sns.boxplot(x='key', y='val', data=dataL2, dodge=False, hue='key')
-            #     plt.xlabel(None)
-            #     plt.ylabel('Pearson-Corr')
-            #     plt.title(mainTitle)
-            #     plt.legend(loc='upper center', bbox_to_anchor=(0.5, -0.2), ncol=4, title=None)
-            #     plt.savefig(saveImg, dpi=600, bbox_inches='tight', transparent=True)
-            #     plt.tight_layout()
-            #     # plt.show()
-            #     # plt.close()
-            #     log.info(f'[CHECK] saveImg : {saveImg}')
+            for i, typeInfo in enumerate(sysOpt['typeList']):
+                log.info(f'[CHECK] typeInfo : {typeInfo}')
+
+                inpFile = '{}/{}/{}/*{}*.nc'.format(globalVar['outPath'], serviceName, 'CORR', typeInfo)
+                fileList = sorted(glob.glob(inpFile))
+
+                if fileList is None or len(fileList) < 1:
+                    log.error('[ERROR] inpFile : {} / {}'.format(inpFile, '입력 자료를 확인해주세요.'))
+
+                data = xr.open_mfdataset(fileList)
+                dataL1 = data.to_dataframe().reset_index(drop=True)
+                dataL1.columns = dataL1.columns.str.replace(f'{typeInfo}-emi_', '').str.replace(f'{typeInfo}_emi_', '')
+
+                dataL2 = pd.melt(dataL1, id_vars=[], var_name='key', value_name='val')
+
+                mainTitle = f'EDGAR Pearson-Corr {typeInfo} (2001~2018)'
+                saveImg = '{}/{}/{}.png'.format(globalVar['figPath'], serviceName, mainTitle)
+                os.makedirs(os.path.dirname(saveImg), exist_ok=True)
+
+                sns.set_style("whitegrid")
+                sns.set_palette(sns.color_palette("husl", len(dataL1.columns)))
+                sns.boxplot(x='key', y='val', data=dataL2, dodge=False, hue='key')
+                plt.xlabel(None)
+                plt.ylabel('Pearson-Corr')
+                plt.title(mainTitle)
+                plt.legend(loc='upper center', bbox_to_anchor=(0.5, -0.2), ncol=4, title=None)
+                plt.savefig(saveImg, dpi=600, bbox_inches='tight', transparent=True)
+                plt.tight_layout()
+                plt.show()
+                # plt.close()
+                log.info(f'[CHECK] saveImg : {saveImg}')
 
         except Exception as e:
             log.error("Exception : {}".format(e))
