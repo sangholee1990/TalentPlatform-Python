@@ -55,7 +55,8 @@ src/proj/ting/weather2019.csv
 src/proj/ting/welcome_message.txt
 src/talentPlatform/unitSysHelper/
 src/proj/workflow/
-/src/talentPlatform/
+*.csv
+*.txt
 
 # 프로젝트 제외 경로
 /LINUX/
