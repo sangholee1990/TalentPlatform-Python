@@ -3,19 +3,7 @@
 # Project exclude paths
 /venv/
 !/src/talentPlatform/
-.idea/.gitignore
-.idea/PyCharm.iml
-.idea/aws.xml
-.idea/inspectionProfiles/
-.idea/misc.xml
-.idea/modules.xml
-.idea/other.xml
-.idea/rAvailablePackageCache.xml
-.idea/rGraphicsSettings.xml
-.idea/rSettings.xml
-.idea/rpackages.xml
-.idea/sonarlint/
-.idea/vcs.xml
+.idea/*
 resources/
 src/blog/
 src/proj/kari/
@@ -58,10 +46,17 @@ src/proj/workflow/
 
 
 # 다음과 같은 확장자는 전체 무시
+*.pdf
+*.pt
+*.yaml
+*.exe
 *.csv
 *.txt
+*.json
 *.log
 *.png
+*.jpg
+*.gitkeep
 __init__.py
 
 # 프로젝트 제외 경로
