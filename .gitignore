@@ -55,8 +55,14 @@ src/proj/ting/weather2019.csv
 src/proj/ting/welcome_message.txt
 src/talentPlatform/unitSysHelper/
 src/proj/workflow/
+
+
+# 다음과 같은 확장자는 전체 무시
 *.csv
 *.txt
+*.log
+*.png
+__init__.py
 
 # 프로젝트 제외 경로
 /LINUX/
