@@ -575,21 +575,21 @@ class DtaProcess(object):
                                     continue
 
                     # (삽입) 1건
-                    if (len(dbData) > 0):
-                        dbMergeData(session, table, dbData)
+                    if len(dbData) < 1: continue
+                    dbMergeData(session, table, dbData)
 
 
-                        # 테스트
-                        dtSrtDate = pd.to_datetime('2021-01-01', format='%Y-%m-%d')
-                        dtEndDate = pd.to_datetime('2023-06-29', format='%Y-%m-%d')
-                        dtDateList = pd.date_range(start=dtSrtDate, end=dtEndDate, freq=Hour(sysOpt['invHour']))
-
-                        for dtDateIdx, dtDateInfo in enumerate(dtDateList):
-                            log.info(f'[CHECK] dtDateInfo : {dtDateInfo}')
-                            dbData['ANA_DT'] = dtDateInfo
-                            dbMergeData(session, table, dbData)
-
-                    # (삽입) N건
+                #     # 테스트
+                #     dtSrtDate = pd.to_datetime('2021-01-01', format='%Y-%m-%d')
+                #     dtEndDate = pd.to_datetime('2023-06-29', format='%Y-%m-%d')
+                #     dtDateList = pd.date_range(start=dtSrtDate, end=dtEndDate, freq=Hour(sysOpt['invHour']))
+                #
+                #     for dtDateIdx, dtDateInfo in enumerate(dtDateList):
+                #         log.info(f'[CHECK] dtDateInfo : {dtDateInfo}')
+                #         dbData['ANA_DT'] = dtDateInfo
+                #         dbMergeData(session, table, dbData)
+                #
+                # # (삽입) N건
                     # dbMergeData(session, table, dbDataList)
 
 
