@@ -37,9 +37,7 @@ import requests
 from sqlalchemy import create_engine
 import re
 import configparser
-import sqlalchemy
 from sqlalchemy.ext.declarative import declarative_base
-import sqlalchemy
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy import create_engine, MetaData, Table, Column, Integer, String, DateTime, Float
 from sqlalchemy.orm import sessionmaker
@@ -47,7 +45,6 @@ from sqlalchemy import create_engine
 import pymysql
 import re
 import configparser
-import sqlalchemy
 from sqlalchemy.ext.declarative import declarative_base
 from scipy.stats import linregress
 import argparse
@@ -56,7 +53,11 @@ import pandas as pd
 import xarray as xr
 from datetime import timedelta
 import psycopg2
-
+from sqlalchemy.orm import sessionmaker
+from sqlalchemy import create_engine
+from sqlalchemy import create_engine, text
+from sqlalchemy.dialects.postgresql import ARRAY
+from sqlalchemy.dialects.postgresql import insert
 
 # =================================================
 # 사용자 매뉴얼
@@ -245,6 +246,37 @@ def initArgument(globalVar, inParams):
 #         # try, catch 구문이 종료되기 전에 무조건 실행
 #         log.info(f'[END] {}'.format('initCfgInfo'))
 
+
+def dbMergeData(session, table, dataList):
+    try:
+        stmt = insert(table)
+        onConflictStmt = stmt.on_conflict_do_update(
+            index_elements=['ANA_DT', 'FOR_DT', 'MODEL_TYPE']
+            , set_=stmt.excluded
+        )
+        session.execute(onConflictStmt, dataList)
+        session.commit()
+
+    except Exception as e:
+        session.rollback()
+        log.error(f'Exception : {e}')
+
+    finally:
+        session.close()
+
+# def add(a, b):
+#     print(a + b)
+#     return a + b
+#
+# def multiply(a, b):
+#     return a * b
+
+def dynamicFun(funName, *args, **kwargs):
+    function = globals()[funName]
+    function(*args, **kwargs)
+
+# dynamicFun("add", 5, 3)
+
 # ================================================
 # 4. 부 프로그램
 # ================================================
@@ -254,6 +286,93 @@ class DtaProcess(object):
     # 요구사항
     # ================================================
     # Python을 이용한 포스트SQL 연동 테스트
+
+    # create table "TB_MODEL"
+    # (
+    #     "ANA_DT"     timestamp   not null,
+    #     "FOR_DT"     timestamp   not null,
+    #     "MODEL_TYPE" varchar(20) not null,
+    #     "U"          real[],
+    #     "V"          real[],
+    #     "SW_D"       real[],
+    #     "SW_DC"      real[],
+    #     "U1"         real[],
+    #     "V1"         real[],
+    #     "SW_DDNI"    real[],
+    #     "SW_DDIF"    real[],
+    #     "SW_NET"     real[],
+    #     "SW_UC"      real[],
+    #     "SW_U"       real[],
+    #     "U850"       real[],
+    #     "U875"       real[],
+    #     "U900"       real[],
+    #     "U925"       real[],
+    #     "U975"       real[],
+    #     "U1000"      real[],
+    #     "V850"       real[],
+    #     "V875"       real[],
+    #     "V900"       real[],
+    #     "V925"       real[],
+    #     "V975"       real[],
+    #     "V1000"      real[],
+    #     constraint "TB_MODEL_pk"
+    #         primary key ("ANA_DT", "FOR_DT", "MODEL_TYPE")
+    # );
+    #
+    # comment on column "TB_MODEL"."ANA_DT" is '분석시간';
+    #
+    # comment on column "TB_MODEL"."FOR_DT" is '예보시간';
+    #
+    # comment on column "TB_MODEL"."MODEL_TYPE" is '모델 종류';
+    #
+    # comment on column "TB_MODEL"."U" is '지표 U벡터';
+    #
+    # comment on column "TB_MODEL"."V" is '지표 V벡터';
+    #
+    # comment on column "TB_MODEL"."SW_D" is '지표 하향 전천일사량';
+    #
+    # comment on column "TB_MODEL"."SW_DC" is '지표 하향 청천일사량';
+    #
+    # comment on column "TB_MODEL"."U1" is '상층 U벡터 1 hPa';
+    #
+    # comment on column "TB_MODEL"."V1" is '상층 V벡터 1 hPa';
+    #
+    # comment on column "TB_MODEL"."SW_DDNI" is '지표 하향 직달일사량';
+    #
+    # comment on column "TB_MODEL"."SW_DDIF" is '지표 하향 산란일사량';
+    #
+    # comment on column "TB_MODEL"."SW_NET" is '지표 순 일사량';
+    #
+    # comment on column "TB_MODEL"."SW_UC" is '지표 상향 청천일사량';
+    #
+    # comment on column "TB_MODEL"."SW_U" is '지표 상향 전천일사량';
+    #
+    # comment on column "TB_MODEL"."U850" is '상층 U벡터 850 hPa';
+    #
+    # comment on column "TB_MODEL"."U875" is '상층 U벡터 875 hPa';
+    #
+    # comment on column "TB_MODEL"."U900" is '상층 U벡터 900 hPa';
+    #
+    # comment on column "TB_MODEL"."U925" is '상층 U벡터 925 hPa';
+    #
+    # comment on column "TB_MODEL"."U975" is '상층 U벡터 975 hPa';
+    #
+    # comment on column "TB_MODEL"."U1000" is '상층 U벡터 1000 hPa';
+    #
+    # comment on column "TB_MODEL"."V850" is '상층 V벡터 850 hPa';
+    #
+    # comment on column "TB_MODEL"."V875" is '상층 V벡터 875 hPa';
+    #
+    # comment on column "TB_MODEL"."V900" is '상층 V벡터 900 hPa';
+    #
+    # comment on column "TB_MODEL"."V925" is '상층 V벡터 925 hPa';
+    #
+    # comment on column "TB_MODEL"."V975" is '상층 V벡터 975 hPa';
+    #
+    # comment on column "TB_MODEL"."V1000" is '상층 V벡터 1000 hPa';
+    #
+    # alter table "TB_MODEL"
+    #     owner to kier;
 
     # ================================================================================================
     # 환경변수 설정
@@ -316,19 +435,50 @@ class DtaProcess(object):
 
             # 옵션 설정
             sysOpt = {
-                # 시작/종료 시간
-                'srtDate': '2019-01-01'
-                , 'endDate': '2022-05-22'
+                # 시작일, 종료일, 시간 간격
+                'srtDate': '2023-06-29'
+                , 'endDate': '2023-07-01'
+                , 'invHour': 1
 
                 # DB 정보
-                , 'dbUser' : 'kier'
-                , 'dbPwd' : 'kier20230707!@#'
-                , 'dbHost': '223.130.134.136'
-                , 'dbPort': '5432'
-                , 'dbName': 'kier'
+                # 사용자, 비밀번호, 호스트, 포트, 스키마
+                , 'dbInfo': {
+                    'dbType': 'postgresql'
+                    , 'dbUser': 'kier'
+                    , 'dbPwd': 'kier20230707!@#'
+                    , 'dbHost': '223.130.134.136'
+                    , 'dbPort': '5432'
+                    , 'dbName': 'kier'
+                    , 'dbTable': 'TB_MODEL'
+                    , 'dbSchema': 'dms01'
 
-                # 서버 정보
-                , 'serverHost': '223.130.134.136'
+                    # 서버 정보
+                    , 'serverHost': '223.130.134.136'
+                }
+
+                # 모델 종류에 따른 함수 정의
+                , 'procList' : {
+                    'KIER-LDAPS' : 'add'
+                }
+
+                # 모델 정보
+                # 파일 경로, 파일명, 데이터 컬럼, DB 컬럼, 시간 간격
+                , 'modelList' : {
+                    'KIER-LDAPS' : {
+                        'pres' : {
+                            'filePath': '/DATA/INPUT/INDI2023/MODEL/KIER-LDAPS'
+                            , 'fileName' : 'wrfout_d02_%Y-%m-%d_%H:%M:*.nc'
+                            , 'selCol': ['U10', 'V10']
+                            , 'dbCol': ['U1', 'V1']
+                        }
+                        , 'sfc' : {
+                            'filePath': '/DATA/INPUT/INDI2023/MODEL/KIER-LDAPS'
+                            , 'fileName' : 'wrfsolar_d02.%Y-%m-%d_%H:%M:*.nc'
+                            , 'selCol': ['SWDOWN', 'SWDOWNC', 'GSW', 'SWDDNI', 'SWDDIF']
+                            , 'dbCol': ['SW_D', 'SW_DC', 'SW_NET', 'SW_DDNI', 'SW_DDIF']
+                        }
+                    }
+                }
             }
 
             # DB 정보
@@ -336,114 +486,129 @@ class DtaProcess(object):
             # dbEngine = cfgInfo['dbEngine']
             # kier@223.130.134.136-5432-kier20230707!@#
 
-            dbUser = sysOpt['dbUser']
-            dbPwd = quote_plus(sysOpt['dbPwd'])
-            dbHost = sysOpt['dbHost']
-            dbHost = 'localhost' if dbHost == sysOpt['serverHost'] else dbHost
-            dbPort = sysOpt['dbPort']
-            dbName = sysOpt['dbName']
+            dbInfo = sysOpt['dbInfo']
+            dbType = dbInfo['dbType']
+            dbUser = dbInfo['dbUser']
+            dbPwd = quote_plus(dbInfo['dbPwd'])
+            dbHost = 'localhost' if dbInfo['dbHost'] == dbInfo['serverHost'] else dbInfo['dbHost']
+            dbPort = dbInfo['dbPort']
+            dbName = dbInfo['dbName']
+            dbTable = dbInfo['dbTable']
+            dbSchema = dbInfo['dbSchema']
 
-            sqlDbUrl = f'postgresql://{dbUser}:{dbPwd}@{dbHost}:{dbPort}/{dbName}'
+            sqlDbUrl = f'{dbType}://{dbUser}:{dbPwd}@{dbHost}:{dbPort}/{dbName}'
             engine = create_engine(sqlDbUrl)
-            session = sessionmaker(autocommit=False, autoflush=False, bind=engine)
-            # session().execute('SELECT * FROM dms01.model').fetchall()
+            sessionMake = sessionmaker(autocommit=False, autoflush=False, bind=engine)
+            session = sessionMake()
 
-            # dtSrtDate = pd.to_datetime(sysOpt['srtDate'], format='%Y-%m-%d')
-            # dtEndDate = pd.to_datetime(sysOpt['endDate'], format='%Y-%m-%d')
-            # dtIncDateList = pd.date_range(start=dtSrtDate, end=dtEndDate, freq=Hour(6))
+            # 테이블 정보
+            metaData = MetaData()
+            table = Table(dbTable, metaData, autoload_with=engine, schema=dbSchema)
 
-            inpFile = '{}/{}/{}'.format(globalVar['inpPath'], serviceName, 'MODEL/KIER-LDAPS/wrfsolar_d02.2023-06-30_03:00:00.nc')
-            fileList = sorted(glob.glob(inpFile))
+            dtSrtDate = pd.to_datetime(sysOpt['srtDate'], format='%Y-%m-%d')
+            dtEndDate = pd.to_datetime(sysOpt['endDate'], format='%Y-%m-%d')
+            dtDateList = pd.date_range(start=dtSrtDate, end=dtEndDate, freq=Hour(sysOpt['invHour']))
 
-            if fileList is None or len(fileList) < 1:
-                log.error(f'inpFile : {inpFile} / 입력 자료를 확인해주세요')
-                # continue
+            for modelIdx, modelType in enumerate(sysOpt['modelList']):
+                log.info(f'[CHECK] modelType : {modelType}')
 
-            fileInfo = fileList[0]
-            log.info('[CHECK] fileInfo : {}'.format(fileInfo))
+                # procFun = sysOpt['procList'][modelType]
 
-            fileNameNoExt = os.path.basename(fileInfo).split('.')[0]
-            data = xr.open_dataset(fileInfo)
+                # procDynamiCall
+                # dynamicFun(procFun, 5, 3)
 
-            # 분석장
-            anaDate = pd.to_datetime(data.START_DATE, format='%Y-%m-%d_%H:%M:%S')
-            forDate = pd.to_datetime(data['Times'].values[0].decode(), format='%Y-%m-%d_%H:%M:%S')
-            modelType = 'KIER-LDAPS'
-            swD = data['SWDOWN'].isel(Time=0).values
+                for dtDateIdx, dtDateInfo in enumerate(dtDateList):
+                    log.info(f'[CHECK] dtDateInfo : {dtDateInfo}')
 
-            from sqlalchemy import create_engine, text
-            from sqlalchemy.dialects.postgresql import ARRAY
+                    dbDataList = []
+                    dbData = {}
+                    for i, modelKey in enumerate(sysOpt['modelList'][modelType]):
+                        modelInfo = sysOpt['modelList'][modelType][modelKey]
+                        log.info(f'[CHECK] modelInfo : {modelInfo}')
 
-            data = [[31.148539, 30.739117, 33.336533], [31.985273, 256.6858, 286.0836], [33.42487, 267.13397, 273.16577]]
-            with engine.connect() as connection:
-                sql = text('INSERT INTO dms01.table (data) VALUES (:data)')
-                connection.execute(sql, data=data)
+                        inpFile = '{}/{}'.format(modelInfo['filePath'], modelInfo['fileName'])
+                        inpFileDate = dtDateInfo.strftime(inpFile)
+                        fileList = sorted(glob.glob(inpFileDate))
 
-            sql = text('INSERT INTO dms01.table (data) VALUES (:data)')
-            engine.execute(sql, data=data)
-            # session().query(sql, data=data)
+                        if fileList is None or len(fileList) < 1:
+                            # log.error(f'inpFile : {inpFile} / 입력 자료를 확인해주세요')
+                            continue
 
-            # query = """
-            #     INSERT INTO dms01.model (
-            #         ana_date, for_date, model_type, sw_d
-            #     ) VALUES (
-            #         ana_date, for_date,:model_type :sw_d
+                        # NetCDF 파일 읽기
+                        orgData = xr.open_mfdataset(fileList)
+
+                        # sfc에서 일사량 관련 인자의 경우 1시간 평균 생산
+                        if modelKey == 'sfc':
+                            data = orgData.mean(dim=['Time'], skipna = True)
+                            timeByteList = [orgData['Times'].values[0]]
+                        else:
+                            data = orgData
+                            timeByteList = orgData['Times'].values
+
+                        # 분석시간
+                        anaDate = pd.to_datetime(orgData.START_DATE, format='%Y-%m-%d_%H:%M:%S')
+                        timeList = [item.decode('utf-8') for item in timeByteList]
+
+                        for timeIdx, timeInfo in enumerate(timeList):
+                            log.info(f'[CHECK] timeInfo : {timeInfo}')
+
+                            # 예보시간
+                            forDate = pd.to_datetime(timeInfo, format='%Y-%m-%d_%H:%M:%S')
+
+                            # 필수 컬럼
+                            dbData['ANA_DT'] = anaDate
+                            dbData['FOR_DT'] = forDate
+                            dbData['MODEL_TYPE'] = modelType
+
+                            # 선택 컬럼
+                            for selCol, dbCol in zip(modelInfo['selCol'], modelInfo['dbCol']):
+                                try:
+                                    # sfc에서 일사량 관련 인자의 경우 1시간 평균 생산
+                                    if modelKey == 'sfc':
+                                        dbData[dbCol] = data[selCol].values.tolist() if len(data[selCol].values) > 0 else None
+                                    else:
+                                        dbData[dbCol] = data[selCol].isel(Time=timeIdx).values.tolist() if len(data[selCol].isel(Time=timeIdx).values) > 0 else None
+
+                                    log.info(f'[CHECK] selCol / dbCol : {selCol} / {dbCol}')
+                                except Exception as e:
+                                    # log.error('Exception : {}'.format(e))
+                                    continue
+
+                    # (삽입) 1건
+                    if (len(dbData) > 0):
+                        dbMergeData(session, table, dbData)
+
+
+                        # 테스트
+                        dtSrtDate = pd.to_datetime('2021-01-01', format='%Y-%m-%d')
+                        dtEndDate = pd.to_datetime('2023-06-29', format='%Y-%m-%d')
+                        dtDateList = pd.date_range(start=dtSrtDate, end=dtEndDate, freq=Hour(sysOpt['invHour']))
+
+                        for dtDateIdx, dtDateInfo in enumerate(dtDateList):
+                            log.info(f'[CHECK] dtDateInfo : {dtDateInfo}')
+                            dbData['ANA_DT'] = dtDateInfo
+                            dbMergeData(session, table, dbData)
+
+                    # (삽입) N건
+                    # dbMergeData(session, table, dbDataList)
+
+
+
+            # dataList = [dbData, dbData]
+            # dbMergeBatchData(session, table, dataList)
+
+
+
+            # from sqlalchemy.dialects.mysql import insert
+            #
+            # def upsert_data(engine, table_name, orgData):
+            #     stmt = insert(table_name).values(orgData)
+            #     on_duplicate_key_stmt = stmt.on_duplicate_key_update(
+            #         {key: orgData[key] for key in orgData}
             #     )
-            # """
+            #     engine.execute(on_duplicate_key_stmt)
             #
-            # with engine.begin() as connection:
-            #     connection.execute(query, {
-            #         "ana_date": anaDate
-            #         , "for_date": forData
-            #         , "model_type": modelType
-            #         , "sw_d": swD.tolist()
-            #     })
-
-            selDbTable = 'dms01.model'
-
-            # session().execute(
-            #     """
-            #     INSERT INTO dms01.model (ana_date, for_date, model_type, sw_d)
-            #     VALUES (:anaDate, :for_date, :model_type, :sw_d)
-            #     ON CONFLICT (ana_date, for_date, model_type)
-            #     DO UPDATE
-            #     SET ana_date = :anaDate, for_date = :forDate, model_type = :modelType, sw_d = :swD.tolist();
-            #     """,
-            #     {
-            #         "anaDate": anaDate,
-            #         "for_date": forDate,
-            #         "model_type": modelType,
-            #         "sw_d": swD.tolist()
-            #     }
-            # )
-
-            # sw_d = swD.tolist()
-            #
-            # session().execute(
-            #     """
-            #     INSERT INTO dms01.model (ana_date, for_date, model_type, sw_d)
-            #     VALUES (:anaDate, :for_date, :model_type, :sw_d)
-            #     ON CONFLICT (ana_date, for_date, model_type)
-            #     DO UPDATE
-            #     SET ana_date = :anaDate, for_date = :forDate, model_type = :modelType, sw_d = :sw_d;
-            #     """,
-            #     {
-            #         "anaDate": anaDate,
-            #         "forDate": forDate,
-            #         "modelType": modelType,
-            #         "sw_d": ARRAY(sw_d)
-            #     }
-            # )
-
-            # sql = text('INSERT INTO dms01.model (ana_date, for_date, model_type, sw_d) VALUES (:anaDate, :for_date, :model_type, :sw_d)')
-            sql = text('INSERT INTO dms01.model (ana_date, for_date, model_type, sw_d) VALUES (:ana_date, :for_date, :model_type, :sw_d)')
-            engine.execute(sql,  {
-                    "ana_date": anaDate,
-                    "for_date": forDate,
-                    "model_type": modelType,
-                    "sw_d": swD.tolist()
-                }
-            )
+            # upsert_data(engine, 'dms01.model', dbData)
 
 
             # session().execute(
@@ -507,23 +672,23 @@ class DtaProcess(object):
             #             dtEndDate = pd.to_datetime(sysOpt['endDate'], format='%Y-%m-%d')
             #             dtMonthList = pd.date_range(start=dtSrtDate, end=dtEndDate, freq='1M')
 
-            # data['']
+            # orgData['']
             # :START_DATE = "2023-06-28_12:00:00";
 
-            time1D = data['Times'].values
-            # lon2D = data['XLAT'].values
-            # data['XLAT'].isel(Time = 5).plot()
+            # time1D = orgData['Times'].values
+            # lon2D = orgData['XLAT'].values
+            # orgData['XLAT'].isel(Time = 5).plot()
             #
             # plt.show()
-            # data['XLONG'].values
+            # orgData['XLONG'].values
 
-            data['SWDOWN'].isel(Time=5).plot()
-            plt.show()
-
-            dataL1 = data['SWDOWN'].isel(Time=0).to_dataframe()
-            dataL2 = dataL1.reset_index(drop=False)
-
-            data['SWDOWN'].values
+            # orgData['SWDOWN'].isel(Time=5).plot()
+            # plt.show()
+            #
+            # dataL1 = orgData['SWDOWN'].isel(Time=0).to_dataframe()
+            # dataL2 = dataL1.reset_index(drop=False)
+            #
+            # orgData['SWDOWN'].values
 
         #   dataL2.to_dataframe().reset_index(drop=False).to_csv(saveFile, index=False)
 
