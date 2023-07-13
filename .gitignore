@@ -1,49 +1,15 @@
 # Created by .ignore support plugin (hsz.mobi)
 
-# Project exclude paths
+# 프로젝트 제외 경로
 /venv/
 !/src/talentPlatform/
 .idea/*
 resources/
-src/blog/
-src/proj/kari/
+LINUX
 Would skip repository src/nier/pydata-book
 Would skip repository src/nier/Python_Basic4beginners
-src/proj/nier/2020_CGCGpython
-src/proj/nier/add_err
-src/proj/nier/AWS_prcp.rgb
-src/proj/nier/chaos.py
-src/proj/nier/Documents
-src/proj/nier/download_era5.py
-src/proj/nier/judah
-src/proj/nier/mpich.hosts
-src/proj/nier/netcdfcompile.sh
-src/proj/nier/openmpi.hosts
-src/proj/nier/PycharmProjects
-src/proj/nier/satellite_angle
-src/proj/nier/satellite_angle_4var_calculator.f90
-src/proj/nier/satellite_angle_calculator.f90
-src/proj/nier/SWEDU
-src/proj/nier/Untitled.ipynb
-src/proj/nier/Untitled1.ipynb
 src/talentPlatform/tmp/TalentPlatform.py
 src/talentPlatform/tmp/Test.py
-src/proj/ting/JAVA/.vscode/
-src/proj/ting/JAVA/externaljar/
-src/proj/ting/JAVA/sunstar2influx/.editorconfig
-src/proj/ting/JAVA/sunstar2influx/.gitattributes
-src/proj/ting/JAVA/sunstar2influx/.gitignore
-src/proj/ting/JAVA/sunstar2influx/.travis.yml
-src/proj/ting/JAVA/sunstar2influx/pom.xml
-src/proj/ting/JAVA/sunstar2influx/src/
-src/proj/ting/python/
-src/proj/ting/sunstar2influx.jar
-src/proj/ting/weather.py
-src/proj/ting/weather2019.csv
-src/proj/ting/welcome_message.txt
-src/talentPlatform/unitSysHelper/
-src/proj/workflow/
-
 
 # 다음과 같은 확장자는 전체 무시
 *.pdf
@@ -59,7 +25,4 @@ src/proj/workflow/
 *.gitkeep
 __init__.py
 
-# 프로젝트 제외 경로
-/LINUX/
-/src/proj/
-/src/subject/
+
