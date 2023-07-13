@@ -302,7 +302,7 @@ def sineFit(x, y, isPlot=True):
     initial_guess = [np.mean(y), np.std(y), 1.0 / np.ptp(x), 0.0]  # offs, amp, f, phi
 
     # Curve fitting
-    popt, pcov = curve_fit(func, x, y, p0=initial_guess)
+    popt, pcov = curve_fit(func, x, y, p0=initial_guess, maxfev=10000)
 
     # Calculate mean squared error
     residuals = y - func(x, *popt)
@@ -322,6 +322,7 @@ def sineFit(x, y, isPlot=True):
 
 
 def dspCycl(fwDir, vnam_b, mrVarT_btA, mrVarT_btAs, dtrnTyp, dspSel, j, rVarI_bA):
+
     if dspSel == 'total':
         mrVarT_btAm = np.nanmean(mrVarT_btAs)
     elif dspSel == 'each':
@@ -992,13 +993,14 @@ class DtaProcess(object):
             # ======================================================================================
             # (차등반사도의 방위각 종속성) 특정 사상에 대하여 방위각 방향의 차등반사도 변화를 모니터링
             # ======================================================================================
-            inpFile = '{}/{}/{}'.format(globalVar['inpPath'], serviceName, '*.uf')
+            inpFile = '{}/{}/{}'.format(globalVar['inpPath'], serviceName, '*.*')
             fileList = sorted(glob.glob(inpFile))
 
             if fileList is None or len(fileList) < 1:
                 log.error('[ERROR] inpFile : {} / {}'.format(inpFile, '입력 자료를 확인해주세요.'))
 
             # fileInfo = fileList[0]
+            mrVarT_btA = np.empty((0, 360))
             for fileIdx, fileInfo in enumerate(fileList):
                 log.info(f'[CHECK] fileInfo: {fileInfo}')
 
@@ -1030,7 +1032,7 @@ class DtaProcess(object):
 
                 Tang = data['fix_ang']
                 Tang[Tang > 180] -= 360
-                mrVarT_btA = np.empty((0, 360))
+                # mrVarT_btA = np.empty((0, 360))
 
                 # if datDR == ':\\Data190\\' or datDR == ':\\Data191\\':
                 #     didxs = data['arr_etc'][4].astype(int)
@@ -1119,12 +1121,14 @@ class DtaProcess(object):
                         if vnam_b in ['zdr', 'pdp']:
                             dspCycl(fwDir, vnam_b, None, ta, 'fix', 'each', fileIdx, rVarI_bA[ip])
 
-                for ipi in range(len(vnamB)):
-                    vnam_b = vnamB[ipi].lower()
-                    log.info(f'[CHECK] vnam_b : {vnam_b}')
-
-                    mrVarT_btAs = np.squeeze(mrVarT_btA[ipi, :])
-                    dspCycl(fwDir, vnam_b, mrVarT_btA, mrVarT_btAs, 'fix', 'total', None, rVarI_bA[ipi])
+            # for ipi in range(len(vnamB)):
+            #     vnam_b = vnamB[ipi].lower()
+            #     log.info(f'[CHECK] vnam_b : {vnam_b}')
+            #
+            #     mrVarT_btAs = np.squeeze(mrVarT_btA[ipi, :])
+            #
+            #     fwDir = '{}/{}/{}/'.format(globalVar['figPath'], serviceName, fileNameNoExt)
+            #     dspCycl(fwDir, vnam_b, mrVarT_btA, mrVarT_btAs, 'fix', 'total', None, rVarI_bA[ipi])
 
             # ======================================================================================
             # 편파 매개변수의 측정 오류 추정치를 이용하여 레이더 하드웨어 및 데이터 수집 시스템의 품질 평가
