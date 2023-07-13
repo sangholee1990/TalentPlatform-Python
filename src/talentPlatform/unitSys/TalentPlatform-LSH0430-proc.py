@@ -219,75 +219,189 @@ def initArgument(globalVar, inParams):
 
 
 def prepcss_new(refFlt, phvFlt, appPDPelim, refThz, phvThz, pdpThrd, ntex, mtex, rVarf, rVarc, rVarp, rVarT):
-    # (1) apply low value(const.) threshold
-    vidx = np.zeros_like(rVarT)
-    if refFlt == 'yes':
-        rVarT[rVarf < refThz] = np.nan
-        vidx[rVarf < refThz] = 1
 
-    # (2) phv filtering
-    if phvFlt == 'yes':
-        rVarT[rVarc < phvThz] = np.nan
-        vidx[rVarc < phvThz] = 1
+    log.info(f'[START] prepcss_new')
 
-    # (3) Tex(pdp) filtering
-    # ftex 정의되지 않음
-    # if appPDPelim == 'yes':
-    #     Rcalp, vidx_p = ftex(appPDPelim, pdpThrd, rVarp, ntex, mtex)  # Need to define 'ftex' function in Python
-    #     rVarT[vidx_p == 1] = np.nan
-    #     vidx = np.logical_or(vidx, vidx_p)
+    rVarT = None
+    vidx = None
 
-    return rVarT, vidx
+    try:
+
+        # (1) apply low value(const.) threshold
+        vidx = np.zeros_like(rVarT)
+        if refFlt == 'yes':
+            rVarT[rVarf < refThz] = np.nan
+            vidx[rVarf < refThz] = 1
+
+        # (2) phv filtering
+        if phvFlt == 'yes':
+            rVarT[rVarc < phvThz] = np.nan
+            vidx[rVarc < phvThz] = 1
+
+        # (3) Tex(pdp) filtering
+        # ftex 정의되지 않음
+        # if appPDPelim == 'yes':
+        #     Rcalp, vidx_p = ftex(appPDPelim, pdpThrd, rVarp, ntex, mtex)  # Need to define 'ftex' function in Python
+        #     rVarT[vidx_p == 1] = np.nan
+        #     vidx = np.logical_or(vidx, vidx_p)
+
+        return rVarT, vidx
+
+    except Exception as e:
+        log.error(f'Exception : {e}')
+        return rVarT, vidx
+
+    finally:
+        log.info(f'[END] prepcss_new')
 
 
 def getVarInfo191013(data, vnam):
+
+    log.info(f'[START] getVarInfo191013')
+
     rVar = None
     rVarI = None
 
-    if vnam in ['ref', 'Zh']:
-        rVarI = 'Reflectivity [dBZ]'
-        rVar = np.transpose(data['arr_ref'])
-    elif vnam in ['zdr', 'ZDR']:
-        rVarI = 'Differential reflectivity [dB]'
-        rVar = np.transpose(data['arr_zdr'])
-    elif vnam in ['pdp', 'PDP']:
-        rVarI = 'Differential phase [degrees]'
-        rVar = np.transpose(data['arr_pdp'])
-    elif vnam in ['kdp', 'KDP']:
-        rVarI = 'Specific differential phase [degrees/km]'
-        rVar = np.transpose(data['arr_kdp'])
-    elif vnam in ['phv', 'PHV']:
-        rVarI = 'Cross correlation ratio [ratio]'
-        rVar = np.transpose(data['arr_phv'])
-    elif vnam in ['vel', 'VEL']:
-        rVarI = 'Velocity [meters/second]'
-        rVar = np.transpose(data['arr_vel'])
-    elif vnam in ['ecf', 'ECF']:
-        rVarI = 'Radar echo classification'
-        rVar = np.transpose(data['arr_ecf'])
-    elif vnam in ['coh', 'COH']:
-        rVarI = 'Normalized coherent power [ratio]'
-        rVar = np.transpose(data['arr_coh'])
-    elif vnam in ['spw', 'SPW']:
-        rVarI = 'Spectrum width [meters/second]'
-        rVar = np.transpose(data['arr_spw'])
-    elif vnam in ['tpw', 'TPW']:
-        rVarI = 'Total power [dBZ]'
-        rVar = np.transpose(data['arr_tpw'])
-    elif vnam in ['k-z', 'KDP/Zh']:
-        rVarI = '10log10(Kdp[deg./km]/Zh[mm^{6}mm^{-3}])'
-        rVarz = np.power(10, np.transpose(data['arr_ref']) / 10)
-        rVark = np.transpose(data['arr_kdp'])
-        rVark[rVark <= 0] = np.nan
-        rVarz[rVarz <= 0] = np.nan
-        rVar = 10 * np.log10(np.divide(rVark, rVarz, where=(rVarz != 0)))
-        rVar[np.isinf(rVar)] = np.nan
-        rVar[np.isnan(rVar)] = np.nan
+    try:
+        if vnam in ['ref', 'Zh']:
+            rVarI = 'Reflectivity [dBZ]'
+            rVar = np.transpose(data['arr_ref'])
+        elif vnam in ['zdr', 'ZDR']:
+            rVarI = 'Differential reflectivity [dB]'
+            rVar = np.transpose(data['arr_zdr'])
+        elif vnam in ['pdp', 'PDP']:
+            rVarI = 'Differential phase [degrees]'
+            rVar = np.transpose(data['arr_pdp'])
+        elif vnam in ['kdp', 'KDP']:
+            rVarI = 'Specific differential phase [degrees/km]'
+            rVar = np.transpose(data['arr_kdp'])
+        elif vnam in ['phv', 'PHV']:
+            rVarI = 'Cross correlation ratio [ratio]'
+            rVar = np.transpose(data['arr_phv'])
+        elif vnam in ['vel', 'VEL']:
+            rVarI = 'Velocity [meters/second]'
+            rVar = np.transpose(data['arr_vel'])
+        elif vnam in ['ecf', 'ECF']:
+            rVarI = 'Radar echo classification'
+            rVar = np.transpose(data['arr_ecf'])
+        elif vnam in ['coh', 'COH']:
+            rVarI = 'Normalized coherent power [ratio]'
+            rVar = np.transpose(data['arr_coh'])
+        elif vnam in ['spw', 'SPW']:
+            rVarI = 'Spectrum width [meters/second]'
+            rVar = np.transpose(data['arr_spw'])
+        elif vnam in ['tpw', 'TPW']:
+            rVarI = 'Total power [dBZ]'
+            rVar = np.transpose(data['arr_tpw'])
+        elif vnam in ['k-z', 'KDP/Zh']:
+            rVarI = '10log10(Kdp[deg./km]/Zh[mm^{6}mm^{-3}])'
+            rVarz = np.power(10, np.transpose(data['arr_ref']) / 10)
+            rVark = np.transpose(data['arr_kdp'])
+            rVark[rVark <= 0] = np.nan
+            rVarz[rVarz <= 0] = np.nan
+            rVar = 10 * np.log10(np.divide(rVark, rVarz, where=(rVarz != 0)))
+            rVar[np.isinf(rVar)] = np.nan
+            rVar[np.isnan(rVar)] = np.nan
 
-    return rVar, rVarI
+        return rVar, rVarI
+
+    except Exception as e:
+        log.error(f'Exception : {e}')
+        return rVar, rVarI
+
+    finally:
+        log.info(f'[END] getVarInfo191013')
 
 def func(x, offs, amp, f, phi):
     return offs + amp * np.sin(2 * np.pi * f * x + phi)
+
+def power1(x, a, b):
+    return a * x ** b
+
+def power2(x, a, b, c):
+    return a * x ** b + c
+
+
+def procUfRadarData(fileInfo):
+
+    log.info(f'[START] procUfRadarData')
+
+    result = None
+
+    try:
+        data = pyart.io.read(fileInfo)
+
+        rnam = data.metadata['instrument_name']
+        rlat = data.latitude['data']
+        rlon = data.longitude['data']
+        ralt = data.altitude['data']
+
+        styp = data.scan_type
+
+        fbwh = data.instrument_parameters['radar_beam_width_h']['data']
+        fprt = data.instrument_parameters['prt']['data']
+        fvel = data.instrument_parameters['nyquist_velocity']['data']
+
+        nray = data.nrays
+        ngat = data.ngates
+        nswp = data.nsweeps
+
+        fang = data.fixed_angle['data']
+
+        fazm = data.azimuth['data']
+        frng = data.range['data']
+        felv = data.elevation['data']
+
+        fpul = data.instrument_parameters['pulse_width']['data']
+        ffrq = data.instrument_parameters['frequency']['data']
+        fscn = data.scan_rate['data']
+
+        fswp = data.sweep_number['data']
+        fsws = data.sweep_start_ray_index['data']
+        fswe = data.sweep_end_ray_index['data']
+        ftme = data.time['data']
+
+        fdat_ref = data.fields['reflectivity']['data']
+        fdat_crf = data.fields['corrected_reflectivity']['data']
+        fdat_vel = data.fields['velocity']['data']
+        fdat_spw = data.fields['spectrum_width']['data']
+        fdat_zdr = data.fields['corrected_differential_reflectivity']['data']
+        fdat_kdp = data.fields['specific_differential_phase']['data']
+        fdat_pdp = data.fields['differential_phase']['data']
+        fdat_ncp = data.fields['normalized_coherent_power']['data']
+        fdat_phv = data.fields['cross_correlation_ratio']['data']
+        fdat_ecf = data.fields['radar_echo_classification']['data']
+
+        # Construct the dictionary with the extracted information
+        result = {
+            'str_nam': [rnam],
+            'arr_lat_lon_alt_bwh': [rlat, rlon, ralt, fbwh],
+            'str_typ': [styp],
+            'arr_prt_prm_vel': [fprt, fvel],
+            'num_ray_gat_swp': [nray, ngat, nswp],
+            'fix_ang': fang,
+            'arr_azm_rng_elv': [fazm, frng, felv],
+            'arr_etc': [fpul, fswp, fsws, fswe, ftme, ffrq, fscn],
+            'arr_ref': fdat_ref,
+            'arr_crf': fdat_crf,
+            'arr_vel': fdat_vel,
+            'arr_spw': fdat_spw,
+            'arr_zdr': fdat_zdr,
+            'arr_kdp': fdat_kdp,
+            'arr_pdp': fdat_pdp,
+            'arr_ncp': fdat_ncp,
+            'arr_phv': fdat_phv,
+            'arr_ecf': fdat_ecf
+        }
+
+        return result
+
+    except Exception as e:
+        log.error(f'Exception : {e}')
+        return result
+
+    finally:
+        log.info(f'[END] procUfRadarData')
 
 
 def sineFit(x, y, isPlot=True):
@@ -297,198 +411,220 @@ def sineFit(x, y, isPlot=True):
     # SineParams = sineFit(x, y)
     # print(SineParams)
 
-    # Initial guess
-    initial_guess = [np.mean(y), np.std(y), 1.0 / np.ptp(x), 0.0]  # offs, amp, f, phi
+    log.info(f'[START] sineFit')
 
-    # Curve fitting
-    popt, pcov = curve_fit(func, x, y, p0=initial_guess)
+    result = None
 
-    # Calculate mean squared error
-    residuals = y - func(x, *popt)
-    mse = np.mean(residuals ** 2)
+    try:
+        # Initial guess
+        initial_guess = [np.mean(y), np.std(y), 1.0 / np.ptp(x), 0.0]  # offs, amp, f, phi
 
-    # Plotting
-    if isPlot:
-        plt.figure()
-        plt.plot(x, y, 'b-', label='data')
-        plt.plot(x, func(x, *popt), 'r-', label='fit: offs=%5.3f, amp=%5.3f, f=%5.3f, phi=%5.3f' % tuple(popt))
-        plt.xlabel('x')
-        plt.ylabel('y')
-        plt.legend()
-        plt.show()
+        # Curve fitting
+        popt, pcov = curve_fit(func, x, y, p0=initial_guess)
 
-    return list(popt) + [mse]
+        # Calculate mean squared error
+        residuals = y - func(x, *popt)
+        mse = np.mean(residuals ** 2)
+
+        # Plotting
+        if isPlot:
+            plt.figure()
+            plt.plot(x, y, 'b-', label='data')
+            plt.plot(x, func(x, *popt), 'r-', label='fit: offs=%5.3f, amp=%5.3f, f=%5.3f, phi=%5.3f' % tuple(popt))
+            plt.xlabel('x')
+            plt.ylabel('y')
+            plt.legend()
+            plt.show()
+
+        result = list(popt) + [mse]
+
+        return result
+
+    except Exception as e:
+        log.error(f'Exception : {e}')
+        return result
+
+    finally:
+        log.info(f'[END] sineFit')
 
 
 def dspCycl(fwDir, vnam_b, mrVarT_btA, mrVarT_btAs, dtrnTyp, dspSel, j, rVarI_bA):
-    if dspSel == 'total':
-        mrVarT_btAm = np.nanmean(mrVarT_btAs)
-    elif dspSel == 'each':
-        mrVarT_btAm = mrVarT_btAs
 
-    tha = np.arange(1, 361)
+    log.info(f'[START] dspCycl')
 
-    if dtrnTyp == 'fix':
-        mvStep = 90
-        mrVarT_btAmMV = pd.Series(mrVarT_btAm).rolling(window=mvStep).mean().values
-    elif dtrnTyp == 'aut1':
-        trnPol = 6
-        DTt = signal.detrend(mrVarT_btAm, type='linear', bp=trnPol)
-        mrVarT_btAmMV = mrVarT_btAm - DTt
-    elif dtrnTyp == 'aut2':
-        SinePO = sineFit(tha, mrVarT_btAm, 0)
-        mvStep = round(1 / SinePO[2])
-        mrVarT_btAmMV = pd.Series(mrVarT_btAm).rolling(window=mvStep).mean().values
+    # result = None
 
-    # xr.DataArray(mrVarT_btAmMV).plot()
-    # plt.show()
+    try:
 
-    mrVarT_btAmDT = mrVarT_btAm - mrVarT_btAmMV
-    spa1 = np.nanmean(np.abs(mrVarT_btAmDT)) * 2
-    spa2 = np.nanmean(mrVarT_btAmDT)
+        if dspSel == 'total':
+            mrVarT_btAm = np.nanmean(mrVarT_btAs)
+        elif dspSel == 'each':
+            mrVarT_btAm = mrVarT_btAs
 
-    mrVarT_btAmDT[np.isnan(mrVarT_btAmDT)] = 0
-    # SineP = sineFit(tha, mrVarT_btAmDT, 0)
-    SineP = sineFit(tha, mrVarT_btAmDT, isPlot=True)
+        tha = np.arange(1, 361)
 
-    spa2 = SineP[0]
-    spa1 = SineP[1]
-    spa3 = SineP[2]
-    spa4 = SineP[3]
-    spa5 = np.mean((mrVarT_btAmDT - (spa2 + spa1 * np.sin(2 * np.pi * spa3 * tha + spa4))) ** 2)
+        if dtrnTyp == 'fix':
+            mvStep = 90
+            mrVarT_btAmMV = pd.Series(mrVarT_btAm).rolling(window=mvStep).mean().values
+        elif dtrnTyp == 'aut1':
+            trnPol = 6
+            DTt = signal.detrend(mrVarT_btAm, type='linear', bp=trnPol)
+            mrVarT_btAmMV = mrVarT_btAm - DTt
+        elif dtrnTyp == 'aut2':
+            SinePO = sineFit(tha, mrVarT_btAm, 0)
+            mvStep = round(1 / SinePO[2])
+            mrVarT_btAmMV = pd.Series(mrVarT_btAm).rolling(window=mvStep).mean().values
 
-    pdp1 = spa2 + spa1 * np.sin(2 * np.pi * spa3 * tha + spa4)
-    pdp2 = pdp1 + mrVarT_btAmMV
-    nos = mrVarT_btAmDT - pdp1
-    pdp3 = mrVarT_btAmMV + nos
+        # xr.DataArray(mrVarT_btAmMV).plot()
+        # plt.show()
 
-    if dspSel == 'total':
-        # plot 1
-        plt.figure()
-        plt.plot(mrVarT_btAs)
-        plt.plot(mrVarT_btAm, 'k-', linewidth=3)
-        plt.plot(mrVarT_btAmMV, 'w-', linewidth=2)
-        plt.xlim([0, 360])
-        plt.xticks(np.arange(0, 361, 30))
-        plt.grid(True)
-        plt.box(True)
-        fig = plt.gcf()
-        fig.set_size_inches(20 / 2.54, 20 / 2.54)  # Converting from centimeters to inches
-        plt.show()
-        plt.savefig(f"{fwDir}{vnam_b.lower()}_dom_all.png", dpi=600)
-        plt.close()
+        mrVarT_btAmDT = mrVarT_btAm - mrVarT_btAmMV
+        spa1 = np.nanmean(np.abs(mrVarT_btAmDT)) * 2
+        spa2 = np.nanmean(mrVarT_btAmDT)
 
-        # plot 2
-        plt.figure()
-        plt.plot(mrVarT_btAm, 'k-', linewidth=3)
-        plt.plot(mrVarT_btAmMV, 'b-', linewidth=2)
-        plt.xlim([0, 360])
-        plt.xticks(np.arange(0, 361, 30))
-        plt.grid(True)
-        plt.box(True)
-        fig = plt.gcf()
-        fig.set_size_inches(20 / 2.54, 20 / 2.54)  # Converting from centimeters to inches
-        plt.show()
-        plt.savefig(f"{fwDir}{vnam_b.lower()}_dom_all2.png", dpi=600)
-        plt.close()
+        mrVarT_btAmDT[np.isnan(mrVarT_btAmDT)] = 0
+        # SineP = sineFit(tha, mrVarT_btAmDT, 0)
+        SineP = sineFit(tha, mrVarT_btAmDT, isPlot=True)
 
-        # plot 3
-        plt.figure()
-        plt.plot(mrVarT_btAmDT, 'r-', linewidth=2)
-        plt.xlim([0, 360])
-        plt.xticks(np.arange(0, 361, 30))
-        plt.grid(True)
-        plt.box(True)
-        fig = plt.gcf()
-        fig.set_size_inches(20 / 2.54, 20 / 2.54)  # Converting from centimeters to inches
-        plt.show()
-        plt.savefig(f"{fwDir}{vnam_b.lower()}_dom_all3.png", dpi=600)
-        plt.close()
+        spa2 = SineP[0]
+        spa1 = SineP[1]
+        spa3 = SineP[2]
+        spa4 = SineP[3]
+        spa5 = np.mean((mrVarT_btAmDT - (spa2 + spa1 * np.sin(2 * np.pi * spa3 * tha + spa4))) ** 2)
 
-    if dspSel == 'total':
-        fig, axs = plt.subplots(4, 1)
-        # fig, axs = plt.subplots(4, 1, figsize=(7, 24))
-        axs[0].plot(mrVarT_btAmMV + spa1, 'c-', linewidth=0.5)
-        axs[0].plot(mrVarT_btAmMV - spa1, 'c-', linewidth=0.5)
-        axs[0].fill_between(tha, mrVarT_btAmMV - spa1, mrVarT_btAmMV + spa1, color='m', linewidth=0.5)
-        axs[0].plot(mrVarT_btAm, 'k-', linewidth=2)
-        axs[0].plot(mrVarT_btAmMV, 'b-', linewidth=1)
-        axs[0].set_xlim([0, 360])
-        axs[0].xaxis.set_major_locator(MultipleLocator(30))
-        axs[0].grid(True)
-        axs[0].set_ylabel(rVarI_bA)
+        pdp1 = spa2 + spa1 * np.sin(2 * np.pi * spa3 * tha + spa4)
+        pdp2 = pdp1 + mrVarT_btAmMV
+        nos = mrVarT_btAmDT - pdp1
+        pdp3 = mrVarT_btAmMV + nos
 
-        axs[1].plot(np.full_like(pdp1, +spa1), 'c-', linewidth=0.5)
-        axs[1].plot(np.full_like(pdp1, -spa1), 'c-', linewidth=0.5)
-        axs[1].fill_between(tha, -spa1, +spa1, color='m', linewidth=0.5)
-        axs[1].plot(mrVarT_btAmDT, 'k-', linewidth=1)
-        axs[1].plot(pdp1, 'r-', linewidth=1)
-        # text_str1 = f'Y = {spa2} + {spa1} x sin(2 x pi x {spa3} x X + {spa4}, MSE = {spa5}'
-        text_str1 = f'Y = {spa2:.2f} + {spa1:.2f} x sin(2 x pi x {spa3:.2f} x X + {spa4:.2f}, MSE = {spa5:.2f}'
-        text_str2 = f'Period = {round(1 / spa3)}'
-        axs[1].text(5, +spa1 * 1.5, text_str1, fontsize=8)
-        axs[1].text(5, -spa1 * 0.9, text_str2, fontsize=8)
-        axs[1].set_xlim([0, 360])
-        axs[1].xaxis.set_major_locator(MultipleLocator(30))
-        axs[1].grid(True)
-        axs[1].set_ylabel(f'Detrended {rVarI_bA}')
-
-        axs[2].plot(mrVarT_btAmMV + spa1, 'c-', linewidth=0.5)
-        axs[2].plot(mrVarT_btAmMV - spa1, 'c-', linewidth=0.5)
-        axs[2].fill_between(tha, mrVarT_btAmMV - spa1, mrVarT_btAmMV + spa1, color='m', linewidth=0.5)
-        axs[2].plot(nos, 'r-', linewidth=1)
-        axs[2].plot(mrVarT_btAmMV, 'b-', linewidth=1)
-        axs[2].set_xlim([0, 360])
-        axs[2].xaxis.set_major_locator(MultipleLocator(30))
-        axs[2].grid(True)
-        axs[2].set_ylabel(f'Detrended {rVarI_bA}')
-
-        axs[3].plot(pdp3 + spa1, 'c-', linewidth=0.5)
-        axs[3].plot(pdp3 - spa1, 'c-', linewidth=0.5)
-        axs[3].fill_between(tha, pdp3 - spa1, pdp3 + spa1, color='m', linewidth=0.5)
-        axs[3].plot(pdp3, 'r-', linewidth=2)
-        axs[3].plot(mrVarT_btAm, 'k-', linewidth=2)
-        axs[3].set_xlim([0, 360])
-        axs[3].xaxis.set_major_locator(MultipleLocator(30))
-        axs[3].grid(True)
-        axs[3].set_xlabel('Azimuth (degree)')
-        axs[3].set_ylabel(rVarI_bA)
-
-        fig.tight_layout()
-        plt.show()
-        plt.savefig(f"{fwDir}{vnam_b.lower()}_dom_all4.png", dpi=600)
-        plt.close(fig)
-
-    if dspSel == 'each':
-        if ((vnam_b == 'zdr' and spa1 > 0.15) or (vnam_b == 'pdp' and spa1 > 2)):
+        if dspSel == 'total':
+            # plot 1
             plt.figure()
-            plt.plot(np.full_like(pdp1, +spa1), 'c-', linewidth=0.5)
-            plt.plot(np.full_like(pdp1, -spa1), 'c-', linewidth=0.5)
-            plt.fill_between(tha, -spa1, +spa1, color='m', linewidth=0.5)
-            plt.plot(mrVarT_btAmDT, 'k-', linewidth=1)
-            plt.plot(pdp1, 'r-', linewidth=1)
-            # text_str1 = f'Y = {spa2} + {spa1} x sin(2 x pi x {spa3} x X + {spa4}, MSE = {spa5}'
-            text_str1 = f'Y = {spa2:.2f} + {spa1:.2f} x sin(2 x pi x {spa3:.2f} x X + {spa4:.2f}, MSE = {spa5:.2f}'
-            text_str2 = f'Period = {round(1 / spa3)}'
-            plt.text(5, +spa1 * 1.5, text_str1, fontsize=8)
-            plt.text(5, -spa1 * 0.9, text_str2, fontsize=8)
+            plt.plot(mrVarT_btAs)
+            plt.plot(mrVarT_btAm, 'k-', linewidth=3)
+            plt.plot(mrVarT_btAmMV, 'w-', linewidth=2)
             plt.xlim([0, 360])
             plt.xticks(np.arange(0, 361, 30))
             plt.grid(True)
-            plt.ylabel(f'Detrended {rVarI_bA}')
-            plt.tight_layout()
+            plt.box(True)
+            fig = plt.gcf()
+            fig.set_size_inches(20 / 2.54, 20 / 2.54)  # Converting from centimeters to inches
             plt.show()
-
-            fwDirEc = os.path.join(fwDir, 'Ech/')
-            os.makedirs(os.path.dirname(fwDirEc), exist_ok=True)
-            plt.savefig(f"{fwDirEc}{vnam_b.lower()}_dom_{j}a.png", dpi=600)
+            plt.savefig(f"{fwDir}{vnam_b.lower()}_dom_all.png", dpi=600)
             plt.close()
 
-def power1(x, a, b):
-    return a * x ** b
+            # plot 2
+            plt.figure()
+            plt.plot(mrVarT_btAm, 'k-', linewidth=3)
+            plt.plot(mrVarT_btAmMV, 'b-', linewidth=2)
+            plt.xlim([0, 360])
+            plt.xticks(np.arange(0, 361, 30))
+            plt.grid(True)
+            plt.box(True)
+            fig = plt.gcf()
+            fig.set_size_inches(20 / 2.54, 20 / 2.54)  # Converting from centimeters to inches
+            plt.show()
+            plt.savefig(f"{fwDir}{vnam_b.lower()}_dom_all2.png", dpi=600)
+            plt.close()
 
-def power2(x, a, b, c):
-    return a * x ** b + c
+            # plot 3
+            plt.figure()
+            plt.plot(mrVarT_btAmDT, 'r-', linewidth=2)
+            plt.xlim([0, 360])
+            plt.xticks(np.arange(0, 361, 30))
+            plt.grid(True)
+            plt.box(True)
+            fig = plt.gcf()
+            fig.set_size_inches(20 / 2.54, 20 / 2.54)  # Converting from centimeters to inches
+            plt.show()
+            plt.savefig(f"{fwDir}{vnam_b.lower()}_dom_all3.png", dpi=600)
+            plt.close()
+
+        if dspSel == 'total':
+            fig, axs = plt.subplots(4, 1)
+            # fig, axs = plt.subplots(4, 1, figsize=(7, 24))
+            axs[0].plot(mrVarT_btAmMV + spa1, 'c-', linewidth=0.5)
+            axs[0].plot(mrVarT_btAmMV - spa1, 'c-', linewidth=0.5)
+            axs[0].fill_between(tha, mrVarT_btAmMV - spa1, mrVarT_btAmMV + spa1, color='m', linewidth=0.5)
+            axs[0].plot(mrVarT_btAm, 'k-', linewidth=2)
+            axs[0].plot(mrVarT_btAmMV, 'b-', linewidth=1)
+            axs[0].set_xlim([0, 360])
+            axs[0].xaxis.set_major_locator(MultipleLocator(30))
+            axs[0].grid(True)
+            axs[0].set_ylabel(rVarI_bA)
+
+            axs[1].plot(np.full_like(pdp1, +spa1), 'c-', linewidth=0.5)
+            axs[1].plot(np.full_like(pdp1, -spa1), 'c-', linewidth=0.5)
+            axs[1].fill_between(tha, -spa1, +spa1, color='m', linewidth=0.5)
+            axs[1].plot(mrVarT_btAmDT, 'k-', linewidth=1)
+            axs[1].plot(pdp1, 'r-', linewidth=1)
+            # text_str1 = f'Y = {spa2} + {spa1} x sin(2 x pi x {spa3} x X + {spa4}, MSE = {spa5}'
+            text_str1 = f'Y = {spa2:.2f} + {spa1:.2f} x sin(2 x pi x {spa3:.2f} x X + {spa4:.2f}, MSE = {spa5:.2f}'
+            text_str2 = f'Period = {round(1 / spa3)}'
+            axs[1].text(5, +spa1 * 1.5, text_str1, fontsize=8)
+            axs[1].text(5, -spa1 * 0.9, text_str2, fontsize=8)
+            axs[1].set_xlim([0, 360])
+            axs[1].xaxis.set_major_locator(MultipleLocator(30))
+            axs[1].grid(True)
+            axs[1].set_ylabel(f'Detrended {rVarI_bA}')
+
+            axs[2].plot(mrVarT_btAmMV + spa1, 'c-', linewidth=0.5)
+            axs[2].plot(mrVarT_btAmMV - spa1, 'c-', linewidth=0.5)
+            axs[2].fill_between(tha, mrVarT_btAmMV - spa1, mrVarT_btAmMV + spa1, color='m', linewidth=0.5)
+            axs[2].plot(nos, 'r-', linewidth=1)
+            axs[2].plot(mrVarT_btAmMV, 'b-', linewidth=1)
+            axs[2].set_xlim([0, 360])
+            axs[2].xaxis.set_major_locator(MultipleLocator(30))
+            axs[2].grid(True)
+            axs[2].set_ylabel(f'Detrended {rVarI_bA}')
+
+            axs[3].plot(pdp3 + spa1, 'c-', linewidth=0.5)
+            axs[3].plot(pdp3 - spa1, 'c-', linewidth=0.5)
+            axs[3].fill_between(tha, pdp3 - spa1, pdp3 + spa1, color='m', linewidth=0.5)
+            axs[3].plot(pdp3, 'r-', linewidth=2)
+            axs[3].plot(mrVarT_btAm, 'k-', linewidth=2)
+            axs[3].set_xlim([0, 360])
+            axs[3].xaxis.set_major_locator(MultipleLocator(30))
+            axs[3].grid(True)
+            axs[3].set_xlabel('Azimuth (degree)')
+            axs[3].set_ylabel(rVarI_bA)
+
+            fig.tight_layout()
+            plt.show()
+            plt.savefig(f"{fwDir}{vnam_b.lower()}_dom_all4.png", dpi=600)
+            plt.close(fig)
+
+        if dspSel == 'each':
+            if ((vnam_b == 'zdr' and spa1 > 0.15) or (vnam_b == 'pdp' and spa1 > 2)):
+                plt.figure()
+                plt.plot(np.full_like(pdp1, +spa1), 'c-', linewidth=0.5)
+                plt.plot(np.full_like(pdp1, -spa1), 'c-', linewidth=0.5)
+                plt.fill_between(tha, -spa1, +spa1, color='m', linewidth=0.5)
+                plt.plot(mrVarT_btAmDT, 'k-', linewidth=1)
+                plt.plot(pdp1, 'r-', linewidth=1)
+                # text_str1 = f'Y = {spa2} + {spa1} x sin(2 x pi x {spa3} x X + {spa4}, MSE = {spa5}'
+                text_str1 = f'Y = {spa2:.2f} + {spa1:.2f} x sin(2 x pi x {spa3:.2f} x X + {spa4:.2f}, MSE = {spa5:.2f}'
+                text_str2 = f'Period = {round(1 / spa3)}'
+                plt.text(5, +spa1 * 1.5, text_str1, fontsize=8)
+                plt.text(5, -spa1 * 0.9, text_str2, fontsize=8)
+                plt.xlim([0, 360])
+                plt.xticks(np.arange(0, 361, 30))
+                plt.grid(True)
+                plt.ylabel(f'Detrended {rVarI_bA}')
+                plt.tight_layout()
+                plt.show()
+
+                fwDirEc = os.path.join(fwDir, 'Ech/')
+                os.makedirs(os.path.dirname(fwDirEc), exist_ok=True)
+                plt.savefig(f"{fwDirEc}{vnam_b.lower()}_dom_{j}a.png", dpi=600)
+                plt.close()
+
+    except Exception as e:
+        log.error(f'Exception : {e}')
+        return result
+
+    finally:
+        log.info(f'[END] dspCycl')
 
 def ccpltXY_191013_n(vardataX, vardataY, Xthd, Ythd,
                      vnam_a, vnam_b,
@@ -498,272 +634,289 @@ def ccpltXY_191013_n(vardataX, vardataY, Xthd, Ythd,
                      refFlt, phvFlt, appPDPelim,
                      refThz, phvThz, pdpThz, ntex, mtex):
 
-    vardataX[vidx == 1] = np.nan
-    vardataY[vidx == 1] = np.nan
+    log.info(f'[START] ccpltXY_191013_n')
 
-    idxXY = np.where((vardataX < Xthd) | (vardataY < Ythd))
-    vardataX[idxXY] = np.nan
-    vardataY[idxXY] = np.nan
+    fPar = None
+    fPar2 = None
+    mPar = None
 
-    vardataO = vardataX[~np.isnan(vardataX)]
-    vardataA = vardataY[~np.isnan(vardataY)]
-
-    X = vardataO.ravel()
-    Y = vardataA.ravel()
-
-    if vnam_a == 'Zh' and vnam_b == 'KDP':
-        xL, yL, dL = [-10, 70], [-4, 4], [0.5, 0.09]
-    elif vnam_a == 'Zh' and vnam_b == 'ZDR':
-        xL, yL, dL = [-10, 70], [-6, 8], [0.5, 0.13]
-    elif vnam_a == 'ZDR' and vnam_b == 'KDP/Zh':
-        xL, yL, dL = [-6, 8], [-60, 0], [0.13, 0.5]
-    elif vnam_a == 'SPW' and vnam_b == 'ZDR':
-        xL, yL, dL = [0, 4], [0, 2], [0.01, 0.005]
-    elif vnam_a == 'SPW' and vnam_b == 'PDP':
-        xL, yL, dL = [0, 4], [0, 12], [0.01, 0.03]
-    else:
-        xL, yL, dL = [-np.inf, np.inf], [-30, 30], [0.5, 0.5]
-
-    H, xedges, yedges = np.histogram2d(X, Y, bins=[np.arange(xL[0], xL[1], dL[0]), np.arange(yL[0], yL[1], dL[1])], density=True)
-
-    # 값 0의 경우 NaN 설정
-    H = np.ma.masked_where(H == 0, H)
-
-    setCmap = 'jet'
-    # setCmap = 'coolwarm'
-    # setCmap = 'hot'
-    # setCmap = 'hot_r'
-
-    # fig, ax = plt.subplots(figsize = (10, 6))
-    fig, ax = plt.subplots(figsize = (10, 5))
-    pc = ax.pcolormesh(xedges, yedges, H.T, cmap = setCmap)
-    cb = fig.colorbar(pc, ax=ax)
-    # plt.show()
-
-    eXfit = vardataO.copy()
-    eYfit = vardataA.copy()
-
-    nanIdxE = np.isnan(eXfit) | np.isnan(eYfit) | np.isinf(eXfit) | np.isinf(eYfit)
-    eXfit = eXfit[~nanIdxE]
-    eYfit = eYfit[~nanIdxE]
-
-    arXdata = eXfit.flatten()
-    arYdata = eYfit.flatten()
-
-    qmed = 0.50
-    xqmed = np.quantile(arXdata, qmed)
-    yqmed = np.quantile(arYdata, qmed)
-
-    arYdata = arYdata[arXdata > 0]
-    arXdata = arXdata[arXdata > 0]
-
-    qsrt = 0.05
-    qend = 0.95
-    qdt = 0.05
-    qmedA = np.arange(qsrt, qend + qdt, qdt)
-    dq = np.hstack([np.arange(0.5, qend + qdt, qdt), np.arange(qend - qdt, 0.5 - qdt, -qdt)]) / qend
-
-    xqmedA = np.quantile(arXdata, qmedA)
-    yqmedA = np.quantile(arYdata, qmedA)
-
-    xqmedIdx = xqmedA <= 0
-    xqmedA = xqmedA[~xqmedIdx]
-    yqmedA = yqmedA[~xqmedIdx]
-
-    Tbl = pd.DataFrame({'arXdata': arXdata, 'arYdata': arYdata})
-
-    tauList = [0.25, 0.50, 0.75]
-    predT = np.linspace(xqmedA[0], xqmedA[-1], len(qmedA))
-
-    # 25, 50, 75% 예측
-    quartiles = []
-    for tau in tauList:  # Loop over the list of quantiles
-        # Fit the model for each quantile
-        gbr = GradientBoostingRegressor(loss='quantile', alpha=tau)
-        gbr.fit(Tbl['arXdata'].values.reshape(-1, 1), Tbl['arYdata'])
-        quartiles.append(gbr.predict(predT.reshape(-1, 1)))
-
-    # 평균 예측
-    Mdl = GradientBoostingRegressor()
-    Mdl.fit(Tbl['arXdata'].values.reshape(-1, 1), Tbl['arYdata'])
-    meanY = Mdl.predict(predT.reshape(-1, 1))
-    meanY[np.isnan(meanY)] = 0
-
-    # Tbl['prd'] = Mdl.predict(Tbl[['arXdata']])
-    # plt.plot(Tbl['arXdata'], Tbl['arYdata'])
-    # plt.plot(Tbl['arXdata'], Tbl['prd'], 'o', c='red')
-    # plt.show()
-
-    fmed = [0, 0]
-    fmed2 = [0, 0, 0]
-    fmed25 = [0, 0]
-    fmed75 = [0, 0]
-    fmed225 = [0, 0, 0]
-    fmed275 = [0, 0, 0]
-    fmea = [0, 0]
-    fmea2 = [0, 0, 0]
-
-    # 중간값
     try:
-        fmed, _ = curve_fit(power1, predT, quartiles[1], maxfev=10000)
-    except:
-        pass
-    try:
-        fmed2, _ = curve_fit(power2, predT, quartiles[1], maxfev=10000)
-    except:
-        pass
-
-    # 25%
-    try:
-        fmed25, _ = curve_fit(power1, predT, quartiles[0], maxfev=10000)
-    except:
-        pass
-    try:
-        fmed225, _ = curve_fit(power2, predT, quartiles[0], maxfev=10000)
-    except:
-        pass
-
-    # 75%
-    try:
-        fmed75, _ = curve_fit(power1, predT, quartiles[2], maxfev=10000)
-    except:
-        pass
-    try:
-        fmed275, _ = curve_fit(power2, predT, quartiles[2], maxfev=10000)
-    except:
-        pass
-
-    # 평균
-    try:
-        fmea, _ = curve_fit(power1, predT, meanY, maxfev=10000)
-    except:
-        pass
-    try:
-        fmea2, _ = curve_fit(power2, predT, meanY, maxfev=10000)
-    except:
-        pass
-
-    if vnam_a == 'Zh':
-        xVal = np.arange(1.0, xL[1], 0.1)
-    else:
-        xVal = np.arange(0.1, xL[1], 0.1)
-
-    # 중갑값
-    yValmed = power1(xVal, *fmed)
-    yValmed2 = power2(xVal, *fmed2)
-
-    # 25%
-    yValmed25 = power1(xVal, *fmed25)
-    yValmed225 = power2(xVal, *fmed225)
-
-    # 75%
-    yValmed75 = power1(xVal, *fmed75)
-    yValmed275 = power2(xVal, *fmed275)
-
-    # 평균
-    yValmea = power1(xVal, *fmea)
-    yValmea2 = power2(xVal, *fmea2)
-
-    # get fPar and mPar
-    fPar = fmed
-    fPar2 = fmed2
-    mPar = [xqmed, yqmed]
-
-    # Plotting section
-    fitTyp = 'poly2'
-    if fitTyp == 'poly1':
-        plt.plot(xVal, yValmed, '-', color='m', linewidth=4.0)
-        plt.plot(xVal, yValmed25, '--', color='m', linewidth=1.0)
-        plt.plot(xVal, yValmed75, '--', color='m', linewidth=1.0)
-        plt.plot(xVal, yValmea, '-', color='b', linewidth=1.5)
-    elif fitTyp == 'poly2':
-        plt.plot(xVal, yValmed2, '-', color='m', linewidth=4.0)
-        plt.plot(xVal, yValmed225, '--', color='m', linewidth=1.0)
-        plt.plot(xVal, yValmed275, '--', color='m', linewidth=1.0)
-
-    # For every predT plot median quartile
-    for i in range(len(predT)):
-        # plt.plot(predT[i], quartiles[i, 2], 'k+', markersize=9 * dq[i] ** 2, linewidth=1.5 * dq[i])
-        plt.plot(predT[i], quartiles[1][i], 'k+', markersize=9 * dq[i] ** 2, linewidth=1.5 * dq[i])
-
-    # median point
-    plt.plot(xqmed, yqmed, 'w+', markersize=17, linewidth=3.0)
-    plt.plot(xqmed, yqmed, 'r+', markersize=15, linewidth=2.0)
-
-    # srtCidx = 135
-    # cname = '../mapINF/cmap/precip2_17lev.rgb'
-    # ncr = 256
-
-    # Assuming you have a function mkRGBmap in Python which is equivalent to MATLAB version
-    # RGBmap = mkRGBmap(cname, ncr)
-
-    # cmap = RGBmap[srtCidx - 1:]  # note that Python uses 0-based indexing
-    # cmap = plt.get_cmap('jet', ncr)
-
-    # srtCidx = 0
-    # cmap = ListedColormap(cmap(np.arange(srtCidx, ncr)))
-    # plt.set_cmap(cmap)
-
-    # colorbar
-    cb.set_label('Probability density function estimate')
-
-    # setting limits based on string comparison
-    # ax = plt.gca()
-    if vnam_a == 'Zh' and vnam_b == 'KDP':
-        cb.mappable.set_clim([0.0, 0.015])
-    elif vnam_a == 'Zh' and vnam_b == 'ZDR':
-        cb.mappable.set_clim([0.0, 0.07])
-    elif vnam_a == 'ZDR' and vnam_b == 'KDP/Zh':
-        cb.mappable.set_clim([0.0, 0.07])
-    elif vnam_a == 'SPW' and vnam_b == 'ZDR':
-        cb.mappable.set_clim([0.0, 0.4])
-    elif vnam_a == 'SPW' and vnam_b == 'PDP':
-        cb.mappable.set_clim([0.0, 0.07])
-    else:
-        cb.mappable.set_clim([0.0, 0.07])
-
-    if vnam_b in ['KDP', 'ZDR', 'KDP/Zh', 'PDP']:
-        ax.set_xlim([xL[0], xL[1]])
-        ax.set_ylim([yL[0], yL[1]])
-
-    plt.grid(True)
-    plt.xlabel(rVarI_a, fontsize=11, fontweight='normal', color='k')
-    plt.ylabel(rVarI_b, fontsize=11, fontweight='normal', color='k')
-
-    # calculating correlation and p-value
-    if len(X) + len(Y) > 0:
-        r, p = pearsonr(X, Y)
-        print(f"corr: {r:.3f}, pval: {p:.3f}")
-    else:
-        r, p = 0, 0
-
-    # Grid settings
-    plt.grid(True)
-
-    # Axes settings
-    ax = plt.gca()
-    ax.tick_params(axis='both', which='major', labelsize=11)
 
 
-    # Title settings
-    title_text = (
-        f"{fn[0][0] + fn[1]} corr={r:.3f} (pval={p:.3f}) in {vnam_a} vs {vnam_b} "
-        f"(Zh({refFlt}){refThz:d}, PHV({phvFlt}){phvThz:.2f}, PDP({appPDPelim}){pdpThz:d}), "
-        f"elimd={np.sum(vidx) / np.prod(vidx.shape) * 100:.1f}%"
-    )
-    plt.title(title_text, fontsize=7)
+        vardataX[vidx == 1] = np.nan
+        vardataY[vidx == 1] = np.nan
 
-    os.makedirs(os.path.dirname(sp), exist_ok=True)
+        idxXY = np.where((vardataX < Xthd) | (vardataY < Ythd))
+        vardataX[idxXY] = np.nan
+        vardataY[idxXY] = np.nan
 
-    # X and Y labels
-    plt.xlabel(rVarI_a, fontsize=11, fontweight='normal', color='k')
-    plt.ylabel(rVarI_b, fontsize=11, fontweight='normal', color='k')
-    plt.savefig(sp, dpi=600, bbox_inches='tight', transparent=False)
-    plt.show()
-    plt.close()
-    log.info(f'[CHECK] saveImg : {sp}')
+        vardataO = vardataX[~np.isnan(vardataX)]
+        vardataA = vardataY[~np.isnan(vardataY)]
 
-    return fPar, fPar2, mPar
+        X = vardataO.ravel()
+        Y = vardataA.ravel()
+
+        if vnam_a == 'Zh' and vnam_b == 'KDP':
+            xL, yL, dL = [-10, 70], [-4, 4], [0.5, 0.09]
+        elif vnam_a == 'Zh' and vnam_b == 'ZDR':
+            xL, yL, dL = [-10, 70], [-6, 8], [0.5, 0.13]
+        elif vnam_a == 'ZDR' and vnam_b == 'KDP/Zh':
+            xL, yL, dL = [-6, 8], [-60, 0], [0.13, 0.5]
+        elif vnam_a == 'SPW' and vnam_b == 'ZDR':
+            xL, yL, dL = [0, 4], [0, 2], [0.01, 0.005]
+        elif vnam_a == 'SPW' and vnam_b == 'PDP':
+            xL, yL, dL = [0, 4], [0, 12], [0.01, 0.03]
+        else:
+            xL, yL, dL = [-np.inf, np.inf], [-30, 30], [0.5, 0.5]
+
+        H, xedges, yedges = np.histogram2d(X, Y, bins=[np.arange(xL[0], xL[1], dL[0]), np.arange(yL[0], yL[1], dL[1])], density=True)
+
+        # 값 0의 경우 NaN 설정
+        H = np.ma.masked_where(H == 0, H)
+
+        setCmap = 'jet'
+        # setCmap = 'coolwarm'
+        # setCmap = 'hot'
+        # setCmap = 'hot_r'
+
+        # fig, ax = plt.subplots(figsize = (10, 6))
+        fig, ax = plt.subplots(figsize = (10, 5))
+        pc = ax.pcolormesh(xedges, yedges, H.T, cmap = setCmap)
+        cb = fig.colorbar(pc, ax=ax)
+        # plt.show()
+
+        eXfit = vardataO.copy()
+        eYfit = vardataA.copy()
+
+        nanIdxE = np.isnan(eXfit) | np.isnan(eYfit) | np.isinf(eXfit) | np.isinf(eYfit)
+        eXfit = eXfit[~nanIdxE]
+        eYfit = eYfit[~nanIdxE]
+
+        arXdata = eXfit.flatten()
+        arYdata = eYfit.flatten()
+
+        qmed = 0.50
+        xqmed = np.quantile(arXdata, qmed)
+        yqmed = np.quantile(arYdata, qmed)
+
+        arYdata = arYdata[arXdata > 0]
+        arXdata = arXdata[arXdata > 0]
+
+        qsrt = 0.05
+        qend = 0.95
+        qdt = 0.05
+        qmedA = np.arange(qsrt, qend + qdt, qdt)
+        dq = np.hstack([np.arange(0.5, qend + qdt, qdt), np.arange(qend - qdt, 0.5 - qdt, -qdt)]) / qend
+
+        xqmedA = np.quantile(arXdata, qmedA)
+        yqmedA = np.quantile(arYdata, qmedA)
+
+        xqmedIdx = xqmedA <= 0
+        xqmedA = xqmedA[~xqmedIdx]
+        yqmedA = yqmedA[~xqmedIdx]
+
+        Tbl = pd.DataFrame({'arXdata': arXdata, 'arYdata': arYdata})
+
+        tauList = [0.25, 0.50, 0.75]
+        predT = np.linspace(xqmedA[0], xqmedA[-1], len(qmedA))
+
+        # 25, 50, 75% 예측
+        quartiles = []
+        for tau in tauList:  # Loop over the list of quantiles
+            # Fit the model for each quantile
+            gbr = GradientBoostingRegressor(loss='quantile', alpha=tau)
+            gbr.fit(Tbl['arXdata'].values.reshape(-1, 1), Tbl['arYdata'])
+            quartiles.append(gbr.predict(predT.reshape(-1, 1)))
+
+        # 평균 예측
+        Mdl = GradientBoostingRegressor()
+        Mdl.fit(Tbl['arXdata'].values.reshape(-1, 1), Tbl['arYdata'])
+        meanY = Mdl.predict(predT.reshape(-1, 1))
+        meanY[np.isnan(meanY)] = 0
+
+        # Tbl['prd'] = Mdl.predict(Tbl[['arXdata']])
+        # plt.plot(Tbl['arXdata'], Tbl['arYdata'])
+        # plt.plot(Tbl['arXdata'], Tbl['prd'], 'o', c='red')
+        # plt.show()
+
+        fmed = [0, 0]
+        fmed2 = [0, 0, 0]
+        fmed25 = [0, 0]
+        fmed75 = [0, 0]
+        fmed225 = [0, 0, 0]
+        fmed275 = [0, 0, 0]
+        fmea = [0, 0]
+        fmea2 = [0, 0, 0]
+
+        # 중간값
+        try:
+            fmed, _ = curve_fit(power1, predT, quartiles[1], maxfev=10000)
+        except:
+            pass
+        try:
+            fmed2, _ = curve_fit(power2, predT, quartiles[1], maxfev=10000)
+        except:
+            pass
+
+        # 25%
+        try:
+            fmed25, _ = curve_fit(power1, predT, quartiles[0], maxfev=10000)
+        except:
+            pass
+        try:
+            fmed225, _ = curve_fit(power2, predT, quartiles[0], maxfev=10000)
+        except:
+            pass
+
+        # 75%
+        try:
+            fmed75, _ = curve_fit(power1, predT, quartiles[2], maxfev=10000)
+        except:
+            pass
+        try:
+            fmed275, _ = curve_fit(power2, predT, quartiles[2], maxfev=10000)
+        except:
+            pass
+
+        # 평균
+        try:
+            fmea, _ = curve_fit(power1, predT, meanY, maxfev=10000)
+        except:
+            pass
+        try:
+            fmea2, _ = curve_fit(power2, predT, meanY, maxfev=10000)
+        except:
+            pass
+
+        if vnam_a == 'Zh':
+            xVal = np.arange(1.0, xL[1], 0.1)
+        else:
+            xVal = np.arange(0.1, xL[1], 0.1)
+
+        # 중갑값
+        yValmed = power1(xVal, *fmed)
+        yValmed2 = power2(xVal, *fmed2)
+
+        # 25%
+        yValmed25 = power1(xVal, *fmed25)
+        yValmed225 = power2(xVal, *fmed225)
+
+        # 75%
+        yValmed75 = power1(xVal, *fmed75)
+        yValmed275 = power2(xVal, *fmed275)
+
+        # 평균
+        yValmea = power1(xVal, *fmea)
+        yValmea2 = power2(xVal, *fmea2)
+
+        # get fPar and mPar
+        fPar = fmed
+        fPar2 = fmed2
+        mPar = [xqmed, yqmed]
+
+        # Plotting section
+        fitTyp = 'poly2'
+        if fitTyp == 'poly1':
+            plt.plot(xVal, yValmed, '-', color='m', linewidth=4.0)
+            plt.plot(xVal, yValmed25, '--', color='m', linewidth=1.0)
+            plt.plot(xVal, yValmed75, '--', color='m', linewidth=1.0)
+            plt.plot(xVal, yValmea, '-', color='b', linewidth=1.5)
+        elif fitTyp == 'poly2':
+            plt.plot(xVal, yValmed2, '-', color='m', linewidth=4.0)
+            plt.plot(xVal, yValmed225, '--', color='m', linewidth=1.0)
+            plt.plot(xVal, yValmed275, '--', color='m', linewidth=1.0)
+
+        # For every predT plot median quartile
+        for i in range(len(predT)):
+            # plt.plot(predT[i], quartiles[i, 2], 'k+', markersize=9 * dq[i] ** 2, linewidth=1.5 * dq[i])
+            plt.plot(predT[i], quartiles[1][i], 'k+', markersize=9 * dq[i] ** 2, linewidth=1.5 * dq[i])
+
+        # median point
+        plt.plot(xqmed, yqmed, 'w+', markersize=17, linewidth=3.0)
+        plt.plot(xqmed, yqmed, 'r+', markersize=15, linewidth=2.0)
+
+        # srtCidx = 135
+        # cname = '../mapINF/cmap/precip2_17lev.rgb'
+        # ncr = 256
+
+        # Assuming you have a function mkRGBmap in Python which is equivalent to MATLAB version
+        # RGBmap = mkRGBmap(cname, ncr)
+
+        # cmap = RGBmap[srtCidx - 1:]  # note that Python uses 0-based indexing
+        # cmap = plt.get_cmap('jet', ncr)
+
+        # srtCidx = 0
+        # cmap = ListedColormap(cmap(np.arange(srtCidx, ncr)))
+        # plt.set_cmap(cmap)
+
+        # colorbar
+        cb.set_label('Probability density function estimate')
+
+        # setting limits based on string comparison
+        # ax = plt.gca()
+        if vnam_a == 'Zh' and vnam_b == 'KDP':
+            cb.mappable.set_clim([0.0, 0.015])
+        elif vnam_a == 'Zh' and vnam_b == 'ZDR':
+            cb.mappable.set_clim([0.0, 0.07])
+        elif vnam_a == 'ZDR' and vnam_b == 'KDP/Zh':
+            cb.mappable.set_clim([0.0, 0.07])
+        elif vnam_a == 'SPW' and vnam_b == 'ZDR':
+            cb.mappable.set_clim([0.0, 0.4])
+        elif vnam_a == 'SPW' and vnam_b == 'PDP':
+            cb.mappable.set_clim([0.0, 0.07])
+        else:
+            cb.mappable.set_clim([0.0, 0.07])
+
+        if vnam_b in ['KDP', 'ZDR', 'KDP/Zh', 'PDP']:
+            ax.set_xlim([xL[0], xL[1]])
+            ax.set_ylim([yL[0], yL[1]])
+
+        plt.grid(True)
+        plt.xlabel(rVarI_a, fontsize=11, fontweight='normal', color='k')
+        plt.ylabel(rVarI_b, fontsize=11, fontweight='normal', color='k')
+
+        # calculating correlation and p-value
+        if len(X) + len(Y) > 0:
+            r, p = pearsonr(X, Y)
+            print(f"corr: {r:.3f}, pval: {p:.3f}")
+        else:
+            r, p = 0, 0
+
+        # Grid settings
+        plt.grid(True)
+
+        # Axes settings
+        ax = plt.gca()
+        ax.tick_params(axis='both', which='major', labelsize=11)
+
+
+        # Title settings
+        title_text = (
+            f"{fn[0][0] + fn[1]} corr={r:.3f} (pval={p:.3f}) in {vnam_a} vs {vnam_b} "
+            f"(Zh({refFlt}){refThz:d}, PHV({phvFlt}){phvThz:.2f}, PDP({appPDPelim}){pdpThz:d}), "
+            f"elimd={np.sum(vidx) / np.prod(vidx.shape) * 100:.1f}%"
+        )
+        plt.title(title_text, fontsize=7)
+
+        os.makedirs(os.path.dirname(sp), exist_ok=True)
+
+        # X and Y labels
+        plt.xlabel(rVarI_a, fontsize=11, fontweight='normal', color='k')
+        plt.ylabel(rVarI_b, fontsize=11, fontweight='normal', color='k')
+        plt.savefig(sp, dpi=600, bbox_inches='tight', transparent=False)
+        plt.show()
+        plt.close()
+        log.info(f'[CHECK] saveImg : {sp}')
+
+        return fPar, fPar2, mPar
+
+    except Exception as e:
+        log.error(f'Exception : {e}')
+        return fPar, fPar2, mPar
+
+    finally:
+        log.info(f'[END] ccpltXY_191013_n')
+
 
 # ================================================
 # 4. 부 프로그램
@@ -838,7 +991,7 @@ class DtaProcess(object):
             initArgument(globalVar, inParams)
 
         except Exception as e:
-            log.error("Exception : {}".format(e))
+            log.error(f'Exception : {e}')
             raise e
         finally:
             log.info("[END] __init__ : {}".format("init"))
@@ -848,7 +1001,7 @@ class DtaProcess(object):
     # ================================================================================================
     def exec(self):
 
-        log.info('[START] {}'.format("exec"))
+        log.info(f'[START] exec')
 
         try:
 
@@ -881,120 +1034,14 @@ class DtaProcess(object):
             fileList = sorted(glob.glob(inpFile))
 
             if fileList is None or len(fileList) < 1:
-                log.error('[ERROR] inpFile : {} / {}'.format(inpFile, '입력 자료를 확인해주세요.'))
+                log.error(f'[ERROR] inpFile : {inpFile} / 입력 자료를 확인해주세요.')
 
             fileInfo = fileList[0]
 
             # ======================================================================================
-            # 파일 읽기
+            # uf 레이더 파일 읽기
             # ======================================================================================
-            data = pyart.io.read(fileInfo)
-
-            fileNameNoExt = os.path.basename(fileInfo).split('.')[0]
-
-            # 속성 추출
-            rnam = data.metadata['instrument_name']
-            rlat = data.latitude['data']
-            rlon = data.longitude['data']
-            ralt = data.altitude['data']
-
-            rnam = data.metadata['instrument_name']
-            rlat = data.latitude['data']
-            rlon = data.longitude['data']
-            ralt = data.altitude['data']
-            # -----------------------------------------
-            styp = data.scan_type
-            # -----------------------------------------
-            fbwh = data.instrument_parameters['radar_beam_width_h']['data']
-            fprt = data.instrument_parameters['prt']['data']
-            fvel = data.instrument_parameters['nyquist_velocity']['data']
-            # -----------------------------------------
-            nray = data.nrays  # 1080
-            ngat = data.ngates  # 1196 (125m)
-            nswp = data.nsweeps  # 3
-            # -----------------------------------------
-            fang = data.fixed_angle['data']  # 1.4 2.7 4.8
-            # -----------------------------------------
-            fazm = data.azimuth['data']  #
-            frng = data.range['data']  #
-            felv = data.elevation['data']  #
-            # ----------------------------------------------------------------------
-            fpul = data.instrument_parameters['pulse_width']['data']  # [1.0e-6, seconds]
-            # -----------------------------------------
-            ffrq = data.instrument_parameters['frequency']['data']  # [2.88e+09, s-1]
-            fscn = data.scan_rate['data']  # scan rate[deg/s]
-            # -----------------------------------------
-            fswp = data.sweep_number['data']  # 0,1,2...
-            fsws = data.sweep_start_ray_index['data']  # [0 273 546]
-            fswe = data.sweep_end_ray_index['data']  # [272 545 818]
-            ftme = data.time['data']  # [seconds]
-            # ----------------------------------------------------------------------
-            fdat_ref = data.fields['reflectivity']['data']
-            fdat_crf = data.fields['corrected_reflectivity']['data']
-            fdat_vel = data.fields['velocity']['data']
-            fdat_spw = data.fields['spectrum_width']['data']
-            # fdat_zdr=data.fields['differential_reflectivity']['data']
-            fdat_zdr = data.fields['corrected_differential_reflectivity']['data']
-            fdat_kdp = data.fields['specific_differential_phase']['data']
-            fdat_pdp = data.fields['differential_phase']['data']
-            fdat_ncp = data.fields['normalized_coherent_power']['data']
-            fdat_phv = data.fields['cross_correlation_ratio']['data']
-            fdat_ecf = data.fields['radar_echo_classification']['data']
-            # -----------------------------------------
-            c = fdat_ref.shape
-            # -----------------------------------------
-            str_nam = [rnam]
-            arr_lat_lon_alt_bwh = [rlat, rlon, ralt, fbwh]
-            str_typ = [styp]
-            arr_prt_prm_vel = [fprt, fvel]
-            num_ray_gat_swp = [nray, ngat, nswp]
-            fix_ang = fang
-            arr_azm_rng_elv = [fazm, frng, felv]  # 3XN
-            # ----------------------------------------------------------------------
-            arr_etc = [fpul, fswp, fsws, fswe, ftme, ffrq, fscn]
-            # arr_etc=[fpul,ffrq,fscn,fswp,fsws,fswe,ftme]
-            # arr_etc=[fpul,fswp,fsws,fswe,ftme]
-            # ----------------------------------------------------------------------
-            arr_ref = np.array(fdat_ref)
-            arr_crf = np.array(fdat_crf)
-            arr_vel = np.array(fdat_vel)
-            arr_spw = np.array(fdat_spw)
-            arr_zdr = np.array(fdat_zdr)
-            arr_kdp = np.array(fdat_kdp)
-            arr_pdp = np.array(fdat_pdp)
-            arr_ncp = np.array(fdat_ncp)
-            arr_phv = np.array(fdat_phv)
-            arr_ecf = np.array(fdat_ecf)
-            # ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
-
-            # --------------------------------------------------------
-            # _, ext = os.path.splitext(fileInfo)
-            # trm = 8 if ext == 'RAW' else 3
-            # --------------------------------------------------------
-            # ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
-            # sfmat = os.path.join(dirname + '_OUT', (fileInfo[0:len(fileInfo) - trm] + '.mat'))
-
-            # 주요 정보
-            dictData = {
-                'str_nam': [rnam],
-                'arr_lat_lon_alt_bwh': [rlat, rlon, ralt, fbwh],
-                'str_typ': [styp],
-                'arr_prt_prm_vel': [fprt, fvel],
-                'num_ray_gat_swp': [nray, ngat, nswp],
-                'fix_ang': fang,
-                'arr_azm_rng_elv': [fazm, frng, felv],
-                'arr_etc': [fpul, fswp, fsws, fswe, ftme, ffrq, fscn],
-                'arr_ref': fdat_ref,
-                'arr_crf': fdat_crf,
-                'arr_vel': fdat_vel,
-                'arr_spw': fdat_spw,
-                'arr_zdr': fdat_zdr,
-                'arr_kdp': fdat_kdp,
-                'arr_pdp': fdat_pdp,
-                'arr_ncp': fdat_ncp,
-                'arr_phv': fdat_phv,
-                'arr_ecf': fdat_ecf
-            }
+            dictData = procUfRadarData(fileInfo)
 
             # ======================================================================================
             # 테스트 파일
@@ -1066,8 +1113,9 @@ class DtaProcess(object):
 
                 for i in range(srtEA - 1, endEA):
                 # for i in range(srtEA, endEA + 1):
-                    Arng = np.arange(didxs[i], didxe[i] + 1)
-                    log.info(f'[CHECK] Arng : {Arng}')
+                #     Arng = np.arange(didxs[i], didxe[i] + 1)
+                    Arng = np.arange(didxs[i], didxe[i])
+                    # log.info(f'[CHECK] Arng : {Arng}')
 
                     # 아래에 있는 getVarInfo191013()는 MATLAB 코드에 정의된 함수로,
                     # 해당 파이썬 버전이 필요하며 이는 상황에 맞게 정의해야 합니다.
@@ -1128,6 +1176,7 @@ class DtaProcess(object):
             #     # dtrnTyp='fix' # default
             #     # dtrnTyp='aut2'
             #     dspCycl(fwDir, vnam_b, None, ta, 'fix', 'total', None, rVarI_bA[ip])
+
 
             # ======================================================================================
             # 편파 매개변수의 측정 오류 추정치를 이용하여 레이더 하드웨어 및 데이터 수집 시스템의 품질 평가
@@ -1269,11 +1318,11 @@ class DtaProcess(object):
                                                          refThz, phvThz, pdpThz, ntex, mtex)
 
         except Exception as e:
-            log.error("Exception : {}".format(e))
+            log.error(f'Exception : {e}')
             raise e
 
         finally:
-            log.info('[END] {}'.format("exec"))
+            log.info(f'[END] exec')
 
 
 # ================================================
@@ -1281,14 +1330,14 @@ class DtaProcess(object):
 # ================================================
 if __name__ == '__main__':
 
-    print('[START] {}'.format("main"))
+    print(f'[START] main')
 
     try:
 
         # 파이썬 실행 시 전달인자를 초기 환경변수 설정
         inParams = {}
 
-        print("[CHECK] inParams : {}".format(inParams))
+        print(f'[CHECK] inParams : {inParams}')
 
         # 부 프로그램 호출
         subDtaProcess = DtaProcess(inParams)
@@ -1300,4 +1349,4 @@ if __name__ == '__main__':
         sys.exit(1)
 
     finally:
-        print('[END] {}'.format("main"))
+        print(f'[END] main')
