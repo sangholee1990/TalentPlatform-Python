@@ -286,6 +286,7 @@ def getVarInfo191013(data, vnam):
 
     return rVar, rVarI
 
+
 def func(x, offs, amp, f, phi):
     return offs + amp * np.sin(2 * np.pi * f * x + phi)
 
@@ -374,8 +375,10 @@ def dspCycl(fwDir, vnam_b, mrVarT_btA, mrVarT_btAs, dtrnTyp, dspSel, j, rVarI_bA
         plt.box(True)
         fig = plt.gcf()
         fig.set_size_inches(20 / 2.54, 20 / 2.54)  # Converting from centimeters to inches
-        plt.show()
-        plt.savefig(f"{fwDir}{vnam_b.lower()}_dom_all.png", dpi=600)
+        saveImg = f"{fwDir}{vnam_b.lower()}_dom_all.png"
+        os.makedirs(os.path.dirname(saveImg), exist_ok=True)
+        plt.savefig(saveImg, dpi=600)
+        log.info(f'[CHECK] saveImg : {saveImg}')
         plt.close()
 
         # plot 2
@@ -389,7 +392,11 @@ def dspCycl(fwDir, vnam_b, mrVarT_btA, mrVarT_btAs, dtrnTyp, dspSel, j, rVarI_bA
         fig = plt.gcf()
         fig.set_size_inches(20 / 2.54, 20 / 2.54)  # Converting from centimeters to inches
         plt.show()
-        plt.savefig(f"{fwDir}{vnam_b.lower()}_dom_all2.png", dpi=600)
+        # plt.savefig(f"{fwDir}{vnam_b.lower()}_dom_all2.png", dpi=600)
+        saveImg = f"{fwDir}{vnam_b.lower()}_dom_all2.png"
+        os.makedirs(os.path.dirname(saveImg), exist_ok=True)
+        plt.savefig(saveImg, dpi=600)
+        log.info(f'[CHECK] saveImg : {saveImg}')
         plt.close()
 
         # plot 3
@@ -402,7 +409,11 @@ def dspCycl(fwDir, vnam_b, mrVarT_btA, mrVarT_btAs, dtrnTyp, dspSel, j, rVarI_bA
         fig = plt.gcf()
         fig.set_size_inches(20 / 2.54, 20 / 2.54)  # Converting from centimeters to inches
         plt.show()
-        plt.savefig(f"{fwDir}{vnam_b.lower()}_dom_all3.png", dpi=600)
+        # plt.savefig(f"{fwDir}{vnam_b.lower()}_dom_all3.png", dpi=600)
+        saveImg = f"{fwDir}{vnam_b.lower()}_dom_all3.png"
+        os.makedirs(os.path.dirname(saveImg), exist_ok=True)
+        plt.savefig(saveImg, dpi=600)
+        log.info(f'[CHECK] saveImg : {saveImg}')
         plt.close()
 
     if dspSel == 'total':
@@ -456,7 +467,11 @@ def dspCycl(fwDir, vnam_b, mrVarT_btA, mrVarT_btAs, dtrnTyp, dspSel, j, rVarI_bA
 
         fig.tight_layout()
         plt.show()
-        plt.savefig(f"{fwDir}{vnam_b.lower()}_dom_all4.png", dpi=600)
+        # plt.savefig(f"{fwDir}{vnam_b.lower()}_dom_all4.png", dpi=600)
+        saveImg = f"{fwDir}{vnam_b.lower()}_dom_all4.png"
+        os.makedirs(os.path.dirname(saveImg), exist_ok=True)
+        plt.savefig(saveImg, dpi=600)
+        log.info(f'[CHECK] saveImg : {saveImg}')
         plt.close(fig)
 
     if dspSel == 'each':
@@ -481,14 +496,21 @@ def dspCycl(fwDir, vnam_b, mrVarT_btA, mrVarT_btAs, dtrnTyp, dspSel, j, rVarI_bA
 
             fwDirEc = os.path.join(fwDir, 'Ech/')
             os.makedirs(os.path.dirname(fwDirEc), exist_ok=True)
-            plt.savefig(f"{fwDirEc}{vnam_b.lower()}_dom_{j}a.png", dpi=600)
+            # plt.savefig(f"{fwDirEc}{vnam_b.lower()}_dom_{j}a.png", dpi=600)
+            saveImg = f"{fwDirEc}{vnam_b.lower()}_dom_{j}a.png"
+            os.makedirs(os.path.dirname(saveImg), exist_ok=True)
+            plt.savefig(saveImg, dpi=600)
+            log.info(f'[CHECK] saveImg : {saveImg}')
             plt.close()
+
 
 def power1(x, a, b):
     return a * x ** b
 
+
 def power2(x, a, b, c):
     return a * x ** b + c
+
 
 def ccpltXY_191013_n(vardataX, vardataY, Xthd, Ythd,
                      vnam_a, vnam_b,
@@ -497,7 +519,6 @@ def ccpltXY_191013_n(vardataX, vardataY, Xthd, Ythd,
                      vidx,
                      refFlt, phvFlt, appPDPelim,
                      refThz, phvThz, pdpThz, ntex, mtex):
-
     vardataX[vidx == 1] = np.nan
     vardataY[vidx == 1] = np.nan
 
@@ -535,8 +556,8 @@ def ccpltXY_191013_n(vardataX, vardataY, Xthd, Ythd,
     # setCmap = 'hot_r'
 
     # fig, ax = plt.subplots(figsize = (10, 6))
-    fig, ax = plt.subplots(figsize = (10, 5))
-    pc = ax.pcolormesh(xedges, yedges, H.T, cmap = setCmap)
+    fig, ax = plt.subplots(figsize=(10, 5))
+    pc = ax.pcolormesh(xedges, yedges, H.T, cmap=setCmap)
     cb = fig.colorbar(pc, ax=ax)
     # plt.show()
 
@@ -744,7 +765,6 @@ def ccpltXY_191013_n(vardataX, vardataY, Xthd, Ythd,
     ax = plt.gca()
     ax.tick_params(axis='both', which='major', labelsize=11)
 
-
     # Title settings
     title_text = (
         f"{fn[0][0] + fn[1]} corr={r:.3f} (pval={p:.3f}) in {vnam_a} vs {vnam_b} "
@@ -767,7 +787,6 @@ def ccpltXY_191013_n(vardataX, vardataY, Xthd, Ythd,
 
 
 def readUfRadarData(fileInfo):
-
     log.info(f'[START] readUfRadarData')
 
     result = None
@@ -846,6 +865,7 @@ def readUfRadarData(fileInfo):
 
     finally:
         log.info(f'[END] readUfRadarData')
+
 
 # ================================================
 # 4. 부 프로그램
@@ -957,7 +977,20 @@ class DtaProcess(object):
                 globalVar['figPath'] = '/DATA/FIG'
 
             # ======================================================================================
-            # 파일 검색
+            # 테스트 파일
+            # ======================================================================================
+            # inpFile = '{}/{}/{}'.format(globalVar['inpPath'], serviceName, 'zdr_dom_all.mat')
+            # fileList = sorted(glob.glob(inpFile))
+            #
+            # if fileList is None or len(fileList) < 1:
+            #     log.error('[ERROR] inpFile : {} / {}'.format(inpFile, '입력 자료를 확인해주세요.'))
+            #
+            # fileInfo = fileList[0]
+            # matData = io.loadmat(fileInfo)
+            # matData.keys()
+
+            # ======================================================================================
+            # (차등반사도의 방위각 종속성) 특정 사상에 대하여 방위각 방향의 차등반사도 변화를 모니터링
             # ======================================================================================
             inpFile = '{}/{}/{}'.format(globalVar['inpPath'], serviceName, '*.uf')
             fileList = sorted(glob.glob(inpFile))
@@ -966,150 +999,143 @@ class DtaProcess(object):
                 log.error('[ERROR] inpFile : {} / {}'.format(inpFile, '입력 자료를 확인해주세요.'))
 
             # fileInfo = fileList[0]
-            for i, fileInfo in enumerate(fileList):
+            for fileIdx, fileInfo in enumerate(fileList):
                 log.info(f'[CHECK] fileInfo: {fileInfo}')
 
-                # ======================================================================================
+                fileNameNoExt = os.path.basename(fileInfo).split('.')[0]
+
                 # uf 레이더 파일 읽기
-                # ======================================================================================
                 dictData = readUfRadarData(fileInfo)
 
-                # ======================================================================================
-                # 테스트 파일
-                # ======================================================================================
-                # inpFile = '{}/{}/{}'.format(globalVar['inpPath'], serviceName, 'zdr_dom_all.mat')
-                # fileList = sorted(glob.glob(inpFile))
-                #
-                # if fileList is None or len(fileList) < 1:
-                #     log.error('[ERROR] inpFile : {} / {}'.format(inpFile, '입력 자료를 확인해주세요.'))
-                #
-                # fileInfo = fileList[0]
-                # matData = io.loadmat(fileInfo)
-                # matData.keys()
+                # Reinitialize variables
+                refFlt = 'no'  # ref filter
+                refThz = 0  # 10 dBZ
+                phvFlt = 'no'  # phv filter
+                phvThz = 0.95  # 0.95 0.65
+                appPDPelim = 'no'
+                pdpThz = 15  # 15
+                ntex = 7  # odd, OPERA 9
+                mtex = 7
+                spwFlt = 'no'  # ((yes))
+                spwThz = 0.1  # 0.4m/s
+                vnamB = ['ZDR', 'PDP', 'PHV', 'REF']
+                pco = 0.9925
+                srtEA = 3
+                endEA = srtEA
 
-                #======================================================================================
-                # (차등반사도의 방위각 종속성) 특정 사상에 대하여 방위각 방향의 차등반사도 변화를 모니터링
-                #======================================================================================
-                # # Reinitialize variables
-                # refFlt = 'no'  # ref filter
-                # refThz = 0  # 10 dBZ
-                # phvFlt = 'no'  # phv filter
-                # phvThz = 0.95  # 0.95 0.65
-                # appPDPelim = 'no'
-                # pdpThz = 15  # 15
-                # ntex = 7  # odd, OPERA 9
-                # mtex = 7
-                # spwFlt = 'no'  # ((yes))
-                # spwThz = 0.1  # 0.4m/s
-                # vnamB = ['ZDR', 'PDP', 'PHV', 'REF']
-                # pco = 0.9925
-                # srtEA = 3
-                # endEA = srtEA
-                #
-                # data = dictData
-                # azm_r = np.transpose(data['arr_azm_rng_elv'][0])
-                # rng_r = np.transpose(data['arr_azm_rng_elv'][1])
-                # elv_r = np.transpose(data['arr_azm_rng_elv'][2])
-                #
-                # Tang = data['fix_ang']
-                # Tang[Tang > 180] -= 360
-                #
-                # # if datDR == ':\\Data190\\' or datDR == ':\\Data191\\':
-                # #     didxs = data['arr_etc'][4].astype(int)
-                # #     didxe = data['arr_etc'][5].astype(int)
-                # # else:
-                # didxs = data['arr_etc'][2].astype(int)
-                # didxe = data['arr_etc'][3].astype(int)
-                #
-                # # set '0' to '1'
-                # # didxs += 1
-                # # didxe += 1
-                # didX2 = np.vstack((didxs, didxe))
-                #
-                # Fang = elv_r[didxs].T
-                #
-                # if data['arr_prt_prm_vel'][0][0] == data['arr_prt_prm_vel'][0][-1]:
-                #     Tprf = 'sing'
+                data = dictData
+                azm_r = np.transpose(data['arr_azm_rng_elv'][0])
+                rng_r = np.transpose(data['arr_azm_rng_elv'][1])
+                elv_r = np.transpose(data['arr_azm_rng_elv'][2])
+
+                Tang = data['fix_ang']
+                Tang[Tang > 180] -= 360
+                mrVarT_btA = np.empty((0, 360))
+
+                # if datDR == ':\\Data190\\' or datDR == ':\\Data191\\':
+                #     didxs = data['arr_etc'][4].astype(int)
+                #     didxe = data['arr_etc'][5].astype(int)
                 # else:
-                #     Tprf = 'dual'
-                # log.info(f'[CHECK] Fang : {Fang}')
-                #
-                # bw = data['arr_lat_lon_alt_bwh'][3]
-                #
-                # rVarI_bA = {}
-                # # mrVarT_btA = (ip_max, j_max, ta_len)
-                # for ip, vnam_b in enumerate(vnamB):
-                #     vnam_b = vnam_b.lower()
-                #     log.info(f'[CHECK] vnam_b : {vnam_b}')
-                #
-                #     for i in range(srtEA - 1, endEA):
-                #     # for i in range(srtEA, endEA + 1):
-                #         Arng = np.arange(didxs[i], didxe[i] + 1)
-                #         log.info(f'[CHECK] Arng : {Arng}')
-                #
-                #         # 아래에 있는 getVarInfo191013()는 MATLAB 코드에 정의된 함수로,
-                #         # 해당 파이썬 버전이 필요하며 이는 상황에 맞게 정의해야 합니다.
-                #         rVar_b, rVarI_b = getVarInfo191013(data, vnam_b)
-                #         rVarI_bA[ip] = rVarI_b
-                #
-                #         rVarf_R = np.transpose(data['arr_ref'])
-                #         rVarc_R = np.transpose(data['arr_phv'])
-                #         rVarp_R = np.transpose(data['arr_pdp'])
-                #
-                #         rVar_bT = rVar_b[:, Arng]
-                #         rVarf = rVarf_R[:, Arng]
-                #         rVarc = rVarc_R[:, Arng]
-                #         rVarp = rVarp_R[:, Arng]
-                #
-                #         rVarT_b, vidx_b = prepcss_new(refFlt, phvFlt, appPDPelim, refThz, phvThz, pdpThz, ntex, mtex, rVarf, rVarc, rVarp, rVar_bT)
-                #
-                #         # xr.DataArray(rVarT_b).plot()
-                #         # plt.show()
-                #         #
-                #         # xr.DataArray(vidx_b).plot()
-                #         # plt.show()
-                #
-                #         rVarT_bt = rVarT_b
-                #
-                #         if vnam_b == 'zdr':
-                #             rVarT_bt[np.logical_or(rVarT_bt < -10, rVarT_bt > 10)] = np.nan
-                #         elif vnam_b == 'pdp':
-                #             rVarT_bt[np.logical_or(rVarT_bt < -300, rVarT_bt > 300)] = np.nan
-                #         elif vnam_b == 'phv':
-                #             rVarT_bt[np.logical_or(rVarT_bt < 0, rVarT_bt > 1)] = np.nan
-                #         elif vnam_b == 'ref':
-                #             rVarT_bt[np.logical_or(rVarT_bt < -100, rVarT_bt > 100)] = np.nan
-                #
-                #         # xr.DataArray(rVarT_bt).plot()
-                #         # plt.show()
-                #
-                #         # mrVarT_bt = np.nanmean(rVarT_bt)
-                #         mrVarT_bt = np.nanmean(rVarT_bt, axis=0)
-                #         mrVarT_bt = np.convolve(mrVarT_bt, np.ones((3,)) / 3, mode='same')
-                #
-                #         ta = np.nan * np.ones((360,))
-                #         ta[:len(mrVarT_bt)] = mrVarT_bt
-                #         # mrVarT_btA[ip, 0, :] = ta
-                #
-                #         # xr.DataArray(ta).plot()
-                #         # plt.show()
-                #
-                #         fwDir = '{}/{}/'.format(globalVar['figPath'], serviceName)
-                #         os.makedirs(os.path.dirname(fwDir), exist_ok=True)
-                #         if vnam_b in ['zdr', 'pdp']:
-                #             dspCycl(fwDir, vnam_b, None, ta, 'fix', 'each', 0, rVarI_bA[ip])
-                #
-                #
-                # # for ipi in range(len(vnamB)):
-                # #     vnam_b = vnamB[ipi].lower()
-                # #     # mrVarT_btAs = np.squeeze(mrVarT_btA[ipi, :, :])
-                # #     # dtrnTyp='fix' # default
-                # #     # dtrnTyp='aut2'
-                # #     dspCycl(fwDir, vnam_b, None, ta, 'fix', 'total', None, rVarI_bA[ip])
+                didxs = data['arr_etc'][2].astype(int)
+                didxe = data['arr_etc'][3].astype(int)
 
-                # ======================================================================================
-                # 편파 매개변수의 측정 오류 추정치를 이용하여 레이더 하드웨어 및 데이터 수집 시스템의 품질 평가
-                # ======================================================================================
+                # set '0' to '1'
+                # didxs += 1
+                # didxe += 1
+                didX2 = np.vstack((didxs, didxe))
+
+                Fang = elv_r[didxs].T
+
+                if data['arr_prt_prm_vel'][0][0] == data['arr_prt_prm_vel'][0][-1]:
+                    Tprf = 'sing'
+                else:
+                    Tprf = 'dual'
+                log.info(f'[CHECK] Fang : {Fang}')
+
+                bw = data['arr_lat_lon_alt_bwh'][3]
+
+                rVarI_bA = {}
+                # mrVarT_btA = (ip_max, j_max, ta_len)
+                for ip, vnam_b in enumerate(vnamB):
+                    vnam_b = vnam_b.lower()
+                    log.info(f'[CHECK] vnam_b : {vnam_b}')
+
+                    for i in range(srtEA - 1, endEA):
+                        # for i in range(srtEA, endEA + 1):
+                        Arng = np.arange(didxs[i], didxe[i] + 1)
+                        # log.info(f'[CHECK] Arng : {Arng}')
+
+                        # 아래에 있는 getVarInfo191013()는 MATLAB 코드에 정의된 함수로,
+                        # 해당 파이썬 버전이 필요하며 이는 상황에 맞게 정의해야 합니다.
+                        rVar_b, rVarI_b = getVarInfo191013(data, vnam_b)
+                        rVarI_bA[ip] = rVarI_b
+
+                        rVarf_R = np.transpose(data['arr_ref'])
+                        rVarc_R = np.transpose(data['arr_phv'])
+                        rVarp_R = np.transpose(data['arr_pdp'])
+
+                        rVar_bT = rVar_b[:, Arng]
+                        rVarf = rVarf_R[:, Arng]
+                        rVarc = rVarc_R[:, Arng]
+                        rVarp = rVarp_R[:, Arng]
+
+                        rVarT_b, vidx_b = prepcss_new(refFlt, phvFlt, appPDPelim, refThz, phvThz, pdpThz, ntex, mtex, rVarf, rVarc, rVarp, rVar_bT)
+
+                        # xr.DataArray(rVarT_b).plot()
+                        # plt.show()
+                        #
+                        # xr.DataArray(vidx_b).plot()
+                        # plt.show()
+
+                        rVarT_bt = rVarT_b
+
+                        if vnam_b == 'zdr':
+                            rVarT_bt[np.logical_or(rVarT_bt < -10, rVarT_bt > 10)] = np.nan
+                        elif vnam_b == 'pdp':
+                            rVarT_bt[np.logical_or(rVarT_bt < -300, rVarT_bt > 300)] = np.nan
+                        elif vnam_b == 'phv':
+                            rVarT_bt[np.logical_or(rVarT_bt < 0, rVarT_bt > 1)] = np.nan
+                        elif vnam_b == 'ref':
+                            rVarT_bt[np.logical_or(rVarT_bt < -100, rVarT_bt > 100)] = np.nan
+
+                        # xr.DataArray(rVarT_bt).plot()
+                        # plt.show()
+
+                        # mrVarT_bt = np.nanmean(rVarT_bt)
+                        mrVarT_bt = np.nanmean(rVarT_bt, axis=0)
+                        mrVarT_bt = np.convolve(mrVarT_bt, np.ones((3,)) / 3, mode='same')
+
+                        ta = np.nan * np.ones((360,))
+                        ta[:len(mrVarT_bt)] = mrVarT_bt
+
+                        # mrVarT_btA[ip, i, :] = ta
+                        mrVarT_btA = np.vstack((mrVarT_btA, ta))
+
+                        # xr.DataArray(ta).plot()
+                        # plt.show()
+
+                        fwDir = '{}/{}/{}/'.format(globalVar['figPath'], serviceName, fileNameNoExt)
+                        os.makedirs(os.path.dirname(fwDir), exist_ok=True)
+                        if vnam_b in ['zdr', 'pdp']:
+                            dspCycl(fwDir, vnam_b, None, ta, 'fix', 'each', fileIdx, rVarI_bA[ip])
+
+                for ipi in range(len(vnamB)):
+                    vnam_b = vnamB[ipi].lower()
+                    log.info(f'[CHECK] vnam_b : {vnam_b}')
+
+                    mrVarT_btAs = np.squeeze(mrVarT_btA[ipi, :])
+                    dspCycl(fwDir, vnam_b, mrVarT_btA, mrVarT_btAs, 'fix', 'total', None, rVarI_bA[ipi])
+
+            # ======================================================================================
+            # 편파 매개변수의 측정 오류 추정치를 이용하여 레이더 하드웨어 및 데이터 수집 시스템의 품질 평가
+            # ======================================================================================
+            # fileInfo = fileList[0]
+            for fileIdx, fileInfo in enumerate(fileList):
+                log.info(f'[CHECK] fileInfo: {fileInfo}')
+
+                # uf 레이더 파일 읽기
+                dictData = readUfRadarData(fileInfo)
+
                 # low (ref)
                 refFlt = 'no'  # ref filter
                 refThz = 0  # 10 dBZ
@@ -1138,8 +1164,8 @@ class DtaProcess(object):
                 endEA = 2
 
                 data = dictData
-                mrVarT_btA = {}
-                j = 0
+                mrVarT_btA = np.empty((0, 360))
+                # j = 0
 
                 azm_r = data['arr_azm_rng_elv'][0]  # 1080x1 (360x3)
                 rng_r = data['arr_azm_rng_elv'][1]  # 1196x1
@@ -1209,7 +1235,6 @@ class DtaProcess(object):
                         ta = np.full(360, np.nan)
                         ta[:len(mrVarT_bt)] = mrVarT_bt
 
-                        mrVarT_btA = np.empty((j, 360))
                         mrVarT_btA = np.vstack((mrVarT_btA, ta))
 
                         texRng = np.ones((ntex, mtex))  # std
