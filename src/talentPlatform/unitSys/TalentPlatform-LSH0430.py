@@ -993,27 +993,19 @@ class DtaProcess(object):
 
         try:
 
-            if (platform.system() == 'Windows'):
-
-                # 옵션 설정
-                sysOpt = {
-                    # 시작/종료 시간
-                    'srtDate': '2001-01-01'
-                    , 'endDate': '2018-01-01'
-                }
-
+            if platform.system() == 'Windows':
+                pass
             else:
-
-                # 옵션 설정
-                sysOpt = {
-                    # 시작/종료 시간
-                    'srtDate': '2010-01-01'
-                    , 'endDate': '2015-01-01'
-                }
-
                 globalVar['inpPath'] = '/DATA/INPUT'
                 globalVar['outPath'] = '/DATA/OUTPUT'
                 globalVar['figPath'] = '/DATA/FIG'
+
+            # 옵션 설정
+            sysOpt = {
+                # 시작/종료 시간
+                'srtDate': '2001-01-01'
+                , 'endDate': '2018-01-01'
+            }
 
             # ======================================================================================
             # 테스트 파일
@@ -1029,7 +1021,7 @@ class DtaProcess(object):
             # matData.keys()
 
             # ======================================================================================
-            # 파일 검색 및 조회
+            # 파일 검색
             # ======================================================================================
             inpFile = '{}/{}/{}'.format(globalVar['inpPath'], serviceName, '*.*')
             fileList = sorted(glob.glob(inpFile))
