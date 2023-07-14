@@ -49,6 +49,7 @@ from sqlalchemy import create_engine
 from sqlalchemy import create_engine, text
 from sqlalchemy.dialects.postgresql import ARRAY
 from sqlalchemy.dialects.postgresql import insert
+from sqlalchemy.pool import QueuePool
 
 # =================================================
 # 사용자 매뉴얼
@@ -79,6 +80,7 @@ mpl.rcParams['axes.unicode_minus'] = False
 tzKst = pytz.timezone('Asia/Seoul')
 tzUtc = pytz.timezone('UTC')
 dtKst = timedelta(hours=9)
+
 
 # =================================================
 # 2. 유틸리티 함수
@@ -199,7 +201,6 @@ def initArgument(globalVar, inParams):
 
 
 def initCfgInfo(sysOpt):
-
     log.info(f'[START] initCfgInfo')
 
     result = None
@@ -218,14 +219,24 @@ def initCfgInfo(sysOpt):
 
         sqlDbUrl = f'{dbType}://{dbUser}:{dbPwd}@{dbHost}:{dbPort}/{dbName}'
         engine = create_engine(sqlDbUrl)
+        # engine = create_engine(sqlDbUrl, poolclass=QueuePool, pool_size = 2, max_overflow = 0)
         sessionMake = sessionmaker(autocommit=False, autoflush=False, bind=engine)
         session = sessionMake()
+
+        # DB 연결 시 타임아웃 1시간 설정 : 60 * 60 * 1000
+        session.execute(text("SET statement_timeout = 3600000"))
+
+        # 트랜잭션이 idle 상태 5분 설정 : 5 * 60 * 1000
+        session.execute(text("SET idle_in_transaction_session_timeout = 300000"))
 
         # 테이블 정보
         metaData = MetaData()
 
         # 예보 모델 테이블
-        tbModel = Table(dbTable, metaData, autoload_with=engine, schema=dbSchema)
+        tbModel = Table('TB_MODEL', metaData, autoload_with=engine, schema=dbSchema)
+
+        tbByteModel = Table('TB_BYTE_MODEL', metaData, autoload_with=engine, schema=dbSchema)
+        tbIntModel = Table('TB_INT_MODEL', metaData, autoload_with=engine, schema=dbSchema)
 
         # 기본 위경도 테이블
         tbGeo = Table('TB_GEO', metaData, autoload_with=engine, schema=dbSchema)
@@ -233,11 +244,13 @@ def initCfgInfo(sysOpt):
         # 상세 위경도 테이블
         tbGeoDtl = Table('TB_GEO_DTL', metaData, autoload_with=engine, schema=dbSchema)
 
-
         result = {
             'engine': engine
             , 'session': session
+            , 'sessionMake': sessionMake
             , 'tbModel': tbModel
+            , 'tbByteModel': tbByteModel
+            , 'tbIntModel': tbIntModel
             , 'tbGeo': tbGeo
             , 'tbGeoDtl': tbGeoDtl
         }
@@ -252,29 +265,29 @@ def initCfgInfo(sysOpt):
         log.info(f'[END] initCfgInfo')
 
 
-def dbMergeData(session, table, dataList, pkList = ['ANA_DT', 'FOR_DT', 'MODEL_TYPE']):
+def dbMergeData(sessionMake, table, dataList, pkList=['ANA_DT', 'FOR_DT', 'MODEL_TYPE']):
 
     # log.info(f'[START] dbMergeData')
 
-    try:
-        stmt = insert(table)
-        onConflictStmt = stmt.on_conflict_do_update(
-            index_elements=pkList
-            , set_=stmt.excluded
-        )
-        session.execute(onConflictStmt, dataList)
-        session.commit()
+    with sessionMake() as session:
+        try:
+            stmt = insert(table)
+            onConflictStmt = stmt.on_conflict_do_update(
+                index_elements=pkList
+                , set_=stmt.excluded
+            )
+            session.execute(onConflictStmt, dataList)
+            session.commit()
 
-    except Exception as e:
-        session.rollback()
-        log.error(f'Exception : {e}')
+        except Exception as e:
+            session.rollback()
+            log.error(f'Exception : {e}')
 
-    finally:
-        session.close()
-        # log.info(f'[END] dbMergeData')
+        finally:
+            session.close()
+            # log.info(f'[END] dbMergeData')
 
 def dynamicFun(funName, *args, **kwargs):
-
     log.info(f'[START] dynamicFun')
 
     try:
@@ -289,18 +302,26 @@ def dynamicFun(funName, *args, **kwargs):
         log.info(f'[END] dynamicFun')
 
 
+def convFloatToIntList(val):
+
+    scaleFactor = 10000
+    addOffset = 0
+
+    return ((np.around(val, 4) * scaleFactor) - addOffset).astype(int).tolist()
+
 def readKierData(modelType, dtDateList, sysOpt, cfgOpt):
 
     log.info(f'[START] readKierData')
 
     result = None
 
-    try:
-        for dtDateIdx, dtDateInfo in enumerate(dtDateList):
-            log.info(f'[CHECK] dtDateInfo : {dtDateInfo}')
+    for dtDateIdx, dtDateInfo in enumerate(dtDateList):
+        log.info(f'[CHECK] dtDateInfo : {dtDateInfo}')
 
-            # dbDataList = []
-            dbData = {}
+        # dbDataList = []
+        dbData = {}
+
+        try:
             for i, modelKey in enumerate(sysOpt[modelType]):
                 modelInfo = sysOpt[modelType][modelKey]
                 # log.info(f'[CHECK] modelInfo : {modelInfo}')
@@ -341,37 +362,99 @@ def readKierData(modelType, dtDateList, sysOpt, cfgOpt):
                 dbData['FOR_DT'] = forDate
                 dbData['MODEL_TYPE'] = modelType
 
+
+
                 # 선택 컬럼
                 for selCol, dbCol in zip(modelInfo['selCol'], modelInfo['dbCol']):
                     try:
                         # wrfsolar에서 일사량 관련 인자의 경우 1시간 누적 생산 -> 평균 생산
                         if modelKey == 'wrfsolar':
                             dbData[dbCol] = data[selCol].values.tolist() if len(data[selCol].values) > 0 else None
+                            # dbData[dbCol] = np.around(data[selCol].values, 4).tobytes() if len(data[selCol].values) > 0 else None
+                            # dbData[dbCol] = convFloatToIntList(data[selCol].values) if len(data[selCol].values) > 0 else None
+
                         else:
                             key, levIdx = selCol.split('-')
-                            dbData[dbCol] = data[key].isel(Time=timeIdx, bottom_top = int(levIdx)).values.tolist() if len(data[key].isel(Time=timeIdx, bottom_top = int(levIdx)).values) > 0 else None
+                            dbData[dbCol] = data[key].isel(Time=timeIdx, bottom_top=int(levIdx)).values.tolist() if len(data[key].isel(Time=timeIdx, bottom_top=int(levIdx)).values) > 0 else None
+                            # dbData[dbCol] = np.around(data[key].isel(Time=timeIdx, bottom_top=int(levIdx)).values, 4).tobytes() if len(data[key].isel(Time=timeIdx, bottom_top=int(levIdx)).values) > 0 else None
+                            # dbData[dbCol] = convFloatToIntList(data[key].isel(Time=timeIdx, bottom_top=int(levIdx)).values) if len(data[key].isel(Time=timeIdx, bottom_top=int(levIdx)).values) > 0 else None
 
                         # log.info(f'[CHECK] selCol / dbCol : {selCol} / {dbCol}')
                     except Exception as e:
-                        # log.error('Exception : {}'.format(e))
-                        continue
+                        pass
 
             if len(dbData) < 1: continue
             log.info(f'[CHECK] dbData : {dbData.keys()}')
-            dbMergeData(cfgOpt['session'], cfgOpt['tbModel'], dbData)
+            dbMergeData(cfgOpt['sessionMake'], cfgOpt['tbModel'], dbData)
+            # dbMergeData(cfgOpt['sessionMake'], cfgOpt['tbIntModel'], dbData)
 
-    except Exception as e:
-        log.error(f'Exception : {e}')
-        return result
+        except Exception as e:
+            log.error(f'Exception : {e}')
+            return result
 
-    finally:
-        log.info(f'[END] readKierData')
+        finally:
+            log.info(f'[END] readKierData')
+
+def readTmpData(modelType, dtAndDateList, sysOpt, cfgOpt):
+
+    log.info(f'[START] readTmpData')
+
+    result = None
+
+    for dtAndDateIdx, dtAndDateInfo in enumerate(dtAndDateList):
+        dtForDateList = pd.date_range(start=dtAndDateInfo, end=dtAndDateInfo + Hour(48), freq=Hour(1))
+        for dtForDateIdx, dtForDateInfo in enumerate(dtForDateList):
+            log.info(f'[CHECK] dtAndDateInfo : {dtAndDateInfo} / dtForDateInfo : {dtForDateInfo}')
+
+            try:
+                dbData = {}
+
+                # 필수 컬럼
+                dbData['ANA_DT'] = dtAndDateInfo
+                dbData['FOR_DT'] = dtForDateInfo
+                dbData['MODEL_TYPE'] = modelType
+
+                scaleFactor = 10000
+                addOffset = 0
+
+                # 정변환 : 소수점 4자리 -> 정수형
+                # 역변환 : 정수형 -> 소수점 4자리
+                # ddd = (data_int + addOffset) / scaleFactor
+
+                # 선택 컬럼
+                for dbidx, dbCol in enumerate(sysOpt['TMP']['dbCol']):
+                    try:
+                        # dbData[dbCol] = np.random.randn(1000, 1000).tolist()
+                        # dbData[dbCol] = np.around(np.random.randn(1000, 1000), 4).tolist()
+                        # dbData[dbCol] = np.around(np.random.randn(1000, 1000), 4).tobytes()
+                        dbData[dbCol] = convFloatToIntList(np.random.randn(1000, 1000) * 10)
+                    except Exception as e:
+                        pass
+
+                if len(dbData) < 1: continue
+                log.info(f'[CHECK] dbData : {dbData.keys()}')
+                # dbMergeData(cfgOpt['sessionMake'], cfgOpt['tbModel'], dbData)
+                # dbMergeData(cfgOpt['sessionMake'], cfgOpt['tbByteModel'], dbData)
+                dbMergeData(cfgOpt['sessionMake'], cfgOpt['tbIntModel'], dbData)
+
+                # dbDataList.append(dbData)
+
+            # if len(dbDataList) < 1: continue
+            # log.info(f'[CHECK] dbDataList : {dbDataList.keys()}')
+            # dbMergeData(cfgOpt['session'], cfgOpt['tbModel'], dbDataList)
+
+            except Exception as e:
+                log.error(f'Exception : {e}')
+                return result
+
+            finally:
+                log.info(f'[END] readTmpData')
+
 
 # ================================================
 # 4. 부 프로그램
 # ================================================
 class DtaProcess(object):
-
     # ================================================
     # 요구사항
     # ================================================
@@ -441,6 +524,8 @@ class DtaProcess(object):
                 # 시작일, 종료일, 시간 간격
                 'srtDate': '2023-06-29'
                 , 'endDate': '2023-07-01'
+                # 'srtDate': '2023-06-28'
+                # , 'endDate': '2023-06-28'
                 # 'srtDate': globalVar['srtDate']
                 # , 'endDate': globalVar['endDate']
                 , 'invHour': 1
@@ -449,64 +534,70 @@ class DtaProcess(object):
                 , 'dbInfo': {
                     'dbType': 'postgresql'
                     , 'dbUser': 'kier'
-                    , 'dbPwd': ''
-                    # , 'dbHost': ''
-                    , 'dbHost': ''
+                    , 'dbPwd': 'kier20230707!@#'
+                    , 'dbHost': '223.130.134.136'
+                    # , 'dbHost': '192.168.0.244'
                     , 'dbPort': '5432'
                     , 'dbName': 'kier'
-                    , 'dbTable': 'TB_MODEL'
+                    # , 'dbTable': 'TB_MODEL'
+                    , 'dbTable': 'TB_BYTE_MODEL'
                     , 'dbSchema': 'DMS01'
 
                     # 서버 정보
-                    # , 'serverHost': ''
-                    # , 'serverHost': ''
-                    , 'serverHost': ''
+                    , 'serverHost': '223.130.134.136'
+                    # , 'serverHost': '192.168.0.244'
                 }
 
                 # , 'modelList': ['KIER-LDAPS']
                 # , 'modelList': ['KIER-RDAPS']
                 , 'modelList': ['KIER-LDAPS', 'KIER-RDAPS']
+                # , 'modelList': ['TMP']
                 # , 'modelList': [globalVar['modelList']]
 
                 # 모델 종류에 따른 함수 정의
-                , 'procList' : {
-                    'KIER-LDAPS' : 'readKierData'
-                    , 'KIER-RDAPS' : 'readKierData'
+                , 'procList': {
+                    'KIER-LDAPS': 'readKierData'
+                    , 'KIER-RDAPS': 'readKierData'
+                    , 'TMP': 'readTmpData'
                 }
 
                 # 모델 정보 : 파일 경로, 파일명, 데이터/DB 컬럼 (지표면 wrfsolar 동적 설정, 상층면 wrfout 정적 설정), 시간 간격
-                , 'KIER-LDAPS' : {
-                    'wrfout' : {
-                        # 'filePath': '/DATA/INPUT/INDI2023/MODEL/KIER-LDAPS'
-                        'filePath': '/vol01/DATA/MODEL/KIER-LDAPS'
-                        , 'fileName' : 'wrfout*d02*%Y-%m-%d_%H:%M:*.nc'
+                , 'KIER-LDAPS': {
+                    'wrfout': {
+                        'filePath': '/DATA/INPUT/INDI2023/MODEL/KIER-LDAPS'
+                        # 'filePath': '/vol01/DATA/MODEL/KIER-LDAPS'
+                        , 'fileName': 'wrfout*d02*%Y-%m-%d_%H:%M:*.nc'
                         , 'selCol': ['U-0', 'U-1', 'U-2', 'U-3', 'U-4', 'U-5', 'V-0', 'V-1', 'V-2', 'V-3', 'V-4', 'V-5']
-                        , 'dbCol': ['U1000', 'U975', 'U925', 'U900', 'U875', 'U850', 'V1000', 'V975', 'V925', 'V900', 'V875', 'V850']
+                        , 'dbCol': ['U1000', 'U975', 'U925', 'U900', 'U875', 'U850', 'V1000', 'V975', 'V925', 'V900','V875', 'V850']
                     }
-                    , 'wrfsolar' : {
-                        # 'filePath': '/DATA/INPUT/INDI2023/MODEL/KIER-LDAPS'
-                        'filePath': '/vol01/DATA/MODEL/KIER-LDAPS'
-                        , 'fileName' : 'wrfsolar*d02*%Y-%m-%d_%H:%M:*.nc'
+                    , 'wrfsolar': {
+                        'filePath': '/DATA/INPUT/INDI2023/MODEL/KIER-LDAPS'
+                        # 'filePath': '/vol01/DATA/MODEL/KIER-LDAPS'
+                        , 'fileName': 'wrfsolar*d02*%Y-%m-%d_%H:%M:*.nc'
                         , 'selCol': ['SWDOWN', 'SWDOWNC', 'GSW', 'SWDDNI', 'SWDDIF', 'U10', 'V10']
                         , 'dbCol': ['SW_D', 'SW_DC', 'SW_NET', 'SW_DDNI', 'SW_DDIF', 'U', 'V']
                     }
                 }
 
-                , 'KIER-RDAPS' : {
-                    'wrfout' : {
-                        # 'filePath': '/DATA/INPUT/INDI2023/MODEL/KIER-RDAPS'
-                        'filePath': '/vol01/DATA/MODEL/KIER-RDAPS'
-                        , 'fileName' : 'wrfout*d02*%Y-%m-%d_%H:%M:*.nc'
+                , 'KIER-RDAPS': {
+                    'wrfout': {
+                        'filePath': '/DATA/INPUT/INDI2023/MODEL/KIER-RDAPS'
+                        # 'filePath': '/vol01/DATA/MODEL/KIER-RDAPS'
+                        , 'fileName': 'wrfout*d02*%Y-%m-%d_%H:%M:*.nc'
                         , 'selCol': ['U-0', 'U-1', 'U-2', 'U-3', 'U-4', 'U-5', 'V-0', 'V-1', 'V-2', 'V-3', 'V-4', 'V-5']
                         , 'dbCol': ['U1000', 'U975', 'U925', 'U900', 'U875', 'U850', 'V1000', 'V975', 'V925', 'V900', 'V875', 'V850']
                     }
-                    , 'wrfsolar' : {
-                        # 'filePath': '/DATA/INPUT/INDI2023/MODEL/KIER-RDAPS'
-                        'filePath': '/vol01/DATA/MODEL/KIER-RDAPS'
-                        , 'fileName' : 'wrfsolar*d02*%Y-%m-%d_%H:%M:*.nc'
+                    , 'wrfsolar': {
+                        'filePath': '/DATA/INPUT/INDI2023/MODEL/KIER-RDAPS'
+                        # 'filePath': '/vol01/DATA/MODEL/KIER-RDAPS'
+                        , 'fileName': 'wrfsolar*d02*%Y-%m-%d_%H:%M:*.nc'
                         , 'selCol': ['SWDOWN', 'SWDOWNC', 'GSW', 'SWDDNI', 'SWDDIF', 'U10', 'V10']
                         , 'dbCol': ['SW_D', 'SW_DC', 'SW_NET', 'SW_DDNI', 'SW_DDIF', 'U', 'V']
                     }
+                }
+                , 'TMP': {
+                    'dbCol': ['U1000', 'U975', 'U925', 'U900', 'U875', 'U850', 'V1000', 'V975', 'V925', 'V900', 'V875',
+                              'V850', 'SW_D', 'SW_DC', 'SW_NET', 'SW_DDNI', 'SW_DDIF', 'U', 'V']
                 }
             }
 
@@ -519,55 +610,118 @@ class DtaProcess(object):
                 exit(1)
 
             # *********************************************
+            # [템플릿] DB 가져오기
+            # *********************************************
+            # print('asdfasdf')
+            #
+            # table = cfgOpt['tbByteModel']
+            #
+            # aa = cfgOpt['sessionMake']().execute('SELECT * FROM "DMS01"."TB_BYTE_MODEL"')
+            # # aa = cfgOpt['sessionMake']().execute('SELECT "ANA_DT", "FOR_DT", "MODEL_TYPE", "SW_D" FROM "DMS01"."TB_BYTE_MODEL";')
+            #
+            # # aa = cfgOpt['sessionMake']().execute('SELECT "ANA_DT", "FOR_DT", "MODEL_TYPE", SUBSTRING("SW_D", 0, 0) FROM "DMS01"."TB_BYTE_MODEL";')
+            # # aa = cfgOpt['sessionMake']().execute('SELECT "ANA_DT", "FOR_DT", "MODEL_TYPE", "SW_D" FROM "DMS01"."TB_BYTE_MODEL";')
+            #
+            # # aa = cfgOpt['sessionMake']().execute('SELECT "ANA_DT", "FOR_DT", "MODEL_TYPE", get_byte("SW_D", 3) FROM "DMS01"."TB_BYTE_MODEL";')
+            # bb = aa.fetchall()
+            # dd = pd.DataFrame(bb)
+            #
+            #
+            # aa = cfgOpt['sessionMake']().execute('SELECT "ANA_DT", "FOR_DT", "MODEL_TYPE" * FROM "DMS01"."TB_BYTE_MODEL" WHERE "MODEL_TYPE" = '' ;')
+            # bb = aa.fetchall()
+            # dd = pd.DataFrame(bb)
+            #
+            # tmp_values = np.frombuffer([item[2].encode() for item in bb], dtype=np.dtype('S3'))
+            #
+            #
+            #
+            # gg = np.frombuffer(dd['SW_D'][0]).reshape(1000,1000)
+            #
+            # np.frombuffer(bb[0])
+            #
+            # # array_retrieved = np.frombuffer(array_bytes, dtype=np.float64).reshape(1000, 1000)
+            #
+            #
+            # dd['SW_D']
+            #
+            # # bb = aa.fetchall()
+            # dd = pd.DataFrame(bb)
+            # dd['SW_D']
+            #
+            # aa = cfgOpt['sessionMake']().execute('SELECT "ANA_DT", "FOR_DT", "MODEL_TYPE", "SW_D" FROM "DMS01"."TB_BYTE_MODEL";')
+            #
+            # # SELECT "ANA_DT", "FOR_DT", "MODEL_TYPE", "SW_D"[1][1] FROM "DMS01"."TB_MODEL";
+            # aa = cfgOpt['sessionMake']().execute('SELECT * FROM "DMS01"."TB_GEO"')
+            # aa.fetchall()
+            #
+            # with cfgOpt['sessionMake'] as session:
+            #     try:
+            #         session.execute(query)
+            #         stmt = insert(table)
+            #         onConflictStmt = stmt.on_conflict_do_update(
+            #             index_elements=pkList
+            #             , set_=stmt.excluded
+            #         )
+            #         session.execute(onConflictStmt, dataList)
+            #         session.commit()
+            #
+            #     except Exception as e:
+            #         session.rollback()
+            #         log.error(f'Exception : {e}')
+            #
+            #     finally:
+            #         session.close()
+
+            # *********************************************
             # [템플릿] 기본 위경도 정보를 DB 삽입
             # *********************************************
-            dbData = {}
-            modelType = 'KIER-LDAPS'
-            dbData['MODEL_TYPE'] = modelType
-
-            # 지표
-            # orgData = xr.open_mfdataset('/DATA/INPUT/INDI2023/MODEL/KIER-LDAPS/wrfsolar_d02.2023-06-30_03:00:00.nc')
-            orgData = xr.open_mfdataset('/vol01/DATA/MODEL/KIER-LDAPS/wrfsolar_d02.2023-06-30_03:00:00.nc')
-            data = orgData['SWDOWN'].isel(Time=0)
-
-            dbData['LON_SFC'] = data['XLONG'].values.tolist() if len(data['XLONG'].values) > 0 else None
-            dbData['LAT_SFC'] = data['XLAT'].values.tolist() if len(data['XLAT'].values) > 0 else None
-
-            # 상층
-            # orgData2 = xr.open_mfdataset('/DATA/INPUT/INDI2023/MODEL/KIER-LDAPS/wrfout_d02_2023-06-30_03:00:00.nc')
-            orgData2 = xr.open_mfdataset('/vol01/DATA/MODEL/KIER-LDAPS/wrfout_d02_2023-06-30_03:00:00.nc')
-            data2 = orgData2['U'].isel(Time = 0, bottom_top = 0)
-            dbData['LON_PRE'] = data2['XLONG_U'].values.tolist() if len(data2['XLONG_U'].values) > 0 else None
-            dbData['LAT_PRE'] = data2['XLAT_U'].values.tolist() if len(data2['XLAT_U'].values) > 0 else None
-
-            dbMergeData(cfgOpt['session'], cfgOpt['tbGeo'], dbData, pkList=['MODEL_TYPE'])
+            # dbData = {}
+            # modelType = 'KIER-LDAPS'
+            # dbData['MODEL_TYPE'] = modelType
+            #
+            # # 지표
+            # # orgData = xr.open_mfdataset('/DATA/INPUT/INDI2023/MODEL/KIER-LDAPS/wrfsolar_d02.2023-06-30_03:00:00.nc')
+            # orgData = xr.open_mfdataset('/vol01/DATA/MODEL/KIER-LDAPS/wrfsolar_d02.2023-06-30_03:00:00.nc')
+            # data = orgData['SWDOWN'].isel(Time=0)
+            #
+            # dbData['LON_SFC'] = data['XLONG'].values.tolist() if len(data['XLONG'].values) > 0 else None
+            # dbData['LAT_SFC'] = data['XLAT'].values.tolist() if len(data['XLAT'].values) > 0 else None
+            #
+            # # 상층
+            # # orgData2 = xr.open_mfdataset('/DATA/INPUT/INDI2023/MODEL/KIER-LDAPS/wrfout_d02_2023-06-30_03:00:00.nc')
+            # orgData2 = xr.open_mfdataset('/vol01/DATA/MODEL/KIER-LDAPS/wrfout_d02_2023-06-30_03:00:00.nc')
+            # data2 = orgData2['U'].isel(Time = 0, bottom_top = 0)
+            # dbData['LON_PRE'] = data2['XLONG_U'].values.tolist() if len(data2['XLONG_U'].values) > 0 else None
+            # dbData['LAT_PRE'] = data2['XLAT_U'].values.tolist() if len(data2['XLAT_U'].values) > 0 else None
+            #
+            # dbMergeData(cfgOpt['sessionMake'], cfgOpt['tbGeo'], dbData, pkList=['MODEL_TYPE'])
 
             # *********************************************
             # [템플릿] 상세 위경도 정보를 DB 삽입
             # *********************************************
-            sfcData = orgData['SWDOWN'].isel(Time=0).to_dataframe().reset_index(drop=False).rename(
-                columns={
-                    'south_north': 'ROW'
-                    , 'west_east': 'COL'
-                    , 'XLAT': 'LAT_SFC'
-                    , 'XLONG': 'LON_SFC'
-                }
-            ).drop(['SWDOWN'], axis='columns')
-
-            preData = orgData2['U'].isel(Time = 0, bottom_top = 0).to_dataframe().reset_index(drop=False).rename(
-                columns={
-                    'south_north': 'ROW'
-                    , 'west_east_stag': 'COL'
-                    , 'XLAT_U': 'LAT_PRE'
-                    , 'XLONG_U': 'LON_PRE'
-                }
-            ).drop(['U', 'XTIME'], axis='columns')
-
-            dataL2 = pd.merge(left=sfcData, right=preData, how='inner', left_on=['ROW', 'COL'], right_on=['ROW', 'COL'])
-            dataL2['MODEL_TYPE'] = modelType
-
-            dataList = dataL2.to_dict(orient='records')
-            dbMergeData(cfgOpt['session'], cfgOpt['tbGeoDtl'], dataList, pkList=['MODEL_TYPE', 'ROW', 'COL'])
+            # sfcData = orgData['SWDOWN'].isel(Time=0).to_dataframe().reset_index(drop=False).rename(
+            #     columns={
+            #         'south_north': 'ROW'
+            #         , 'west_east': 'COL'
+            #         , 'XLAT': 'LAT_SFC'
+            #         , 'XLONG': 'LON_SFC'
+            #     }
+            # ).drop(['SWDOWN'], axis='columns')
+            #
+            # preData = orgData2['U'].isel(Time = 0, bottom_top = 0).to_dataframe().reset_index(drop=False).rename(
+            #     columns={
+            #         'south_north': 'ROW'
+            #         , 'west_east_stag': 'COL'
+            #         , 'XLAT_U': 'LAT_PRE'
+            #         , 'XLONG_U': 'LON_PRE'
+            #     }
+            # ).drop(['U', 'XTIME'], axis='columns')
+            #
+            # dataL2 = pd.merge(left=sfcData, right=preData, how='inner', left_on=['ROW', 'COL'], right_on=['ROW', 'COL'])
+            # dataL2['MODEL_TYPE'] = modelType
+            #
+            # dataList = dataL2.to_dict(orient='records')
+            # dbMergeData(cfgOpt['sessionMake'], cfgOpt['tbGeoDtl'], dataList, pkList=['MODEL_TYPE', 'ROW', 'COL'])
 
             # *********************************************
             # [템플릿] KIER-LDPAS 테스트
@@ -577,16 +731,20 @@ class DtaProcess(object):
             dtEndDate = pd.to_datetime(sysOpt['endDate'], format='%Y-%m-%d')
             dtDateList = pd.date_range(start=dtSrtDate, end=dtEndDate, freq=Hour(sysOpt['invHour']))
 
+            # 분석 시간
+            dtAndDateList = pd.date_range(start=dtSrtDate, end=dtEndDate, freq=Hour(6))
+
             for modelIdx, modelType in enumerate(sysOpt['modelList']):
                 log.info(f'[CHECK] modelType : {modelType}')
 
                 # 동적 함수 호출
-                # procFun = sysOpt['procList'][modelType]
-                # log.info(f'[CHECK] procFun : {procFun}')
-                # dynamicFun(procFun, modelType, dtDateList, sysOpt, cfgOpt)
+                procFun = sysOpt['procList'][modelType]
+                log.info(f'[CHECK] procFun : {procFun}')
+                dynamicFun(procFun, modelType, dtDateList, sysOpt, cfgOpt)
 
                 # 정적 함수 호출 : 모델 종류, 날짜 목록, 모델 정보, DB 정보
-                readKierData(modelType, dtDateList, sysOpt, cfgOpt)
+                # readKierData(modelType, dtDateList, sysOpt, cfgOpt)
+                # readTmpData(modelType, dtDateList, sysOpt, cfgOpt)
 
         except Exception as e:
             log.error(f"Exception : {e}")
@@ -594,6 +752,7 @@ class DtaProcess(object):
 
         finally:
             log.info(f"[END] exec")
+
 
 # ================================================
 # 3. 주 프로그램
