@@ -24,6 +24,7 @@ import numpy as np
 import matplotlib.pyplot as plt
 import scipy.io as sio
 import pyart
+from scipy.fft import fft, fftfreq
 
 # import xarray as xr
 # import dask.array as da
@@ -298,33 +299,62 @@ def sineFit(x, y, isPlot=True):
     # SineParams = sineFit(x, y)
     # print(SineParams)
 
-    # Initial guess
-    initial_guess = [np.mean(y), np.std(y), 1.0 / np.ptp(x), 0.0]  # offs, amp, f, phi
+    n = len(x)
+    frq = np.fft.fftfreq(n, np.nanmean(np.diff(x)))
+    Fyy = abs(np.fft.fft(y) / n)
+
+    # guess_freq = abs(frq[np.argmax(Fyy[1:n // 2])])
+    # guess_amp = np.std(y) * 2.**0.5
+    # guess_offset = np.mean(y)
+    # initParams = np.array([guess_offset, guess_amp, guess_freq, 0])
+    initParams = [np.nanmean(y), np.nanstd(y), 1.0 / np.ptp(x), 0.0]
 
     # Curve fitting
-    popt, pcov = curve_fit(func, x, y, p0=initial_guess, maxfev=10000)
-
-    # Calculate mean squared error
-    residuals = y - func(x, *popt)
-    mse = np.mean(residuals ** 2)
+    popt, pcov = curve_fit(func, x, y, p0=initParams, maxfev=10000)
+    mse = np.mean((y - func(x, *popt))**2)
+    SineParams = np.append(popt, mse)
+    yOut = func(x, *popt)
 
     # Plotting
     if isPlot:
         plt.figure()
         plt.plot(x, y, 'b-', label='data')
-        plt.plot(x, func(x, *popt), 'r-', label='fit: offs=%5.3f, amp=%5.3f, f=%5.3f, phi=%5.3f' % tuple(popt))
+        plt.plot(x, yOut, 'r-', label='fit: offs=%5.3f, amp=%5.3f, f=%5.3f, phi=%5.3f' % tuple(popt))
         plt.xlabel('x')
         plt.ylabel('y')
         plt.legend()
-        plt.show()
+        # plt.show()
 
-    return list(popt) + [mse]
+    return SineParams
+
+
+def power1(x, a, b):
+    return a * x ** b
+
+
+def power2(x, a, b, c):
+    return a * x ** b + c
 
 
 def dspCycl(fwDir, vnam_b, mrVarT_btA, mrVarT_btAs, dtrnTyp, dspSel, j, rVarI_bA):
 
+    # mrVarT_btA = None
+    # mrVarT_btAs = ta
+    # dtrnTyp = 'fix'
+    # dspSel = 'each'
+    # j =  fileIdx
+    # rVarI_bA = rVarI_bA[ip]
+    #
+    # mrVarT_btA = mrVarT_btA
+    # mrVarT_btAs = mrVarT_btAs
+    # dtrnTyp = 'fix'
+    # dspSel = 'total'
+    # j =  None
+    # rVarI_bA = rVarI_bA[ipi]
+
     if dspSel == 'total':
-        mrVarT_btAm = np.nanmean(mrVarT_btAs)
+        mrVarT_btAm = np.nanmean(mrVarT_btAs, axis=0)
+
     elif dspSel == 'each':
         mrVarT_btAm = mrVarT_btAs
 
@@ -333,41 +363,37 @@ def dspCycl(fwDir, vnam_b, mrVarT_btA, mrVarT_btAs, dtrnTyp, dspSel, j, rVarI_bA
     if dtrnTyp == 'fix':
         mvStep = 90
         mrVarT_btAmMV = pd.Series(mrVarT_btAm).rolling(window=mvStep).mean().values
+        # mrVarT_btAmMV = np.zeros((360, )) + mrVarT_btAm
+        # mrVarT_btAmMV = np.convolve(mrVarT_btAm, np.ones(mvStep) / mvStep, mode='valid')
+
     elif dtrnTyp == 'aut1':
         trnPol = 6
-        DTt = signal.detrend(mrVarT_btAm, type='linear', bp=trnPol)
+        # DTt = signal.detrend(mrVarT_btAm, type='linear', bp=trnPol)
+        # mrVarT_btAmMV = mrVarT_btAm - DTt
+        DTt = signal.detrend(mrVarT_btAm, type='constant')
         mrVarT_btAmMV = mrVarT_btAm - DTt
     elif dtrnTyp == 'aut2':
         SinePO = sineFit(tha, mrVarT_btAm, 0)
         mvStep = round(1 / SinePO[2])
         mrVarT_btAmMV = pd.Series(mrVarT_btAm).rolling(window=mvStep).mean().values
+        # mvStep = round(1 / SinePO[2])
+        # mrVarT_btAmMV = np.convolve(mrVarT_btAm, np.ones(mvStep) / mvStep, mode='valid')
 
     # xr.DataArray(mrVarT_btAmMV).plot()
-    # plt.show()
+    # # plt.show()
 
     mrVarT_btAmDT = mrVarT_btAm - mrVarT_btAmMV
     spa1 = np.nanmean(np.abs(mrVarT_btAmDT)) * 2
     spa2 = np.nanmean(mrVarT_btAmDT)
 
-    mrVarT_btAmDT[np.isnan(mrVarT_btAmDT)] = 0
-    # SineP = sineFit(tha, mrVarT_btAmDT, 0)
-    SineP = sineFit(tha, mrVarT_btAmDT, isPlot=True)
-
-    spa2 = SineP[0]
-    spa1 = SineP[1]
-    spa3 = SineP[2]
-    spa4 = SineP[3]
-    spa5 = np.mean((mrVarT_btAmDT - (spa2 + spa1 * np.sin(2 * np.pi * spa3 * tha + spa4))) ** 2)
-
-    pdp1 = spa2 + spa1 * np.sin(2 * np.pi * spa3 * tha + spa4)
-    pdp2 = pdp1 + mrVarT_btAmMV
-    nos = mrVarT_btAmDT - pdp1
-    pdp3 = mrVarT_btAmMV + nos
+    # plt.plot(mrVarT_btAmDT)
+    # # plt.show()
 
     if dspSel == 'total':
         # plot 1
         plt.figure()
         plt.plot(mrVarT_btAs)
+        # plt.plot(mrVarT_btAs.T)
         plt.plot(mrVarT_btAm, 'k-', linewidth=3)
         plt.plot(mrVarT_btAmMV, 'w-', linewidth=2)
         plt.xlim([0, 360])
@@ -380,6 +406,7 @@ def dspCycl(fwDir, vnam_b, mrVarT_btA, mrVarT_btAs, dtrnTyp, dspSel, j, rVarI_bA
         os.makedirs(os.path.dirname(saveImg), exist_ok=True)
         plt.savefig(saveImg, dpi=600)
         log.info(f'[CHECK] saveImg : {saveImg}')
+        # plt.show()
         plt.close()
 
         # plot 2
@@ -391,13 +418,14 @@ def dspCycl(fwDir, vnam_b, mrVarT_btA, mrVarT_btAs, dtrnTyp, dspSel, j, rVarI_bA
         plt.grid(True)
         plt.box(True)
         fig = plt.gcf()
-        fig.set_size_inches(20 / 2.54, 20 / 2.54)  # Converting from centimeters to inches
-        plt.show()
+        # fig.set_size_inches(20 / 2.54, 20 / 2.54)  # Converting from centimeters to inches
+
         # plt.savefig(f"{fwDir}{vnam_b.lower()}_dom_all2.png", dpi=600)
         saveImg = f"{fwDir}{vnam_b.lower()}_dom_all2.png"
         os.makedirs(os.path.dirname(saveImg), exist_ok=True)
         plt.savefig(saveImg, dpi=600)
         log.info(f'[CHECK] saveImg : {saveImg}')
+        # plt.show()
         plt.close()
 
         # plot 3
@@ -408,14 +436,31 @@ def dspCycl(fwDir, vnam_b, mrVarT_btA, mrVarT_btAs, dtrnTyp, dspSel, j, rVarI_bA
         plt.grid(True)
         plt.box(True)
         fig = plt.gcf()
-        fig.set_size_inches(20 / 2.54, 20 / 2.54)  # Converting from centimeters to inches
-        plt.show()
+        # fig.set_size_inches(20 / 2.54, 20 / 2.54)  # Converting from centimeters to inches
+
         # plt.savefig(f"{fwDir}{vnam_b.lower()}_dom_all3.png", dpi=600)
         saveImg = f"{fwDir}{vnam_b.lower()}_dom_all3.png"
         os.makedirs(os.path.dirname(saveImg), exist_ok=True)
         plt.savefig(saveImg, dpi=600)
         log.info(f'[CHECK] saveImg : {saveImg}')
+        # plt.show()
         plt.close()
+
+    mrVarT_btAmDT[np.isnan(mrVarT_btAmDT)] = 0
+    # SineP = sineFit(tha, mrVarT_btAmDT, 0)
+    # SineP = sineFit(tha, mrVarT_btAmDT, isPlot=True)
+    SineP = sineFit(tha, mrVarT_btAmDT, isPlot=True)
+
+    spa2 = SineP[0]
+    spa1 = SineP[1]
+    spa3 = SineP[2]
+    spa4 = SineP[3]
+    spa5 = SineP[4]
+
+    pdp1 = spa2 + spa1 * np.sin(2 * np.pi * spa3 * tha + spa4)
+    pdp2 = pdp1 + mrVarT_btAmMV
+    nos = mrVarT_btAmDT - pdp1
+    pdp3 = mrVarT_btAmMV + nos
 
     if dspSel == 'total':
         fig, axs = plt.subplots(4, 1)
@@ -467,16 +512,17 @@ def dspCycl(fwDir, vnam_b, mrVarT_btA, mrVarT_btAs, dtrnTyp, dspSel, j, rVarI_bA
         axs[3].set_ylabel(rVarI_bA)
 
         fig.tight_layout()
-        plt.show()
         # plt.savefig(f"{fwDir}{vnam_b.lower()}_dom_all4.png", dpi=600)
         saveImg = f"{fwDir}{vnam_b.lower()}_dom_all4.png"
         os.makedirs(os.path.dirname(saveImg), exist_ok=True)
         plt.savefig(saveImg, dpi=600)
         log.info(f'[CHECK] saveImg : {saveImg}')
+        # plt.show()
         plt.close(fig)
 
     if dspSel == 'each':
         if ((vnam_b == 'zdr' and spa1 > 0.15) or (vnam_b == 'pdp' and spa1 > 2)):
+
             plt.figure()
             plt.plot(np.full_like(pdp1, +spa1), 'c-', linewidth=0.5)
             plt.plot(np.full_like(pdp1, -spa1), 'c-', linewidth=0.5)
@@ -493,7 +539,6 @@ def dspCycl(fwDir, vnam_b, mrVarT_btA, mrVarT_btAs, dtrnTyp, dspSel, j, rVarI_bA
             plt.grid(True)
             plt.ylabel(f'Detrended {rVarI_bA}')
             plt.tight_layout()
-            plt.show()
 
             fwDirEc = os.path.join(fwDir, 'Ech/')
             os.makedirs(os.path.dirname(fwDirEc), exist_ok=True)
@@ -502,16 +547,8 @@ def dspCycl(fwDir, vnam_b, mrVarT_btA, mrVarT_btAs, dtrnTyp, dspSel, j, rVarI_bA
             os.makedirs(os.path.dirname(saveImg), exist_ok=True)
             plt.savefig(saveImg, dpi=600)
             log.info(f'[CHECK] saveImg : {saveImg}')
+            # plt.show()
             plt.close()
-
-
-def power1(x, a, b):
-    return a * x ** b
-
-
-def power2(x, a, b, c):
-    return a * x ** b + c
-
 
 def ccpltXY_191013_n(vardataX, vardataY, Xthd, Ythd,
                      vnam_a, vnam_b,
@@ -520,6 +557,7 @@ def ccpltXY_191013_n(vardataX, vardataY, Xthd, Ythd,
                      vidx,
                      refFlt, phvFlt, appPDPelim,
                      refThz, phvThz, pdpThz, ntex, mtex):
+
     vardataX[vidx == 1] = np.nan
     vardataY[vidx == 1] = np.nan
 
@@ -560,7 +598,7 @@ def ccpltXY_191013_n(vardataX, vardataY, Xthd, Ythd,
     fig, ax = plt.subplots(figsize=(10, 5))
     pc = ax.pcolormesh(xedges, yedges, H.T, cmap=setCmap)
     cb = fig.colorbar(pc, ax=ax)
-    # plt.show()
+    # # plt.show()
 
     eXfit = vardataO.copy()
     eYfit = vardataA.copy()
@@ -594,11 +632,11 @@ def ccpltXY_191013_n(vardataX, vardataY, Xthd, Ythd,
 
     Tbl = pd.DataFrame({'arXdata': arXdata, 'arYdata': arYdata})
 
-    tauList = [0.25, 0.50, 0.75]
     predT = np.linspace(xqmedA[0], xqmedA[-1], len(qmedA))
 
     # 25, 50, 75% 예측
     quartiles = []
+    tauList = [0.25, 0.50, 0.75]
     for tau in tauList:  # Loop over the list of quantiles
         # Fit the model for each quantile
         gbr = GradientBoostingRegressor(loss='quantile', alpha=tau)
@@ -614,7 +652,7 @@ def ccpltXY_191013_n(vardataX, vardataY, Xthd, Ythd,
     # Tbl['prd'] = Mdl.predict(Tbl[['arXdata']])
     # plt.plot(Tbl['arXdata'], Tbl['arYdata'])
     # plt.plot(Tbl['arXdata'], Tbl['prd'], 'o', c='red')
-    # plt.show()
+    # # plt.show()
 
     fmed = [0, 0]
     fmed2 = [0, 0, 0]
@@ -670,7 +708,7 @@ def ccpltXY_191013_n(vardataX, vardataY, Xthd, Ythd,
     else:
         xVal = np.arange(0.1, xL[1], 0.1)
 
-    # 중갑값
+    # 중간값
     yValmed = power1(xVal, *fmed)
     yValmed2 = power2(xVal, *fmed2)
 
@@ -780,7 +818,7 @@ def ccpltXY_191013_n(vardataX, vardataY, Xthd, Ythd,
     plt.xlabel(rVarI_a, fontsize=11, fontweight='normal', color='k')
     plt.ylabel(rVarI_b, fontsize=11, fontweight='normal', color='k')
     plt.savefig(sp, dpi=600, bbox_inches='tight', transparent=False)
-    plt.show()
+    # plt.show()
     plt.close()
     log.info(f'[CHECK] saveImg : {sp}')
 
@@ -955,27 +993,19 @@ class DtaProcess(object):
 
         try:
 
-            if (platform.system() == 'Windows'):
-
-                # 옵션 설정
-                sysOpt = {
-                    # 시작/종료 시간
-                    'srtDate': '2001-01-01'
-                    , 'endDate': '2018-01-01'
-                }
-
+            if platform.system() == 'Windows':
+                pass
             else:
-
-                # 옵션 설정
-                sysOpt = {
-                    # 시작/종료 시간
-                    'srtDate': '2010-01-01'
-                    , 'endDate': '2015-01-01'
-                }
-
                 globalVar['inpPath'] = '/DATA/INPUT'
                 globalVar['outPath'] = '/DATA/OUTPUT'
                 globalVar['figPath'] = '/DATA/FIG'
+
+            # 옵션 설정
+            sysOpt = {
+                # 시작/종료 시간
+                'srtDate': '2001-01-01'
+                , 'endDate': '2018-01-01'
+            }
 
             # ======================================================================================
             # 테스트 파일
@@ -991,23 +1021,31 @@ class DtaProcess(object):
             # matData.keys()
 
             # ======================================================================================
-            # (차등반사도의 방위각 종속성) 특정 사상에 대하여 방위각 방향의 차등반사도 변화를 모니터링
+            # 파일 검색
             # ======================================================================================
             inpFile = '{}/{}/{}'.format(globalVar['inpPath'], serviceName, '*.*')
             fileList = sorted(glob.glob(inpFile))
 
             if fileList is None or len(fileList) < 1:
                 log.error('[ERROR] inpFile : {} / {}'.format(inpFile, '입력 자료를 확인해주세요.'))
+                exit(0)
 
+            # ======================================================================================
+            # (차등반사도의 방위각 종속성) 특정 사상에 대하여 방위각 방향의 차등반사도 변화를 모니터링
+            # ======================================================================================
+            # ***************************************************
+            # 단일 파일에서 주요 변수 (vnamB) 자료 처리
+            # ***************************************************
+            # 3차원 배열 초기화
+            mrVarT_btA = np.nan * np.ones((len(fileList) * 4, len(fileList) * 1, 360))
             # fileInfo = fileList[0]
-            mrVarT_btA = np.empty((0, 360))
             for fileIdx, fileInfo in enumerate(fileList):
                 log.info(f'[CHECK] fileInfo: {fileInfo}')
 
                 fileNameNoExt = os.path.basename(fileInfo).split('.')[0]
 
                 # uf 레이더 파일 읽기
-                dictData = readUfRadarData(fileInfo)
+                data = readUfRadarData(fileInfo)
 
                 # Reinitialize variables
                 refFlt = 'no'  # ref filter
@@ -1025,14 +1063,15 @@ class DtaProcess(object):
                 srtEA = 3
                 endEA = srtEA
 
-                data = dictData
-                azm_r = np.transpose(data['arr_azm_rng_elv'][0])
-                rng_r = np.transpose(data['arr_azm_rng_elv'][1])
-                elv_r = np.transpose(data['arr_azm_rng_elv'][2])
+                # azm_r = np.transpose(data['arr_azm_rng_elv'][0])
+                # rng_r = np.transpose(data['arr_azm_rng_elv'][1])
+                # elv_r = np.transpose(data['arr_azm_rng_elv'][2])
+                azm_r = data['arr_azm_rng_elv'][0].T
+                rng_r = data['arr_azm_rng_elv'][1].T
+                elv_r = data['arr_azm_rng_elv'][2].T
 
                 Tang = data['fix_ang']
                 Tang[Tang > 180] -= 360
-                # mrVarT_btA = np.empty((0, 360))
 
                 # if datDR == ':\\Data190\\' or datDR == ':\\Data191\\':
                 #     didxs = data['arr_etc'][4].astype(int)
@@ -1042,17 +1081,17 @@ class DtaProcess(object):
                 didxe = data['arr_etc'][3].astype(int)
 
                 # set '0' to '1'
-                # didxs += 1
-                # didxe += 1
+                didxs += 1
+                didxe += 1
                 didX2 = np.vstack((didxs, didxe))
 
                 Fang = elv_r[didxs].T
+                log.info(f'[CHECK] Fang : {Fang}')
 
                 if data['arr_prt_prm_vel'][0][0] == data['arr_prt_prm_vel'][0][-1]:
                     Tprf = 'sing'
                 else:
                     Tprf = 'dual'
-                log.info(f'[CHECK] Fang : {Fang}')
 
                 bw = data['arr_lat_lon_alt_bwh'][3]
 
@@ -1062,9 +1101,10 @@ class DtaProcess(object):
                     vnam_b = vnam_b.lower()
                     log.info(f'[CHECK] vnam_b : {vnam_b}')
 
-                    for i in range(srtEA - 1, endEA):
-                        # for i in range(srtEA, endEA + 1):
-                        Arng = np.arange(didxs[i], didxe[i] + 1)
+                    # for i in range(srtEA - 1, endEA):
+                    for i in range(srtEA, endEA + 1):
+                        # Arng = np.arange(didxs[i], didxe[i] + 1)
+                        Arng = range(didxs[i - 1], didxe[i - 1])
                         # log.info(f'[CHECK] Arng : {Arng}')
 
                         # 아래에 있는 getVarInfo191013()는 MATLAB 코드에 정의된 함수로,
@@ -1072,9 +1112,12 @@ class DtaProcess(object):
                         rVar_b, rVarI_b = getVarInfo191013(data, vnam_b)
                         rVarI_bA[ip] = rVarI_b
 
-                        rVarf_R = np.transpose(data['arr_ref'])
-                        rVarc_R = np.transpose(data['arr_phv'])
-                        rVarp_R = np.transpose(data['arr_pdp'])
+                        # rVarf_R = np.transpose(data['arr_ref'])
+                        # rVarc_R = np.transpose(data['arr_phv'])
+                        # rVarp_R = np.transpose(data['arr_pdp'])
+                        rVarf_R = data['arr_ref'].T
+                        rVarc_R = data['arr_phv'].T
+                        rVarp_R = data['arr_pdp'].T
 
                         rVar_bT = rVar_b[:, Arng]
                         rVarf = rVarf_R[:, Arng]
@@ -1084,10 +1127,10 @@ class DtaProcess(object):
                         rVarT_b, vidx_b = prepcss_new(refFlt, phvFlt, appPDPelim, refThz, phvThz, pdpThz, ntex, mtex, rVarf, rVarc, rVarp, rVar_bT)
 
                         # xr.DataArray(rVarT_b).plot()
-                        # plt.show()
+                        # # plt.show()
                         #
                         # xr.DataArray(vidx_b).plot()
-                        # plt.show()
+                        # # plt.show()
 
                         rVarT_bt = rVarT_b
 
@@ -1101,41 +1144,57 @@ class DtaProcess(object):
                             rVarT_bt[np.logical_or(rVarT_bt < -100, rVarT_bt > 100)] = np.nan
 
                         # xr.DataArray(rVarT_bt).plot()
-                        # plt.show()
+                        # # plt.show()
 
                         # mrVarT_bt = np.nanmean(rVarT_bt)
                         mrVarT_bt = np.nanmean(rVarT_bt, axis=0)
-                        mrVarT_bt = np.convolve(mrVarT_bt, np.ones((3,)) / 3, mode='same')
+                        # mrVarT_bt = np.convolve(mrVarT_bt, np.ones((3,)) / 3, mode='same')
+                        mrVarT_bt = pd.Series(mrVarT_bt).rolling(window=3).mean()
 
                         ta = np.nan * np.ones((360,))
+                        # ta = np.nan * np.ones((,360))
                         ta[:len(mrVarT_bt)] = mrVarT_bt
 
                         # mrVarT_btA[ip, i, :] = ta
-                        mrVarT_btA = np.vstack((mrVarT_btA, ta))
+                        # mrVarT_btA = np.vstack((mrVarT_btA, ta))
+                        # mrVarT_btA = np.vstack((mrVarT_btA, ta))
+                        mrVarT_btA[ip, i, :] = ta
 
                         # xr.DataArray(ta).plot()
-                        # plt.show()
+                        # xr.DataArray(mrVarT_btA).plot()
+                        # # plt.show()
 
-                        fwDir = '{}/{}/{}/'.format(globalVar['figPath'], serviceName, fileNameNoExt)
+                        # fwDir = '{}/{}/{}/'.format(globalVar['figPath'], serviceName, fileNameNoExt)
+                        fwDir = '{}/{}/'.format(globalVar['figPath'], serviceName)
                         os.makedirs(os.path.dirname(fwDir), exist_ok=True)
                         if vnam_b in ['zdr', 'pdp']:
                             dspCycl(fwDir, vnam_b, None, ta, 'fix', 'each', fileIdx, rVarI_bA[ip])
 
-            # for ipi in range(len(vnamB)):
-            #     vnam_b = vnamB[ipi].lower()
-            #     log.info(f'[CHECK] vnam_b : {vnam_b}')
-            #
-            #     mrVarT_btAs = np.squeeze(mrVarT_btA[ipi, :])
-            #
-            #     fwDir = '{}/{}/{}/'.format(globalVar['figPath'], serviceName, fileNameNoExt)
-            #     dspCycl(fwDir, vnam_b, mrVarT_btA, mrVarT_btAs, 'fix', 'total', None, rVarI_bA[ipi])
+            # ***************************************************
+            # 전체 파일 목록에서 주요 변수 (vnamB) 자료 처리
+            # ***************************************************
+            for ipi, vnam_b in enumerate(vnamB):
+                log.info(f'[CHECK] vnam_b : {vnam_b}')
+
+                # mrVarT_btAs = np.squeeze(mrVarT_btA[ipi, :])
+                mrVarT_btAs = np.squeeze(mrVarT_btA[ipi, :, :])
+
+                # fwDir = '{}/{}/{}/'.format(globalVar['figPath'], serviceName, fileNameNoExt)
+                fwDir = '{}/{}/'.format(globalVar['figPath'], serviceName)
+                dspCycl(fwDir, vnam_b, mrVarT_btA, mrVarT_btAs, 'fix', 'total', None, rVarI_bA[ipi])
 
             # ======================================================================================
             # 편파 매개변수의 측정 오류 추정치를 이용하여 레이더 하드웨어 및 데이터 수집 시스템의 품질 평가
             # ======================================================================================
+            # ***************************************************
+            # 단일 파일에서 주요 변수 (vnamA) 자료 처리
+            # ***************************************************
+            mrVarT_btA = np.empty((0, 360))
             # fileInfo = fileList[0]
             for fileIdx, fileInfo in enumerate(fileList):
                 log.info(f'[CHECK] fileInfo: {fileInfo}')
+
+                # if (fileIdx > 10): continue
 
                 # uf 레이더 파일 읽기
                 dictData = readUfRadarData(fileInfo)
@@ -1168,8 +1227,6 @@ class DtaProcess(object):
                 endEA = 2
 
                 data = dictData
-                mrVarT_btA = np.empty((0, 360))
-                # j = 0
 
                 azm_r = data['arr_azm_rng_elv'][0]  # 1080x1 (360x3)
                 rng_r = data['arr_azm_rng_elv'][1]  # 1196x1
@@ -1193,87 +1250,147 @@ class DtaProcess(object):
                     vnam_a = vnamA[ip]
                     vnam_b = vnamB[ip]
 
-                for i in range(srtEA, endEA + 1):
-                    Arng = np.arange(didxs[i] - 1, didxe[i])
+                    for i in range(srtEA, endEA + 1):
+                        Arng = np.arange(didxs[i] - 1, didxe[i])
 
-                    rVar_a, rVarI_a = getVarInfo191013(data, vnam_a)  # need translation of function getVarInfo191013
-                    rVar_b, rVarI_b = getVarInfo191013(data, vnam_b)  # need translation of function getVarInfo191013
+                        rVar_a, rVarI_a = getVarInfo191013(data, vnam_a)  # need translation of function getVarInfo191013
+                        rVar_b, rVarI_b = getVarInfo191013(data, vnam_b)  # need translation of function getVarInfo191013
 
-                    rVarf_R = np.transpose(data['arr_ref'])
-                    rVarc_R = np.transpose(data['arr_phv'])
-                    rVarp_R = np.transpose(data['arr_pdp'])
+                        rVarf_R = np.transpose(data['arr_ref'])
+                        rVarc_R = np.transpose(data['arr_phv'])
+                        rVarp_R = np.transpose(data['arr_pdp'])
 
-                    rVar_aT = rVar_a[:, Arng]
-                    rVar_bT = rVar_b[:, Arng]
+                        rVar_aT = rVar_a[:, Arng]
+                        rVar_bT = rVar_b[:, Arng]
 
-                    rVarf = rVarf_R[:, Arng]
-                    rVarc = rVarc_R[:, Arng]
-                    rVarp = rVarp_R[:, Arng]
+                        rVarf = rVarf_R[:, Arng]
+                        rVarc = rVarc_R[:, Arng]
+                        rVarp = rVarp_R[:, Arng]
 
-                    if ip == 1:
-                        rVarct0 = rVarc
-                        rVarct = np.where((rVarc < 0) | (rVarc > 1), np.nan, rVarc)
+                        if ip == 1:
+                            rVarct0 = rVarc
+                            rVarct = np.where((rVarc < 0) | (rVarc > 1), np.nan, rVarc)
 
-                        rVarft0 = rVarf
-                        rVarft = np.where((rVarf < -100) | (rVarf > 100), np.nan, rVarf)
+                            rVarft0 = rVarf
+                            rVarft = np.where((rVarf < -100) | (rVarf > 100), np.nan, rVarf)
 
-                        rVarpt0 = rVarp
-                        rVarpt = np.where((rVarp < -300) | (rVarp > 300), np.nan, rVarp)
+                            rVarpt0 = rVarp
+                            rVarpt = np.where((rVarp < -300) | (rVarp > 300), np.nan, rVarp)
 
-                        rVardt0 = rVar_bT
-                        rVardt = np.where((rVar_bT < -10) | (rVar_bT > 10), np.nan, rVar_bT)
+                            rVardt0 = rVar_bT
+                            rVardt = np.where((rVar_bT < -10) | (rVar_bT > 10), np.nan, rVar_bT)
 
-                    rVarT_a, vidx_a = prepcss_new(refFlt, phvFlt, appPDPelim, refThz, phvThz, pdpThz, ntex, mtex, rVarf, rVarc, rVarp, rVar_aT)  # need translation of function prepcss_new
-                    rVarT_b, vidx_b = prepcss_new(refFlt, phvFlt, appPDPelim, refThz, phvThz, pdpThz, ntex, mtex, rVarf, rVarc, rVarp, rVar_bT)  # need translation of function prepcss_new
+                        rVarT_a, vidx_a = prepcss_new(refFlt, phvFlt, appPDPelim, refThz, phvThz, pdpThz, ntex, mtex, rVarf, rVarc, rVarp, rVar_aT)
+                        rVarT_b, vidx_b = prepcss_new(refFlt, phvFlt, appPDPelim, refThz, phvThz, pdpThz, ntex, mtex, rVarf, rVarc, rVarp, rVar_bT)
 
-                    if vnam_b == 'ZDR':
-                        rVarT_b = np.where(rVarc < pco, np.nan, rVarT_b)
+                        if vnam_b == 'ZDR':
+                            rVarT_b = np.where(rVarc < pco, np.nan, rVarT_b)
 
-                    if ip == 1:
-                        rVarT_bt = rVarT_b
-                        rVarT_bt = np.where((rVarT_bt < -10) | (rVarT_bt > 10), np.nan, rVarT_bt)
+                        if ip == 1:
+                            rVarT_bt = rVarT_b
+                            rVarT_bt = np.where((rVarT_bt < -10) | (rVarT_bt > 10), np.nan, rVarT_bt)
 
-                        mrVarT_bt = np.nanmean(rVarT_bt)
-                        mrVarT_bt = np.convolve(mrVarT_bt, np.ones(3), 'valid') / 3
+                            # mrVarT_bt = np.nanmean(rVarT_bt)
+                            mrVarT_bt = np.nanmean(rVarT_bt, axis=0)
 
-                        ta = np.full(360, np.nan)
-                        ta[:len(mrVarT_bt)] = mrVarT_bt
+                            # mrVarT_bt = np.convolve(mrVarT_bt, np.ones(3), 'valid') / 3
+                            mrVarT_bt = pd.Series(mrVarT_bt).rolling(window=3).mean()
 
-                        mrVarT_btA = np.vstack((mrVarT_btA, ta))
+                            ta = np.full(360, np.nan)
+                            ta[:len(mrVarT_bt)] = mrVarT_bt
 
-                        texRng = np.ones((ntex, mtex))  # std
-                        rVarT_b[np.isnan(rVarT_b)] = 0
-                        rVarT_b = generic_filter(rVarT_b, np.nanstd, footprint=texRng)
+                            mrVarT_btA = np.vstack((mrVarT_btA, ta))
 
-                        atyp = data['str_typ']
+                            # std
+                            texRng = np.ones((ntex, mtex))
+                            rVarT_b[np.isnan(rVarT_b)] = 0
+                            rVarT_b = generic_filter(rVarT_b, np.nanstd, footprint=texRng)
 
-                        # if RdrNam in ['BSL', 'SBS']:
-                        #     TLE_fname = fname[8:-4]
-                        # else:
-                        #     TLE_fname = fname[:-4]
-                        TLE_fname = os.path.basename(fileInfo)[8:-4]
+                            atyp = data['str_typ']
 
-                        if Tang[i] < 0:
-                            TLE_Tang = '-' + "{:.1f}".format(abs(Tang[i]))
-                        else:
-                            TLE_Tang = '+' + "{:.1f}".format(Tang[i])
+                            # if RdrNam in ['BSL', 'SBS']:
+                            #     TLE_fname = fname[8:-4]
+                            # else:
+                            #     TLE_fname = fname[:-4]
+                            TLE_fname = os.path.basename(fileInfo)[8:-4]
 
-                        TLE = [atyp, '(' + TLE_Tang[0:2] + ',' + TLE_Tang[3] + 'deg' + ')_' + Tprf + '_' + vnam_a + '-' + vnam_b + '_' + TLE_fname]
+                            if Tang[i] < 0:
+                                TLE_Tang = '-' + "{:.1f}".format(abs(Tang[i]))
+                            else:
+                                TLE_Tang = '+' + "{:.1f}".format(Tang[i])
 
-                        vidxAll = np.logical_or(vidx_a, vidx_b)
+                            TLE = [atyp, '(' + TLE_Tang[0:2] + ',' + TLE_Tang[3] + 'deg' + ')_' + Tprf + '_' + vnam_a + '-' + vnam_b + '_' + TLE_fname]
 
-                        # Apar = {rVarT_a, rVarT_b, 0, 0}
-                        Apar = [rVarT_a, rVarT_b, 0, 0]
+                            vidxAll = np.logical_or(vidx_a, vidx_b)
 
-                        # fwDir = None
-                        fwDir = '{}/{}/{}.png'.format(globalVar['figPath'], serviceName, TLE[0][0] + TLE[1])
-                        fPar, fPar2, mPar = ccpltXY_191013_n(Apar[0], Apar[1], Apar[2], Apar[3],
-                                                             vnam_a, vnam_b,
-                                                             rVarI_a, rVarI_b, Tang[i],
-                                                             fwDir, TLE,
-                                                             vidxAll,
-                                                             refFlt, phvFlt, appPDPelim,
-                                                             refThz, phvThz, pdpThz, ntex, mtex)
+                            # Apar = {rVarT_a, rVarT_b, 0, 0}
+                            Apar = [rVarT_a, rVarT_b, 0, 0]
+
+                            fwDir = '{}/{}/{}.png'.format(globalVar['figPath'], serviceName, TLE[0][0] + TLE[1])
+                            fPar, fPar2, mPar = ccpltXY_191013_n(Apar[0], Apar[1], Apar[2], Apar[3],
+                                                                 vnam_a, vnam_b,
+                                                                 rVarI_a, rVarI_b, Tang[i],
+                                                                 fwDir, TLE,
+                                                                 vidxAll,
+                                                                 refFlt, phvFlt, appPDPelim,
+                                                                 refThz, phvThz, pdpThz, ntex, mtex)
+
+            # ***************************************************
+            # 전체 파일 목록에서 주요 변수 (vnamA) 자료 처리
+            # ***************************************************
+            mvStep = 90
+            fwDir = '{}/{}/'.format(globalVar['figPath'], serviceName)
+
+            # Compute mean along the specified axis
+            mrVarT_btAm = np.nanmean(mrVarT_btA, axis=0)
+
+            # Compute moving average
+            mrVarT_btAmMV = pd.Series(mrVarT_btAm).rolling(window=mvStep).mean().values
+
+            plt.figure()
+            plt.plot(mrVarT_btA.T)
+            plt.plot(mrVarT_btAm, 'k-', linewidth=3)
+            plt.plot(mrVarT_btAmMV, 'w-', linewidth=2)
+            plt.xlim([0, 360])
+            plt.xticks(np.arange(0, 361, 30))
+            plt.grid(True)
+            saveImg = f"{fwDir}zdr_dom_all.png"
+            os.makedirs(os.path.dirname(saveImg), exist_ok=True)
+            plt.savefig(saveImg, dpi=600)
+            log.info(f'[CHECK] saveImg : {saveImg}')
+            # plt.show()
+            plt.close()
+
+            plt.figure()
+            plt.plot(mrVarT_btAm, 'k-', linewidth=3)
+            plt.plot(mrVarT_btAmMV, 'b-', linewidth=2)
+            plt.xlim([0, 360])
+            plt.xticks(np.arange(0, 361, 30))
+            plt.grid(True)
+            saveImg = f"{fwDir}zdr_dom_all2.png"
+            os.makedirs(os.path.dirname(saveImg), exist_ok=True)
+            plt.savefig(saveImg, dpi=600)
+            log.info(f'[CHECK] saveImg : {saveImg}')
+            # plt.show()
+            plt.close()
+
+            mrVarT_btAmDT = mrVarT_btAm - mrVarT_btAmMV
+
+            plt.figure()
+            plt.plot(mrVarT_btAmDT, 'r-', linewidth=2)
+            plt.xlim([0, 360])
+            # plt.ylim([-0.2, 0.2])
+            plt.xticks(np.arange(0, 361, 30))
+            plt.grid(True)
+            saveImg = f"{fwDir}zdr_dom_all3.png"
+            os.makedirs(os.path.dirname(saveImg), exist_ok=True)
+            plt.savefig(saveImg, dpi=600)
+            log.info(f'[CHECK] saveImg : {saveImg}')
+            # plt.show()
+            plt.close()
+
+            # Save the results to a .npz file, which is numpy's file format
+            # np.savez(fwDir + 'zdr_dom_all', mrVarT_btA=mrVarT_btA, mrVarT_btAm=mrVarT_btAm, mrVarT_btAmMV=mrVarT_btAmMV, mrVarT_btAmDT=mrVarT_btAmDT)
 
         except Exception as e:
             log.error("Exception : {}".format(e))
