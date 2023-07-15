@@ -319,12 +319,11 @@ def makeDlModel(subOpt=None, xCol=None, yCol=None, inpData=None, modelKey=None, 
         # saveModel = '{}/{}/{}-{}-{}-{}-{}.model'.format(globalVar['outPath'], serviceName, modelKey, 'final', 'h2o', 'act', '*')
         saveModel = '{}/{}/{}/{}/{}-{}-{}-{}-{}.model'.format(globalVar['outPath'], serviceName, 'MODEL', addrCode, modelKey, 'final', 'h2o', 'act', '*')
         saveModelList = sorted(glob.glob(saveModel), reverse=True)
+
         xyCol = xCol.copy()
         xyCol.append(yCol)
         # data = inpData[xyCol]
         data = inpData[xyCol].dropna()
-
-        # h2o.shutdown(prompt=False)
 
         if (not subOpt['isInit']):
             h2o.init()
@@ -480,6 +479,10 @@ class DtaProcess(object):
     # ================================================
     # Python을 이용한 부동산 데이터 분석 및 가격 예측 고도화 및 구글 스튜디오 시각화
 
+    # conda activate py36
+    # cd /SYSTEMS/PROG/PYTHON/PyCharm/src/talentPlatform/unitSys
+    # python TalentPlatform-LSH0454-Active-OpenAPI-Model.py --addrList "서울특별시 서초구"
+
     # ================================================================================================
     # 환경변수 설정
     # ================================================================================================
@@ -571,15 +574,15 @@ class DtaProcess(object):
                 # , 'addrList': ['서울특별시 강북구', '서울특별시 송파구', '서울특별시 강남구', '서울특별시 양천구', '서울특별시 서초구']
                 # , 'addrList': ['서울특별시 양천구']
                 # , 'addrList': ['서울특별시 송파구', '서울특별시 강남구', '서울특별시 서초구']
-                , 'addrList': ['서울특별시 강남구', '서울특별시 서초구']
+                # , 'addrList': ['서울특별시 송파구']
+                , 'addrList': [globalVar['addrList']]
             }
-            # 옵션 설정
 
             # *********************************************************************************
             # 법정동 코드 읽기
             # *********************************************************************************
             inpFile = '{}/{}'.format(globalVar['mapPath'], 'admCode/법정동코드_전체자료.txt')
-            fileList = glob.glob(inpFile)
+            fileList = sorted(glob.glob(inpFile), reverse=True)
             if fileList is None or len(fileList) < 1:
                 log.error(f'[ERROR] inpFile : {inpFile} / 입력 자료를 확인해주세요.')
 
@@ -601,7 +604,7 @@ class DtaProcess(object):
                 log.info(f'[CHECK] addrInfo : {addrInfo}')
 
                 lcnsInpFile = '{}/{}/{}/{}/{}.csv'.format(globalVar['outPath'], serviceName, '전처리', addrInfo, '건축 인허가_*_*')
-                lcnsFileList = sorted(glob.glob(lcnsInpFile))
+                lcnsFileList = sorted(glob.glob(lcnsInpFile), reverse=True)
                 if lcnsFileList is None or len(lcnsFileList) < 1:
                     log.error('[ERROR] inpFile : {} / {}'.format(lcnsInpFile, '입력 자료를 확인해주세요.'))
                     raise Exception('[ERROR] inpFile : {} / {}'.format(lcnsInpFile, '입력 자료를 확인해주세요.'))
@@ -613,6 +616,7 @@ class DtaProcess(object):
 
                 # lcnsData.drop(['Unnamed: 0'], axis=1, inplace=True)
                 lcnsDataL1 = lcnsData.groupby(['addrDtlInfo'], as_index=False)['archGbCdNm'].count()
+                # log.info(f'[CHECK] lcnsDataL1 : {lcnsDataL1}')
 
                 # *****************************************************
                 # 아파트 전월세
@@ -620,7 +624,8 @@ class DtaProcess(object):
                 # prvsMntsrInpFile = '{}/{}/{}'.format(globalVar['inpPath'], serviceName, '서울특별시 강북구 아파트 전월세가_인허가_20111101_20201101.csv')
                 # prvsMntsrInpFile = '{}/{}/{}/{}/{}.csv'.format(globalVar['outPath'], serviceName, '전처리', addrInfo, '건축 인허가-아파트 전월세_*_*')
                 prvsMntsrInpFile = '{}/{}/{}/{}/{}.csv'.format(globalVar['outPath'], serviceName, '전처리', addrInfo, '건축 인허가-아파트 전월세_*_*')
-                prvsMntsrFileList = sorted(glob.glob(prvsMntsrInpFile))
+                prvsMntsrFileList = sorted(glob.glob(prvsMntsrInpFile), reverse=True)
+
                 if prvsMntsrFileList is None or len(prvsMntsrFileList) < 1:
                     log.error('[ERROR] inpFile : {} / {}'.format(prvsMntsrInpFile, '입력 자료를 확인해주세요.'))
                     raise Exception('[ERROR] inpFile : {} / {}'.format(prvsMntsrInpFile, '입력 자료를 확인해주세요.'))
@@ -680,7 +685,8 @@ class DtaProcess(object):
                 # *****************************************************
                 # realPriceInpFile = '{}/{}/{}'.format(globalVar['inpPath'], serviceName, '서울특별시 강북구 아파트 실거래가_인허가_20111101_20201101.csv')
                 realPriceInpFile = '{}/{}/{}/{}/{}.csv'.format(globalVar['outPath'], serviceName, '전처리', addrInfo, '건축 인허가-아파트 실거래_*_*')
-                realPriceFileList = glob.glob(realPriceInpFile)
+                realPriceFileList = sorted(glob.glob(realPriceInpFile), reverse=True)
+
                 if realPriceFileList is None or len(realPriceFileList) < 1:
                     log.error('[ERROR] inpFile : {} / {}'.format(realPriceInpFile, '입력 자료를 확인해주세요.'))
                     raise Exception('[ERROR] inpFile : {} / {}'.format(realPriceInpFile, '입력 자료를 확인해주세요.'))
