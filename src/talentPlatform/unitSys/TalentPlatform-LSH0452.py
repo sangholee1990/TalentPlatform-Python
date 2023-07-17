@@ -368,17 +368,32 @@ class DtaProcess(object):
                     , axis=1
                 )
 
-
                 # *******************************************************************
                 # 상세정보 가공
                 # *******************************************************************
                 dataL2 = dataL1.loc[dataL1['SIDO'] == '서울시']
 
                 colList = ['GID', 'SIDO', 'SIGUNGU', 'TOWN', 'YEAR', 'CNT', 'AGE', 'SEX', 'LAT', 'LON']
-                dbData = dataL2[colList]
+                dataL3 = dataL2[colList].reset_index(drop=True)
+
+                # 중복 검사
+                # dataL4 = dataL3[dataL3.duplicated(keep=False)]
+                dataL4 = dataL3.groupby(['GID', 'SIDO', 'SIGUNGU', 'TOWN', 'YEAR', 'AGE', 'SEX', 'LAT', 'LON'])['CNT'].sum().reset_index()
+                #
+                # dataL3.dtypes
+                #
+                # dataL3['GID'] = dataL3['GID'].astype('str')
+                # dataL3['SIDO'] = dataL3['SIDO'].astype('str')
+                #
+                #
+                # aa = dataL2.loc[dataL2['GID'] == '다사602415']
+                # bb = aa[aa.duplicated(keep=False)]
+
+                dbData = dataL4
                 dbData['REG_DATE'] = datetime.now(pytz.timezone('Asia/Seoul'))
 
                 dataList = dbData.to_dict(orient='records')
+                # dbMergeData(cfgInfo['session'], cfgInfo['tbRsdInfo'], dataList[0], pkList=[''])
                 dbMergeData(cfgInfo['session'], cfgInfo['tbRsdInfo'], dataList, pkList=[''])
 
                 # *******************************************************************
