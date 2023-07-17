@@ -50,6 +50,7 @@ from sqlalchemy import create_engine, text
 from sqlalchemy.dialects.postgresql import ARRAY
 from sqlalchemy.dialects.postgresql import insert
 from sqlalchemy.pool import QueuePool
+# from retrying import retry
 
 # =================================================
 # 사용자 매뉴얼
@@ -218,23 +219,30 @@ def initCfgInfo(sysOpt):
         dbSchema = dbInfo['dbSchema']
 
         sqlDbUrl = f'{dbType}://{dbUser}:{dbPwd}@{dbHost}:{dbPort}/{dbName}'
-        engine = create_engine(sqlDbUrl)
-        # engine = create_engine(sqlDbUrl, poolclass=QueuePool, pool_size = 2, max_overflow = 0)
+
+        # 커넥션 풀 관리
+        # engine = create_engine(sqlDbUrl)
+        engine = create_engine(sqlDbUrl, pool_size=20, max_overflow=0)
         sessionMake = sessionmaker(autocommit=False, autoflush=False, bind=engine)
         session = sessionMake()
 
         # DB 연결 시 타임아웃 1시간 설정 : 60 * 60 * 1000
-        session.execute(text("SET statement_timeout = 3600000"))
+        session.execute(text("SET statement_timeout = 3600000;"))
 
         # 트랜잭션이 idle 상태 5분 설정 : 5 * 60 * 1000
-        session.execute(text("SET idle_in_transaction_session_timeout = 300000"))
+        session.execute(text("SET idle_in_transaction_session_timeout = 300000;"))
+
+        # 격리 수준 설정
+        session.execute(text("SET TRANSACTION ISOLATION LEVEL SERIALIZABLE;"))
+
+        # 세션 커밋
+        session.commit()
 
         # 테이블 정보
         metaData = MetaData()
 
         # 예보 모델 테이블
         tbModel = Table('TB_MODEL', metaData, autoload_with=engine, schema=dbSchema)
-
         tbByteModel = Table('TB_BYTE_MODEL', metaData, autoload_with=engine, schema=dbSchema)
         tbIntModel = Table('TB_INT_MODEL', metaData, autoload_with=engine, schema=dbSchema)
 
@@ -265,27 +273,29 @@ def initCfgInfo(sysOpt):
         log.info(f'[END] initCfgInfo')
 
 
-def dbMergeData(sessionMake, table, dataList, pkList=['ANA_DT', 'FOR_DT', 'MODEL_TYPE']):
+# def dbMergeData(sessionMake, table, dataList, pkList=['ANA_DT', 'FOR_DT', 'MODEL_TYPE']):
+# @retry(stop_max_attempt_number=5)
+def dbMergeData(session, table, dataList, pkList=['ANA_DT', 'FOR_DT', 'MODEL_TYPE']):
 
     # log.info(f'[START] dbMergeData')
 
-    with sessionMake() as session:
-        try:
-            stmt = insert(table)
-            onConflictStmt = stmt.on_conflict_do_update(
-                index_elements=pkList
-                , set_=stmt.excluded
-            )
-            session.execute(onConflictStmt, dataList)
-            session.commit()
+    # with sessionMake() as session:
+    try:
+        stmt = insert(table)
+        onConflictStmt = stmt.on_conflict_do_update(
+            index_elements=pkList
+            , set_=stmt.excluded
+        )
+        session.execute(onConflictStmt, dataList)
+        session.commit()
 
-        except Exception as e:
-            session.rollback()
-            log.error(f'Exception : {e}')
+    except Exception as e:
+        session.rollback()
+        log.error(f'Exception : {e}')
 
-        finally:
-            session.close()
-            # log.info(f'[END] dbMergeData')
+    finally:
+        session.close()
+        # log.info(f'[END] dbMergeData')
 
 def dynamicFun(funName, *args, **kwargs):
     log.info(f'[START] dynamicFun')
@@ -369,24 +379,26 @@ def readKierData(modelType, dtDateList, sysOpt, cfgOpt):
                     try:
                         # wrfsolar에서 일사량 관련 인자의 경우 1시간 누적 생산 -> 평균 생산
                         if modelKey == 'wrfsolar':
-                            dbData[dbCol] = data[selCol].values.tolist() if len(data[selCol].values) > 0 else None
+                            # dbData[dbCol] = data[selCol].values.tolist() if len(data[selCol].values) > 0 else None
                             # dbData[dbCol] = np.around(data[selCol].values, 4).tobytes() if len(data[selCol].values) > 0 else None
-                            # dbData[dbCol] = convFloatToIntList(data[selCol].values) if len(data[selCol].values) > 0 else None
+                            dbData[dbCol] = convFloatToIntList(data[selCol].values) if len(data[selCol].values) > 0 else None
 
                         else:
                             key, levIdx = selCol.split('-')
-                            dbData[dbCol] = data[key].isel(Time=timeIdx, bottom_top=int(levIdx)).values.tolist() if len(data[key].isel(Time=timeIdx, bottom_top=int(levIdx)).values) > 0 else None
+                            # dbData[dbCol] = data[key].isel(Time=timeIdx, bottom_top=int(levIdx)).values.tolist() if len(data[key].isel(Time=timeIdx, bottom_top=int(levIdx)).values) > 0 else None
                             # dbData[dbCol] = np.around(data[key].isel(Time=timeIdx, bottom_top=int(levIdx)).values, 4).tobytes() if len(data[key].isel(Time=timeIdx, bottom_top=int(levIdx)).values) > 0 else None
-                            # dbData[dbCol] = convFloatToIntList(data[key].isel(Time=timeIdx, bottom_top=int(levIdx)).values) if len(data[key].isel(Time=timeIdx, bottom_top=int(levIdx)).values) > 0 else None
+                            dbData[dbCol] = convFloatToIntList(data[key].isel(Time=timeIdx, bottom_top=int(levIdx)).values) if len(data[key].isel(Time=timeIdx, bottom_top=int(levIdx)).values) > 0 else None
 
                         # log.info(f'[CHECK] selCol / dbCol : {selCol} / {dbCol}')
                     except Exception as e:
-                        pass
+                        log.error(f'Exception : {e}')
+                        # pass
 
             if len(dbData) < 1: continue
             log.info(f'[CHECK] dbData : {dbData.keys()}')
-            dbMergeData(cfgOpt['sessionMake'], cfgOpt['tbModel'], dbData)
+            # dbMergeData(cfgOpt['sessionMake'], cfgOpt['tbModel'], dbData)
             # dbMergeData(cfgOpt['sessionMake'], cfgOpt['tbIntModel'], dbData)
+            dbMergeData(cfgOpt['session'], cfgOpt['tbIntModel'], dbData)
 
         except Exception as e:
             log.error(f'Exception : {e}')
@@ -414,13 +426,6 @@ def readTmpData(modelType, dtAndDateList, sysOpt, cfgOpt):
                 dbData['FOR_DT'] = dtForDateInfo
                 dbData['MODEL_TYPE'] = modelType
 
-                scaleFactor = 10000
-                addOffset = 0
-
-                # 정변환 : 소수점 4자리 -> 정수형
-                # 역변환 : 정수형 -> 소수점 4자리
-                # ddd = (data_int + addOffset) / scaleFactor
-
                 # 선택 컬럼
                 for dbidx, dbCol in enumerate(sysOpt['TMP']['dbCol']):
                     try:
@@ -429,13 +434,15 @@ def readTmpData(modelType, dtAndDateList, sysOpt, cfgOpt):
                         # dbData[dbCol] = np.around(np.random.randn(1000, 1000), 4).tobytes()
                         dbData[dbCol] = convFloatToIntList(np.random.randn(1000, 1000) * 10)
                     except Exception as e:
-                        pass
+                        log.error(f'Exception : {e}')
+                        # pass
 
                 if len(dbData) < 1: continue
                 log.info(f'[CHECK] dbData : {dbData.keys()}')
                 # dbMergeData(cfgOpt['sessionMake'], cfgOpt['tbModel'], dbData)
                 # dbMergeData(cfgOpt['sessionMake'], cfgOpt['tbByteModel'], dbData)
-                dbMergeData(cfgOpt['sessionMake'], cfgOpt['tbIntModel'], dbData)
+                # dbMergeData(cfgOpt['sessionMake'], cfgOpt['tbIntModel'], dbData)
+                dbMergeData(cfgOpt['session'], cfgOpt['tbIntModel'], dbData)
 
                 # dbDataList.append(dbData)
 
@@ -534,7 +541,7 @@ class DtaProcess(object):
                 , 'dbInfo': {
                     'dbType': 'postgresql'
                     , 'dbUser': 'kier'
-                    , 'dbPwd': 'kier20230707!@#'
+                    , 'dbPwd': ''
                     , 'dbHost': '223.130.134.136'
                     # , 'dbHost': '192.168.0.244'
                     , 'dbPort': '5432'
@@ -551,7 +558,7 @@ class DtaProcess(object):
                 # , 'modelList': ['KIER-LDAPS']
                 # , 'modelList': ['KIER-RDAPS']
                 , 'modelList': ['KIER-LDAPS', 'KIER-RDAPS']
-                # , 'modelList': ['TMP']
+                # , 'modelList': ['TMP3']
                 # , 'modelList': [globalVar['modelList']]
 
                 # 모델 종류에 따른 함수 정의
@@ -559,6 +566,9 @@ class DtaProcess(object):
                     'KIER-LDAPS': 'readKierData'
                     , 'KIER-RDAPS': 'readKierData'
                     , 'TMP': 'readTmpData'
+                    , 'TMP2': 'readTmpData'
+                    , 'TMP3': 'readTmpData'
+                    , 'TMP4': 'readTmpData'
                 }
 
                 # 모델 정보 : 파일 경로, 파일명, 데이터/DB 컬럼 (지표면 wrfsolar 동적 설정, 상층면 wrfout 정적 설정), 시간 간격
@@ -599,6 +609,18 @@ class DtaProcess(object):
                     'dbCol': ['U1000', 'U975', 'U925', 'U900', 'U875', 'U850', 'V1000', 'V975', 'V925', 'V900', 'V875',
                               'V850', 'SW_D', 'SW_DC', 'SW_NET', 'SW_DDNI', 'SW_DDIF', 'U', 'V']
                 }
+                , 'TMP2': {
+                    'dbCol': ['U1000', 'U975', 'U925', 'U900', 'U875', 'U850', 'V1000', 'V975', 'V925', 'V900', 'V875',
+                              'V850', 'SW_D', 'SW_DC', 'SW_NET', 'SW_DDNI', 'SW_DDIF', 'U', 'V']
+                }
+                , 'TMP3': {
+                    'dbCol': ['U1000', 'U975', 'U925', 'U900', 'U875', 'U850', 'V1000', 'V975', 'V925', 'V900', 'V875',
+                              'V850', 'SW_D', 'SW_DC', 'SW_NET', 'SW_DDNI', 'SW_DDIF', 'U', 'V']
+                }
+                , 'TMP4': {
+                    'dbCol': ['U1000', 'U975', 'U925', 'U900', 'U875', 'U850', 'V1000', 'V975', 'V925', 'V900', 'V875',
+                              'V850', 'SW_D', 'SW_DC', 'SW_NET', 'SW_DDNI', 'SW_DDIF', 'U', 'V']
+                }
             }
 
             # *********************************************
@@ -608,69 +630,6 @@ class DtaProcess(object):
             if cfgOpt is None or len(cfgOpt) < 1:
                 log.error(f"cfgOpt : {cfgOpt} / DB 접속 정보를 확인해주세요.")
                 exit(1)
-
-            # *********************************************
-            # [템플릿] DB 가져오기
-            # *********************************************
-            # print('asdfasdf')
-            #
-            # table = cfgOpt['tbByteModel']
-            #
-            # aa = cfgOpt['sessionMake']().execute('SELECT * FROM "DMS01"."TB_BYTE_MODEL"')
-            # # aa = cfgOpt['sessionMake']().execute('SELECT "ANA_DT", "FOR_DT", "MODEL_TYPE", "SW_D" FROM "DMS01"."TB_BYTE_MODEL";')
-            #
-            # # aa = cfgOpt['sessionMake']().execute('SELECT "ANA_DT", "FOR_DT", "MODEL_TYPE", SUBSTRING("SW_D", 0, 0) FROM "DMS01"."TB_BYTE_MODEL";')
-            # # aa = cfgOpt['sessionMake']().execute('SELECT "ANA_DT", "FOR_DT", "MODEL_TYPE", "SW_D" FROM "DMS01"."TB_BYTE_MODEL";')
-            #
-            # # aa = cfgOpt['sessionMake']().execute('SELECT "ANA_DT", "FOR_DT", "MODEL_TYPE", get_byte("SW_D", 3) FROM "DMS01"."TB_BYTE_MODEL";')
-            # bb = aa.fetchall()
-            # dd = pd.DataFrame(bb)
-            #
-            #
-            # aa = cfgOpt['sessionMake']().execute('SELECT "ANA_DT", "FOR_DT", "MODEL_TYPE" * FROM "DMS01"."TB_BYTE_MODEL" WHERE "MODEL_TYPE" = '' ;')
-            # bb = aa.fetchall()
-            # dd = pd.DataFrame(bb)
-            #
-            # tmp_values = np.frombuffer([item[2].encode() for item in bb], dtype=np.dtype('S3'))
-            #
-            #
-            #
-            # gg = np.frombuffer(dd['SW_D'][0]).reshape(1000,1000)
-            #
-            # np.frombuffer(bb[0])
-            #
-            # # array_retrieved = np.frombuffer(array_bytes, dtype=np.float64).reshape(1000, 1000)
-            #
-            #
-            # dd['SW_D']
-            #
-            # # bb = aa.fetchall()
-            # dd = pd.DataFrame(bb)
-            # dd['SW_D']
-            #
-            # aa = cfgOpt['sessionMake']().execute('SELECT "ANA_DT", "FOR_DT", "MODEL_TYPE", "SW_D" FROM "DMS01"."TB_BYTE_MODEL";')
-            #
-            # # SELECT "ANA_DT", "FOR_DT", "MODEL_TYPE", "SW_D"[1][1] FROM "DMS01"."TB_MODEL";
-            # aa = cfgOpt['sessionMake']().execute('SELECT * FROM "DMS01"."TB_GEO"')
-            # aa.fetchall()
-            #
-            # with cfgOpt['sessionMake'] as session:
-            #     try:
-            #         session.execute(query)
-            #         stmt = insert(table)
-            #         onConflictStmt = stmt.on_conflict_do_update(
-            #             index_elements=pkList
-            #             , set_=stmt.excluded
-            #         )
-            #         session.execute(onConflictStmt, dataList)
-            #         session.commit()
-            #
-            #     except Exception as e:
-            #         session.rollback()
-            #         log.error(f'Exception : {e}')
-            #
-            #     finally:
-            #         session.close()
 
             # *********************************************
             # [템플릿] 기본 위경도 정보를 DB 삽입
