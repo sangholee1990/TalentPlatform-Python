@@ -36,6 +36,8 @@ from sqlalchemy import Column, Float
 from sqlalchemy.dialects.mysql import DOUBLE
 from sqlalchemy import Table, Column, Integer, String, MetaData
 from sqlalchemy import Column, Numeric
+from sqlalchemy import create_engine, Table, MetaData
+from sqlalchemy.dialects.mysql import insert as mysql_insert
 
 # =================================================
 # 사용자 매뉴얼
@@ -188,29 +190,37 @@ def initCfgInfo(sysOpt, sysPath):
 
     try:
         # DB 연결 정보
-        pymysql.install_as_MySQLdb()
+        # pymysql.install_as_MySQLdb()
 
         # DB 정보
         config = configparser.ConfigParser()
-        config.read(sysPath, encoding='utf-8')
+        config.read(sysPath, encoding='UTF-8')
 
         configKey = 'mysql-clova-dms02user01'
         dbUser = config.get(configKey, 'user')
         dbPwd = quote_plus(config.get(configKey, 'pwd'))
-        dbHost = config.get(configKey, 'host')
-        dbHost = 'localhost' if dbHost == sysOpt['updIp'] else dbHost
+        dbHost = 'localhost' if config.get(configKey, 'host') == sysOpt['updIp'] else config.get(configKey, 'host')
         dbPort = config.get(configKey, 'port')
         dbName = config.get(configKey, 'dbName')
 
-        dbEngine = create_engine(f'mysql+pymysql://{dbUser}:{dbPwd}@{dbHost}:{dbPort}/{dbName}', echo=False)
-        # dbEngine = create_engine('mariadb://{0}:{1}@{2}:{3}/{4}'.format(dbUser, dbPwd, dbHost, dbPort, dbName), echo=False)
-        sessMake = sessionmaker(bind=dbEngine)
+        sqlDbUrl = f'mysql+pymysql://{dbUser}:{dbPwd}@{dbHost}:{dbPort}/{dbName}'
+
+        engine = create_engine(sqlDbUrl, echo=False, pool_size=20, max_overflow=0)
+        sessMake = sessionmaker(autocommit=False, autoflush=False, bind=engine)
         session = sessMake()
         # session.execute("""SELECT * FROM TB_VIDEO_INFO""").fetchall()
 
+        # 테이블 정보
+        metaData = MetaData()
+
+        tbRsdDown = Table('TB_RSD_DOWN', metaData, autoload_with=engine, schema=dbName)
+        tbRsdInfo = Table('TB_RSD_INFO', metaData, autoload_with=engine, schema=dbName)
+
         result = {
-            'dbEngine': dbEngine
+            'engine': engine
             , 'session': session
+            , 'tbRsdDown': tbRsdDown
+            , 'tbRsdInfo': tbRsdInfo
         }
 
         return result
@@ -220,9 +230,24 @@ def initCfgInfo(sysOpt, sysPath):
         return result
 
     finally:
-        # try, catch 구문이 종료되기 전에 무조건 실행
         log.info('[END] {}'.format('initCfgInfo'))
 
+def dbMergeData(session, table, dataList, pkList=['ANA_DT', 'FOR_DT', 'MODEL_TYPE']):
+
+    try:
+        stmt = mysql_insert(table).values(dataList)
+        updDict = {c.name: stmt.inserted[c.name] for c in stmt.inserted if c.name not in pkList}
+        onConflictStmt = stmt.on_duplicate_key_update(**updDict)
+
+        session.execute(onConflictStmt)
+        session.commit()
+
+    except Exception as e:
+        session.rollback()
+        log.error(f'Exception : {e}')
+
+    finally:
+        session.close()
 
 # ================================================
 # 4. 부 프로그램
@@ -301,49 +326,18 @@ class DtaProcess(object):
 
             # DB 정보
             cfgInfo = initCfgInfo(sysOpt, f"{globalVar['cfgPath']}/system.cfg")
-            dbEngine = cfgInfo['dbEngine']
-            session = cfgInfo['session']
-
-            metadata = MetaData()
-
-            # tbPopDown = Table(
-            #     'TB_POP_DOWN'
-            #     , metadata
-            #     , Column('ID', Integer, primary_key=True, index=True, autoincrement=True, comment="번호")
-            #     , Column('TYPE', String(500), comment="시군구")
-            #     , Column('CSV_INFO', String(500), comment="CSV 파일")
-            #     , Column('REG_DATE', DateTime, default=datetime.now(pytz.timezone('Asia/Seoul')), onupdate=datetime.now(pytz.timezone('Asia/Seoul')), comment="등록일")
-            #     , extend_existing=True
-            # )
-            #
-            # tbPopInfo = Table(
-            #     'TB_POP_INFO'
-            #     , metadata
-            #     , Column('ID', Integer, primary_key=True, index=True, autoincrement=True, comment="번호")
-            #     , Column('GID', String(500), comment="그룹번호")
-            #     , Column('SIDO', String(500), comment="시도")
-            #     , Column('SIGUNGU', String(500), comment="시군구")
-            #     , Column('YEAR', Integer, comment="연도")
-            #     , Column('COR_CNT', Integer, comment="법인")
-            #     , Column('OFF_CNT', Integer, comment="직장인구")
-            #     , Column('COR_RAT', Float, comment="법인 비율")
-            #     , Column('OFF_RAT', Float, comment="직장인구 비율")
-            #     , Column('LAT', Float, comment="위도")
-            #     , Column('LON', Float, comment="경도")
-            #     , Column('REG_DATE', DateTime, default=datetime.now(pytz.timezone('Asia/Seoul')), onupdate=datetime.now(pytz.timezone('Asia/Seoul')), comment="등록일")
-            #     , extend_existing=True
-            # )
-            #
-            # metadata.create_all(bind=dbEngine)
+            if cfgInfo is None or len(cfgInfo) < 1:
+                log.error(f"cfgInfo : {cfgInfo} / DB 접속 정보를 확인해주세요.")
+                exit(1)
 
             # *********************************************************************************
             # 파일 검색
             # *********************************************************************************
-            inpFile = '{}/{}/{}'.format(globalVar['inpPath'], serviceName, '*.csv')
+            # inpFile = '{}/{}/{}'.format(globalVar['inpPath'], serviceName, '*.csv')
+            inpFile = '{}/{}/{}'.format(globalVar['inpPath'], serviceName, '2023년 4월 대한민국 거주인구.csv')
             fileList = sorted(glob.glob(inpFile))
 
             # fileInfo = fileList[1]
-
             data = pd.DataFrame()
             for i, fileInfo in enumerate(fileList):
                 log.info(f'[CHECK] fileInfo: {fileInfo}')
@@ -352,6 +346,8 @@ class DtaProcess(object):
                 tmpData = pd.read_csv(fileInfo, encoding='EUC-KR')
                 tmpData['YEAR'] = int(fileNameNoExt.split('년')[0])
                 tmpData['시도'] = tmpData['시도'].replace('강원도', '강원특별자치도')
+
+                tmpData.drop(['layer', 'path'], inplace=True, axis=1)
                 # tmpData['CNT'] = tmpData[sysOpt['colList']].sum(skipna=True, axis=1)
 
                 tmpDataL1 = pd.melt(tmpData, id_vars=['gid', '성별', '연도', '시도', '시군구', '읍면동', 'x', 'y', 'YEAR'], var_name='AGE', value_name='CNT')
@@ -359,84 +355,58 @@ class DtaProcess(object):
 
                 data = pd.concat([data, tmpDataL2], ignore_index=True)
 
-
-            dataL1 = data.rename(
-                {
-                    'gid': 'GID'
-                    , '시도': 'SIDO'
-                    , '시군구': 'SIGUNGU'
-                    , '읍면동': 'TOWN'
-                    , '성별': 'SEX'
-                    , 'y': 'LAT'
-                    , 'x': 'LON'
-                }
-                , axis=1
-            )
-
-            # 상세정보 가공
-            dataL2 = dataL1
-
-            colList = ['GID', 'SIDO', 'SIGUNGU', 'TOWN', 'YEAR', 'CNT', 'AGE', 'SEX', 'LAT', 'LON']
-            dbData = dataL2[colList]
-            dbData['REG_DATE'] = datetime.now(pytz.timezone('Asia/Seoul'))
-
-            # try:
-            #     dbData.to_sql(name=tbPopInfo.name, con=dbEngine, if_exists='append', index=False)
-            #     session.commit()
-            # except SQLAlchemyError as e:
-            #     session.rollback()
-            #     log.error(f'Exception : {e}')
-
-            # 기본정보 가공
-            # typeList = sorted(set(dataL2['SIDO']))
-            # for i, typeInfo in enumerate(typeList):
-            #     log.info(f'[CHECK] typeInfo : {typeInfo}')
-            #
-            #     selData = dataL2.loc[dataL2['SIDO'] == typeInfo].reset_index(drop=True)
-            #
-            #     saveFile = '{}/{}/{}.csv'.format(globalVar['updPath'], '인구', typeInfo)
-            #     os.makedirs(os.path.dirname(saveFile), exist_ok=True)
-            #     selData.to_csv(saveFile, index=False)
-            #     log.info(f'[CHECK] saveFile : {saveFile}')
-            #
-            #     dbData = pd.DataFrame(
-            #         {
-            #             'TYPE': [typeInfo]
-            #             , 'CSV_INFO': [f"http://{sysOpt['updIp']}:{sysOpt['updPort']}/CSV{saveFile.replace(globalVar['updPath'], '')}"]
-            #         }
-            #     )
-            #     dbData['REG_DATE'] = datetime.now(pytz.timezone('Asia/Seoul'))
-            #
-            #     # try:
-            #     #     dbData.to_sql(name=tbPopDown.name, con=dbEngine, if_exists='append', index=False)
-            #     #     session.commit()
-            #     # except SQLAlchemyError as e:
-            #     #     session.rollback()
-            #     #     log.error(f'Exception : {e}')
-
-            # dataL2 = dataL2.groupby(['GID', 'YEAR']).sum().reset_index()
-            # dataL2 = dataL2.drop_duplicates(subset=['GID', 'YEAR'], inplace=False).reset_index()
+                dataL1 = data.rename(
+                    {
+                        'gid': 'GID'
+                        , '시도': 'SIDO'
+                        , '시군구': 'SIGUNGU'
+                        , '읍면동': 'TOWN'
+                        , '성별': 'SEX'
+                        , 'y': 'LAT'
+                        , 'x': 'LON'
+                    }
+                    , axis=1
+                )
 
 
+                # *******************************************************************
+                # 상세정보 가공
+                # *******************************************************************
+                dataL2 = dataL1.loc[dataL1['SIDO'] == '서울시']
 
-            # # GID 및 연도에 대한 전체 쌍을 생성
-            # idx = pd.MultiIndex.from_product([dataL2['GID'].unique(), range(dataL2['YEAR'].min(), dataL2['YEAR'].max())], names=['GID', 'YEAR'])
-            #
-            # # reindex를 사용하여 누락된 연도를 채움
-            # dataL2.set_index(['GID', 'YEAR'], inplace=True)
-            # dataL2 = dataL2.reindex(idx).reset_index()
-            #
-            # # 정렬
-            # dataL2 = dataL2.sort_values(['GID', 'YEAR'])
-            #
-            # # 변화율 계산
-            # dataL2['COR_RAT'] = dataL2.groupby('GID')['COR_CNT'].pct_change()
-            # dataL2['OFF_RAT'] = dataL2.groupby('GID')['OFF_CNT'].pct_change()
-            #
-            # # 해당 컬럼에서 NA 시 제거
-            # dataL2 = dataL2.drop(['index'], axis=1)
-            # dataL2 = dataL2.dropna(subset=['SIDO', 'SIGUNGU']).reset_index(drop=True)
+                colList = ['GID', 'SIDO', 'SIGUNGU', 'TOWN', 'YEAR', 'CNT', 'AGE', 'SEX', 'LAT', 'LON']
+                dbData = dataL2[colList]
+                dbData['REG_DATE'] = datetime.now(pytz.timezone('Asia/Seoul'))
 
+                dataList = dbData.to_dict(orient='records')
+                dbMergeData(cfgInfo['session'], cfgInfo['tbRsdInfo'], dataList, pkList=[''])
+
+                # *******************************************************************
+                # 기본정보 가공
+                # *******************************************************************
+                dbDataL1 = pd.DataFrame()
+                typeList = sorted(set(dataL1['SIDO']))
+                for i, typeInfo in enumerate(typeList):
+                    log.info(f'[CHECK] typeInfo : {typeInfo}')
+
+                    selData = dataL1.loc[dataL1['SIDO'] == typeInfo].reset_index(drop=True)
+
+                    saveFile = '{}/{}/{}.csv'.format(globalVar['updPath'], '거주인구', typeInfo)
+                    os.makedirs(os.path.dirname(saveFile), exist_ok=True)
+                    selData.to_csv(saveFile, index=False)
+                    log.info(f'[CHECK] saveFile : {saveFile}')
+
+                    dbData = pd.DataFrame(
+                        {
+                            'TYPE': [typeInfo]
+                            , 'CSV_INFO': [f"http://{sysOpt['updIp']}:{sysOpt['updPort']}/CSV{saveFile.replace(globalVar['updPath'], '')}"]
+                        }
+                    )
+                    dbData['REG_DATE'] = datetime.now(pytz.timezone('Asia/Seoul'))
+                    dbDataL1 = pd.concat([dbDataL1, dbData], ignore_index=True)
+
+                dataList = dbDataL1.to_dict(orient='records')
+                dbMergeData(cfgInfo['session'], cfgInfo['tbRsdDown'], dataList, pkList=[''])
 
         except Exception as e:
             log.error("Exception : {}".format(e))
