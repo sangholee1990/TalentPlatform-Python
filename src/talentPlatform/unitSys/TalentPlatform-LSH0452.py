@@ -394,11 +394,11 @@ class DtaProcess(object):
                 # dbMergeData(cfgInfo['session'], cfgInfo['tbRsdInfo'], dataList, pkList=[''])
 
                 # 10만건으로 분할 처리
-                chunkSize = 100000
-                for i in range(0, len(dbData), chunkSize):
-                    log.info(f'[CHECK] i : {i}')
-                    dataList = dbData[i:i + chunkSize].to_dict(orient='records')
-                    dbMergeData(cfgInfo['session'], cfgInfo['tbRsdInfo'], dataList, pkList=[''])
+                # chunkSize = 100000
+                # for i in range(0, len(dbData), chunkSize):
+                #     log.info(f'[CHECK] i : {i}')
+                #     dataList = dbData[i:i + chunkSize].to_dict(orient='records')
+                #     dbMergeData(cfgInfo['session'], cfgInfo['tbRsdInfo'], dataList, pkList=[''])
 
                 # *******************************************************************
                 # 기본정보 가공
@@ -425,9 +425,8 @@ class DtaProcess(object):
                     dbDataL1 = pd.concat([dbDataL1, dbData], ignore_index=True)
 
                 # 1건으로 처리
-                # dataList = dbDataL1.to_dict(orient='records')
-                # dbMergeData(cfgInfo['session'], cfgInfo['tbRsdDown'], dataList, pkList=[''])
-
+                dataList = dbDataL1.to_dict(orient='records')
+                dbMergeData(cfgInfo['session'], cfgInfo['tbRsdDown'], dataList, pkList=[''])
 
         except Exception as e:
             log.error("Exception : {}".format(e))
