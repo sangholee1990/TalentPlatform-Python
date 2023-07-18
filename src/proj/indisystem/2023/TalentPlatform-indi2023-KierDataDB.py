@@ -541,6 +541,9 @@ class DtaProcess(object):
                 , 'dbInfo': {
                     'dbType': 'postgresql'
                     , 'dbUser': 'kier'
+                    , 'dbPwd': 'kier20230707!@#'
+                    , 'dbHost': '223.130.134.136'
+                    # , 'dbHost': '192.168.0.244'
                     , 'dbPort': '5432'
                     , 'dbName': 'kier'
                     # , 'dbTable': 'TB_MODEL'

@@ -234,6 +234,8 @@ def initCfgInfo(sysOpt, sysPath):
 
 def dbMergeData(session, table, dataList, pkList=['ANA_DT', 'FOR_DT', 'MODEL_TYPE']):
 
+    log.info(f'[START] dbMergeData')
+
     try:
         stmt = mysql_insert(table).values(dataList)
         updDict = {c.name: stmt.inserted[c.name] for c in stmt.inserted if c.name not in pkList}
@@ -248,6 +250,7 @@ def dbMergeData(session, table, dataList, pkList=['ANA_DT', 'FOR_DT', 'MODEL_TYP
 
     finally:
         session.close()
+        log.info(f'[END] dbMergeData')
 
 # ================================================
 # 4. 부 프로그램
@@ -257,6 +260,10 @@ class DtaProcess(object):
     # 요구사항
     # ================================================
     # Python을 이용한 대한민국 성별, 연령별, 거주인구 전처리 및 구글 스튜디오 시각화
+
+    # MySQL 테이블 내 데이터 삭제
+    # TRUNCATE TABLE TB_RSD_DOWN;
+    # TRUNCATE TABLE TB_RSD_INFO;
 
     # ================================================================================================
     # 환경변수 설정
@@ -321,7 +328,7 @@ class DtaProcess(object):
                 # 업로드 아이피 및 포트
                 'updIp': '223.130.134.136'
                 , 'updPort': '9000'
-                ,  'colList' : ['유아', '유소년', '초등학생', '중학생', '고등학생', '20대', '30대', '40대', '50대', '60대', '70대', '80대', '90대', '100세이상']
+                ,  'colList' : ['GID', 'SIDO', 'SIGUNGU', 'TOWN', 'YEAR', 'CNT', 'AGE', 'SEX', 'LAT', 'LON']
             }
 
             # DB 정보
@@ -373,28 +380,25 @@ class DtaProcess(object):
                 # *******************************************************************
                 dataL2 = dataL1.loc[dataL1['SIDO'] == '서울시']
 
-                colList = ['GID', 'SIDO', 'SIGUNGU', 'TOWN', 'YEAR', 'CNT', 'AGE', 'SEX', 'LAT', 'LON']
+                colList = sysOpt['colList']
                 dataL3 = dataL2[colList].reset_index(drop=True)
 
                 # 중복 검사
-                # dataL4 = dataL3[dataL3.duplicated(keep=False)]
                 dataL4 = dataL3.groupby(['GID', 'SIDO', 'SIGUNGU', 'TOWN', 'YEAR', 'AGE', 'SEX', 'LAT', 'LON'])['CNT'].sum().reset_index()
-                #
-                # dataL3.dtypes
-                #
-                # dataL3['GID'] = dataL3['GID'].astype('str')
-                # dataL3['SIDO'] = dataL3['SIDO'].astype('str')
-                #
-                #
-                # aa = dataL2.loc[dataL2['GID'] == '다사602415']
-                # bb = aa[aa.duplicated(keep=False)]
 
-                dbData = dataL4
+                dbData = dataL4[colList]
                 dbData['REG_DATE'] = datetime.now(pytz.timezone('Asia/Seoul'))
 
-                dataList = dbData.to_dict(orient='records')
-                # dbMergeData(cfgInfo['session'], cfgInfo['tbRsdInfo'], dataList[0], pkList=[''])
-                dbMergeData(cfgInfo['session'], cfgInfo['tbRsdInfo'], dataList, pkList=[''])
+                # 1건으로 처리
+                # dataList = dbData.to_dict(orient='records')
+                # dbMergeData(cfgInfo['session'], cfgInfo['tbRsdInfo'], dataList, pkList=[''])
+
+                # 10만건으로 분할 처리
+                chunkSize = 100000
+                for i in range(0, len(dbData), chunkSize):
+                    log.info(f'[CHECK] i : {i}')
+                    dataList = dbData[i:i + chunkSize].to_dict(orient='records')
+                    dbMergeData(cfgInfo['session'], cfgInfo['tbRsdInfo'], dataList, pkList=[''])
 
                 # *******************************************************************
                 # 기본정보 가공
@@ -420,8 +424,10 @@ class DtaProcess(object):
                     dbData['REG_DATE'] = datetime.now(pytz.timezone('Asia/Seoul'))
                     dbDataL1 = pd.concat([dbDataL1, dbData], ignore_index=True)
 
-                dataList = dbDataL1.to_dict(orient='records')
-                dbMergeData(cfgInfo['session'], cfgInfo['tbRsdDown'], dataList, pkList=[''])
+                # 1건으로 처리
+                # dataList = dbDataL1.to_dict(orient='records')
+                # dbMergeData(cfgInfo['session'], cfgInfo['tbRsdDown'], dataList, pkList=[''])
+
 
         except Exception as e:
             log.error("Exception : {}".format(e))
