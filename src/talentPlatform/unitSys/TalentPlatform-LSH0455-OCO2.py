@@ -19,6 +19,25 @@ from pandas.tseries.offsets import Day
 # ============================================
 # Python을 이용한 온실가스 위성 (OCO2, OCO3, TROPOMI) 자료 처리 및 시각화
 
+
+# OCO2, OCO3 위성의 변수 (XCO2, SIF) TROPOMI 위성의 변수 (NO2) 라는 변수들 중 good flag(0)인 자료만 mapping 하기.
+# 사례선택을 위해 픽셀이 station 중심에 얼마나 많이 분포되어 있는지를 찾는 그림 (2번 슬라이드 같은 그림이 나와야함)
+#
+# Station 중심반경을 0.8도로 한것에 대한 map을 그려야함
+# Station 마다 영역 설정이 다르게 들어가줘야 함
+# 각 그림마다 어떤위성, 어떤 operational 모드이며 영역내의 good pixel 개수가 얼마인지, 최대최소값 범위는 얼마인지 같이 적어주고 아웃풋도 따로 txt로 출력해야함
+#
+# 한번에 돌릴수 있는 방법? 파이썬코드를 5개로 분리한 후 shell로 돌림
+
+
+# 샘플자료 1개씩 보내기
+# Xarray 사용하여 작성
+# 적용잘짜는 2019.08.01~2022.12.31
+# 파일에서 어느부분이 날짜인지
+# 파이썬은 3개로 만들고, 쉘은 csh, bash모두 가능
+# 변수명 정보
+# 다음주 금요일까지 초안작업 완료
+
 # ============================================
 # 보조
 # ============================================
@@ -127,15 +146,12 @@ sysOpt = {
         }
     }
 
-    , 'satList': ['OCO2']
-    # , 'satList': ['OCO3']
-    # , 'satList': ['TROPOMI']
-
     , 'metaInfo': {
         'OCO2': {
             'filePath': '/DATA/INPUT/LSH0455'
             , 'fileName': 'oco2_LtCO2_%y%m%d_B*_*.nc4'
-            , 'varList': {
+            , 'group': None
+            , 'var': {
                 'id': 'sounding_id'
                 , 'lon': 'longitude'
                 , 'lat': 'latitude'
@@ -146,14 +162,35 @@ sysOpt = {
         , 'OCO3': {
             'filePath': '/DATA/INPUT/LSH0455'
             , 'fileName': 'oco3_LtCO2_%y%m%d_B*_*.nc4'
-            , 'selVar': ['XCO2']
+            , 'group': None
+            , 'var': {
+                'id': 'sounding_id'
+                , 'lon': 'longitude'
+                , 'lat': 'latitude'
+                , 'flag': 'xco2_quality_flag'
+                , 'val': 'xco2'
+            }
         }
         , 'TROPOMI': {
             'filePath': '/DATA/INPUT/LSH0455'
             , 'fileName': 'S5P_RPRO_L2__NO2____%Y%m%dT*.nc'
-            , 'selVar': ['NO2']
+            , 'group': 'PRODUCT'
+            , 'var': {
+                'id': 'sounding_id'
+                , 'lon': 'longitude'
+                , 'lat': 'latitude'
+                , 'flag': 'qa_value'
+                , 'val': 'nitrogendioxide_tropospheric_column'
+            }
         }
     }
+
+
+    # 수행 목록
+    , 'satList': ['OCO2']
+    # , 'satList': ['OCO3']
+    # , 'satList': ['TROPOMI']
+
 }
 
 # ****************************************************************************
@@ -224,71 +261,96 @@ for dtDayIdx, dtDayInfo in enumerate(dtDayList):
         fileList = sorted(glob.glob(inpFileDate))
 
         if fileList is None or len(fileList) < 1:
-            # log.error(f'inpFile : {inpFile} / 입력 자료를 확인해주세요')
             continue
 
         # NetCDF 파일 읽기
         fileInfo = fileList[0]
-        # data = xr.open_dataset(fileInfo)
-        data = xr.open_dataset(fileInfo, engine='pynio')
         print(f'[CHECK] fileInfo : {fileInfo}')
 
-        satInfo['varList']['lon']
-        satInfo['varList'][1]
-        satInfo['varList'][2]
-        satInfo['varList'][3]
-        satInfo['varList'][4]
+        data = xr.open_dataset(fileInfo, group=satInfo['group'])
+        print(f'[CHECK] satInfo : {satInfo}')
 
-        print(data)
-        data['PRODUCT/nitrogendioxide_tropospheric_column']
-        data['PRODUCT/latitude']
-        data['PRODUCT/longitude']
-        data['PRODUCT/qa_value']
+        soundData = xr.open_dataset(fileInfo, group='Sounding')
+        # soundData['operation_mode'].plot()
+        # plt.show()
+
+
+        # indices = list(range(len(data['sounding_id'].values)))
+
+        # indices = np.where(np.isin(data['sounding_id'].values, values_to_find))[0]
+
+
+        # data['operation_mode']
+
+        selData[satInfo['var']['id']].values
+
+
+        idxData = data[satInfo['var']['id']].to_dataframe().reset_index(drop=True).reset_index(drop=False)
+        idxDataL1 = idxData[idxData['sounding_id'].isin(selData[satInfo['var']['id']].values)].reset_index(drop=True)
+
+        optData = soundData['operation_mode'].sel(sounding_id =  idxDataL1['index']).values
+
+        # calculate mode
+        mode = stats.mode(optData)
+
+        mode.mode[0]
+
+        # create a dictionary to map numbers to categories
+        category_dict = {0: "Nadir", 1: "Glint", 2: "Target", 3: "Transition"}
+
+        # get the category that corresponds to the mode
+        mode_category = category_dict[mode]
+
+
+
+        cateDict = {0.0: "Nadir", 1.0: "Glint", 2.0: "Target", 3.0: "Transition"}
+        # categories = [cateDict[val] for val in optData]
+
+        from collections import Counter
+
+        # mode = stats.mode(categories)
+
+        # arr = np.vectorize(cateDict.get)(optData)
+        counter = Counter(optData)
+        most_common_category = counter.most_common(1)
+        # mode = stats.mode(arr)
+        most_common_category[0][0]
+        categories = [cateDict[val] for val in most_common_category]
+
 
         # 위경도 및 Flag 마스킹
         selData = data.where(
-            (sysOpt['roi']['ko']['minLon'] <= data[satInfo['varList'][1]]) & (
-                        data[satInfo['varList'][1]] <= sysOpt['roi']['ko']['maxLon'])
-            & (sysOpt['roi']['ko']['minLat'] <= data[satInfo['varList'][2]]) & (
-                        data[satInfo['varList'][2]] <= sysOpt['roi']['ko']['maxLat'])
+            (sysOpt['roi']['ko']['minLon'] <= data[satInfo['var']['lon']]) & (data[satInfo['var']['lon']] <= sysOpt['roi']['ko']['maxLon'])
+            & (sysOpt['roi']['ko']['minLat'] <= data[satInfo['var']['lat']]) & (data[satInfo['var']['lat']] <= sysOpt['roi']['ko']['maxLat'])
             # & (data['xco2_quality_flag'] == 0)
-        ).dropna(dim=satInfo['varList'][0], how='any')
+        ).dropna(dim=satInfo['var']['id'], how='any')
 
-        selData = data
-        #
-        # if (selData['xco2'].size < 1): continue
+        if (selData[satInfo['var']['val']].size < 1): continue
 
-        # selData['xco2_quality_flag'].values
-
-        # plt.scatter(data['longitude'], data['latitude'], c=data['xco2'], s=10, marker='s', cmap=plt.cm.get_cmap('Spectral_r'))
-        # plt.scatter(selData['longitude'], selData['latitude'], c=selData['xco2'], s=10, marker='s', cmap=plt.cm.get_cmap('Spectral_r'))
-        plt.scatter(selData[satInfo['varList'][1]], selData[satInfo['varList'][2]], c=selData[satInfo['varList'][4]],
-                    s=10, marker='s', cmap=plt.cm.get_cmap('Spectral_r'))
-        plt.scatter(selData['PRODUCT/longitude'], selData['PRODUCT/latitude'], c=selData['PRODUCT/qa_value'], s=10,
-                    marker='s', cmap=plt.cm.get_cmap('Spectral_r'))
+        plt.scatter(selData[satInfo['var']['lon']], selData[satInfo['var']['lat']], c=selData[satInfo['var']['val']], s=10, marker='s', cmap=plt.cm.get_cmap('Spectral_r'))
         plt.colorbar()
         plt.show()
 
-        nx1D = data['sounding_id'].values
-        lat1D = data['latitude'].values
-        lon1D = data['longitude'].values
-        time1D = data['time'].values
-        val1D = data['xco2'].values
-        flag1D = data['xco2_quality_flag'].values
+        # nx1D = data['sounding_id'].values
+        # lat1D = data['latitude'].values
+        # lon1D = data['longitude'].values
+        # time1D = data['time'].values
+        # val1D = data['xco2'].values
+        # flag1D = data['xco2_quality_flag'].values
 
-        dataL1 = xr.Dataset(
-            {
-                'xco2': (('time', 'nx'), (val1D).reshape(1, len(nx1D)))
-                , 'xco2Flag': (('time', 'nx'), (flag1D).reshape(1, len(nx1D)))
-                , 'lon': (('time', 'nx'), (lon1D).reshape(1, len(nx1D)))
-                , 'lat': (('time', 'nx'), (lat1D).reshape(1, len(nx1D)))
-                , 'scanTime': (('time', 'nx'), (time1D).reshape(1, len(nx1D)))
-            }
-            , coords={
-                'time': pd.date_range(dtDayInfo, periods=1)
-                , 'nx': nx1D
-            }
-        )
+        # dataL1 = xr.Dataset(
+        #     {
+        #         'xco2': (('time', 'nx'), (val1D).reshape(1, len(nx1D)))
+        #         , 'xco2Flag': (('time', 'nx'), (flag1D).reshape(1, len(nx1D)))
+        #         , 'lon': (('time', 'nx'), (lon1D).reshape(1, len(nx1D)))
+        #         , 'lat': (('time', 'nx'), (lat1D).reshape(1, len(nx1D)))
+        #         , 'scanTime': (('time', 'nx'), (time1D).reshape(1, len(nx1D)))
+        #     }
+        #     , coords={
+        #         'time': pd.date_range(dtDayInfo, periods=1)
+        #         , 'nx': nx1D
+        #     }
+        # )
 
         # # Flag 마스킹
         # gosatDataL2 = gosatDataL2.where((gosatDataL2['xco2Flag'] == 0), drop=True)
