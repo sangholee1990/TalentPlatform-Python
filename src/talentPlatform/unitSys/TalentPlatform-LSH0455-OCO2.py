@@ -12,6 +12,7 @@ import pandas as pd
 import xarray as xr
 from mpl_toolkits.basemap import Basemap
 from pandas.tseries.offsets import Day
+from scipy import stats
 
 
 # ============================================
@@ -118,73 +119,60 @@ sysOpt = {
     'srtDate': '2022-07-01'
     , 'endDate': '2022-12-31'
 
-    # 영역 설정 시 해상도
+    # 중심 반경
     # 2도 = 약 200 km
-    , 'res': 2
+    , 'res': 0.8
 
-    # 설정 정보
-    # , 'data': {
-    #     'landList': None
-    #     , 'landUse': None
-    #     , 'stnList': None
-    # }
-
-    # 특정 월 선택
-    # , 'selMonth': [3, 4, 5, 12]
-
-    # 특정 시작일/종료일 선택
-    # , 'selSrtDate': '2018-01-21'
-    # , 'selEndDate': '2018-12-24'
+    # 관측모드 설정
+    , 'obsMode': {0: 'Nadir', 1: 'Glint', 2: 'Target', 3: 'Transition'}
 
     # 관심영역 설정
     , 'roi': {
-        'ko': {
-            'minLon': 120
-            , 'maxLon': 150
-            , 'minLat': 30
-            , 'maxLat': 40
-        }
+        'ko': {'minLon': 120, 'maxLon': 150, 'minLat': 30, 'maxLat': 40}
     }
 
+    # 관측소 목록
+    , 'stnList': [
+        {'name': 'fossil0001', 'abbr': None, 'lon': 126.97, 'lat': 37.58}
+        , {'name': 'fossil0049', 'abbr': None, 'lon': 129.15, 'lat': 35.45}
+        , {'name': 'fossil0112', 'abbr': None, 'lon': 128.60, 'lat': 35.85}
+        , {'name': 'fossil0122', 'abbr': None, 'lon': 127.20, 'lat': 36.15}
+        , {'name': 'fossil0194', 'abbr': None, 'lon': 126.50, 'lat': 37.05}
+        , {'name': 'fossil0225', 'abbr': None, 'lon': 129.15, 'lat': 35.65}
+        , {'name': 'fossil0227', 'abbr': None, 'lon': 127.70, 'lat': 34.9}
+        , {'name': 'tccon100', 'abbr': None, 'lon': 126.35, 'lat': 36.64}
+    ]
+
+    # 모델 정보
     , 'metaInfo': {
         'OCO2': {
             'filePath': '/DATA/INPUT/LSH0455'
             , 'fileName': 'oco2_LtCO2_%y%m%d_B*_*.nc4'
             , 'group': None
+            , 'groupObs': 'Sounding'
             , 'var': {
-                'id': 'sounding_id'
-                , 'lon': 'longitude'
-                , 'lat': 'latitude'
-                , 'flag': 'xco2_quality_flag'
-                , 'val': 'xco2'
+                'id': 'sounding_id', 'lon': 'longitude', 'lat': 'latitude', 'flag': 'xco2_quality_flag', 'val': 'xco2', 'obsMode': 'operation_mode'
             }
         }
         , 'OCO3': {
             'filePath': '/DATA/INPUT/LSH0455'
             , 'fileName': 'oco3_LtCO2_%y%m%d_B*_*.nc4'
             , 'group': None
+            , 'groupObs': 'Sounding'
             , 'var': {
-                'id': 'sounding_id'
-                , 'lon': 'longitude'
-                , 'lat': 'latitude'
-                , 'flag': 'xco2_quality_flag'
-                , 'val': 'xco2'
+                'id': 'sounding_id', 'lon': 'longitude', 'lat': 'latitude', 'flag': 'xco2_quality_flag', 'val': 'xco2', 'obsMode': 'operation_mode'
             }
         }
         , 'TROPOMI': {
             'filePath': '/DATA/INPUT/LSH0455'
             , 'fileName': 'S5P_RPRO_L2__NO2____%Y%m%dT*.nc'
             , 'group': 'PRODUCT'
+            , 'groupObs': 'Sounding'
             , 'var': {
-                'id': 'sounding_id'
-                , 'lon': 'longitude'
-                , 'lat': 'latitude'
-                , 'flag': 'qa_value'
-                , 'val': 'nitrogendioxide_tropospheric_column'
+                'id': 'sounding_id', 'lon': 'longitude', 'lat': 'latitude', 'flag': 'qa_value', 'val': 'nitrogendioxide_tropospheric_column', 'obsMode': 'operation_mode'
             }
         }
     }
-
 
     # 수행 목록
     , 'satList': ['OCO2']
@@ -192,51 +180,6 @@ sysOpt = {
     # , 'satList': ['TROPOMI']
 
 }
-
-# ****************************************************************************
-# 설정 정보
-# ****************************************************************************
-# 육/해상 분류
-# sysOpt['data']['landList'] = [
-#         'water'
-#         , 'evergreen needleleaf forest'
-#         , 'evergreen broadleaf forest'
-#         , 'deciduous needleleaf forest'
-#         , 'deciduous broadleaf forest'
-#         , 'mixed forests'
-#         , 'closed shrubland'
-#         , 'open shrublands'
-#         , 'woody savannas'
-#         , 'savannas'
-#         , 'grasslands'
-#         , 'permanent wetlands'
-#         , 'croplands'
-#         , 'urban and built-up'
-#         , 'cropland/natural vegetation mosaic'
-#         , 'snow and ice'
-#         , 'barren or sparsely vegetated'
-# ]
-
-# 영역 설정
-# sysOpt['data']['stnList'] = [
-#         {'name': 'Seoul_SNU', 'abbr': 'SNU', 'lat': 37.458, 'lon': 126.951}
-#         , {'name': 'Korea_University', 'abbr': 'OKU', 'lat': 37.585, 'lon': 127.025}
-#         , {'name': 'KORUS_Iksan', 'abbr': 'Iksan', 'lat': 35.962, 'lon': 127.005}
-#         , {'name': 'KORUS_NIER', 'abbr': 'NIER', 'lat': 37.569, 'lon': 126.640}
-#         , {'name': 'KORUS_Taehwa', 'abbr': 'Taehwa', 'lat': 37.312, 'lon': 127.310}
-#         , {'name': 'KORUS_UNIST_Ulsan', 'abbr': 'UNIST', 'lat': 35.582, 'lon': 129.190}
-#         , {'name': 'KORUS_Olympic_Park', 'abbr': 'Olympic', 'lat': 37.522, 'lon': 127.124}
-#         , {'name': 'PKU_PEK', 'abbr': 'PKU', 'lat': 39.593, 'lon': 116.184}
-#         , {'name': 'Anmyon', 'abbr': 'Anmyon', 'lat': 36.539, 'lon': 126.330}
-#         , {'name': 'Incheon', 'abbr': 'Incheon', 'lat': 37.569, 'lon': 126.637}
-#         , {'name': 'KORUS_Songchon', 'abbr': 'Songchon', 'lat': 37.338, 'lon': 127.489}
-#         , {'name': 'KORUS_Mokpo_NU', 'abbr': 'MNU', 'lat': 34.913, 'lon': 126.437}
-#         , {'name': 'KORUS_Daegwallyeong', 'abbr': 'Daegwallyeong', 'lat': 37.687, 'lon': 128.759}
-#         , {'name': 'KIOST_Ansan', 'abbr': 'KIOST', 'lat': 37.286, 'lon': 126.832}
-#         , {'name': 'KORUS_Baeksa', 'abbr': 'Baeksa', 'lat': 37.412, 'lon': 127.569}
-#         , {'name': 'KORUS_Kyungpook_NU', 'abbr': 'KNU', 'lat': 35.890, 'lon': 128.606}
-#         , {'name': 'Gosan_NIMS_SNU', 'abbr': 'NIMS', 'lat': 33.300, 'lon': 126.206}
-# ]
 
 # ****************************************************************************
 # 시작/종료일 설정
@@ -270,66 +213,137 @@ for dtDayIdx, dtDayInfo in enumerate(dtDayList):
         data = xr.open_dataset(fileInfo, group=satInfo['group'])
         print(f'[CHECK] satInfo : {satInfo}')
 
-        soundData = xr.open_dataset(fileInfo, group='Sounding')
-        # soundData['operation_mode'].plot()
-        # plt.show()
+        for j, stnInfo in enumerate(sysOpt['stnList']):
+            print(f'[CHECK] stnInfo : {stnInfo}')
+
+            dataL1 = data.where(
+                ((stnInfo['lon'] - sysOpt['res']) <= data[satInfo['var']['lon']]) & (data[satInfo['var']['lon']] <= (stnInfo['lon'] + sysOpt['res']))
+                & ((stnInfo['lat'] - sysOpt['res']) <= data[satInfo['var']['lat']]) & (data[satInfo['var']['lat']] <= (stnInfo['lat'] + sysOpt['res']))
+                & (data[satInfo['var']['flag']] == 0)
+                , drop=True
+            )
+
+            # 단일 위성 자료를 기준으로 영역 내의 화소 개수
+            statData = dataL1.count(dim=[satInfo['var']['id']])
+
+            # 자료 개수
+            cnt = statData[satInfo['var']['val']].values
+
+            # *************************************************************************
+            # 관측 모드
+            # *************************************************************************
+            idxData = data[satInfo['var']['id']].to_dataframe().reset_index(drop=True).reset_index(drop=False)
+            idxDataL1 = idxData[idxData[satInfo['var']['id']].isin(dataL1[satInfo['var']['id']].values)].reset_index(drop=True)
+
+            obsData = xr.open_dataset(fileInfo, group=satInfo['groupObs'])
+            obsDataL1 = obsData[satInfo['var']['obsMode']].sel(sounding_id=idxDataL1['index']).values
+
+            # 가장 최빈값 가져오기
+            obsDataL2 = stats.mode(obsDataL1, keepdims=False).mode
+            obsMode = sysOpt['obsMode'][obsDataL2]
+
+            np.nanmedian(idxDataL1['sounding_id'])
+            pd.to_datetime(str(int(np.nanmedian(idxDataL1['sounding_id']))), format='%Y%m%d%H%M%S%f')
 
 
-        # indices = list(range(len(data['sounding_id'].values)))
 
-        # indices = np.where(np.isin(data['sounding_id'].values, values_to_find))[0]
+            mainTitle = f'{satType} (mode = {obsMode}) '
 
+            plt.scatter(dataL1['longitude'], dataL1['latitude'], c=dataL1['xco2'])
+            plt.colorbar()
+            plt.show()
 
-        # data['operation_mode']
-
-        selData[satInfo['var']['id']].values
-
-
-        idxData = data[satInfo['var']['id']].to_dataframe().reset_index(drop=True).reset_index(drop=False)
-        idxDataL1 = idxData[idxData['sounding_id'].isin(selData[satInfo['var']['id']].values)].reset_index(drop=True)
-
-        optData = soundData['operation_mode'].sel(sounding_id =  idxDataL1['index']).values
-
-        # calculate mode
-        mode = stats.mode(optData)
-
-        mode.mode[0]
-
-        # create a dictionary to map numbers to categories
-        category_dict = {0: "Nadir", 1: "Glint", 2: "Target", 3: "Transition"}
-
-        # get the category that corresponds to the mode
-        mode_category = category_dict[mode]
-
-
-
-        cateDict = {0.0: "Nadir", 1.0: "Glint", 2.0: "Target", 3.0: "Transition"}
-        # categories = [cateDict[val] for val in optData]
-
-        from collections import Counter
-
-        # mode = stats.mode(categories)
-
-        # arr = np.vectorize(cateDict.get)(optData)
-        counter = Counter(optData)
-        most_common_category = counter.most_common(1)
-        # mode = stats.mode(arr)
-        most_common_category[0][0]
-        categories = [cateDict[val] for val in most_common_category]
-
-
+        # (sysOpt['roi']['ko']['minLon'] <= data[satInfo['var']['lon']]) & (data[satInfo['var']['lon']] <= sysOpt['roi']['ko']['maxLon'])
+        # & (sysOpt['roi']['ko']['minLat'] <= data[satInfo['var']['lat']]) & (data[satInfo['var']['lat']] <= sysOpt['roi']['ko']['maxLat'])
+        # &.dropna(dim=['scanline', 'ground_pixel'], how='any')
         # 위경도 및 Flag 마스킹
         selData = data.where(
             (sysOpt['roi']['ko']['minLon'] <= data[satInfo['var']['lon']]) & (data[satInfo['var']['lon']] <= sysOpt['roi']['ko']['maxLon'])
             & (sysOpt['roi']['ko']['minLat'] <= data[satInfo['var']['lat']]) & (data[satInfo['var']['lat']] <= sysOpt['roi']['ko']['maxLat'])
-            # & (data['xco2_quality_flag'] == 0)
-        ).dropna(dim=satInfo['var']['id'], how='any')
+            # (data['qa_value'] == 1)
+            # & (sysOpt['roi']['ko']['minLon'] <= data[satInfo['var']['lon']]) & (data[satInfo['var']['lon']] <= sysOpt['roi']['ko']['maxLon'])
+            # & (sysOpt['roi']['ko']['minLat'] <= data[satInfo['var']['lat']]) & (data[satInfo['var']['lat']] <= sysOpt['roi']['ko']['maxLat'])
+        )
+
+        # data['nitrogendioxide_tropospheric_column'].plot()
+        # plt.show()
+
+        satInfo['var']['val']
+
+        data['xco2'].values
+
+        # data['nitrogendioxide_tropospheric_column'][0].plot.pcolormesh(x='longitude', y='latitude', add_colorbar=True, cmap='jet')
+        # data['xco2'][0].plot.pcolormesh(x='longitude', y='latitude', add_colorbar=True, cmap='jet')
+        # data['xco2'][0].plot.pcolormesh(x='longitude', y='latitude', add_colorbar=True, cmap='jet')
+        data['xco2'].plot.pcolormesh(x=data['longitude'], y=data['latitude'], add_colorbar=True, cmap='jet')
+        # data[satInfo['var']['val']][0].plot.pcolormesh(x=satInfo['var']['lon'], y=satInfo['var']['lat'], add_colorbar=True, cmap='jet')
+        plt.show()
+
+        plt.scatter(data['longitude'], data['latitude'], c=data['xco2'])
+        plt.colorbar()
+        plt.show()
+
+        data['xco2'].plot.pcolormesh('longitude', 'latitude')
+
+        # data['xco2'].plot()
+        # plt.show()
+
+        data['nitrogendioxide_tropospheric_column'].isel(ground_pixel=4).plot()
+        plt.show()
+
+        data['scanline']
+        data['ground_pixel']
+        # (sysOpt['roi']['ko']['minLon'] <= data[satInfo['var']['lon']]) & (data[satInfo['var']['lon']] <= sysOpt['roi']['ko']['maxLon'])
+        # & (sysOpt['roi']['ko']['minLat'] <= data[satInfo['var']['lat']]) & (data[satInfo['var']['lat']] <= sysOpt['roi']['ko']['maxLat'])
+        # &.dropna(dim=['scanline', 'ground_pixel'], how='any')
+        # 위경도 및 Flag 마스킹
+        selData = data.where(
+            (data['qa_value'] == 1)
+            & (sysOpt['roi']['ko']['minLon'] <= data[satInfo['var']['lon']]) & (data[satInfo['var']['lon']] <= sysOpt['roi']['ko']['maxLon'])
+            # & (sysOpt['roi']['ko']['minLat'] <= data[satInfo['var']['lat']]) & (data[satInfo['var']['lat']] <= sysOpt['roi']['ko']['maxLat'])
+        )
+
+        cnt = np.count_nonzero(~np.isnan(selData['nitrogendioxide_tropospheric_column']))
+
+        # .dropna(dim='ground_pixel', how='any')
+
+        # np.nanmax( selData['latitude'])
+        # np.nanmin( selData['latitude'])
+        #
+        # np.nanmax( selData['longitude'])
+        # np.nanmin( selData['longitude'])
+
+        a = selData['nitrogendioxide_tropospheric_column'][0]
+
+        a.plot.pcolormesh(x='longitude', y='latitude', add_colorbar=True, cmap='jet')
+        plt.show()
+
+        aa = selData['nitrogendioxide_tropospheric_column'].values
+        np.count_nonzero(~np.isnan(selData['nitrogendioxide_tropospheric_column']))
 
         if (selData[satInfo['var']['val']].size < 1): continue
 
-        plt.scatter(selData[satInfo['var']['lon']], selData[satInfo['var']['lat']], c=selData[satInfo['var']['val']], s=10, marker='s', cmap=plt.cm.get_cmap('Spectral_r'))
-        plt.colorbar()
-        plt.show()
+        # plt.scatter(selData[satInfo['var']['lon']], selData[satInfo['var']['lat']], c=selData[satInfo['var']['val']], s=10, marker='s', cmap=plt.cm.get_cmap('Spectral_r'))
+        # plt.colorbar()
+        # plt.show()
+
+        # indices = list(range(len(data['sounding_id'].values)))
+        # indices = np.where(np.isin(data['sounding_id'].values, values_to_find))[0]
+        # data['operation_mode']
+        # selData[satInfo['var']['id']].values
+
+        # *************************************************************************
+        # 관측 모드
+        # *************************************************************************
+        idxData = data[satInfo['var']['id']].to_dataframe().reset_index(drop=True).reset_index(drop=False)
+        idxDataL1 = idxData[idxData[satInfo['var']['id']].isin(selData[satInfo['var']['id']].values)].reset_index(drop=True)
+
+        obsData = xr.open_dataset(fileInfo, group=satInfo['groupObs'])
+        obsDataL1 = obsData[satInfo['var']['obsMode']].sel(sounding_id=idxDataL1['index']).values
+
+        # 가장 최빈값 가져오기
+        obsDataL2 = stats.mode(obsDataL1, keepdims=False).mode
+        obsMode = sysOpt['obsMode'][obsDataL2]
 
         # nx1D = data['sounding_id'].values
         # lat1D = data['latitude'].values
