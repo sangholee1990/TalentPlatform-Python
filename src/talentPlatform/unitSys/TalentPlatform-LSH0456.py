@@ -257,20 +257,24 @@ class DtaProcess(object):
             sectorList = ['Coal', 'Oil', 'Gas']
             countryList = ['Japan', 'Russia', 'Australia', 'US', 'Mexico', 'Chile', 'Brazil', 'South Africa', 'UK', 'Germany', 'Italy', 'France', 'Spain', 'EU27 & UK', 'India', 'China']
 
-            inpFile = '{}/{}/{}'.format(globalVar['inpPath'], serviceName, 'carbon-monitor-Power-maingraphdatas.xlsx')
+            # inpFile = '{}/{}/{}'.format(globalVar['inpPath'], serviceName, 'carbon-monitor-Power-maingraphdatas.xlsx')
+            inpFile = '{}/{}/{}'.format(globalVar['inpPath'], serviceName, 'energy_global_datas_2023-07-20.csv')
             fileList = sorted(glob.glob(inpFile))
 
-            data = pd.read_excel(fileList[0])
+            # data = pd.read_excel(fileList[0])
+            data = pd.read_csv(fileList[0])
             dataL1 = data.dropna()
 
             dataL1['dtDate'] = pd.to_datetime(data['date'])
 
             dataL2 = dataL1[dataL1['sector'].isin(sectorList)].reset_index(drop=True)
 
-            statData = dataL2.groupby(['country', 'dtDate'])['GWh'].sum().reset_index().rename(columns={'GWh': 'sumGWh'})
+            # statData = dataL2.groupby(['country', 'dtDate'])['GWh'].sum().reset_index().rename(columns={'GWh': 'sumGWh'})
+            statData = dataL2.groupby(['country', 'dtDate'])['value'].sum().reset_index().rename(columns={'value': 'sumVal'})
 
             dataL3 = dataL2.merge(statData, left_on=['country', 'dtDate'], right_on=['country', 'dtDate'], how='left')
-            dataL3['rat'] = dataL3['GWh'] /  dataL3['sumGWh']
+            # dataL3['rat'] = dataL3['GWh'] /  dataL3['sumGWh']
+            dataL3['rat'] = dataL3['value'] /  dataL3['sumVal']
 
             # 정렬
             pivotData = dataL3.pivot_table(index='dtDate', columns=['sector', 'country'], values='rat')
