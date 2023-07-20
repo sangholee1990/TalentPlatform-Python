@@ -289,7 +289,6 @@ class DtaProcess(object):
             pivotDataL3.to_excel(saveFile, index=True)
             log.info(f'[CHECK] saveFile : {saveFile}')
 
-
         except Exception as e:
             log.error("Exception : {}".format(e))
             raise e
