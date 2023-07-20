@@ -261,16 +261,18 @@ class DtaProcess(object):
             fileList = sorted(glob.glob(inpFile))
 
             data = pd.read_excel(fileList[0])
+
             dataL1 = data.dropna()
+            # dataL1 = data
 
-            dataL1['dtDate'] = pd.to_datetime(data['date'])
+            dataL1['dtDate'] = pd.to_datetime(data['date'], format='%d/%m/%Y')
 
-            dataL2 = dataL1[dataL1['sector'].isin(sectorList)].reset_index(drop=True)
+            dataL2 = dataL1[dataL1['sector'].isin(sectorList)].reset_index(drop=False)
 
             statData = dataL2.groupby(['country', 'dtDate'])['GWh'].sum().reset_index().rename(columns={'GWh': 'sumGWh'})
 
             dataL3 = dataL2.merge(statData, left_on=['country', 'dtDate'], right_on=['country', 'dtDate'], how='left')
-            dataL3['rat'] = dataL3['GWh'] /  dataL3['sumGWh']
+            dataL3['rat'] = dataL3['GWh'] / dataL3['sumGWh']
 
             # 정렬
             pivotData = dataL3.pivot_table(index='dtDate', columns=['sector', 'country'], values='rat')
