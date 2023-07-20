@@ -265,7 +265,7 @@ class DtaProcess(object):
             data = pd.read_csv(fileList[0])
             dataL1 = data.dropna()
 
-            dataL1['dtDate'] = pd.to_datetime(data['date'])
+            dataL1['dtDate'] = pd.to_datetime(data['date'], format='%d/%m/%Y')
 
             dataL2 = dataL1[dataL1['sector'].isin(sectorList)].reset_index(drop=True)
 
