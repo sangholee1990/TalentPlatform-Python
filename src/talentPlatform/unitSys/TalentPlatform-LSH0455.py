@@ -14,6 +14,9 @@ from mpl_toolkits.basemap import Basemap
 from pandas.tseries.offsets import Day
 from scipy import stats
 
+import re
+import argparse
+import sys
 
 # ============================================
 # 요구사항
@@ -42,9 +45,7 @@ from scipy import stats
 # ============================================
 # 보조
 # ============================================
-
 def makeMapPlot(sysOpt, lon2D, lat2D, val2D, mainTitle, subTitle, saveImg, isRoi=False):
-
     result = None
 
     try:
@@ -57,11 +58,19 @@ def makeMapPlot(sysOpt, lon2D, lat2D, val2D, mainTitle, subTitle, saveImg, isRoi
             map = Basemap(projection='cyl', lon_0=0.0, lat_0=0.0, resolution='c')
 
         cs = map.scatter(lon2D, lat2D, c=val2D, s=10, marker='s', cmap=plt.cm.get_cmap('Spectral_r'))
-        plt.plot(sysOpt['roi']['cenLon'],  sysOpt['roi']['cenLat'], marker='*', markersize=10, color='black', linestyle='none')
 
-        map.drawcoastlines()
-        map.drawmapboundary()
-        map.drawcountries(linewidth=1, linestyle='solid', color='k')
+        plt.plot(sysOpt['roi']['cenLon'], sysOpt['roi']['cenLat'], marker='*', markersize=10, color='black', linestyle='none')
+
+        # GADM shp 정보
+        shpFile = '{}*'.format(sysOpt['metaInfo'][sysOpt['shpInfo']]['filePath'])
+        fileList = sorted(glob.glob(shpFile))
+        if len(fileList) > 0:
+            map.readshapefile(sysOpt['metaInfo'][sysOpt['shpInfo']]['filePath'], sysOpt['metaInfo'][sysOpt['shpInfo']]['fileName'])
+
+        # 기본적인 shp 정보
+        # map.drawcoastlines()
+        # map.drawmapboundary()
+        # map.drawcountries(linewidth=1, linestyle='solid', color='k')
         map.drawmeridians(np.arange(-180, 180, 0.4), color='k', linewidth=1.0, dashes=[4, 4], labels=[0, 0, 0, 1])
         map.drawparallels(np.arange(-90, 90, 0.4), color='k', linewidth=1.0, dashes=[4, 4], labels=[1, 0, 0, 0])
 
@@ -90,11 +99,15 @@ def makeMapPlot(sysOpt, lon2D, lat2D, val2D, mainTitle, subTitle, saveImg, isRoi
 
         return result
 
+
 # ============================================
 # 주요
 # ============================================
 serviceName = 'LSH0455'
 
+# ****************************************************************************
+# 전역변수 설정
+# ****************************************************************************
 # 입력, 출력, 그림 파일 정보
 globalVar = {
     'inpPath': '/DATA/INPUT'
@@ -106,12 +119,57 @@ globalVar = {
 # globalVar['outPath'] = '/DATA/OUTPUT'
 # globalVar['figPath'] = '/DATA/FIG'
 
+# ****************************************************************************
+# 초기 전달인자 설정
+# ****************************************************************************
+parser = argparse.ArgumentParser()
+
+for i, argv in enumerate(sys.argv[1:]):
+    if not argv.__contains__('--'): continue
+    parser.add_argument(argv)
+
+inParInfo = vars(parser.parse_args())
+# print(f'[CHECK] inParInfo : {inParInfo}')
+
+# 전역 변수에 할당
+for key, val in inParInfo.items():
+    if val is None: continue
+    globalVar[key] = val
+# print(f'[CHECK] globalVar : {globalVar}')
+
+# ****************************************************************************
+# 사용자 설정
+# ****************************************************************************
 # 옵션 설정
 sysOpt = {
-    # 시작/종료 시간
-    'srtDate': '2022-07-01'
-    , 'endDate': '2022-12-31'
 
+    # ****************************************************************************
+    # 동적 설정
+    # ****************************************************************************
+    # 시작/종료 시간
+    # 'srtDate': '2022-07-01'
+    # , 'endDate': '2022-12-31'
+    'srtDate': globalVar['srtDate']
+    , 'endDate': globalVar['endDate']
+
+    # 위성 목록
+    # , 'satList': ['OCO2-CO2']
+    # , 'satList': ['OCO3-CO2']
+    # , 'satList': ['OCO2-SIF']
+    # , 'satList': ['OCO3-SIF']
+    # , 'satList': ['TROPOMI']
+    # , 'satList': ['OCO2-CO2', 'OCO3-CO2', 'OCO2-SIF', 'OCO3-SIF', 'TROPOMI']
+    , 'satList': [globalVar['satList']]
+
+    # shp 파일 정보
+    # , 'shpInfo': 'gadm36_KOR_0'
+    # , 'shpInfo': 'gadm36_KOR_1'
+    # , 'shpInfo': 'gadm36_KOR_2'
+    , 'shpInfo': globalVar['shpInfo']
+
+    # ****************************************************************************
+    # 정적 설정
+    # ****************************************************************************
     # 중심 반경
     # 2도 = 약 200 km
     , 'res': 0.8
@@ -134,9 +192,24 @@ sysOpt = {
         , {'name': 'tccon100', 'abbr': None, 'lon': 126.35, 'lat': 36.64}
     ]
 
-    # 모델 정보
+    # 메타 정보
     , 'metaInfo': {
-        'OCO2-CO2': {
+        # shp 관련 속성 정보
+        'gadm36_KOR_0': {
+            'filePath': '/DATA/INPUT/LSH0455/gadm36_KOR_shp/gadm36_KOR_0'
+            , 'fileName': 'gadm36_KOR_0'
+        }
+        , 'gadm36_KOR_1': {
+            'filePath': '/DATA/INPUT/LSH0455/gadm36_KOR_shp/gadm36_KOR_1'
+            , 'fileName': 'gadm36_KOR_1'
+        }
+        , 'gadm36_KOR_2': {
+            'filePath': '/DATA/INPUT/LSH0455/gadm36_KOR_shp/gadm36_KOR_2'
+            , 'fileName': 'gadm36_KOR_2'
+        }
+
+        # 위성 관련 속성 정보
+        , 'OCO2-CO2': {
             'filePath': '/DATA/INPUT/LSH0455'
             , 'fileName': 'oco2_LtCO2_%y%m%d_B*_*.nc4'
             , 'group': None
@@ -147,11 +220,11 @@ sysOpt = {
         }
         , 'OCO2-SIF': {
             'filePath': '/DATA/INPUT/LSH0455'
-            , 'fileName': 'oco3_LtSIF_%y%m%d_B*_*.nc4'
+            , 'fileName': 'oco2_LtSIF_%y%m%d_B*_*.nc4'
             , 'group': None
-            , 'groupObs': 'Sounding'
+            , 'groupObs': 'Sequences'
             , 'var': {
-                'id': 'sounding_dim', 'lon': 'Longitude', 'lat': 'Latitude', 'flag': 'Quality_Flag', 'val': 'SIF_740nm', 'obsMode': 'operation_mode'
+                'id': 'sounding_dim', 'lon': 'Longitude', 'lat': 'Latitude', 'flag': 'Quality_Flag', 'val': 'SIF_740nm', 'obsMode': 'SequencesMode'
             }
         }
         , 'OCO3-CO2': {
@@ -163,24 +236,27 @@ sysOpt = {
                 'id': 'sounding_id', 'lon': 'longitude', 'lat': 'latitude', 'flag': 'xco2_quality_flag', 'val': 'xco2', 'obsMode': 'operation_mode'
             }
         }
+        , 'OCO3-SIF': {
+            'filePath': '/DATA/INPUT/LSH0455'
+            , 'fileName': 'oco2_LtSIF_%y%m%d_B*_*.nc4'
+            , 'group': None
+            , 'groupObs': 'Sequences'
+            , 'var': {
+                'id': 'sounding_dim', 'lon': 'Longitude', 'lat': 'Latitude', 'flag': 'Quality_Flag', 'val': 'SIF_740nm', 'obsMode': 'SequencesMode'
+            }
+        }
         , 'TROPOMI': {
             'filePath': '/DATA/INPUT/LSH0455'
             , 'fileName': 'S5P_RPRO_L2__NO2____%Y%m%dT*.nc'
             , 'group': 'PRODUCT'
             , 'groupObs': 'Sounding'
             , 'var': {
-                'id': 'sounding_id', 'lon': 'longitude', 'lat': 'latitude', 'flag': 'qa_value', 'val': 'nitrogendioxide_tropospheric_column', 'obsMode': 'operation_mode'
+                'id': '', 'lon': 'longitude', 'lat': 'latitude', 'flag': 'qa_value', 'val': 'nitrogendioxide_tropospheric_column', 'obsMode': 'operation_mode'
             }
         }
     }
-
-    # 수행 목록
-    # , 'satList': ['OCO2']
-    # , 'satList': ['OCO3']
-    , 'satList': ['OCO2-SIF']
-    # , 'satList': ['TROPOMI']
-
 }
+
 
 # ****************************************************************************
 # 시작/종료일 설정
@@ -211,10 +287,11 @@ for dtDayIdx, dtDayInfo in enumerate(dtDayList):
 
         # NetCDF 파일 읽기
         fileInfo = fileList[0]
-        print(f'[CHECK] fileInfo : {fileInfo}')
 
         data = xr.open_dataset(fileInfo, group=satInfo['group'])
         print(f'[CHECK] satInfo : {satInfo}')
+        print(f'[CHECK] dtDayInfo : {dtDayInfo}')
+        print(f'[CHECK] fileInfo : {fileInfo}')
 
         # 관측소 목록에 따른 반복문
         for j, stnInfo in enumerate(sysOpt['stnList']):
@@ -232,43 +309,69 @@ for dtDayIdx, dtDayInfo in enumerate(dtDayList):
             # 관측소 위경도 및 flag 문턱값 설정
             dataL1 = data.where(
                 (sysOpt['roi']['minLon'] <= data[satInfo['var']['lon']]) & (data[satInfo['var']['lon']] <= sysOpt['roi']['maxLon'])
-                # & (sysOpt['roi']['minLat'] <= data[satInfo['var']['lat']]) & (data[satInfo['var']['lat']] <= sysOpt['roi']['maxLat'])
+                & (sysOpt['roi']['minLat'] <= data[satInfo['var']['lat']]) & (data[satInfo['var']['lat']] <= sysOpt['roi']['maxLat'])
                 & (data[satInfo['var']['flag']] == 0)
             )
 
-            # 단일 위성 자료를 기준으로 영역 내의 화소 개수
-            statData = dataL1.count(dim=[satInfo['var']['id']])
+            # 값
+            val1D = dataL1[satInfo['var']['val']]
 
             # 자료 개수
-            cnt = statData[satInfo['var']['val']].values
+            cnt = np.count_nonzero(~np.isnan(val1D))
 
             if cnt < 1: continue
 
-            # *************************************************************************
-            # 관측 모드
+            # ************************************************************************
+            # 관측 모드 및 관측 시간 계산
             # ************************************************************************
             obsMode = None
+            obsDateTime = None
+
             try:
-                idxData = data[satInfo['var']['id']].to_dataframe().reset_index(drop=True).reset_index(drop=False)
-                idxDataL1 = idxData[idxData[satInfo['var']['id']].isin(dataL1[satInfo['var']['id']].values)].reset_index(drop=True)
+                if re.search('OCO2-SIF|OCO3-SIF', satType):
+                    idxData = val1D.reset_index(drop=True).reset_index(drop=False)
+                    idxDataL1 = idxData.dropna()
 
-                obsData = xr.open_dataset(fileInfo, group=satInfo['groupObs'])
-                obsDataL1 = obsData[satInfo['var']['obsMode']].sel(sounding_id=idxDataL1['index']).values
+                    obsData = xr.open_dataset(fileInfo, group=satInfo['groupObs'])
+                    obsDataL1 = obsData[satInfo['var']['obsMode']].values
+                    obsMode = pd.DataFrame(obsDataL1).mode().iloc[0, 0]
 
-                # 가장 최빈값 가져오기
-                obsDataL2 = int(stats.mode(obsDataL1, keepdims=False).mode)
-                obsMode = sysOpt['obsModeList'][obsDataL2]
+                    obsDateTime = pd.to_datetime(data['Delta_Time'], unit='s', origin='1990-01-01')[idxDataL1['index']].mean().strftime('%Y-%m-%d %H:%M:%S')
+
+                elif re.search('OCO2-CO2|OCO3-CO2', satType):
+                    idxData = data[satInfo['var']['id']].to_dataframe().reset_index(drop=True).reset_index(drop=False)
+                    idxDataL1 = idxData[idxData[satInfo['var']['id']].isin(dataL1[satInfo['var']['id']].values)].reset_index(drop=True)
+
+                    obsData = xr.open_dataset(fileInfo, group=satInfo['groupObs'])
+                    obsDataL1 = obsData[satInfo['var']['obsMode']].sel(sounding_id=idxDataL1['index']).values
+
+                    # 가장 최빈값 가져오기
+                    obsDataL2 = int(stats.mode(obsDataL1, keepdims=False).mode)
+                    obsMode = sysOpt['obsModeList'][obsDataL2]
+
+                    obsDateTime = pd.to_datetime(str(int(np.nanmedian(idxDataL1[satInfo['var']['id']]))), format='%Y%m%d%H%M%S%f').strftime('%Y-%m-%d %H:%M:%S')
+
+                else:
+                    idxData = val1D.to_dataframe().reset_index(drop=False).reset_index(drop=False)
+                    idxDataL1 = idxData.dropna()
+
+                    scanList = list(set(idxDataL1['scanline']))
+                    obsDateTime = pd.to_datetime(data['time_utc'].sel(scanline=scanList).to_dataframe().reset_index(drop=True)['time_utc']).mean().strftime('%Y-%m-%d %H:%M:%S')
             except Exception as e:
                 print(f'Exception : {e}')
 
-            minVal = np.nanmin(dataL1[satInfo['var']['val']])
-            maxVal = np.nanmax(dataL1[satInfo['var']['val']])
-            obsDateTime = pd.to_datetime(str(int(np.nanmedian(idxDataL1[satInfo['var']['id']]))), format='%Y%m%d%H%M%S%f').strftime('%Y-%m-%d %H:%M:%S')
+            # 위경도 정보
+            lon1D = dataL1[satInfo['var']['lon']]
+            lat1D = dataL1[satInfo['var']['lat']]
+
+            minVal = np.nanmin(val1D)
+            maxVal = np.nanmax(val1D)
 
             mainTitle = f'{satType} ({obsMode}, {stnInfo["name"]}) {obsDateTime}'
             subTitle = f'N = {cnt} / range = {minVal:.1f} ~ {maxVal:.1f}'
 
-            saveImg = '{}/{}/{}.png'.format(globalVar['figPath'], serviceName, mainTitle)
+            # saveImg = '{}/{}/{}.png'.format(globalVar['figPath'], serviceName, mainTitle)
+            saveImg = '{}/{}/{}-{}.png'.format(globalVar['figPath'], serviceName, mainTitle, sysOpt['shpInfo'])
             os.makedirs(os.path.dirname(saveImg), exist_ok=True)
-            result = makeMapPlot(sysOpt, dataL1[satInfo['var']['lon']], dataL1[satInfo['var']['lat']], dataL1[satInfo['var']['val']], mainTitle, subTitle, saveImg, isRoi=True)
+            result = makeMapPlot(sysOpt, lon1D, lat1D, val1D, mainTitle, subTitle, saveImg, isRoi=True)
             print(f'[CHECK] result : {result}')
