@@ -574,6 +574,7 @@ class DtaProcess(object):
                 # 검색 목록
                 # , 'addrList': ['서울특별시 서초구']
                 # , 'addrList': ['서울특별시 용산구']
+                # , 'addrList': ['경기도 과천시']
                 , 'addrList': [globalVar['addrList']]
             }
 
@@ -593,7 +594,7 @@ class DtaProcess(object):
             # *****************************************************
             # 건축 인허가
             # *****************************************************
-            addrInfo = sysOpt['addrList'][0]
+            # addrInfo = sysOpt['addrList'][0]
             for ii, addrInfo in enumerate(sysOpt['addrList']):
 
                 admDataL1 = admData[admData['법정동명'].str.contains(addrInfo)]
@@ -807,9 +808,8 @@ class DtaProcess(object):
                 realBjPriceDlModel = result['dlModel']
                 data['realBjPriceDL'] = realBjPriceDlModel.predict(h2o.H2OFrame(data[xCol])).as_data_frame()
 
-                mainTitle = '강북구 아파트 전세가 예측 결과 (딥러닝)'
-                # saveImg = '{}/{}_{}.png'.format(globalVar['figPath'], serviceName, mainTitle)
-                saveImg = '{}/{}/{}/{}/{}.png'.format(globalVar['figPath'], serviceName, '예측', addrInfo, mainTitle)
+                # mainTitle = '강북구 아파트 전세가 예측 결과 (딥러닝)'
+                # saveImg = '{}/{}/{}/{}/{}.png'.format(globalVar['figPath'], serviceName, '예측', addrInfo, mainTitle)
                 # makeUserScatterPlot(data['realBjPriceDL'], data['realBjprice'], '예측', '실측', mainTitle, saveImg, 0, 140000, 2000, 10000, True)
 
                 # **********************************************************************************************************
@@ -834,8 +834,8 @@ class DtaProcess(object):
                 realPriceMlModel = result['mlModel']
                 data['realPriceML'] = predict_model(realPriceMlModel, data=data)['Label']
 
-                mainTitle = '강북구 아파트 매매가 예측 결과 (머신러닝)'
-                saveImg = '{}/{}/{}/{}/{}.png'.format(globalVar['figPath'], serviceName, '예측', addrInfo, mainTitle)
+                # mainTitle = '강북구 아파트 매매가 예측 결과 (머신러닝)'
+                # saveImg = '{}/{}/{}/{}/{}.png'.format(globalVar['figPath'], serviceName, '예측', addrInfo, mainTitle)
                 # makeUserScatterPlot(data['realPriceML'], data['realPrice'], '예측', '실측', mainTitle, saveImg, 0, 140000, 2000, 10000, True)
 
                 # **********************************************************************************************************
@@ -861,8 +861,8 @@ class DtaProcess(object):
                 realBjPriceMlModel = result['mlModel']
                 data['realBjPriceML'] = predict_model(realBjPriceMlModel, data=data)['Label']
 
-                mainTitle = '강북구 아파트 전세가 예측 결과 (머신러닝)'
-                saveImg = '{}/{}/{}/{}/{}.png'.format(globalVar['figPath'], serviceName, '예측', addrInfo, mainTitle)
+                # mainTitle = '강북구 아파트 전세가 예측 결과 (머신러닝)'
+                # saveImg = '{}/{}/{}/{}/{}.png'.format(globalVar['figPath'], serviceName, '예측', addrInfo, mainTitle)
                 # makeUserScatterPlot(data['realBjPriceML'], data['realBjprice'], '예측', '실측', mainTitle, saveImg, 0, 140000, 2000, 10000, True)
 
                 # **********************************************************************************************************
@@ -952,13 +952,13 @@ class DtaProcess(object):
                         dataL2['gapDL'] = dataL2['realPriceDL'] - dataL2['realBjPriceDL']
 
                         # 아파트 전세가 시계열
-                        mainTitle = '[{}, {}] 아파트 전세가 시계열'.format(nameInfo, capInfo)
-                        saveImg = '{}/{}/{}/{}/{}.png'.format(globalVar['figPath'], serviceName, '예측', addrInfo, mainTitle)
+                        # mainTitle = '[{}, {}] 아파트 전세가 시계열'.format(nameInfo, capInfo)
+                        # saveImg = '{}/{}/{}/{}/{}.png'.format(globalVar['figPath'], serviceName, '예측', addrInfo, mainTitle)
                         # makeUserTimeSeriesPlot(dataL2['date'], dataL2['realBjPriceML'], dataL2['realBjPriceDL'], dataL2['realBjprice'], '예측 (머신러닝)', '예측 (딥러닝)', '실측', '날짜 [연도]', '전세가 [만원]', mainTitle, saveImg, False)
 
                         # 아파트 매매가 시계열
-                        mainTitle = '[{}, {}] 아파트 매매가 시계열'.format(nameInfo, capInfo)
-                        saveImg = '{}/{}/{}/{}/{}.png'.format(globalVar['figPath'], serviceName, '예측', addrInfo, mainTitle)
+                        # mainTitle = '[{}, {}] 아파트 매매가 시계열'.format(nameInfo, capInfo)
+                        # saveImg = '{}/{}/{}/{}/{}.png'.format(globalVar['figPath'], serviceName, '예측', addrInfo, mainTitle)
                         # makeUserTimeSeriesPlot(dataL2['date'], dataL2['realPriceML'], dataL2['realPriceDL'], dataL2['realPrice'], '예측 (머신러닝)', '예측 (딥러닝)', '실측', '날짜 [연도]', '매매가 [만원]', mainTitle, saveImg, False)
 
                         try:
@@ -1005,7 +1005,7 @@ class DtaProcess(object):
                         except Exception as e:
                             log.error('Exception : {}'.format(e))
 
-                        if (len(tsForData) < 1): continue
+                        if len(tsForData) < 1: continue
 
                         dataL3 = dataL2.merge(
                             tsForData
@@ -1074,13 +1074,13 @@ class DtaProcess(object):
 
                         fnlData = pd.concat([fnlData, resDataL3], ignore_index=True)
 
-                        if (len(resDataL3) > 0):
+                        if len(resDataL3) > 0:
                             saveFile = '{}/{}/{}/{}/{}_{}_{}_{}_{}.xlsx'.format(globalVar['outPath'], serviceName, '예측', addrInfo, '수익률 테이블', addrInfo, nameInfo, capInfo, datetime.now().strftime('%Y%m%d'))
                             os.makedirs(os.path.dirname(saveFile), exist_ok=True)
                             resDataL3.to_excel(saveFile, index=False)
                             log.info('[CHECK] saveFile : {}'.format(saveFile))
 
-                if (len(fnlData) > 0):
+                if len(fnlData) > 0:
                     saveFile = '{}/{}/{}/{}/{}_{}_{}.xlsx'.format(globalVar['outPath'], serviceName, '예측', addrInfo, '수익률 테이블', addrInfo, datetime.now().strftime('%Y%m%d'))
                     os.makedirs(os.path.dirname(saveFile), exist_ok=True)
                     fnlData.to_excel(saveFile, index=False)
