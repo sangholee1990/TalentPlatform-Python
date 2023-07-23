@@ -868,7 +868,7 @@ class DtaProcess(object):
                 # **********************************************************************************************************
                 # 시계열 갭투자
                 # **********************************************************************************************************
-                nameList = data['name'].unique()
+                nameList = sorted(data['name'].unique())
                 searchAptList = sysOpt['tsModel']['aptList']
 
                 fnlData = pd.DataFrame()
@@ -883,7 +883,7 @@ class DtaProcess(object):
                             isSearch = True
                             break
 
-                    if (isSearch == False): continue
+                    if isSearch == False: continue
 
                     log.info('[CHECK] isSearch : {} / nameInfo : {}'.format(isSearch, nameInfo))
 
@@ -891,7 +891,7 @@ class DtaProcess(object):
 
                     if (len(selData) < 2): continue
 
-                    capList = selData['capacity'].unique()
+                    capList = sorted(selData['capacity'].unique())
                     # capList = set(selData['capacity'])
                     # capInfo = capList[0]
                     for j, capInfo in enumerate(capList):
