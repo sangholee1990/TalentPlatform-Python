@@ -481,7 +481,9 @@ class DtaProcess(object):
 
     # conda activate py36
     # cd /SYSTEMS/PROG/PYTHON/PyCharm/src/talentPlatform/unitSys
-    # python TalentPlatform-LSH0454-Active-OpenAPI-Model.py --addrList "서울특별시 서초구"
+    # nohup python TalentPlatform-LSH0454-Active-OpenAPI-Model.py --addrList "서울특별시 용산구" &
+    # nohup python TalentPlatform-LSH0454-Active-OpenAPI-Model.py --addrList "서울특별시 서초구" &
+    # nohup python TalentPlatform-LSH0454-Active-OpenAPI-Model.py --addrList "경기도 과천시" &
 
     # ================================================================================================
     # 환경변수 설정
@@ -570,11 +572,8 @@ class DtaProcess(object):
                 }
 
                 # 검색 목록
-                # , 'addrList': ['서울특별시 강북구']
-                # , 'addrList': ['서울특별시 강북구', '서울특별시 송파구', '서울특별시 강남구', '서울특별시 양천구', '서울특별시 서초구']
-                # , 'addrList': ['서울특별시 양천구']
-                # , 'addrList': ['서울특별시 송파구', '서울특별시 강남구', '서울특별시 서초구']
-                # , 'addrList': ['서울특별시 송파구']
+                # , 'addrList': ['서울특별시 서초구']
+                # , 'addrList': ['서울특별시 용산구']
                 , 'addrList': [globalVar['addrList']]
             }
 
@@ -639,10 +638,9 @@ class DtaProcess(object):
 
                 prvsMntsrData['name'] = prvsMntsrData['아파트'] + '(' + prvsMntsrData['지번'] + ')'
 
-                # prvsMntsrDataL2 = prvsMntsrData.loc[
-                #     (prvsMntsrData['전월세구분'] == '전세')
-                #     & (prvsMntsrData['층'] != 1)
-                #     ].reset_index(drop=True)
+                # 2023.07.23 형 변환
+                prvsMntsrData['월세금액'] = pd.to_numeric(prvsMntsrData['월세금액'], errors='coerce')
+                prvsMntsrData['층'] = pd.to_numeric(prvsMntsrData['층'], errors='coerce')
 
                 prvsMntsrDataL2 = prvsMntsrData.loc[
                     (prvsMntsrData['월세금액'] == 0)
@@ -699,6 +697,9 @@ class DtaProcess(object):
 
                 # realPriceData['name'] = realPriceData['단지명'] + '(' + realPriceData['도로명'] + ')'
                 realPriceData['name'] = realPriceData['아파트'] + '(' + realPriceData['지번'] + ')'
+
+                # 2023.07.23 형 변환
+                realPriceData['층'] = pd.to_numeric(realPriceData['층'], errors='coerce')
 
                 realPriceDataL2 = realPriceData.loc[
                     (realPriceData['층'] != 1)
@@ -781,8 +782,8 @@ class DtaProcess(object):
                 realPriceDlModel = result['dlModel']
                 data['realPriceDL'] = realPriceDlModel.predict(h2o.H2OFrame(data[xCol])).as_data_frame()
 
-                mainTitle = '강북구 아파트 매매가 예측 결과 (딥러닝)'
-                saveImg = '{}/{}/{}/{}/{}.png'.format(globalVar['figPath'], serviceName, '예측', addrInfo, mainTitle)
+                # mainTitle = '강북구 아파트 매매가 예측 결과 (딥러닝)'
+                # saveImg = '{}/{}/{}/{}/{}.png'.format(globalVar['figPath'], serviceName, '예측', addrInfo, mainTitle)
                 # makeUserScatterPlot(data['realPriceDL'], data['realPrice'], '예측', '실측', mainTitle, saveImg, 0, 140000, 2000, 10000, True)
 
                 # **********************************************************************************************************
