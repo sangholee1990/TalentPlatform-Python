@@ -481,6 +481,8 @@ class DtaProcess(object):
 
     # conda activate py36
     # cd /SYSTEMS/PROG/PYTHON/PyCharm/src/talentPlatform/unitSys
+    # nohup python TalentPlatform-LSH0454-Active-OpenAPI-Model.py --addrList "서울특별시 강남구" &
+    # nohup python TalentPlatform-LSH0454-Active-OpenAPI-Model.py --addrList "서울특별시 양천구" &
     # nohup python TalentPlatform-LSH0454-Active-OpenAPI-Model.py --addrList "서울특별시 용산구" &
     # nohup python TalentPlatform-LSH0454-Active-OpenAPI-Model.py --addrList "서울특별시 서초구" &
     # nohup python TalentPlatform-LSH0454-Active-OpenAPI-Model.py --addrList "경기도 과천시" &
@@ -563,7 +565,6 @@ class DtaProcess(object):
                 , 'tsModel': {
                     # 미래 예측 연도
                     'forYear': 2026
-                    # 'forYear': 2026
 
                     # 아파트 설정
                     , 'aptList': [] # 전체 아파트 검색
@@ -640,7 +641,8 @@ class DtaProcess(object):
                 prvsMntsrData['name'] = prvsMntsrData['아파트'] + '(' + prvsMntsrData['지번'] + ')'
 
                 # 2023.07.23 형 변환
-                prvsMntsrData['월세금액'] = pd.to_numeric(prvsMntsrData['월세금액'], errors='coerce')
+                # prvsMntsrData['월세금액'] = pd.to_numeric(prvsMntsrData['월세금액'], errors='coerce')
+                prvsMntsrData['월세금액'] = pd.to_numeric(prvsMntsrData['월세금액'].astype(str).str.replace(',', ''), errors='coerce')
                 prvsMntsrData['층'] = pd.to_numeric(prvsMntsrData['층'], errors='coerce')
 
                 prvsMntsrDataL2 = prvsMntsrData.loc[
