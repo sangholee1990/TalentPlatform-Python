@@ -479,6 +479,8 @@ class DtaProcess(object):
     # ================================================
     # Python을 이용한 부동산 데이터 분석 및 가격 예측 고도화 및 구글 스튜디오 시각화
 
+    # ps -ef | grep "TalentPlatform-LSH0454-Active-OpenAPI-Model" | awk '{print $2}' | xargs kill -9
+
     # conda activate py36
     # cd /SYSTEMS/PROG/PYTHON/PyCharm/src/talentPlatform/unitSys
     # nohup python TalentPlatform-LSH0454-Active-OpenAPI-Model.py --addrList "서울특별시 강남구" &
@@ -577,9 +579,9 @@ class DtaProcess(object):
                 # 검색 목록
                 # , 'addrList': ['서울특별시 서초구']
                 # , 'addrList': ['서울특별시 용산구']
-                , 'addrList': ['서울특별시 양천구']
+                # , 'addrList': ['서울특별시 양천구']
                 # , 'addrList': ['경기도 과천시']
-                # , 'addrList': [globalVar['addrList']]
+                , 'addrList': [globalVar['addrList']]
             }
 
             # *********************************************************************************
@@ -1083,11 +1085,11 @@ class DtaProcess(object):
 
                         fnlData = pd.concat([fnlData, resDataL3], ignore_index=True)
 
-                        if len(resDataL3) > 0:
-                            saveFile = '{}/{}/{}/{}/{}_{}_{}_{}_{}.xlsx'.format(globalVar['outPath'], serviceName, '예측', addrInfo, '수익률 테이블', addrInfo, nameInfo, capInfo, datetime.now().strftime('%Y%m%d'))
-                            os.makedirs(os.path.dirname(saveFile), exist_ok=True)
-                            resDataL3.to_excel(saveFile, index=False)
-                            log.info('[CHECK] saveFile : {}'.format(saveFile))
+                        # if len(resDataL3) > 0:
+                        #     saveFile = '{}/{}/{}/{}/{}_{}_{}_{}_{}.xlsx'.format(globalVar['outPath'], serviceName, '예측', addrInfo, '수익률 테이블', addrInfo, nameInfo, capInfo, datetime.now().strftime('%Y%m%d'))
+                        #     os.makedirs(os.path.dirname(saveFile), exist_ok=True)
+                        #     resDataL3.to_excel(saveFile, index=False)
+                        #     log.info('[CHECK] saveFile : {}'.format(saveFile))
 
                 if len(fnlData) > 0:
                     saveFile = '{}/{}/{}/{}/{}_{}_{}.xlsx'.format(globalVar['outPath'], serviceName, '예측', addrInfo, '수익률 테이블', addrInfo, datetime.now().strftime('%Y%m%d'))
