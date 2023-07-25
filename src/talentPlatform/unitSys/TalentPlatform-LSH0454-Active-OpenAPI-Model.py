@@ -482,11 +482,11 @@ class DtaProcess(object):
     # conda activate py36
     # cd /SYSTEMS/PROG/PYTHON/PyCharm/src/talentPlatform/unitSys
     # nohup python TalentPlatform-LSH0454-Active-OpenAPI-Model.py --addrList "서울특별시 강남구" &
-    # nohup python TalentPlatform-LSH0454-Active-OpenAPI-Model.py --addrList "서울특별시 양천구" &
     # nohup python TalentPlatform-LSH0454-Active-OpenAPI-Model.py --addrList "서울특별시 용산구" &
     # nohup python TalentPlatform-LSH0454-Active-OpenAPI-Model.py --addrList "서울특별시 서초구" &
     # nohup python TalentPlatform-LSH0454-Active-OpenAPI-Model.py --addrList "서울특별시 양천구" &
     # nohup python TalentPlatform-LSH0454-Active-OpenAPI-Model.py --addrList "서울특별시 강북구" &
+    # nohup python TalentPlatform-LSH0454-Active-OpenAPI-Model.py --addrList "서울특별시 송파구" &
     # nohup python TalentPlatform-LSH0454-Active-OpenAPI-Model.py --addrList "경기도 과천시" &
 
     # ================================================================================================
@@ -577,8 +577,9 @@ class DtaProcess(object):
                 # 검색 목록
                 # , 'addrList': ['서울특별시 서초구']
                 # , 'addrList': ['서울특별시 용산구']
+                , 'addrList': ['서울특별시 양천구']
                 # , 'addrList': ['경기도 과천시']
-                , 'addrList': [globalVar['addrList']]
+                # , 'addrList': [globalVar['addrList']]
             }
 
             # *********************************************************************************
@@ -640,7 +641,9 @@ class DtaProcess(object):
 
                 # prvsMntsrData.drop(['Unnamed: 0'], axis=1, inplace=True)
 
-                prvsMntsrData['name'] = prvsMntsrData['아파트'] + '(' + prvsMntsrData['지번'] + ')'
+                # 2023.07.26 주소 변환
+                # prvsMntsrData['name'] = prvsMntsrData['아파트'] + '(' + prvsMntsrData['지번'] + ')'
+                prvsMntsrData['name'] = prvsMntsrData['addrInfo'] + ' ' + prvsMntsrData['법정동'] + ' ' + prvsMntsrData['아파트'] + '(' + prvsMntsrData['지번'] + ')'
 
                 # 2023.07.23 형 변환
                 # prvsMntsrData['월세금액'] = pd.to_numeric(prvsMntsrData['월세금액'], errors='coerce')
@@ -700,8 +703,10 @@ class DtaProcess(object):
 
                 # realPriceData.drop(['Unnamed: 0'], axis=1, inplace=True)
 
+                # 2023.07.26 주소 변환
                 # realPriceData['name'] = realPriceData['단지명'] + '(' + realPriceData['도로명'] + ')'
-                realPriceData['name'] = realPriceData['아파트'] + '(' + realPriceData['지번'] + ')'
+                # realPriceData['name'] = realPriceData['아파트'] + '(' + realPriceData['지번'] + ')'
+                realPriceData['name'] = realPriceData['addrInfo'] + ' ' + realPriceData['법정동'] + ' ' + realPriceData['아파트'] + '(' + realPriceData['지번'] + ')'
 
                 # 2023.07.23 형 변환
                 realPriceData['층'] = pd.to_numeric(realPriceData['층'], errors='coerce')
