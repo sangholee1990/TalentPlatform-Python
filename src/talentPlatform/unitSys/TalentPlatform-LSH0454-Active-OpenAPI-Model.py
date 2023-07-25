@@ -1092,7 +1092,8 @@ class DtaProcess(object):
                         #     log.info('[CHECK] saveFile : {}'.format(saveFile))
 
                 if len(fnlData) > 0:
-                    saveFile = '{}/{}/{}/{}/{}_{}_{}.xlsx'.format(globalVar['outPath'], serviceName, '예측', addrInfo, '수익률 테이블', addrInfo, datetime.now().strftime('%Y%m%d'))
+                    # saveFile = '{}/{}/{}/{}/{}_{}_{}.xlsx'.format(globalVar['outPath'], serviceName, '예측', addrInfo, '수익률 테이블', addrInfo, datetime.now().strftime('%Y%m%d'))
+                    saveFile = '{}/{}/{}/{}_{}_{}.xlsx'.format(globalVar['outPath'], serviceName, '예측', '수익률 테이블', addrInfo, datetime.now().strftime('%Y%m%d'))
                     os.makedirs(os.path.dirname(saveFile), exist_ok=True)
                     fnlData.to_excel(saveFile, index=False)
                     log.info('[CHECK] saveFile : {}'.format(saveFile))
