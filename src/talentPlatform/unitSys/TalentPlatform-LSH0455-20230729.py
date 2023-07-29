@@ -83,7 +83,7 @@ def makeMapPlot(sysOpt, lon2D, lat2D, val2D, mainTitle, subTitle, saveImg, isRoi
         plt.title(subTitle)
         plt.savefig(saveImg, dpi=600, bbox_inches='tight', transparent=True)
         plt.tight_layout()
-        plt.show()
+        # plt.show()
         plt.close()
 
         result = {
@@ -115,20 +115,12 @@ globalVar = {
     , 'figPath': '/DATA/FIG'
 }
 
-# globalVar = {
-#     #  'inpPath': '/home/sbpark/data/Satellite/OCO2/L2/OCO2_L2_Lite_FP.11r'
-#     #, 'outPath': '/home/sbpark/analysis/python_resources/4satellites/20230723/output'
-#     'figPath': '/home/sbpark/analysis/python_resources/4satellites/20230723/figs'
-# }
-
-
 # globalVar['inpPath'] = '/DATA/INPUT'
 # globalVar['outPath'] = '/DATA/OUTPUT'
 # globalVar['figPath'] = '/DATA/FIG'
 
 # ****************************************************************************
 # 초기 전달인자 설정
-# 쉘스크립트에서 line 47~에서 날짜 범위선택 또는 위성자료 또는 shapefile 선택
 # ****************************************************************************
 parser = argparse.ArgumentParser()
 
@@ -155,25 +147,25 @@ sysOpt = {
     # 동적 설정
     # ****************************************************************************
     # 시작/종료 시간
-    'srtDate': '2022-07-01'
-    , 'endDate': '2022-12-31'
-    # 'srtDate': globalVar['srtDate']
-    # , 'endDate': globalVar['endDate']
+    # 'srtDate': '2022-07-01'
+    # , 'endDate': '2022-12-31'
+    'srtDate': globalVar['srtDate']
+    , 'endDate': globalVar['endDate']
 
     # 위성 목록
-    , 'satList': ['OCO2-CO2']
+    # , 'satList': ['OCO2-CO2']
     # , 'satList': ['OCO3-CO2']
     # , 'satList': ['OCO2-SIF']
     # , 'satList': ['OCO3-SIF']
     # , 'satList': ['TROPOMI']
     # , 'satList': ['OCO2-CO2', 'OCO3-CO2', 'OCO2-SIF', 'OCO3-SIF', 'TROPOMI']
-    # , 'satList': [globalVar['satList']]
+    , 'satList': [globalVar['satList']]
 
     # shp 파일 정보
     # , 'shpInfo': 'gadm36_KOR_0'
-    , 'shpInfo': 'gadm36_KOR_1'
+    # , 'shpInfo': 'gadm36_KOR_1'
     # , 'shpInfo': 'gadm36_KOR_2'
-    # , 'shpInfo': globalVar['shpInfo']
+    , 'shpInfo': globalVar['shpInfo']
 
     # ****************************************************************************
     # 정적 설정
@@ -182,9 +174,8 @@ sysOpt = {
     # 2도 = 약 200 km
     , 'res': 0.8
 
-    # 관측모드 설정 (OCO2 operational mode; Nadir0 & Target 3)
-    # 관측모드 설정 (OCO3 operational mode; Nadir0 & Target 3 & SAM 4)
-    , 'obsModeList': {0: 'Nadir', 1: 'Glint', 2: 'Target', 3: 'Transition', 4: 'SAMs'}
+    # 관측모드 설정
+    , 'obsModeList': {0: 'Nadir', 1: 'Glint', 2: 'Target', 3: 'Transition'}
 
     # 관심영역 설정
     , 'roi': {}
@@ -322,7 +313,6 @@ for dtDayIdx, dtDayInfo in enumerate(dtDayList):
                 & (data[satInfo['var']['flag']] == 0)
             )
 
-
             # 값
             val1D = dataL1[satInfo['var']['val']]
 
@@ -331,52 +321,46 @@ for dtDayIdx, dtDayInfo in enumerate(dtDayList):
 
             if cnt < 1: continue
 
-            dataL3 = dataL1
-
-            # 관측시간 계산
-            obsDateTime = dtDayInfo.strftime('%Y-%m-%d')
-
-            # 관측모드 계산
+            # ************************************************************************
+            # 관측 모드 및 관측 시간 계산
+            # ************************************************************************
             obsMode = None
-            # OCO2-CO2 또는 OCO2-CO2를 대상으로 관측모드 계산
-            if re.search('OCO2-CO2|OCO3-CO2', satType):
+            obsDateTime = None
 
-                obsData = xr.open_dataset(fileInfo, group=satInfo['groupObs'])[satInfo['var']['obsMode']]
-                dataL2 = xr.merge([dataL1, obsData])
+            try:
+                if re.search('OCO2-SIF|OCO3-SIF', satType):
+                    idxData = val1D.reset_index(drop=True).reset_index(drop=False)
+                    idxDataL1 = idxData.dropna()
 
-                obsModeList = set(dataL2[satInfo['var']['obsMode']].values)
+                    obsData = xr.open_dataset(fileInfo, group=satInfo['groupObs'])
+                    obsDataL1 = obsData[satInfo['var']['obsMode']].values
+                    obsMode = pd.DataFrame(obsDataL1).mode().iloc[0, 0]
 
-                for k, obsModeInfo in enumerate(obsModeList):
-                    print(f'[CHECK] obsModeInfo : {obsModeInfo}')
+                    obsDateTime = pd.to_datetime(data['Delta_Time'], unit='s', origin='1990-01-01')[idxDataL1['index']].mean().strftime('%Y-%m-%d %H:%M:%S')
 
-                    dataL3 = dataL2.where(
-                        (dataL2[satInfo['var']['obsMode']] == obsModeInfo)
-                    )
+                elif re.search('OCO2-CO2|OCO3-CO2', satType):
+                    idxData = data[satInfo['var']['id']].to_dataframe().reset_index(drop=True).reset_index(drop=False)
+                    idxDataL1 = idxData[idxData[satInfo['var']['id']].isin(dataL1[satInfo['var']['id']].values)].reset_index(drop=True)
 
-                    val1D = dataL3[satInfo['var']['val']]
-                    cnt = np.count_nonzero(~np.isnan(val1D))
-                    if cnt < 1: continue
+                    obsData = xr.open_dataset(fileInfo, group=satInfo['groupObs'])
+                    obsDataL1 = obsData[satInfo['var']['obsMode']].sel(sounding_id=idxDataL1['index']).values
 
-                    obsMode =  sysOpt['obsModeList'][obsModeInfo]
-                    break
+                    # 가장 최빈값 가져오기
+                    obsDataL2 = int(stats.mode(obsDataL1, keepdims=False).mode)
+                    obsMode = sysOpt['obsModeList'][obsDataL2]
+
+                    obsDateTime = pd.to_datetime(str(int(np.nanmedian(idxDataL1[satInfo['var']['id']]))), format='%Y%m%d%H%M%S%f').strftime('%Y-%m-%d %H:%M:%S')
+
+                else:
+                    idxData = val1D.to_dataframe().reset_index(drop=False).reset_index(drop=False)
+                    idxDataL1 = idxData.dropna()
+
+                    scanList = list(set(idxDataL1['scanline']))
+                    obsDateTime = pd.to_datetime(data['time_utc'].sel(scanline=scanList).to_dataframe().reset_index(drop=True)['time_utc']).mean().strftime('%Y-%m-%d %H:%M:%S')
+            except Exception as e:
+                print(f'Exception : {e}')
 
             # 위경도 정보
-            lon1D = dataL1[satInfo['var']['lon']]
-            lat1D = dataL1[satInfo['var']['lat']]
-
-            minVal = np.nanmin(val1D)
-            maxVal = np.nanmax(val1D)
-
-            mainTitle = f'{satType} ({obsMode}, {stnInfo["name"]}) {obsDateTime}'
-            subTitle = f'N = {cnt} / range = {minVal:.1f} ~ {maxVal:.1f}'
-
-            # saveImg = '{}/{}/{}.png'.format(globalVar['figPath'], serviceName, mainTitle)
-            saveImg = '{}/{}/{}-{}.png'.format(globalVar['figPath'], serviceName, mainTitle, sysOpt['shpInfo'])
-            os.makedirs(os.path.dirname(saveImg), exist_ok=True)
-            result = makeMapPlot(sysOpt, lon1D, lat1D, val1D, mainTitle, subTitle, saveImg, isRoi=True)
-            print(f'[CHECK] result : {result}')
-
-
             lon1D = dataL1[satInfo['var']['lon']]
             lat1D = dataL1[satInfo['var']['lat']]
 
