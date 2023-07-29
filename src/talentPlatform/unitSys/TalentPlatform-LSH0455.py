@@ -18,6 +18,21 @@ import re
 import argparse
 import sys
 
+import matplotlib.pyplot as plt
+import cartopy.crs as ccrs
+import cartopy.feature as cfeature
+import xarray as xr
+import geopandas as gpd
+import os
+import cartopy.crs as ccrs
+import glob
+import geopandas as gpd
+from cartopy.mpl.gridliner import LONGITUDE_FORMATTER, LATITUDE_FORMATTER
+import matplotlib.ticker as mticker
+import matplotlib.patches as patches
+import matplotlib as mpl
+
+
 # ============================================
 # 요구사항
 # ============================================
@@ -226,6 +241,8 @@ sysOpt = {
             , 'var': {
                 'id': 'sounding_id', 'lon': 'longitude', 'lat': 'latitude', 'flag': 'xco2_quality_flag', 'val': 'xco2', 'obsMode': 'operation_mode'
             }
+            # , 'flag': {'val': 0, 'obsMode': 2}
+            , 'flag': {'val': 0, 'obsMode': 0}
         }
         , 'OCO2-SIF': {
             'filePath': '/DATA/INPUT/LSH0455'
@@ -235,6 +252,7 @@ sysOpt = {
             , 'var': {
                 'id': 'sounding_dim', 'lon': 'Longitude', 'lat': 'Latitude', 'flag': 'Quality_Flag', 'val': 'SIF_740nm', 'obsMode': 'SequencesMode'
             }
+            , 'flag': {'val': 0}
         }
         , 'OCO3-CO2': {
             'filePath': '/DATA/INPUT/LSH0455'
@@ -244,6 +262,7 @@ sysOpt = {
             , 'var': {
                 'id': 'sounding_id', 'lon': 'longitude', 'lat': 'latitude', 'flag': 'xco2_quality_flag', 'val': 'xco2', 'obsMode': 'operation_mode'
             }
+            , 'flag': {'val': 0, 'obsMode': 4}
         }
         , 'OCO3-SIF': {
             'filePath': '/DATA/INPUT/LSH0455'
@@ -253,6 +272,7 @@ sysOpt = {
             , 'var': {
                 'id': 'sounding_dim', 'lon': 'Longitude', 'lat': 'Latitude', 'flag': 'Quality_Flag', 'val': 'SIF_740nm', 'obsMode': 'SequencesMode'
             }
+            , 'flag': {'val': 0}
         }
         , 'TROPOMI': {
             'filePath': '/DATA/INPUT/LSH0455'
@@ -262,10 +282,10 @@ sysOpt = {
             , 'var': {
                 'id': '', 'lon': 'longitude', 'lat': 'latitude', 'flag': 'qa_value', 'val': 'nitrogendioxide_tropospheric_column', 'obsMode': 'operation_mode'
             }
+            , 'flag': {'val': 0}
         }
     }
 }
-
 
 # ****************************************************************************
 # 시작/종료일 설정
@@ -319,18 +339,8 @@ for dtDayIdx, dtDayInfo in enumerate(dtDayList):
             dataL1 = data.where(
                 (sysOpt['roi']['minLon'] <= data[satInfo['var']['lon']]) & (data[satInfo['var']['lon']] <= sysOpt['roi']['maxLon'])
                 & (sysOpt['roi']['minLat'] <= data[satInfo['var']['lat']]) & (data[satInfo['var']['lat']] <= sysOpt['roi']['maxLat'])
-                & (data[satInfo['var']['flag']] == 0)
+                & (data[satInfo['var']['flag']] == satInfo['flag']['val'])
             )
-
-
-            # 값
-            val1D = dataL1[satInfo['var']['val']]
-
-            # 자료 개수
-            cnt = np.count_nonzero(~np.isnan(val1D))
-
-            if cnt < 1: continue
-
             dataL3 = dataL1
 
             # 관측시간 계산
@@ -340,29 +350,26 @@ for dtDayIdx, dtDayInfo in enumerate(dtDayList):
             obsMode = None
             # OCO2-CO2 또는 OCO2-CO2를 대상으로 관측모드 계산
             if re.search('OCO2-CO2|OCO3-CO2', satType):
-
                 obsData = xr.open_dataset(fileInfo, group=satInfo['groupObs'])[satInfo['var']['obsMode']]
+
                 dataL2 = xr.merge([dataL1, obsData])
+                dataL3 = dataL2.where(
+                    (dataL2[satInfo['var']['obsMode']] == satInfo['flag']['obsMode'])
+                )
 
-                obsModeList = set(dataL2[satInfo['var']['obsMode']].values)
+            # 값
+            val1D = dataL3[satInfo['var']['val']]
 
-                for k, obsModeInfo in enumerate(obsModeList):
-                    print(f'[CHECK] obsModeInfo : {obsModeInfo}')
+            # 자료 개수
+            cnt = np.count_nonzero(~np.isnan(val1D))
 
-                    dataL3 = dataL2.where(
-                        (dataL2[satInfo['var']['obsMode']] == obsModeInfo)
-                    )
-
-                    val1D = dataL3[satInfo['var']['val']]
-                    cnt = np.count_nonzero(~np.isnan(val1D))
-                    if cnt < 1: continue
-
-                    obsMode =  sysOpt['obsModeList'][obsModeInfo]
-                    break
+            if cnt < 1: continue
 
             # 위경도 정보
-            lon1D = dataL1[satInfo['var']['lon']]
-            lat1D = dataL1[satInfo['var']['lat']]
+            lon1D = dataL3[satInfo['var']['lon']]
+            lat1D = dataL3[satInfo['var']['lat']]
+            # lon1D = dataL3['vertex_longitude']
+            # lat1D = dataL3['vertex_latitude']
 
             minVal = np.nanmin(val1D)
             maxVal = np.nanmax(val1D)
@@ -371,23 +378,192 @@ for dtDayIdx, dtDayInfo in enumerate(dtDayList):
             subTitle = f'N = {cnt} / range = {minVal:.1f} ~ {maxVal:.1f}'
 
             # saveImg = '{}/{}/{}.png'.format(globalVar['figPath'], serviceName, mainTitle)
-            saveImg = '{}/{}/{}-{}.png'.format(globalVar['figPath'], serviceName, mainTitle, sysOpt['shpInfo'])
-            os.makedirs(os.path.dirname(saveImg), exist_ok=True)
-            result = makeMapPlot(sysOpt, lon1D, lat1D, val1D, mainTitle, subTitle, saveImg, isRoi=True)
-            print(f'[CHECK] result : {result}')
+            # saveImg = '{}/{}/{}-{}.png'.format(globalVar['figPath'], serviceName, mainTitle, sysOpt['shpInfo'])
+            # os.makedirs(os.path.dirname(saveImg), exist_ok=True)
+            # result = makeMapPlot(sysOpt, lon1D, lat1D, val1D, mainTitle, subTitle, saveImg, isRoi=True)
+            # print(f'[CHECK] result : {result}')
+
+            # dataL3['xco2']
+
+            aaa = dataL3
+            #    sysOpt['roi']['minLon'] = stnInfo['lon'] - sysOpt['res']
+            #             sysOpt['roi']['maxLon'] = stnInfo['lon'] + sysOpt['res']
+            #             sysOpt['roi']['minLat'] = stnInfo['lat'] - sysOpt['res']
+            #             sysOpt['roi']['maxLat'] = stnInfo['lat'] + sysOpt['res']
+            #             sysOpt['roi']['cenLon'] = stnInfo['lon']
+            #             sysOpt['roi']['cenLat'] = stnInfo['lat']
+
+            # lonList = np.arange(sysOpt['roi']['minLon'], sysOpt['roi']['maxLon'], 0.1)
+            # latList = np.arange(sysOpt['roi']['minLat'], sysOpt['roi']['maxLat'], 0.1)
+            # print(f'[CHECK] lonList : {lonList}')
+            # print(f'[CHECK] latList : {latList}')
 
 
-            lon1D = dataL1[satInfo['var']['lon']]
-            lat1D = dataL1[satInfo['var']['lat']]
 
-            minVal = np.nanmin(val1D)
-            maxVal = np.nanmax(val1D)
+            # dataL4 = dataL3.interp(lon=lonList, lat=latList, method='linear')
 
-            mainTitle = f'{satType} ({obsMode}, {stnInfo["name"]}) {obsDateTime}'
-            subTitle = f'N = {cnt} / range = {minVal:.1f} ~ {maxVal:.1f}'
+            dd = dataL3[['longitude', 'latitude', 'vertex_longitude', 'vertex_latitude', 'xco2']]
+            dd2 = dd.to_dataframe().reset_index(drop=False).dropna()
 
-            # saveImg = '{}/{}/{}.png'.format(globalVar['figPath'], serviceName, mainTitle)
-            saveImg = '{}/{}/{}-{}.png'.format(globalVar['figPath'], serviceName, mainTitle, sysOpt['shpInfo'])
-            os.makedirs(os.path.dirname(saveImg), exist_ok=True)
-            result = makeMapPlot(sysOpt, lon1D, lat1D, val1D, mainTitle, subTitle, saveImg, isRoi=True)
-            print(f'[CHECK] result : {result}')
+            reshaped_df = dd2.pivot(index=['sounding_id', 'longitude', 'latitude', 'xco2'], columns='vertices')
+            reshaped_df.columns = [f'{x}_{y}' for x, y in reshaped_df.columns]
+            reshaped_df = reshaped_df.reset_index()
+
+            # 37.12205
+
+            # 37.11563,37.13560,37.12841,37.10845
+            for check in ind_0_list:
+                lat_target = lat_corner[check, [0, 1, 3, 2]].reshape(2, 2)
+                lon_target = lon_corner[check, [0, 1, 3, 2]].reshape(2, 2)
+                SIF_target = SIF[check]  ###해당 값이 지도로 표출되는 값
+
+                al = ax.pcolormesh(lon_target, lat_target, SIF_target.reshape(1, 1), transform=ccrs.PlateCarree(), cmap='YlOrRd')
+                al.set_clim([xco2_min_, xco2_max_])
+
+            # import numpy as np
+            # import matplotlib.pyplot as plt
+            # import cartopy.crs as ccrs
+            # import xarray as xr
+            #
+            # # Define the coordinates
+            # latitudes = np.array([37.11563, 37.13560, 37.12841, 37.10845])
+            # longitudes = np.array([127.04228, 127.03479, 127.04388, 127.04980])  # replace with your actual longitudes
+            #
+            # # Create a 2x2 grid from the coordinates
+            # # The x and y coordinates need to be 2D arrays defining the vertices of each grid cell
+            # # Since we only have one cell, we can use np.meshgrid to generate these from the min and max coordinates
+            # lat_grid, lon_grid = np.meshgrid([latitudes.min(), latitudes.max()],
+            #                                  [longitudes.min(), longitudes.max()], indexing='ij')
+            #
+            # # Define the data values
+            # # These also need to be a 2D array
+            # # Since we only have one value, we can create an array of that value
+            # value = np.array([[411.80087, 411.80087], [411.80087, 411.80087]])  # replace with your actual value
+            #
+            # # Create an xarray DataArray
+            # data = xr.DataArray(data=value, coords=[('latitude', lat_grid[:, 0]), ('longitude', lon_grid[0, :])])
+            #
+            # # Plot using pcolormesh and cartopy
+            # ax = plt.axes(projection=ccrs.PlateCarree())
+            # data.plot.pcolormesh(ax=ax, transform=ccrs.PlateCarree(), cmap='YlOrRd', add_colorbar=True)
+            # ax.set_global()
+            # ax.coastlines()
+            #
+            # plt.show()
+            #
+
+            # This is how to get the unique 'xco2' values
+            reshaped_df['xco2'] = df.groupby('sounding_id')['xco2'].first().values
+
+
+            # dd2 = dd.to_dataframe().reset_index(drop=False)
+            dd3 = dd2.drop('sounding_id', axis='columns').set_index(['latitude', 'longitude'])
+            # dd3 = dd2.drop('sounding_id', axis='columns').set_index(['vertex_latitude', 'vertex_longitude'])
+            dd4 = dd3.to_xarray()
+
+            dd4['xco2'].plot()
+            plt.show()
+
+
+            # dataL3['vertices'].values
+
+            ds = dataL3
+            # Convert 1D arrays to 2D
+            lon, lat = np.meshgrid(dd2.vertex_longitude, dd2.vertex_latitude)
+
+            # Replace nan values with 0
+            solar_zenith_angle = dd2.xco2
+
+            # Create the pcolormesh plot
+            plt.figure(figsize=(10, 6))
+            plt.pcolormesh(lon, lat, solar_zenith_angle, cmap='viridis', shading='auto')
+            plt.colorbar(label='Solar Zenith Angle')
+            plt.xlabel('Longitude')
+            plt.ylabel('Latitude')
+            plt.title('Solar Zenith Angle on Earth')
+            plt.show()
+
+            # print('asdfasdf')
+
+            # ax = plt.axes(projection=ccrs.PlateCarree())
+            # ax.set_extent([sysOpt['roi']['minLon'], sysOpt['roi']['maxLon'], sysOpt['roi']['minLat'], sysOpt['roi']['maxLat']])
+
+            # dataL3
+            #
+            # val1D.plot(transform=ccrs.PlateCarree(), cmap='Spectral_r')
+            # # plt.show()
+            #
+            # ax.plot(sysOpt['roi']['cenLon'], sysOpt['roi']['cenLat'], marker='*', markersize=10, color='black', linestyle='none', transform=ccrs.PlateCarree())
+            #
+            # shpFile = '{}*'.format(sysOpt['metaInfo'][sysOpt['shpInfo']]['filePath'])
+            # fileList = sorted(glob.glob(shpFile))
+            #
+            # if len(fileList) > 0:
+            #     gdf = gpd.read_file(fileList[3])
+            #     gdf.boundary.plot(ax=ax, edgecolor='black', linewidth=1)
+            #
+            # ax.gridlines(draw_labels=True)
+            #
+            # plt.ylabel(None)
+            # plt.xlabel(None)
+            # plt.suptitle(mainTitle)
+            # plt.title(subTitle)
+            # # plt.savefig(saveImg, dpi=600, bbox_inches='tight', transparent=True)
+            # plt.show()
+            # # plt.close()
+
+            # lon_min, lon_max, lat_min, lat_max = extent_area
+
+            fig, ax = plt.subplots(subplot_kw=dict(projection=ccrs.PlateCarree()))
+            # ax.set_extent([sysOpt['roi']['minLon'], sysOpt['roi']['maxLon'], sysOpt['roi']['minLat'], sysOpt['roi']['maxLat']])
+
+            # Map Gridline and formatting xticks and yticks
+            gl = ax.gridlines(draw_labels=False, linewidth=0.1)
+            g1 = plt.gca().gridlines(color='dimgrey', linestyle='--', linewidth=0.4)
+            line_scale = 0.2  # 간격
+            xticks = np.arange(125, 130, line_scale)
+            yticks = np.arange(30, 40, line_scale)
+
+            g1.xformatter = LONGITUDE_FORMATTER
+            g1.yformatter = LATITUDE_FORMATTER
+            g1.xlocator = mticker.FixedLocator(xticks)
+            g1.ylocator = mticker.FixedLocator(yticks)
+            g1.xlabels_top = True
+            g1.ylabels_left = True
+            plt.show()
+
+            # Suppose ds is your xarray.Dataset
+
+            # satInfo['var']
+            dataL3['']
+
+            # cs = map.scatter(lon2D, lat2D, c=val2D, s=10, marker='s', cmap=plt.cm.get_cmap('Spectral_r'))
+            # plt.plot(sysOpt['roi']['cenLon'], sysOpt['roi']['cenLat'], marker='*', markersize=10, color='black', linestyle='none')
+
+            # 추출한 픽셀 인덱스에 대해서 루프 실행 : 루프 하나마다 pcolormesh로 색칠하는 구조
+            # for check in ind_0_list:
+            #     lat_target = lat_corner[check, [0, 1, 3, 2]].reshape(2, 2)
+            #     lon_target = lon_corner[check, [0, 1, 3, 2]].reshape(2, 2)
+            #     SIF_target = SIF[check]  ###해당 값이 지도로 표출되는 값
+            #
+            #     al = ax.pcolormesh(lon_target, lat_target, SIF_target.reshape(1, 1), transform=ccrs.PlateCarree(), cmap='YlOrRd')
+            #     al.set_clim([xco2_min_, xco2_max_])
+            #
+            # smaplegend = plt.colorbar(al, ticks=np.arange(xco2_min_, xco2_max_, 0.1), extend='both')
+            # ax.scatter(stn_lon_list[stn_ind], stn_lat_list[stn_ind], c='r', s=200, marker='*')  # Center of site Location
+            #
+            # # Title or legend value
+            # smaplegend.set_label('SIF 740nm', fontsize=15)
+            # plt.title('OCO-3 SIF ' + str(stn_namelist[stn_ind]) + ' ' + str(target_list[stn_ind]), fontsize=14)
+            # # plt.text(.0001, .0001, 'range = ('+str(round(float(xco2_min),3))+', '+str(round(float(xco2_max),3))+')', ha='left', va='top', transform=ax.transAxes, fontsize = 12)
+            #
+            # # Shapefile boundaries
+            # shapefile = "/gadm36_KOR_1.shp"  # shapefile 시도단위
+            # shapefile_1 = "/gadm36_KOR_2.shp"  # shapefile 시군구 단위
+            # shp1 = gpd.read_file(shapefile)
+            # shp2 = gpd.read_file(shapefile_1)
+            # shp1.plot(ax=ax, color='None', edgecolor='black', linewidth=3)
+            # shp2.plot(ax=ax, color='None', edgecolor='black')
+            #
+            # # 그림 저장, 용량이 크면 dpi=200으로 변환
+            # fig.savefig(graph_path + 'OCO-3_SIF_' + str(stn_namelist[stn_ind]) + '_' + str(target_list[stn_ind]) + '.png', bbox_inches='tight', dpi=400)
