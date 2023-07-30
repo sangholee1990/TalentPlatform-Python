@@ -201,7 +201,6 @@ globalVar = {
 #     'figPath': '/home/sbpark/analysis/python_resources/4satellites/20230723/figs'
 # }
 
-
 # globalVar['inpPath'] = '/DATA/INPUT'
 # globalVar['outPath'] = '/DATA/OUTPUT'
 # globalVar['figPath'] = '/DATA/FIG'
@@ -235,10 +234,10 @@ sysOpt = {
     # 동적 설정
     # ****************************************************************************
     # 시작/종료 시간
-    # 'srtDate': '2022-07-01'
-    # , 'endDate': '2022-12-31'
-    'srtDate': globalVar['srtDate']
-    , 'endDate': globalVar['endDate']
+    'srtDate': '2022-07-01'
+    , 'endDate': '2022-12-31'
+    # 'srtDate': globalVar['srtDate']
+    # , 'endDate': globalVar['endDate']
 
     # 위성 목록
     # , 'satList': ['OCO2-CO2']
@@ -247,8 +246,8 @@ sysOpt = {
     # , 'satList': ['OCO3-SIF']
     # , 'satList': ['TROPOMI']
     # , 'satList': ['OCO2-CO2', 'OCO3-CO2', 'OCO2-SIF', 'OCO3-SIF']
-    # , 'satList': ['OCO2-CO2', 'OCO3-CO2', 'OCO2-SIF', 'OCO3-SIF', 'TROPOMI']
-    , 'satList': [globalVar['satList']]
+    , 'satList': ['OCO2-CO2', 'OCO3-CO2', 'OCO2-SIF', 'OCO3-SIF', 'TROPOMI']
+    # , 'satList': [globalVar['satList']]
 
     # shp 파일 정보
     # , 'shpInfo': 'gadm36_KOR_0'
@@ -286,24 +285,34 @@ sysOpt = {
     , 'metaInfo': {
         # shp 관련 속성 정보
         'gadm36_KOR_0': {
-            'filePath': '/DATA/INPUT/LSH0455/gadm36_KOR_shp/gadm36_KOR_0'
+            'filePath': '/home/sbpark/data/GIS/shapefiles/KOR_adm/gadm36_KOR_0'
             , 'fileName': 'gadm36_KOR_0'
-            , 'fileInfo': '/DATA/INPUT/LSH0455/gadm36_KOR_shp/gadm36_KOR_0.shp'
+            , 'fileInfo': '/home/sbpark/data/GIS/shapefiles/KOR_adm/gadm36_KOR_0.shp'
+            # 'filePath': '/DATA/INPUT/LSH0455/gadm36_KOR_shp/gadm36_KOR_0'
+            # , 'fileName': 'gadm36_KOR_0'
+            # , 'fileInfo': '/DATA/INPUT/LSH0455/gadm36_KOR_shp/gadm36_KOR_0.shp'
         }
         , 'gadm36_KOR_1': {
-            'filePath': '/DATA/INPUT/LSH0455/gadm36_KOR_shp/gadm36_KOR_1'
+            'filePath': '/home/sbpark/data/GIS/shapefiles/KOR_adm/gadm36_KOR_1'
             , 'fileName': 'gadm36_KOR_1'
-            , 'fileInfo': '/DATA/INPUT/LSH0455/gadm36_KOR_shp/gadm36_KOR_1.shp'
+            , 'fileInfo': '/home/sbpark/data/GIS/shapefiles/KOR_adm/gadm36_KOR_1.shp'
+            # 'filePath': '/DATA/INPUT/LSH0455/gadm36_KOR_shp/gadm36_KOR_1'
+            # , 'fileName': 'gadm36_KOR_1'
+            # , 'fileInfo': '/DATA/INPUT/LSH0455/gadm36_KOR_shp/gadm36_KOR_1.shp'
         }
         , 'gadm36_KOR_2': {
-            'filePath': '/DATA/INPUT/LSH0455/gadm36_KOR_shp/gadm36_KOR_2'
+            'filePath': '/home/sbpark/data/GIS/shapefiles/KOR_adm/gadm36_KOR_2'
             , 'fileName': 'gadm36_KOR_2'
-            , 'fileInfo': '/DATA/INPUT/LSH0455/gadm36_KOR_shp/gadm36_KOR_2.shp'
+            , 'fileInfo': '/home/sbpark/data/GIS/shapefiles/KOR_adm/gadm36_KOR_2.shp'
+            # 'filePath': '/DATA/INPUT/LSH0455/gadm36_KOR_shp/gadm36_KOR_2'
+            # , 'fileName': 'gadm36_KOR_2'
+            # , 'fileInfo': '/DATA/INPUT/LSH0455/gadm36_KOR_shp/gadm36_KOR_2.shp'
         }
 
         # 위성 관련 속성 정보
         , 'OCO2-CO2': {
-            'filePath': '/DATA/INPUT/LSH0455'
+            'filePath': '/home/sbpark/data/Satellite/OCO2/L2/OCO2_L2_Lite_FP.11r'
+            # 'filePath': '/DATA/INPUT/LSH0455'
             , 'fileName': 'oco2_LtCO2_%y%m%d_B*_*.nc4'
             , 'group': None
             , 'groupObs': 'Sounding'
@@ -312,10 +321,10 @@ sysOpt = {
                 , 'verId': 'vertices', 'verLon': 'vertex_longitude', 'verLat': 'vertex_latitude'
             }
             , 'flag': {'val': 0, 'obsMode': 2, 'minVal': 410, 'maxVal': 403}
-            # , 'flag': {'val': 0, 'obsMode': 0, 'minVal': 410, 'maxVal': 430}
         }
         , 'OCO2-SIF': {
-            'filePath': '/DATA/INPUT/LSH0455'
+            'filePath': '/home/sbpark/data/Satellite/OCO2/L2/OCO2_L2_Lite_SIF.11r'
+            # 'filePath': '/DATA/INPUT/LSH0455'
             , 'fileName': 'oco2_LtSIF_%y%m%d_B*_*.nc4'
             , 'group': None
             , 'groupObs': 'Sequences'
@@ -326,7 +335,8 @@ sysOpt = {
             , 'flag': {'val': 0, 'minVal': -3, 'maxVal': 3}
         }
         , 'OCO3-CO2': {
-            'filePath': '/DATA/INPUT/LSH0455'
+            'filePath': '/home/data/satellite/OCO3/OCO3_L2_Lite_FP.10r'
+            # 'filePath': '/DATA/INPUT/LSH0455'
             , 'fileName': 'oco3_LtCO2_%y%m%d_B*_*.nc4'
             , 'group': None
             , 'groupObs': 'Sounding'
@@ -337,7 +347,8 @@ sysOpt = {
             , 'flag': {'val': 0, 'obsMode': 4, 'minVal': 410, 'maxVal': 430}
         }
         , 'OCO3-SIF': {
-            'filePath': '/DATA/INPUT/LSH0455'
+            'filePath': '/home/data/satellite/OCO3/OCO3_L2_Lite_SIF.10r'
+            # 'filePath': '/DATA/INPUT/LSH0455'
             , 'fileName': 'oco2_LtSIF_%y%m%d_B*_*.nc4'
             , 'group': None
             , 'groupObs': 'Sequences'
@@ -348,7 +359,8 @@ sysOpt = {
             , 'flag': {'val': 0, 'minVal': -3, 'maxVal': 3}
         }
         , 'TROPOMI': {
-            'filePath': '/DATA/INPUT/LSH0455'
+            'filePath': '/home/sbpark/data/Satellite/TROPOMI'
+            # 'filePath': '/DATA/INPUT/LSH0455'
             , 'fileName': 'S5P_RPRO_L2__NO2____%Y%m%dT*.nc'
             , 'group': 'PRODUCT'
             , 'groupObs': 'Sounding'
