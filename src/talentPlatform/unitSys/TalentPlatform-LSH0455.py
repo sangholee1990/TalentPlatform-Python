@@ -74,7 +74,7 @@ def makeMapPlot(sysOpt, lon2D, lat2D, val2D, mainTitle, subTitle, saveImg, isRoi
 
         cs = map.scatter(lon2D, lat2D, c=val2D, s=10, marker='s', cmap=plt.cm.get_cmap('Spectral_r'))
 
-        plt.plot(sysOpt['roi']['cenLon'], sysOpt['roi']['cenLat'], marker='*', markersize=10, color='black', linestyle='none')
+        plt.plot(sysOpt['roi']['cenLon'], sysOpt['roi']['cenLat'], marker='*', markersize=10, color='red', linestyle='none')
 
         # GADM shp 정보
         shpFile = '{}*'.format(sysOpt['metaInfo'][sysOpt['shpInfo']]['filePath'])
@@ -142,6 +142,8 @@ def makeMapMeshPlot(sysOpt, satInfo, dataL6, mainTitle, subTitle, saveImg):
             gridLat = np.array([row['vertex_latitude_1'], row['vertex_latitude_2'], row['vertex_latitude_4'], row['vertex_latitude_3']]).reshape(2, 2)
             gridVal = np.array([[row[satInfo['var']['val']]]])
             cbar = ax.pcolormesh(gridLon, gridLat, gridVal, transform=ccrs.PlateCarree(), vmin = satInfo['flag']['minVal'], vmax = satInfo['flag']['maxVal'])
+
+        plt.plot(sysOpt['roi']['cenLon'], sysOpt['roi']['cenLat'], marker='*', markersize=10, color='red', linestyle='none')
 
         # smaplegend = plt.colorbar(al, ticks=np.arange(minVal, maxVal), extend='both')
         cbar.set_clim([satInfo['flag']['minVal'], satInfo['flag']['maxVal']])
@@ -330,10 +332,10 @@ sysOpt = {
             , 'group': None
             , 'groupObs': 'Sequences'
             , 'var': {
-                'id': 'sounding_dim', 'lon': 'Longitude', 'lat': 'Latitude', 'flag': 'Quality_Flag', 'val': 'SIF_740nm', 'obsMode': 'SequencesMode'
+                'id': 'sounding_dim', 'lon': 'Longitude', 'lat': 'Latitude', 'flag': 'Quality_Flag', 'val': 'Daily_SIF_740nm', 'obsMode': 'SequencesMode'
                 , 'verId': 'vertex_dim', 'verLon': 'Longitude_Corners', 'verLat': 'Latitude_Corners'
             }
-            , 'flag': {'val': 0, 'minVal': -3, 'maxVal': 3}
+            , 'flag': {'val': 0, 'minVal': 0, 'maxVal': 1}
         }
         , 'OCO3-CO2': {
             # 'filePath': '/home/data/satellite/OCO3/OCO3_L2_Lite_FP.10r'
@@ -350,14 +352,14 @@ sysOpt = {
         , 'OCO3-SIF': {
             # 'filePath': '/home/data/satellite/OCO3/OCO3_L2_Lite_SIF.10r'
             'filePath': '/DATA/INPUT/LSH0455'
-            , 'fileName': 'oco2_LtSIF_%y%m%d_B*_*.nc4'
+            , 'fileName': 'oco3_LtSIF_%y%m%d_B*_*.nc4'
             , 'group': None
             , 'groupObs': 'Sequences'
             , 'var': {
-                'id': 'sounding_dim', 'lon': 'Longitude', 'lat': 'Latitude', 'flag': 'Quality_Flag', 'val': 'SIF_740nm', 'obsMode': 'SequencesMode'
+                'id': 'sounding_dim', 'lon': 'Longitude', 'lat': 'Latitude', 'flag': 'Quality_Flag', 'val': 'Daily_SIF_740nm', 'obsMode': 'SequencesMode'
                 , 'verId': 'vertex_dim', 'verLon': 'Longitude_Corners', 'verLat': 'Latitude_Corners'
             }
-            , 'flag': {'val': 0, 'minVal': -3, 'maxVal': 3}
+            , 'flag': {'val': 0, 'minVal': 0, 'maxVal': 1}
         }
         , 'TROPOMI': {
             # 'filePath': '/home/sbpark/data/Satellite/TROPOMI'
@@ -461,13 +463,18 @@ for dtDayIdx, dtDayInfo in enumerate(dtDayList):
             dataL5.columns = ['vertex_longitude_1', 'vertex_longitude_2', 'vertex_longitude_3', 'vertex_longitude_4', 'vertex_latitude_1', 'vertex_latitude_2', 'vertex_latitude_3', 'vertex_latitude_4']
             dataL6 = dataL5.reset_index()
 
+            saveFile = '{}/{}_{}.csv'.format(globalVar['outPath'], satType, obsDateTime)
+            os.makedirs(os.path.dirname(saveFile), exist_ok=True)
+            dataL6.to_csv(saveFile, index=False)
+
             minVal = np.nanmin(val1D)
             maxVal = np.nanmax(val1D)
 
             mainTitle = f'{satType} ({stnInfo["name"]} {obsMode}) {obsDateTime}'
             subTitle = f'N = {cnt} / range = {minVal:.1f} ~ {maxVal:.1f}'
 
-            saveImg = '{}/{}/{}={}.png'.format(globalVar['figPath'], serviceName, mainTitle, 'Mesh')
+            # saveImg = '{}/{}/{}={}.png'.format(globalVar['figPath'], serviceName, mainTitle, 'Mesh')
+            saveImg = '{}/{}_{}.png'.format(globalVar['figPath'], satType, obsDateTime)
             os.makedirs(os.path.dirname(saveImg), exist_ok=True)
             # result = makeMapPlot(sysOpt, lon1D, lat1D, val1D, mainTitle, subTitle, saveImg, isRoi=True)
             result = makeMapMeshPlot(sysOpt, satInfo, dataL6, mainTitle, subTitle, saveImg)
