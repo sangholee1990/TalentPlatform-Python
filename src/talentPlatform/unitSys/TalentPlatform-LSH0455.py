@@ -119,7 +119,7 @@ def makeMapMeshPlot(sysOpt, satInfo, dataL6, mainTitle, subTitle, saveImg):
     result = None
 
     try:
-        fig, ax = plt.subplots(subplot_kw=dict(projection=ccrs.PlateCarree()), dpi=600)
+        fig, ax = plt.subplots(subplot_kw=dict(projection=ccrs.PlateCarree()), figsize=(10, 7), dpi=600)
         extent_area = [sysOpt['roi']['minLon'], sysOpt['roi']['maxLon'], sysOpt['roi']['minLat'], sysOpt['roi']['maxLat']]
         ax.set_extent(extent_area)
 
@@ -138,16 +138,20 @@ def makeMapMeshPlot(sysOpt, satInfo, dataL6, mainTitle, subTitle, saveImg):
         g1.left_labels = True
 
         for index, row in dataL6.iterrows():
+            # vertex 그리드
             gridLon = np.array([row['vertex_longitude_1'], row['vertex_longitude_2'], row['vertex_longitude_4'], row['vertex_longitude_3']]).reshape(2, 2)
             gridLat = np.array([row['vertex_latitude_1'], row['vertex_latitude_2'], row['vertex_latitude_4'], row['vertex_latitude_3']]).reshape(2, 2)
             gridVal = np.array([[row[satInfo['var']['val']]]])
-            cbar = ax.pcolormesh(gridLon, gridLat, gridVal, transform=ccrs.PlateCarree(), vmin = satInfo['flag']['minVal'], vmax = satInfo['flag']['maxVal'])
+            cbar = ax.pcolormesh(gridLon, gridLat, gridVal, transform=ccrs.PlateCarree(), vmin=satInfo['flag']['minVal'], vmax=satInfo['flag']['maxVal'])
+
+            # 산점도
+            # cbar = ax.scatter(row['longitude'], row['latitude'], c=row['xco2'], s=10, vmin=satInfo['flag']['minVal'], vmax=satInfo['flag']['maxVal'])
 
         plt.plot(sysOpt['roi']['cenLon'], sysOpt['roi']['cenLat'], marker='*', markersize=10, color='red', linestyle='none')
 
         # smaplegend = plt.colorbar(al, ticks=np.arange(minVal, maxVal), extend='both')
         cbar.set_clim([satInfo['flag']['minVal'], satInfo['flag']['maxVal']])
-        plt.colorbar(cbar, ax = ax, extend='both')
+        plt.colorbar(cbar, ax=ax, extend='both')
 
         # SHP 파일 (시도, 시군구)
         shapefile = sysOpt['metaInfo']['gadm36_KOR_0']['fileInfo']
@@ -164,9 +168,9 @@ def makeMapMeshPlot(sysOpt, satInfo, dataL6, mainTitle, subTitle, saveImg):
 
         plt.suptitle(mainTitle)
         plt.title(subTitle)
-        # plt.savefig(saveImg, dpi=600, bbox_inches='tight', transparent=True)
+        plt.savefig(saveImg, dpi=600, bbox_inches='tight', transparent=True)
         plt.tight_layout()
-        plt.show()
+        # plt.show()
         plt.close()
 
         result = {
@@ -181,6 +185,7 @@ def makeMapMeshPlot(sysOpt, satInfo, dataL6, mainTitle, subTitle, saveImg):
         print(f'Exception : {e}')
 
         return result
+
 
 # ============================================
 # 주요
@@ -459,11 +464,10 @@ for dtDayIdx, dtDayInfo in enumerate(dtDayList):
             # 자료 전처리
             dataL4 = dataL3[[satInfo['var']['lon'], satInfo['var']['lat'], satInfo['var']['verLon'], satInfo['var']['verLat'], satInfo['var']['val']]].to_dataframe().reset_index(drop=False).dropna()
             dataL5 = dataL4.pivot(index=[satInfo['var']['id'], satInfo['var']['lon'], satInfo['var']['lat'], satInfo['var']['val']], columns=satInfo['var']['verId'])
-            # dataL5.columns = [f'{x}_{y}' for x, y in dataL5.columns]
             dataL5.columns = ['vertex_longitude_1', 'vertex_longitude_2', 'vertex_longitude_3', 'vertex_longitude_4', 'vertex_latitude_1', 'vertex_latitude_2', 'vertex_latitude_3', 'vertex_latitude_4']
             dataL6 = dataL5.reset_index()
 
-            saveFile = '{}/{}_{}.csv'.format(globalVar['outPath'], satType, obsDateTime)
+            saveFile = '{}/{}_{}_{}.csv'.format(globalVar['outPath'], satType, stnInfo["name"], obsDateTime)
             os.makedirs(os.path.dirname(saveFile), exist_ok=True)
             dataL6.to_csv(saveFile, index=False)
 
@@ -474,7 +478,7 @@ for dtDayIdx, dtDayInfo in enumerate(dtDayList):
             subTitle = f'N = {cnt} / range = {minVal:.1f} ~ {maxVal:.1f}'
 
             # saveImg = '{}/{}/{}={}.png'.format(globalVar['figPath'], serviceName, mainTitle, 'Mesh')
-            saveImg = '{}/{}_{}.png'.format(globalVar['figPath'], satType, obsDateTime)
+            saveImg = '{}/{}_{}_{}.png'.format(globalVar['figPath'], satType, stnInfo["name"], obsDateTime)
             os.makedirs(os.path.dirname(saveImg), exist_ok=True)
             # result = makeMapPlot(sysOpt, lon1D, lat1D, val1D, mainTitle, subTitle, saveImg, isRoi=True)
             result = makeMapMeshPlot(sysOpt, satInfo, dataL6, mainTitle, subTitle, saveImg)

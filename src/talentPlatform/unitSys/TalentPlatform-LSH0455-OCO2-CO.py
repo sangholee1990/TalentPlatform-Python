@@ -63,8 +63,8 @@ for dtDayIdx, dtDayInfo in enumerate(dtDayList):
     # 수행 목록 기준으로 반복문
     for satIdx, satType in enumerate(['OCO2-CO2']):
 
-        inpFile = '{}/{}'.format('/home/sbpark/data/Satellite/OCO2/L2/OCO2_L2_Lite_FP.11r', 'oco2_LtCO2_%y%m%d_B*_*.nc4')
-        # inpFile = '{}/{}'.format( '/DATA/INPUT/LSH0455', 'oco2_LtCO2_%y%m%d_B*_*.nc4')
+        # inpFile = '{}/{}'.format('/home/sbpark/data/Satellite/OCO2/L2/OCO2_L2_Lite_FP.11r', 'oco2_LtCO2_%y%m%d_B*_*.nc4')
+        inpFile = '{}/{}'.format( '/DATA/INPUT/LSH0455', 'oco2_LtCO2_%y%m%d_B*_*.nc4')
         inpFileDate = dtDayInfo.strftime(inpFile)
         fileList = sorted(glob.glob(inpFileDate))
 
@@ -122,8 +122,8 @@ for dtDayIdx, dtDayInfo in enumerate(dtDayList):
             if cnt < 1: continue
 
             # 자료 전처리
-            dataL4 = dataL3[['longitude', 'latitude', 'vertex_longitude', 'vertex_latitude', 'xco2']].to_dataframe().reset_index(drop=False).dropna()
-            dataL5 = dataL4.pivot(index=['sounding_id', 'longitude', 'latitude', 'xco2'], columns='vertices')
+            dataL4 = dataL3[['longitude', 'latitude', 'vertex_longitude', 'vertex_latitude', 'xco2', 'xco2_quality_flag']].to_dataframe().reset_index(drop=False).dropna()
+            dataL5 = dataL4.pivot(index=['sounding_id', 'longitude', 'latitude', 'xco2', 'xco2_quality_flag'], columns='vertices')
             dataL5.columns = ['vertex_longitude_1', 'vertex_longitude_2', 'vertex_longitude_3', 'vertex_longitude_4', 'vertex_latitude_1', 'vertex_latitude_2', 'vertex_latitude_3', 'vertex_latitude_4']
             dataL6 = dataL5.reset_index()
 

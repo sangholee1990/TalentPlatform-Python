@@ -63,8 +63,8 @@ for dtDayIdx, dtDayInfo in enumerate(dtDayList):
     # 수행 목록 기준으로 반복문
     for satIdx, satType in enumerate(['OCO2-SIF']):
 
-        inpFile = '{}/{}'.format('/home/sbpark/data/Satellite/OCO2/L2/OCO2_L2_Lite_SIF.11r', 'oco2_LtSIF_%y%m%d_B*_*.nc4')
-        # inpFile = '{}/{}'.format( '/DATA/INPUT/LSH0455', 'oco2_LtSIF_%y%m%d_B*_*.nc4')
+        # inpFile = '{}/{}'.format('/home/sbpark/data/Satellite/OCO2/L2/OCO2_L2_Lite_SIF.11r', 'oco2_LtSIF_%y%m%d_B*_*.nc4')
+        inpFile = '{}/{}'.format( '/DATA/INPUT/LSH0455', 'oco2_LtSIF_%y%m%d_B*_*.nc4')
         inpFileDate = dtDayInfo.strftime(inpFile)
         fileList = sorted(glob.glob(inpFileDate))
 
@@ -111,14 +111,14 @@ for dtDayIdx, dtDayInfo in enumerate(dtDayList):
             if cnt < 1: continue
 
             # 자료 전처리
-            dataL4 = dataL3[['Longitude', 'Latitude', 'Longitude_Corners', 'Latitude_Corners', 'Daily_SIF_740nm']].to_dataframe().reset_index(drop=False).dropna()
-            dataL5 = dataL4.pivot(index=['sounding_dim', 'Longitude', 'Latitude', 'Daily_SIF_740nm'], columns='vertex_dim')
+            dataL4 = dataL3[['Longitude', 'Latitude', 'Longitude_Corners', 'Latitude_Corners', 'Daily_SIF_740nm', 'Quality_Flag']].to_dataframe().reset_index(drop=False).dropna()
+            dataL5 = dataL4.pivot(index=['sounding_dim', 'Longitude', 'Latitude', 'Daily_SIF_740nm', 'Quality_Flag'], columns='vertex_dim')
             dataL5.columns = ['vertex_longitude_1', 'vertex_longitude_2', 'vertex_longitude_3', 'vertex_longitude_4', 'vertex_latitude_1', 'vertex_latitude_2', 'vertex_latitude_3', 'vertex_latitude_4']
             dataL6 = dataL5.reset_index()
 
             # 자료 저장
-            saveFile = '{}/{}_{}.csv'.format('/home/sbpark/analysis/python_resources/4satellites/20230723/figs', satType, obsDateTime)
-            # saveFile = '{}/{}_{}.csv'.format('/DATA/OUTPUT/LSH0455', satType, obsDateTime)
+            # saveFile = '{}/{}_{}.csv'.format('/home/sbpark/analysis/python_resources/4satellites/20230723/figs', satType, obsDateTime)
+            saveFile = '{}/{}_{}.csv'.format('/DATA/OUTPUT/LSH0455', satType, obsDateTime)
             os.makedirs(os.path.dirname(saveFile), exist_ok=True)
             dataL6.to_csv(saveFile, index=False)
 
