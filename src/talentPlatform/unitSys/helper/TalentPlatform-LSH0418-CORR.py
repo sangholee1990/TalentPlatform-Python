@@ -310,7 +310,9 @@ class DtaProcess(object):
             # data = xr.open_mfdataset(fileInfo)
 
             # inpFile = '{}/{}/{}.nc'.format(globalVar['outPath'], serviceName, '*_1990-2021')
-            inpFile = '{}/{}/{}.nc'.format(globalVar['outPath'], serviceName, '*')
+            # inpFile = '{}/{}/{}.nc'.format(globalVar['outPath'], serviceName, '*')
+            # inpFile = '{}/{}/{}.nc'.format(globalVar['outPath'], serviceName, '*')
+            inpFile = '{}/{}/{}.nc'.format(globalVar['outPath'], serviceName, 'CO_1990-2018')
             fileList = sorted(glob.glob(inpFile))
 
             if fileList is None or len(fileList) < 1:
@@ -323,42 +325,53 @@ class DtaProcess(object):
             # **********************************************************************************************************
             # 피어슨 상관계수 계산
             # **********************************************************************************************************
-            # for i, typeInfo in enumerate(sysOpt['typeList']):
-            #     for j, keyInfo in enumerate(sysOpt['keyList']):
-            #         log.info(f'[CHECK] typeInfo : {typeInfo} / keyInfo : {keyInfo}')
-            #
-            #         saveFile = '{}/{}/{}/{}_{}_{}.nc'.format(globalVar['outPath'], serviceName, 'CORR', 'corr', typeInfo, keyInfo)
-            #         fileChkList = glob.glob(saveFile)
-            #         if (len(fileChkList) > 0): continue
-            #
-            #         var1 = data[typeInfo]
-            #         var2 = data[keyInfo]
-            #
-            #         cov = ((var1 - var1.mean(dim='time', skipna=True)) * (var2 - var2.mean(dim='time', skipna=True))).mean(dim='time', skipna=True)
-            #         stdVar1 = var1.std(dim='time', skipna=True)
-            #         stdVar2 = var2.std(dim='time', skipna=True)
-            #         peaCorr = cov / (stdVar1 * stdVar2)
-            #         peaCorr = peaCorr.rename(f'{typeInfo}_{keyInfo}')
-            #
-            #         saveImg = '{}/{}/{}/{}_{}_{}.png'.format(globalVar['figPath'], serviceName, 'CORR', 'corr', typeInfo, keyInfo)
-            #         os.makedirs(os.path.dirname(saveImg), exist_ok=True)
-            #         peaCorr.plot(vmin=-1.0, vmax=1.0)
-            #         plt.savefig(saveImg, dpi=600, bbox_inches='tight', transparent=True)
-            #         plt.tight_layout()
-            #         # plt.show()
-            #         # plt.close()
-            #         log.info(f'[CHECK] saveImg : {saveImg}')
-            #
-            #         os.makedirs(os.path.dirname(saveFile), exist_ok=True)
-            #         peaCorr.to_netcdf(saveFile)
-            #         log.info(f'[CHECK] saveFile : {saveFile}')
-            #
-            #         # 데이터셋 닫기 및 메모리에서 제거
-            #         var1.close(), var2.close(), cov.close(), stdVar1.close(), stdVar2.close(), peaCorr.close()
-            #         del var1, var2, cov, stdVar1, stdVar2, peaCorr
-            #
-            #         # 가비지 수집기 강제 실행
-            #         # gc.collect()
+            for i, typeInfo in enumerate(sysOpt['typeList']):
+                for j, keyInfo in enumerate(sysOpt['keyList']):
+                    log.info(f'[CHECK] typeInfo : {typeInfo} / keyInfo : {keyInfo}')
+
+                    saveFile = '{}/{}/{}/{}_{}_{}.nc'.format(globalVar['outPath'], serviceName, 'CORR', 'corr', typeInfo, keyInfo)
+                    fileChkList = glob.glob(saveFile)
+                    # if (len(fileChkList) > 0): continue
+
+                    var1 = data[typeInfo]
+                    var2 = data[keyInfo]
+
+                    cov = ((var1 - var1.mean(dim='time', skipna=True)) * (var2 - var2.mean(dim='time', skipna=True))).mean(dim='time', skipna=True)
+                    stdVar1 = var1.std(dim='time', skipna=True)
+                    stdVar2 = var2.std(dim='time', skipna=True)
+                    peaCorr = cov / (stdVar1 * stdVar2)
+                    peaCorr = peaCorr.rename(f'{typeInfo}_{keyInfo}')
+
+                    # np.nanmin(peaCorr)
+                    # np.nanmax(peaCorr)
+
+                    # peaCorr.plot()
+                    # cov.plot()
+                    # stdVar1.plot()
+                    # stdVar2.plot()
+
+                    var2.isel(time = 4).plot()
+                    plt.show()
+
+                    saveImg = '{}/{}/{}/{}_{}_{}.png'.format(globalVar['figPath'], serviceName, 'CORR', 'corr', typeInfo, keyInfo)
+                    os.makedirs(os.path.dirname(saveImg), exist_ok=True)
+                    peaCorr.plot(vmin=-1.0, vmax=1.0)
+                    plt.savefig(saveImg, dpi=600, bbox_inches='tight', transparent=True)
+                    plt.tight_layout()
+                    # plt.show()
+                    # plt.close()
+                    log.info(f'[CHECK] saveImg : {saveImg}')
+
+                    os.makedirs(os.path.dirname(saveFile), exist_ok=True)
+                    peaCorr.to_netcdf(saveFile)
+                    log.info(f'[CHECK] saveFile : {saveFile}')
+
+                    # 데이터셋 닫기 및 메모리에서 제거
+                    var1.close(), var2.close(), cov.close(), stdVar1.close(), stdVar2.close(), peaCorr.close()
+                    del var1, var2, cov, stdVar1, stdVar2, peaCorr
+
+                    # 가비지 수집기 강제 실행
+                    # gc.collect()
 
             # **********************************************************************************************************
             # 온실가스 배출량 계산
@@ -475,6 +488,13 @@ class DtaProcess(object):
                 dataL1.columns = dataL1.columns.str.replace(f'{typeInfo}-emi_', '').str.replace(f'{typeInfo}_emi_', '')
 
                 dataL2 = pd.melt(dataL1, id_vars=[], var_name='key', value_name='val')
+
+                # 경계값 설정
+                dataL2['val'] = np.where(dataL2['val'] > 1, 1, dataL2['val'])
+                dataL2['val'] = np.where(dataL2['val'] < -1, -1, dataL2['val'])
+
+                # np.nanmax(dataL2['val'])
+                # np.nanmin(dataL2['val'])
 
                 mainTitle = f'EDGAR Pearson-Corr {typeInfo} (2001~2018)'
                 saveImg = '{}/{}/{}.png'.format(globalVar['figPath'], serviceName, mainTitle)

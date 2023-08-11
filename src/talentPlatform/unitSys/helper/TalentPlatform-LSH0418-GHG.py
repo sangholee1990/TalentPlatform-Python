@@ -267,8 +267,8 @@ class DtaProcess(object):
                     , 'latMax': 90
                     , 'latInv': 0.1
 
-                    # , 'keyList' : ['CO', 'NOx', 'CH4', 'CO2_excl', 'CO2_org', 'N2O', 'NH3', 'NMVOC', 'OC', 'NH3', 'SO2']
-                    , 'keyList' : ['CO', 'NOx']
+                    , 'keyList' : ['CO', 'NOx', 'CH4', 'CO2_excl', 'CO2_org', 'N2O', 'NH3', 'NMVOC', 'OC', 'NH3', 'SO2']
+                    # , 'keyList' : ['CO', 'NOx']
                 }
 
                 globalVar['inpPath'] = '/DATA/INPUT'
@@ -336,6 +336,9 @@ class DtaProcess(object):
                             , 'lon': lon1D
                         }
                     )
+
+                    dataL2['emi_co'].plot()
+                    plt.show()
 
                     dataL3 = xr.merge([dataL3, dataL2])
 

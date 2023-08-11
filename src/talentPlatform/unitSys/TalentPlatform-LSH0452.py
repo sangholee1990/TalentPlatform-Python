@@ -340,8 +340,8 @@ class DtaProcess(object):
             # *********************************************************************************
             # 파일 검색
             # *********************************************************************************
-            # inpFile = '{}/{}/{}'.format(globalVar['inpPath'], serviceName, '*.csv')
-            inpFile = '{}/{}/{}'.format(globalVar['inpPath'], serviceName, '2023년 4월 대한민국 거주인구.csv')
+            # inpFile = '{}/{}/{}'.format(globalVar['inpPath'], serviceName, '2023년 4월 대한민국 거주인구.csv')
+            inpFile = '{}/{}/{}'.format(globalVar['inpPath'], serviceName, '*.csv')
             fileList = sorted(glob.glob(inpFile))
 
             # fileInfo = fileList[1]
@@ -354,79 +354,83 @@ class DtaProcess(object):
                 tmpData['YEAR'] = int(fileNameNoExt.split('년')[0])
                 tmpData['시도'] = tmpData['시도'].replace('강원도', '강원특별자치도')
 
-                tmpData.drop(['layer', 'path'], inplace=True, axis=1)
-                # tmpData['CNT'] = tmpData[sysOpt['colList']].sum(skipna=True, axis=1)
+                try:
+                    tmpData.drop(['layer', 'path'], inplace=True, axis=1)
+                    # tmpData['CNT'] = tmpData[sysOpt['colList']].sum(skipna=True, axis=1)
+                except Exception as e:
+                    log.error("Exception : {}".format(e))
+
 
                 tmpDataL1 = pd.melt(tmpData, id_vars=['gid', '성별', '연도', '시도', '시군구', '읍면동', 'x', 'y', 'YEAR'], var_name='AGE', value_name='CNT')
                 tmpDataL2 = tmpDataL1.dropna().reset_index(drop=True)
 
                 data = pd.concat([data, tmpDataL2], ignore_index=True)
 
-                dataL1 = data.rename(
+            dataL1 = data.rename(
+                {
+                    'gid': 'GID'
+                    , '시도': 'SIDO'
+                    , '시군구': 'SIGUNGU'
+                    , '읍면동': 'TOWN'
+                    , '성별': 'SEX'
+                    , 'y': 'LAT'
+                    , 'x': 'LON'
+                }
+                , axis=1
+            )
+
+            # *******************************************************************
+            # 상세정보 가공
+            # *******************************************************************
+            dataL2 = dataL1.loc[dataL1['SIDO'] == '서울시']
+
+            colList = sysOpt['colList']
+            dataL3 = dataL2[colList].reset_index(drop=True)
+
+            # 중복 검사
+            dataL4 = dataL3.groupby(['GID', 'SIDO', 'SIGUNGU', 'TOWN', 'YEAR', 'AGE', 'SEX', 'LAT', 'LON'])['CNT'].sum().reset_index()
+
+            dbData = dataL4[colList]
+            dbData['REG_DATE'] = datetime.now(pytz.timezone('Asia/Seoul'))
+
+            # 1건으로 처리
+            # dataList = dbData.to_dict(orient='records')
+            # dbMergeData(cfgInfo['session'], cfgInfo['tbRsdInfo'], dataList, pkList=[''])
+
+            # 10만건으로 분할 처리
+            chunkSize = 100000
+            for i in range(0, len(dbData), chunkSize):
+                log.info(f'[CHECK] i : {i}')
+                dataList = dbData[i:i + chunkSize].to_dict(orient='records')
+                dbMergeData(cfgInfo['session'], cfgInfo['tbRsdInfo'], dataList, pkList=[''])
+
+            # *******************************************************************
+            # 기본정보 가공
+            # *******************************************************************
+            dbDataL1 = pd.DataFrame()
+            typeList = sorted(set(dataL1['SIDO']))
+            for i, typeInfo in enumerate(typeList):
+                log.info(f'[CHECK] typeInfo : {typeInfo}')
+
+                selData = dataL1.loc[dataL1['SIDO'] == typeInfo].reset_index(drop=True)
+
+                saveFile = '{}/{}/{}.csv'.format(globalVar['updPath'], '거주인구', typeInfo)
+                os.makedirs(os.path.dirname(saveFile), exist_ok=True)
+                selData.to_csv(saveFile, index=False)
+                log.info(f'[CHECK] saveFile : {saveFile}')
+
+                dbData = pd.DataFrame(
                     {
-                        'gid': 'GID'
-                        , '시도': 'SIDO'
-                        , '시군구': 'SIGUNGU'
-                        , '읍면동': 'TOWN'
-                        , '성별': 'SEX'
-                        , 'y': 'LAT'
-                        , 'x': 'LON'
+                        'TYPE': [typeInfo]
+                        , 'CSV_INFO': [f"http://{sysOpt['updIp']}:{sysOpt['updPort']}/CSV{saveFile.replace(globalVar['updPath'], '')}"]
                     }
-                    , axis=1
                 )
-
-                # *******************************************************************
-                # 상세정보 가공
-                # *******************************************************************
-                dataL2 = dataL1.loc[dataL1['SIDO'] == '서울시']
-
-                colList = sysOpt['colList']
-                dataL3 = dataL2[colList].reset_index(drop=True)
-
-                # 중복 검사
-                dataL4 = dataL3.groupby(['GID', 'SIDO', 'SIGUNGU', 'TOWN', 'YEAR', 'AGE', 'SEX', 'LAT', 'LON'])['CNT'].sum().reset_index()
-
-                dbData = dataL4[colList]
                 dbData['REG_DATE'] = datetime.now(pytz.timezone('Asia/Seoul'))
+                dbDataL1 = pd.concat([dbDataL1, dbData], ignore_index=True)
 
-                # 1건으로 처리
-                # dataList = dbData.to_dict(orient='records')
-                # dbMergeData(cfgInfo['session'], cfgInfo['tbRsdInfo'], dataList, pkList=[''])
-
-                # 10만건으로 분할 처리
-                # chunkSize = 100000
-                # for i in range(0, len(dbData), chunkSize):
-                #     log.info(f'[CHECK] i : {i}')
-                #     dataList = dbData[i:i + chunkSize].to_dict(orient='records')
-                #     dbMergeData(cfgInfo['session'], cfgInfo['tbRsdInfo'], dataList, pkList=[''])
-
-                # *******************************************************************
-                # 기본정보 가공
-                # *******************************************************************
-                dbDataL1 = pd.DataFrame()
-                typeList = sorted(set(dataL1['SIDO']))
-                for i, typeInfo in enumerate(typeList):
-                    log.info(f'[CHECK] typeInfo : {typeInfo}')
-
-                    selData = dataL1.loc[dataL1['SIDO'] == typeInfo].reset_index(drop=True)
-
-                    saveFile = '{}/{}/{}.csv'.format(globalVar['updPath'], '거주인구', typeInfo)
-                    os.makedirs(os.path.dirname(saveFile), exist_ok=True)
-                    selData.to_csv(saveFile, index=False)
-                    log.info(f'[CHECK] saveFile : {saveFile}')
-
-                    dbData = pd.DataFrame(
-                        {
-                            'TYPE': [typeInfo]
-                            , 'CSV_INFO': [f"http://{sysOpt['updIp']}:{sysOpt['updPort']}/CSV{saveFile.replace(globalVar['updPath'], '')}"]
-                        }
-                    )
-                    dbData['REG_DATE'] = datetime.now(pytz.timezone('Asia/Seoul'))
-                    dbDataL1 = pd.concat([dbDataL1, dbData], ignore_index=True)
-
-                # 1건으로 처리
-                dataList = dbDataL1.to_dict(orient='records')
-                dbMergeData(cfgInfo['session'], cfgInfo['tbRsdDown'], dataList, pkList=[''])
+            # 1건으로 처리
+            dataList = dbDataL1.to_dict(orient='records')
+            dbMergeData(cfgInfo['session'], cfgInfo['tbRsdDown'], dataList, pkList=[''])
 
         except Exception as e:
             log.error("Exception : {}".format(e))
