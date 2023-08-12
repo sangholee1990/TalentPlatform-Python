@@ -379,10 +379,14 @@ class DtaProcess(object):
                 , axis=1
             )
 
+            # 자료 필터
+            dataL1 = dataL1.loc[dataL1['SEX'] != '꼈?']
+
             # *******************************************************************
             # 상세정보 가공
             # *******************************************************************
-            dataL2 = dataL1.loc[dataL1['SIDO'] == '서울시']
+            # dataL2 = dataL1.loc[dataL1['SIDO'] == '서울시']
+            dataL2 = dataL1
 
             colList = sysOpt['colList']
             dataL3 = dataL2[colList].reset_index(drop=True)
@@ -393,16 +397,27 @@ class DtaProcess(object):
             dbData = dataL4[colList]
             dbData['REG_DATE'] = datetime.now(pytz.timezone('Asia/Seoul'))
 
+            # 신규 컬럼
+            ordList = ['유아', '유소년', '초등학생', '중학생', '고등학생', '20대', '30대', '40대', '50대', '60대', '70대', '80대', '90대', '100세이상']
+            dbData['ORD'] = dbData['AGE'].apply(lambda x: ordList.index(x) if x in ordList else None)
+            dbData['GEO'] = dbData['LAT'].astype(str) + ", " + dbData['LON'].astype(str)
+            dbData['YEAR_DATE'] = pd.to_datetime(dbData['YEAR'], format='%Y')
+
+            saveFile = '{}/{}/{}.csv'.format(globalVar['outPath'], serviceName, 'TB_RSD_INFO')
+            os.makedirs(os.path.dirname(saveFile), exist_ok=True)
+            dbData.to_csv(saveFile, index=False)
+            print(f'[CHECK] saveFile : {saveFile}')
+
             # 1건으로 처리
             # dataList = dbData.to_dict(orient='records')
             # dbMergeData(cfgInfo['session'], cfgInfo['tbRsdInfo'], dataList, pkList=[''])
 
             # 10만건으로 분할 처리
-            chunkSize = 100000
-            for i in range(0, len(dbData), chunkSize):
-                log.info(f'[CHECK] i : {i}')
-                dataList = dbData[i:i + chunkSize].to_dict(orient='records')
-                dbMergeData(cfgInfo['session'], cfgInfo['tbRsdInfo'], dataList, pkList=[''])
+            # chunkSize = 100000
+            # for i in range(0, len(dbData), chunkSize):
+            #     log.info(f'[CHECK] i : {i}')
+            #     dataList = dbData[i:i + chunkSize].to_dict(orient='records')
+            #     dbMergeData(cfgInfo['session'], cfgInfo['tbRsdInfo'], dataList, pkList=[''])
 
             # *******************************************************************
             # 기본정보 가공

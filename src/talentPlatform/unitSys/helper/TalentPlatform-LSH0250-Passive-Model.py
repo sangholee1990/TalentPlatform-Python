@@ -9,7 +9,6 @@ import platform
 import sys
 import traceback
 from datetime import datetime
-
 import h2o
 # import googlemaps
 import matplotlib as mpl
@@ -21,6 +20,7 @@ from h2o.automl import H2OAutoML
 from pycaret.regression import *
 from scipy.stats import linregress
 from sklearn.model_selection import train_test_split
+import pandas as pd
 
 # =================================================
 # 사용자 매뉴얼
@@ -515,35 +515,21 @@ class DtaProcess(object):
                     'isInit': False
 
                     # 모델 업데이트 여부
-<<<<<<< HEAD
                     # , 'isOverWrite': True
                     , 'isOverWrite': False
-=======
-                    , 'isOverWrite': True
-                    # , 'isOverWrite': False
->>>>>>> main/main
                 }
 
                 #  머신러닝
                 , 'mlModel': {
                     # 모델 업데이트 여부
-<<<<<<< HEAD
                     # 'isOverWrite': True
                     'isOverWrite': False
-=======
-                    'isOverWrite': True
-                    # 'isOverWrite': False
->>>>>>> main/main
                 }
 
                 #  시계열
                 , 'tsModel': {
                     # 미래 예측 연도
                     'forYear': 2026
-<<<<<<< HEAD
-=======
-                    # 'forYear': 2026
->>>>>>> main/main
 
                     # 아파트 설정
                     , 'aptList': [] # 전체 아파트 검색
@@ -658,7 +644,6 @@ class DtaProcess(object):
                 ).sort_values(by=['name', 'capacity', 'year']).reset_index(drop=True)
 
                 # statData = prvsMntsrDataL4.groupby(['name', 'conYear', 'capacity', 'lat', 'lon', 'year', 'inhuga'], as_index=False)['realBjprice'].mean()
-
 
                 # *****************************************************
                 # 실거래가 데이터
@@ -797,13 +782,9 @@ class DtaProcess(object):
                 realPriceDlModel = result['dlModel']
                 data['realPriceDL'] = realPriceDlModel.predict(h2o.H2OFrame(data[xCol])).as_data_frame()
 
-                mainTitle = '강북구 아파트 매매가 예측 결과 (딥러닝)'
-                saveImg = '{}/{}/{}/{}/{}.png'.format(globalVar['figPath'], serviceName, '예측', addrInfo, mainTitle)
-<<<<<<< HEAD
+                # mainTitle = '강북구 아파트 매매가 예측 결과 (딥러닝)'
+                # saveImg = '{}/{}/{}/{}/{}.png'.format(globalVar['figPath'], serviceName, '예측', addrInfo, mainTitle)
                 # makeUserScatterPlot(data['realPriceDL'], data['realPrice'], '예측', '실측', mainTitle, saveImg, 0, 140000, 2000, 10000, True)
-=======
-                makeUserScatterPlot(data['realPriceDL'], data['realPrice'], '예측', '실측', mainTitle, saveImg, 0, 140000, 2000, 10000, True)
->>>>>>> main/main
 
                 # **********************************************************************************************************
                 # 딥러닝 전세가
@@ -826,14 +807,9 @@ class DtaProcess(object):
                 realBjPriceDlModel = result['dlModel']
                 data['realBjPriceDL'] = realBjPriceDlModel.predict(h2o.H2OFrame(data[xCol])).as_data_frame()
 
-                mainTitle = '강북구 아파트 전세가 예측 결과 (딥러닝)'
-                # saveImg = '{}/{}_{}.png'.format(globalVar['figPath'], serviceName, mainTitle)
-                saveImg = '{}/{}/{}/{}/{}.png'.format(globalVar['figPath'], serviceName, '예측', addrInfo, mainTitle)
-<<<<<<< HEAD
+                # mainTitle = '강북구 아파트 전세가 예측 결과 (딥러닝)'
+                # saveImg = '{}/{}/{}/{}/{}.png'.format(globalVar['figPath'], serviceName, '예측', addrInfo, mainTitle)
                 # makeUserScatterPlot(data['realBjPriceDL'], data['realBjprice'], '예측', '실측', mainTitle, saveImg, 0, 140000, 2000, 10000, True)
-=======
-                makeUserScatterPlot(data['realBjPriceDL'], data['realBjprice'], '예측', '실측', mainTitle, saveImg, 0, 140000, 2000, 10000, True)
->>>>>>> main/main
 
                 # **********************************************************************************************************
                 # 머신러닝 매매가
@@ -856,13 +832,9 @@ class DtaProcess(object):
                 realPriceMlModel = result['mlModel']
                 data['realPriceML'] = predict_model(realPriceMlModel, data=data)['Label']
 
-                mainTitle = '강북구 아파트 매매가 예측 결과 (머신러닝)'
-                saveImg = '{}/{}/{}/{}/{}.png'.format(globalVar['figPath'], serviceName, '예측', addrInfo, mainTitle)
-<<<<<<< HEAD
+                # mainTitle = '강북구 아파트 매매가 예측 결과 (머신러닝)'
+                # saveImg = '{}/{}/{}/{}/{}.png'.format(globalVar['figPath'], serviceName, '예측', addrInfo, mainTitle)
                 # makeUserScatterPlot(data['realPriceML'], data['realPrice'], '예측', '실측', mainTitle, saveImg, 0, 140000, 2000, 10000, True)
-=======
-                makeUserScatterPlot(data['realPriceML'], data['realPrice'], '예측', '실측', mainTitle, saveImg, 0, 140000, 2000, 10000, True)
->>>>>>> main/main
 
                 # **********************************************************************************************************
                 # 머신러닝 전세가
@@ -887,15 +859,9 @@ class DtaProcess(object):
                 realBjPriceMlModel = result['mlModel']
                 data['realBjPriceML'] = predict_model(realBjPriceMlModel, data=data)['Label']
 
-                mainTitle = '강북구 아파트 전세가 예측 결과 (머신러닝)'
-                saveImg = '{}/{}/{}/{}/{}.png'.format(globalVar['figPath'], serviceName, '예측', addrInfo, mainTitle)
-<<<<<<< HEAD
+                # mainTitle = '강북구 아파트 전세가 예측 결과 (머신러닝)'
+                # saveImg = '{}/{}/{}/{}/{}.png'.format(globalVar['figPath'], serviceName, '예측', addrInfo, mainTitle)
                 # makeUserScatterPlot(data['realBjPriceML'], data['realBjprice'], '예측', '실측', mainTitle, saveImg, 0, 140000, 2000, 10000, True)
-=======
-                makeUserScatterPlot(data['realBjPriceML'], data['realBjprice'], '예측', '실측', mainTitle, saveImg, 0, 140000, 2000, 10000, True)
-
-                sys.exit(0)
->>>>>>> main/main
 
                 # **********************************************************************************************************
                 # 시계열 갭투자
