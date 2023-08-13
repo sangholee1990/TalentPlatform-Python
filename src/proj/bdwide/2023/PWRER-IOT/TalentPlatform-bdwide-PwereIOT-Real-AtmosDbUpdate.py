@@ -441,10 +441,10 @@ class DtaProcess(object):
             # 옵션 설정
             sysOpt = {
                 # 시작/종료 시간
-                # 'srtDate': globalVar['srtDate']
-                # , 'endDate': globalVar['endDate']
-                'srtDate': '2023-08-14 00:00'
-                , 'endDate': '2023-08-14 01:00'
+                'srtDate': globalVar['srtDate']
+                , 'endDate': globalVar['endDate']
+                # 'srtDate': '2023-08-14 00:00'
+                # , 'endDate': '2023-08-14 01:00'
 
                 # 기상청_단기예보 ((구)_동네예보) 조회서비스 -
                 , 'apiUrl': 'https://apis.data.go.kr/1360000/VilageFcstInfoService_2.0/getUltraSrtNcst'
@@ -535,7 +535,7 @@ class DtaProcess(object):
                 for j, dtIncDateInfo in enumerate(dtIncDateList):
                     log.info(f'[CHECK] {memberInfo["CUSTOMER_LINK_NUMBER"]} : {dtIncDateInfo}')
 
-                    dtYmdHm = dtIncDateInfo.strftime('%Y-%m-%d %H:%M')
+                    # dtYmdHm = dtIncDateInfo.strftime('%Y-%m-%d %H:%M')
                     dtYmd = dtIncDateInfo.strftime('%Y%m%d')
                     dtHm = dtIncDateInfo.strftime('%H%M')
 
@@ -571,6 +571,8 @@ class DtaProcess(object):
                         if (len(itemList) < 1): break
 
                         data = pd.DataFrame.from_dict(itemList).pivot(index=['baseDate', 'baseTime', 'nx', 'ny'], columns='category', values='obsrValue').reset_index(drop=False)
+                        dtYmdHm = pd.to_datetime(data['baseDate'].values[0] + '-' + data['baseTime'].values[0], format='%Y%m%d-%H%M')
+
                         selData = session.query(tbOutputData).filter(tbOutputData.c.CUSTOMER_LINK_NUMBER == memberInfo['CUSTOMER_LINK_NUMBER'], tbOutputData.c.DATE_TIME == dtYmdHm).all()
 
                         if len(selData) < 1:
