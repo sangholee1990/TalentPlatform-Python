@@ -226,6 +226,9 @@ def initCfgInfo(sysOpt, sysPath):
         # 구글 API 정보
         gmap = googlemaps.Client(key=config.get('googleApi', 'key'))
 
+        # 공공데이터포털 API
+        apiKey = config.get('dataApi-obs', 'key')
+
         # DB 정보
         configKey = 'mysql-clova-dms02'
         dbUser = config.get(configKey, 'user')
@@ -287,6 +290,7 @@ def initCfgInfo(sysOpt, sysPath):
             'engine': engine
             , 'session': session
             , 'gmap': gmap
+            , 'apiKey': apiKey
             , 'tbMember': tbMember
             , 'tbOutputData': tbOutputData
         }
@@ -437,13 +441,10 @@ class DtaProcess(object):
             # 옵션 설정
             sysOpt = {
                 # 시작/종료 시간
-                'srtDate': globalVar['srtDate']
-                , 'endDate': globalVar['endDate']
-                # 'srtDate': '2023-08-13'
-                # , 'endDate': '2023-08-14'
-
-                # 공공데이터포털 API
-                , 'apiKey': 'bf9fH0KLgr65zXKT5D/dcgUBIj1znJKnUPrzDVZEe6g4gquylOjmt65R5cjivLPfOKXWcRcAWU0SN7KKXBGDKA=='
+                # 'srtDate': globalVar['srtDate']
+                # , 'endDate': globalVar['endDate']
+                'srtDate': '2023-08-14 00:00'
+                , 'endDate': '2023-08-14 01:00'
 
                 # 기상청_단기예보 ((구)_동네예보) 조회서비스 -
                 , 'apiUrl': 'https://apis.data.go.kr/1360000/VilageFcstInfoService_2.0/getUltraSrtNcst'
@@ -466,8 +467,10 @@ class DtaProcess(object):
 
             session = cfgInfo['session']
             gmap = cfgInfo['gmap']
+            apiKey = cfgInfo['apiKey']
             tbMember = cfgInfo['tbMember']
             tbOutputData = cfgInfo['tbOutputData']
+
 
             # ********************************************************************************
             # 주소 컬럼을 통해 위경도 변환
@@ -536,14 +539,10 @@ class DtaProcess(object):
                     dtYmd = dtIncDateInfo.strftime('%Y%m%d')
                     dtHm = dtIncDateInfo.strftime('%H%M')
 
-                    dataL1 = pd.DataFrame()
                     try:
                         apiUrl = sysOpt['apiUrl']
 
-                        # https://apis.data.go.kr/1360000/VilageFcstInfoService_2.0/getUltraSrtNcst?serviceKey=bf9fH0KLgr65zXKT5D%2FdcgUBIj1znJKnUPrzDVZEe6g4gquylOjmt65R5cjivLPfOKXWcRcAWU0SN7KKXBGDKA%3D%3D&
-                        # pageNo=1&numOfRows=1000&dataType=XML&base_date=20230813&base_time=1550&nx=55&ny=127
-
-                        inParams = {'serviceKey': sysOpt['apiKey'], 'pageNo': '1', 'numOfRows': '1000', 'dataType': 'JSON', 'base_date': dtYmd, 'base_time': dtHm, 'nx': nx, 'ny': ny}
+                        inParams = {'serviceKey': apiKey, 'pageNo': '1', 'numOfRows': '1000', 'dataType': 'JSON', 'base_date': dtYmd, 'base_time': dtHm, 'nx': nx, 'ny': ny}
                         apiParams = urllib.parse.urlencode(inParams).encode('UTF-8')
 
                         res = requests.get(apiUrl, params=apiParams)
@@ -597,320 +596,6 @@ class DtaProcess(object):
 
                     except Exception as e:
                         log.error("Exception : {}".format(e))
-
-
-            # ********************************************************************************
-            # 제품 시리얼 생성
-            # ********************************************************************************
-            # data = pd.DataFrame()
-            # for i in range(0, 1000):
-            #     log.info('[CHECK] i : {}'.format(i))
-            #
-            #     dtDateTime = datetime.now()
-            #     serialNumber = 'BDWIDE-{}'.format(generate(seed=dtDateTime).get_key())
-            #
-            #     dict = {
-            #         'PRODUCT_SERIAL_NUMBER' : [serialNumber]
-            #         , 'AUTH_YN' : ['Y']
-            #         , 'USE_YN' : ['Y']
-            #         , 'MOD_DATE' : [dtDateTime.strftime('%Y-%m-%d %H:%M:%S')]
-            #         , 'REG_DATE' : [dtDateTime.strftime('%Y-%m-%d %H:%M:%S')]
-            #     }
-            #
-            #     data = pd.concat([data, pd.DataFrame.from_dict(dict)], ignore_index=True)
-            #
-            # saveFile = '{}/{}/SerialNumber_{}.xlsx'.format(globalVar['outPath'], serviceName, datetime.now().strftime('%Y%m%d'))
-            # os.makedirs(os.path.dirname(saveFile), exist_ok=True)
-            # data.to_excel(saveFile, index=False)
-            # log.info('[CHECK] saveFile : {}'.format(saveFile))
-
-            # DB 접근
-            # cfgInfo = initCfgInfo(globalVar['sysPath'])
-            #
-            # dbEngine = cfgInfo['dbEngine']
-            # session = cfgInfo['session']
-            #
-            # dtSrtDate = pd.to_datetime(sysOpt['srtDate'], format='%Y-%m-%d %H:%M')
-            # dtEndDate = pd.to_datetime(sysOpt['endDate'], format='%Y-%m-%d %H:%M')
-            # # dtIncDateList = pd.date_range(start=dtSrtDate, end=dtEndDate, freq='1D')
-            # dtIncDateList = pd.date_range(start=dtSrtDate, end=dtEndDate, freq='1H')
-            # dtIncMonthList = pd.date_range(start=dtSrtDate, end=dtEndDate, freq='1M')
-            #
-            # for i, dtIncDateInfo in enumerate(dtIncDateList):
-            #     log.info("[CHECK] dtIncDateInfo : {}".format(dtIncDateInfo))
-            #
-            #     # ********************************************************************************
-            #     # TB_INPUT_DATA 생성
-            #     # ********************************************************************************
-            #     proSerNumList = ['BDWIDE-0033f-05a3776796-89ff44-b7b3ec0-d30403e426', 'BDWIDE-820b897da-c8384be-d793ded9-1bc8d8-0f1260de']
-            #     for j, proSerNumInfo in enumerate(proSerNumList):
-            #         log.info(f'[CHECK] proSerNumInfo : {proSerNumInfo}')
-            #
-            #         dict = {
-            #             'PRODUCT_SERIAL_NUMBER': [proSerNumInfo]
-            #             , 'DATE_TIME': [dtIncDateInfo.strftime('%Y-%m-%d %H:%M:%S')]
-            #             , 'TEMP': [random.uniform(-10, 30)]
-            #             , 'HMDTY': [random.uniform(0, 100)]
-            #             , 'PM25': [random.uniform(0, 500)]
-            #             , 'PM10': [random.uniform(0, 500)]
-            #             , 'MVMNT': [round(random.uniform(0, 1))]
-            #             , 'TVOC': [random.uniform(0.02, 2000)]
-            #             , 'HCHO': [random.uniform(0.01, 50)]
-            #             , 'CO2': [random.uniform(350, 5000)]
-            #             , 'CO': [random.uniform(0, 5000)]
-            #             , 'BENZO': [random.uniform(0, 5)]
-            #             , 'RADON': [random.uniform(20, 9990)]
-            #             , 'MOD_DATE': [datetime.now()]
-            #             , 'REG_DATE': [datetime.now()]
-            #         }
-            #
-            #         dbData = pd.DataFrame.from_dict(dict)
-            #
-            #         selDbTable = 'TB_INPUT_DATA_{}'.format(dtIncDateInfo.strftime('%Y'))
-            #
-            #         # 테이블 생성
-            #         session.execute(
-            #             """
-            #             CREATE TABLE IF NOT EXISTS `{}`
-            #             (
-            #                 PRODUCT_SERIAL_NUMBER varchar(63) not null comment '제품 시리얼 번호',
-            #                 DATE_TIME             datetime    not null comment '날짜 시간 UTC 기준' primary key,
-            #                 TEMP                  float       null comment '온도',
-            #                 HMDTY                 float       null comment '습도',
-            #                 PM25                  float       null comment '미세먼지2.5',
-            #                 PM10                  float       null comment '미세먼지10',
-            #                 MVMNT                 varchar(20) null comment '움직임 센서',
-            #                 TVOC                  float       null comment '총 휘발성 유기화합물',
-            #                 HCHO                  float       null comment '포름알데하이드',
-            #                 CO2                   float       null comment '이산화탄소',
-            #                 CO                    float       null comment '일산화탄소',
-            #                 BENZO                 float       null comment '벤조피렌',
-            #                 RADON                 float       null comment '라돈',
-            #                 MOD_DATE              datetime    null comment '수정일',
-            #                 REG_DATE              datetime    null comment '등록일',
-            #                 TMP                   float       null comment '실수형 임시 변수',
-            #                 TMP2                  float       null comment '실수형 임시 변수2',
-            #                 TMP3                  float       null comment '실수형 임시 변수3',
-            #                 TMP4                  float       null comment '실수형 임시 변수4',
-            #                 TMP5                  float       null comment '실수형 임시 변수5',
-            #                 TMP6                  varchar(20) null comment '문자형 임시 변수',
-            #                 TMP7                  varchar(20) null comment '문자형 임시 변수2',
-            #                 TMP8                  varchar(20) null comment '문자형 임시 변수3',
-            #                 TMP9                  varchar(20) null comment '문자형 임시 변수4',
-            #                 TMP10                 varchar(20) null comment '문자형 임시 변수5'
-            #             )
-            #                 comment 'IOT 테이블 {}';
-            #             """.format(selDbTable, dtIncDateInfo.strftime('%Y'))
-            #         )
-            #         session.commit()
-            #
-            #         for k, dbInfo in dbData.iterrows():
-            #
-            #             # 테이블 PK키를 통해 삽입/수정
-            #             session.execute(
-            #                 """
-            #                 INSERT INTO `{}` (PRODUCT_SERIAL_NUMBER, DATE_TIME, TEMP, HMDTY, PM25, PM10, MVMNT, TVOC, HCHO, CO2, CO, BENZO, RADON, REG_DATE, MOD_DATE)
-            #                 VALUES ('{}', '{}', '{}', '{}', '{}', '{}', '{}', '{}', '{}', '{}', '{}', '{}', '{}', '{}', '{}')
-            #                 ON DUPLICATE KEY UPDATE
-            #                     PRODUCT_SERIAL_NUMBER = VALUES(PRODUCT_SERIAL_NUMBER)
-            #                     , TEMP = VALUES(TEMP)
-            #                     , HMDTY = VALUES(HMDTY)
-            #                     , PM25 = VALUES(PM25)
-            #                     , PM10 = VALUES(PM10)
-            #                     , MVMNT = VALUES(MVMNT)
-            #                     , TVOC = VALUES(TVOC)
-            #                     , HCHO = VALUES(HCHO)
-            #                     , CO2 = VALUES(CO2)
-            #                     , CO = VALUES(CO)
-            #                     , BENZO = VALUES(BENZO)
-            #                     , RADON = VALUES(RADON)
-            #                     , MOD_DATE = VALUES(MOD_DATE)
-            #                     ;
-            #                     """.format(selDbTable, dbInfo['PRODUCT_SERIAL_NUMBER'], dbInfo['DATE_TIME'], dbInfo['TEMP'], dbInfo['HMDTY'], dbInfo['PM25'], dbInfo['PM10']
-            #                           , dbInfo['MVMNT'], dbInfo['TVOC'], dbInfo['HCHO'], dbInfo['CO2'], dbInfo['CO'], dbInfo['BENZO'], dbInfo['RADON'], dbInfo['REG_DATE'], dbInfo['MOD_DATE'])
-            #             )
-            #
-            #             session.commit()
-            #
-            #     # ********************************************************************************
-            #     # TB_OUTPUT_DATA 생성
-            #     # ********************************************************************************
-            #     customerLinkNumList = [1, 66]
-            #     for j, customerLinkNumInfo in enumerate(customerLinkNumList):
-            #         log.info(f'[CHECK] customerLinkNumInfo : {customerLinkNumInfo}')
-            #
-            #         dict = {
-            #             'CUSTOMER_LINK_NUMBER': [customerLinkNumInfo]
-            #             , 'DATE_TIME': [dtIncDateInfo.strftime('%Y-%m-%d %H:%M:%S')]
-            #             , 'TEMP': [random.uniform(-10, 30)]
-            #             , 'HMDTY': [random.uniform(0, 100)]
-            #             , 'PM25': [random.uniform(0, 500)]
-            #             , 'PM10': [random.uniform(0, 500)]
-            #             , 'DUST': [random.uniform(0, 500)]
-            #             , 'CO2': [random.uniform(350, 5000)]
-            #             , 'PWR': [random.uniform(0, 5)]
-            #             , 'GAS': [random.uniform(0, 5)]
-            #             , 'WATER': [random.uniform(0, 5)]
-            #             , 'PRD_PWR': [random.uniform(0, 5)]
-            #             , 'PRD_GAS': [random.uniform(0, 5)]
-            #             , 'PRD_WATER': [random.uniform(0, 5)]
-            #             , 'MOD_DATE': [datetime.now()]
-            #             , 'REG_DATE': [datetime.now()]
-            #         }
-            #
-            #         dbData = pd.DataFrame.from_dict(dict)
-            #
-            #         selDbTable = 'TB_OUTPUT_DATA_{}'.format(dtIncDateInfo.strftime('%Y'))
-            #
-            #         # 테이블 생성
-            #         session.execute(
-            #             """
-            #             CREATE TABLE IF NOT EXISTS `{}`
-            #             (
-            #                 CUSTOMER_LINK_NUMBER int(20)  not null comment '고객 연동 번호',
-            #                 DATE_TIME            datetime not null comment '날짜 시간 UTC 기준' primary key,
-            #                 TEMP                 float    null comment '온도',
-            #                 HMDTY                float    null comment '습도',
-            #                 PM25                 float    null comment '미세먼지2.5',
-            #                 PM10                 float    null comment '미세먼지10',
-            #                 DUST                 float    null comment '황사',
-            #                 CO2                  float    null comment '이산화탄소',
-            #                 PWR                  float    null comment '전력량',
-            #                 GAS                  float    null comment '가스량',
-            #                 WATER                float    null comment '수도량',
-            #                 PRD_PWR              float    null comment '예측 전력량',
-            #                 PRD_GAS              float    null comment '예측 가스량',
-            #                 PRD_WATER            float    null comment '예측 수도량',
-            #                 MOD_DATE             datetime null comment '수정일',
-            #                 REG_DATE             datetime null comment '등록일',
-            #                 constraint TB_OUTPUT_DATA_{}_TB_MEMBER_null_fk
-            #                     foreign key (CUSTOMER_LINK_NUMBER) references DMS02.TB_MEMBER (CUSTOMER_LINK_NUMBER)
-            #                         on update cascade on delete cascade
-            #             )
-            #                 comment 'API 테이블 {}';
-            #             """.format(selDbTable, dtIncDateInfo.strftime('%Y'), dtIncDateInfo.strftime('%Y'))
-            #         )
-            #         session.commit()
-            #
-            #         for k, dbInfo in dbData.iterrows():
-            #
-            #             # 테이블 PK키를 통해 삽입/수정
-            #             session.execute(
-            #                 """
-            #                 INSERT INTO `{}` (CUSTOMER_LINK_NUMBER, DATE_TIME, TEMP, HMDTY, PM25, PM10, DUST, CO2, PWR, GAS, WATER, PRD_PWR, PRD_GAS, PRD_WATER, REG_DATE, MOD_DATE)
-            #                 VALUES ('{}', '{}', '{}', '{}', '{}', '{}', '{}', '{}', '{}', '{}', '{}', '{}', '{}', '{}', '{}', '{}')
-            #                 ON DUPLICATE KEY UPDATE
-            #                     CUSTOMER_LINK_NUMBER = VALUES(CUSTOMER_LINK_NUMBER)
-            #                     , TEMP = VALUES(TEMP)
-            #                     , HMDTY = VALUES(HMDTY)
-            #                     , PM25 = VALUES(PM25)
-            #                     , PM10 = VALUES(PM10)
-            #                     , DUST = VALUES(DUST)
-            #                     , CO2 = VALUES(CO2)
-            #                     , PWR = VALUES(PWR)
-            #                     , GAS = VALUES(GAS)
-            #                     , WATER = VALUES(WATER)
-            #                     , PRD_PWR = VALUES(PRD_PWR)
-            #                     , PRD_GAS = VALUES(PRD_GAS)
-            #                     , PRD_WATER = VALUES(PRD_WATER)
-            #                     , MOD_DATE = VALUES(MOD_DATE)
-            #                     ;
-            #                     """.format(selDbTable, dbInfo['CUSTOMER_LINK_NUMBER'], dbInfo['DATE_TIME'], dbInfo['TEMP'], dbInfo['HMDTY'], dbInfo['PM25'], dbInfo['PM10']
-            #                           , dbInfo['DUST'], dbInfo['CO2'], dbInfo['PWR'], dbInfo['GAS'], dbInfo['WATER'], dbInfo['PRD_PWR'], dbInfo['PRD_GAS'], dbInfo['PRD_WATER'], dbInfo['REG_DATE'], dbInfo['MOD_DATE'])
-            #             )
-            #
-            #             session.commit()
-            #
-            # # ********************************************************************************
-            # # TB_OUTPUT_STAT_DATA 생성
-            # # ********************************************************************************
-            # for i, dtIncMonthInfo in enumerate(dtIncMonthList):
-            #     log.info("[CHECK] dtIncMonthInfo : {}".format(dtIncMonthInfo))
-            #
-            #     customerLinkNumList = [1, 66]
-            #     for j, customerLinkNumInfo in enumerate(customerLinkNumList):
-            #         log.info(f'[CHECK] customerLinkNumInfo : {customerLinkNumInfo}')
-            #
-            #         dict = {
-            #             'CUSTOMER_LINK_NUMBER': [customerLinkNumInfo]
-            #             , 'DATE_TIME': [dtIncMonthInfo.strftime('%Y-%m-01 00:00:00')]
-            #             , 'PRV_PWR': [random.uniform(0, 5) * 30]
-            #             , 'PRV_WATER': [random.uniform(0, 5) * 30]
-            #             , 'PRV_GAS': [random.uniform(0, 5) * 30]
-            #             , 'PRD_PRV_PWR': [random.uniform(0, 5) * 30]
-            #             , 'PRD_PRV_GAS': [random.uniform(0, 5) * 30]
-            #             , 'PRD_PRV_WATER': [random.uniform(0, 5) * 30]
-            #             , 'PRE_PWR': [random.uniform(0, 5) * 30]
-            #             , 'PRE_GAS': [random.uniform(0, 5) * 30]
-            #             , 'PRE_WATER': [random.uniform(0, 5) * 30]
-            #             , 'PRD_PRE_PWR': [random.uniform(0, 5) * 30]
-            #             , 'PRD_PRE_GAS': [random.uniform(0, 5) * 30]
-            #             , 'PRD_PRE_WATER': [random.uniform(0, 5) * 30]
-            #             , 'MOD_DATE': [datetime.now()]
-            #             , 'REG_DATE': [datetime.now()]
-            #         }
-            #
-            #         dbData = pd.DataFrame.from_dict(dict)
-            #
-            #         selDbTable = 'TB_OUTPUT_STAT_DATA_{}'.format(dtIncMonthInfo.strftime('%Y'))
-            #
-            #         # 테이블 생성
-            #         session.execute(
-            #             """
-            #             CREATE TABLE IF NOT EXISTS `{}`
-            #             (
-            #                 CUSTOMER_LINK_NUMBER int(20)  not null comment '고객 연동 번호',
-            #                 DATE_TIME            datetime not null comment '날짜 시간 UTC 기준' primary key,
-            #                 PRV_PWR              float    null comment '전월 전력량',
-            #                 PRV_GAS              float    null comment '전월 가스량',
-            #                 PRV_WATER            float    null comment '전월 수도량',
-            #                 PRD_PRV_PWR          float    null comment '예측 전월 전력량',
-            #                 PRD_PRV_GAS          float    null comment '예측 전월 가스량',
-            #                 PRD_PRV_WATER        float    null comment '예측 전월 수도량',
-            #                 PRE_PWR              float    null comment '당월 전력량',
-            #                 PRE_GAS              float    null comment '당월 가스량',
-            #                 PRE_WATER            float    null comment '당월 수도량',
-            #                 PRD_PRE_PWR          float    null comment '예측 당월 전력량',
-            #                 PRD_PRE_GAS          float    null comment '예측 당월 가스량',
-            #                 PRD_PRE_WATER        float    null comment '예측 당월 수도량',
-            #                 MOD_DATE             datetime null comment '수정일',
-            #                 REG_DATE             datetime null comment '등록일',
-            #                 constraint TB_OUTPUT_STAT_DATA_{}_TB_MEMBER_null_fk
-            #                     foreign key (CUSTOMER_LINK_NUMBER) references DMS02.TB_MEMBER (CUSTOMER_LINK_NUMBER)
-            #                         on update cascade on delete cascade
-            #             )
-            #                 comment 'API 통계 테이블 {}';
-            #             """.format(selDbTable, dtIncMonthInfo.strftime('%Y'), dtIncMonthInfo.strftime('%Y'))
-            #         )
-            #         session.commit()
-            #
-            #         for k, dbInfo in dbData.iterrows():
-            #             # 테이블 PK키를 통해 삽입/수정
-            #             session.execute(
-            #                 """
-            #                 INSERT INTO `{}` (CUSTOMER_LINK_NUMBER, DATE_TIME, PRV_PWR, PRV_GAS, PRV_WATER, PRD_PRV_PWR, PRD_PRV_GAS, PRD_PRV_WATER, PRE_PWR, PRE_GAS, PRE_WATER, PRD_PRE_PWR, PRD_PRE_GAS, PRD_PRE_WATER, REG_DATE, MOD_DATE)
-            #                 VALUES ('{}', '{}', '{}', '{}', '{}', '{}', '{}', '{}', '{}', '{}', '{}', '{}', '{}', '{}', '{}', '{}')
-            #                 ON DUPLICATE KEY UPDATE
-            #                     CUSTOMER_LINK_NUMBER = VALUES(CUSTOMER_LINK_NUMBER)
-            #                     , PRV_PWR = VALUES(PRV_PWR)
-            #                     , PRV_GAS = VALUES(PRV_GAS)
-            #                     , PRV_WATER = VALUES(PRV_WATER)
-            #                     , PRD_PRV_PWR = VALUES(PRD_PRV_PWR)
-            #                     , PRD_PRV_GAS = VALUES(PRD_PRV_GAS)
-            #                     , PRD_PRV_WATER = VALUES(PRD_PRV_WATER)
-            #                     , PRE_PWR = VALUES(PRE_PWR)
-            #                     , PRE_GAS = VALUES(PRE_GAS)
-            #                     , PRE_WATER = VALUES(PRE_WATER)
-            #                     , PRD_PRE_PWR = VALUES(PRD_PRE_PWR)
-            #                     , PRD_PRE_GAS = VALUES(PRD_PRE_GAS)
-            #                     , PRD_PRE_WATER = VALUES(PRD_PRE_WATER)
-            #                     , MOD_DATE = VALUES(MOD_DATE)
-            #                     ;
-            #                     """.format(selDbTable, dbInfo['CUSTOMER_LINK_NUMBER'], dbInfo['DATE_TIME'], dbInfo['PRV_PWR'], dbInfo['PRV_GAS'], dbInfo['PRV_WATER'], dbInfo['PRD_PRV_PWR']
-            #                                , dbInfo['PRD_PRV_GAS'], dbInfo['PRD_PRV_WATER'], dbInfo['PRE_PWR'], dbInfo['PRE_GAS'], dbInfo['PRE_WATER'], dbInfo['PRD_PRE_PWR'], dbInfo['PRD_PRE_GAS'], dbInfo['PRD_PRE_WATER'], dbInfo['REG_DATE'], dbInfo['MOD_DATE'])
-            #             )
-            #
-            #             session.commit()
 
         except Exception as e:
             log.error("Exception : {}".format(e))
