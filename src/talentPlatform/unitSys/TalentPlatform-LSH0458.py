@@ -63,8 +63,7 @@ def initLog(env=None, contextPath=None, prjName=None):
         , datetime.now().strftime("%Y%m%d")
     )
 
-    if not os.path.exists(os.path.dirname(saveLogFile)):
-        os.makedirs(os.path.dirname(saveLogFile))
+    os.makedirs(os.path.dirname(saveLogFile), exist_ok=True)
 
     # logger instance 생성
     log = logging.getLogger(prjName)
