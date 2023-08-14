@@ -18,7 +18,6 @@ import numpy as np
 import pandas as pd
 import pytz
 import xarray as xr
-from docutils.nodes import image
 from pandas.tseries.offsets import Hour
 from sqlalchemy import MetaData, Table
 from sqlalchemy import create_engine, text
@@ -140,9 +139,6 @@ def initArgument(globalVar, inParams):
     if globalVar['sysOs'] in 'Windows' or globalVar['sysOs'] in 'Darwin':
         inParInfo = inParams
 
-        # 글꼴 설정
-        # plt.rc('font', family='Malgun Gothic')
-
     # 리눅스 환경
     if globalVar['sysOs'] in 'Linux':
         parser = argparse.ArgumentParser()
@@ -152,11 +148,6 @@ def initArgument(globalVar, inParams):
             parser.add_argument(argv)
 
         inParInfo = vars(parser.parse_args())
-
-        # 글꼴 설정
-        # fileList = glob.glob('{}/{}'.format(globalVar['fontPath'], '*.ttf'))
-        # fontName = font_manager.FontProperties(fname=fileList[0]).get_name()
-        # plt.rc('font', family=fontName)
 
     log.info("[CHECK] inParInfo : {}".format(inParInfo))
 
@@ -181,7 +172,6 @@ def initCfgInfo(sysOpt):
     result = None
 
     try:
-
         with open(sysOpt['cfgInfo'], "rt", encoding="UTF-8") as stream:
             cfgInfo = yaml.safe_load(stream)
 
@@ -280,7 +270,6 @@ def dynamicFun(funName, *args, **kwargs):
     finally:
         log.info(f'[END] dynamicFun')
 
-
 def convFloatToIntList(val):
 
     scaleFactor = 10000
@@ -297,11 +286,7 @@ def readKierData(modelType, dtDateList, sysOpt, cfgOpt):
     for dtDateIdx, dtDateInfo in enumerate(dtDateList):
         log.info(f'[CHECK] dtDateInfo : {dtDateInfo}')
 
-        # dbDataList = []
         dbData = {}
-        # modelType
-        # cfgOpt['cfgInfo']['modelName']['KIER-LDAPS_PRES']
-        # ['PRES', 'UNIS']
 
         try:
             for i, modelKey in enumerate(['PRES', 'UNIS']):
@@ -369,55 +354,54 @@ def readKierData(modelType, dtDateList, sysOpt, cfgOpt):
         finally:
             log.info(f'[END] readKierData')
 
-def readTmpData(modelType, dtAndDateList, sysOpt, cfgOpt):
-
-    log.info(f'[START] readTmpData')
-
-    result = None
-
-    for dtAndDateIdx, dtAndDateInfo in enumerate(dtAndDateList):
-        dtForDateList = pd.date_range(start=dtAndDateInfo, end=dtAndDateInfo + Hour(48), freq=Hour(1))
-        for dtForDateIdx, dtForDateInfo in enumerate(dtForDateList):
-            log.info(f'[CHECK] dtAndDateInfo : {dtAndDateInfo} / dtForDateInfo : {dtForDateInfo}')
-
-            try:
-                dbData = {}
-
-                # 필수 컬럼
-                dbData['ANA_DT'] = dtAndDateInfo
-                dbData['FOR_DT'] = dtForDateInfo
-                dbData['MODEL_TYPE'] = modelType
-
-                # 선택 컬럼
-                for dbidx, dbCol in enumerate(sysOpt['TMP']['dbCol']):
-                    try:
-                        # dbData[dbCol] = np.random.randn(1000, 1000).tolist()
-                        # dbData[dbCol] = np.around(np.random.randn(1000, 1000), 4).tolist()
-                        # dbData[dbCol] = np.around(np.random.randn(1000, 1000), 4).tobytes()
-                        dbData[dbCol] = convFloatToIntList(np.random.randn(1000, 1000) * 10)
-                    except Exception as e:
-                        log.error(f'Exception : {e}')
-
-                if len(dbData) < 1: continue
-                log.info(f'[CHECK] dbData : {dbData.keys()}')
-                # dbMergeData(cfgOpt['sessionMake'], cfgOpt['tbModel'], dbData)
-                # dbMergeData(cfgOpt['sessionMake'], cfgOpt['tbByteModel'], dbData)
-                # dbMergeData(cfgOpt['sessionMake'], cfgOpt['tbIntModel'], dbData)
-                dbMergeData(cfgOpt['session'], cfgOpt['tbIntModel'], dbData)
-
-                # dbDataList.append(dbData)
-
-            # if len(dbDataList) < 1: continue
-            # log.info(f'[CHECK] dbDataList : {dbDataList.keys()}')
-            # dbMergeData(cfgOpt['session'], cfgOpt['tbModel'], dbDataList)
-
-            except Exception as e:
-                log.error(f'Exception : {e}')
-                return result
-
-            finally:
-                log.info(f'[END] readTmpData')
-
+# def readTmpData(modelType, dtAndDateList, sysOpt, cfgOpt):
+#
+#     log.info(f'[START] readTmpData')
+#
+#     result = None
+#
+#     for dtAndDateIdx, dtAndDateInfo in enumerate(dtAndDateList):
+#         dtForDateList = pd.date_range(start=dtAndDateInfo, end=dtAndDateInfo + Hour(48), freq=Hour(1))
+#         for dtForDateIdx, dtForDateInfo in enumerate(dtForDateList):
+#             log.info(f'[CHECK] dtAndDateInfo : {dtAndDateInfo} / dtForDateInfo : {dtForDateInfo}')
+#
+#             try:
+#                 dbData = {}
+#
+#                 # 필수 컬럼
+#                 dbData['ANA_DT'] = dtAndDateInfo
+#                 dbData['FOR_DT'] = dtForDateInfo
+#                 dbData['MODEL_TYPE'] = modelType
+#
+#                 # 선택 컬럼
+#                 for dbidx, dbCol in enumerate(sysOpt['TMP']['dbCol']):
+#                     try:
+#                         # dbData[dbCol] = np.random.randn(1000, 1000).tolist()
+#                         # dbData[dbCol] = np.around(np.random.randn(1000, 1000), 4).tolist()
+#                         # dbData[dbCol] = np.around(np.random.randn(1000, 1000), 4).tobytes()
+#                         dbData[dbCol] = convFloatToIntList(np.random.randn(1000, 1000) * 10)
+#                     except Exception as e:
+#                         log.error(f'Exception : {e}')
+#
+#                 if len(dbData) < 1: continue
+#                 log.info(f'[CHECK] dbData : {dbData.keys()}')
+#                 # dbMergeData(cfgOpt['sessionMake'], cfgOpt['tbModel'], dbData)
+#                 # dbMergeData(cfgOpt['sessionMake'], cfgOpt['tbByteModel'], dbData)
+#                 # dbMergeData(cfgOpt['sessionMake'], cfgOpt['tbIntModel'], dbData)
+#                 dbMergeData(cfgOpt['session'], cfgOpt['tbIntModel'], dbData)
+#
+#                 # dbDataList.append(dbData)
+#
+#             # if len(dbDataList) < 1: continue
+#             # log.info(f'[CHECK] dbDataList : {dbDataList.keys()}')
+#             # dbMergeData(cfgOpt['session'], cfgOpt['tbModel'], dbDataList)
+#
+#             except Exception as e:
+#                 log.error(f'Exception : {e}')
+#                 return result
+#
+#             finally:
+#                 log.info(f'[END] readTmpData')
 
 # ================================================
 # 4. 부 프로그램
@@ -512,28 +496,7 @@ class DtaProcess(object):
                 exit(1)
 
             # *********************************************
-            # [템플릿] 위경도 정보를 통해 그림 시각화
-            # *********************************************
-            # session = cfgOpt['session']
-            # tbIntModel = cfgOpt['tbIntModel']
-            # tbGeo = cfgOpt['tbGeo']
-            #
-            # sqlRes = session.query(tbIntModel).filter(
-            #     tbIntModel.c.MODEL_TYPE == 'KIER-LDAPS',
-            #     tbIntModel.c.ANA_DT == pd.to_datetime('2023-06-28 12:00:00'))
-            # selData = pd.read_sql(sqlRes.statement, sqlRes.session.bind)
-            # val2D = np.array(selData['SW_D'][0]).reshape(252, 318) / 10000
-            #
-            # geoData = pd.read_sql(session.query(tbGeo).statement, session.bind)
-            # lon2D = np.array(geoData['LON_SFC'][0]).reshape(252, 318)
-            # lat2D = np.array(geoData['LAT_SFC'][0]).reshape(252, 318)
-            #
-            # plt.scatter(lon2D, lat2D, c=val2D, s=0.2)
-            # plt.colorbar()
-            # plt.show()
-
-            # *********************************************
-            # [템플릿] KIER-LDPAS 테스트
+            # 수행 테스트
             # *********************************************
             # 시작일/종료일 설정
             dtSrtDate = pd.to_datetime(sysOpt['srtDate'], format='%Y-%m-%d')
@@ -554,6 +517,27 @@ class DtaProcess(object):
                 # 정적 함수 호출 : 모델 종류, 날짜 목록, 모델 정보, DB 정보
                 readKierData(modelType, dtDateList, sysOpt, cfgOpt)
                 # readTmpData(modelType, dtAnaDateList, sysOpt, cfgOpt)
+
+            # *********************************************
+            # [템플릿] 위경도 정보를 통해 그림 시각화
+            # *********************************************
+            # session = cfgOpt['session']
+            # tbIntModel = cfgOpt['tbIntModel']
+            # tbGeo = cfgOpt['tbGeo']
+            #
+            # sqlRes = session.query(tbIntModel).filter(
+            #     tbIntModel.c.MODEL_TYPE == 'KIER-LDAPS',
+            #     tbIntModel.c.ANA_DT == pd.to_datetime('2023-06-28 12:00:00'))
+            # selData = pd.read_sql(sqlRes.statement, sqlRes.session.bind)
+            # val2D = np.array(selData['SW_D'][0]).reshape(252, 318) / 10000
+            #
+            # geoData = pd.read_sql(session.query(tbGeo).statement, session.bind)
+            # lon2D = np.array(geoData['LON_SFC'][0]).reshape(252, 318)
+            # lat2D = np.array(geoData['LAT_SFC'][0]).reshape(252, 318)
+            #
+            # plt.scatter(lon2D, lat2D, c=val2D, s=0.2)
+            # plt.colorbar()
+            # plt.show()
 
             # *********************************************
             # [템플릿] 기본 위경도 정보를 DB 삽입
