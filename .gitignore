@@ -25,4 +25,4 @@ src/talentPlatform/tmp/Test.py
 *.gitkeep
 __init__.py
 
-
+/src/proj/indisystem/2023/extract/
