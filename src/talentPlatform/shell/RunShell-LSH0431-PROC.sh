@@ -14,7 +14,6 @@ RUN_PATH=/SYSTEMS/PROG/PYTHON/PyCharm/src/talentPlatform/unitSys
 PY38_BIN=/SYSTEMS/anaconda3/envs/py38/bin/python3
 
 echo "[$(date +"%Y-%m-%d %H:%M:%S")] [CHECK] CTX_PATH : $CTX_PATH"
-echo "[$(date +"%Y-%m-%d %H:%M:%S")] [CHECK] INP_PATH : $INP_PATH"
 echo "[$(date +"%Y-%m-%d %H:%M:%S")] [CHECK] RUN_PATH : $RUN_PATH"
 
 #========================================
