@@ -229,9 +229,9 @@ class DtaProcess(object):
             sysOpt = {
             }
 
-
-            # inpFile = '{}/{}/{}'.format(globalVar['inpPath'], serviceName, 'reanalysis-era5-pressure-levels_20200601_00_asia.grib')
             # inpFile = '{}/{}/{}'.format(globalVar['inpPath'], serviceName, 'reanalysis-era5-single-levels_20220601_00_asia.grib')
+            # inpFile = '{}/{}/{}'.format(globalVar['inpPath'], serviceName, 'reanalysis-era5-pressure-levels_20200601_00_asia.grib')
+
             inpFile = '{}/{}/{}'.format(globalVar['inpPath'], serviceName, 'gfs.0p25.2022060100.f003.gr_crop.grib2')
             fileList = sorted(glob.glob(inpFile))
 
@@ -241,20 +241,52 @@ class DtaProcess(object):
 
             log.info(f'[CHECK] fileList : {fileList}')
 
-            import cfgrib
-            dd = cfgrib.open_datasets(fileList[0])
+            # import cfgrib
+            # dd = cfgrib.open_datasets(fileList[0])
+            dd = xr.open_mfdataset(fileList, engine='pynio')
 
+            # ecmwf sfc
+            # dd['2T_GDS0_SFC'].plot()
+            # plt.show()
+
+            # ecmwf pre
+            # dd['T_GDS0_ISBL'].sel(lv_ISBL0 = 1000).plot()
+            # plt.show()
+
+            # gfs sft
+            # dd['TMP_P0_L1_GLL0'].plot()
+            # plt.show()
+
+            # gfs pre
+            # dd['TMP_P0_L100_GLL0']['lv_ISBL0'].values
+            # dd['TMP_P0_L100_GLL0']['lv_ISBL0'].values / 100
+            # dd['TMP_P0_L100_GLL0'].sel(lv_ISBL0 = 1000 * 100).plot()
+            # plt.show()
+
+
+
+
+            # i : 0 / type : TMP_P0_L1_GLL0 : Temperature / Ground or water surface
+            # i : 3 / type : TMP_P0_L100_GLL0 : Temperature / Isobaric surface (Pa)
+
+
+            type = 'lv_SIGL5_l0'
             for i, type in enumerate(dd):
+                try:
+                    log.info(f'[CHECK] i : {i} / type : {type} : {dd[type].long_name} / {dd[type].level_type}')
+                except Exception:
+                    pass
+                # log.info(f'[CHECK] i : {i} / type : {dd[type].long_name}')
                 # type.attrs
                 # type.dtypes
-                for j, type2 in enumerate(type.dtypes):
+                # for j, type2 in enumerate(type.dtypes):
                     # if not type2 in 't2m': continue
-                    if not type2 in 't': continue
+                    # if not type2 in 't': continue
 
                     # log.info(type['time'].values)
                     # log.info(type['step'].values)
-                    log.info(f'[CHECK] i : {i} / type : {type2}')
-                    log.info(dd[i]['t'].attrs['GRIB_typeOfLevel'])
+                    # log.info(f'[CHECK] i : {i} / type : {type2}')
+                    # log.info(dd[i]['t'].attrs['GRIB_typeOfLevel'])
                     # print(dd[i]['t'].attrs['GRIB_stepType'])
                     # print(dd[i]['t'].attrs['GRIB_gridType'])
                     # dd[i]['t'].plot()
@@ -283,10 +315,14 @@ class DtaProcess(object):
             py = pygrib.open(fileList[0])
             py.read()
 
+
             # ecmwf sfc
-            dd = xr.open_mfdataset(fileList)
+            dd = xr.open_mfdataset(fileList, engine='pynio')
+            dd['']
+
+            dd.dtypes
             # orgData = xr.open_mfdataset(fileList, filter_by_keys={'typeOfLevel': 'meanSea'})
-            orgData = xr.open_mfdataset(fileList, filter_by_keys={'typeOfLevel': 'surface'})
+            # orgData = xr.open_mfdataset(fileList, filter_by_keys={'typeOfLevel': 'surface'})
 
 
             # gfs sfc, pre
