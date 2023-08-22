@@ -227,11 +227,60 @@ class DtaProcess(object):
 
             # 옵션 설정
             sysOpt = {
+                # 시작일, 종료일, 시간 간격
+                'srtDate': '2022-06-01'
+                , 'endDate': '2022-06-02'
+                # 'srtDate': globalVar['srtDate']
+                # , 'endDate': globalVar['endDate']
+                , 'invHour': 1
+
+                # 경도 최소/최대/간격
+                , 'lonMin': 120
+                , 'lonMax': 145
+                , 'lonInv': 0.25
+
+                # 위도 최소/최대/간격
+                , 'latMin': 20
+                , 'latMax': 44.75
+                , 'latInv': 0.25
+
+                # 기압 설정
+                , 'hpaList': [500, 700, 850, 1000]
+
+                # 수행 목록
+                , 'modelList': ['GFS', 'ECMWF']
+
+                # 모델 정보 : 파일 경로, 파일명, 데이터/DB 컬럼 (지표면 wrfsolar 동적 설정, 상층면 wrfout 정적 설정), 시간 간격
+                , 'GFS': {
+                    'SFC': {
+                        'filePath': '/DATA/INPUT/LSH0462'
+                        , 'fileName': 'gfs.0p25.%Y%m%d%H.f*.gr_crop.grib2'
+                        , 'level' : [0, 1, 2, 3, 4, 5]
+                        , 'selCol': ['U', 'U-1', 'U-2', 'U-3', 'U-4', 'U-5', 'V-0', 'V-1', 'V-2', 'V-3', 'V-4', 'V-5']
+                        , 'dbCol': ['U1000', 'U975', 'U925', 'U900', 'U875', 'U850', 'V1000', 'V975', 'V925', 'V900', 'V875', 'V850']
+                    }
+                    , 'PRE': {
+                        'filePath': '/DATA/INPUT/LSH0462'
+                        , 'fileName': 'gfs.0p25.%Y%m%d%H.f*.gr_crop.grib2'
+                        , 'level' : [0, 1, 2, 3, 4, 5]
+                        , 'selCol': ['SWDOWN', 'SWDOWNC', 'GSW', 'SWDDNI', 'SWDDIF', 'U10', 'V10']
+                        , 'dbCol': ['SW_D', 'SW_DC', 'SW_NET', 'SW_DDNI', 'SW_DDIF', 'U', 'V']
+                    }
+                }
             }
+
+            # 기준 위도, 경도, 기압 설정
+            lonList = np.arange(sysOpt['lonMin'], sysOpt['lonMax'], sysOpt['lonInv'])
+            latList = np.arange(sysOpt['latMin'], sysOpt['latMax'], sysOpt['latInv'])
+            hpaList = np.array(sysOpt['hpaList'])
+
+            log.info(f'[CHECK] len(lonList) : {len(lonList)}')
+            log.info(f'[CHECK] len(latList) : {len(latList)}')
+            log.info(f'[CHECK] len(hpaList) : {len(hpaList)}')
+
 
             # inpFile = '{}/{}/{}'.format(globalVar['inpPath'], serviceName, 'reanalysis-era5-single-levels_20220601_00_asia.grib')
             # inpFile = '{}/{}/{}'.format(globalVar['inpPath'], serviceName, 'reanalysis-era5-pressure-levels_20200601_00_asia.grib')
-
             inpFile = '{}/{}/{}'.format(globalVar['inpPath'], serviceName, 'gfs.0p25.2022060100.f003.gr_crop.grib2')
             fileList = sorted(glob.glob(inpFile))
 
@@ -243,7 +292,8 @@ class DtaProcess(object):
 
             # import cfgrib
             # dd = cfgrib.open_datasets(fileList[0])
-            dd = xr.open_mfdataset(fileList, engine='pynio')
+            data = xr.open_mfdataset(fileList, engine='pynio')
+            dataL1 = data['2T_GDS0_SFC'].interp(g0_lon_1=lonList, g0_lat_0=latList, method='linear')
 
             # ecmwf sfc
             # dd['2T_GDS0_SFC'].plot()
@@ -252,15 +302,19 @@ class DtaProcess(object):
             # ecmwf pre
             # dd['T_GDS0_ISBL'].sel(lv_ISBL0 = 1000).plot()
             # plt.show()
+            dataL1 = data['T_GDS0_ISBL'].interp(g0_lon_2=lonList, g0_lat_1=latList, lv_ISBL0=hpaList, method='linear')
 
             # gfs sft
             # dd['TMP_P0_L1_GLL0'].plot()
             # plt.show()
+            dataL1 = data['TMP_P0_L1_GLL0'].interp(lon_0=lonList, lat_0=latList, method='linear')
 
             # gfs pre
             # dd['TMP_P0_L100_GLL0']['lv_ISBL0'].values
             # dd['TMP_P0_L100_GLL0']['lv_ISBL0'].values / 100
             # dd['TMP_P0_L100_GLL0'].sel(lv_ISBL0 = 1000 * 100).plot()
+            dataL1 = data['TMP_P0_L100_GLL0'].interp(lon_0=lonList, lat_0=latList, lv_ISBL0=hpaList * 100, method='linear')
+            dataL1['lv_ISBL0'] = dataL1['lv_ISBL0'] / 100
             # plt.show()
 
 
