@@ -22,7 +22,9 @@ def main():
 
         config = parse_config(configPath)
 
-        if re.search('unis', inFile, re.IGNORECASE):
+        if re.search('wrfout', inFile, re.IGNORECASE):
+            modelName1 = modelName + "_ALL"
+        elif re.search('unis', inFile, re.IGNORECASE):
             modelName1 = modelName + "_UNIS"
         elif re.search('pres', inFile, re.IGNORECASE):
             modelName1 = modelName + "_PRES"
