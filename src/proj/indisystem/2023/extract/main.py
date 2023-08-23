@@ -15,11 +15,11 @@ import os
 
 def main():
     try:
-        # option = get_option()
-        # inFile = option.inFile
-        # modelName = option.modelName.upper()
-        inFile = '/DATA/INPUT/INDI2023/MODEL/KIER-LDAPS/wrfout_d02_2023-06-30_03:00:00.nc'
-        modelName = 'KIER-LDAPS'
+        option = get_option()
+        inFile = option.inFile
+        modelName = option.modelName.upper()
+        # inFile = '/DATA/INPUT/INDI2023/MODEL/KIER-LDAPS/wrfout_d02_2023-06-30_03:00:00.nc'
+        # modelName = 'KIER-LDAPS'
 
         ctxPath = os.getcwd()
         logInfo = f'{ctxPath}/log/daemon-kierDB-{modelName}.log'
@@ -32,6 +32,10 @@ def main():
         common.init_logger(logInfo)
         config = parse_config(cfgInfo)
 
+        common.logger.info(f'[CHECK] ctxPath : {ctxPath}')
+        common.logger.info(f'[CHECK] logInfo : {logInfo}')
+        common.logger.info(f'[CHECK] cfgInfo : {cfgInfo}')
+
         if re.search('wrfout', inFile, re.IGNORECASE):
             modelName1 = modelName + "_ALL"
         elif re.search('unis', inFile, re.IGNORECASE):
@@ -42,7 +46,7 @@ def main():
             modelName1 = modelName
 
         if not os.path.isfile(inFile):
-            common.logger.error("[ERROR] File is not Exists")
+            common.logger.error("File is not Exists")
             exit(1)
 
         common.logger.info(f'[CHECK] modelName : {modelName}')
