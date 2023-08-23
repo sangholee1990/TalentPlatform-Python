@@ -16,8 +16,9 @@ import numpy as np
 import pandas as pd
 import xarray as xr
 import seaborn as sns
-
-
+from pandas.tseries.offsets import Day, Hour, Minute, Second
+import re
+import pygrib
 # =================================================
 # 사용자 매뉴얼
 # =================================================
@@ -245,7 +246,7 @@ class DtaProcess(object):
                 , 'latInv': 0.25
 
                 # 기압 설정
-                , 'hpaList': [500, 700, 850, 1000]
+                , 'levList': [500, 700, 850, 1000]
 
                 # 수행 목록
                 , 'modelList': ['GFS', 'ECMWF']
@@ -255,409 +256,157 @@ class DtaProcess(object):
                     'SFC': {
                         'filePath': '/DATA/INPUT/LSH0462'
                         , 'fileName': 'gfs.0p25.%Y%m%d%H.f*.gr_crop.grib2'
-                        , 'level' : [0, 1, 2, 3, 4, 5]
-                        , 'selCol': ['U', 'U-1', 'U-2', 'U-3', 'U-4', 'U-5', 'V-0', 'V-1', 'V-2', 'V-3', 'V-4', 'V-5']
-                        , 'dbCol': ['U1000', 'U975', 'U925', 'U900', 'U875', 'U850', 'V1000', 'V975', 'V925', 'V900', 'V875', 'V850']
+                        , 'comVar': {'lon': 'lon_0', 'lat': 'lat_0'}
+                        , 'level': [-1]
+                        , 'orgVar': ['TMP_P0_L1_GLL0']
+                        , 'newVar': ['T2']
                     }
                     , 'PRE': {
                         'filePath': '/DATA/INPUT/LSH0462'
                         , 'fileName': 'gfs.0p25.%Y%m%d%H.f*.gr_crop.grib2'
-                        , 'level' : [0, 1, 2, 3, 4, 5]
-                        , 'selCol': ['SWDOWN', 'SWDOWNC', 'GSW', 'SWDDNI', 'SWDDIF', 'U10', 'V10']
-                        , 'dbCol': ['SW_D', 'SW_DC', 'SW_NET', 'SW_DDNI', 'SW_DDIF', 'U', 'V']
+                        , 'comVar': {'lon': 'lon_0', 'lat': 'lat_0', 'lev': 'lv_ISBL0'}
+                        , 'level': [500, 700, 850, 1000]
+                        , 'orgVar': ['TMP_P0_L100_GLL0', 'TMP_P0_L100_GLL0', 'TMP_P0_L100_GLL0', 'TMP_P0_L100_GLL0']
+                        , 'newVar': ['T500', 'T700', 'T850', 'T1000']
+                    }
+                }
+                , 'ECMWF': {
+                    'SFC': {
+                        'filePath': '/DATA/INPUT/LSH0462'
+                        , 'fileName': 'reanalysis-era5-single-levels_%Y%m%d_%H_asia.grib'
+                        , 'comVar': {'lon': 'g0_lon_1', 'lat': 'g0_lat_0'}
+                        , 'level': [-1]
+                        , 'orgVar': ['2T_GDS0_SFC']
+                        , 'newVar': ['T2']
+                    }
+                    , 'PRE': {
+                        'filePath': '/DATA/INPUT/LSH0462'
+                        , 'fileName': 'reanalysis-era5-pressure-levels_%Y%m%d_%H_asia.grib'
+                        , 'comVar': {'lon': 'g0_lon_2', 'lat': 'g0_lat_1', 'lev': 'lv_ISBL0'}
+                        , 'level': [500, 700, 850, 1000]
+                        , 'orgVar': ['T_GDS0_ISBL', 'T_GDS0_ISBL', 'T_GDS0_ISBL', 'T_GDS0_ISBL']
+                        , 'newVar': ['T500', 'T700', 'T850', 'T1000']
                     }
                 }
             }
 
+            # 시작일/종료일 설정
+            dtSrtDate = pd.to_datetime(sysOpt['srtDate'], format='%Y-%m-%d')
+            dtEndDate = pd.to_datetime(sysOpt['endDate'], format='%Y-%m-%d')
+            dtDateList = pd.date_range(start=dtSrtDate, end=dtEndDate, freq=Hour(sysOpt['invHour']))
+
             # 기준 위도, 경도, 기압 설정
             lonList = np.arange(sysOpt['lonMin'], sysOpt['lonMax'], sysOpt['lonInv'])
             latList = np.arange(sysOpt['latMin'], sysOpt['latMax'], sysOpt['latInv'])
-            hpaList = np.array(sysOpt['hpaList'])
+            levList = np.array(sysOpt['levList'])
 
             log.info(f'[CHECK] len(lonList) : {len(lonList)}')
             log.info(f'[CHECK] len(latList) : {len(latList)}')
-            log.info(f'[CHECK] len(hpaList) : {len(hpaList)}')
+            log.info(f'[CHECK] len(levList) : {len(levList)}')
 
 
-            # inpFile = '{}/{}/{}'.format(globalVar['inpPath'], serviceName, 'reanalysis-era5-single-levels_20220601_00_asia.grib')
-            # inpFile = '{}/{}/{}'.format(globalVar['inpPath'], serviceName, 'reanalysis-era5-pressure-levels_20200601_00_asia.grib')
-            inpFile = '{}/{}/{}'.format(globalVar['inpPath'], serviceName, 'gfs.0p25.2022060100.f003.gr_crop.grib2')
-            fileList = sorted(glob.glob(inpFile))
+            for dtDateIdx, dtDateInfo in enumerate(dtDateList):
+                log.info(f'[CHECK] dtDateInfo : {dtDateInfo}')
 
-            # if fileList is None or len(fileList) < 1:
-            #     log.error('[ERROR] inpFile : {} / {}'.format(inpFile, '입력 자료를 확인해주세요.'))
-            #     continue
+                dataL1 = xr.Dataset()
+                for modelIdx, modelType in enumerate(sysOpt['modelList']):
+                    log.info(f'[CHECK] modelType : {modelType}')
 
-            log.info(f'[CHECK] fileList : {fileList}')
+                    for i, modelKey in enumerate(sysOpt[modelType]):
+                        log.info(f'[CHECK] modelKey : {modelKey}')
 
-            # import cfgrib
-            # dd = cfgrib.open_datasets(fileList[0])
-            data = xr.open_mfdataset(fileList, engine='pynio')
-            dataL1 = data['2T_GDS0_SFC'].interp(g0_lon_1=lonList, g0_lat_0=latList, method='linear')
+                        modelInfo = sysOpt[modelType].get(modelKey)
+                        if modelInfo is None: continue
 
-            # ecmwf sfc
-            # dd['2T_GDS0_SFC'].plot()
-            # plt.show()
+                        inpFile = '{}/{}'.format(modelInfo['filePath'], modelInfo['fileName'])
+                        inpFileDate = dtDateInfo.strftime(inpFile)
+                        fileList = sorted(glob.glob(inpFileDate))
 
-            # ecmwf pre
-            # dd['T_GDS0_ISBL'].sel(lv_ISBL0 = 1000).plot()
-            # plt.show()
-            dataL1 = data['T_GDS0_ISBL'].interp(g0_lon_2=lonList, g0_lat_1=latList, lv_ISBL0=hpaList, method='linear')
+                        if fileList is None or len(fileList) < 1:
+                            # log.error(f'inpFile : {inpFile} / 입력 자료를 확인해주세요')
+                            continue
 
-            # gfs sft
-            # dd['TMP_P0_L1_GLL0'].plot()
-            # plt.show()
-            dataL1 = data['TMP_P0_L1_GLL0'].interp(lon_0=lonList, lat_0=latList, method='linear')
+                        # NetCDF 파일 읽기
+                        # fileInfo = fileList[0]
+                        for j, fileInfo in enumerate(fileList):
 
-            # gfs pre
-            # dd['TMP_P0_L100_GLL0']['lv_ISBL0'].values
-            # dd['TMP_P0_L100_GLL0']['lv_ISBL0'].values / 100
-            # dd['TMP_P0_L100_GLL0'].sel(lv_ISBL0 = 1000 * 100).plot()
-            dataL1 = data['TMP_P0_L100_GLL0'].interp(lon_0=lonList, lat_0=latList, lv_ISBL0=hpaList * 100, method='linear')
-            dataL1['lv_ISBL0'] = dataL1['lv_ISBL0'] / 100
-            # plt.show()
+                            data = xr.open_mfdataset(fileInfo, engine='pynio')
+                            log.info(f'[CHECK] fileInfo : {fileInfo}')
 
+                            # pygrib에서 분석/예보 시간 추출
+                            gribData = pygrib.open(fileInfo).select()[0]
+                            anaDt = gribData.analDate
+                            fotDt = gribData.validDate
 
+                            # 파일명에서 분석/예보 시간 추출
+                            # isMatch = re.search(r'f(\d+)', fileInfo)
+                            # if not isMatch: continue
+                            # int(isMatch.group(1))
 
+                            # anaDt = dtDateInfo
+                            # fotDt = anaDt + pd.Timedelta(hours = int(isMatch.group(1)))
 
-            # i : 0 / type : TMP_P0_L1_GLL0 : Temperature / Ground or water surface
-            # i : 3 / type : TMP_P0_L100_GLL0 : Temperature / Isobaric surface (Pa)
+                            for level, orgVar, newVar in zip(modelInfo['level'], modelInfo['orgVar'], modelInfo['newVar']):
+                                if data.get(orgVar) is None: continue
 
-
-            type = 'lv_SIGL5_l0'
-            for i, type in enumerate(dd):
-                try:
-                    log.info(f'[CHECK] i : {i} / type : {type} : {dd[type].long_name} / {dd[type].level_type}')
-                except Exception:
-                    pass
-                # log.info(f'[CHECK] i : {i} / type : {dd[type].long_name}')
-                # type.attrs
-                # type.dtypes
-                # for j, type2 in enumerate(type.dtypes):
-                    # if not type2 in 't2m': continue
-                    # if not type2 in 't': continue
-
-                    # log.info(type['time'].values)
-                    # log.info(type['step'].values)
-                    # log.info(f'[CHECK] i : {i} / type : {type2}')
-                    # log.info(dd[i]['t'].attrs['GRIB_typeOfLevel'])
-                    # print(dd[i]['t'].attrs['GRIB_stepType'])
-                    # print(dd[i]['t'].attrs['GRIB_gridType'])
-                    # dd[i]['t'].plot()
-                    # plt.show()
-
-            dd[2]['t2m'].attrs['GRIB_stepType']
-
-            dd[2]['t2m'].plot()
-            dd[10]['t'].isel().plot()
-            dd[19]['t']
-            # dd[0]['t']['isobaricInhPa'].values
-            # 1000.,  850.,  700.,  500.,  400.,  300.
-            # isobaricInPa
-            dd[27]['t']['isobaricInPa'].values
-
-            # isobaricInhPa
-            dd[28]['t']['isobaricInhPa'].values
-
-            sss = dd[28]['t']
-           # 100 850 700 500
-            ss1 =  sss.sel(isobaricInhPa = [1000, 850, 700, 500])
-
-            plt.show()
-
-            import pygrib
-            py = pygrib.open(fileList[0])
-            py.read()
+                                try:
 
 
-            # ecmwf sfc
-            dd = xr.open_mfdataset(fileList, engine='pynio')
-            dd['']
+                                    if level == -1:
+                                        selData = data[orgVar].interp({modelInfo['comVar']['lon']: lonList, modelInfo['comVar']['lat']: latList}, method='linear')
+                                        selDataL1 = selData
+                                    else:
+                                        selData = data[orgVar].interp({modelInfo['comVar']['lon']: lonList, modelInfo['comVar']['lat']: latList, modelInfo['comVar']['lev']: levList}, method='linear')
+                                        selDataL1 = selData.sel({modelInfo['comVar']['lev']: level})
 
-            dd.dtypes
-            # orgData = xr.open_mfdataset(fileList, filter_by_keys={'typeOfLevel': 'meanSea'})
-            # orgData = xr.open_mfdataset(fileList, filter_by_keys={'typeOfLevel': 'surface'})
+                                    selDataL2 = xr.Dataset(
+                                        {
+                                            f'{modelType}_{newVar}' : (('anaDt', 'fotDt', 'lat', 'lon'), (selDataL1.values).reshape(1, 1, len(latList), len(lonList)))
+                                        }
+                                        , coords={
+                                            'anaDt': pd.date_range(anaDt, periods=1)
+                                            , 'fotDt': pd.date_range(fotDt, periods=1)
+                                            , 'lat': latList
+                                            , 'lon': lonList
+                                        }
+                                    )
 
+                                    dataL1 = xr.merge([dataL1, selDataL2])
+                                except Exception as e:
+                                    log.error(f'Exception : {e}')
 
-            # gfs sfc, pre
-            # orgData = xr.open_mfdataset(fileList, filter_by_keys={'stepType': 'instant', 'typeOfLevel': 'surface'})
-            # orgData = xr.open_mfdataset(fileList, filter_by_keys={'stepType': 'instant', 'typeOfLevel': 'isobaricInPa'})
-            # 70., 40., 20., 10.,  7.,  4.,  2.,  1.
-            # orgData['isobaricInPa'].values
+                if len(dataL1) < 1: continue
 
-            # orgData['isobaricInPa'].values
-            orgData['t'].values
+                 # NetCDF 자료 저장
+                 saveFile = '{}/{}/{}_{}.nc'.format(globalVar['outPath'], serviceName, 'ecmwf-gfs_model', dtDateInfo.strftime('%Y%m%d%H%M'))
+                 os.makedirs(os.path.dirname(saveFile), exist_ok=True)
+                 dataL1.to_netcdf(saveFile)
+                 log.info(f'[CHECK] saveFile : {saveFile}')
 
-            # import cfgrib
-            # orgData = cfgrib.open_dataset(fileList[0])
+                # 비교
+                dataL1['DIFF_T2'] = dataL1['ECMWF_T2'] - dataL1['GFS_T2']
 
-            # orgData['t'].isel(isobaricInhPa = 0).plot()
-            # orgData['t'].isel().plot()
-            # dd[0]['t'].isel(isobaricInhPa = 0).plot()
-            dd['t'].isel(isobaricInhPa = 0).plot()
-            # dd['t'].plot()
-            # dd['t']
-            plt.show()
+                # 시각화
+                saveImg = '{}/{}/{}_{}.png'.format(globalVar['figPath'], serviceName, 'ecmwf_t2', dtDateInfo.strftime('%Y%m%d%H%M'))
+                os.makedirs(os.path.dirname(saveImg), exist_ok=True)
+                dataL1['ECMWF_T2'].isel(anaDt = 0, fotDt = 0).plot()
+                plt.savefig(saveImg, dpi=600, bbox_inches='tight', transparent=True)
+                plt.show()
+                log.info(f'[CHECK] saveImg : {saveImg}')
 
-            # orgData['number'].values
-            # orgData['time'].values
-            # orgData['step'].values
+                saveImg = '{}/{}/{}_{}.png'.format(globalVar['figPath'], serviceName, 'gfs_t2', dtDateInfo.strftime('%Y%m%d%H%M'))
+                os.makedirs(os.path.dirname(saveImg), exist_ok=True)
+                dataL1['GFS_T2'].isel(anaDt = 0, fotDt = 0).plot()
+                plt.savefig(saveImg, dpi=600, bbox_inches='tight', transparent=True)
+                plt.show()
+                log.info(f'[CHECK] saveImg : {saveImg}')
 
-
-
-
-            # ********************************************************************
-            # 대륙별 분류 전처리
-            # ********************************************************************
-            inpFile = '{}/{}'.format(globalVar['inpPath'], 'TT4.csv')
-            fileList = glob.glob(inpFile)
-            # if fileList is None or len(fileList) < 1:
-            #     log.error('[ERROR] inpFile : {} / {}'.format(fileList, '입력 자료를 확인해주세요.'))
-            #     raise Exception('[ERROR] inpFile : {} / {}'.format(fileList, '입력 자료를 확인해주세요.'))
-            #
-            # contData = pd.read_csv(fileList[0]).rename(columns={'type': 'idx'})
-            # contDataL1 = contData[['lon', 'lat', 'isLand', 'idx']]
-            # contDataL2 = contDataL1.set_index(['lat', 'lon'])
-            # contDataL3 = contDataL2.to_xarray()
-
-            # ********************************************************************
-            # 가뭄 전처리
-            # ********************************************************************
-            for i, keyInfo in enumerate(sysOpt['keyList']):
-                log.info(f"[CHECK] keyInfo : {keyInfo}")
-
-                # inpFile = '{}/{}/*{}*.nc'.format(globalVar['inpPath'], keyInfo, keyInfo)
-                # inpFile = '{}/*{}*.nc'.format(globalVar['inpPath2'], keyInfo)
-                inpFile = '{}/{}/*{}*.nc'.format(globalVar['inpPath'], serviceName, keyInfo)
-                fileList = sorted(glob.glob(inpFile))
-
-                if fileList is None or len(fileList) < 1:
-                    log.error('[ERROR] inpFile : {} / {}'.format(inpFile, '입력 자료를 확인해주세요.'))
-                    continue
-
-                log.info(f'[CHECK] fileList : {fileList}')
-
-                orgData = xr.open_mfdataset(fileList)
-
-                # ***************************************************************************
-                # 극한 가뭄에 따른 빈도수 계산
-                # ***************************************************************************
-                for dateInfo, (srtDate, endDate) in sysOpt['dateList'].items():
-                    log.info(f"[CHECK] dateInfo : {dateInfo}")
-
-                    data = orgData.sel(time=slice(srtDate, endDate))
-
-                    dataL1 = data.where(data > -10)
-                    meanData = dataL1.mean(dim='time', skipna=True)
-                    meanData['spei_gamma_24'].plot()
-                    plt.show()
-
-                    # data['spei_gamma_24'].isel(time = 1).plot()
-
-                #     # 극한 가뭄
-                #     dataL1 = data.where(data <= sysOpt['extDrgVal']).count(dim='time')
-                #     dataL1 = dataL1.where(dataL1 != 0)
-                #
-                #     # dataL2 = dataL1
-                #     dataL2 = xr.merge([dataL1, contDataL3])
-                #     dataLL2 = data.mean(dim='time', skipna=True)
-                #     dataLL3 = xr.merge([dataLL2, contDataL3])
-                #
-                #     dataLL2['spei_gamma_24'].plot()
-                #     # data['spei_gamma_24'].isel(time = 60).plot()
-                #     plt.show()
-                #
-                #     for k, varInfo in enumerate(dataL2.data_vars.keys()):
-                #         # log.info(f'[CHECK] varInfo : {varInfo}')
-                #         saveImg = '{}/{}/{}/{}_{}_{}.png'.format(globalVar['figPath'], serviceName, keyInfo, keyInfo, dateInfo, 'ins', varInfo)
-                #         # if os.path.exists(saveImg): continue
-                #         os.makedirs(os.path.dirname(saveImg), exist_ok=True)
-                #         dataL2[varInfo].plot()
-                #         plt.savefig(saveImg, dpi=600, bbox_inches='tight', transparent=True)
-                #         plt.tight_layout()
-                #         # plt.show()
-                #         plt.close()
-                #         log.info(f'[CHECK] saveImg : {saveImg}')
-                #
-                #     # NetCDF 자료 저장
-                #     saveFile = '{}/{}/{}/{}_{}_{}.nc'.format(globalVar['outPath'], serviceName, keyInfo, keyInfo, dateInfo, 'ins')
-                #     os.makedirs(os.path.dirname(saveFile), exist_ok=True)
-                #     dataL2.to_netcdf(saveFile)
-                #     log.info(f'[CHECK] saveFile : {saveFile}')
-                #
-                #     # NetCDF 자료 저장
-                #     saveFile = '{}/{}/{}/{}_{}_{}_mean.nc'.format(globalVar['outPath'], serviceName, keyInfo, keyInfo,dateInfo, 'ins')
-                #     os.makedirs(os.path.dirname(saveFile), exist_ok=True)
-                #     dataLL2.to_netcdf(saveFile)
-                #     log.info(f'[CHECK] saveFile : {saveFile}')
-                #
-                #     # CSV 자료 저장
-                #     saveFile = '{}/{}/{}/{}_{}_{}.csv'.format(globalVar['outPath'], serviceName, keyInfo, keyInfo, dateInfo, 'ins')
-                #     os.makedirs(os.path.dirname(saveFile), exist_ok=True)
-                #     dataL2.to_dataframe().reset_index(drop=False).to_csv(saveFile, index=False)
-                #     log.info(f'[CHECK] saveFile : {saveFile}')
-                #
-                #     saveFile = '{}/{}/{}/{}_{}_{}_mean.csv'.format(globalVar['outPath'], serviceName, keyInfo, keyInfo,dateInfo, 'ins')
-                #     os.makedirs(os.path.dirname(saveFile), exist_ok=True)
-                #     dataLL3.to_dataframe().reset_index(drop=False).to_csv(saveFile, index=False)
-                #     log.info(f'[CHECK] saveFile : {saveFile}')
-                #
-                #     dataL3 = dataL2
-                #     dataL4 = dataL3.to_dataframe().reset_index(drop=False)
-                #     dataL4.columns = dataL4.columns.to_series().replace(
-                #         {
-                #             'spei_gamma_': 'gam'
-                #             , 'spei_pearson_': 'pea'
-                #         }
-                #         , regex=True
-                #     )
-                #
-                #     dataL5 = pd.melt(dataL4, id_vars=['lat', 'lon'], var_name='key', value_name='val')
-                #
-                #     # CSV 자료 저장
-                #     saveFile = '{}/{}/{}/{}_{}_{}.csv'.format(globalVar['outPath'], serviceName, keyInfo, keyInfo, dateInfo, 'ins')
-                #     os.makedirs(os.path.dirname(saveFile), exist_ok=True)
-                #     dataL5.to_csv(saveFile, index=False)
-                #     log.info(f'[CHECK] saveFile : {saveFile}')
-                #
-                #     dataL6 = dataL5
-                #
-                #     # 시각화 저장
-                #     saveImg = '{}/{}/{}/{}_{}_{}_{}.png'.format(globalVar['figPath'], serviceName, keyInfo, keyInfo, dateInfo, 'ins', 'boxplot')
-                #     os.makedirs(os.path.dirname(saveImg), exist_ok=True)
-                #     sns.boxplot(
-                #         x='key', y='val', hue='key', data=dataL6, showmeans=True, width=0.5, dodge=False
-                #         , meanprops={'marker': 'o', 'markerfacecolor': 'black', 'markeredgecolor': 'black', 'markersize': 3}
-                #     )
-                #     plt.xticks(rotation=45, ha='right')
-                #     plt.xlabel(None)
-                #     plt.ylabel(None)
-                #     plt.legend([], [], frameon=False, title=None)
-                #     plt.tight_layout()
-                #     plt.savefig(saveImg, dpi=600, transparent=True)
-                #     # plt.show()
-                #     plt.close()
-                #     log.info(f'[CHECK] saveImg : {saveImg}')
-                #
-                # # ***************************************************************************
-                # # 구간에 따른 빈도수 계산
-                # # ***************************************************************************
-                # for dateInfo, (srtDate, endDate) in sysOpt['dateList'].items():
-                #     log.info(f"[CHECK] dateInfo : {dateInfo}")
-                #
-                #     data = orgData.sel(time=slice(srtDate, endDate))
-                #
-                #     # 동적으로 생성
-                #     lat1D = data['lat'].values
-                #     lon1D = data['lon'].values
-                #
-                #     for drgCond, (srtVal, endVal) in sysOpt['drgCondList'].items():
-                #         log.info(f"[CHECK] drgCond : {drgCond}")
-                #         dataL1 = data.where((data >= srtVal) & (data <= endVal)).count(dim='time')
-                #         dataL1 = dataL1.where(dataL1 != 0)
-                #
-                #         dataL2 = xr.Dataset(
-                #             {
-                #                 'spei_gamma_03': (('type', 'lat', 'lon'), (dataL1['spei_gamma_03'].values.reshape(1, len(lat1D), len(lon1D))))
-                #                 , 'spei_gamma_06': (('type', 'lat', 'lon'), (dataL1['spei_gamma_06'].values.reshape(1, len(lat1D), len(lon1D))))
-                #                 , 'spei_gamma_09': (('type', 'lat', 'lon'), (dataL1['spei_gamma_09'].values.reshape(1, len(lat1D), len(lon1D))))
-                #                 , 'spei_gamma_12': (('type', 'lat', 'lon'), (dataL1['spei_gamma_12'].values.reshape(1, len(lat1D), len(lon1D))))
-                #                 , 'spei_gamma_18': (('type', 'lat', 'lon'), (dataL1['spei_gamma_18'].values.reshape(1, len(lat1D), len(lon1D))))
-                #                 , 'spei_gamma_24': (('type', 'lat', 'lon'), (dataL1['spei_gamma_24'].values.reshape(1, len(lat1D), len(lon1D))))
-                #                 , 'spei_pearson_03': (('type', 'lat', 'lon'), (dataL1['spei_pearson_03'].values.reshape(1, len(lat1D), len(lon1D))))
-                #                 , 'spei_pearson_06': (('type', 'lat', 'lon'), (dataL1['spei_pearson_06'].values.reshape(1, len(lat1D), len(lon1D))))
-                #                 , 'spei_pearson_09': (('type', 'lat', 'lon'), (dataL1['spei_pearson_09'].values.reshape(1, len(lat1D), len(lon1D))))
-                #                 , 'spei_pearson_12': (('type', 'lat', 'lon'), (dataL1['spei_pearson_12'].values.reshape(1, len(lat1D), len(lon1D))))
-                #                 , 'spei_pearson_18': (('type', 'lat', 'lon'), (dataL1['spei_pearson_18'].values.reshape(1, len(lat1D), len(lon1D))))
-                #                 , 'spei_pearson_24': (('type', 'lat', 'lon'), (dataL1['spei_pearson_24'].values.reshape(1, len(lat1D), len(lon1D))))
-                #             }
-                #             , coords={
-                #                 'lon': lon1D
-                #                 , 'lat': lat1D
-                #                 , 'type': [drgCond]
-                #             }
-                #         )
-                #
-                #         dataL2 = xr.merge([dataL2, contDataL3])
-                #
-                #         # 각 변수마다 시각화
-                #         for k, varInfo in enumerate(dataL2.data_vars.keys()):
-                #             # log.info(f'[CHECK] varInfo : {varInfo}')
-                #             saveImg = '{}/{}/{}/{}_{}_{}_{}.png'.format(globalVar['figPath'], serviceName, keyInfo, keyInfo, dateInfo, drgCond, varInfo)
-                #             # if os.path.exists(saveImg): continue
-                #             os.makedirs(os.path.dirname(saveImg), exist_ok=True)
-                #             dataL2.sel(type = drgCond)[varInfo].plot()
-                #             plt.savefig(saveImg, dpi=600, bbox_inches='tight', transparent=True)
-                #             plt.tight_layout()
-                #             # plt.show()
-                #             plt.close()
-                #             log.info(f'[CHECK] saveImg : {saveImg}')
-                #
-                #         # NetCDF 자료 저장
-                #         saveFile = '{}/{}/{}/{}_{}_{}_{}.nc'.format(globalVar['outPath'], serviceName, keyInfo, keyInfo, dateInfo, drgCond, 'cnt')
-                #         os.makedirs(os.path.dirname(saveFile), exist_ok=True)
-                #         dataL2.to_netcdf(saveFile)
-                #         log.info(f'[CHECK] saveFile : {saveFile}')
-                #
-                #         # CSV 자료 저장
-                #         saveFile = '{}/{}/{}/{}_{}_{}_{}.csv'.format(globalVar['outPath'], serviceName, keyInfo, keyInfo, dateInfo, drgCond, 'cnt')
-                #         os.makedirs(os.path.dirname(saveFile), exist_ok=True)
-                #         dataL2.to_dataframe().reset_index(drop=False).to_csv(saveFile, index=False)
-                #         log.info(f'[CHECK] saveFile : {saveFile}')
-                #
-                # for dateInfo, (srtDate, endDate) in sysOpt['dateList'].items():
-                #     log.info(f"[CHECK] dateInfo : {dateInfo}")
-                #
-                #     inpFile = '{}/{}/{}/{}*{}*{}*.nc'.format(globalVar['outPath'], serviceName, keyInfo, keyInfo, dateInfo, 'cnt')
-                #     fileList2 = sorted(glob.glob(inpFile))
-                #
-                #     if fileList2 is None or len(fileList2) < 1:
-                #         log.error('[ERROR] inpFile : {} / {}'.format(inpFile, '입력 자료를 확인해주세요.'))
-                #         continue
-                #
-                #     log.info(f'[CHECK] fileList2 : {fileList2}')
-                #
-                #     dataL3 = xr.open_mfdataset(fileList2)
-                #
-                #     dataL4 = dataL3.to_dataframe().reset_index(drop=False)
-                #     dataL4.columns = dataL4.columns.to_series().replace(
-                #         {
-                #             'spei_gamma_': 'gam'
-                #             , 'spei_pearson_': 'pea'
-                #         }
-                #         , regex=True
-                #     )
-                #
-                #     dataL5 = pd.melt(dataL4, id_vars=['type', 'lat', 'lon'], var_name='key', value_name='val')
-                #
-                #     # CSV 자료 저장
-                #     saveFile = '{}/{}/{}/{}_{}_{}.csv'.format(globalVar['outPath'], serviceName, keyInfo, keyInfo, dateInfo, 'cnt')
-                #     os.makedirs(os.path.dirname(saveFile), exist_ok=True)
-                #     dataL5.to_csv(saveFile, index=False)
-                #     log.info(f'[CHECK] saveFile : {saveFile}')
-                #
-                #     typeList = set(dataL5['type'])
-                #     for k, typeInfo in enumerate(typeList):
-                #         log.info(f'[CHECK] typeInfo : {typeInfo}')
-                #
-                #         dataL6 = dataL5.loc[dataL5['type'] == typeInfo]
-                #
-                #         # 시각화 저장
-                #         saveImg = '{}/{}/{}/{}_{}_{}_{}.png'.format(globalVar['figPath'], serviceName, keyInfo, keyInfo, dateInfo, typeInfo, 'boxplot')
-                #         os.makedirs(os.path.dirname(saveImg), exist_ok=True)
-                #         sns.boxplot(
-                #             x='key', y='val', hue='key', data=dataL6, showmeans=True, width=0.5, dodge=False
-                #             , meanprops={'marker': 'o', 'markerfacecolor': 'black', 'markeredgecolor': 'black', 'markersize': 3}
-                #         )
-                #         plt.xticks(rotation=45, ha='right')
-                #         plt.xlabel(None)
-                #         plt.ylabel(None)
-                #         plt.legend([], [], frameon=False, title=None)
-                #         plt.tight_layout()
-                #         plt.savefig(saveImg, dpi=600, transparent=True)
-                #         # plt.show()
-                #         plt.close()
-                #         log.info(f'[CHECK] saveImg : {saveImg}')
+                saveImg = '{}/{}/{}_{}.png'.format(globalVar['figPath'], serviceName, 'diff_t2', dtDateInfo.strftime('%Y%m%d%H%M'))
+                os.makedirs(os.path.dirname(saveImg), exist_ok=True)
+                dataL1['DIFF_T2'].isel(anaDt = 0, fotDt = 0).plot()
+                plt.savefig(saveImg, dpi=600, bbox_inches='tight', transparent=True)
+                plt.show()
+                log.info(f'[CHECK] saveImg : {saveImg}')
 
         except Exception as e:
             log.error("Exception : {}".format(e))
