@@ -12,10 +12,10 @@ import common.initiator as common
 
 class Application:
 
-    def __init__(self, inFile, modelName, modelName1, config):
+    def __init__(self, inFile, modelName, modelKey, config):
         self.inFile = inFile
         self.modelName = modelName
-        self.modelName1 = modelName1
+        self.modelKey = modelKey
         self.config = config
         self.dbconfig = config['db_info']
         self.varNameLists = ""
@@ -39,7 +39,6 @@ class Application:
         self.getVar()
         dbapp = ManageDB(self.dbconfig)
         initDB = dbapp.initCfgInfo()
-        # dbapp.dbMergeData
 
         tmpADate = gribApp.getAttrValue(self.varNameLists[0]['name'], 'initial_time')
         analDate = datetime.datetime.strptime(tmpADate, '%m/%d/%Y (%H:%M)')
@@ -66,7 +65,7 @@ class Application:
             common.logger.error(f'해당 파일 ({self.inFile})에서 지표면 및 상층 데이터를 확인해주세요.')
             sys.exit(1)
 
-        common.logger.info(f'[CHECK] dbData : {self.dbData.keys()}')
+        common.logger.info(f'[CHECK] dbData : {self.dbData.keys()} : {np.shape(self.dbData[list(self.dbData.keys())[3]])}')
         dbapp.dbMergeData(initDB['session'], initDB['tbIntModel'], self.dbData, pkList=['MODEL_TYPE', 'ANA_DT', 'FOR_DT'])
 
     def processKIER(self):
@@ -105,45 +104,46 @@ class Application:
             forDate = pd.to_datetime(forDateInfo, format='%Y-%m-%d_%H:%M:%S')
             common.logger.info(f'[CHECK] anaDate : {anaDate} / forDate : {forDate}')
 
-            for i, modelKey in enumerate(['UNIS', 'PRES']):
-                modelType = 'KIER-LDAPS' if  re.search('KIER-LDAPS', self.modelName, re.IGNORECASE) else 'KIER-RDAPS'
-                modelInfo = self.config['modelName'].get(f'{modelType}_{modelKey}')
-                if modelInfo is None:
-                    common.logger.warn(f'설정 파일 (config.yml)에서 설정 정보 (KIER-LDAPS/RDAPS, UNIS/PRES)를 확인해주세요.')
-                    continue
+            modelType = 'KIER-LDAPS' if re.search('KIER-LDAPS', self.modelName, re.IGNORECASE) else 'KIER-RDAPS'
+            modelInfo = self.config['modelName'].get(f'{modelType}_{self.modelKey}')
+            if modelInfo is None:
+                common.logger.warn(f'설정 파일 (config.yml)에서 설정 정보 (KIER-LDAPS/RDAPS, UNIS/PRES/ALL)를 확인해주세요.')
+                continue
 
-                # *********************************************************
-                # DB 등록/수정
-                # *********************************************************
-                # 필수 컬럼
-                self.dbData = {}
-                self.dbData['ANA_DT'] = anaDate
-                self.dbData['FOR_DT'] = forDate
-                self.dbData['MODEL_TYPE'] = self.modelName
+            # *********************************************************
+            # DB 등록/수정
+            # *********************************************************
+            # 필수 컬럼
+            self.dbData = {}
+            self.dbData['ANA_DT'] = anaDate
+            self.dbData['FOR_DT'] = forDate
+            self.dbData['MODEL_TYPE'] = self.modelName
 
-                # 선택 컬럼
-                for j, varInfo in enumerate(modelInfo['varName']):
-                    name = varInfo['name']
-                    for level, colName in zip(varInfo['level'], varInfo['colName']):
-                        try:
-                            if re.search('unis', modelKey, re.IGNORECASE):
-                                if len(data[name].isel(Time=idx).values) < 1: continue
-                                self.dbData[colName] = self.convFloatToIntList(data[name].isel(Time=idx).values)
-                            else:
-                                if len(data[name].isel(Time=idx, bottom_top=int(level)).values) < 1: continue
-                                self.dbData[colName] = self.convFloatToIntList(data[name].isel(Time=idx, bottom_top=int(level)).values)
-                        except Exception as e:
-                            common.logger.error(f'Exception : {e}')
+            # 선택 컬럼
+            for j, varInfo in enumerate(modelInfo['varName']):
+                name = varInfo['name']
+                for level, colName in zip(varInfo['level'], varInfo['colName']):
+                    try:
+                        if data.get(name) is None: continue
 
-                if len(self.dbData) < 1:
-                    common.logger.error(f'해당 파일 ({self.inFile})에서 지표면 및 상층 데이터를 확인해주세요.')
-                    sys.exit(1)
+                        if level == '-1':
+                            if len(data[name].isel(Time=idx).values) < 1: continue
+                            self.dbData[colName] = self.convFloatToIntList(data[name].isel(Time=idx).values)
+                        else:
+                            if len(data[name].isel(Time=idx, bottom_top=int(level)).values) < 1: continue
+                            self.dbData[colName] = self.convFloatToIntList(data[name].isel(Time=idx, bottom_top=int(level)).values)
+                    except Exception as e:
+                        common.logger.error(f'Exception : {e}')
 
-                common.logger.info(f'[CHECK] dbData : {self.dbData.keys()}')
-                dbapp.dbMergeData(initDB['session'], initDB['tbIntModel'], self.dbData, pkList=['MODEL_TYPE', 'ANA_DT', 'FOR_DT'])
+            if len(self.dbData) < 1:
+                common.logger.error(f'해당 파일 ({self.inFile})에서 지표면 및 상층 데이터를 확인해주세요.')
+                sys.exit(1)
+
+            common.logger.info(f'[CHECK] dbData : {self.dbData.keys()} : {np.shape(self.dbData[list(self.dbData.keys())[3]])}')
+            dbapp.dbMergeData(initDB['session'], initDB['tbIntModel'], self.dbData, pkList=['MODEL_TYPE', 'ANA_DT', 'FOR_DT'])
 
     def getVar(self):
-        self.varNameLists = self.config['modelName'][self.modelName1]['varName']
+        self.varNameLists = self.config['modelName'][f'{self.modelName}_{self.modelKey}']['varName']
 
     def convFloatToIntList(self, val):
         scaleFactor = 10000

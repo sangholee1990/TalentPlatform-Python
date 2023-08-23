@@ -15,7 +15,6 @@ from sqlalchemy.orm import sessionmaker
 from sqlalchemy import create_engine
 import common.initiator as common
 
-
 class ManageDB:
     def __init__(self, config):
         self.dbType = config['dbType']

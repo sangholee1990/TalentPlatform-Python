@@ -5,8 +5,6 @@ import os
 from datetime import datetime
 import warnings
 import yaml
-from sympy import exp
-
 import common.initiator as common
 from application import Application
 import re
@@ -19,6 +17,7 @@ def main():
         inFile = option.inFile
         modelName = option.modelName.upper()
         # inFile = '/DATA/INPUT/INDI2023/MODEL/KIER-LDAPS/wrfout_d02_2023-06-30_03:00:00.nc'
+        # inFile = '/DATA/INPUT/INDI2023/MODEL/KIER-LDAPS/wrfsolar_d02_2023-06-30_03:00:00.nc'
         # modelName = 'KIER-LDAPS'
 
         ctxPath = os.getcwd()
@@ -36,21 +35,21 @@ def main():
         common.logger.info(f'[CHECK] logInfo : {logInfo}')
         common.logger.info(f'[CHECK] cfgInfo : {cfgInfo}')
 
-        if re.search('wrfout', inFile, re.IGNORECASE):
-            modelName1 = modelName + "_ALL"
-        elif re.search('unis', inFile, re.IGNORECASE):
-            modelName1 = modelName + "_UNIS"
-        elif re.search('pres', inFile, re.IGNORECASE):
-            modelName1 = modelName + "_PRES"
-        else:
-            modelName1 = modelName
+        modelKey = ""
+        if re.search('wrfout_d04', inFile, re.IGNORECASE):
+            modelKey = "ALL"
+        elif re.search('unis|wrfsolar_d02', inFile, re.IGNORECASE):
+            modelKey = "UNIS"
+        elif re.search('pres|wrfout_d02', inFile, re.IGNORECASE):
+            modelKey = "PRES"
 
         if not os.path.isfile(inFile):
             common.logger.error("File is not Exists")
             exit(1)
 
         common.logger.info(f'[CHECK] modelName : {modelName}')
-        apps = Application(inFile, modelName, modelName1, config)
+        common.logger.info(f'[CHECK] modelKey : {modelKey}')
+        apps = Application(inFile, modelName, modelKey, config)
         apps.run()
 
     except Exception as e:

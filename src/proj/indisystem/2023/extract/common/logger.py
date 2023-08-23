@@ -1,8 +1,9 @@
+# -*- coding: utf-8 -*-
+
 import logging
 from logging import StreamHandler
 from logging.handlers import TimedRotatingFileHandler
 import socket
-
 
 backup_count = 10
 formatter = None
