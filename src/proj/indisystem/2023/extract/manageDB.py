@@ -1,5 +1,5 @@
-import xarray as xr
-import Nio
+# -*- coding: utf-8 -*-
+
 from urllib.parse import quote_plus
 from sqlalchemy.orm import sessionmaker
 from sqlalchemy import create_engine
@@ -13,7 +13,6 @@ from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy import create_engine, MetaData, Table, Column, Integer, String, DateTime, Float
 from sqlalchemy.orm import sessionmaker
 from sqlalchemy import create_engine
-import pandas as pd
 import common.initiator as common
 
 
