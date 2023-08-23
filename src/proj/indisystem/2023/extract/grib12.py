@@ -28,7 +28,6 @@ class Grib12:
 		return data
 	def getVariable31(self,varName,level):
 		data=self.gribFP.variables[varName][level][:]
-#		print(data)
 		return data
 
 #Dimensions, shape and size

@@ -1,26 +1,36 @@
 # -*- coding: utf-8 -*-
+
 import argparse
 import os
 from datetime import datetime
 import warnings
 import yaml
+from sympy import exp
+
 import common.initiator as common
 from application import Application
 import re
+import os
 
 
 def main():
     try:
-        option = get_option()
-        inFile = option.inFile
-        modelName = option.modelName.upper()
-        # inFile = '/DATA/INPUT/INDI2023/MODEL/KIER-LDAPS/wrfout_d02_2023-06-30_03:00:00.nc'
-        # modelName = 'KIER-LDAPS'
+        # option = get_option()
+        # inFile = option.inFile
+        # modelName = option.modelName.upper()
+        inFile = '/DATA/INPUT/INDI2023/MODEL/KIER-LDAPS/wrfout_d02_2023-06-30_03:00:00.nc'
+        modelName = 'KIER-LDAPS'
 
-        common.init_logger("./logdir/gribDB.log")
-        configPath = "./config/config.yml"
+        ctxPath = os.getcwd()
+        logInfo = f'{ctxPath}/log/daemon-kierDB-{modelName}.log'
+        cfgInfo = f'{ctxPath}/config/config.yml'
 
-        config = parse_config(configPath)
+        os.makedirs(os.path.dirname(logInfo), exist_ok=True)
+        os.makedirs(os.path.dirname(cfgInfo), exist_ok=True)
+
+        # common.init_logger("./logdir/gribDB.log")
+        common.init_logger(logInfo)
+        config = parse_config(cfgInfo)
 
         if re.search('wrfout', inFile, re.IGNORECASE):
             modelName1 = modelName + "_ALL"
@@ -32,15 +42,15 @@ def main():
             modelName1 = modelName
 
         if not os.path.isfile(inFile):
-            common.logger.error("[ERROR]File is not Exists")
+            common.logger.error("[ERROR] File is not Exists")
             exit(1)
 
-        print(f'[CHECK] modelName : {modelName}')
+        common.logger.info(f'[CHECK] modelName : {modelName}')
         apps = Application(inFile, modelName, modelName1, config)
         apps.run()
 
-    except KeyError as e:
-        common.logger.error("check the argments or data type or path" + e)
+    except Exception as e:
+        common.logger.error(f'[ERROR] check the argments or data type or path : {e}')
 
 
 def parse_config(configPath):

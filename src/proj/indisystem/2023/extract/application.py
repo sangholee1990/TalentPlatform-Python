@@ -1,3 +1,5 @@
+# -*- coding: utf-8 -*-
+
 import datetime
 import numpy as np
 from grib12 import Grib12
@@ -6,6 +8,7 @@ import re
 import sys
 import xarray as xr
 import pandas as pd
+import common.initiator as common
 
 class Application:
 
@@ -29,34 +32,41 @@ class Application:
             gribApp.openFile()
             self.processKMA(gribApp)
         else:
-            print(f'[ERROR] 모델 종류 ({self.modelName})를 확인해주세요.')
+            common.logger.error(f'모델 종류 ({self.modelName})를 확인해주세요.')
             sys.exit(1)
 
     def processKMA(self, gribApp):
         self.getVar()
         dbapp = ManageDB(self.dbconfig)
         initDB = dbapp.initCfgInfo()
-        dbapp.dbMergeData
+        # dbapp.dbMergeData
 
         tmpADate = gribApp.getAttrValue(self.varNameLists[0]['name'], 'initial_time')
         analDate = datetime.datetime.strptime(tmpADate, '%m/%d/%Y (%H:%M)')
         tmpFDate = gribApp.getAttrValue(self.varNameLists[0]['name'], 'forecast_time')
         tmpFHour = tmpFDate[0]
         forcDate = analDate + datetime.timedelta(hours=int(tmpFHour))
+        common.logger.info(f'[CHECK] anaDate : {analDate} / forDate : {forcDate}')
 
         self.dbData['ANA_DT'] = analDate
         self.dbData['FOR_DT'] = forcDate
         self.dbData['MODEL_TYPE'] = self.modelName
-        for vlist in self.varNameLists:
-            #			print (vlist['name'])
-            for idx, level in enumerate(vlist['level'], 0):
-                if level == '-1':
-                    self.dbData[vlist['colName'][idx]] = self.convFloatToIntList(gribApp.getVariable(vlist['name']))
-                else:
-                    self.dbData[vlist['colName'][idx]] = self.convFloatToIntList(
-                        gribApp.getVariable31(vlist['name'], idx))
-        #		print(self.dbData)
 
+        for vlist in self.varNameLists:
+            for idx, level in enumerate(vlist['level'], 0):
+                try:
+                    if level == '-1':
+                        self.dbData[vlist['colName'][idx]] = self.convFloatToIntList(gribApp.getVariable(vlist['name']))
+                    else:
+                        self.dbData[vlist['colName'][idx]] = self.convFloatToIntList(gribApp.getVariable31(vlist['name'], idx))
+                except Exception as e:
+                    common.logger.error(f'Exception : {e}')
+
+        if len(self.dbData) < 1:
+            common.logger.error(f'해당 파일 ({self.inFile})에서 지표면 및 상층 데이터를 확인해주세요.')
+            sys.exit(1)
+
+        common.logger.info(f'[CHECK] dbData : {self.dbData.keys()}')
         dbapp.dbMergeData(initDB['session'], initDB['tbIntModel'], self.dbData, pkList=['MODEL_TYPE', 'ANA_DT', 'FOR_DT'])
 
     def processKIER(self):
@@ -66,9 +76,8 @@ class Application:
         initDB = dbapp.initCfgInfo()
 
         # NetCDF 파일 읽기
-        fileInfo = self.inFile
         orgData = xr.open_mfdataset(self.inFile)
-        print(f'[CHECK] fileInfo : {fileInfo}')
+        common.logger.info(f'[CHECK] inFile : {self.inFile}')
 
         # 분석시간
         anaDate = pd.to_datetime(orgData.START_DATE, format='%Y-%m-%d_%H:%M:%S')
@@ -94,23 +103,23 @@ class Application:
         forDateList = data['Time'].values
         for idx, forDateInfo in enumerate(forDateList):
             forDate = pd.to_datetime(forDateInfo, format='%Y-%m-%d_%H:%M:%S')
-            print(f'[CHECK] anaDate : {anaDate} / forDate : {forDate}')
+            common.logger.info(f'[CHECK] anaDate : {anaDate} / forDate : {forDate}')
 
             for i, modelKey in enumerate(['UNIS', 'PRES']):
                 modelType = 'KIER-LDAPS' if  re.search('KIER-LDAPS', self.modelName, re.IGNORECASE) else 'KIER-RDAPS'
                 modelInfo = self.config['modelName'].get(f'{modelType}_{modelKey}')
                 if modelInfo is None:
-                    print(f'[WARN] 설정 파일 (config.yml)에서 설정 정보 (KIER-LDAPS/RDAPS, UNIS/PRES)를 확인해주세요.')
+                    common.logger.warn(f'설정 파일 (config.yml)에서 설정 정보 (KIER-LDAPS/RDAPS, UNIS/PRES)를 확인해주세요.')
                     continue
 
                 # *********************************************************
                 # DB 등록/수정
                 # *********************************************************
                 # 필수 컬럼
-                dbData = {}
-                dbData['ANA_DT'] = anaDate
-                dbData['FOR_DT'] = forDate
-                dbData['MODEL_TYPE'] = self.modelName
+                self.dbData = {}
+                self.dbData['ANA_DT'] = anaDate
+                self.dbData['FOR_DT'] = forDate
+                self.dbData['MODEL_TYPE'] = self.modelName
 
                 # 선택 컬럼
                 for j, varInfo in enumerate(modelInfo['varName']):
@@ -119,20 +128,19 @@ class Application:
                         try:
                             if re.search('unis', modelKey, re.IGNORECASE):
                                 if len(data[name].isel(Time=idx).values) < 1: continue
-                                dbData[colName] = self.convFloatToIntList(data[name].isel(Time=idx).values)
+                                self.dbData[colName] = self.convFloatToIntList(data[name].isel(Time=idx).values)
                             else:
                                 if len(data[name].isel(Time=idx, bottom_top=int(level)).values) < 1: continue
-                                dbData[colName] = self.convFloatToIntList(data[name].isel(Time=idx, bottom_top=int(level)).values)
-
+                                self.dbData[colName] = self.convFloatToIntList(data[name].isel(Time=idx, bottom_top=int(level)).values)
                         except Exception as e:
-                            print(f'Exception : {e}')
+                            common.logger.error(f'Exception : {e}')
 
-                if len(dbData) < 1:
-                    print(f'[WARN] 해당 파일 ({fileInfo})에서 지표면 및 상층 데이터를 확인해주세요.')
+                if len(self.dbData) < 1:
+                    common.logger.error(f'해당 파일 ({self.inFile})에서 지표면 및 상층 데이터를 확인해주세요.')
                     sys.exit(1)
 
-                print(f'[CHECK] dbData : {dbData.keys()}')
-                dbapp.dbMergeData(initDB['session'], initDB['tbIntModel'], dbData, pkList=['MODEL_TYPE', 'ANA_DT', 'FOR_DT'])
+                common.logger.info(f'[CHECK] dbData : {self.dbData.keys()}')
+                dbapp.dbMergeData(initDB['session'], initDB['tbIntModel'], self.dbData, pkList=['MODEL_TYPE', 'ANA_DT', 'FOR_DT'])
 
     def getVar(self):
         self.varNameLists = self.config['modelName'][self.modelName1]['varName']
