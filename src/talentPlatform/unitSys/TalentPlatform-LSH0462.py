@@ -19,6 +19,7 @@ import seaborn as sns
 from pandas.tseries.offsets import Day, Hour, Minute, Second
 import re
 import pygrib
+
 # =================================================
 # 사용자 매뉴얼
 # =================================================
@@ -158,6 +159,7 @@ def initArgument(globalVar, inParams):
         # setattr(self, key, val)
 
     return globalVar
+
 
 # ================================================
 # 4. 부 프로그램
@@ -304,7 +306,6 @@ class DtaProcess(object):
             log.info(f'[CHECK] len(latList) : {len(latList)}')
             log.info(f'[CHECK] len(levList) : {len(levList)}')
 
-
             for dtDateIdx, dtDateInfo in enumerate(dtDateList):
                 log.info(f'[CHECK] dtDateInfo : {dtDateInfo}')
 
@@ -327,16 +328,17 @@ class DtaProcess(object):
                             continue
 
                         # NetCDF 파일 읽기
-                        # fileInfo = fileList[0]
                         for j, fileInfo in enumerate(fileList):
 
-                            data = xr.open_mfdataset(fileInfo, engine='pynio')
+                            data = xr.open_dataset(fileInfo, engine='pynio')
                             log.info(f'[CHECK] fileInfo : {fileInfo}')
 
                             # pygrib에서 분석/예보 시간 추출
                             gribData = pygrib.open(fileInfo).select()[0]
                             anaDt = gribData.analDate
                             fotDt = gribData.validDate
+
+                            log.info(f'[CHECK] anaDt : {anaDt} / fotDt : {fotDt}')
 
                             # 파일명에서 분석/예보 시간 추출
                             # isMatch = re.search(r'f(\d+)', fileInfo)
@@ -350,8 +352,6 @@ class DtaProcess(object):
                                 if data.get(orgVar) is None: continue
 
                                 try:
-
-
                                     if level == -1:
                                         selData = data[orgVar].interp({modelInfo['comVar']['lon']: lonList, modelInfo['comVar']['lat']: latList}, method='linear')
                                         selDataL1 = selData
@@ -361,7 +361,7 @@ class DtaProcess(object):
 
                                     selDataL2 = xr.Dataset(
                                         {
-                                            f'{modelType}_{newVar}' : (('anaDt', 'fotDt', 'lat', 'lon'), (selDataL1.values).reshape(1, 1, len(latList), len(lonList)))
+                                            f'{modelType}_{newVar}': (('anaDt', 'fotDt', 'lat', 'lon'), (selDataL1.values).reshape(1, 1, len(latList), len(lonList)))
                                         }
                                         , coords={
                                             'anaDt': pd.date_range(anaDt, periods=1)
@@ -377,11 +377,11 @@ class DtaProcess(object):
 
                 if len(dataL1) < 1: continue
 
-                 # NetCDF 자료 저장
-                 saveFile = '{}/{}/{}_{}.nc'.format(globalVar['outPath'], serviceName, 'ecmwf-gfs_model', dtDateInfo.strftime('%Y%m%d%H%M'))
-                 os.makedirs(os.path.dirname(saveFile), exist_ok=True)
-                 dataL1.to_netcdf(saveFile)
-                 log.info(f'[CHECK] saveFile : {saveFile}')
+                # NetCDF 자료 저장
+                saveFile = '{}/{}/{}_{}.nc'.format(globalVar['outPath'], serviceName, 'ecmwf-gfs_model', dtDateInfo.strftime('%Y%m%d%H%M'))
+                os.makedirs(os.path.dirname(saveFile), exist_ok=True)
+                dataL1.to_netcdf(saveFile)
+                log.info(f'[CHECK] saveFile : {saveFile}')
 
                 # 비교
                 dataL1['DIFF_T2'] = dataL1['ECMWF_T2'] - dataL1['GFS_T2']
@@ -389,31 +389,30 @@ class DtaProcess(object):
                 # 시각화
                 saveImg = '{}/{}/{}_{}.png'.format(globalVar['figPath'], serviceName, 'ecmwf_t2', dtDateInfo.strftime('%Y%m%d%H%M'))
                 os.makedirs(os.path.dirname(saveImg), exist_ok=True)
-                dataL1['ECMWF_T2'].isel(anaDt = 0, fotDt = 0).plot()
+                dataL1['ECMWF_T2'].isel(anaDt=0, fotDt=0).plot()
                 plt.savefig(saveImg, dpi=600, bbox_inches='tight', transparent=True)
                 plt.show()
                 log.info(f'[CHECK] saveImg : {saveImg}')
 
                 saveImg = '{}/{}/{}_{}.png'.format(globalVar['figPath'], serviceName, 'gfs_t2', dtDateInfo.strftime('%Y%m%d%H%M'))
                 os.makedirs(os.path.dirname(saveImg), exist_ok=True)
-                dataL1['GFS_T2'].isel(anaDt = 0, fotDt = 0).plot()
+                dataL1['GFS_T2'].isel(anaDt=0, fotDt=0).plot()
                 plt.savefig(saveImg, dpi=600, bbox_inches='tight', transparent=True)
                 plt.show()
                 log.info(f'[CHECK] saveImg : {saveImg}')
 
                 saveImg = '{}/{}/{}_{}.png'.format(globalVar['figPath'], serviceName, 'diff_t2', dtDateInfo.strftime('%Y%m%d%H%M'))
                 os.makedirs(os.path.dirname(saveImg), exist_ok=True)
-                dataL1['DIFF_T2'].isel(anaDt = 0, fotDt = 0).plot()
+                dataL1['DIFF_T2'].isel(anaDt=0, fotDt=0).plot()
                 plt.savefig(saveImg, dpi=600, bbox_inches='tight', transparent=True)
                 plt.show()
                 log.info(f'[CHECK] saveImg : {saveImg}')
 
         except Exception as e:
-            log.error("Exception : {}".format(e))
-            raise e
+            log.error(f'Exception : {e}')
+
         finally:
             log.info('[END] {}'.format("exec"))
-
 
 # ================================================
 # 3. 주 프로그램
