@@ -27,15 +27,10 @@ class ManageDB:
         self.dbSchema = config['dbSchema']
 
     def initCfgInfo(self):
-
-        common.logger.info(f'[START] initCfgInfo')
-
+        # common.logger.info(f'[START] initCfgInfo')
         result = None
 
         try:
-            '''
-            '''
-
             sqlDbUrl = f'{self.dbType}://{self.dbUser}:{self.dbPwd}@{self.dbHost}:{self.dbPort}/{self.dbName}'
 
             # 커넥션 풀 관리
@@ -83,9 +78,8 @@ class ManageDB:
         except Exception as e:
             common.logger.error(f'Exception : {e}')
             return result
-
-        finally:
-            common.logger.info(f'[END] initCfgInfo')
+        # finally:
+            # common.logger.info(f'[END] initCfgInfo')
 
     # def dbMergeData(session, table, dataList, pkList=['ANA_DT', 'FOR_DT', 'MODEL_TYPE']):
     def dbMergeData(self, session, table, dataList, pkList=['MODEL_TYPE']):

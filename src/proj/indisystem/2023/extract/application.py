@@ -9,6 +9,7 @@ import sys
 import xarray as xr
 import pandas as pd
 import common.initiator as common
+import matplotlib.pyplot as plt
 
 class Application:
 
@@ -24,9 +25,8 @@ class Application:
         self.dbData = {}
 
     def run(self):
-        if re.search('KIER-LDAPS|KIER-RDAPS', self.modelName, re.IGNORECASE):
+        if re.search('KIER-LDAPS|KIER-RDAPS|KIER-WIND', self.modelName, re.IGNORECASE):
             self.processKIER()
-
         elif re.search('KIM|LDAPS|RDAPS', self.modelName, re.IGNORECASE):
             gribApp = Grib12(self.inFile)
             gribApp.openFile()
@@ -47,6 +47,7 @@ class Application:
         forcDate = analDate + datetime.timedelta(hours=int(tmpFHour))
         common.logger.info(f'[CHECK] anaDate : {analDate} / forDate : {forcDate}')
 
+        # DB 등록/수정
         self.dbData['ANA_DT'] = analDate
         self.dbData['FOR_DT'] = forcDate
         self.dbData['MODEL_TYPE'] = self.modelName
@@ -55,9 +56,12 @@ class Application:
             for idx, level in enumerate(vlist['level'], 0):
                 try:
                     if level == '-1':
+                        if len(gribApp.getVariable(vlist['name'])) < 1: continue
                         self.dbData[vlist['colName'][idx]] = self.convFloatToIntList(gribApp.getVariable(vlist['name']))
                     else:
+                        if len(gribApp.getVariable31(vlist['name'], idx)) < 1: continue
                         self.dbData[vlist['colName'][idx]] = self.convFloatToIntList(gribApp.getVariable31(vlist['name'], idx))
+
                 except Exception as e:
                     common.logger.error(f'Exception : {e}')
 
@@ -86,34 +90,47 @@ class Application:
         timeList = [timeInfo.decode('UTF-8').replace('_', ' ') for timeInfo in timeByteList]
         orgData['Time'] = pd.to_datetime(timeList)
 
-        # NREML의 경우  KIER-LDAPS/KIER-RDAPS 30분, 1시간 평균값을 저장
-        # Solar 서버의 KIER-WIND 10분(순간), 30분, 1시간 평균값을 저장
-        # 60M : 1시간 평균, 30M : 30분 평균, 10M : 10분 순간
+        # 해당 조건 시 처리 필요
+        # KIER-LDAPS-2K-60M : 60분 평균 (지표 평균)
+        # KIER-RDAPS-3K-60M : 60분 평균 (지표 평균)
+        # KIER-WIND-60M : 60분 평균 (지표 평균, 상층 평균)
+
+        # KIER-LDAPS-2K-30M : 30분 평균 (지표 평균)
+        # KIER-RDAPS-3K-30M : 30분 평균 (지표 평균)
+        # KIER-WIND-30M : 30분 평균 (지표 평균, 상층 평균)
+
+        # KIER-LDAPS-2K : 1시간 순간 (지표 순간, 상층 순간)
+        # KIER-RDAPS-3K : 1시간 순간 (지표 순간, 상층 순간)
+
+        # KIER-WIND : 10분 단위 (지표 순간, 상층 순간)
+
         if re.search('60M', self.modelName, re.IGNORECASE):
-            data = orgData.resample(Time='1H').mean(dim='Time', skipna=True)
+            data = orgData.resample(Time='60T').mean(dim='Time', skipna=True)
         elif re.search('30M', self.modelName, re.IGNORECASE):
             data = orgData.resample(Time='30T').mean(dim='Time', skipna=True)
-        elif re.search('10M', self.modelName, re.IGNORECASE):
+        elif re.search('KIER-LDAPS|KIER-RDAPS', self.modelName, re.IGNORECASE):
+            data = orgData.resample(Time='60T').asfreq()
+        elif re.search('KIER-WIND', self.modelName, re.IGNORECASE):
             data = orgData.resample(Time='10T').asfreq()
         else:
-            data = orgData
+            common.logger.error(f'모델 종류 ({self.modelName})를 확인해주세요.')
+            sys.exit(1)
 
         # 예보 시간
         forDateList = data['Time'].values
         for idx, forDateInfo in enumerate(forDateList):
             forDate = pd.to_datetime(forDateInfo, format='%Y-%m-%d_%H:%M:%S')
-            common.logger.info(f'[CHECK] anaDate : {anaDate} / forDate : {forDate}')
 
-            modelType = 'KIER-LDAPS' if re.search('KIER-LDAPS', self.modelName, re.IGNORECASE) else 'KIER-RDAPS'
-            modelInfo = self.config['modelName'].get(f'{modelType}_{self.modelKey}')
+            # modelType = 'KIER-LDAPS-2K' if re.search('KIER-LDAPS', self.modelName, re.IGNORECASE) else 'KIER-RDAPS-3K'
+            # modelInfo = self.config['modelName'].get(f'{modelType}_{self.modelKey}')
+            modelInfo = self.config['modelName'].get(f'{self.modelName}_{self.modelKey}')
             if modelInfo is None:
                 common.logger.warn(f'설정 파일 (config.yml)에서 설정 정보 (KIER-LDAPS/RDAPS, UNIS/PRES/ALL)를 확인해주세요.')
                 continue
 
-            # *********************************************************
+            common.logger.info(f'[CHECK] anaDate : {anaDate} / forDate : {forDate}')
+
             # DB 등록/수정
-            # *********************************************************
-            # 필수 컬럼
             self.dbData = {}
             self.dbData['ANA_DT'] = anaDate
             self.dbData['FOR_DT'] = forDate
@@ -123,9 +140,9 @@ class Application:
             for j, varInfo in enumerate(modelInfo['varName']):
                 name = varInfo['name']
                 for level, colName in zip(varInfo['level'], varInfo['colName']):
-                    try:
-                        if data.get(name) is None: continue
+                    if data.get(name) is None: continue
 
+                    try:
                         if level == '-1':
                             if len(data[name].isel(Time=idx).values) < 1: continue
                             self.dbData[colName] = self.convFloatToIntList(data[name].isel(Time=idx).values)

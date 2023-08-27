@@ -19,6 +19,8 @@ import numpy as np
 import matplotlib.pyplot as plt
 from scipy.io import loadmat
 
+import seaborn as sns
+
 # =================================================
 # 사용자 매뉴얼
 # =================================================
@@ -164,6 +166,7 @@ def initArgument(globalVar, inParams):
 # 4. 부 프로그램
 # ================================================
 class DtaProcess(object):
+
     # ================================================
     # 요구사항
     # ================================================
@@ -236,44 +239,34 @@ class DtaProcess(object):
                 # , 'endDate': globalVar['endDate']
                 , 'invHour': 1
 
-                # 경도 최소/최대/간격
-                # , 'lonMin': 120
-                # , 'lonMax': 145
-                # , 'lonInv': 0.25
-
-                # 위도 최소/최대/간격
-                # , 'latMin': 20
-                # , 'latMax': 44.75
-                # , 'latInv': 0.25
-
-                # 기압 설정
-                # , 'levList': [500, 700, 850, 1000]
-
                 # 수행 목록
-                , 'modelList': ['XLSX']
+                , 'nameList': ['XLSX']
 
-                # 모델 정보 : 파일 경로, 파일명, 데이터/DB 컬럼 (지표면 wrfsolar 동적 설정, 상층면 wrfout 정적 설정), 시간 간격
-                , 'XLSX': {
-                    'filePath': '/DATA/INPUT/LSH0464/PRG_err/dat'
-                    , 'fileName': 'DATA_GvsR_SBS_실시간_*월_TEST.xlsx'
-                    , 'searchKey': 'SBS'
-                    , 'comVar': {'lon': 'lon_0', 'lat': 'lat_0'}
-                    , 'level': [-1]
-                    , 'orgVar': ['TMP_P0_L1_GLL0']
-                    , 'newVar': ['T2']
+                # 모델 정보 : 파일 경로, 파일명, 시간 간격
+                , 'nameInfo': {
+                    'XLSX': {
+                        'filePath': '/DATA/INPUT/LSH0464/PRG_err/dat'
+                        , 'fileName': 'DATA_GvsR_SBS_실시간_*월_TEST.xlsx'
+                        , 'searchKey': 'SBS'
+                    }
+                    , 'CSV': {
+                        'filePath': '/DATA/INPUT/LSH0464/PRG_err/dat'
+                        , 'fileName': 'DATA_GvsR_SBS_실시간_*월_TEST.xlsx'
+                        , 'searchKey': 'SBS'
+                    }
                 }
             }
 
-            for modelType in sysOpt['modelList']:
-                log.info(f'[CHECK] modelType : {modelType}')
+            for nameType in sysOpt['nameList']:
+                log.info(f'[CHECK] nameType : {nameType}')
 
-                modelInfo = sysOpt.get(modelType)
-                if modelInfo is None: continue
+                namelInfo = sysOpt['nameInfo'].get(nameType)
+                if namelInfo is None: continue
 
                 # ********************************************************************
                 # 전처리
                 # ********************************************************************
-                inpFile = '{}/{}'.format(modelInfo['filePath'], modelInfo['fileName'])
+                inpFile = '{}/{}'.format(namelInfo['filePath'], namelInfo['fileName'])
                 # inpFileDate = dtDateInfo.strftime(inpFile)
                 fileList = sorted(glob.glob(inpFile))
 
@@ -286,7 +279,7 @@ class DtaProcess(object):
                 for fileInfo in fileList:
                     log.info(f'[CHECK] fileInfo : {fileInfo}')
 
-                    if not re.search(modelInfo['searchKey'], fileInfo, re.IGNORECASE): continue
+                    if not re.search(namelInfo['searchKey'], fileInfo, re.IGNORECASE): continue
 
                     sheetList = pd.ExcelFile(fileInfo).sheet_names
                     # sheetInfo = sheetList[1]
@@ -321,13 +314,19 @@ class DtaProcess(object):
                 dataL1['RDRorg'] = np.where(dataL1['RDRorg'] < 0, 0, dataL1['RDRorg'])
                 dataL1['RDRnew'] = np.where(dataL1['RDRnew'] < 0, 0, dataL1['RDRnew'])
 
+                # CSV 저장
+                saveFile = '{}/{}/{}{}.csv'.format(globalVar['outPath'], serviceName, namelInfo['searchKey'], 'errRstSite')
+                os.makedirs(os.path.dirname(saveFile), exist_ok=True)
+                dataL1.to_csv(saveFile, index=False)
+                log.info(f'[CHECK] saveFile : {saveFile}')
+
                 # date, site를 기준으로 AWS, RDRorg, RDRnew 생성
                 datSTAa = dataL1.pivot_table(index='date', columns=['site'], values='AWS')
                 datSTOa = dataL1.pivot_table(index='date', columns=['site'], values='RDRorg')
                 datSTNa = dataL1.pivot_table(index='date', columns=['site'], values='RDRnew')
 
                 # 엑셀 저장
-                saveFile = '{}/{}/{}{}.xlsx'.format(globalVar['outPath'], serviceName, modelInfo['searchKey'], 'errRstSite')
+                saveFile = '{}/{}/{}{}.xlsx'.format(globalVar['outPath'], serviceName, namelInfo['searchKey'], 'errRstSite')
                 os.makedirs(os.path.dirname(saveFile), exist_ok=True)
                 with pd.ExcelWriter(saveFile, engine='openpyxl') as writer:
                     datSTAa.to_excel(writer, sheet_name='RSTA', startcol=1, startrow=1, index=True)
@@ -340,37 +339,41 @@ class DtaProcess(object):
                 # ********************************************************************
                 # site 별로 출력 (각 사이트 별로 시간 단위로 일기간 만큼 출력)
                 siteList = sorted(set(dataL1['site']))
+                siteInfo = siteList[0]
                 for siteInfo in siteList:
                     log.info(f'[CHECK] siteInfo : {siteInfo}')
 
                     dataL2 = dataL1.loc[(dataL1['site'] == siteInfo)].reset_index(drop=True)
 
                     sumAWS = np.nansum(dataL2['AWS'])
+                    maxAWS = np.nanmax(dataL2['AWS'])
+
                     log.info(f'[CHECK] sumAWS : {sumAWS}')
+                    log.info(f'[CHECK] maxAWS : {maxAWS}')
 
                     if not (sumAWS > 10): continue
 
                     rRat = 0.65
-
                     dataL2['dtDateTime'] = pd.to_datetime(dataL2['date'], format='%Y%m%d%H%M')
                     dataL2['dGLbnd'] = dataL2['AWS'] * rRat
                     dataL2['dRLbnd'] = 0.04 * (dataL2['RDRorg'] ** 1.45)
                     dataL2['dRUbnd'] = 6.4 * (dataL2['RDRorg'] ** 0.725)
 
-                    dt = dataL2['dtDateTime']
-                    dAWS = dataL2['AWS']
-                    dRDR = dataL2['RDRorg']
-                    dRDRa = dataL2['RDRnew']
+                    # dt = dataL2['dtDateTime']
+                    # dAWS = dataL2['AWS']
+                    # dRDR = dataL2['RDRorg']
+                    # dRDRa = dataL2['RDRnew']
 
-                    dGLbnd = dAWS * rRat
-                    dRLbnd = 0.04 * (dRDR ** 1.45)
-                    dRUbnd = 6.4 * (dRDR ** 0.725)
+                    # dGLbnd = dAWS * rRat
+                    # dRLbnd = 0.04 * (dRDR ** 1.45)
+                    # dRUbnd = 6.4 * (dRDR ** 0.725)
 
-                    fig, ax = plt.subplots()
-                    xmag = dt[0]
-                    ax.set_xlim([0, len(dt) + 1])
-                    if np.max(dAWS) > 0:
-                        ax.set_ylim([0, np.max(dAWS) * 1.2])
+
+                    # fig, ax = plt.subplots()
+                    # xmag = dt[0]
+                    # ax.set_xlim([0, len(dt) + 1])
+                    if maxAWS > 0:
+                        ax.set_ylim([0, maxAWS * 1.2])
                     else:
                         ax.set_ylim([0, 30 * 1.2])
 
@@ -378,15 +381,54 @@ class DtaProcess(object):
                     # saveImg = '{}/{}/{}.png'.format(globalVar['figPath'], serviceName, mainTitle)
                     # os.makedirs(os.path.dirname(saveImg), exist_ok=True)
 
-                    import seaborn as sns
 
                     melted = dataL2.melt(id_vars=['dtDateTime'], value_vars=['AWS', 'RDRorg', 'RDRnew'], var_name='key', value_name='val')
 
-                    custom_colors = {
-                        'AWS': 'black',
-                        'RDRorg': 'red',
-                        'RDRnew': 'green'
-                    }
+                    # custom_colors = {
+                    #     'AWS': 'black',
+                    #     'RDRorg': 'red',
+                    #     'RDRnew': 'green'
+                    # }
+
+                    # 월별 강수량 합계 계산
+                    # grouped = df.groupby('Month').sum()
+
+                    # 바 차트 그리기
+                    # melted.plot(kind='bar', color='blue', legend=False)
+                    # plt.show()
+
+                    import matplotlib.dates as mdates
+                    fig, ax = plt.subplots()
+
+                    # 미리 'dtDateTime'을 날짜/시간 형식으로 변환
+                    melted['dtDateTime'] = pd.to_datetime(melted['dtDateTime'])
+
+                    fig, ax = plt.subplots()
+
+                    pivot_df = melted.pivot(index='dtDateTime', columns='key',
+                                            values='val')  # 데이터를 pivot하여 각 key별로 컬럼을 생성
+                    pivot_df.plot(kind='bar', ax=ax)
+                    plt.xlabel('Date Time')
+                    plt.ylabel('Value')
+                    plt.title('Bar Chart per Key and Date Time')
+                    plt.tight_layout()
+                    plt.grid(axis='y')
+
+                    # x축의 눈금 간격 설정: 여기서는 2시간 간격으로 설정
+                    ax.xaxis.set_major_locator(mdates.DayLocator(interval=10))
+                    ax.xaxis.set_major_formatter(mdates.DateFormatter('%Y-%m-%d'))
+                    ax.set_xlim([melted['dtDateTime'].min(), melted['dtDateTime'].max()])
+                    plt.xticks(rotation=45, ha='right', minor=False)
+                    plt.show()
+
+
+
+
+
+                    plt.plot(dataL2['dtDateTime'], dataL2['AWS'], linestyle="-", label="cosine")
+                    plt.plot(dataL2['dtDateTime'], dataL2['RDRorg'])
+                    plt.plot(dataL2['dtDateTime'], dataL2['RDRnew'])
+                    plt.show()
 
 
                     ax = sns.barplot(data=melted, x='dtDateTime', y='val', hue='key', ci=None, palette=custom_colors)

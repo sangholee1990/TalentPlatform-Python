@@ -217,7 +217,7 @@ if __name__ == '__main__':
     # lat, lon, year = 33.2164, -97.1292, 2010
     # # You must request an NSRDB api key from the link above
     # api_key = 'a2MKg6w6iZg5aM9bBlXL49oDjkt7sagl4Li3LBMS'
-    # # Set the attributes to extract (e.g., dhi, ghi, etc.), separated by commas.
+    # # Set the attributes to extract_20230821 (e.g., dhi, ghi, etc.), separated by commas.
     # attributes = 'ghi,dhi,dni,wind_speed,air_temperature,solar_zenith_angle'
     # # Choose year of data
     # year = '2010'
