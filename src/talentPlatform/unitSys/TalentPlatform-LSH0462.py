@@ -336,9 +336,9 @@ class DtaProcess(object):
                             # pygrib에서 분석/예보 시간 추출
                             gribData = pygrib.open(fileInfo).select()[0]
                             anaDt = gribData.analDate
-                            fotDt = gribData.validDate
+                            forDt = gribData.validDate
 
-                            log.info(f'[CHECK] anaDt : {anaDt} / fotDt : {fotDt}')
+                            log.info(f'[CHECK] anaDt : {anaDt} / forDt : {forDt}')
 
                             # 파일명에서 분석/예보 시간 추출
                             # isMatch = re.search(r'f(\d+)', fileInfo)
@@ -346,7 +346,7 @@ class DtaProcess(object):
                             # int(isMatch.group(1))
 
                             # anaDt = dtDateInfo
-                            # fotDt = anaDt + pd.Timedelta(hours = int(isMatch.group(1)))
+                            # forDt = anaDt + pd.Timedelta(hours = int(isMatch.group(1)))
 
                             for level, orgVar, newVar in zip(modelInfo['level'], modelInfo['orgVar'], modelInfo['newVar']):
                                 if data.get(orgVar) is None: continue
@@ -361,11 +361,11 @@ class DtaProcess(object):
 
                                     selDataL2 = xr.Dataset(
                                         {
-                                            f'{modelType}_{newVar}': (('anaDt', 'fotDt', 'lat', 'lon'), (selDataL1.values).reshape(1, 1, len(latList), len(lonList)))
+                                            f'{modelType}_{newVar}': (('anaDt', 'forDt', 'lat', 'lon'), (selDataL1.values).reshape(1, 1, len(latList), len(lonList)))
                                         }
                                         , coords={
                                             'anaDt': pd.date_range(anaDt, periods=1)
-                                            , 'fotDt': pd.date_range(fotDt, periods=1)
+                                            , 'forDt': pd.date_range(forDt, periods=1)
                                             , 'lat': latList
                                             , 'lon': lonList
                                         }
