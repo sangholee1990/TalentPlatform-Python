@@ -31,25 +31,36 @@ srtDt = pd.to_datetime(srtDate, format='%Y-%m-%d %H:%M').strftime("%Y%m%d%H%M%S"
 endDt = pd.to_datetime(endDate, format='%Y-%m-%d %H:%M').strftime("%Y%m%d%H%M%S")
 
 # 정수형 모델 정보 (TB_INT_MODEL)
-modelType = 'KIER-LDAPS-30M'
-# modelType = 'KIER-LDAPS-60M'
-# modelType = 'KIER-RDAPS-30M'
-# modelType = 'KIER-RDAPS-60M'
-# modelType = 'KIM'
-# modelType = 'LDAPS'
-# modelType = 'RDAPS'
+modelType = 'KIER-LDAPS-2K'
+# modelType = 'KIER-LDAPS-2K-30M'
+# modelType = 'KIER-LDAPS-2K-60M'
+# modelType = 'KIER-RDAPS-3K'
+# modelType = 'KIER-RDAPS-3K-30M'
+# modelType = 'KIER-RDAPS-3K-60M'
+# modelType = 'KIER-WIND'
+# modelType = 'KIER-WIND-30M'
+# modelType = 'KIER-WIND-60M'
+# modelType = 'KIM-3K'
+# modelType = 'LDAPS-1.5K'
+# modelType = 'RDAPS-12K'
 
 # 위경도 기본 정보 (TB_GEO), 위경도 상세 정보 (TB_GEO_DTL)
-# 2010~2021년 및 KIER-LDAPS/KIER-RDAPS의 경우 geoType 별도로 설정
-# NREML 서버에서 도메인2 (d02) 해상도 지님
-# 반면에 SOLAR 서버에서 도메인4 (d04) 해상도 지님
-if re.search('KIER-LDAPS|KIER-RDAPS', modelType, re.IGNORECASE) and (pd.to_datetime(srtDate, format='%Y-%m-%d %H:%M') < pd.to_datetime('2012', format='%Y')):
-    geoType = 'KIER-LDAPS-D04' if re.search('KIER-LDAPS', modelType, re.IGNORECASE) else 'KIER-RDAPS-D04'
-elif re.search('KIER-LDAPS|KIER-RDAPS', modelType, re.IGNORECASE):
-    geoType = 'KIER-LDAPS' if re.search('KIER-LDAPS', modelType, re.IGNORECASE) else 'KIER-RDAPS'
-else:
-    geoType = f'{modelType}'
+modelTypeToGeo = {
+    'KIER-LDAPS-2K': 'KIER-LDAPS-2K'
+    , 'KIER-LDAPS-2K-30M': 'KIER-LDAPS-2K'
+    , 'KIER-LDAPS-2K-60M': 'KIER-LDAPS-2K'
+    , 'KIER-RDAPS-3K': 'KIER-RDAPS-3K'
+    , 'KIER-RDAPS-3K-30M': 'KIER-RDAPS-3K'
+    , 'KIER-RDAPS-3K-60M': 'KIER-RDAPS-3K'
+    , 'KIER-WIND': 'KIER-WIND'
+    , 'KIER-WIND-30M': 'KIER-WIND'
+    , 'KIER-WIND-60M': 'KIER-WIND'
+    , 'KIM-3K': 'KIM-3K'
+    , 'LDAPS-1.5K': 'LDAPS-1.5K'
+    , 'RDAPS-12K': 'RDAPS-12K'
+}
 
+geoType = modelTypeToGeo.get(modelType)
 # ===========================================================
 # PostgreSQL 설정 정보
 # ===========================================================
