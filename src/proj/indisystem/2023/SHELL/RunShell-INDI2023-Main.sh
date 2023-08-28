@@ -71,29 +71,29 @@ declare -A metaData
 #metaData["RDAPS","UNIS"]="/vol01/DATA/MODEL/RDAPS/g120_v070_erea_unis_h*.%Y%m%d%H.gb2"
 #metaData["RDAPS","PRES"]="/vol01/DATA/MODEL/RDAPS/g120_v070_erea_pres_h*.%Y%m%d%H.gb2"
 
-# 운영 서버
-metaData["KIER-LDAPS-2K","UNIS"]="/data1/LDAPS-WRF/%Y/%m/%d/*/wrfsolar_d02*"
-metaData["KIER-LDAPS-2K","PRES"]="/data1/LDAPS-WRF/%Y/%m/%d/*/wrfout_d02*"
-metaData["KIER-LDAPS-2K-30M","UNIS"]="/data1/LDAPS-WRF/%Y/%m/%d/*/wrfsolar_d02*"
-metaData["KIER-LDAPS-2K-60M","UNIS"]="/data1/LDAPS-WRF/%Y/%m/%d/*/wrfsolar_d02*"
+# 운영서버
+metaData["KIER-LDAPS-2K","UNIS"]="/data1/LDAPS-WRF/%Y/%m/%d/%H/wrfsolar_d02*"
+metaData["KIER-LDAPS-2K","PRES"]="/data1/LDAPS-WRF/%Y/%m/%d/%H/wrfout_d02*"
+metaData["KIER-LDAPS-2K-30M","UNIS"]="/data1/LDAPS-WRF/%Y/%m/%d/%H/wrfsolar_d02*"
+metaData["KIER-LDAPS-2K-60M","UNIS"]="/data1/LDAPS-WRF/%Y/%m/%d/%H/wrfsolar_d02*"
 
-metaData["KIER-RDAPS-3K","UNIS"]="/data1/RDAPS-WRF/%Y/%m/%d/*/wrfsolar_d02*"
-metaData["KIER-RDAPS-3K","PRES"]="/data1/RDAPS-WRF/%Y/%m/%d/*/wrfout_d02*"
-metaData["KIER-RDAPS-3K-30M","UNIS"]="/data1/RDAPS-WRF/%Y/%m/%d/*/wrfsolar_d02*"
-metaData["KIER-RDAPS-3K-60M","UNIS"]="/data1/RDAPS-WRF/%Y/%m/%d/*/wrfsolar_d02*"
+metaData["KIER-RDAPS-3K","UNIS"]="/data1/RDAPS-WRF/%Y/%m/%d/%H/wrfsolar_d02*"
+metaData["KIER-RDAPS-3K","PRES"]="/data1/RDAPS-WRF/%Y/%m/%d/%H/wrfout_d02*"
+metaData["KIER-RDAPS-3K-30M","UNIS"]="/data1/RDAPS-WRF/%Y/%m/%d/%H/wrfsolar_d02*"
+metaData["KIER-RDAPS-3K-60M","UNIS"]="/data1/RDAPS-WRF/%Y/%m/%d/%H/wrfsolar_d02*"
 
 metaData["KIER-WIND","ALL"]="/thermal1/OUT/wrf%Y_%m/wrfout_d04s_%Y-%m-%d*"
 metaData["KIER-WIND-30M","ALL"]="/thermal1/OUT/wrf%Y_%m/wrfout_d04s_%Y-%m-%d*"
 metaData["KIER-WIND-60M","ALL"]="/thermal1/OUT/wrf%Y_%m/wrfout_d04s_%Y-%m-%d*"
 
-metaData["KIM-3K","UNIS"]="/data1/%Y/%m/%d/*/r030_v040_ne36_unis_h*.%Y%m%d%H.gb2"
-metaData["KIM-3K","PRES"]="/data1/%Y/%m/%d/*/r030_v040_ne36_pres_h*.%Y%m%d%H.gb2"
+metaData["KIM-3K","UNIS"]="/data1/%Y/%m/%d/%H/r030_v040_ne36_unis_h*.%Y%m%d%H.gb2"
+metaData["KIM-3K","PRES"]="/data1/%Y/%m/%d/%H/r030_v040_ne36_pres_h*.%Y%m%d%H.gb2"
 
-metaData["LDAPS-1.5K","UNIS"]="/only-wrf-data2/Forecast/LDAPS/%Y/%m/%d/*/l015_v070_erlo_unis_h*.%Y%m%d%H.gb2"
-metaData["LDAPS-1.5K","PRES"]="/only-wrf-data2/Forecast/LDAPS/%Y/%m/%d/*/l015_v070_erlo_pres_h*.%Y%m%d%H.gb2"
+metaData["LDAPS-1.5K","UNIS"]="/only-wrf-data2/Forecast/LDAPS/%Y/%m/%d/%H/l015_v070_erlo_unis_h*.%Y%m%d%H.gb2"
+metaData["LDAPS-1.5K","PRES"]="/only-wrf-data2/Forecast/LDAPS/%Y/%m/%d/%H/l015_v070_erlo_pres_h*.%Y%m%d%H.gb2"
 
-metaData["RDAPS-12K","UNIS"]="/only-wrf-data2/Forecast/RDAPS/%Y/%m/%d/*/g120_v070_erea_unis_h*.%Y%m%d%H.gb2"
-metaData["RDAPS-12K","PRES"]="/only-wrf-data2/Forecast/RDAPS/%Y/%m/%d/*/g120_v070_erea_pres_h*.%Y%m%d%H.gb2"
+metaData["RDAPS-12K","UNIS"]="/only-wrf-data2/Forecast/RDAPS/%Y/%m/%d/%H/g120_v070_erea_unis_h*.%Y%m%d%H.gb2"
+metaData["RDAPS-12K","PRES"]="/only-wrf-data2/Forecast/RDAPS/%Y/%m/%d/%H/g120_v070_erea_pres_h*.%Y%m%d%H.gb2"
 
 #modelList=("LDAPS-1.5K")
 #modelList=("RDAPS-12K")
@@ -121,9 +121,8 @@ while [ $(date -d "$incDate" +"%s") -le $(date -d "$endDate" +"%s") ]; do
   sec=$(date -d "${incDate}" +"%S")
 
 	#echo $incDate
-#	incDate=$(date -d "${incDate} 1 hour")
-#	KIM, LDAPS/RDAPS
-	incDate=$(date -d "${incDate} 1 days")
+	incDate=$(date -d "${incDate} 1 hour")
+#	incDate=$(date -d "${incDate} 1 days")
 #	incDate=$(date -d "${incDate} 1 months")
 	echo "[$(date +"%Y-%m-%d %H:%M:%S")] [CHECK] dtYmdHm : $dtYmdHm"
 
