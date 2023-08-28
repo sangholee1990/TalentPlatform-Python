@@ -190,11 +190,11 @@ def initCfgInfo(sysPath):
 
     try:
         # DB 연결 정보
-        pymysql.install_as_MySQLdb()
+        # pymysql.install_as_MySQLdb()
 
         # DB 정보
         config = configparser.ConfigParser()
-        config.read(sysPath, encoding='utf-8')
+        config.read(sysPath, encoding='UTF-8')
 
         configKey = 'mysql-clova-dms02user01'
         dbUser = config.get(configKey, 'user')
@@ -210,9 +210,20 @@ def initCfgInfo(sysPath):
         session = sessMake()
         # session.execute("""SELECT * FROM TB_VIDEO_INFO""").fetchall()
 
+        # 테이블 정보
+        metaData = MetaData()
+
+        # 예보 모델 테이블
+        tbSaleDown = Table('TB_SALE_DOWN', metaData, autoload_with=dbEngine, schema=dbName)
+
+        # 기본 위경도 테이블
+        tbSaleInfo = Table('TB_SALE_INFO', metaData, autoload_with=dbEngine, schema=dbName)
+
         result = {
             'dbEngine': dbEngine
             , 'session': session
+            , 'tbSaleDown': tbSaleDown
+            , 'tbSaleInfo': tbSaleInfo
         }
 
         return result
@@ -232,6 +243,24 @@ def getRentType(row):
         return '월세'
     else:
         return '전세'
+
+def dbMergeData(self, session, table, dataList, pkList=['MODEL_TYPE']):
+    try:
+        stmt = insert(table)
+        setData = {key: getattr(stmt.excluded, key) for key in dataList.keys()}
+        onConflictStmt = stmt.on_conflict_do_update(
+            index_elements=pkList
+            , set_=setData
+        )
+        session.execute(onConflictStmt, dataList)
+        session.commit()
+
+    except Exception as e:
+        session.rollback()
+        log.error(f'Exception : {e}')
+
+    finally:
+        session.close()
 
 # ================================================
 # 4. 부 프로그램
@@ -354,6 +383,8 @@ class DtaProcess(object):
             cfgInfo = initCfgInfo(f"{globalVar['cfgPath']}/system.cfg")
             dbEngine = cfgInfo['dbEngine']
             session = cfgInfo['session']
+            tbSaleDown = cfgInfo['tbSaleDown']
+            tbSaleInfo = cfgInfo['tbSaleInfo']
 
             # metadata = MetaData()
             #
@@ -688,7 +719,7 @@ class DtaProcess(object):
 
                     # 등기일
                     if not posData.get('등기일자') is None:
-                        posData['등기일'] = posData['등기일자']
+                        posData['등기일'] =  pd.to_datetime(posData['등기일자']).replace({pd.NaT: None})
                     else:
                         posData['등기일'] = None
 
@@ -732,31 +763,47 @@ class DtaProcess(object):
                     # 중복 제거
                     posDataL2 = posData.drop_duplicates(subset=colList, inplace=False)
 
+
                     # # DB 저장
-                    # dbData2 = posDataL2[colList].rename(
-                    #     {
-                    #         '종류': 'TYPE'
-                    #         , '이름': 'NAME'
-                    #         , 'addrDtlInfo': 'ADDR'
-                    #         , 'addrInfo': 'SI_DONG'
-                    #         , '계약일': 'SALE_DATE'
-                    #         , '면적': 'AREA'
-                    #         , '거래가': 'SALE_PRICE'
-                    #         , '보증가': 'SALE_PRICE2'
-                    #         , '월세가': 'SALE_PRICE3'
-                    #         , '분류': 'SALE_TYPE'
-                    #         , '층': 'FLOOR'
-                    #         , '건축년도': 'CONV_YEAR'
-                    #         , '년': 'YEAR'
-                    #         , '평형': 'PYEONG'
-                    #         , 'lat': 'LAT'
-                    #         , 'lon': 'LON'
-                    #         , '거래유형': 'RENT_TYPE'
-                    #         , '법정동': 'DONG'
-                    #     }
-                    #     , axis=1
-                    # )
-                    #
+                    dbData2 = posDataL2[colList].rename(
+                        {
+                            '종류': 'TYPE'
+                            , '이름': 'NAME'
+                            , 'addrDtlInfo': 'ADDR'
+                            , 'addrInfo': 'SI_DONG'
+                            , '계약일': 'SALE_DATE'
+                            , '면적': 'AREA'
+                            , '거래가': 'SALE_PRICE'
+                            , '보증가': 'SALE_PRICE2'
+                            , '월세가': 'SALE_PRICE3'
+                            , '분류': 'SALE_TYPE'
+                            , '층': 'FLOOR'
+                            , '건축년도': 'CONV_YEAR'
+                            , '년': 'YEAR'
+                            , '평형': 'PYEONG'
+                            , 'lat': 'LAT'
+                            , 'lon': 'LON'
+                            , '거래유형': 'RENT_TYPE'
+                            , '법정동': 'DONG'
+                            , '등기일': 'RGSTR_DATE'
+                        }
+                        , axis=1
+                    )
+
+                    # dataList = dbData2.to_dict(orient='records')
+                    dataList = dbData2
+                    dbMergeData(session, tbSaleInfo, dataList, pkList=['ID'])
+
+                    stmt = insert(table)
+                    setData = {key: getattr(stmt.excluded, key) for key in dataList.keys()}
+                    onConflictStmt = stmt.on_conflict_do_update(
+                        index_elements=pkList
+                        , set_=setData
+                    )
+                    session.execute(onConflictStmt, dataList)
+                    session.commit()
+
+
                     # try:
                     #     # dbData2.to_sql(name=tbSaleInfo.name, con=dbEngine, if_exists='replace', index=False)
                     #     dbData2.to_sql(name=tbSaleInfo.name, con=dbEngine, if_exists='append', index=False)
