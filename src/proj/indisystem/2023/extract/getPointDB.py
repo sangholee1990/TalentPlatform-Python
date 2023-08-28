@@ -14,11 +14,13 @@ import os
 # ===========================================================
 # 입력 정보
 # ===========================================================
-# /home/guest_user1/SYSTEMS/KIER/PROG/PYTHON
+ctxPath = os.getcwd()
 
 # 특정 지점 정보
 lon = 126.0
 lat = 35
+print(f'[CHECK] lon : {lon}')
+print(f'[CHECK] lat : {lat}')
 
 # 시작일/종료일
 srtDate = '2023-06-27 00:00'
@@ -29,6 +31,8 @@ endDate = '2023-07-01 00:00'
 # 년월시시분초 변환
 srtDt = pd.to_datetime(srtDate, format='%Y-%m-%d %H:%M').strftime("%Y%m%d%H%M%S")
 endDt = pd.to_datetime(endDate, format='%Y-%m-%d %H:%M').strftime("%Y%m%d%H%M%S")
+print(f'[CHECK] srtDt : {srtDt}')
+print(f'[CHECK] endDt : {endDt}')
 
 # 정수형 모델 정보 (TB_INT_MODEL)
 modelType = 'KIER-LDAPS-2K'
@@ -43,6 +47,7 @@ modelType = 'KIER-LDAPS-2K'
 # modelType = 'KIM-3K'
 # modelType = 'LDAPS-1.5K'
 # modelType = 'RDAPS-12K'
+print(f'[CHECK] modelType : {modelType}')
 
 # 위경도 기본 정보 (TB_GEO), 위경도 상세 정보 (TB_GEO_DTL)
 modelTypeToGeo = {
@@ -64,7 +69,6 @@ geoType = modelTypeToGeo.get(modelType)
 # ===========================================================
 # PostgreSQL 설정 정보
 # ===========================================================
-ctxPath = os.getcwd()
 cfgInfo = f'{ctxPath}/config/config.yml'
 
 with open(cfgInfo, 'rt', encoding='UTF-8') as file:
@@ -149,7 +153,8 @@ WITH GET_SFC_INFO AS (SELECT "ROW" AS "ROW_SFC", "COL" AS "COL_SFC", "LON_SFC", 
 				   , "DMS01"."TB_INT_MODEL" C
 				WHERE 1 = 1
 				  AND C."MODEL_TYPE" = '{modelType}'
-	     		  AND C."ANA_DT" BETWEEN TO_TIMESTAMP('{srtDt}', 'YYYYMMDDHH24MISS') AND TO_TIMESTAMP('{endDt}', 'YYYYMMDDHH24MISS');
+	     		  AND C."ANA_DT" BETWEEN TO_TIMESTAMP('{srtDt}', 'YYYYMMDDHH24MISS') AND TO_TIMESTAMP('{endDt}', 'YYYYMMDDHH24MISS')
+	     		ORDER BY C."ANA_DT", C."FOR_DT", C."MODEL_TYPE";
 """
 
 # 쿼리 실행
@@ -162,6 +167,12 @@ results = cur.fetchall()
 colNameList = [desc[0] for desc in cur.description]
 data = pd.DataFrame(results, columns=colNameList)
 print(data)
+
+# csv 저장
+saveFile = f'{ctxPath}/CSV/{modelType}_{lon}_{lat}_{srtDt}_{endDt}.csv'
+os.makedirs(os.path.dirname(saveFile), exist_ok=True)
+data.to_csv(saveFile, index=False)
+print(f'[CHECK] saveFile : {saveFile}')
 
 # 커서와 연결 종료
 cur.close()

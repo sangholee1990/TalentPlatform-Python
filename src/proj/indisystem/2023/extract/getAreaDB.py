@@ -1,4 +1,5 @@
 # -*- coding: utf-8 -*-
+import sys
 
 import pandas as pd
 import psycopg2
@@ -14,11 +15,17 @@ import os
 # ===========================================================
 # 입력 정보
 # ===========================================================
+ctxPath = os.getcwd()
+
 # 특정 영역 정보
 minLon = 128
 maxLon = 128.5
 minLat = 33
 maxLat = 33.5
+print(f'[CHECK] minLon : {minLon}')
+print(f'[CHECK] maxLon : {maxLon}')
+print(f'[CHECK] minLat : {minLat}')
+print(f'[CHECK] maxLat : {maxLat}')
 
 # 시작일/종료일
 srtDate = '2023-06-27 00:00'
@@ -29,6 +36,8 @@ endDate = '2023-07-01 00:00'
 # 년월일 시분초 변환
 srtDt = pd.to_datetime(srtDate, format='%Y-%m-%d %H:%M').strftime("%Y%m%d%H%M%S")
 endDt = pd.to_datetime(endDate, format='%Y-%m-%d %H:%M').strftime("%Y%m%d%H%M%S")
+print(f'[CHECK] srtDt : {srtDt}')
+print(f'[CHECK] endDt : {endDt}')
 
 # 정수형 모델 정보 (TB_INT_MODEL)
 modelType = 'KIER-LDAPS-2K'
@@ -43,6 +52,7 @@ modelType = 'KIER-LDAPS-2K'
 # modelType = 'KIM-3K'
 # modelType = 'LDAPS-1.5K'
 # modelType = 'RDAPS-12K'
+print(f'[CHECK] modelType : {modelType}')
 
 # 위경도 기본 정보 (TB_GEO), 위경도 상세 정보 (TB_GEO_DTL)
 modelTypeToGeo = {
@@ -65,7 +75,6 @@ geoType = modelTypeToGeo.get(modelType)
 # ===========================================================
 # PostgreSQL 설정 정보
 # ===========================================================
-ctxPath = os.getcwd()
 cfgInfo = f'{ctxPath}/config/config.yml'
 
 with open(cfgInfo, 'rt', encoding='UTF-8') as file:
@@ -215,6 +224,7 @@ FROM (SELECT C."ANA_DT"                                                         
       WHERE 1 = 1
         AND C."MODEL_TYPE" = '{modelType}'
         AND C."ANA_DT" BETWEEN TO_TIMESTAMP('{srtDt}', 'YYYYMMDDHH24MISS') AND TO_TIMESTAMP('{endDt}', 'YYYYMMDDHH24MISS')
+        ORDER BY C."ANA_DT", C."FOR_DT", C."MODEL_TYPE"
     ) AA;  
 """
 
@@ -228,6 +238,12 @@ results = cur.fetchall()
 colNameList = [desc[0] for desc in cur.description]
 data = pd.DataFrame(results, columns=colNameList)
 print(data)
+
+if len(data) > 0:
+    saveFile = f'{ctxPath}/CSV/{modelType}_{minLon}-{maxLon}_{minLat}-{maxLat}_{srtDt}_{endDt}.csv'
+    os.makedirs(os.path.dirname(saveFile), exist_ok=True)
+    data.to_csv(saveFile, index=False)
+    print(f'[CHECK] saveFile : {saveFile}')
 
 # 커서와 연결 종료
 cur.close()
