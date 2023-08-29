@@ -32,18 +32,19 @@ year=$(echo $srtDate | cut -c01-04)
 month=$(echo $srtDate | cut -c05-06)
 day=$(echo $srtDate | cut -c07-08)
 
-for runcycle in 00 06 12 18; do
+for runcycle in $(seq -w 0 6 18); do
     updFilePath=${UPD_PATH}/${year}/${month}/${day}/${runcycle}
     mkdir -p ${updFilePath}
 
-#    for ftime in $(seq -w 000 384); do
-    for ftime in $(seq -w 000 49); do
+#    for ftime in $(seq -w 0 1 384); do
+#    for ftime in $(seq -w 0 1 49); do
+    for ftime in $(seq -w 0 1 87); do
         urlFilePath=gfs.${year}${month}${day}/${runcycle}/atmos
         urlFileName=gfs.t${runcycle}z.pgrb2.0p25.f${ftime}
         tmpFileInfo=${TMP_PATH}/${urlFileName}
         updFileInfo=${updFilePath}/${urlFileName}.gb2
 
-#        echo "[$(date +"%Y-%m-%d %H:%M:%S")] [CHECK] URL : ${URL_PATH}/${urlFilePath}/${urlFileName}"
+        echo "[$(date +"%Y-%m-%d %H:%M:%S")] [CHECK] URL : ${URL_PATH}/${urlFilePath}/${urlFileName}"
         wget --quiet --no-check-certificate ${URL_PATH}/${urlFilePath}/${urlFileName} -O ${tmpFileInfo}
 
         # 임시/업로드 파일 여부, 다운로드 용량 여부
