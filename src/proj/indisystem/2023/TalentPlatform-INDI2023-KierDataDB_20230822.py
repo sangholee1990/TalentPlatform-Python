@@ -550,57 +550,107 @@ class DtaProcess(object):
             # plt.colorbar()
             # plt.show()
 
-            # *********************************************
+
             # [템플릿] 기본 위경도 정보를 DB 삽입
-            # *********************************************
             dbData = {}
-            modelType = 'KIER-WIND'
+            modelType = 'GFS-25K'
             dbData['MODEL_TYPE'] = modelType
+            roi = {'minLat': 22.0, 'maxLat': 49.0, 'minLon': 108.0, 'maxLon': 147.0}
 
             # 지표
-            orgData = xr.open_mfdataset('/DATA/INPUT/INDI2023/MODEL/KIER-WIND/geo_em.d04.nc')
-            data = orgData.isel(Time=0)
+            data = xr.open_dataset('/DATA/INPUT/INDI2023/DATA/GFS/2023/08/28/00/gfs.t00z.pgrb2.0p25.f003.gb2', engine='pynio').sel(lat_0=slice(roi['maxLat'], roi['minLat']), lon_0=slice(roi['minLon'], roi['maxLon']))
 
             # data.attrs
             # data.data_vars
 
-            dbData['LON_SFC'] = data['XLONG_M'].values.tolist() if len(data['XLONG_M'].values) > 0 else None
-            dbData['LAT_SFC'] = data['XLAT_M'].values.tolist() if len(data['XLAT_M'].values) > 0 else None
+            dbData['LON_SFC'] = data['lon_0'].values.tolist() if len(data['lon_0'].values) > 0 else None
+            dbData['LAT_SFC'] = data['lat_0'].values.tolist() if len(data['lat_0'].values) > 0 else None
 
             # 상층
-            orgData2 = xr.open_mfdataset('/DATA/INPUT/INDI2023/MODEL/KIER-WIND/geo_em.d04.nc')
-            data2 = orgData2.isel(Time=0)
-            dbData['LON_PRE'] = data2['XLONG_U'].values.tolist() if len(data2['XLONG_U'].values) > 0 else None
-            dbData['LAT_PRE'] = data2['XLAT_U'].values.tolist() if len(data2['XLAT_U'].values) > 0 else None
+            data2 = xr.open_dataset('/DATA/INPUT/INDI2023/DATA/GFS/2023/08/28/00/gfs.t00z.pgrb2.0p25.f003.gb2', engine='pynio').sel(lat_0=slice(roi['maxLat'], roi['minLat']), lon_0=slice(roi['minLon'], roi['maxLon']))
+            dbData['LON_PRE'] = data2['lon_0'].values.tolist() if len(data2['lon_0'].values) > 0 else None
+            dbData['LAT_PRE'] = data2['lat_0'].values.tolist() if len(data2['lat_0'].values) > 0 else None
 
             dbMergeData(cfgOpt['session'], cfgOpt['tbGeo'], dbData, pkList=['MODEL_TYPE'])
 
-            # *********************************************
             # [템플릿] 상세 위경도 정보를 DB 삽입
-            # *********************************************
-            sfcData = orgData[['XLONG_M', 'XLAT_M']].isel(Time=0).to_dataframe().reset_index(drop=False).rename(
+            sfcData = data[['lon_0', 'lat_0']].to_dataframe().reset_index(drop=False).rename(
                 columns={
-                    'south_north': 'ROW'
-                    , 'west_east': 'COL'
-                    , 'XLAT_M': 'LAT_SFC'
-                    , 'XLONG_M': 'LON_SFC'
+                    'lat_0': 'LAT_SFC'
+                    , 'lon_0': 'LON_SFC'
                 }
             ).drop([], axis='columns')
 
-            preData = orgData2[['XLONG_U', 'XLAT_U']].isel(Time=0).to_dataframe().reset_index(drop=False).rename(
+            sfcData['ROW'] = sfcData['LON_SFC'].astype('category').cat.codes + 1
+            sfcData['COL'] = sfcData['LAT_SFC'].astype('category').cat.codes + 1
+
+            preData = data2[['lon_0', 'lat_0']].to_dataframe().reset_index(drop=False).rename(
                 columns={
-                    'south_north': 'ROW'
-                    , 'west_east_stag': 'COL'
-                    , 'XLAT_U': 'LAT_PRE'
-                    , 'XLONG_U': 'LON_PRE'
+                    'lat_0': 'LAT_PRE'
+                    , 'lon_0': 'LON_PRE'
                 }
             ).drop([], axis='columns')
+            preData['ROW'] = preData['LON_PRE'].astype('category').cat.codes + 1
+            preData['COL'] = preData['LAT_PRE'].astype('category').cat.codes + 1
+
 
             dataL2 = pd.merge(left=sfcData, right=preData, how='inner', left_on=['ROW', 'COL'], right_on=['ROW', 'COL'])
             dataL2['MODEL_TYPE'] = modelType
 
             dataList = dataL2.to_dict(orient='records')
             dbMergeData(cfgOpt['session'], cfgOpt['tbGeoDtl'], dataList, pkList=['MODEL_TYPE', 'ROW', 'COL'])
+
+            # # *********************************************
+            # # [템플릿] 기본 위경도 정보를 DB 삽입
+            # # *********************************************
+            # dbData = {}
+            # modelType = 'KIER-WIND'
+            # dbData['MODEL_TYPE'] = modelType
+            #
+            # # 지표
+            # orgData = xr.open_mfdataset('/DATA/INPUT/INDI2023/MODEL/KIER-WIND/geo_em.d04.nc')
+            # data = orgData.isel(Time=0)
+            #
+            # # data.attrs
+            # # data.data_vars
+            #
+            # dbData['LON_SFC'] = data['XLONG_M'].values.tolist() if len(data['XLONG_M'].values) > 0 else None
+            # dbData['LAT_SFC'] = data['XLAT_M'].values.tolist() if len(data['XLAT_M'].values) > 0 else None
+            #
+            # # 상층
+            # orgData2 = xr.open_mfdataset('/DATA/INPUT/INDI2023/MODEL/KIER-WIND/geo_em.d04.nc')
+            # data2 = orgData2.isel(Time=0)
+            # dbData['LON_PRE'] = data2['XLONG_U'].values.tolist() if len(data2['XLONG_U'].values) > 0 else None
+            # dbData['LAT_PRE'] = data2['XLAT_U'].values.tolist() if len(data2['XLAT_U'].values) > 0 else None
+            #
+            # dbMergeData(cfgOpt['session'], cfgOpt['tbGeo'], dbData, pkList=['MODEL_TYPE'])
+            #
+            # # *********************************************
+            # # [템플릿] 상세 위경도 정보를 DB 삽입
+            # # *********************************************
+            # sfcData = orgData[['XLONG_M', 'XLAT_M']].isel(Time=0).to_dataframe().reset_index(drop=False).rename(
+            #     columns={
+            #         'south_north': 'ROW'
+            #         , 'west_east': 'COL'
+            #         , 'XLAT_M': 'LAT_SFC'
+            #         , 'XLONG_M': 'LON_SFC'
+            #     }
+            # ).drop([], axis='columns')
+            #
+            # preData = orgData2[['XLONG_U', 'XLAT_U']].isel(Time=0).to_dataframe().reset_index(drop=False).rename(
+            #     columns={
+            #         'south_north': 'ROW'
+            #         , 'west_east_stag': 'COL'
+            #         , 'XLAT_U': 'LAT_PRE'
+            #         , 'XLONG_U': 'LON_PRE'
+            #     }
+            # ).drop([], axis='columns')
+            #
+            # dataL2 = pd.merge(left=sfcData, right=preData, how='inner', left_on=['ROW', 'COL'], right_on=['ROW', 'COL'])
+            # dataL2['MODEL_TYPE'] = modelType
+            #
+            # dataList = dataL2.to_dict(orient='records')
+            # dbMergeData(cfgOpt['session'], cfgOpt['tbGeoDtl'], dataList, pkList=['MODEL_TYPE', 'ROW', 'COL'])
 
 
             # # *********************************************
