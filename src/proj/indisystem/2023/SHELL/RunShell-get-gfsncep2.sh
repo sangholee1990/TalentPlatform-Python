@@ -36,9 +36,9 @@ for runcycle in $(seq -w 0 6 18); do
     updFilePath=${UPD_PATH}/${year}/${month}/${day}/${runcycle}
     mkdir -p ${updFilePath}
 
-#    for ftime in $(seq -w 0 1 384); do
-#    for ftime in $(seq -w 0 1 49); do
-    for ftime in $(seq -w 0 1 87); do
+#    for ftime in $(seq -w 000 001 384); do
+#    for ftime in $(seq -w 000 001 049); do
+    for ftime in $(seq -w 000 001 087); do
         urlFilePath=gfs.${year}${month}${day}/${runcycle}/atmos
         urlFileName=gfs.t${runcycle}z.pgrb2.0p25.f${ftime}
         tmpFileInfo=${TMP_PATH}/${urlFileName}
