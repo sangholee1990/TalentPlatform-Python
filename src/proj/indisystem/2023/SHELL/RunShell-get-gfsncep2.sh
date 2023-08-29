@@ -32,7 +32,7 @@ year=$(echo $srtDate | cut -c01-04)
 month=$(echo $srtDate | cut -c05-06)
 day=$(echo $srtDate | cut -c07-08)
 
-for runcycle in $(seq -w 0 6 18); do
+for runcycle in $(seq -w 00 06 18); do
     updFilePath=${UPD_PATH}/${year}/${month}/${day}/${runcycle}
     mkdir -p ${updFilePath}
 
