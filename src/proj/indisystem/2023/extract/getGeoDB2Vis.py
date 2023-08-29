@@ -61,6 +61,7 @@ data = pd.DataFrame(results, columns=colNameList)
 modelTypeList = set(data['MODEL_TYPE'])
 for modelTypeInfo in modelTypeList:
 
+    if not (modelTypeInfo == 'GFS-25K'): continue
     print(f'[CHECK] modelTypeInfo : {modelTypeInfo}')
 
     dataL1 = data.loc[(data['MODEL_TYPE'] == modelTypeInfo)]
@@ -90,12 +91,15 @@ for modelTypeInfo in modelTypeList:
     if re.search('KIER-RDAPS|KIER-LDAPS|KIER-WIND|LDAPS', modelTypeInfo, re.IGNORECASE):
         map.drawmeridians(range(-180, 180, 1), color='k', linewidth=1.0, dashes=[4, 4], labels=[0, 0, 0, 1])
         map.drawparallels(range(-90, 90, 1), color='k', linewidth=1.0, dashes=[4, 4], labels=[1, 0, 0, 0])
-    if re.search('RDAPS', modelTypeInfo, re.IGNORECASE):
+    elif re.search('RDAPS', modelTypeInfo, re.IGNORECASE):
         map.drawmeridians(range(-180, 180, 10), color='k', linewidth=1.0, dashes=[4, 4], labels=[0, 0, 0, 1])
         map.drawparallels(range(-90, 90, 5), color='k', linewidth=1.0, dashes=[4, 4], labels=[1, 0, 0, 0])
     elif re.search('KIM', modelTypeInfo, re.IGNORECASE):
         map.drawmeridians(range(-180, 180, 4), color='k', linewidth=1.0, dashes=[4, 4], labels=[0, 0, 0, 1])
         map.drawparallels(range(-90, 90, 2), color='k', linewidth=1.0, dashes=[4, 4], labels=[1, 0, 0, 0])
+    elif re.search('GFS', modelTypeInfo, re.IGNORECASE):
+        map.drawmeridians(range(-180, 180, 5), color='k', linewidth=1.0, dashes=[4, 4], labels=[0, 0, 0, 1])
+        map.drawparallels(range(-90, 90, 4), color='k', linewidth=1.0, dashes=[4, 4], labels=[1, 0, 0, 0])
     else:
         pass
 
