@@ -263,76 +263,77 @@ class DtaProcess(object):
                 namelInfo = sysOpt['nameInfo'].get(nameType)
                 if namelInfo is None: continue
 
-                # ********************************************************************
-                # 전처리
-                # ********************************************************************
-                inpFile = '{}/{}'.format(namelInfo['filePath'], namelInfo['fileName'])
-                # inpFileDate = dtDateInfo.strftime(inpFile)
-                fileList = sorted(glob.glob(inpFile))
-
-                if fileList is None or len(fileList) < 1:
-                    log.error(f'inpFile : {inpFile} / 입력 자료를 확인해주세요')
-                    continue
-
-                # fileInfo = fileList[0]
-                dataL1 = pd.DataFrame()
-                for fileInfo in fileList:
-                    log.info(f'[CHECK] fileInfo : {fileInfo}')
-
-                    if not re.search(namelInfo['searchKey'], fileInfo, re.IGNORECASE): continue
-
-                    sheetList = pd.ExcelFile(fileInfo).sheet_names
-                    # sheetInfo = sheetList[1]
-                    for sheetInfo in sheetList:
-                        log.info(f'[CHECK] sheetInfo : {sheetInfo}')
-
-                        data = pd.read_excel(fileInfo, sheet_name=sheetInfo, usecols="I:M", nrows=25000 - 4, skiprows=3, header=None, names=['date', 'site', 'AWS', 'RDRorg', 'RDRnew'])
-
-                        if len(data) < 1: continue
-
-                        # total(daily) rainfall, hourly max rainfall
-                        statData = pd.read_excel(fileInfo, sheet_name=sheetInfo, nrows=2, skiprows=1, header=None).iloc[1,]
-                        chk = statData[25]
-                        chk2 = statData[10]
-                        log.info(f'[CHECK] total(daily) rainfall : {chk}')
-                        log.info(f'[CHECK] hourly max rainfall : {chk2}')
-
-                        if not (chk > 100 and chk2 > 20): continue
-
-                        # site 마다 24개(시간) 분포
-                        datS = data.sort_values(by=['site', 'date']).dropna().reset_index(drop=True)
-                        dataL1 = pd.concat([dataL1, datS], ignore_index=True)
-
-                if len(dataL1) < 1: continue
-
-                # 자료 형변환
-                dataL1['site'] = dataL1['site'].astype(int).astype(str)
-                dataL1['date'] = dataL1['date'].astype(int).astype(str)
-
-                # 0보다 작은 경우 0으로 대체
-                dataL1['AWS'] = np.where(dataL1['AWS'] < 0, 0, dataL1['AWS'])
-                dataL1['RDRorg'] = np.where(dataL1['RDRorg'] < 0, 0, dataL1['RDRorg'])
-                dataL1['RDRnew'] = np.where(dataL1['RDRnew'] < 0, 0, dataL1['RDRnew'])
+                # # ********************************************************************
+                # # 전처리
+                # # ********************************************************************
+                # inpFile = '{}/{}'.format(namelInfo['filePath'], namelInfo['fileName'])
+                # # inpFileDate = dtDateInfo.strftime(inpFile)
+                # fileList = sorted(glob.glob(inpFile))
+                #
+                # if fileList is None or len(fileList) < 1:
+                #     log.error(f'inpFile : {inpFile} / 입력 자료를 확인해주세요')
+                #     continue
+                #
+                # # fileInfo = fileList[0]
+                # dataL1 = pd.DataFrame()
+                # for fileInfo in fileList:
+                #     log.info(f'[CHECK] fileInfo : {fileInfo}')
+                #
+                #     if not re.search(namelInfo['searchKey'], fileInfo, re.IGNORECASE): continue
+                #
+                #     sheetList = pd.ExcelFile(fileInfo).sheet_names
+                #     # sheetInfo = sheetList[1]
+                #     for sheetInfo in sheetList:
+                #         log.info(f'[CHECK] sheetInfo : {sheetInfo}')
+                #
+                #         data = pd.read_excel(fileInfo, sheet_name=sheetInfo, usecols="I:M", nrows=25000 - 4, skiprows=3, header=None, names=['date', 'site', 'AWS', 'RDRorg', 'RDRnew'])
+                #
+                #         if len(data) < 1: continue
+                #
+                #         # total(daily) rainfall, hourly max rainfall
+                #         statData = pd.read_excel(fileInfo, sheet_name=sheetInfo, nrows=2, skiprows=1, header=None).iloc[1,]
+                #         chk = statData[25]
+                #         chk2 = statData[10]
+                #         log.info(f'[CHECK] total(daily) rainfall : {chk}')
+                #         log.info(f'[CHECK] hourly max rainfall : {chk2}')
+                #
+                #         if not (chk > 100 and chk2 > 20): continue
+                #
+                #         # site 마다 24개(시간) 분포
+                #         datS = data.sort_values(by=['site', 'date']).dropna().reset_index(drop=True)
+                #         dataL1 = pd.concat([dataL1, datS], ignore_index=True)
+                #
+                # if len(dataL1) < 1: continue
+                #
+                # # 자료 형변환
+                # dataL1['site'] = dataL1['site'].astype(int).astype(str)
+                # dataL1['date'] = dataL1['date'].astype(int).astype(str)
+                #
+                # # 0보다 작은 경우 0으로 대체
+                # dataL1['AWS'] = np.where(dataL1['AWS'] < 0, 0, dataL1['AWS'])
+                # dataL1['RDRorg'] = np.where(dataL1['RDRorg'] < 0, 0, dataL1['RDRorg'])
+                # dataL1['RDRnew'] = np.where(dataL1['RDRnew'] < 0, 0, dataL1['RDRnew'])
 
                 # CSV 저장
                 saveFile = '{}/{}/{}{}.csv'.format(globalVar['outPath'], serviceName, namelInfo['searchKey'], 'errRstSite')
                 os.makedirs(os.path.dirname(saveFile), exist_ok=True)
-                dataL1.to_csv(saveFile, index=False)
+                # dataL1.to_csv(saveFile, index=False)
+                dataL1 = pd.read_csv(saveFile)
                 log.info(f'[CHECK] saveFile : {saveFile}')
 
-                # date, site를 기준으로 AWS, RDRorg, RDRnew 생성
-                datSTAa = dataL1.pivot_table(index='date', columns=['site'], values='AWS')
-                datSTOa = dataL1.pivot_table(index='date', columns=['site'], values='RDRorg')
-                datSTNa = dataL1.pivot_table(index='date', columns=['site'], values='RDRnew')
-
-                # 엑셀 저장
-                saveFile = '{}/{}/{}{}.xlsx'.format(globalVar['outPath'], serviceName, namelInfo['searchKey'], 'errRstSite')
-                os.makedirs(os.path.dirname(saveFile), exist_ok=True)
-                with pd.ExcelWriter(saveFile, engine='openpyxl') as writer:
-                    datSTAa.to_excel(writer, sheet_name='RSTA', startcol=1, startrow=1, index=True)
-                    datSTOa.to_excel(writer, sheet_name='RSTO', startcol=1, startrow=1, index=True)
-                    datSTNa.to_excel(writer, sheet_name='RSTN', startcol=1, startrow=1, index=True)
-                log.info(f'[CHECK] saveFile : {saveFile}')
+                # # date, site를 기준으로 AWS, RDRorg, RDRnew 생성
+                # datSTAa = dataL1.pivot_table(index='date', columns=['site'], values='AWS')
+                # datSTOa = dataL1.pivot_table(index='date', columns=['site'], values='RDRorg')
+                # datSTNa = dataL1.pivot_table(index='date', columns=['site'], values='RDRnew')
+                #
+                # # 엑셀 저장
+                # saveFile = '{}/{}/{}{}.xlsx'.format(globalVar['outPath'], serviceName, namelInfo['searchKey'], 'errRstSite')
+                # os.makedirs(os.path.dirname(saveFile), exist_ok=True)
+                # with pd.ExcelWriter(saveFile, engine='openpyxl') as writer:
+                #     datSTAa.to_excel(writer, sheet_name='RSTA', startcol=1, startrow=1, index=True)
+                #     datSTOa.to_excel(writer, sheet_name='RSTO', startcol=1, startrow=1, index=True)
+                #     datSTNa.to_excel(writer, sheet_name='RSTN', startcol=1, startrow=1, index=True)
+                # log.info(f'[CHECK] saveFile : {saveFile}')
 
                 # ********************************************************************
                 # 시각화
@@ -341,16 +342,17 @@ class DtaProcess(object):
                 siteList = sorted(set(dataL1['site']))
                 siteInfo = siteList[0]
                 for siteInfo in siteList:
+
                     log.info(f'[CHECK] siteInfo : {siteInfo}')
 
                     dataL2 = dataL1.loc[(dataL1['site'] == siteInfo)].reset_index(drop=True)
+
 
                     sumAWS = np.nansum(dataL2['AWS'])
                     maxAWS = np.nanmax(dataL2['AWS'])
 
                     log.info(f'[CHECK] sumAWS : {sumAWS}')
                     log.info(f'[CHECK] maxAWS : {maxAWS}')
-
                     if not (sumAWS > 10): continue
 
                     rRat = 0.65
@@ -369,7 +371,7 @@ class DtaProcess(object):
                     # dRUbnd = 6.4 * (dRDR ** 0.725)
 
 
-                    # fig, ax = plt.subplots()
+                    fig, ax = plt.subplots()
                     # xmag = dt[0]
                     # ax.set_xlim([0, len(dt) + 1])
                     if maxAWS > 0:
@@ -384,11 +386,11 @@ class DtaProcess(object):
 
                     melted = dataL2.melt(id_vars=['dtDateTime'], value_vars=['AWS', 'RDRorg', 'RDRnew'], var_name='key', value_name='val')
 
-                    # custom_colors = {
-                    #     'AWS': 'black',
-                    #     'RDRorg': 'red',
-                    #     'RDRnew': 'green'
-                    # }
+                    custom_colors = {
+                        'AWS': 'black',
+                        'RDRorg': 'red',
+                        'RDRnew': 'green'
+                    }
 
                     # 월별 강수량 합계 계산
                     # grouped = df.groupby('Month').sum()
@@ -403,11 +405,12 @@ class DtaProcess(object):
                     # 미리 'dtDateTime'을 날짜/시간 형식으로 변환
                     melted['dtDateTime'] = pd.to_datetime(melted['dtDateTime'])
 
-                    fig, ax = plt.subplots()
+                    # fig, ax = plt.subplots()
 
-                    pivot_df = melted.pivot(index='dtDateTime', columns='key',
-                                            values='val')  # 데이터를 pivot하여 각 key별로 컬럼을 생성
-                    pivot_df.plot(kind='bar', ax=ax)
+                    pivot_df = melted.pivot(index='dtDateTime', columns='key', values='val').reset_index()
+                    ax = pivot_df.plot(x='dtDateTime', kind='bar', width=0.8)
+                    plt.show()
+
                     plt.xlabel('Date Time')
                     plt.ylabel('Value')
                     plt.title('Bar Chart per Key and Date Time')
@@ -415,9 +418,9 @@ class DtaProcess(object):
                     plt.grid(axis='y')
 
                     # x축의 눈금 간격 설정: 여기서는 2시간 간격으로 설정
-                    ax.xaxis.set_major_locator(mdates.DayLocator(interval=10))
-                    ax.xaxis.set_major_formatter(mdates.DateFormatter('%Y-%m-%d'))
-                    ax.set_xlim([melted['dtDateTime'].min(), melted['dtDateTime'].max()])
+                    plt.gca().xaxis.set_major_locator(mdates.DayLocator(interval=1))
+                    plt.gca().xaxis.set_major_formatter(mdates.DateFormatter('%Y-%m-%d'))
+                    plt.gca().set_xlim([melted['dtDateTime'].min(), melted['dtDateTime'].max()])
                     plt.xticks(rotation=45, ha='right', minor=False)
                     plt.show()
 
@@ -432,14 +435,13 @@ class DtaProcess(object):
 
 
                     ax = sns.barplot(data=melted, x='dtDateTime', y='val', hue='key', ci=None, palette=custom_colors)
-
                     handles, _ = ax.get_legend_handles_labels()
                     new_labels = ['우량계', '레이더', '레이더(보정후)']
                     ax.legend(title=None, handles=handles, loc='upper left', labels=new_labels)
 
                     start_date = melted['dtDateTime'].min()
                     end_date = melted['dtDateTime'][100]
-                    date_ticks = pd.date_range(start=start_date, end=end_date, freq='2D')
+                    date_ticks = pd.date_range(start=start_date, end=end_date, freq='10')
                     tick_positions = melted['dtDateTime'].isin(date_ticks).to_numpy().nonzero()[0]
 
                     # Ensure tick_positions and date_ticks have the same length
