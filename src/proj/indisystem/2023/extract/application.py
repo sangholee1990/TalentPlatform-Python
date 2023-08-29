@@ -10,6 +10,7 @@ import xarray as xr
 import pandas as pd
 import common.initiator as common
 import matplotlib.pyplot as plt
+import pygrib
 
 class Application:
 
@@ -31,6 +32,8 @@ class Application:
             gribApp = Grib12(self.inFile)
             gribApp.openFile()
             self.processKMA(gribApp)
+        elif re.search('GFS', self.modelName, re.IGNORECASE):
+            self.processGFS()
         else:
             common.logger.error(f'모델 종류 ({self.modelName})를 확인해주세요.')
             sys.exit(1)
@@ -158,6 +161,59 @@ class Application:
 
             common.logger.info(f'[CHECK] dbData : {self.dbData.keys()} : {np.shape(self.dbData[list(self.dbData.keys())[3]])}')
             dbapp.dbMergeData(initDB['session'], initDB['tbIntModel'], self.dbData, pkList=['MODEL_TYPE', 'ANA_DT', 'FOR_DT'])
+
+    def processGFS(self):
+
+        # DB 가져오기
+        dbapp = ManageDB(self.dbconfig)
+        initDB = dbapp.initCfgInfo()
+
+        # 관심영역 설정
+        roi = {'minLat': 22.0, 'maxLat': 49.0, 'minLon': 108.0, 'maxLon': 147.0}
+
+        # GFS 파일 읽기
+        data = xr.open_dataset(self.inFile, engine='pynio').sel(lat_0=slice(roi['maxLat'], roi['minLat']), lon_0=slice(roi['minLon'], roi['maxLon']))
+        common.logger.info(f'[CHECK] inFile : {self.inFile}')
+
+        attrInfo = data[list(data.dtypes)[0]].attrs
+        anaDate = pd.to_datetime(attrInfo['initial_time'], format="%m/%d/%Y (%H:%M)")
+        forDate = anaDate + pd.DateOffset(hours = int(attrInfo['forecast_time'][0]))
+
+        modelInfo = self.config['modelName'].get(f'{self.modelName}_{self.modelKey}')
+        if modelInfo is None:
+            common.logger.warn(f'설정 파일 (config.yml)에서 설정 정보 (GFS-25K, ALL)를 확인해주세요.')
+            sys.exit(1)
+
+        common.logger.info(f'[CHECK] anaDate : {anaDate} / forDate : {forDate}')
+
+        # DB 등록/수정
+        self.dbData = {}
+        self.dbData['ANA_DT'] = anaDate
+        self.dbData['FOR_DT'] = forDate
+        self.dbData['MODEL_TYPE'] = self.modelName
+
+        # 선택 컬럼
+        for j, varInfo in enumerate(modelInfo['varName']):
+            name = varInfo['name']
+            for level, colName in zip(varInfo['level'], varInfo['colName']):
+                if data.get(name) is None: continue
+
+                try:
+                    if level == '-1':
+                        if len(data[name].values) < 1: continue
+                        self.dbData[colName] = self.convFloatToIntList(data[name].values)
+                    else:
+                        if len(data[name].isel(lv_ISBL0=int(level)).values) < 1: continue
+                        self.dbData[colName] = self.convFloatToIntList(data[name].isel(lv_ISBL0=int(level)).values)
+                except Exception as e:
+                    common.logger.error(f'Exception : {e}')
+
+        if len(self.dbData) < 1:
+            common.logger.error(f'해당 파일 ({self.inFile})에서 지표면 및 상층 데이터를 확인해주세요.')
+            sys.exit(1)
+
+        common.logger.info(f'[CHECK] dbData : {self.dbData.keys()} : {np.shape(self.dbData[list(self.dbData.keys())[3]])}')
+        dbapp.dbMergeData(initDB['session'], initDB['tbIntModel'], self.dbData, pkList=['MODEL_TYPE', 'ANA_DT', 'FOR_DT'])
 
     def getVar(self):
         self.varNameLists = self.config['modelName'][f'{self.modelName}_{self.modelKey}']['varName']

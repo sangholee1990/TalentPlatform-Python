@@ -37,6 +37,10 @@ def main():
         # inFile = '/DATA/INPUT/INDI2023/MODEL/RDAPS/g120_v070_erea_unis_h024.2023062918.gb2'
         # modelName = 'RDAPS-12K'
 
+        # inFile = '/DATA/INPUT/INDI2023/MODEL/GFS/gfs.0p25.2023062912.f003.grib2'
+        # inFile = '/DATA/INPUT/INDI2023/DATA/GFS/2023/08/28/00/gfs.t00z.pgrb2.0p25.f003.gb2'
+        # modelName = 'GFS-25K'
+
         option = get_option()
         inFile = option.inFile
         modelName = option.modelName.upper()
@@ -57,7 +61,7 @@ def main():
         common.logger.info(f'[CHECK] cfgInfo : {cfgInfo}')
 
         modelKey = ""
-        if re.search('wrfout_d04', inFile, re.IGNORECASE):
+        if re.search('wrfout_d04|gfs', inFile, re.IGNORECASE):
             modelKey = "ALL"
         elif re.search('unis|wrfsolar_d02', inFile, re.IGNORECASE):
             modelKey = "UNIS"
@@ -69,7 +73,7 @@ def main():
             exit(1)
 
         if not (
-                (re.search('wrfout_d04', inFile, re.IGNORECASE) and re.search('ALL', modelKey, re.IGNORECASE))
+                (re.search('wrfout_d04|gfs', inFile, re.IGNORECASE) and re.search('ALL', modelKey, re.IGNORECASE))
                 or (re.search('unis|wrfsolar_d02', inFile, re.IGNORECASE) and re.search('UNIS', modelKey,re.IGNORECASE))
                 or (re.search('pres|wrfout_d02', inFile, re.IGNORECASE) and re.search('PRES', modelKey, re.IGNORECASE))
         ):
