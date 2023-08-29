@@ -95,6 +95,8 @@ metaData["LDAPS-1.5K","PRES"]="/only-wrf-data2/Forecast/LDAPS/%Y/%m/%d/%H/l015_v
 metaData["RDAPS-12K","UNIS"]="/only-wrf-data2/Forecast/RDAPS/%Y/%m/%d/%H/g120_v070_erea_unis_h*.%Y%m%d%H.gb2"
 metaData["RDAPS-12K","PRES"]="/only-wrf-data2/Forecast/RDAPS/%Y/%m/%d/%H/g120_v070_erea_pres_h*.%Y%m%d%H.gb2"
 
+metaData["GFS-25K","ALL"]="/data1/GFS/%Y/%m/%d/%H/gfs.t*z.pgrb2.0p25.f*.gb2"
+
 #modelList=("LDAPS-1.5K")
 #modelList=("RDAPS-12K")
 #modelList=("KIM-3K")
@@ -105,6 +107,9 @@ metaData["RDAPS-12K","PRES"]="/only-wrf-data2/Forecast/RDAPS/%Y/%m/%d/%H/g120_v0
 #keyList=("UNIS" "PRES")
 
 #modelList=("KIER-WIND" "KIER-WIND-30M" "KIER-WIND-60M")
+#keyList=("ALL")
+
+#modelList=("GFS-25K")
 #keyList=("ALL")
 
 incDate=$srtDate
