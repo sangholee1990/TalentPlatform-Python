@@ -17,8 +17,9 @@ import pandas as pd
 import re
 import numpy as np
 import matplotlib.pyplot as plt
+from pydantic.schema import datetime
 from scipy.io import loadmat
-
+from datetime import timedelta
 import seaborn as sns
 
 # =================================================
@@ -232,15 +233,8 @@ class DtaProcess(object):
 
             # 옵션 설정
             sysOpt = {
-                # 시작일, 종료일, 시간 간격
-                'srtDate': '2022-06-01'
-                , 'endDate': '2022-06-02'
-                # 'srtDate': globalVar['srtDate']
-                # , 'endDate': globalVar['endDate']
-                , 'invHour': 1
-
                 # 수행 목록
-                , 'nameList': ['XLSX']
+                'nameList': ['XLSX']
 
                 # 모델 정보 : 파일 경로, 파일명, 시간 간격
                 , 'nameInfo': {
@@ -349,16 +343,16 @@ class DtaProcess(object):
                 for siteInfo in siteList:
                     for dtDateInfo in dtDateList:
 
-                        # start_date = datetime.date(2022, 6, 24)
-                        # end_date = start_date + datetime.timedelta(days=1)
+                        minDate = dtDateInfo
+                        # maxDate = dtDateInfo + timedelta(days=1)
+                        maxDate = dtDateInfo
 
-                        dtDateInfo + datetime.timedelta(days=1)
-
-
-                        dataL2 = dataL1.loc[(dataL1['site'] == siteInfo) & (dtDateInfo <= dataL1['dtDate']) & (dataL1['dtDate'] <= end_date)].reset_index(drop=True)
+                        dataL2 = dataL1.loc[(dataL1['site'] == siteInfo) & (minDate <= dataL1['dtDate']) & (dataL1['dtDate'] <= maxDate)].reset_index(drop=True)
                         if len(dataL2) < 1: continue
 
                         log.info(f'[CHECK] siteInfo : {siteInfo} / dtDateInfo : {dtDateInfo}')
+
+                        dataL2['cumHour'] = ((dataL2['dtDateTime'] - pd.to_datetime(minDate)).dt.total_seconds() / 3600).astype(int)
 
                         sumAWS = np.nansum(dataL2['AWS'])
                         maxAWS = np.nanmax(dataL2['AWS'])
@@ -368,494 +362,68 @@ class DtaProcess(object):
                         if not (sumAWS > 10): continue
 
                         rRat = 0.65
+
+                        # 레이더 기준치 (하한)
                         dataL2['dGLbnd'] = dataL2['AWS'] * rRat
                         dataL2['dRLbnd'] = 0.04 * (dataL2['RDRorg'] ** 1.45)
+                        # 우량계 기준치 (상한)
                         dataL2['dRUbnd'] = 6.4 * (dataL2['RDRorg'] ** 0.725)
 
-                        # dt = dataL2['dtDateTime']
-                        # dAWS = dataL2['AWS']
-                        # dRDR = dataL2['RDRorg']
-                        # dRDRa = dataL2['RDRnew']
+                        dataL3 = dataL2.melt(id_vars=['cumHour'], value_vars=['AWS', 'RDRorg', 'RDRnew'], var_name='key', value_name='val')
+                        dataL4 = dataL3.pivot(index='cumHour', columns='key', values='val').reset_index()
 
-                        # dGLbnd = dAWS * rRat
-                        # dRLbnd = 0.04 * (dRDR ** 1.45)
-                        # dRUbnd = 6.4 * (dRDR ** 0.725)
+                        # 시각화
+                        mainTitle = f'SBS_{siteInfo}_{minDate.strftime("%Y%m%d")}-{maxDate.strftime("%Y%m%d")}'
+                        saveImg = '{}/{}/{}.png'.format(globalVar['figPath'], serviceName, mainTitle)
+                        os.makedirs(os.path.dirname(saveImg), exist_ok=True)
 
+                        fig, ax = plt.subplots(figsize=(10, 6), dpi=600)
 
-                        fig, ax = plt.subplots()
-                        # xmag = dt[0]
-                        # ax.set_xlim([0, len(dt) + 1])
-                        if maxAWS > 0:
-                            ax.set_ylim([0, maxAWS * 1.2])
-                        else:
-                            ax.set_ylim([0, 30 * 1.2])
+                        # 바 그래프
+                        ax = dataL4.plot(x='cumHour', y = ['AWS', 'RDRorg', 'RDRnew'], kind='bar', width=0.8, color=['black', 'red', 'green'], label=['우량계', '레이더', '레이더 (보정후)'])
 
-                        # mainTitle = '{}'.format('담배 인상 전후에 따른 성별별 흡연자 비중')
-                        # saveImg = '{}/{}/{}.png'.format(globalVar['figPath'], serviceName, mainTitle)
-                        # os.makedirs(os.path.dirname(saveImg), exist_ok=True)
+                        # 선 그래프
+                        ax.plot(dataL2['cumHour'], dataL2['dRUbnd'], 'k-.', linewidth=1.0, label='우량계 기준치 (상한)')
+                        ax.plot(dataL2['cumHour'], dataL2['dGLbnd'], 'm-.', linewidth=1.0, label='레이더 기준치 (하한)')
+                        ax.plot(dataL2['cumHour'], dataL2['dRLbnd'], 'c-.', linewidth=1.0, label=None)
 
+                        # 점 그래프
+                        for i, row in dataL2.iterrows():
+                            if row['AWS'] > row['dRUbnd']:
+                                plt.plot(row['cumHour'] - 0.25, 34, 'rv', markerfacecolor='y', markersize=10)
 
-                        melted = dataL2.melt(id_vars=['dtDateTime'], value_vars=['AWS', 'RDRorg', 'RDRnew'], var_name='key', value_name='val')
+                            if row['RDRorg'] > row['dGLbnd']:
+                                plt.plot(row['cumHour'], 30, 'r^', markerfacecolor='r', markersize=5)
 
-                        custom_colors = {
-                            'AWS': 'black',
-                            'RDRorg': 'red',
-                            'RDRnew': 'green'
-                        }
+                            if row['RDRnew'] > row['dGLbnd']:
+                                plt.plot(row['cumHour'], 32, 'go', markerfacecolor='g', markersize=5)
 
-                        # 월별 강수량 합계 계산
-                        # grouped = df.groupby('Month').sum()
+                        # xmag = 0.0
+                        xmag = 11
+                        plt.text(xmag, 30, '레이더 기준치 미만족', fontsize=8)
+                        plt.text(xmag, 32, '레이더 보정 후 만족', fontsize=8)
+                        plt.text(xmag, 34, '우량계 이상치 추정', fontsize=8)
 
-                        # 바 차트 그리기
-                        # melted.plot(kind='bar', color='blue', legend=False)
-                        # plt.show()
+                        # 범례 표시
+                        ax.legend(loc='upper right', fontsize=8)
+                        plt.xlabel('Time (hour)')
+                        plt.ylabel('Hourly rainfall (mm)')
+                        plt.title(mainTitle)
+                        plt.grid(linewidth=0.2)
 
-                        import matplotlib.dates as mdates
-                        fig, ax = plt.subplots()
+                        # if maxAWS > 0:
+                        #     ax.set_ylim([0, maxAWS * 1.2])
+                        # else:
+                        #     ax.set_ylim([0, 30 * 1.2])
+                        plt.ylim([0, 30 * 1.2])
 
-                        # 미리 'dtDateTime'을 날짜/시간 형식으로 변환
-                        melted['dtDateTime'] = pd.to_datetime(melted['dtDateTime'])
-
-                        # fig, ax = plt.subplots()
-
-                        pivot_df = melted.pivot(index='dtDateTime', columns='key', values='val').reset_index()
-                        pivot_df['dtDateTime'] = pd.to_datetime(pivot_df['dtDateTime'])
-
-                        ax = pivot_df.plot(x='dtDateTime', kind='bar', width=0.8)
-
-                        plt.xlabel('Date Time')
-                        plt.ylabel('Value')
-                        plt.title('Bar Chart per Key and Date Time')
-                        plt.tight_layout()
-                        plt.grid(axis='y')
-
-                        # x축의 눈금 간격 설정: 여기서는 2시간 간격으로 설정
-                        # ax.xaxis.set_major_formatter(mdates.DateFormatter('%Y-%m-%d'))
-                        # plt.setp(ax.get_xticklabels(), rotation=45, ha='right')
-                        # ax.set_xticks(range(len(pivot_df)))
-                        ax.set_xticklabels(pivot_df['dtDateTime'].dt.strftime('%H'))
-
-                        # plt.setp(ax.get_xticklabels(), rotation=45, ha='right')
                         plt.setp(ax.get_xticklabels(), rotation=0)
-                        plt.show()
-
-
-
-
-
-                        plt.plot(dataL2['dtDateTime'], dataL2['AWS'], linestyle="-", label="cosine")
-                        plt.plot(dataL2['dtDateTime'], dataL2['RDRorg'])
-                        plt.plot(dataL2['dtDateTime'], dataL2['RDRnew'])
-                        plt.show()
-
-
-                        ax = sns.barplot(data=melted, x='dtDateTime', y='val', hue='key', ci=None, palette=custom_colors)
-                        handles, _ = ax.get_legend_handles_labels()
-                        new_labels = ['우량계', '레이더', '레이더(보정후)']
-                        ax.legend(title=None, handles=handles, loc='upper left', labels=new_labels)
-
-                        start_date = melted['dtDateTime'].min()
-                        end_date = melted['dtDateTime'][100]
-                        date_ticks = pd.date_range(start=start_date, end=end_date, freq='10')
-                        tick_positions = melted['dtDateTime'].isin(date_ticks).to_numpy().nonzero()[0]
-
-                        # Ensure tick_positions and date_ticks have the same length
-                        min_length = min(len(tick_positions), len(date_ticks))
-                        tick_positions = tick_positions[:min_length]
-                        date_ticks = date_ticks[:min_length]
-
-                        plt.xticks(ticks=tick_positions, labels=date_ticks.strftime('%Y-%m-%d'), rotation=45, ha='right')
+                        plt.savefig(saveImg, dpi=600, bbox_inches='tight', transparent=False)
                         plt.tight_layout()
-                        plt.show()
+                        # plt.show()
+                        plt.close()
 
-
-                    # for i in ax.containers:
-                    #     ax.bar_label(i, )
-                    # plt.ylabel('흡연 비중')
-                    # plt.savefig(saveImg, dpi=600, bbox_inches='tight', transparent=True)
-                    # plt.tight_layout()
-                    # plt.show()
-                    # plt.close()
-
-                    # ax.plot(dt, dAWS, '-', color=[0.8, 0.8, 0.8], linewidth=0.5)
-                    # ax.text(xmag + 0.2, 30, '레이더 기준치 미만족', fontsize=8)
-                    # ax.text(xmag + 0.2, 32, '레이더 보정 후 만족', fontsize=8)
-                    # ax.text(xmag + 0.2, 34, '우량계 이상치 추정', fontsize=8)
-                    #
-                    # ax.text(xmag + 2, 23.5, '-\cdot- 우량계 기준치(상한)', fontsize=9, color='k')
-                    # ax.text(xmag + 2, 22, '-\cdot- 레이더 기준치(하한)', fontsize=9, color='m')
-                    # ax.plot(xmag + 2, 20, 's', color='k', markerfacecolor='k', markersize=9)
-                    # ax.text(xmag + 2.5, 20, '우량계', fontsize=9, color='k')
-                    # ax.plot(xmag + 2, 18.5, 's', color='r', markerfacecolor='r', markersize=9)
-                    # ax.text(xmag + 2.5, 18.5, '레이더', fontsize=9, color='r')
-                    # ax.plot(xmag + 2, 17, 's', color='g', markerfacecolor='g', markersize=9)
-                    # ax.text(xmag + 2.5, 17, '레이더(보정후)', fontsize=9, color='g')
-
-                    fig, ax = plt.subplots()
-                    ax.set_xlabel('Time(hour)')
-                    ax.set_ylabel('Hourly rainfall(mm)')
-
-                    bars = dataL2[['AWS']].plot(kind='bar', color=['k', 'r', 'g'], ax=ax, linewidth=0.5)
-                    plt.show()
-                    # for t in range(len(x)):
-                    #     bars = ax.bar(range(1, t + 2), [dAWS[:t + 1, 0], dRDR[:t + 1, 0], dRDRa[:t + 1, 0]], color=['k', 'r', 'g'], linewidth=0.5)
-                    #     if dAWS[t, 0] > dRUbnd[t, 0]:
-                    #         ax.plot(t + 0.75, 34, 'rv', markerfacecolor='y', markersize=10)
-                    #         tck = t
-                    #     if dRDR[t, 0] > dGLbnd[t, 0]:
-                    #         ax.plot(t + 1, 30, 'r^', markerfacecolor='r', markersize=5)
-                    #     if dRDRa[t, 0] > dGLbnd[t, 0]:
-                    #         ax.plot(t + 1, 32, 'go', markerfacecolor='g', markersize=5)
-                    #     ax.plot(range(1, t + 2), dGLbnd[:t + 1, 0], 'm-.', linewidth=1.0)
-                    #     ax.plot(range(1, t + 2), dRLbnd[:t + 1, 0], 'c-.', linewidth=1.0)
-                    #     ax.plot(range(1, t + 2), dRUbnd[:t + 1, 0], 'k-.', linewidth=1.0)
-                    #     ax.set_xlim([0, len(x) + 1])
-                    #     ax.set_ylim([0, 30 * 1.2])
-                    #     plt.draw()
-                    #     plt.grid(True)
-                    #     plt.box(True)
-
-                    # plt.show()
-
-                    # plt.figure()
-                    # plt.xlim([0, len(x) + 1])
-                    # if dAWS.any() > 0:
-                    #     plt.ylim([0, max(dAWS) * 1.2])
-                    # else:
-                    #     plt.ylim([0, 30 * 1.2])
-                    #
-                    # plt.plot(range(1, len(x) + 1), dAWS, '-', color=[0.8, 0.8, 0.8], linewidth=0.5)
-
-                    # Plotting
-                    # fig, ax = plt.subplots()
-                    #
-                    # # for spine in ax.spines.values():
-                    # #     spine.set_visible(True)
-                    #
-                    # # Setting xlim, ylim
-                    # # ax.set_xlim([dt[0], dt[len(dataL2) - 1]])
-                    # if dAWS.max() > 0:
-                    #     ax.set_ylim([0, dAWS.max() * 1.2])
-                    # else:
-                    #     ax.set_ylim([0, 30 * 1.2])
-                    #
-                    # # Adding text to the plot
-                    # ax.text(dt[0], 30, '레이더 기준치 미만족', fontsize=8)
-                    # # ... (other texts)
-                    #
-                    # # Plotting data
-                    # ax.plot(dt, dAWS, '-', color=[0.8, 0.8, 0.8], linewidth=0.5)
-                    #
-                    # bar_width = 0.3
-                    # indices = np.arange(len(dt))
-                    #
-                    # ax.bar(indices - bar_width, dAWS, bar_width, color='black', label='dAWS')
-                    # ax.bar(indices, dRDR, bar_width, color='red', label='dRDR', bottom=dAWS)
-                    # ax.bar(indices + bar_width, dRDRa, bar_width, color='green', label='dRDRa', bottom=dAWS + dRDR)
-                    #
-                    # # More plotting commands (plot arrows, other lines, etc.)
-                    #
-                    # ax.set_xlabel('Time(hour)')
-                    # ax.set_ylabel('Hourly rainfall(mm)')
-                    # ax.grid(True)
-                    # # ax.box(True)
-                    #
-                    # plt.show()
-
-                    #
-                    # ax.grid(True)
-                    # plt.show()
-                    #
-                    # # plt.savefig(f"{RDRnam}_{datSTa[y]}.png", dpi=300)
-                    # # plt.close(fig)
-                    #
-
-            #     # 24개(시간)씩 site개수 만큼 반복
-            #     aa = datS.iloc[:, 1].values
-            #     dv = (aa != aa[0]).argmax()
-            #
-            #     # site, date, AWS, RDR org, RDR new
-            #     datST = datS.iloc[:, 1].values.reshape(dv, -1)
-            #     datSTD = datS.iloc[:, 0].values.reshape(dv, -1)
-            #     datSTA = datS.iloc[:, 2].values.reshape(dv, -1)
-            #     datSTO = datS.iloc[:, 3].values.reshape(dv, -1)
-            #     datSTN = datS.iloc[:, 4].values.reshape(dv, -1)
-            #
-            #     if icn == 1:
-            #         # site, date, AWS, RDR org, RDR new
-            #         datSTa = datST[0, :]
-            #         datSTDa = datSTD[:, 0]
-            #         datSTAa = datSTA
-            #         datSTOa = datSTO
-            #         datSTNa = datSTN
-            #     else:
-            #         # site x day, sites
-            #         datSTDa = np.hstack([datSTDa, datSTD[:, 0]])
-            #         datSTAa = np.hstack((datSTAa, datSTA))
-            #         datSTOa = np.hstack([datSTOa, datSTO])
-            #         datSTNa = np.hstack([datSTNa, datSTN])
-            #
-            #                 # datSTAa.shape
-            #                 # datSTA.shape
-            #
-            #     datSTAa[datSTAa < 0] = 0
-            #     datSTOa[datSTOa < 0] = 0
-            #     datSTNa[datSTNa < 0] = 0
-            #
-            #     saveFile = '{}/{}/{}{}.xlsx'.format(globalVar['outPath'], serviceName, modelInfo['searchKey'], 'errRstSite')
-            #     os.makedirs(os.path.dirname(saveFile), exist_ok=True)
-            #     with pd.ExcelWriter(saveFile, engine='openpyxl') as writer:
-            #         pd.DataFrame({'site': datSTa}).to_excel(writer, sheet_name='RSTA', startcol=2, startrow=1, index=False)
-            #         pd.DataFrame({'date': datSTDa}).to_excel(writer, sheet_name='RSTA', startcol=1, startrow=2, index=False)
-            #         pd.DataFrame(datSTNa).to_excel(writer, sheet_name='RSTA', startcol=2, startrow=2, index=False)
-            #     log.info(f'[CHECK] saveFile : {saveFile}')
-
-            #
-            # datST = data_sorted[data_sorted.columns[1]].values.reshape(dv, -1)
-            # datSTD = data_sorted[data_sorted.columns[0]].values.reshape(dv, -1)
-            # datSTA = data_sorted[data_sorted.columns[2]].values.reshape(dv, -1)
-            # datSTO = data_sorted[data_sorted.columns[3]].values.reshape(dv, -1)
-            # datSTN = data_sorted[data_sorted.columns[4]].values.reshape(dv, -1)
-            #
-            # chk = pd.read_excel(xls, sheet, usecols="Z", nrows=1, skiprows=2).values[0][0]
-            # chk2 = pd.read_excel(xls, sheet, usecols="K", nrows=1, skiprows=2).values[0][0]
-            #
-            # if chk > 100 and chk2 > 20:
-            #     if icn == 1:
-            #         datSTa = datST[0, :]
-            #         datSTDa = datSTD[:, 0]
-            #         datSTAa = datSTA
-            #         datSTOa = datSTO
-            #         datSTNa = datSTN
-            #     else:
-            #         datSTDa = np.concatenate([datSTDa, datSTD[:, 0]])
-            #         datSTAa = np.concatenate([datSTAa, datSTA])
-            #         datSTOa = np.concatenate([datSTOa, datSTO])
-            #         datSTNa = np.concatenate([datSTNa, datSTN])
-            #
-            #
-            #
-            #
-            #
-            # datS = dat[np.argsort(dat[:, 1]), :]
-            # aa = datS[:, 1]
-            # aat = aa - aa[0]
-            # dv = np.where(aat)[0][0]
-            #
-            # datST = np.reshape(datS[:, 1], (dv, datS.shape[0] // dv))
-            # datSTD = np.reshape(datS[:, 0], (dv, datS.shape[0] // dv))
-            # datSTA = np.reshape(datS[:, 2], (dv, datS.shape[0] // dv))
-            # datSTO = np.reshape(datS[:, 3], (dv, datS.shape[0] // dv))
-            # datSTN = np.reshape(datS[:, 4], (dv, datS.shape[0] // dv))
-            #
-            # chk = pd.read_excel(xls_path, sheet_name=sheet, usecols="Z", nrows=1).values
-            # chk2 = pd.read_excel(xls_path, sheet_name=sheet, usecols="K", nrows=1).values
-            #
-            # if chk > 100 and chk2 > 20:
-            #     if icn == 1:
-            #         datSTa_list.append(datST[0, :])
-            #         datSTDa_list.extend(datSTD[:, 0])
-            #         datSTAa_list.extend(datSTA.ravel())
-            #         datSTOa_list.extend(datSTO.ravel())
-            #         datSTNa_list.extend(datSTN.ravel())
-            #     else:
-            #         datSTDa_list.extend(datSTD[:, 0])
-            #         datSTAa_list.extend(datSTA.ravel())
-            #         datSTOa_list.extend(datSTO.ravel())
-            #         datSTNa_list.extend(datSTN.ravel())
-
-            #
-            # # NetCDF 파일 읽기
-            # for j, fileInfo in enumerate(fileList):
-            #     data = xr.open_dataset(fileInfo, engine='pynio')
-            #     log.info(f'[CHECK] fileInfo : {fileInfo}')
-
-            # Get list of xls files
-            # xlsList = [f for f in os.listdir(xlsFolderR) if f.startswith('DATA_GvsR_' + RDRnam) and f.endswith('.xlsx')]
-
-            # icn = 0
-            # datSTa_list, datSTDa_list, datSTAa_list, datSTOa_list, datSTNa_list = [], [], [], [], []
-            #
-            # for file in xlsList:
-            #     filename = os.path.join(xlsFolderR, file)
-            #     if file[10:13] == RDRnam:
-            #         print(file)
-            #         icn += 1
-            #             xls = pd.ExcelFile(fileInfo)
-            #             sheets = xls.sheet_names
-            #             for sheet in sheets:
-            #                 dat = pd.read_excel(filename, sheet_name=sheet, usecols="I:M", skiprows=3, nrows=24997)
-            #                 chk = pd.read_excel(filename, sheet_name=sheet, usecols="Z", skiprows=2, nrows=1).values[0][0]
-            #                 chk2 = pd.read_excel(filename, sheet_name=sheet, usecols="K", skiprows=2, nrows=1).values[0][0]
-            #
-            #                 if chk > 100 and chk2 > 20:
-            #                     if not dat.empty:
-            #                         datS = dat.sort_values(by=dat.columns[1])
-            #                         aat = datS[datS.columns[1]] - datS[datS.columns[1]].iloc[0]
-            #                         dv = aat.ne(0).idxmax()
-            #
-            #                         datST = datS[datS.columns[1]].values.reshape(dv, -1)
-            #                         datSTD = datS[datS.columns[0]].values.reshape(dv, -1)
-            #                         datSTA = datS[datS.columns[2]].values.reshape(dv, -1)
-            #                         datSTO = datS[datS.columns[3]].values.reshape(dv, -1)
-            #                         datSTN = datS[datS.columns[4]].values.reshape(dv, -1)
-            #
-            #                         if icn == 1:
-            #                             datSTa_list, datSTDa_list, datSTAa_list, datSTOa_list, datSTNa_list = \
-            #                                 [datST[0, :]], [datSTD[:, 0]], [datSTA], [datSTO], [datSTN]
-            #                         else:
-            #                             datSTa_list.append(datST[0, :])
-            #                             datSTDa_list.append(datSTD[:, 0])
-            #                             datSTAa_list.append(datSTA)
-            #                             datSTOa_list.append(datSTO)
-            #                             datSTNa_list.append(datSTN)
-            #
-            #     datSTAa = pd.DataFrame(datSTAa_list).applymap(lambda x: max(0, x))
-            #     datSTOa = pd.DataFrame(datSTOa_list).applymap(lambda x: max(0, x))
-            #     datSTNa = pd.DataFrame(datSTNa_list).applymap(lambda x: max(0, x))
-            #
-            #     with pd.ExcelWriter(os.path.join(xlsFolderW, RDRnam + 'errRstSite.xlsx'), engine='openpyxl') as writer:
-            #         pd.DataFrame(datSTa_list).to_excel(writer, sheet_name='RSTA', startcol=2, startrow=1, header=False, index=False)
-            #         pd.DataFrame(datSTDa_list).to_excel(writer, sheet_name='RSTA', startcol=1, startrow=2, header=False, index=False)
-            #         datSTAa.to_excel(writer, sheet_name='RSTA', startcol=2, startrow=2, header=False, index=False)
-            #
-            #         pd.DataFrame(datSTa_list).to_excel(writer, sheet_name='RSTO', startcol=2, startrow=1, header=False, index=False)
-            #         pd.DataFrame(datSTDa_list).to_excel(writer, sheet_name='RSTO', startcol=1, startrow=2, header=False, index=False)
-            #         datSTOa.to_excel(writer, sheet_name='RSTO', startcol=2, startrow=2, header=False, index=False)
-            #
-            #         pd.DataFrame(datSTa_list).to_excel(writer, sheet_name='RSTN', startcol=2, startrow=1, header=False, index=False)
-            #         pd.DataFrame(datSTDa_list).to_excel(writer, sheet_name='RSTN', startcol=1, startrow=2, header=False, index=False)
-            #         datSTNa.to_excel(writer, sheet_name='RSTN', startcol=2, startrow=2, header=False, index=False)
-            #
-            #     # Save data as .mat equivalent (using .pkl)
-            #     pd.to_pickle({
-            #         'datSTDa': datSTDa_list,
-            #         'datSTa': datSTa_list,
-            #         'datSTAa': datSTAa,
-            #         'datSTOa': datSTOa,
-            #         'datSTNa': datSTNa
-            #     }, os.path.join(xlsFolderW, RDRnam + 'errRstSite.pkl'))
-            # #
-            #
-            #
-            #
-            #
-            #
-            # # 시작일/종료일 설정
-            # dtSrtDate = pd.to_datetime(sysOpt['srtDate'], format='%Y-%m-%d')
-            # dtEndDate = pd.to_datetime(sysOpt['endDate'], format='%Y-%m-%d')
-            # dtDateList = pd.date_range(start=dtSrtDate, end=dtEndDate, freq=Hour(sysOpt['invHour']))
-            #
-            # # 기준 위도, 경도, 기압 설정
-            # lonList = np.arange(sysOpt['lonMin'], sysOpt['lonMax'], sysOpt['lonInv'])
-            # latList = np.arange(sysOpt['latMin'], sysOpt['latMax'], sysOpt['latInv'])
-            # levList = np.array(sysOpt['levList'])
-            #
-            # log.info(f'[CHECK] len(lonList) : {len(lonList)}')
-            # log.info(f'[CHECK] len(latList) : {len(latList)}')
-            # log.info(f'[CHECK] len(levList) : {len(levList)}')
-            #
-            # for dtDateIdx, dtDateInfo in enumerate(dtDateList):
-            #     log.info(f'[CHECK] dtDateInfo : {dtDateInfo}')
-            #
-            #     dataL1 = xr.Dataset()
-            #     for modelIdx, modelType in enumerate(sysOpt['modelList']):
-            #         log.info(f'[CHECK] modelType : {modelType}')
-            #
-            #         for i, modelKey in enumerate(sysOpt[modelType]):
-            #             log.info(f'[CHECK] modelKey : {modelKey}')
-            #
-            #             modelInfo = sysOpt[modelType].get(modelKey)
-            #             if modelInfo is None: continue
-            #
-            #             inpFile = '{}/{}'.format(modelInfo['filePath'], modelInfo['fileName'])
-            #             inpFileDate = dtDateInfo.strftime(inpFile)
-            #             fileList = sorted(glob.glob(inpFileDate))
-            #
-            #             if fileList is None or len(fileList) < 1:
-            #                 # log.error(f'inpFile : {inpFile} / 입력 자료를 확인해주세요')
-            #                 continue
-            #
-            #             # NetCDF 파일 읽기
-            #             for j, fileInfo in enumerate(fileList):
-            #
-            #                 data = xr.open_dataset(fileInfo, engine='pynio')
-            #                 log.info(f'[CHECK] fileInfo : {fileInfo}')
-            #
-            #                 # pygrib에서 분석/예보 시간 추출
-            #                 gribData = pygrib.open(fileInfo).select()[0]
-            #                 anaDt = gribData.analDate
-            #                 fotDt = gribData.validDate
-            #
-            #                 log.info(f'[CHECK] anaDt : {anaDt} / fotDt : {fotDt}')
-            #
-            #                 # 파일명에서 분석/예보 시간 추출
-            #                 # isMatch = re.search(r'f(\d+)', fileInfo)
-            #                 # if not isMatch: continue
-            #                 # int(isMatch.group(1))
-            #
-            #                 # anaDt = dtDateInfo
-            #                 # fotDt = anaDt + pd.Timedelta(hours = int(isMatch.group(1)))
-            #
-            #                 for level, orgVar, newVar in zip(modelInfo['level'], modelInfo['orgVar'], modelInfo['newVar']):
-            #                     if data.get(orgVar) is None: continue
-            #
-            #                     try:
-            #                         if level == -1:
-            #                             selData = data[orgVar].interp({modelInfo['comVar']['lon']: lonList, modelInfo['comVar']['lat']: latList}, method='linear')
-            #                             selDataL1 = selData
-            #                         else:
-            #                             selData = data[orgVar].interp({modelInfo['comVar']['lon']: lonList, modelInfo['comVar']['lat']: latList, modelInfo['comVar']['lev']: levList}, method='linear')
-            #                             selDataL1 = selData.sel({modelInfo['comVar']['lev']: level})
-            #
-            #                         selDataL2 = xr.Dataset(
-            #                             {
-            #                                 f'{modelType}_{newVar}': (('anaDt', 'fotDt', 'lat', 'lon'), (selDataL1.values).reshape(1, 1, len(latList), len(lonList)))
-            #                             }
-            #                             , coords={
-            #                                 'anaDt': pd.date_range(anaDt, periods=1)
-            #                                 , 'fotDt': pd.date_range(fotDt, periods=1)
-            #                                 , 'lat': latList
-            #                                 , 'lon': lonList
-            #                             }
-            #                         )
-            #
-            #                         dataL1 = xr.merge([dataL1, selDataL2])
-            #                     except Exception as e:
-            #                         log.error(f'Exception : {e}')
-            #
-            #     if len(dataL1) < 1: continue
-            #
-            #     # NetCDF 자료 저장
-            #     saveFile = '{}/{}/{}_{}.nc'.format(globalVar['outPath'], serviceName, 'ecmwf-gfs_model', dtDateInfo.strftime('%Y%m%d%H%M'))
-            #     os.makedirs(os.path.dirname(saveFile), exist_ok=True)
-            #     dataL1.to_netcdf(saveFile)
-            #     log.info(f'[CHECK] saveFile : {saveFile}')
-            #
-            #     # 비교
-            #     dataL1['DIFF_T2'] = dataL1['ECMWF_T2'] - dataL1['GFS_T2']
-            #
-            #     # 시각화
-            #     saveImg = '{}/{}/{}_{}.png'.format(globalVar['figPath'], serviceName, 'ecmwf_t2', dtDateInfo.strftime('%Y%m%d%H%M'))
-            #     os.makedirs(os.path.dirname(saveImg), exist_ok=True)
-            #     dataL1['ECMWF_T2'].isel(anaDt=0, fotDt=0).plot()
-            #     plt.savefig(saveImg, dpi=600, bbox_inches='tight', transparent=True)
-            #     plt.show()
-            #     log.info(f'[CHECK] saveImg : {saveImg}')
-            #
-            #     saveImg = '{}/{}/{}_{}.png'.format(globalVar['figPath'], serviceName, 'gfs_t2', dtDateInfo.strftime('%Y%m%d%H%M'))
-            #     os.makedirs(os.path.dirname(saveImg), exist_ok=True)
-            #     dataL1['GFS_T2'].isel(anaDt=0, fotDt=0).plot()
-            #     plt.savefig(saveImg, dpi=600, bbox_inches='tight', transparent=True)
-            #     plt.show()
-            #     log.info(f'[CHECK] saveImg : {saveImg}')
-            #
-            #     saveImg = '{}/{}/{}_{}.png'.format(globalVar['figPath'], serviceName, 'diff_t2', dtDateInfo.strftime('%Y%m%d%H%M'))
-            #     os.makedirs(os.path.dirname(saveImg), exist_ok=True)
-            #     dataL1['DIFF_T2'].isel(anaDt=0, fotDt=0).plot()
-            #     plt.savefig(saveImg, dpi=600, bbox_inches='tight', transparent=True)
-            #     plt.show()
-            #     log.info(f'[CHECK] saveImg : {saveImg}')
+                        log.info(f'[CHECK] saveImg : {saveImg}')
 
         except Exception as e:
             log.error(f'Exception : {e}')
