@@ -16,16 +16,26 @@ CTX_PATH=$(pwd)
 
 # 실행 파일 경로
 RUN_PATH=${CTX_PATH}/PROG/PYTHON/extract
-TMP_PATH=/tmp
+TMP_PATH=$(mktemp -d)
 UPD_PATH=/DATA/INPUT/INDI2023/DATA/GFS
 #UPD_PATH=/data1/GFS
 URL_PATH="https://nomads.ncep.noaa.gov/pub/data/nccf/com/gfs/prod"
+
+echo "[$(date +"%Y-%m-%d %H:%M:%S")] [CHECK] CTX_PATH : $CTX_PATH"
+echo "[$(date +"%Y-%m-%d %H:%M:%S")] [CHECK] RUN_PATH : $RUN_PATH"
+echo "[$(date +"%Y-%m-%d %H:%M:%S")] [CHECK] TMP_PATH : $TMP_PATH"
+echo "[$(date +"%Y-%m-%d %H:%M:%S")] [CHECK] UPD_PATH : $UPD_PATH"
 
 #========================================
 # Run Shell
 #========================================
 #srtDate=$(date +%C%y%m%d%H -d -16 hour)
-srtDate=$(date -d "16 hour ago" +"%C%y%m%d%H")
+if [ -z "$1" ]; then
+    srtDate=$(date -d "16 hour ago" +"%C%y%m%d%H")
+else
+    srtDate=$1
+fi
+
 echo "[$(date +"%Y-%m-%d %H:%M:%S")] [CHECK] srtDate : $srtDate"
 
 year=$(echo $srtDate | cut -c01-04)
@@ -57,6 +67,8 @@ for runcycle in $(seq -w 00 06 18); do
         fi
     done
 done
+
+rm -rf ${TMP_PATH}
 
 echo "[$(date +"%Y-%m-%d %H:%M:%S")] [END] Main Shell : $0"
 
