@@ -337,121 +337,136 @@ class DtaProcess(object):
 
                 # ********************************************************************
                 # 시각화
-                # ********************************************************************
+                # ******************************************************************
+                dataL1['dtDateTime'] = pd.to_datetime(dataL1['date'], format='%Y%m%d%H%M')
+                dataL1['dtDate'] = dataL1['dtDateTime'].dt.date
+
                 # site 별로 출력 (각 사이트 별로 시간 단위로 일기간 만큼 출력)
                 siteList = sorted(set(dataL1['site']))
-                siteInfo = siteList[0]
+                dtDateList = sorted(set(dataL1['dtDate']))
+                # siteInfo = siteList[0]
+                # dtDateInfo = dtDateList[0]
                 for siteInfo in siteList:
+                    for dtDateInfo in dtDateList:
 
-                    log.info(f'[CHECK] siteInfo : {siteInfo}')
+                        # start_date = datetime.date(2022, 6, 24)
+                        # end_date = start_date + datetime.timedelta(days=1)
 
-                    dataL2 = dataL1.loc[(dataL1['site'] == siteInfo)].reset_index(drop=True)
-
-
-                    sumAWS = np.nansum(dataL2['AWS'])
-                    maxAWS = np.nanmax(dataL2['AWS'])
-
-                    log.info(f'[CHECK] sumAWS : {sumAWS}')
-                    log.info(f'[CHECK] maxAWS : {maxAWS}')
-                    if not (sumAWS > 10): continue
-
-                    rRat = 0.65
-                    dataL2['dtDateTime'] = pd.to_datetime(dataL2['date'], format='%Y%m%d%H%M')
-                    dataL2['dGLbnd'] = dataL2['AWS'] * rRat
-                    dataL2['dRLbnd'] = 0.04 * (dataL2['RDRorg'] ** 1.45)
-                    dataL2['dRUbnd'] = 6.4 * (dataL2['RDRorg'] ** 0.725)
-
-                    # dt = dataL2['dtDateTime']
-                    # dAWS = dataL2['AWS']
-                    # dRDR = dataL2['RDRorg']
-                    # dRDRa = dataL2['RDRnew']
-
-                    # dGLbnd = dAWS * rRat
-                    # dRLbnd = 0.04 * (dRDR ** 1.45)
-                    # dRUbnd = 6.4 * (dRDR ** 0.725)
+                        dtDateInfo + datetime.timedelta(days=1)
 
 
-                    fig, ax = plt.subplots()
-                    # xmag = dt[0]
-                    # ax.set_xlim([0, len(dt) + 1])
-                    if maxAWS > 0:
-                        ax.set_ylim([0, maxAWS * 1.2])
-                    else:
-                        ax.set_ylim([0, 30 * 1.2])
+                        dataL2 = dataL1.loc[(dataL1['site'] == siteInfo) & (dtDateInfo <= dataL1['dtDate']) & (dataL1['dtDate'] <= end_date)].reset_index(drop=True)
+                        if len(dataL2) < 1: continue
 
-                    # mainTitle = '{}'.format('담배 인상 전후에 따른 성별별 흡연자 비중')
-                    # saveImg = '{}/{}/{}.png'.format(globalVar['figPath'], serviceName, mainTitle)
-                    # os.makedirs(os.path.dirname(saveImg), exist_ok=True)
+                        log.info(f'[CHECK] siteInfo : {siteInfo} / dtDateInfo : {dtDateInfo}')
 
+                        sumAWS = np.nansum(dataL2['AWS'])
+                        maxAWS = np.nanmax(dataL2['AWS'])
 
-                    melted = dataL2.melt(id_vars=['dtDateTime'], value_vars=['AWS', 'RDRorg', 'RDRnew'], var_name='key', value_name='val')
+                        log.info(f'[CHECK] sumAWS : {sumAWS}')
+                        log.info(f'[CHECK] maxAWS : {maxAWS}')
+                        if not (sumAWS > 10): continue
 
-                    custom_colors = {
-                        'AWS': 'black',
-                        'RDRorg': 'red',
-                        'RDRnew': 'green'
-                    }
+                        rRat = 0.65
+                        dataL2['dGLbnd'] = dataL2['AWS'] * rRat
+                        dataL2['dRLbnd'] = 0.04 * (dataL2['RDRorg'] ** 1.45)
+                        dataL2['dRUbnd'] = 6.4 * (dataL2['RDRorg'] ** 0.725)
 
-                    # 월별 강수량 합계 계산
-                    # grouped = df.groupby('Month').sum()
+                        # dt = dataL2['dtDateTime']
+                        # dAWS = dataL2['AWS']
+                        # dRDR = dataL2['RDRorg']
+                        # dRDRa = dataL2['RDRnew']
 
-                    # 바 차트 그리기
-                    # melted.plot(kind='bar', color='blue', legend=False)
-                    # plt.show()
-
-                    import matplotlib.dates as mdates
-                    fig, ax = plt.subplots()
-
-                    # 미리 'dtDateTime'을 날짜/시간 형식으로 변환
-                    melted['dtDateTime'] = pd.to_datetime(melted['dtDateTime'])
-
-                    # fig, ax = plt.subplots()
-
-                    pivot_df = melted.pivot(index='dtDateTime', columns='key', values='val').reset_index()
-                    ax = pivot_df.plot(x='dtDateTime', kind='bar', width=0.8)
-                    plt.show()
-
-                    plt.xlabel('Date Time')
-                    plt.ylabel('Value')
-                    plt.title('Bar Chart per Key and Date Time')
-                    plt.tight_layout()
-                    plt.grid(axis='y')
-
-                    # x축의 눈금 간격 설정: 여기서는 2시간 간격으로 설정
-                    plt.gca().xaxis.set_major_locator(mdates.DayLocator(interval=1))
-                    plt.gca().xaxis.set_major_formatter(mdates.DateFormatter('%Y-%m-%d'))
-                    plt.gca().set_xlim([melted['dtDateTime'].min(), melted['dtDateTime'].max()])
-                    plt.xticks(rotation=45, ha='right', minor=False)
-                    plt.show()
+                        # dGLbnd = dAWS * rRat
+                        # dRLbnd = 0.04 * (dRDR ** 1.45)
+                        # dRUbnd = 6.4 * (dRDR ** 0.725)
 
 
+                        fig, ax = plt.subplots()
+                        # xmag = dt[0]
+                        # ax.set_xlim([0, len(dt) + 1])
+                        if maxAWS > 0:
+                            ax.set_ylim([0, maxAWS * 1.2])
+                        else:
+                            ax.set_ylim([0, 30 * 1.2])
+
+                        # mainTitle = '{}'.format('담배 인상 전후에 따른 성별별 흡연자 비중')
+                        # saveImg = '{}/{}/{}.png'.format(globalVar['figPath'], serviceName, mainTitle)
+                        # os.makedirs(os.path.dirname(saveImg), exist_ok=True)
+
+
+                        melted = dataL2.melt(id_vars=['dtDateTime'], value_vars=['AWS', 'RDRorg', 'RDRnew'], var_name='key', value_name='val')
+
+                        custom_colors = {
+                            'AWS': 'black',
+                            'RDRorg': 'red',
+                            'RDRnew': 'green'
+                        }
+
+                        # 월별 강수량 합계 계산
+                        # grouped = df.groupby('Month').sum()
+
+                        # 바 차트 그리기
+                        # melted.plot(kind='bar', color='blue', legend=False)
+                        # plt.show()
+
+                        import matplotlib.dates as mdates
+                        fig, ax = plt.subplots()
+
+                        # 미리 'dtDateTime'을 날짜/시간 형식으로 변환
+                        melted['dtDateTime'] = pd.to_datetime(melted['dtDateTime'])
+
+                        # fig, ax = plt.subplots()
+
+                        pivot_df = melted.pivot(index='dtDateTime', columns='key', values='val').reset_index()
+                        pivot_df['dtDateTime'] = pd.to_datetime(pivot_df['dtDateTime'])
+
+                        ax = pivot_df.plot(x='dtDateTime', kind='bar', width=0.8)
+
+                        plt.xlabel('Date Time')
+                        plt.ylabel('Value')
+                        plt.title('Bar Chart per Key and Date Time')
+                        plt.tight_layout()
+                        plt.grid(axis='y')
+
+                        # x축의 눈금 간격 설정: 여기서는 2시간 간격으로 설정
+                        # ax.xaxis.set_major_formatter(mdates.DateFormatter('%Y-%m-%d'))
+                        # plt.setp(ax.get_xticklabels(), rotation=45, ha='right')
+                        # ax.set_xticks(range(len(pivot_df)))
+                        ax.set_xticklabels(pivot_df['dtDateTime'].dt.strftime('%H'))
+
+                        # plt.setp(ax.get_xticklabels(), rotation=45, ha='right')
+                        plt.setp(ax.get_xticklabels(), rotation=0)
+                        plt.show()
 
 
 
-                    plt.plot(dataL2['dtDateTime'], dataL2['AWS'], linestyle="-", label="cosine")
-                    plt.plot(dataL2['dtDateTime'], dataL2['RDRorg'])
-                    plt.plot(dataL2['dtDateTime'], dataL2['RDRnew'])
-                    plt.show()
 
 
-                    ax = sns.barplot(data=melted, x='dtDateTime', y='val', hue='key', ci=None, palette=custom_colors)
-                    handles, _ = ax.get_legend_handles_labels()
-                    new_labels = ['우량계', '레이더', '레이더(보정후)']
-                    ax.legend(title=None, handles=handles, loc='upper left', labels=new_labels)
+                        plt.plot(dataL2['dtDateTime'], dataL2['AWS'], linestyle="-", label="cosine")
+                        plt.plot(dataL2['dtDateTime'], dataL2['RDRorg'])
+                        plt.plot(dataL2['dtDateTime'], dataL2['RDRnew'])
+                        plt.show()
 
-                    start_date = melted['dtDateTime'].min()
-                    end_date = melted['dtDateTime'][100]
-                    date_ticks = pd.date_range(start=start_date, end=end_date, freq='10')
-                    tick_positions = melted['dtDateTime'].isin(date_ticks).to_numpy().nonzero()[0]
 
-                    # Ensure tick_positions and date_ticks have the same length
-                    min_length = min(len(tick_positions), len(date_ticks))
-                    tick_positions = tick_positions[:min_length]
-                    date_ticks = date_ticks[:min_length]
+                        ax = sns.barplot(data=melted, x='dtDateTime', y='val', hue='key', ci=None, palette=custom_colors)
+                        handles, _ = ax.get_legend_handles_labels()
+                        new_labels = ['우량계', '레이더', '레이더(보정후)']
+                        ax.legend(title=None, handles=handles, loc='upper left', labels=new_labels)
 
-                    plt.xticks(ticks=tick_positions, labels=date_ticks.strftime('%Y-%m-%d'), rotation=45, ha='right')
-                    plt.tight_layout()
-                    plt.show()
+                        start_date = melted['dtDateTime'].min()
+                        end_date = melted['dtDateTime'][100]
+                        date_ticks = pd.date_range(start=start_date, end=end_date, freq='10')
+                        tick_positions = melted['dtDateTime'].isin(date_ticks).to_numpy().nonzero()[0]
+
+                        # Ensure tick_positions and date_ticks have the same length
+                        min_length = min(len(tick_positions), len(date_ticks))
+                        tick_positions = tick_positions[:min_length]
+                        date_ticks = date_ticks[:min_length]
+
+                        plt.xticks(ticks=tick_positions, labels=date_ticks.strftime('%Y-%m-%d'), rotation=45, ha='right')
+                        plt.tight_layout()
+                        plt.show()
 
 
                     # for i in ax.containers:
@@ -500,7 +515,7 @@ class DtaProcess(object):
                     #     plt.grid(True)
                     #     plt.box(True)
 
-                    plt.show()
+                    # plt.show()
 
                     # plt.figure()
                     # plt.xlim([0, len(x) + 1])
@@ -512,40 +527,40 @@ class DtaProcess(object):
                     # plt.plot(range(1, len(x) + 1), dAWS, '-', color=[0.8, 0.8, 0.8], linewidth=0.5)
 
                     # Plotting
-                    fig, ax = plt.subplots()
-
-                    # for spine in ax.spines.values():
-                    #     spine.set_visible(True)
-
-                    # Setting xlim, ylim
-                    # ax.set_xlim([dt[0], dt[len(dataL2) - 1]])
-                    if dAWS.max() > 0:
-                        ax.set_ylim([0, dAWS.max() * 1.2])
-                    else:
-                        ax.set_ylim([0, 30 * 1.2])
-
-                    # Adding text to the plot
-                    ax.text(dt[0], 30, '레이더 기준치 미만족', fontsize=8)
-                    # ... (other texts)
-
-                    # Plotting data
-                    ax.plot(dt, dAWS, '-', color=[0.8, 0.8, 0.8], linewidth=0.5)
-
-                    bar_width = 0.3
-                    indices = np.arange(len(dt))
-
-                    ax.bar(indices - bar_width, dAWS, bar_width, color='black', label='dAWS')
-                    ax.bar(indices, dRDR, bar_width, color='red', label='dRDR', bottom=dAWS)
-                    ax.bar(indices + bar_width, dRDRa, bar_width, color='green', label='dRDRa', bottom=dAWS + dRDR)
-
-                    # More plotting commands (plot arrows, other lines, etc.)
-
-                    ax.set_xlabel('Time(hour)')
-                    ax.set_ylabel('Hourly rainfall(mm)')
-                    ax.grid(True)
-                    # ax.box(True)
-
-                    plt.show()
+                    # fig, ax = plt.subplots()
+                    #
+                    # # for spine in ax.spines.values():
+                    # #     spine.set_visible(True)
+                    #
+                    # # Setting xlim, ylim
+                    # # ax.set_xlim([dt[0], dt[len(dataL2) - 1]])
+                    # if dAWS.max() > 0:
+                    #     ax.set_ylim([0, dAWS.max() * 1.2])
+                    # else:
+                    #     ax.set_ylim([0, 30 * 1.2])
+                    #
+                    # # Adding text to the plot
+                    # ax.text(dt[0], 30, '레이더 기준치 미만족', fontsize=8)
+                    # # ... (other texts)
+                    #
+                    # # Plotting data
+                    # ax.plot(dt, dAWS, '-', color=[0.8, 0.8, 0.8], linewidth=0.5)
+                    #
+                    # bar_width = 0.3
+                    # indices = np.arange(len(dt))
+                    #
+                    # ax.bar(indices - bar_width, dAWS, bar_width, color='black', label='dAWS')
+                    # ax.bar(indices, dRDR, bar_width, color='red', label='dRDR', bottom=dAWS)
+                    # ax.bar(indices + bar_width, dRDRa, bar_width, color='green', label='dRDRa', bottom=dAWS + dRDR)
+                    #
+                    # # More plotting commands (plot arrows, other lines, etc.)
+                    #
+                    # ax.set_xlabel('Time(hour)')
+                    # ax.set_ylabel('Hourly rainfall(mm)')
+                    # ax.grid(True)
+                    # # ax.box(True)
+                    #
+                    # plt.show()
 
                     #
                     # ax.grid(True)
