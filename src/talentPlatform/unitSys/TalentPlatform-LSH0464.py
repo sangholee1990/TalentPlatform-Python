@@ -242,8 +242,8 @@ class DtaProcess(object):
                 , 'invDate': 1
 
                 # 수행 목록
-                # 'nameList': ['XLSX']
-                , 'nameList': ['CSV']
+                , 'nameList': ['XLSX']
+                # , 'nameList': ['CSV']
 
                 # 모델 정보 : 파일 경로, 파일명, 시간 간격
                 , 'nameInfo': {
@@ -302,7 +302,6 @@ class DtaProcess(object):
 
                         fileNameNoExt = os.path.basename(fileInfo).split('.')[0]
                         data = pd.read_csv(fileInfo, delimiter='\s+', header=None, names=['date', 'site', 'AWS', 'RDRorg', 'RDRnew'])
-
 
                         sheetList = pd.ExcelFile(fileInfo).sheet_names
                         # sheetInfo = sheetList[1]
@@ -387,13 +386,19 @@ class DtaProcess(object):
                                                  skiprows=3, header=None,
                                                  names=['date', 'site', 'AWS', 'RDRorg', 'RDRnew'])
 
+                            data['AWSflag'] = np.where((0 <= data['AWS']) & (data['AWS'] <= 1), data['AWS'], -99.9)
+
                             if len(data) < 1: continue
 
                             # total(daily) rainfall, hourly max rainfall
-                            statData = \
-                            pd.read_excel(fileInfo, sheet_name=sheetInfo, nrows=2, skiprows=1, header=None).iloc[1,]
+                            statData = pd.read_excel(fileInfo, sheet_name=sheetInfo, nrows=2, skiprows=1, header=None).iloc[1,]
                             chk = statData[25]
+
+                            np.nansum(data['RDRorg'] > 0.1)
+                            np.nansum(data['RDRnew'] > 0.1)
+
                             chk2 = statData[10]
+                            np.nanmax(data['AWS'])
                             log.info(f'[CHECK] total(daily) rainfall : {chk}')
                             log.info(f'[CHECK] hourly max rainfall : {chk2}')
 
