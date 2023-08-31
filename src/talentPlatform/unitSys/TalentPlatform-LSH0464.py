@@ -242,8 +242,8 @@ class DtaProcess(object):
                 , 'invDate': 1
 
                 # 수행 목록
-                , 'nameList': ['XLSX']
-                # , 'nameList': ['CSV']
+                # , 'nameList': ['XLSX']
+                , 'nameList': ['CSV']
 
                 # 모델 정보 : 파일 경로, 파일명, 시간 간격
                 , 'nameInfo': {
@@ -294,71 +294,64 @@ class DtaProcess(object):
                             continue
 
                         fileInfo = fileList[0]
-                        fileInfo2 = fileList[1]
                         log.info(f'[CHECK] fileInfo : {fileInfo}')
-                        log.info(f'[CHECK] fileInfo2 : {fileInfo2}')
 
                         if not re.search(namelInfo['searchKey'], fileInfo, re.IGNORECASE): continue
 
                         fileNameNoExt = os.path.basename(fileInfo).split('.')[0]
                         data = pd.read_csv(fileInfo, delimiter='\s+', header=None, names=['date', 'site', 'AWS', 'RDRorg', 'RDRnew'])
 
-                        sheetList = pd.ExcelFile(fileInfo).sheet_names
-                        # sheetInfo = sheetList[1]
-                        for sheetInfo in sheetList:
-                            log.info(f'[CHECK] sheetInfo : {sheetInfo}')
+                        # N, O 컬럼 확인 필요
+                        data['P'] = np.where((0 <= data['AWS']) & (data['AWS'] <= 1), data['AWS'], -99.9)
+                        data['G'] = np.where((data['P'] > 0.1) & (data['RDRorg'] > 0.1), data['P'], np.nan)
 
-                            data = pd.read_excel(fileInfo, sheet_name=sheetInfo, usecols="I:M", nrows=25000 - 4,
-                                                 skiprows=3, header=None,
-                                                 names=['date', 'site', 'AWS', 'RDRorg', 'RDRnew'])
+                        if len(data) < 1: continue
 
-                            if len(data) < 1: continue
+                        # total(daily) rainfall, hourly max rainfall
+                        # chk = statData[25]
+                        # chk2 = statData[10]
+                        chk2 = np.nanmax(data['AWS'])
 
-                            # total(daily) rainfall, hourly max rainfall
-                            statData = pd.read_excel(fileInfo, sheet_name=sheetInfo, nrows=2, skiprows=1, header=None).iloc[1,]
-                            chk = statData[25]
-                            chk2 = statData[10]
-                            log.info(f'[CHECK] total(daily) rainfall : {chk}')
-                            log.info(f'[CHECK] hourly max rainfall : {chk2}')
+                        # log.info(f'[CHECK] total(daily) rainfall : {chk}')
+                        log.info(f'[CHECK] hourly max rainfall : {chk2}')
 
-                            if not (chk > 100 and chk2 > 20): continue
+                        # if not (chk > 100 and chk2 > 20): continue
+                        if not (chk2 > 20): continue
 
-                            # site 마다 24개(시간) 분포
-                            datS = data.sort_values(by=['site', 'date']).dropna().reset_index(drop=True)
-                            dataL1 = pd.concat([dataL1, datS], ignore_index=True)
+                        # site 마다 24개(시간) 분포
+                        datS = data.drop(['P', 'G'], axis=1).sort_values(by=['site', 'date']).dropna().reset_index(drop=True)
+                        dataL1 = pd.concat([dataL1, datS], ignore_index=True)
 
-                        if len(dataL1) < 1: continue
+                    if len(dataL1) < 1: continue
 
-                        # 자료 형변환
-                        dataL1['site'] = dataL1['site'].astype(int).astype(str)
-                        dataL1['date'] = dataL1['date'].astype(int).astype(str)
+                    # 자료 형변환
+                    dataL1['site'] = dataL1['site'].astype(int).astype(str)
+                    dataL1['date'] = dataL1['date'].astype(int).astype(str)
 
-                        # 0보다 작은 경우 0으로 대체
-                        dataL1['AWS'] = np.where(dataL1['AWS'] < 0, 0, dataL1['AWS'])
-                        dataL1['RDRorg'] = np.where(dataL1['RDRorg'] < 0, 0, dataL1['RDRorg'])
-                        dataL1['RDRnew'] = np.where(dataL1['RDRnew'] < 0, 0, dataL1['RDRnew'])
+                    # 0보다 작은 경우 0으로 대체
+                    dataL1['AWS'] = np.where(dataL1['AWS'] < 0, 0, dataL1['AWS'])
+                    dataL1['RDRorg'] = np.where(dataL1['RDRorg'] < 0, 0, dataL1['RDRorg'])
+                    dataL1['RDRnew'] = np.where(dataL1['RDRnew'] < 0, 0, dataL1['RDRnew'])
 
-                        # CSV 저장
-                        saveFile = '{}/{}/{}{}.csv'.format(globalVar['outPath'], serviceName, namelInfo['searchKey'],
-                                                           'errRstSite')
-                        os.makedirs(os.path.dirname(saveFile), exist_ok=True)
-                        # dataL1.to_csv(saveFile, index=False)
-                        dataL1 = pd.read_csv(saveFile)
-                        log.info(f'[CHECK] saveFile : {saveFile}')
+                    # CSV 저장
+                    saveFile = '{}/{}/{}{}.csv'.format(globalVar['outPath'], serviceName, namelInfo['searchKey'], 'errRstSite')
+                    os.makedirs(os.path.dirname(saveFile), exist_ok=True)
+                    dataL1.to_csv(saveFile, index=False)
+                    log.info(f'[CHECK] saveFile : {saveFile}')
 
-                        # # date, site를 기준으로 AWS, RDRorg, RDRnew 생성
-                        # datSTAa = dataL1.pivot_table(index='date', columns=['site'], values='AWS')
-                        # datSTOa = dataL1.pivot_table(index='date', columns=['site'], values='RDRorg')
-                        # datSTNa = dataL1.pivot_table(index='date', columns=['site'], values='RDRnew')
-                        #
-                        # # 엑셀 저장
-                        # saveFile = '{}/{}/{}{}.xlsx'.format(globalVar['outPath'], serviceName, namelInfo['searchKey'], 'errRstSite')
-                        # os.makedirs(os.path.dirname(saveFile), exist_ok=True)
-                        # with pd.ExcelWriter(saveFile, engine='openpyxl') as writer:
-                        #     datSTAa.to_excel(writer, sheet_name='RSTA', startcol=1, startrow=1, index=True)
-                        #     datSTOa.to_excel(writer, sheet_name='RSTO', startcol=1, startrow=1, index=True)
-                        #     datSTNa.to_excel(writer, sheet_name='RSTN', startcol=1, startrow=1, index=True)
-                        # log.info(f'[CHECK] saveFile : {saveFile}')
+                    # date, site를 기준으로 AWS, RDRorg, RDRnew 생성
+                    datSTAa = dataL1.pivot_table(index='date', columns=['site'], values='AWS')
+                    datSTOa = dataL1.pivot_table(index='date', columns=['site'], values='RDRorg')
+                    datSTNa = dataL1.pivot_table(index='date', columns=['site'], values='RDRnew')
+
+                    # 엑셀 저장
+                    saveFile = '{}/{}/{}{}.xlsx'.format(globalVar['outPath'], serviceName, namelInfo['searchKey'], 'errRstSite')
+                    os.makedirs(os.path.dirname(saveFile), exist_ok=True)
+                    with pd.ExcelWriter(saveFile, engine='openpyxl') as writer:
+                        datSTAa.to_excel(writer, sheet_name='RSTA', startcol=1, startrow=1, index=True)
+                        datSTOa.to_excel(writer, sheet_name='RSTO', startcol=1, startrow=1, index=True)
+                        datSTNa.to_excel(writer, sheet_name='RSTN', startcol=1, startrow=1, index=True)
+                    log.info(f'[CHECK] saveFile : {saveFile}')
 
                 elif re.search('XLSX', nameType, re.IGNORECASE):
                     # procCSV(namelInfo)
@@ -386,19 +379,20 @@ class DtaProcess(object):
                                                  skiprows=3, header=None,
                                                  names=['date', 'site', 'AWS', 'RDRorg', 'RDRnew'])
 
-                            data['AWSflag'] = np.where((0 <= data['AWS']) & (data['AWS'] <= 1), data['AWS'], -99.9)
+                            # N, O 컬럼 확인 필요
+                            data['P'] = np.where((0 <= data['AWS']) & (data['AWS'] <= 1), data['AWS'], -99.9)
+                            data['G'] = np.where((data['P'] > 0.1) & (data['RDRorg'] > 0.1), data['P'], np.nan)
 
                             if len(data) < 1: continue
 
                             # total(daily) rainfall, hourly max rainfall
                             statData = pd.read_excel(fileInfo, sheet_name=sheetInfo, nrows=2, skiprows=1, header=None).iloc[1,]
                             chk = statData[25]
-
-                            np.nansum(data['RDRorg'] > 0.1)
-                            np.nansum(data['RDRnew'] > 0.1)
+                            # chk = np.nansum(data['G'])
 
                             chk2 = statData[10]
-                            np.nanmax(data['AWS'])
+                            # chk2 = np.nanmax(data['AWS'])
+
                             log.info(f'[CHECK] total(daily) rainfall : {chk}')
                             log.info(f'[CHECK] hourly max rainfall : {chk2}')
 
