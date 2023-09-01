@@ -52,6 +52,7 @@ modelType = 'KIER-LDAPS-2K'
 # modelType = 'KIM-3K'
 # modelType = 'LDAPS-1.5K'
 # modelType = 'RDAPS-12K'
+# modelType = 'GFS-25K'
 print(f'[CHECK] modelType : {modelType}')
 
 # 위경도 기본 정보 (TB_GEO), 위경도 상세 정보 (TB_GEO_DTL)
@@ -68,6 +69,7 @@ modelTypeToGeo = {
     , 'KIM-3K': 'KIM-3K'
     , 'LDAPS-1.5K': 'LDAPS-1.5K'
     , 'RDAPS-12K': 'RDAPS-12K'
+    , 'GFS-25K': 'GFS-25K'
 }
 
 geoType = modelTypeToGeo.get(modelType)
