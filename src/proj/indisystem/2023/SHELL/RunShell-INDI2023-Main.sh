@@ -82,9 +82,9 @@ metaData["KIER-RDAPS-3K","PRES"]="/data1/RDAPS-WRF/%Y/%m/%d/%H/wrfout_d02*"
 metaData["KIER-RDAPS-3K-30M","UNIS"]="/data1/RDAPS-WRF/%Y/%m/%d/%H/wrfsolar_d02*"
 metaData["KIER-RDAPS-3K-60M","UNIS"]="/data1/RDAPS-WRF/%Y/%m/%d/%H/wrfsolar_d02*"
 
-metaData["KIER-WIND","ALL"]="/thermal1/OUT/rawdata/wrf%Y_%m/wrfout_d04s_%Y-%m-%d*"
-metaData["KIER-WIND-30M","ALL"]="/thermal1/OUT/rawdata/wrf%Y_%m/wrfout_d04s_%Y-%m-%d*"
-metaData["KIER-WIND-60M","ALL"]="/thermal1/OUT/rawdata/wrf%Y_%m/wrfout_d04s_%Y-%m-%d*"
+metaData["KIER-WIND","ALL"]="/thermal1/Rawdata/rawdata/wrf%Y_%m/wrfout_d04s_%Y-%m-%d*"
+metaData["KIER-WIND-30M","ALL"]="/thermal1/Rawdata/rawdata/wrf%Y_%m/wrfout_d04s_%Y-%m-%d*"
+metaData["KIER-WIND-60M","ALL"]="/thermal1/Rawdata/rawdata/wrf%Y_%m/wrfout_d04s_%Y-%m-%d*"
 
 metaData["KIM-3K","UNIS"]="/data1/%Y/%m/%d/%H/r030_v040_ne36_unis_h*.%Y%m%d%H.gb2"
 metaData["KIM-3K","PRES"]="/data1/%Y/%m/%d/%H/r030_v040_ne36_pres_h*.%Y%m%d%H.gb2"
