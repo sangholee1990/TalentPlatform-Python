@@ -19,7 +19,7 @@ from sqlalchemy import create_engine, text
 # ===========================================================
 # 실행 방법
 # ===========================================================
-# /home/guest_user1/SYSTEMS/KIER/LIB/py38/bin/python3 /home/guest_user1/SYSTEMS/KIER/PROG/PYTHON/extract/getAreaDBsetDB.py
+# /home/guest_user1/SYSTEMS/KIER/LIB/py38/bin/python3 /home/guest_user1/SYSTEMS/KIER/PROG/PYTHON/extract/getAreaToSetDB.py
 
 # ===========================================================
 # 주요 함수
@@ -56,6 +56,7 @@ def dbMergeData(session, table, dataList, pkList=['MODEL_TYPE']):
 # 입력 정보
 # ===========================================================
 ctxPath = os.getcwd()
+# ctxPath = '/home/guest_user1/SYSTEMS/KIER/PROG/PYTHON/extract'
 
 # 특정 영역 정보
 minLon = 128
@@ -119,20 +120,12 @@ cfgInfo = f'{ctxPath}/config/config.yml'
 
 with open(cfgInfo, 'rt', encoding='UTF-8') as file:
     cfgData = yaml.safe_load(file)['db_info']
+print(f'[CHECK] cfgData : {cfgData}')
 
 sqlDbUrl = f'{cfgData["dbType"]}://{cfgData["dbUser"]}:{quote_plus(cfgData["dbPwd"])}@{cfgData["dbHost"]}:{cfgData["dbPort"]}/{cfgData["dbName"]}'
 engine = create_engine(sqlDbUrl)
 sessionMake = sessionmaker(autocommit=False, autoflush=False, bind=engine)
 session = sessionMake()
-
-# DB 연결 시 타임아웃 1시간 설정 : 60 * 60 * 1000
-session.execute(text("SET statement_timeout = 3600000;"))
-
-# 트랜잭션이 idle 상태 5분 설정 : 5 * 60 * 1000
-session.execute(text("SET idle_in_transaction_session_timeout = 300000;"))
-
-# 격리 수준 설정
-session.execute(text("SET TRANSACTION ISOLATION LEVEL SERIALIZABLE;"))
 
 # 세션 커밋
 session.commit()
@@ -149,9 +142,9 @@ tbIntProc = Table('TB_INT_PROC', metaData, autoload_with=engine, schema=cfgData[
 # DB 정보 가져오기
 # ===========================================================
 # SQL 쿼리
-# sql = f"""
-# SELECT * FROM "DMS01"."TB_GEO_DTL" LIMIT 1;
-# """
+sql = f"""
+SELECT * FROM "DMS01"."TB_INT_PROC";
+"""
 
 sql = f"""
 WITH GET_SFC_INFO AS (SELECT MIN("ROW")     AS "MIN_ROW_SFC",
@@ -208,12 +201,14 @@ SELECT TO_CHAR(C."ANA_DT", 'YYYY-MM-DD HH24:MI:SS')                             
      , C."U875"[(SELECT "MIN_ROW_PRE" FROM GET_PRE_INFO):(SELECT "MAX_ROW_PRE" FROM GET_PRE_INFO)] [(SELECT "MIN_COL_PRE" FROM GET_PRE_INFO):(SELECT "MAX_COL_PRE" FROM GET_PRE_INFO)] AS "U875"
      , C."U900"[(SELECT "MIN_ROW_PRE" FROM GET_PRE_INFO):(SELECT "MAX_ROW_PRE" FROM GET_PRE_INFO)] [(SELECT "MIN_COL_PRE" FROM GET_PRE_INFO):(SELECT "MAX_COL_PRE" FROM GET_PRE_INFO)] AS "U900"
      , C."U925"[(SELECT "MIN_ROW_PRE" FROM GET_PRE_INFO):(SELECT "MAX_ROW_PRE" FROM GET_PRE_INFO)] [(SELECT "MIN_COL_PRE" FROM GET_PRE_INFO):(SELECT "MAX_COL_PRE" FROM GET_PRE_INFO)] AS "U925"
+     , C."U950"[(SELECT "MIN_ROW_PRE" FROM GET_PRE_INFO):(SELECT "MAX_ROW_PRE" FROM GET_PRE_INFO)] [(SELECT "MIN_COL_PRE" FROM GET_PRE_INFO):(SELECT "MAX_COL_PRE" FROM GET_PRE_INFO)] AS "U950"
      , C."U975"[(SELECT "MIN_ROW_PRE" FROM GET_PRE_INFO):(SELECT "MAX_ROW_PRE" FROM GET_PRE_INFO)] [(SELECT "MIN_COL_PRE" FROM GET_PRE_INFO):(SELECT "MAX_COL_PRE" FROM GET_PRE_INFO)] AS "U975"
      , C."U1000"[(SELECT "MIN_ROW_PRE" FROM GET_PRE_INFO):(SELECT "MAX_ROW_PRE" FROM GET_PRE_INFO)] [(SELECT "MIN_COL_PRE" FROM GET_PRE_INFO):(SELECT "MAX_COL_PRE" FROM GET_PRE_INFO)] AS "U1000"
      , C."V850"[(SELECT "MIN_ROW_PRE" FROM GET_PRE_INFO):(SELECT "MAX_ROW_PRE" FROM GET_PRE_INFO)] [(SELECT "MIN_COL_PRE" FROM GET_PRE_INFO):(SELECT "MAX_COL_PRE" FROM GET_PRE_INFO)] AS "V850"
      , C."V875"[(SELECT "MIN_ROW_PRE" FROM GET_PRE_INFO):(SELECT "MAX_ROW_PRE" FROM GET_PRE_INFO)] [(SELECT "MIN_COL_PRE" FROM GET_PRE_INFO):(SELECT "MAX_COL_PRE" FROM GET_PRE_INFO)] AS "V875"
      , C."V900"[(SELECT "MIN_ROW_PRE" FROM GET_PRE_INFO):(SELECT "MAX_ROW_PRE" FROM GET_PRE_INFO)] [(SELECT "MIN_COL_PRE" FROM GET_PRE_INFO):(SELECT "MAX_COL_PRE" FROM GET_PRE_INFO)] AS "V900"
      , C."V925"[(SELECT "MIN_ROW_PRE" FROM GET_PRE_INFO):(SELECT "MAX_ROW_PRE" FROM GET_PRE_INFO)] [(SELECT "MIN_COL_PRE" FROM GET_PRE_INFO):(SELECT "MAX_COL_PRE" FROM GET_PRE_INFO)] AS "V925"
+     , C."V950"[(SELECT "MIN_ROW_PRE" FROM GET_PRE_INFO):(SELECT "MAX_ROW_PRE" FROM GET_PRE_INFO)] [(SELECT "MIN_COL_PRE" FROM GET_PRE_INFO):(SELECT "MAX_COL_PRE" FROM GET_PRE_INFO)] AS "V950"
      , C."V975"[(SELECT "MIN_ROW_PRE" FROM GET_PRE_INFO):(SELECT "MAX_ROW_PRE" FROM GET_PRE_INFO)] [(SELECT "MIN_COL_PRE" FROM GET_PRE_INFO):(SELECT "MAX_COL_PRE" FROM GET_PRE_INFO)] AS "V975"
      , C."V1000"[(SELECT "MIN_ROW_PRE" FROM GET_PRE_INFO):(SELECT "MAX_ROW_PRE" FROM GET_PRE_INFO)] [(SELECT "MIN_COL_PRE" FROM GET_PRE_INFO):(SELECT "MAX_COL_PRE" FROM GET_PRE_INFO)] AS "V1000"
 
@@ -229,7 +224,18 @@ WHERE 1 = 1
   AND C."ANA_DT" BETWEEN TO_TIMESTAMP('{srtDt}', 'YYYYMMDDHH24MISS') AND TO_TIMESTAMP('{endDt}', 'YYYYMMDDHH24MISS');
 """
 
-data = pd.read_sql(sql, engine)
+# data = pd.read_sql(sql, engine)
+# print(f'[CHECK] data : {data}')
+
+# 쿼리 실행
+result = session.execute(text(sql))
+
+# 결과 가져오기
+resultList = result.fetchall()
+
+# 결과 출력
+colNameList = result.keys()
+data = pd.DataFrame(resultList, columns=colNameList)
 print(f'[CHECK] data : {data}')
 
 # ===========================================================
@@ -251,21 +257,23 @@ data['WS100'] = data.apply(lambda item:
 # ===========================================================
 # DB 적재
 # ===========================================================
-# DB 등록/수정
-dbData = {}
+for i, posInfo in data.iterrows():
 
-# 필수 정보
-dbData['ANA_DT'] = data['ANA_DT'][0]
-dbData['FOR_DT'] = data['FOR_DT'][0]
-dbData['MODEL_TYPE'] = data['MODEL_TYPE'][0]
+    # 필수 정보
+    dbData = {
+        'ANA_DT': posInfo['ANA_DT']
+        , 'FOR_DT': posInfo['FOR_DT']
+        , 'MODEL_TYPE':  posInfo['MODEL_TYPE']
+    }
+    print(f'[CHECK] dbData : {dbData}')
 
-# 선택 정보
-dbData['WS80'] = convFloatToIntList(data['WS80'][0])
-dbData['WS100'] = convFloatToIntList(data['WS100'][0])
+    # 선택 정보
+    dbData['WS80'] = convFloatToIntList(posInfo['WS80'])
+    dbData['WS100'] = convFloatToIntList(posInfo['WS100'])
 
-if len(dbData) < 1:
-    print(f'해당 파일에서 지표면 및 상층 데이터를 확인해주세요.')
-    sys.exit(1)
+    if len(dbData) < 1:
+        print(f'해당 파일에서 지표면 및 상층 데이터를 확인해주세요.')
+        sys.exit(1)
 
-print(f'[CHECK] dbData : {dbData.keys()} : {np.shape(dbData[list(dbData.keys())[3]])}')
-dbMergeData(session, tbIntProc, dbData, pkList=['MODEL_TYPE', 'ANA_DT', 'FOR_DT'])
+    print(f'[CHECK] dbData : {dbData.keys()} : {np.shape(dbData[list(dbData.keys())[3]])}')
+    dbMergeData(session, tbIntProc, dbData, pkList=['MODEL_TYPE', 'ANA_DT', 'FOR_DT'])
