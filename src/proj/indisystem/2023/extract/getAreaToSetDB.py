@@ -142,9 +142,9 @@ tbIntProc = Table('TB_INT_PROC', metaData, autoload_with=engine, schema=cfgData[
 # DB 정보 가져오기
 # ===========================================================
 # SQL 쿼리
-sql = f"""
-SELECT * FROM "DMS01"."TB_INT_PROC";
-"""
+# sql = f"""
+# SELECT * FROM "DMS01"."TB_INT_PROC";
+# """
 
 sql = f"""
 WITH GET_SFC_INFO AS (SELECT MIN("ROW")     AS "MIN_ROW_SFC",
