@@ -164,9 +164,9 @@ def initArgument(globalVar, inParams):
 
     return globalVar
 
-def readCsvData(sysOpt, namelInfo):
+def readTextData(sysOpt, nameType, namelInfo):
 
-    log.info(f'[START] readCsvData')
+    log.info(f'[START] readTextData')
 
     result = None
 
@@ -234,7 +234,7 @@ def readCsvData(sysOpt, namelInfo):
         maxDt = dtDateList.max().strftime("%Y%m%d%H%M")
 
         # CSV 저장
-        saveCsvFile = '{}/{}/{}{}_{}-{}.csv'.format(globalVar['outPath'], serviceName, namelInfo['searchKey'],'errRstSite', minDt, maxDt)
+        saveCsvFile = '{}/{}/{}{}_{}_{}-{}.csv'.format(globalVar['outPath'], serviceName, namelInfo['searchKey'],'errRstSite', nameType, minDt, maxDt)
         os.makedirs(os.path.dirname(saveCsvFile), exist_ok=True)
         dataL1.to_csv(saveCsvFile, index=False)
         log.info(f'[CHECK] saveCsvFile : {saveCsvFile}')
@@ -245,7 +245,7 @@ def readCsvData(sysOpt, namelInfo):
         datSTNa = dataL1.pivot_table(index='date', columns=['site'], values='RDRnew')
 
         # 엑셀 저장
-        saveXlsxFile = '{}/{}/{}{}_{}-{}.xlsx'.format(globalVar['outPath'], serviceName, namelInfo['searchKey'], 'errRstSite', minDt, maxDt)
+        saveXlsxFile = '{}/{}/{}{}_{}_{}-{}.xlsx'.format(globalVar['outPath'], serviceName, namelInfo['searchKey'], 'errRstSite', nameType, minDt, maxDt)
         os.makedirs(os.path.dirname(saveXlsxFile), exist_ok=True)
         with pd.ExcelWriter(saveXlsxFile, engine='openpyxl') as writer:
             datSTAa.to_excel(writer, sheet_name='RSTA', startcol=1, startrow=1, index=True)
@@ -269,9 +269,9 @@ def readCsvData(sysOpt, namelInfo):
         return result
 
     finally:
-        log.info(f'[END] readCsvData')
+        log.info(f'[END] readTextData')
 
-def readXlsxData(sysOpt, namelInfo):
+def readXlsxData(sysOpt, nameType, namelInfo):
 
     log.info(f'[START] readXlsxData')
 
@@ -347,7 +347,7 @@ def readXlsxData(sysOpt, namelInfo):
         maxDt = dtDateList.max().strftime("%Y%m%d%H%M")
 
         # CSV 저장
-        saveCsvFile = '{}/{}/{}{}_{}-{}.csv'.format(globalVar['outPath'], serviceName, namelInfo['searchKey'], 'errRstSite', minDt, maxDt)
+        saveCsvFile = '{}/{}/{}{}_{}_{}-{}.csv'.format(globalVar['outPath'], serviceName, namelInfo['searchKey'], 'errRstSite', nameType, minDt, maxDt)
         os.makedirs(os.path.dirname(saveCsvFile), exist_ok=True)
         dataL1.to_csv(saveCsvFile, index=False)
         log.info(f'[CHECK] saveCsvFile : {saveCsvFile}')
@@ -358,7 +358,7 @@ def readXlsxData(sysOpt, namelInfo):
         datSTNa = dataL1.pivot_table(index='date', columns=['site'], values='RDRnew')
 
         # 엑셀 저장
-        saveXlsxFile = '{}/{}/{}{}_{}-{}.xlsx'.format(globalVar['outPath'], serviceName, namelInfo['searchKey'], 'errRstSite', minDt, maxDt)
+        saveXlsxFile = '{}/{}/{}{}_{}_{}-{}.xlsx'.format(globalVar['outPath'], serviceName, namelInfo['searchKey'], 'errRstSite', nameType, minDt, maxDt)
         os.makedirs(os.path.dirname(saveXlsxFile), exist_ok=True)
         with pd.ExcelWriter(saveXlsxFile, engine='openpyxl') as writer:
             datSTAa.to_excel(writer, sheet_name='RSTA', startcol=1, startrow=1, index=True)
@@ -463,9 +463,9 @@ class DtaProcess(object):
                 , 'invMonth': 1
 
                 # 수행 목록
-                # , 'nameList': ['XLSX', 'CSV']
-                # , 'nameList': ['XLSX']
-                , 'nameList': ['CSV']
+                # , 'nameList': ['XLSX', 'TEXT']
+                , 'nameList': ['XLSX']
+                # , 'nameList': ['TEXT']
 
                 # 수행 정보 : 파일 경로, 파일명
                 , 'nameInfo': {
@@ -474,7 +474,7 @@ class DtaProcess(object):
                         , 'fileName': 'DATA_GvsR_SBS_실시간_%m월_TEST.xlsx'
                         , 'searchKey': 'SBS'
                     }
-                    , 'CSV': {
+                    , 'TEXT': {
                         'filePath': '/DATA/INPUT/LSH0464/%Y/%Y%m/%d'
                         , 'fileName': 'RDR_SBS_GvsR_%Y%m%d.txt'
                         , 'searchKey': 'SBS'
@@ -491,11 +491,11 @@ class DtaProcess(object):
                 # ********************************************************************
                 # 파일 읽기
                 # ********************************************************************
-                if re.search('CSV', nameType, re.IGNORECASE):
-                    result = readCsvData(sysOpt, namelInfo)
+                if re.search('TEXT', nameType, re.IGNORECASE):
+                    result = readTextData(sysOpt, nameType, namelInfo)
 
                 elif re.search('XLSX', nameType, re.IGNORECASE):
-                    result = readXlsxData(sysOpt, namelInfo)
+                    result = readXlsxData(sysOpt, nameType, namelInfo)
 
                 else:
                     log.error(f'수행 종류 ({nameType})를 확인해주세요.')
