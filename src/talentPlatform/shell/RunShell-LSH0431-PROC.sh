@@ -4,6 +4,12 @@ echo "[$(date +"%Y-%m-%d %H:%M:%S")] [START] Main Shell : $0"
 echo
 
 #========================================
+# DOC
+#========================================
+# ps -ef | grep python3 | grep LSH0431 | awk '{print $2}' | xargs kill -9
+# nohup bash RunShell-LSH0431-PROC.sh &
+
+#========================================
 # Set Env
 #========================================
 ulimit -s unlimited
