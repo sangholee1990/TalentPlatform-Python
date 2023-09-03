@@ -745,7 +745,6 @@ class DtaProcess(object):
                     # 중복 제거
                     posDataL2 = posData.drop_duplicates(subset=colList, inplace=False)
 
-
                     # # DB 저장
                     dbData = posDataL2[colList].rename(
                         {
@@ -775,6 +774,37 @@ class DtaProcess(object):
                     # DB 내 데이터 삭제
                     # TRUNCATE TABLE TB_SALE_INFO;
                     # SELECT SI_DONG, COUNT(SI_DONG) FROM TB_SALE_INFO GROUP BY SI_DONG;
+
+                    # MySQL DB 내에서 SI_DONG을 SIDO, SIGUNGU 분할/업데이트
+                    # 컬럼 추가
+                    # 조회
+                    # SELECT
+                    #     CASE
+                    #         WHEN POSITION(' ' IN SI_DONG) = 0 THEN SI_DONG
+                    #         ELSE SUBSTRING_INDEX(SI_DONG, ' ', 1)
+                    #     END AS SIDO,
+                    #     CASE
+                    #         WHEN POSITION(' ' IN SI_DONG) = 0 THEN NULL
+                    #         ELSE SUBSTRING_INDEX(SI_DONG, ' ', -1)
+                    #     END AS SIGUNGU,
+                    #     SI_DONG
+                    # FROM
+                    #     TB_SALE_INFO LIMIT 10;
+
+                    # 일괄 업데이트
+                    # UPDATE TB_SALE_INFO
+                    # SET
+                    #     SIDO = CASE
+                    #                WHEN POSITION(' ' IN SI_DONG) = 0 THEN SI_DONG
+                    #                ELSE SUBSTRING_INDEX(SI_DONG, ' ', 1)
+                    #            END,
+                    #     SIGUNGU = CASE
+                    #                   WHEN POSITION(' ' IN SI_DONG) = 0 THEN NULL
+                    #                   ELSE SUBSTRING_INDEX(SI_DONG, ' ', -1)
+                    #               END;
+
+                    # 테스트
+                    # SELECT * FROM TB_SALE_INFO LIMIT 10;
 
                     try:
                         # dbData.to_sql(name=tbSaleInfo.name, con=dbEngine, if_exists='replace', index=False)
