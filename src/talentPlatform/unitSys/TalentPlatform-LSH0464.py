@@ -463,8 +463,8 @@ class DtaProcess(object):
                 , 'invMonth': 1
 
                 # 수행 목록
-                # , 'nameList': ['XLSX', 'TEXT']
-                , 'nameList': ['XLSX']
+                , 'nameList': ['XLSX', 'TEXT']
+                # , 'nameList': ['XLSX']
                 # , 'nameList': ['TEXT']
 
                 # 수행 정보 : 파일 경로, 파일명
