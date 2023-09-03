@@ -244,24 +244,6 @@ def getRentType(row):
     else:
         return '전세'
 
-def dbMergeData(self, session, table, dataList, pkList=['MODEL_TYPE']):
-    try:
-        stmt = insert(table)
-        setData = {key: getattr(stmt.excluded, key) for key in dataList.keys()}
-        onConflictStmt = stmt.on_conflict_do_update(
-            index_elements=pkList
-            , set_=setData
-        )
-        session.execute(onConflictStmt, dataList)
-        session.commit()
-
-    except Exception as e:
-        session.rollback()
-        log.error(f'Exception : {e}')
-
-    finally:
-        session.close()
-
 # ================================================
 # 4. 부 프로그램
 # ================================================
@@ -366,9 +348,9 @@ class DtaProcess(object):
 
                 # 검색 목록
                 # , 'addrList': ['서울특별시', '부산광역시', '대구광역시', '인천광역시', '광주광역시', '대전광역시', '울산광역시', '세종특별자치시', '경기도', '강원특별자치도', '충청북도', '충청남도', '전라북도', '전라남도', '경상북도', '경상남도', '제주특별자치도']
-                , 'addrList': ['제주특별자치도']
+                # , 'addrList': ['제주특별자치도']
                 # , 'addrList': ['부산광역시']
-                # , 'addrList':  [globalVar['addrList']]
+                , 'addrList':  [globalVar['addrList']]
             }
 
             # 변수 설정
@@ -765,7 +747,7 @@ class DtaProcess(object):
 
 
                     # # DB 저장
-                    dbData2 = posDataL2[colList].rename(
+                    dbData = posDataL2[colList].rename(
                         {
                             '종류': 'TYPE'
                             , '이름': 'NAME'
@@ -790,27 +772,17 @@ class DtaProcess(object):
                         , axis=1
                     )
 
-                    # dataList = dbData2.to_dict(orient='records')
-                    dataList = dbData2
-                    dbMergeData(session, tbSaleInfo, dataList, pkList=['ID'])
+                    # DB 내 데이터 삭제
+                    # TRUNCATE TABLE TB_SALE_INFO;
+                    # SELECT SI_DONG, COUNT(SI_DONG) FROM TB_SALE_INFO GROUP BY SI_DONG;
 
-                    stmt = insert(table)
-                    setData = {key: getattr(stmt.excluded, key) for key in dataList.keys()}
-                    onConflictStmt = stmt.on_conflict_do_update(
-                        index_elements=pkList
-                        , set_=setData
-                    )
-                    session.execute(onConflictStmt, dataList)
-                    session.commit()
-
-
-                    # try:
-                    #     # dbData2.to_sql(name=tbSaleInfo.name, con=dbEngine, if_exists='replace', index=False)
-                    #     dbData2.to_sql(name=tbSaleInfo.name, con=dbEngine, if_exists='append', index=False)
-                    #     session.commit()
-                    # except SQLAlchemyError as e:
-                    #     session.rollback()
-                    #     log.error(f'Exception : {e}')
+                    try:
+                        # dbData.to_sql(name=tbSaleInfo.name, con=dbEngine, if_exists='replace', index=False)
+                        dbData.to_sql(name=tbSaleInfo.name, con=dbEngine, if_exists='append', index=False)
+                        session.commit()
+                    except SQLAlchemyError as e:
+                        session.rollback()
+                        log.error(f'Exception : {e}')
 
                 # 중복 제거
                 posDataL3 = posDataL1.drop_duplicates(subset=colList, inplace=False)
