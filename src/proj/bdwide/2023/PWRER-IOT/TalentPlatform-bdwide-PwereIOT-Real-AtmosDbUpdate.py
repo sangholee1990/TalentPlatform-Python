@@ -441,10 +441,10 @@ class DtaProcess(object):
             # 옵션 설정
             sysOpt = {
                 # 시작/종료 시간
-                'srtDate': globalVar['srtDate']
-                , 'endDate': globalVar['endDate']
-                # 'srtDate': '2023-08-14 00:00'
-                # , 'endDate': '2023-08-14 01:00'
+                # 'srtDate': globalVar['srtDate']
+                # , 'endDate': globalVar['endDate']
+                'srtDate': '2023-08-14 00:00'
+                , 'endDate': '2023-08-14 01:00'
 
                 # 기상청_단기예보 ((구)_동네예보) 조회서비스 -
                 , 'apiUrl': 'https://apis.data.go.kr/1360000/VilageFcstInfoService_2.0/getUltraSrtNcst'
@@ -482,10 +482,11 @@ class DtaProcess(object):
             #     log.info(memberInfo)
 
             memberData = pd.read_sql(session.query(tbMember).statement, session.bind)
-            memberDataL1 = memberData[memberData['LAT'].isna() | memberData['LON'].isna()]
+            # memberDataL1 = memberData[memberData['LAT'].isna() | memberData['LON'].isna()]
+            memberDataL1 = memberData[(memberData['LAT'].isna() | memberData['LON'].isna()) & ~memberData['ADDR'].isna()]
 
             if len(memberDataL1) > 0:
-                convRes = convAddrToGeo(gmap, memberDataL1, 'ADDR')  # Replace 'address_column_name' with the actual column name for the address in your tbMember table
+                convRes = convAddrToGeo(gmap, memberDataL1, 'ADDR')
 
                 for idx, row in convRes['data'].iterrows():
                     if pd.isna(row['위도']) or pd.isna(row['경도']): continue
