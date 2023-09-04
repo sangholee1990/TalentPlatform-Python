@@ -327,10 +327,10 @@ class DtaProcess(object):
                 }
 
                 # 검색 목록
-                # , 'addrList': ['제주특별자치도']
+                , 'addrList': ['제주특별자치도']
                 # , 'addrList': ['서울특별시', '부산광역시', '대구광역시', '인천광역시', '광주광역시', '대전광역시', '울산광역시', '세종특별자치시', '경기도', '강원특별자치도', '충청북도', '충청남도', '전라북도', '전라남도', '경상북도', '경상남도', '제주특별자치도']
                 # , 'addrList': ['부산광역시']
-                , 'addrList':  [globalVar['addrList']]
+                # , 'addrList':  [globalVar['addrList']]
             }
 
             # 변수 설정
@@ -403,7 +403,7 @@ class DtaProcess(object):
                         log.info(f'[CHECK] selAddrInfo : {selAddrInfo}')
 
                         for j, dtMonthInfo in enumerate(dtMonthList):
-                            # log.info(f'[CHECK] dtMonthInfo : {dtMonthInfo}')
+                            log.info(f'[CHECK] dtMonthInfo : {dtMonthInfo}')
 
                             dtYearMonth = dtMonthInfo.strftime('%Y%m')
 
@@ -412,10 +412,11 @@ class DtaProcess(object):
 
                             dataL1 = pd.DataFrame()
 
-                            fileChkList = glob.glob(saveFile)
+                            # fileChkList = glob.glob(saveFile)
                             # if (len(fileChkList) > 0): continue
 
                             for k, pageInfo in enumerate(pageList):
+                                # log.info(f'[CHECK] pageInfo : {pageInfo}')
 
                                 try:
                                     inParams = {'serviceKey': sysOpt['apiKey'], 'pageNo': 1, 'numOfRows': 100, 'LAWD_CD': sigunguCdInfo, 'DEAL_YMD': dtYearMonth}
