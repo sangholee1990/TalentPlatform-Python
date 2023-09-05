@@ -253,6 +253,27 @@ class DtaProcess(object):
     # ================================================
     # Python을 이용한 공공데이터포털 매매 신고 API (토지, 상업) 수집 및 구글 스튜디오 시각화
 
+    # 공통 컬럼
+    # addrInfo	sigunguCdInfo	dtYearMonth	pageInfo	type
+    # 거래금액
+    # 거래면적
+    # 해제여부
+    # 거래유형
+    # 용도지역
+    # 년월일 -> 신고일
+    # 년 -> 연도
+    # 해제사유발생일
+    # 중개사소재지
+    # 시군구	법정동		지번 -> 주소, 시도
+
+    # 타 컬럼
+    # 유형
+    # 지목
+    # 건물주용도
+    # 건축년도
+    # 대지면적
+    # 층
+    # 구분
     # ================================================================================================
     # 환경변수 설정
     # ================================================================================================
@@ -327,10 +348,10 @@ class DtaProcess(object):
                 }
 
                 # 검색 목록
-                # , 'addrList': ['제주특별자치도']
+                , 'addrList': ['제주특별자치도']
                 # , 'addrList': ['서울특별시', '부산광역시', '대구광역시', '인천광역시', '광주광역시', '대전광역시', '울산광역시', '세종특별자치시', '경기도', '강원특별자치도', '충청북도', '충청남도', '전라북도', '전라남도', '경상북도', '경상남도', '제주특별자치도']
                 # , 'addrList': ['부산광역시']
-                , 'addrList':  [globalVar['addrList']]
+                # , 'addrList':  [globalVar['addrList']]
             }
 
             # 변수 설정
@@ -365,283 +386,230 @@ class DtaProcess(object):
             # *********************************************************************************
             # [자료 수집] 오픈API를 이용한 토지/상업 매매 신고
             # # *********************************************************************************
-            for i, apiInfo in enumerate(sysOpt['apiList']):
-                log.info(f'[CHECK] apiInfo : {apiInfo}')
-
-                apiUrl = sysOpt['apiList'][apiInfo]
-
-                # addrInfo = sysOpt['addrList'][0]
-                for ii, addrInfo in enumerate(sysOpt['addrList']):
-                    log.info(f'[CHECK] addrInfo : {addrInfo}')
-
-                    # admDataL1 = admData[admData['법정동명'].str.contains('서울')]
-                    admDataL1 = admData[
-                        (admData['법정동명'].str.contains(addrInfo))
-                        & (admData['d1'].notna())
-                        & (admData['d2'].notna())
-                        & (admData['d3'].isna())
-                        & (admData['d4'].isna())
-                        & (admData['d5'].isna())
-                    ]
-                    if (len(admDataL1) < 1): continue
-
-                    # 시군구 목록
-                    sigunguCdList = set(admDataL1['sigunguCd'])
-                    log.info(f'[CHECK] sigunguCdList : {sigunguCdList}')
-
-                    # 페이지 설정
-                    pageList = np.arange(0, 9999, 1)
-
-                    for i, sigunguCdInfo in enumerate(sigunguCdList):
-
-                        selAddrInfo = admData[
-                            (admData['sigunguCd'] == sigunguCdInfo)
-                            & (admData['bjdongCd'] == '00000')
-                        ]['법정동명'].values[0]
-
-                        log.info(f'[CHECK] sigunguCdInfo : {sigunguCdInfo}')
-                        log.info(f'[CHECK] selAddrInfo : {selAddrInfo}')
-
-                        for j, dtMonthInfo in enumerate(dtMonthList):
-                            # log.info(f'[CHECK] dtMonthInfo : {dtMonthInfo}')
-
-                            dtYearMonth = dtMonthInfo.strftime('%Y%m')
-
-                            saveFile = '{}/{}/{}/{}/{}/{}_{}_{}.csv'.format(globalVar['outPath'], serviceName, '매매', apiInfo, selAddrInfo, apiInfo, selAddrInfo, dtYearMonth)
-                            os.makedirs(os.path.dirname(saveFile), exist_ok=True)
-
-                            dataL1 = pd.DataFrame()
-
-                            # fileChkList = glob.glob(saveFile)
-                            # if (len(fileChkList) > 0): continue
-
-                            for k, pageInfo in enumerate(pageList):
-                                # log.info(f'[CHECK] pageInfo : {pageInfo}')
-
-                                try:
-                                    inParams = {'serviceKey': sysOpt['apiKey'], 'pageNo': 1, 'numOfRows': 100, 'LAWD_CD': sigunguCdInfo, 'DEAL_YMD': dtYearMonth}
-                                    apiParams = urllib.parse.urlencode(inParams).encode('UTF-8')
-
-                                    res = requests.get(apiUrl, params=apiParams)
-
-                                    resCode = res.status_code
-                                    if resCode != 200: break
-
-                                    # json 읽기
-                                    # resData = json.loads(res.read().decode('UTF-8'))
-                                    # resData = json.loads(res.content.decode('UTF-8'))
-
-                                    # xml to json 읽기
-                                    # resData = xmltodict.parse(res.read().decode('UTF-8'))
-                                    resData = xmltodict.parse(res.content.decode('UTF-8'))
-                                    resultCode = resData['response']['header']['resultCode']
-                                    if (resultCode != '00'): break
-
-                                    resBody = resData['response']['body']
-                                    totalCnt = int(resBody['totalCount'])
-                                    if (totalCnt < 1): break
-
-                                    itemList = resBody['items']['item']
-                                    if (len(itemList) < 1): break
-
-                                    if (totalCnt == 1):
-                                        data = pd.DataFrame.from_dict([itemList])
-                                    else:
-                                        data = pd.DataFrame.from_dict(itemList)
-
-                                    data['addrInfo'] = selAddrInfo
-                                    data['sigunguCdInfo'] = sigunguCdInfo
-                                    data['dtYearMonth'] = dtYearMonth
-                                    data['pageInfo'] = pageInfo
-                                    data['type'] = apiInfo
-
-                                    dataL1 = pd.concat([dataL1, data], ignore_index=True)
-
-                                    if (totalCnt < (pageInfo * 100)): break
-
-                                except Exception as e:
-                                    log.error("Exception : {}".format(e))
-
-                            # 자료 저장
-                            if (len(dataL1) > 0):
-                                data.to_csv(saveFile, index=False)
-                                log.info(f'[CHECK] saveFile : {saveFile}')
+            # for i, apiInfo in enumerate(sysOpt['apiList']):
+            #     log.info(f'[CHECK] apiInfo : {apiInfo}')
+            #
+            #     apiUrl = sysOpt['apiList'][apiInfo]
+            #
+            #     # addrInfo = sysOpt['addrList'][0]
+            #     for ii, addrInfo in enumerate(sysOpt['addrList']):
+            #         log.info(f'[CHECK] addrInfo : {addrInfo}')
+            #
+            #         # admDataL1 = admData[admData['법정동명'].str.contains('서울')]
+            #         admDataL1 = admData[
+            #             (admData['법정동명'].str.contains(addrInfo))
+            #             & (admData['d1'].notna())
+            #             & (admData['d2'].notna())
+            #             & (admData['d3'].isna())
+            #             & (admData['d4'].isna())
+            #             & (admData['d5'].isna())
+            #         ]
+            #         if (len(admDataL1) < 1): continue
+            #
+            #         # 시군구 목록
+            #         sigunguCdList = set(admDataL1['sigunguCd'])
+            #         log.info(f'[CHECK] sigunguCdList : {sigunguCdList}')
+            #
+            #         # 페이지 설정
+            #         pageList = np.arange(0, 9999, 1)
+            #
+            #         for i, sigunguCdInfo in enumerate(sigunguCdList):
+            #
+            #             selAddrInfo = admData[
+            #                 (admData['sigunguCd'] == sigunguCdInfo)
+            #                 & (admData['bjdongCd'] == '00000')
+            #             ]['법정동명'].values[0]
+            #
+            #             log.info(f'[CHECK] sigunguCdInfo : {sigunguCdInfo}')
+            #             log.info(f'[CHECK] selAddrInfo : {selAddrInfo}')
+            #
+            #             for j, dtMonthInfo in enumerate(dtMonthList):
+            #                 # log.info(f'[CHECK] dtMonthInfo : {dtMonthInfo}')
+            #
+            #                 dtYearMonth = dtMonthInfo.strftime('%Y%m')
+            #
+            #                 saveFile = '{}/{}/{}/{}/{}/{}_{}_{}.csv'.format(globalVar['outPath'], serviceName, '매매', apiInfo, selAddrInfo, apiInfo, selAddrInfo, dtYearMonth)
+            #                 os.makedirs(os.path.dirname(saveFile), exist_ok=True)
+            #
+            #                 dataL1 = pd.DataFrame()
+            #
+            #                 # fileChkList = glob.glob(saveFile)
+            #                 # if (len(fileChkList) > 0): continue
+            #
+            #                 for k, pageInfo in enumerate(pageList):
+            #                     # log.info(f'[CHECK] pageInfo : {pageInfo}')
+            #
+            #                     try:
+            #                         inParams = {'serviceKey': sysOpt['apiKey'], 'pageNo': 1, 'numOfRows': 100, 'LAWD_CD': sigunguCdInfo, 'DEAL_YMD': dtYearMonth}
+            #                         apiParams = urllib.parse.urlencode(inParams).encode('UTF-8')
+            #
+            #                         res = requests.get(apiUrl, params=apiParams)
+            #
+            #                         resCode = res.status_code
+            #                         if resCode != 200: break
+            #
+            #                         # json 읽기
+            #                         # resData = json.loads(res.read().decode('UTF-8'))
+            #                         # resData = json.loads(res.content.decode('UTF-8'))
+            #
+            #                         # xml to json 읽기
+            #                         # resData = xmltodict.parse(res.read().decode('UTF-8'))
+            #                         resData = xmltodict.parse(res.content.decode('UTF-8'))
+            #                         resultCode = resData['response']['header']['resultCode']
+            #                         if (resultCode != '00'): break
+            #
+            #                         resBody = resData['response']['body']
+            #                         totalCnt = int(resBody['totalCount'])
+            #                         if (totalCnt < 1): break
+            #
+            #                         itemList = resBody['items']['item']
+            #                         if (len(itemList) < 1): break
+            #
+            #                         if (totalCnt == 1):
+            #                             data = pd.DataFrame.from_dict([itemList])
+            #                         else:
+            #                             data = pd.DataFrame.from_dict(itemList)
+            #
+            #                         data['addrInfo'] = selAddrInfo
+            #                         data['sigunguCdInfo'] = sigunguCdInfo
+            #                         data['dtYearMonth'] = dtYearMonth
+            #                         data['pageInfo'] = pageInfo
+            #                         data['type'] = apiInfo
+            #
+            #                         dataL1 = pd.concat([dataL1, data], ignore_index=True)
+            #
+            #                         if (totalCnt < (pageInfo * 100)): break
+            #
+            #                     except Exception as e:
+            #                         log.error("Exception : {}".format(e))
+            #
+            #                 # 자료 저장
+            #                 if (len(dataL1) > 0):
+            #                     data.to_csv(saveFile, index=False)
+            #                     log.info(f'[CHECK] saveFile : {saveFile}')
 
             # # *********************************************************************************
-            # # [자료 전처리] 실거래가, 전월세가
+            # # [자료 전처리] 토지/상업 매매 신고
             # # *********************************************************************************
-            # colList = ['종류', '이름', 'addrDtlInfo', 'addrInfo', '계약일', '면적', '거래가', '보증가', '층', '월세가', '분류', '건축년도', '년', '평형', 'lat', 'lon', '거래유형', '법정동', '등기일']
-            # for ii, addrInfo in enumerate(sysOpt['addrList']):
-            #     log.info(f'[CHECK] addrInfo : {addrInfo}')
-            #
-            #     posDataL1 = pd.DataFrame()
-            #     for i, apiInfo in enumerate(sysOpt['apiList']):
-            #         log.info(f'[CHECK] apiInfo : {apiInfo}')
-            #
-            #         inpFile = '{}/{}/*/{}/*{}*/*{}*.csv'.format(globalVar['outPath'], serviceName, apiInfo, addrInfo, apiInfo)
-            #         # inpFile = '{}/{}/*/{}/*{}*/{}*.csv'.format(globalVar['outPath'], serviceName, apiInfo, addrInfo, apiInfo)
-            #         fileList = sorted(glob.glob(inpFile))
-            #         if fileList is None or len(fileList) < 1:
-            #             log.error('[ERROR] inpFile : {} / {}'.format(inpFile, '입력 자료를 확인해주세요.'))
-            #             # raise Exception('[ERROR] inpFile : {} / {}'.format(inpFile, '입력 자료를 확인해주세요.'))
-            #
-            #         posData = pd.DataFrame()
-            #         fileInfo = fileList[0]
-            #         for fileInfo in fileList:
-            #             tmpData = pd.read_csv(fileInfo)
-            #             posData = pd.concat([posData, tmpData], ignore_index=True)
-            #
-            #         colInfo = ['보증금액', '월세금액']
-            #         if (apiInfo in '아파트'):
-            #             # posData['addrDtlInfo'] = posData['addrInfo'] + ' ' + posData['법정동'] + ' ' + posData['아파트'] + ' ' + posData['지번'].astype(str)
-            #             posData['addrDtlInfo'] = posData['addrInfo'] + ' ' + posData['법정동'] + ' ' + posData['아파트'].astype(str) + ' ' + posData['지번'].astype(str)
-            #             posData['면적'] = posData['전용면적']
-            #             posData['이름'] = posData['아파트']
-            #         elif (apiInfo in '오피스텔'):
-            #             # posData['addrDtlInfo'] = posData['addrInfo'] + ' ' + posData['법정동'] + ' ' + posData['단지'] + ' ' + posData['지번'].astype(str)
-            #             posData['addrDtlInfo'] = posData['addrInfo'] + ' ' + posData['법정동'] + ' ' + posData['단지'].astype(str) + ' ' + posData['지번'].astype(str)
-            #             posData['면적'] = posData['전용면적']
-            #             posData['이름'] = posData['단지']
-            #             colInfo = ['보증금', '월세']
-            #         elif (apiInfo in '단독다가구'):
-            #             posData['addrDtlInfo'] = posData['addrInfo'] + ' ' + posData['법정동']
-            #             posData['면적'] = posData['대지면적']
-            #             posData['이름'] = None
-            #             posData['층'] = None
-            #         elif (apiInfo in '연립다세대'):
-            #             # posData['addrDtlInfo'] = posData['addrInfo'] + ' ' + posData['법정동'] + ' ' + posData['연립다세대'] + ' ' + posData['지번'].astype(str)
-            #             posData['addrDtlInfo'] = posData['addrInfo'] + ' ' + posData['법정동'] + ' ' + posData['연립다세대'].astype(str) + ' ' + posData['지번'].astype(str)
-            #             posData['면적'] = posData['대지권면적']
-            #             posData['이름'] = posData['연립다세대']
-            #         else:
-            #             continue
-            #
-            #         posData['종류'] = apiInfo
-            #         posData['계약일'] = pd.to_datetime(posData['년'].astype(str) + '-' + posData['월'].astype(str) + '-' + posData['일'].astype(str), format='%Y-%m-%d')
-            #
-            #         binList = [(posData['면적'] >= 330), (posData['면적'] >= 264), (posData['면적'] >= 198), (posData['면적'] >= 114), (posData['면적'] >= 80), (posData['면적'] >= 60), (posData['면적'] >= 40), (posData['면적'] >= 20), (posData['면적'] >= 10)]
-            #         labelList = ["100평형", "80평형", "60평형", "43평형", "32평형", "24평형", "18평형", "9평형", "5평형"]
-            #         posData['평형'] = np.select(binList, labelList, default=None)
-            #
-            #         # 등기일
-            #         if not posData.get('등기일자') is None:
-            #             posData['등기일'] =  pd.to_datetime(posData['등기일자']).replace({pd.NaT: None})
-            #         else:
-            #             posData['등기일'] = None
-            #
-            #         # 매매가
-            #         if not posData.get('거래금액') is None:
-            #             posData['거래금액'] = pd.to_numeric(posData['거래금액'].astype(str).str.replace(',', ''), errors='coerce').astype(float)
-            #             posData['거래가'] = posData['거래금액'] * 10000
-            #             posData['val'] = round(posData['거래금액'] / 10000, 1)
-            #             binList = [(posData['val'] > 15), (posData['val'] >= 9), (posData['val'] >= 6), (posData['val'] > 3), (posData['val'] <= 3)]
-            #             labelList = ["15억 초과", "9-15억", "6-9억", "3-6억", "3억 이하"]
-            #             posData['분류'] = np.select(binList, labelList, default=None)
-            #         else:
-            #             posData['거래가'] = None
-            #             posData['val'] = None
-            #             posData['분류'] = None
-            #
-            #         # 보증가
-            #         if not posData.get(colInfo[0]) is None:
-            #             posData['보증금액'] = pd.to_numeric(posData[colInfo[0]].astype(str).str.replace(',', ''), errors='coerce').astype(float)
-            #             posData['보증가'] = posData['보증금액'] * 10000
-            #             posData['val2'] = round(posData['보증금액'] / 10000, 1)
-            #         else:
-            #             posData['보증가'] = None
-            #             posData['val2'] = None
-            #
-            #         # 월세가
-            #         if not posData.get(colInfo[1]) is None:
-            #             posData['월세금액'] = pd.to_numeric(posData[colInfo[1]].astype(str).str.replace(',', ''), errors='coerce').astype(float)
-            #             posData['월세가'] = posData['월세금액'] * 10000
-            #             posData['val3'] = round(posData['월세금액'] / 10000, 1)
-            #         else:
-            #             posData['월세가'] = None
-            #             posData['val3'] = None
-            #
-            #         posData['lat'] = None
-            #         posData['lon'] = None
-            #         posData['거래유형'] = posData.apply(getRentType, axis=1)
-            #
-            #         posDataL1 = pd.concat([posDataL1, posData], ignore_index=True)
-            #
-            #         # 중복 제거
-            #         posDataL2 = posData.drop_duplicates(subset=colList, inplace=False)
-            #
-            #
-            #         # # DB 저장
-            #         dbData = posDataL2[colList].rename(
-            #             {
-            #                 '종류': 'TYPE'
-            #                 , '이름': 'NAME'
-            #                 , 'addrDtlInfo': 'ADDR'
-            #                 , 'addrInfo': 'SI_DONG'
-            #                 , '계약일': 'SALE_DATE'
-            #                 , '면적': 'AREA'
-            #                 , '거래가': 'SALE_PRICE'
-            #                 , '보증가': 'SALE_PRICE2'
-            #                 , '월세가': 'SALE_PRICE3'
-            #                 , '분류': 'SALE_TYPE'
-            #                 , '층': 'FLOOR'
-            #                 , '건축년도': 'CONV_YEAR'
-            #                 , '년': 'YEAR'
-            #                 , '평형': 'PYEONG'
-            #                 , 'lat': 'LAT'
-            #                 , 'lon': 'LON'
-            #                 , '거래유형': 'RENT_TYPE'
-            #                 , '법정동': 'DONG'
-            #                 , '등기일': 'RGSTR_DATE'
-            #             }
-            #             , axis=1
-            #         )
-            #
-            #         # DB 내 데이터 삭제
-            #         # TRUNCATE TABLE TB_SALE_INFO;
-            #         # SELECT SI_DONG, COUNT(SI_DONG) FROM TB_SALE_INFO GROUP BY SI_DONG;
-            #
-            #         try:
-            #             # dbData.to_sql(name=tbSaleInfo.name, con=dbEngine, if_exists='replace', index=False)
-            #             dbData.to_sql(name=tbSaleInfo.name, con=dbEngine, if_exists='append', index=False)
-            #             session.commit()
-            #         except SQLAlchemyError as e:
-            #             session.rollback()
-            #             log.error(f'Exception : {e}')
-            #
-            #     # 중복 제거
-            #     posDataL3 = posDataL1.drop_duplicates(subset=colList, inplace=False)
-            #
-            #     # 알집 압축
-            #     zipFile = '{}/{}/{}.zip'.format(globalVar['updPath'], addrInfo, addrInfo)
-            #     zipInpFile = '{}/{}/*/*/*{}*/*{}*.csv'.format(globalVar['outPath'], serviceName, addrInfo, addrInfo)
-            #     zipFileList = sorted(glob.glob(zipInpFile))
-            #
-            #     os.makedirs(os.path.dirname(zipFile), exist_ok=True)
-            #     with zipfile.ZipFile(zipFile, 'w', compresslevel=9) as zipf:
-            #         for zipFileInfo in zipFileList:
-            #             zipf.write(zipFileInfo, arcname=zipFileInfo.replace(globalVar['outPath'], '').replace(serviceName, ''))
-            #     log.info(f'[CHECK] zipFile : {zipFile}')
-            #
-            #     # 자료 저장
-            #     saveFile = '{}/{}/{}.csv'.format(globalVar['updPath'], addrInfo, addrInfo)
-            #     os.makedirs(os.path.dirname(saveFile), exist_ok=True)
-            #     posDataL3.to_csv(saveFile, index=False)
-            #     log.info(f'[CHECK] saveFile : {saveFile}')
-            #     #
-            #     # dbData = pd.DataFrame(
-            #     #     {
-            #     #         'TYPE': [addrInfo],
-            #     #         'ZIP_INFO': [f"http://{getPubliIp()}:9000/CSV{zipFile.replace(globalVar['updPath'], '')}"],
-            #     #         'CSV_INFO': [f"http://{getPubliIp()}:9000/CSV{saveFile.replace(globalVar['updPath'], '')}"]
-            #     #     }
-            #     # )
-            #     #
-            #     # try:
-            #     #     dbData.to_sql(name=tbSaleDown.name, con=dbEngine, if_exists='append', index=False)
-            #     #     session.commit()
-            #     # except SQLAlchemyError as e:
-            #     #     session.rollback()
-            #     #     log.error(f'Exception : {e}')
+            colList = ['시도', '시군구', '법정동', '주소', '분류', '거래가', '거래가 분류', '거래면적', '거래면적 분류', '해제여부', '거래유형', '용도지역', '신고일', '연도', '해제사유발생일', '중개사소재지', '등록일']
+            for ii, addrInfo in enumerate(sysOpt['addrList']):
+                log.info(f'[CHECK] addrInfo : {addrInfo}')
+
+                posDataL1 = pd.DataFrame()
+                for i, apiInfo in enumerate(sysOpt['apiList']):
+                    log.info(f'[CHECK] apiInfo : {apiInfo}')
+
+                    inpFile = '{}/{}/*/{}/*{}*/*{}*.csv'.format(globalVar['outPath'], serviceName, apiInfo, addrInfo, apiInfo)
+                    # inpFile = '{}/{}/*/{}/*{}*/{}*.csv'.format(globalVar['outPath'], serviceName, apiInfo, addrInfo, apiInfo)
+                    fileList = sorted(glob.glob(inpFile))
+                    if fileList is None or len(fileList) < 1:
+                        log.error('[ERROR] inpFile : {} / {}'.format(inpFile, '입력 자료를 확인해주세요.'))
+                        # raise Exception('[ERROR] inpFile : {} / {}'.format(inpFile, '입력 자료를 확인해주세요.'))
+
+                    posData = pd.DataFrame()
+                    fileInfo = fileList[0]
+                    for fileInfo in fileList:
+                        tmpData = pd.read_csv(fileInfo)
+                        posData = pd.concat([posData, tmpData], ignore_index=True)
+
+                    posData['주소'] = posData['addrInfo'] + ' ' + posData['법정동'] + ' ' + posData['지번'].astype(str)
+                    posData['시도'] =posData['addrInfo'].apply(lambda x: x.split(' ')[0])
+                    posData['신고일'] = pd.to_datetime(posData['년'].astype(str) + '-' + posData['월'].astype(str) + '-' + posData['일'].astype(str), format='%Y-%m-%d')
+                    posData['연도'] = posData['년']
+                    posData['분류'] = posData['type']
+                    posData['등록일'] =  pd.to_datetime(posData['dtYearMonth'].astype(str), format='%Y%m')
+
+                    # 거래금액
+                    posData['거래금액'] = pd.to_numeric(posData['거래금액'].astype(str).str.replace(',', ''), errors='coerce').astype(float)
+                    posData['거래가'] = posData['거래금액'] * 10000
+                    convVal = round(posData['거래금액'] / 10000, 1)
+                    binList = [(convVal > 15), (convVal >= 9), (convVal >= 6), (convVal > 3), (convVal <= 3)]
+                    labelList = ["15억 초과", "9-15억", "6-9억", "3-6억", "3억 이하"]
+                    posData['거래가 분류'] = np.select(binList, labelList, default=None)
+
+                    # 면적
+                    convArea = posData['거래면적']
+                    binList = [(convArea >= 330), (convArea >= 264), (convArea >= 198), (convArea >= 114), (convArea >= 80), (convArea >= 60), (convArea >= 40), (convArea >= 20), (convArea >= 10)]
+                    labelList = ["100평형 이상", "80평형", "60평형", "43평형", "32평형", "24평형", "18평형", "9평형", "5평형"]
+                    posData['거래면적 분류'] = np.select(binList, labelList, default=None)
+
+                    posDataL1 = pd.concat([posDataL1, posData], ignore_index=True)
+
+                    # 중복 제거
+                    posDataL2 = posData.drop_duplicates(subset=colList, inplace=False)
+
+                    # posDataL2[colList].columns
+
+                    # # DB 저장
+                    dbData = posDataL2[colList].rename(
+                        {
+                            '시도': 'SIDO'
+                            , '시군구': 'NAME'
+                            , '법정동': 'ADDR'
+                            , '주소': 'ADDR'
+                            , '분류': 'TYPE'
+                            , '거래가': 'SALE_PRICE'
+                            , '거래가 분류': 'SALE_PRICE_TYPE'
+                            , '거래면적': 'SALE_AREA'
+                            , '거래면적 분류': 'SALE_AREA_TYPE'
+                            , '해제여부': 'IS_CANC'
+                            , '거래유형': 'SALE_TYPE'
+                            , '용도지역': 'USAGE_AREA'
+                            , '신고일': 'DEC_DATE'
+                            , '연도': 'YEAR'
+                            , '해제사유발생일': 'CAN_DATE'
+                            , '중개사소재지': 'AGE_LOC'
+                            , '등록일': 'REG_DATE'
+                        }
+                        , axis=1
+                    )
+
+                    # DB 내 데이터 삭제
+                    # TRUNCATE TABLE TB_SALE_INFO;
+                    # SELECT SI_DONG, COUNT(SI_DONG) FROM TB_SALE_INFO GROUP BY SI_DONG;
+
+                    try:
+                        # dbData.to_sql(name=tbSaleInfo.name, con=dbEngine, if_exists='replace', index=False)
+                        dbData.to_sql(name=tbSaleInfo.name, con=dbEngine, if_exists='append', index=False)
+                        session.commit()
+                    except SQLAlchemyError as e:
+                        session.rollback()
+                        log.error(f'Exception : {e}')
+
+                # 중복 제거
+                posDataL3 = posDataL1.drop_duplicates(subset=colList, inplace=False)
+
+                # 알집 압축
+                zipFile = '{}/{}/{}.zip'.format(globalVar['updPath'], addrInfo, addrInfo)
+                zipInpFile = '{}/{}/*/*/*{}*/*{}*.csv'.format(globalVar['outPath'], serviceName, addrInfo, addrInfo)
+                zipFileList = sorted(glob.glob(zipInpFile))
+
+                os.makedirs(os.path.dirname(zipFile), exist_ok=True)
+                with zipfile.ZipFile(zipFile, 'w', compresslevel=9) as zipf:
+                    for zipFileInfo in zipFileList:
+                        zipf.write(zipFileInfo, arcname=zipFileInfo.replace(globalVar['outPath'], '').replace(serviceName, ''))
+                log.info(f'[CHECK] zipFile : {zipFile}')
+
+                # 자료 저장
+                saveFile = '{}/{}/{}.csv'.format(globalVar['updPath'], addrInfo, addrInfo)
+                os.makedirs(os.path.dirname(saveFile), exist_ok=True)
+                posDataL3.to_csv(saveFile, index=False)
+                log.info(f'[CHECK] saveFile : {saveFile}')
+                #
+                # dbData = pd.DataFrame(
+                #     {
+                #         'TYPE': [addrInfo],
+                #         'ZIP_INFO': [f"http://{getPubliIp()}:9000/CSV{zipFile.replace(globalVar['updPath'], '')}"],
+                #         'CSV_INFO': [f"http://{getPubliIp()}:9000/CSV{saveFile.replace(globalVar['updPath'], '')}"]
+                #     }
+                # )
+                #
+                # try:
+                #     dbData.to_sql(name=tbSaleDown.name, con=dbEngine, if_exists='append', index=False)
+                #     session.commit()
+                # except SQLAlchemyError as e:
+                #     session.rollback()
+                #     log.error(f'Exception : {e}')
 
         except Exception as e:
             log.error("Exception : {}".format(e))
