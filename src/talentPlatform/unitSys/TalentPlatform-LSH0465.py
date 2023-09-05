@@ -314,7 +314,7 @@ class DtaProcess(object):
             # 옵션 설정
             sysOpt = {
                 # 시작/종료 시간
-                'srtDate': '2000-01-01'
+                'srtDate': '2005-01-01'
                 , 'endDate': datetime.now().strftime("%Y-%m-%d")
 
                 # 공공데이터포털 API
@@ -327,10 +327,10 @@ class DtaProcess(object):
                 }
 
                 # 검색 목록
-                , 'addrList': ['제주특별자치도']
+                # , 'addrList': ['제주특별자치도']
                 # , 'addrList': ['서울특별시', '부산광역시', '대구광역시', '인천광역시', '광주광역시', '대전광역시', '울산광역시', '세종특별자치시', '경기도', '강원특별자치도', '충청북도', '충청남도', '전라북도', '전라남도', '경상북도', '경상남도', '제주특별자치도']
                 # , 'addrList': ['부산광역시']
-                # , 'addrList':  [globalVar['addrList']]
+                , 'addrList':  [globalVar['addrList']]
             }
 
             # 변수 설정
@@ -342,9 +342,9 @@ class DtaProcess(object):
             # gmap = googlemaps.Client(key=sysOpt['googleApiKey'])
 
             # DB 정보
-            cfgInfo = initCfgInfo(f"{globalVar['cfgPath']}/system.cfg")
-            dbEngine = cfgInfo['dbEngine']
-            session = cfgInfo['session']
+            # cfgInfo = initCfgInfo(f"{globalVar['cfgPath']}/system.cfg")
+            # dbEngine = cfgInfo['dbEngine']
+            # session = cfgInfo['session']
             # tbSaleDown = cfgInfo['tbSaleDown']
             # tbSaleInfo = cfgInfo['tbSaleInfo']
 
@@ -428,12 +428,12 @@ class DtaProcess(object):
                                     if resCode != 200: continue
 
                                     # json 읽기
-                                    # resData = json.loads(res.read().decode('utf-8'))
-                                    # resData = json.loads(res.content.decode('utf-8'))
+                                    # resData = json.loads(res.read().decode('UTF-8'))
+                                    # resData = json.loads(res.content.decode('UTF-8'))
 
                                     # xml to json 읽기
-                                    # resData = xmltodict.parse(res.read().decode('utf-8'))
-                                    resData = xmltodict.parse(res.content.decode('utf-8'))
+                                    # resData = xmltodict.parse(res.read().decode('UTF-8'))
+                                    resData = xmltodict.parse(res.content.decode('UTF-8'))
                                     resultCode = resData['response']['header']['resultCode']
                                     if (resultCode != '00'): continue
 
