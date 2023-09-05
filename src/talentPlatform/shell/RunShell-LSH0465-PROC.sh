@@ -7,6 +7,7 @@ echo
 # DOC
 #========================================
 # ps -ef | grep python3 | grep LSH0465 | awk '{print $2}' | xargs kill -9
+# cd /SYSTEMS/PROG/PYTHON/PyCharm/src/talentPlatform/shell
 # nohup bash RunShell-LSH0465-PROC.sh &
 
 #========================================
