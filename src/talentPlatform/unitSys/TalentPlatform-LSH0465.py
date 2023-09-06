@@ -337,10 +337,11 @@ class DtaProcess(object):
                 }
 
                 # 검색 목록
+                , 'addrList': ['세종특별자치시']
                 # , 'addrList': ['제주특별자치도']
                 # , 'addrList': ['서울특별시', '부산광역시', '대구광역시', '인천광역시', '광주광역시', '대전광역시', '울산광역시', '세종특별자치시', '경기도', '강원특별자치도', '충청북도', '충청남도', '전라북도', '전라남도', '경상북도', '경상남도', '제주특별자치도']
                 # , 'addrList': ['부산광역시']
-                , 'addrList':  [globalVar['addrList']]
+                # , 'addrList':  [globalVar['addrList']]
             }
 
             # 변수 설정
@@ -422,8 +423,8 @@ class DtaProcess(object):
             #
             #                 dataL1 = pd.DataFrame()
             #
-            #                 # fileChkList = glob.glob(saveFile)
-            #                 # if (len(fileChkList) > 0): continue
+            #                 fileChkList = glob.glob(saveFile)
+            #                 if (len(fileChkList) > 0): continue
             #
             #                 for k, pageInfo in enumerate(pageList):
             #                     # log.info(f'[CHECK] pageInfo : {pageInfo}')
@@ -502,6 +503,8 @@ class DtaProcess(object):
                         posData = pd.concat([posData, tmpData], ignore_index=True)
 
                     posData['주소'] = posData['addrInfo'] + ' ' + posData['법정동'] + ' ' + posData['지번'].astype(str)
+                    # 세종특별자치시 시군구 없음
+                    posData['시군구'] = None if posData.get('시군구') is None else posData['시군구']
                     posData['시도'] = posData['addrInfo'].apply(lambda x: x.split(' ')[0])
                     posData['신고일'] = pd.to_datetime(posData['년'].astype(str) + '-' + posData['월'].astype(str) + '-' + posData['일'].astype(str), format='%Y-%m-%d')
                     posData['연도'] = posData['년']
@@ -525,8 +528,8 @@ class DtaProcess(object):
                         posData['면적'] = None
 
                     convArea = posData['면적']
-                    binList = [(convArea >= 330), (convArea >= 264), (convArea >= 198), (convArea >= 114), (convArea >= 80), (convArea >= 60), (convArea >= 40), (convArea >= 20), (convArea >= 10)]
-                    labelList = ["100평형 이상", "80평형", "60평형", "43평형", "32평형", "24평형", "18평형", "9평형", "5평형"]
+                    binList = [(convArea >= 3300000), (convArea >= 330000), (convArea >= 33000), (convArea >= 3300), (convArea >= 3300), (convArea >= 330), (convArea >= 264), (convArea >= 198), (convArea >= 114), (convArea >= 80), (convArea >= 60), (convArea >= 40), (convArea >= 20), (convArea >= 0)]
+                    labelList = ["10,000,000평형", "1,000,000평형", "100,000평형", "10,000평형", "1,000평형", "100평형", "80평형", "60평형", "43평형", "32평형", "24평형", "18평형", "9평형", "5평형"]
                     posData['면적 분류'] = np.select(binList, labelList, default=None)
 
                     # 중복 제거
