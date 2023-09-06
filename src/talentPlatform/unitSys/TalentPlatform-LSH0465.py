@@ -213,17 +213,14 @@ def initCfgInfo(sysPath):
         # 테이블 정보
         metaData = MetaData()
 
-        # 예보 모델 테이블
-        # tbSaleDown = Table('TB_SALE_DOWN', metaData, autoload_with=dbEngine, schema=dbName)
-
-        # 기본 위경도 테이블
-        # tbSaleInfo = Table('TB_SALE_INFO', metaData, autoload_with=dbEngine, schema=dbName)
+        tbRprDown = Table('TB_RPR_DOWN', metaData, autoload_with=dbEngine, schema=dbName)
+        tbRprInfo = Table('TB_RPR_INFO', metaData, autoload_with=dbEngine, schema=dbName)
 
         result = {
             'dbEngine': dbEngine
             , 'session': session
-            # , 'tbSaleDown': tbSaleDown
-            # , 'tbSaleInfo': tbSaleInfo
+            , 'tbRprDown': tbRprDown
+            , 'tbRprInfo': tbRprInfo
         }
 
         return result
@@ -235,14 +232,6 @@ def initCfgInfo(sysPath):
     finally:
         # try, catch 구문이 종료되기 전에 무조건 실행
         log.info('[END] {}'.format('initCfgInfo'))
-
-# def getRentType(row):
-#     if row['거래가'] > 0:
-#         return '매매'
-#     elif row['월세가'] > 0:
-#         return '월세'
-#     else:
-#         return '전세'
 
 # ================================================
 # 4. 부 프로그램
@@ -348,10 +337,10 @@ class DtaProcess(object):
                 }
 
                 # 검색 목록
-                , 'addrList': ['제주특별자치도']
+                # , 'addrList': ['제주특별자치도']
                 # , 'addrList': ['서울특별시', '부산광역시', '대구광역시', '인천광역시', '광주광역시', '대전광역시', '울산광역시', '세종특별자치시', '경기도', '강원특별자치도', '충청북도', '충청남도', '전라북도', '전라남도', '경상북도', '경상남도', '제주특별자치도']
                 # , 'addrList': ['부산광역시']
-                # , 'addrList':  [globalVar['addrList']]
+                , 'addrList':  [globalVar['addrList']]
             }
 
             # 변수 설정
@@ -363,11 +352,11 @@ class DtaProcess(object):
             # gmap = googlemaps.Client(key=sysOpt['googleApiKey'])
 
             # DB 정보
-            # cfgInfo = initCfgInfo(f"{globalVar['cfgPath']}/system.cfg")
-            # dbEngine = cfgInfo['dbEngine']
-            # session = cfgInfo['session']
-            # tbSaleDown = cfgInfo['tbSaleDown']
-            # tbSaleInfo = cfgInfo['tbSaleInfo']
+            cfgInfo = initCfgInfo(f"{globalVar['cfgPath']}/system.cfg")
+            dbEngine = cfgInfo['dbEngine']
+            session = cfgInfo['session']
+            tbRprDown = cfgInfo['tbRprDown']
+            tbRprInfo = cfgInfo['tbRprInfo']
 
             # *********************************************************************************
             # 법정동 코드 읽기
@@ -491,7 +480,7 @@ class DtaProcess(object):
             # # *********************************************************************************
             # # [자료 전처리] 토지/상업 매매 신고
             # # *********************************************************************************
-            colList = ['시도', '시군구', '법정동', '주소', '분류', '거래가', '거래가 분류', '거래면적', '거래면적 분류', '해제여부', '거래유형', '용도지역', '신고일', '연도', '해제사유발생일', '중개사소재지', '등록일']
+            colList = ['시도', '시군구', '법정동', '주소', '분류', '거래가', '거래가 분류', '면적', '면적 분류', '해제여부', '거래유형', '용도지역', '연도', '해제사유발생일', '중개사소재지', '등록일', '신고일']
             for ii, addrInfo in enumerate(sysOpt['addrList']):
                 log.info(f'[CHECK] addrInfo : {addrInfo}')
 
@@ -513,7 +502,7 @@ class DtaProcess(object):
                         posData = pd.concat([posData, tmpData], ignore_index=True)
 
                     posData['주소'] = posData['addrInfo'] + ' ' + posData['법정동'] + ' ' + posData['지번'].astype(str)
-                    posData['시도'] =posData['addrInfo'].apply(lambda x: x.split(' ')[0])
+                    posData['시도'] = posData['addrInfo'].apply(lambda x: x.split(' ')[0])
                     posData['신고일'] = pd.to_datetime(posData['년'].astype(str) + '-' + posData['월'].astype(str) + '-' + posData['일'].astype(str), format='%Y-%m-%d')
                     posData['연도'] = posData['년']
                     posData['분류'] = posData['type']
@@ -528,12 +517,17 @@ class DtaProcess(object):
                     posData['거래가 분류'] = np.select(binList, labelList, default=None)
 
                     # 면적
-                    convArea = posData['거래면적']
+                    if (apiInfo in '토지'):
+                        posData['면적'] = posData['거래면적']
+                    elif (apiInfo in '상업'):
+                        posData['면적'] = posData['대지면적']
+                    else:
+                        posData['면적'] = None
+
+                    convArea = posData['면적']
                     binList = [(convArea >= 330), (convArea >= 264), (convArea >= 198), (convArea >= 114), (convArea >= 80), (convArea >= 60), (convArea >= 40), (convArea >= 20), (convArea >= 10)]
                     labelList = ["100평형 이상", "80평형", "60평형", "43평형", "32평형", "24평형", "18평형", "9평형", "5평형"]
-                    posData['거래면적 분류'] = np.select(binList, labelList, default=None)
-
-                    posDataL1 = pd.concat([posDataL1, posData], ignore_index=True)
+                    posData['면적 분류'] = np.select(binList, labelList, default=None)
 
                     # 중복 제거
                     posDataL2 = posData.drop_duplicates(subset=colList, inplace=False)
@@ -544,43 +538,45 @@ class DtaProcess(object):
                     dbData = posDataL2[colList].rename(
                         {
                             '시도': 'SIDO'
-                            , '시군구': 'NAME'
-                            , '법정동': 'ADDR'
+                            , '시군구': 'SIGUNGU'
+                            , '법정동': 'DONG'
                             , '주소': 'ADDR'
                             , '분류': 'TYPE'
                             , '거래가': 'SALE_PRICE'
                             , '거래가 분류': 'SALE_PRICE_TYPE'
-                            , '거래면적': 'SALE_AREA'
-                            , '거래면적 분류': 'SALE_AREA_TYPE'
+                            , '면적': 'AREA'
+                            , '면적 분류': 'AREA_TYPE'
                             , '해제여부': 'IS_CANC'
                             , '거래유형': 'SALE_TYPE'
                             , '용도지역': 'USAGE_AREA'
-                            , '신고일': 'DEC_DATE'
                             , '연도': 'YEAR'
-                            , '해제사유발생일': 'CAN_DATE'
                             , '중개사소재지': 'AGE_LOC'
+                            , '신고일': 'DEC_DATE'
+                            , '해제사유발생일': 'CAN_DATE'
                             , '등록일': 'REG_DATE'
                         }
                         , axis=1
                     )
 
+                    posDataL1 = pd.concat([posDataL1, dbData], ignore_index=True)
+
                     # DB 내 데이터 삭제
-                    # TRUNCATE TABLE TB_SALE_INFO;
+                    # TRUNCATE TABLE TB_RPR_INFO;
+                    # TRUNCATE TABLE TB_RPR_DOWN;
                     # SELECT SI_DONG, COUNT(SI_DONG) FROM TB_SALE_INFO GROUP BY SI_DONG;
 
                     try:
-                        # dbData.to_sql(name=tbSaleInfo.name, con=dbEngine, if_exists='replace', index=False)
-                        dbData.to_sql(name=tbSaleInfo.name, con=dbEngine, if_exists='append', index=False)
+                        dbData.to_sql(name=tbRprInfo.name, con=dbEngine, if_exists='append', index=False)
                         session.commit()
                     except SQLAlchemyError as e:
                         session.rollback()
                         log.error(f'Exception : {e}')
 
                 # 중복 제거
-                posDataL3 = posDataL1.drop_duplicates(subset=colList, inplace=False)
+                posDataL3 = posDataL1
 
                 # 알집 압축
-                zipFile = '{}/{}/{}.zip'.format(globalVar['updPath'], addrInfo, addrInfo)
+                zipFile = '{}/{}/{}/{}.zip'.format(globalVar['updPath'], serviceName, addrInfo, addrInfo)
                 zipInpFile = '{}/{}/*/*/*{}*/*{}*.csv'.format(globalVar['outPath'], serviceName, addrInfo, addrInfo)
                 zipFileList = sorted(glob.glob(zipInpFile))
 
@@ -591,25 +587,25 @@ class DtaProcess(object):
                 log.info(f'[CHECK] zipFile : {zipFile}')
 
                 # 자료 저장
-                saveFile = '{}/{}/{}.csv'.format(globalVar['updPath'], addrInfo, addrInfo)
+                saveFile = '{}/{}/{}/{}.csv'.format(globalVar['updPath'], serviceName, addrInfo, addrInfo)
                 os.makedirs(os.path.dirname(saveFile), exist_ok=True)
                 posDataL3.to_csv(saveFile, index=False)
                 log.info(f'[CHECK] saveFile : {saveFile}')
-                #
-                # dbData = pd.DataFrame(
-                #     {
-                #         'TYPE': [addrInfo],
-                #         'ZIP_INFO': [f"http://{getPubliIp()}:9000/CSV{zipFile.replace(globalVar['updPath'], '')}"],
-                #         'CSV_INFO': [f"http://{getPubliIp()}:9000/CSV{saveFile.replace(globalVar['updPath'], '')}"]
-                #     }
-                # )
-                #
-                # try:
-                #     dbData.to_sql(name=tbSaleDown.name, con=dbEngine, if_exists='append', index=False)
-                #     session.commit()
-                # except SQLAlchemyError as e:
-                #     session.rollback()
-                #     log.error(f'Exception : {e}')
+
+                dbData = pd.DataFrame(
+                    {
+                        'TYPE': [addrInfo],
+                        'ZIP_INFO': [f"http://{getPubliIp()}:9000/CSV{zipFile.replace(globalVar['updPath'], '')}"],
+                        'CSV_INFO': [f"http://{getPubliIp()}:9000/CSV{saveFile.replace(globalVar['updPath'], '')}"]
+                    }
+                )
+
+                try:
+                    dbData.to_sql(name=tbRprDown.name, con=dbEngine, if_exists='append', index=False)
+                    session.commit()
+                except SQLAlchemyError as e:
+                    session.rollback()
+                    log.error(f'Exception : {e}')
 
         except Exception as e:
             log.error("Exception : {}".format(e))
