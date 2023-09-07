@@ -337,11 +337,11 @@ class DtaProcess(object):
                 }
 
                 # 검색 목록
-                , 'addrList': ['세종특별자치시']
+                # , 'addrList': ['세종특별자치시']
                 # , 'addrList': ['제주특별자치도']
                 # , 'addrList': ['서울특별시', '부산광역시', '대구광역시', '인천광역시', '광주광역시', '대전광역시', '울산광역시', '세종특별자치시', '경기도', '강원특별자치도', '충청북도', '충청남도', '전라북도', '전라남도', '경상북도', '경상남도', '제주특별자치도']
                 # , 'addrList': ['부산광역시']
-                # , 'addrList':  [globalVar['addrList']]
+                , 'addrList':  [globalVar['addrList']]
             }
 
             # 변수 설정
@@ -528,7 +528,7 @@ class DtaProcess(object):
                         posData['면적'] = None
 
                     convArea = posData['면적']
-                    binList = [(convArea >= 3300000), (convArea >= 330000), (convArea >= 33000), (convArea >= 3300), (convArea >= 3300), (convArea >= 330), (convArea >= 264), (convArea >= 198), (convArea >= 114), (convArea >= 80), (convArea >= 60), (convArea >= 40), (convArea >= 20), (convArea >= 0)]
+                    binList = [(convArea >= 33000000), (convArea >= 3300000), (convArea >= 330000), (convArea >= 33000), (convArea >= 3300), (convArea >= 330), (convArea >= 264), (convArea >= 198), (convArea >= 114), (convArea >= 80), (convArea >= 60), (convArea >= 40), (convArea >= 20), (convArea >= 0)]
                     labelList = ["10,000,000평형", "1,000,000평형", "100,000평형", "10,000평형", "1,000평형", "100평형", "80평형", "60평형", "43평형", "32평형", "24평형", "18평형", "9평형", "5평형"]
                     posData['면적 분류'] = np.select(binList, labelList, default=None)
 
@@ -597,9 +597,10 @@ class DtaProcess(object):
 
                 dbData = pd.DataFrame(
                     {
-                        'TYPE': [addrInfo],
-                        'ZIP_INFO': [f"http://{getPubliIp()}:9000/CSV{zipFile.replace(globalVar['updPath'], '')}"],
-                        'CSV_INFO': [f"http://{getPubliIp()}:9000/CSV{saveFile.replace(globalVar['updPath'], '')}"]
+                        'TYPE': [addrInfo]
+                        , 'ZIP_INFO': [f"http://{getPubliIp()}:9000/CSV{zipFile.replace(globalVar['updPath'], '')}"]
+                        , 'CSV_INFO': [f"http://{getPubliIp()}:9000/CSV{saveFile.replace(globalVar['updPath'], '')}"]
+                        , 'REG_DATE': [datetime.now()]
                     }
                 )
 
