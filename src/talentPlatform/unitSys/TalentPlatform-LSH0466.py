@@ -332,6 +332,7 @@ class DtaProcess(object):
             # # modDataL1['pr'].isel(time=0).plot()
             # plt.show()
 
+            # https://xclim.readthedocs.io/en/stable/notebooks/sdba.html
             from xclim.sdba import QuantileDeltaMapping
 
             # group = xc.sdba.Grouper('time.dayofyear', window=5)
