@@ -257,8 +257,8 @@ class DtaProcess(object):
                 , 'endDate': '1991-01-01'
 
                 # 경도 최소/최대/간격
-                , 'lonMin': -180
-                , 'lonMax': 180
+                , 'lonMin': 0
+                , 'lonMax': 360
                 , 'lonInv': 1
 
                 # 위도 최소/최대/간격
@@ -285,13 +285,23 @@ class DtaProcess(object):
 
             inpFile = '{}/{}/{}'.format(globalVar['inpPath'], serviceName, 'ERA5_1979_2020-004.nc')
             fileList = sorted(glob.glob(inpFile))
-            obsData = xr.open_dataset(fileList[0]).sel(time=slice(sysOpt['srtDate'], sysOpt['endDate'])).interp({'lon': lonList, 'lat': latList}, method='linear')
+            obsData = xr.open_dataset(fileList[0]).sel(time=slice(sysOpt['srtDate'], sysOpt['endDate']))
+
+            # 경도 변환 (-180~180 to 0~360)
+            obsDataL1 = obsData
+            obsDataL1.coords['lon'] = (obsDataL1.coords['lon']) % 360
+            obsDataL1 = obsDataL1.sortby(obsDataL1.lon)
+
+            obsDataL2 = obsDataL1.interp({'lon': lonList, 'lat': latList}, method='linear')
+
+
 
             # obsData['rain'].isel(time = 0).plot()
+            # obsDataL2['rain'].isel(time = 0).plot()
             # plt.show()
 
             # mm d-1
-            obsData['rain'].attrs
+            # obsData['rain'].attrs
 
             # if fileList is None or len(fileList) < 1:
             #     continue
@@ -306,20 +316,35 @@ class DtaProcess(object):
             modData['pr'] = modData['pr'] * 86400
             modData['pr'].attrs["units"] = "mm d-1"
 
+            modDataL2 = modData
+
+            # 경도 변환 (-180~180 to 0~360)
+            # modDataL1 = modData
+            # modDataL1.coords['lon'] = (modDataL1.coords['lon']) % 360
+            # modDataL1 = modDataL1.sortby(modDataL1.lon)
+
             # modData['time'].values
             # modData['pr'] = modData['pr'] * 2592000 / (10 ** 6)
 
             # timeList = modData['time'].values
             # bndList = modData['bnds'].values
             # modData['pr'].isel(time=0).plot()
+            # # modDataL1['pr'].isel(time=0).plot()
             # plt.show()
 
             from xclim.sdba import QuantileDeltaMapping
 
             # group = xc.sdba.Grouper('time.dayofyear', window=5)
             # qdm = QuantileDeltaMapping.train(obsData['rain'], modData['pr'], group=group)
-            qdm = QuantileDeltaMapping.train(obsData['rain'], modData['pr'])
-            corrected = qdm.adjust(modData['pr'])
+            # qdm = QuantileDeltaMapping.train(obsData['rain'], modData['pr'])
+            # qdm = QuantileDeltaMapping.train(obsDataL2['rain'], modDataL2['pr'])
+            qdm = QuantileDeltaMapping.train(obsDataL2['rain'], modDataL2['pr'], nquantiles=15, group="time", kind="+")
+            # corData = qdm.adjust(modDataL1['pr'])
+            # corData = qdm.adjust(modData['pr'])
+            corData = qdm.adjust(modData['pr'])
+
+            corData.isel(time=0).plot()
+            plt.show()
 
             # qdm = QuantileDeltaMapping.train(obsData['rain'], modData['pr'])
 
