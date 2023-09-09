@@ -41,6 +41,19 @@ import xarray as xr
 import xclim as xc
 from sklearn.linear_model import LinearRegression
 from sklearn.metrics import mean_squared_error
+from xclim import sdba
+import xarray as xr
+import numpy as np
+import pandas as pd
+from sklearn.linear_model import LassoCV
+from sklearn.model_selection import cross_val_score
+import statsmodels.api as sm
+from sklearn.linear_model import LassoCV, LassoLarsIC
+import time
+from sklearn.linear_model import LassoLarsIC
+from sklearn.pipeline import make_pipeline
+from sklearn.preprocessing import StandardScaler
+
 
 # =================================================
 # 사용자 매뉴얼
@@ -183,6 +196,92 @@ def initArgument(globalVar, inParams):
 
     return globalVar
 
+
+def calcLassoScore(contIdx, fileNameNoExt, dataset, var1, var2):
+    # log.info(f'[START] calcLassoScore')
+    result = None
+
+    try:
+        X = dataset[var1].values.flatten()[:, np.newaxis]
+        y = dataset[var2].values.flatten()
+
+        # NaN 값을 가진 행의 인덱스를 찾습니다.
+        mask = ~np.isnan(y) & ~np.isnan(X[:, 0])
+
+        # NaN 값을 제거합니다.
+        X = X[mask]
+        y = y[mask]
+
+        start_time = time.time()
+        lasso_lars_ic = make_pipeline(StandardScaler(), LassoLarsIC(criterion="aic")).fit(X, y)
+        fit_time = time.time() - start_time
+
+        valData = pd.DataFrame(
+            {
+                "alphas": lasso_lars_ic[-1].alphas_,
+                "AIC criterion": lasso_lars_ic[-1].criterion_,
+            }
+        )
+        alpha_aic = lasso_lars_ic[-1].alpha_
+
+        lasso_lars_ic.set_params(lassolarsic__criterion="bic").fit(X, y)
+        valData["BIC criterion"] = lasso_lars_ic[-1].criterion_
+        alpha_bic = lasso_lars_ic[-1].alpha_
+
+        # CSV 자료 저장
+        saveFile = '{}/{}/{}-{}_{}.csv'.format(globalVar['outPath'], serviceName, 'RES-ABIC', contIdx, fileNameNoExt)
+        os.makedirs(os.path.dirname(saveFile), exist_ok=True)
+        valData.to_csv(saveFile, index=False)
+        # log.info(f'[CHECK] saveFile : {saveFile}')
+
+        # 검증 스코어 저장
+        plt.figure(dpi=600)
+        saveImg = '{}/{}/{}-{}_{}.png'.format(globalVar['figPath'], serviceName, 'RES-ABIC', contIdx, fileNameNoExt)
+        os.makedirs(os.path.dirname(saveImg), exist_ok=True)
+        ax = valData.plot()
+        ax.vlines(
+            alpha_aic,
+            valData["AIC criterion"].min(),
+            valData["AIC criterion"].max(),
+            label="alpha: AIC estimate",
+            linestyles="--",
+            color="tab:blue",
+        )
+
+        ax.vlines(
+            alpha_bic,
+            valData["BIC criterion"].min(),
+            valData["BIC criterion"].max(),
+            label="alpha: BIC estimate",
+            linestyle="--",
+            color="tab:orange",
+        )
+        ax.set_xlabel(r"$\alpha$")
+        ax.set_ylabel("criterion")
+        ax.set_xscale("log")
+        ax.legend()
+        _ = ax.set_title(f"Information-criterion for model selection (training time {fit_time:.2f}s)")
+        plt.savefig(saveImg, dpi=600, bbox_inches='tight', transparent=True)
+        plt.tight_layout()
+        # plt.show()
+        plt.close()
+        # log.info(f'[CHECK] saveImg : {saveFile}')
+
+        result = {
+            'msg': 'succ'
+            , 'saveFile': saveFile
+            , 'isFileExist': os.path.exists(saveFile)
+            , 'saveImg': saveImg
+            , 'isImgExist': os.path.exists(saveImg)
+        }
+
+        return result
+
+    except Exception as e:
+        log.error(f'Exception : {e}')
+
+        return result
+
 # ================================================
 # 4. 부 프로그램
 # ================================================
@@ -194,6 +293,7 @@ class DtaProcess(object):
 
     # https://xclim.readthedocs.io/en/stable/notebooks/sdba.html
     # https://xclim.readthedocs.io/en/stable/apidoc/xclim.sdba.html#xclim.sdba.processing.jitter_under_thresh
+    # https://xclim.readthedocs.io/en/stable/notebooks/sdba.html
 
     # ================================================================================================
     # 환경변수 설정
@@ -256,8 +356,10 @@ class DtaProcess(object):
             # 옵션 설정
             sysOpt = {
                 # 시작/종료 시간
-                'srtDate': '1990-01-01'
-                , 'endDate': '1991-01-01'
+                # 'srtDate': '1990-01-01'
+                # , 'endDate': '1990-04-01'
+                'srtDate': '1979-01-01'
+                , 'endDate': '2020-04-01'
 
                 # 경도 최소/최대/간격
                 , 'lonMin': 0
@@ -270,23 +372,42 @@ class DtaProcess(object):
                 , 'latInv': 1
             }
 
-
-            # 변수 설정
+            # 날짜 설정
             dtSrtDate = pd.to_datetime(sysOpt['srtDate'], format='%Y-%m-%d')
             dtEndDate = pd.to_datetime(sysOpt['endDate'], format='%Y-%m-%d')
             dtDayList = pd.date_range(start=dtSrtDate, end=dtEndDate, freq='1D')
             dtMonthList = pd.date_range(start=dtSrtDate, end=dtEndDate, freq='1M')
 
+            # 위경도 설정
             lonList = np.arange(sysOpt['lonMin'], sysOpt['lonMax'], sysOpt['lonInv'])
             latList = np.arange(sysOpt['latMin'], sysOpt['latMax'], sysOpt['latInv'])
             log.info(f'[CHECK] len(lonList) : {len(lonList)}')
             log.info(f'[CHECK] len(latList) : {len(latList)}')
 
-            # 날짜 기준으로 반복문
-            # for dtDayIdx, dtDayInfo in enumerate(dtDayList):
-                # print(f'[CHECK] dtDayInfo : {dtDayInfo}')
+            # ********************************************************************
+            # 대륙별 분류 전처리
+            # ********************************************************************
+            inpFile = '{}/{}/{}'.format(globalVar['inpPath'], serviceName, 'TT4.csv')
+            fileList = glob.glob(inpFile)
+            if fileList is None or len(fileList) < 1:
+                log.error('[ERROR] inpFile : {} / {}'.format(fileList, '입력 자료를 확인해주세요.'))
+                raise Exception('[ERROR] inpFile : {} / {}'.format(fileList, '입력 자료를 확인해주세요.'))
 
-            inpFile = '{}/{}/{}'.format(globalVar['inpPath'], serviceName, 'ERA5_1979_2020-004.nc')
+            contData = pd.read_csv(fileList[0]).rename(columns={'type': 'contIdx'})
+            contDataL1 = contData[['lon', 'lat', 'isLand', 'contIdx']]
+            contDataL2 = contDataL1.set_index(['lat', 'lon'])
+            contDataL3 = contDataL2.to_xarray()
+            contDataL4 = contDataL3.interp({'lon': lonList, 'lat': latList}, method='nearest')
+
+            # contDataL3['contIdx'].plot()
+            # contDataL4['contIdx'].plot()
+            # plt.show()
+
+            # ********************************************************************
+            # 강수량 파일 전처리
+            # ********************************************************************
+            # 실측 자료
+            inpFile = '{}/{}/{}'.format(globalVar['inpPath'], serviceName, 'ERA5_1979_2020.nc')
             fileList = sorted(glob.glob(inpFile))
             obsData = xr.open_dataset(fileList[0]).sel(time=slice(sysOpt['srtDate'], sysOpt['endDate']))
 
@@ -297,164 +418,140 @@ class DtaProcess(object):
 
             obsDataL2 = obsDataL1.interp({'lon': lonList, 'lat': latList}, method='linear')
 
+            # obsDataL2.attrs
+            # obsDataL2['rain'].attrs
 
-
-            # obsData['rain'].isel(time = 0).plot()
-            # obsDataL2['rain'].isel(time = 0).plot()
-            # plt.show()
-
-            # mm d-1
-            # obsData['rain'].attrs
-
-            # if fileList is None or len(fileList) < 1:
-            #     continue
-
-            inpFile = '{}/{}/{}'.format(globalVar['inpPath'], serviceName, 'pr_day_MRI-ESM2-0_historical_r1i1p1f1_gn_19500101-19991231-003.nc')
+            # 모델 자료
+            # inpFile = '{}/{}/{}'.format(globalVar['inpPath'], serviceName, 'pr_day_MRI-ESM2-0_historical_r1i1p1f1_gn_19500101-19991231-003.nc')
+            inpFile = '{}/{}/{}'.format(globalVar['inpPath'], serviceName, 'pr_*.nc')
             fileList = sorted(glob.glob(inpFile))
-            modData = xr.open_dataset(fileList[0]).sel(time=slice(sysOpt['srtDate'], sysOpt['endDate'])).interp({'lon': lonList, 'lat': latList}, method='linear')
 
-            # modData['pr'].attrs
+            # fileInfo = fileList[0]
+            for fileInfo in fileList:
+                log.info(f"[CHECK] fileInfo : {fileInfo}")
 
-            # 일 강수량 단위 환산 : 60 * 60 * 24
-            modData['pr'] = modData['pr'] * 86400
-            modData['pr'].attrs["units"] = "mm d-1"
+                fileNameNoExt = os.path.basename(fileInfo).split('.')[0]
 
-            modDataL2 = modData
+                # modData = xr.open_dataset(fileInfo).sel(time=slice(sysOpt['srtDate'], sysOpt['endDate']))
+                modData = xr.open_dataset(fileInfo).sel(time=slice(sysOpt['srtDate'], sysOpt['endDate']))
+                if (len(modData['time']) < 1): continue
 
-            # 경도 변환 (-180~180 to 0~360)
-            # modDataL1 = modData
-            # modDataL1.coords['lon'] = (modDataL1.coords['lon']) % 360
-            # modDataL1 = modDataL1.sortby(modDataL1.lon)
+                # 필요없는 변수 삭제
+                selList = ['lat_bnds', 'lon_bnds', 'time_bnds']
 
-            # modData['time'].values
-            # modData['pr'] = modData['pr'] * 2592000 / (10 ** 6)
-
-            # timeList = modData['time'].values
-            # bndList = modData['bnds'].values
-            # modData['pr'].isel(time=0).plot()
-            # # modDataL1['pr'].isel(time=0).plot()
-            # plt.show()
-
-            # https://xclim.readthedocs.io/en/stable/notebooks/sdba.html
-            from xclim import sdba
-
-            # group = xc.sdba.Grouper('time.dayofyear', window=5)
-            # group = xc.sdba.Grouper('time.dayofyear', window=5)
-            # qdm = QuantileDeltaMapping.train(obsData['rain'], modData['pr'], group=group)
-            # qdm = QuantileDeltaMapping.train(obsData['rain'], modData['pr'])
-            # qdm = QuantileDeltaMapping.train(obsDataL2['rain'], modDataL2['pr'])
-            # qdm = QuantileDeltaMapping.train(obsDataL2['rain'], modDataL2['pr'], nquantiles=15, group="time", kind="+")
-            qdm = sdba.QuantileDeltaMapping.train(obsDataL2['rain'], modDataL2['pr'], group='time.month')
-            # corData = qdm.adjust(modData['pr'], extrapolation="constant", interp="linear")
-            qdmData = qdm.adjust(modDataL2['pr'])
-
-            eqm =  sdba.EmpiricalQuantileMapping.train(obsDataL2['rain'], modDataL2['pr'], group='time.month')
-            eqmData = eqm.adjust(modDataL2['pr'])
-
-            # additive for tasmax
-            # QDMtx = sdba.QuantileDeltaMapping.train(
-            #     dref.tasmax, dhist.tasmax, nquantiles=20, kind="+", group="time.month"
-            # )
-            # # Adjust both hist and sim, we'll feed both to the Npdf transform.
-            # scenh_tx = QDMtx.adjust(obsDataL2['rain'])
-            # scens_tx = QDMtx.adjust(modDataL2['pr'])
-            #
-            # # remove == 0 values in pr:
-            # dref["pr"] = sdba.processing.jitter_under_thresh(dref.pr, "0.01 mm d-1")
-            # dhist["pr"] = sdba.processing.jitter_under_thresh(dhist.pr, "0.01 mm d-1")
-            # dsim["pr"] = sdba.processing.jitter_under_thresh(dsim.pr, "0.01 mm d-1")
-            #
-            # # multiplicative for pr
-            # QDMpr = sdba.QuantileDeltaMapping.train(
-            #     dref.pr, dhist.pr, nquantiles=20, kind="*", group="time"
-            # )
-            # # Adjust both hist and sim, we'll feed both to the Npdf transform.
-            # scenh_pr = QDMpr.adjust(dhist.pr)
-            # scens_pr = QDMpr.adjust(dsim.pr)
-            #
-            # scenh = xr.Dataset(dict(tasmax=scenh_tx, pr=scenh_pr))
-            # scens = xr.Dataset(dict(tasmax=scens_tx, pr=scens_pr))
+                for i, selInfo in enumerate(selList):
+                    try:
+                        modData = modData.drop([selInfo])
+                    except Exception as e:
+                        log.error("Exception : {}".format(e))
 
 
+                modDataL1 = modData.interp({'lon': lonList, 'lat': latList}, method='linear')
 
-            # pca =  sdba.adjustment.PrincipalComponents.train(obsDataL2['rain'], modDataL2['pr'], group='time.month', best_orientation="simple")
-            # eqmData = eqm.adjust(modData['pr'])
+                # 일 강수량 단위 환산 : 60 * 60 * 24
+                modDataL1['pr'] = modDataL1['pr'] * 86400
+                modDataL1['pr'].attrs["units"] = "mm d-1"
 
+                modDataL2 = modDataL1
+                # modDataL2.attrs
+                # modDataL2['rain'].attrs
 
+                # modDataL2.isel(time = 0).plot
 
+                mrgData = xr.merge([obsDataL2, modDataL2])
 
-            # from cmethods import CMethods as cm
-            # ls_result = cm.linear_scaling(
-            #     obs=obsDataL2['rain'][:, 0, 0],
-            #     simh=modDataL2['pr'][:, 0, 0],
-            #     simp=simp['tas'][:, 0, 0],
-            #     kind='+'
-            # )
+                # qdm = sdba.QuantileDeltaMapping.train(obsDataL2['rain'], modDataL2['pr'], group='time.dayofyear')
+                qdm = sdba.QuantileDeltaMapping.train(mrgData['rain'], mrgData['pr'], group='time')
+                qdmData = qdm.adjust(mrgData['pr'])
 
-            # qdm_result = cm.adjust_3d(  # 3d = 2 spatial and 1 time dimension
-            #     method='quantile_delta_mapping',
-            #     obs=obsh['tas'],
-            #     simh=simh['tas'],
-            #     simp=simp['tas'],
-            #     n_quaniles=1000,
-            #     kind='+'
-            # )
+                # qdm.ds.af.plot()
+                # plt.show()
 
+                # eqm =  sdba.EmpiricalQuantileMapping.train(obsDataL2['rain'], modDataL2['pr'], group='time.dayofyear')
+                eqm =  sdba.EmpiricalQuantileMapping.train(mrgData['rain'], mrgData['pr'], group='time')
+                eqmData = eqm.adjust(mrgData['pr'])
 
-            # qdm.ds.af.plot()
-            # plt.show()
+                # eqm.ds.af.plot()
+                # plt.show()
 
-            obsDataL2['rain'].isel(time=2).plot(vmin=0, vmax=100)
-            modDataL2['pr'].isel(time=2).plot(vmin=0, vmax=100)
-            # corData.isel(time=2).plot(vmin=0, vmax=100, cmap='viridis')
-            eqmData.isel(time=2).plot(vmin=0, vmax=100, cmap='viridis')
-            plt.show()
+                print(f"[CHECK] min : {np.nanmin(mrgData['rain'].isel(time=2))} / max : {np.nanmax(mrgData['rain'].isel(time=2))}")
+                print(f"[CHECK] min : {np.nanmin(mrgData['pr'].isel(time=2))} / max : {np.nanmax(mrgData['pr'].isel(time=2))}")
+                print(f"[CHECK] min : {np.nanmin(qdmData.isel(time=2))} / max : {np.nanmax(qdmData.isel(time=2))}")
+                print(f"[CHECK] min : {np.nanmin(eqmData.isel(time=2))} / max : {np.nanmax(eqmData.isel(time=2))}")
 
-            np.nanmin(obsDataL2['rain'].isel(time=2))
-            np.nanmax(obsDataL2['rain'].isel(time=2))
+                # mrgData['rain'].isel(time=2).plot(vmin=0, vmax=100)
+                # mrgData['pr'].isel(time=2).plot(vmin=0, vmax=100)
+                # qdmData.isel(time=2).plot(x='lon', y='lat', vmin=0, vmax=100, cmap='viridis')
+                # eqmData.isel(time=2).plot(vmin=0, vmax=100, cmap='viridis')
+                # plt.show()
 
-            np.nanmin(modDataL2['pr'].isel(time=2))
-            np.nanmax(modDataL2['pr'].isel(time=2))
+                # 동적으로 생성
+                lat1D = mrgData['lat'].values
+                lon1D = mrgData['lon'].values
+                time1D = mrgData['time'].values
 
-            np.nanmin(eqmData.isel(time=2))
-            np.nanmax(eqmData.isel(time=2))
+                # (time: 91, lat: 180, lon: 360)
+                mrgDataL1 = xr.Dataset(
+                    {
+                        'OBS': (('time', 'lat', 'lon'), (mrgData['rain'].values).reshape(len(time1D), len(lat1D), len(lon1D)))
+                        , 'MOD': (('time', 'lat', 'lon'), (mrgData['pr'].values).reshape(len(time1D), len(lat1D), len(lon1D)))
+                        , 'QDM': (('time', 'lat', 'lon'), (qdmData.transpose('time', 'lat', 'lon').values).reshape(len(time1D), len(lat1D), len(lon1D)))
+                        , 'EQM': (('time', 'lat', 'lon'), (eqmData.transpose('time', 'lat', 'lon').values).reshape(len(time1D), len(lat1D), len(lon1D)))
+                        , 'isLand': (('time', 'lat', 'lon'), np.tile(contDataL4['isLand'].values[np.newaxis, :, :], (len(time1D), 1, 1)).reshape(len(time1D), len(lat1D), len(lon1D)))
+                        , 'contIdx': (('time', 'lat', 'lon'), np.tile(contDataL4['contIdx'].values[np.newaxis, :, :], (len(time1D), 1, 1)).reshape(len(time1D), len(lat1D), len(lon1D)))
 
+                    }
+                    , coords={
+                        'time': time1D
+                        , 'lat': lat1D
+                        , 'lon': lon1D
+                    }
+                )
 
-            # qdm = QuantileDeltaMapping.train(obsData['rain'], modData['pr'])
+                # NetCDF 자료 저장
+                saveFile = '{}/{}/{}_{}.nc'.format(globalVar['outPath'], serviceName, 'RES-MBC', fileNameNoExt)
+                os.makedirs(os.path.dirname(saveFile), exist_ok=True)
+                mrgDataL1.to_netcdf(saveFile)
+                log.info(f'[CHECK] saveFile : {saveFile}')
 
+                # CSV 자료 저장
+                saveFile = '{}/{}/{}_{}.csv'.format(globalVar['outPath'], serviceName, 'RES-MBC', fileNameNoExt)
+                os.makedirs(os.path.dirname(saveFile), exist_ok=True)
+                mrgDataL1.to_dataframe().reset_index(drop=False).to_csv(saveFile, index=False)
+                log.info(f'[CHECK] saveFile : {saveFile}')
 
-            # 0 또는 360도의 경우 동일하기 때문에 변환시 문제
-            # 따라서 360도 제거
-            # correctedL1 = corrected.where(corrected['lon'] != 360, drop=True)
+                # mrgDataL1.isel(time = 0)['OBS'].plot()
+                # mrgDataL1.isel(time = 0)['MOD'].plot()
+                # mrgDataL1.isel(time = 0)['QDM'].plot()
+                # mrgDataL1.isel(time = 0)['EQM'].plot()
+                # mrgDataL1.isel(time = 0)['isLand'].plot()
+                # mrgDataL1.isel(time = 1)['contIdx'].plot()
+                # plt.show()
 
-            # 경도 변환 (0~360 to -180~180)
-            # corrected.coords['lon'] = (corrected.coords['lon'] + 180) % 360 - 180
-            # corrected = corrected.sortby(corrected.lon)
+                contIdxList = np.unique(mrgDataL1['contIdx'].values)
 
-            # corrected.plot()
-            corrected.isel(time = 10).plot(x='lon', y='lat')
-            plt.show()
+                # contIdx = 100
+                for contIdxInfo in contIdxList:
+                    if np.isnan(contIdxInfo): continue
+                    selData = mrgDataL1.where(mrgDataL1['contIdx'] == contIdxInfo, drop=True)
 
-            obs_array = obsData['pr'].sel(lat=some_lat, lon=some_lon).values
-            cor_array = corrected.sel(lat=some_lat, lon=some_lon).values
-            X = obs_array.reshape(-1, 1)
-            y = cor_array
+                    result = calcLassoScore(contIdxInfo, fileNameNoExt, selData, 'OBS', 'QDM')
+                    print(f'[CHECK] result : {result}')
 
-            # X = obsData['pr'].values.reshape(-1, 1)
-            # y = corrected.values
+                # 95% 이상 분위수 계산
+                mrgDataL2 = mrgDataL1.quantile(0.95, dim='time')
 
-            reg = LinearRegression().fit(X, y)
+                # NetCDF 자료 저장
+                saveFile = '{}/{}/{}_{}.nc'.format(globalVar['outPath'], serviceName, 'RES-95', fileNameNoExt)
+                os.makedirs(os.path.dirname(saveFile), exist_ok=True)
+                mrgDataL2.to_netcdf(saveFile)
+                log.info(f'[CHECK] saveFile : {saveFile}')
 
-            mse = mean_squared_error(y, reg.predict(X))
-
-            n = len(y)
-            k = 2  # parameters: intercept and coefficient for linear regression
-
-            aic = n * np.log(mse) + 2 * k
-            bic = n * np.log(mse) + k * np.log(n)
-
-
-
+                # CSV 자료 저장
+                saveFile = '{}/{}/{}_{}.csv'.format(globalVar['outPath'], serviceName, 'RES-95', fileNameNoExt)
+                os.makedirs(os.path.dirname(saveFile), exist_ok=True)
+                mrgDataL2.to_dataframe().reset_index(drop=False).to_csv(saveFile, index=False)
+                log.info(f'[CHECK] saveFile : {saveFile}')
 
         except Exception as e:
             log.error("Exception : {}".format(e))
