@@ -192,6 +192,9 @@ class DtaProcess(object):
     # ================================================
     # Python을 이용한 전 지구 규모의 일 단위 강수량 편의보정 및 성능평가
 
+    # https://xclim.readthedocs.io/en/stable/notebooks/sdba.html
+    # https://xclim.readthedocs.io/en/stable/apidoc/xclim.sdba.html#xclim.sdba.processing.jitter_under_thresh
+
     # ================================================================================================
     # 환경변수 설정
     # ================================================================================================
@@ -333,19 +336,89 @@ class DtaProcess(object):
             # plt.show()
 
             # https://xclim.readthedocs.io/en/stable/notebooks/sdba.html
-            from xclim.sdba import QuantileDeltaMapping
+            from xclim import sdba
 
+            # group = xc.sdba.Grouper('time.dayofyear', window=5)
             # group = xc.sdba.Grouper('time.dayofyear', window=5)
             # qdm = QuantileDeltaMapping.train(obsData['rain'], modData['pr'], group=group)
             # qdm = QuantileDeltaMapping.train(obsData['rain'], modData['pr'])
             # qdm = QuantileDeltaMapping.train(obsDataL2['rain'], modDataL2['pr'])
-            qdm = QuantileDeltaMapping.train(obsDataL2['rain'], modDataL2['pr'], nquantiles=15, group="time", kind="+")
-            # corData = qdm.adjust(modDataL1['pr'])
-            # corData = qdm.adjust(modData['pr'])
-            corData = qdm.adjust(modData['pr'])
+            # qdm = QuantileDeltaMapping.train(obsDataL2['rain'], modDataL2['pr'], nquantiles=15, group="time", kind="+")
+            qdm = sdba.QuantileDeltaMapping.train(obsDataL2['rain'], modDataL2['pr'], group='time.month')
+            # corData = qdm.adjust(modData['pr'], extrapolation="constant", interp="linear")
+            qdmData = qdm.adjust(modDataL2['pr'])
 
-            corData.isel(time=0).plot()
+            eqm =  sdba.EmpiricalQuantileMapping.train(obsDataL2['rain'], modDataL2['pr'], group='time.month')
+            eqmData = eqm.adjust(modDataL2['pr'])
+
+            # additive for tasmax
+            # QDMtx = sdba.QuantileDeltaMapping.train(
+            #     dref.tasmax, dhist.tasmax, nquantiles=20, kind="+", group="time.month"
+            # )
+            # # Adjust both hist and sim, we'll feed both to the Npdf transform.
+            # scenh_tx = QDMtx.adjust(obsDataL2['rain'])
+            # scens_tx = QDMtx.adjust(modDataL2['pr'])
+            #
+            # # remove == 0 values in pr:
+            # dref["pr"] = sdba.processing.jitter_under_thresh(dref.pr, "0.01 mm d-1")
+            # dhist["pr"] = sdba.processing.jitter_under_thresh(dhist.pr, "0.01 mm d-1")
+            # dsim["pr"] = sdba.processing.jitter_under_thresh(dsim.pr, "0.01 mm d-1")
+            #
+            # # multiplicative for pr
+            # QDMpr = sdba.QuantileDeltaMapping.train(
+            #     dref.pr, dhist.pr, nquantiles=20, kind="*", group="time"
+            # )
+            # # Adjust both hist and sim, we'll feed both to the Npdf transform.
+            # scenh_pr = QDMpr.adjust(dhist.pr)
+            # scens_pr = QDMpr.adjust(dsim.pr)
+            #
+            # scenh = xr.Dataset(dict(tasmax=scenh_tx, pr=scenh_pr))
+            # scens = xr.Dataset(dict(tasmax=scens_tx, pr=scens_pr))
+
+
+
+            # pca =  sdba.adjustment.PrincipalComponents.train(obsDataL2['rain'], modDataL2['pr'], group='time.month', best_orientation="simple")
+            # eqmData = eqm.adjust(modData['pr'])
+
+
+
+
+            # from cmethods import CMethods as cm
+            # ls_result = cm.linear_scaling(
+            #     obs=obsDataL2['rain'][:, 0, 0],
+            #     simh=modDataL2['pr'][:, 0, 0],
+            #     simp=simp['tas'][:, 0, 0],
+            #     kind='+'
+            # )
+
+            # qdm_result = cm.adjust_3d(  # 3d = 2 spatial and 1 time dimension
+            #     method='quantile_delta_mapping',
+            #     obs=obsh['tas'],
+            #     simh=simh['tas'],
+            #     simp=simp['tas'],
+            #     n_quaniles=1000,
+            #     kind='+'
+            # )
+
+
+            # qdm.ds.af.plot()
+            # plt.show()
+
+            obsDataL2['rain'].isel(time=2).plot(vmin=0, vmax=100)
+            modDataL2['pr'].isel(time=2).plot(vmin=0, vmax=100)
+            # corData.isel(time=2).plot(vmin=0, vmax=100, cmap='viridis')
+            eqmData.isel(time=2).plot(vmin=0, vmax=100, cmap='viridis')
             plt.show()
+
+            np.nanmin(obsDataL2['rain'].isel(time=2))
+            np.nanmax(obsDataL2['rain'].isel(time=2))
+
+            np.nanmin(modDataL2['pr'].isel(time=2))
+            np.nanmax(modDataL2['pr'].isel(time=2))
+
+            np.nanmin(eqmData.isel(time=2))
+            np.nanmax(eqmData.isel(time=2))
+
 
             # qdm = QuantileDeltaMapping.train(obsData['rain'], modData['pr'])
 
