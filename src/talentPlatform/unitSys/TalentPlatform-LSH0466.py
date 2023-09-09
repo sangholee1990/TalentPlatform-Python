@@ -229,14 +229,14 @@ def calcLassoScore(contIdx, fileNameNoExt, dataset, var1, var2):
         alpha_bic = lasso_lars_ic[-1].alpha_
 
         # CSV 자료 저장
-        saveFile = '{}/{}/{}-{}_{}.csv'.format(globalVar['outPath'], serviceName, 'RES-ABIC', contIdx, fileNameNoExt)
+        saveFile = '{}/{}/{}-{}_{}-{}_{}.csv'.format(globalVar['outPath'], serviceName, 'RES-ABIC', var1, var2, contIdx, fileNameNoExt)
         os.makedirs(os.path.dirname(saveFile), exist_ok=True)
         valData.to_csv(saveFile, index=False)
         # log.info(f'[CHECK] saveFile : {saveFile}')
 
         # 검증 스코어 저장
         plt.figure(dpi=600)
-        saveImg = '{}/{}/{}-{}_{}.png'.format(globalVar['figPath'], serviceName, 'RES-ABIC', contIdx, fileNameNoExt)
+        saveImg = '{}/{}/{}-{}_{}-{}_{}.png'.format(globalVar['figPath'], serviceName, 'RES-ABIC', var1, var2, contIdx, fileNameNoExt)
         os.makedirs(os.path.dirname(saveImg), exist_ok=True)
         ax = valData.plot()
         ax.vlines(
@@ -359,7 +359,8 @@ class DtaProcess(object):
                 # 'srtDate': '1990-01-01'
                 # , 'endDate': '1990-04-01'
                 'srtDate': '1979-01-01'
-                , 'endDate': '2020-04-01'
+                , 'endDate': '1981-01-01'
+                # , 'endDate': '2020-04-01'
 
                 # 경도 최소/최대/간격
                 , 'lonMin': 0
@@ -467,8 +468,8 @@ class DtaProcess(object):
                 # qdm.ds.af.plot()
                 # plt.show()
 
-                # eqm =  sdba.EmpiricalQuantileMapping.train(obsDataL2['rain'], modDataL2['pr'], group='time.dayofyear')
-                eqm =  sdba.EmpiricalQuantileMapping.train(mrgData['rain'], mrgData['pr'], group='time')
+                eqm =  sdba.EmpiricalQuantileMapping.train(obsDataL2['rain'], modDataL2['pr'], group='time.dayofyear')
+                # eqm =  sdba.EmpiricalQuantileMapping.train(mrgData['rain'], mrgData['pr'], group='time')
                 eqmData = eqm.adjust(mrgData['pr'])
 
                 # eqm.ds.af.plot()
@@ -536,6 +537,7 @@ class DtaProcess(object):
                     selData = mrgDataL1.where(mrgDataL1['contIdx'] == contIdxInfo, drop=True)
 
                     result = calcLassoScore(contIdxInfo, fileNameNoExt, selData, 'OBS', 'QDM')
+                    result = calcLassoScore(contIdxInfo, fileNameNoExt, selData, 'OBS', 'EQM')
                     print(f'[CHECK] result : {result}')
 
                 # 95% 이상 분위수 계산
