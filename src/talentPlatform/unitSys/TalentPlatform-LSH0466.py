@@ -356,11 +356,10 @@ class DtaProcess(object):
             # 옵션 설정
             sysOpt = {
                 # 시작/종료 시간
-                # 'srtDate': '1990-01-01'
-                # , 'endDate': '1990-04-01'
-                'srtDate': '1979-01-01'
-                , 'endDate': '1981-01-01'
-                # , 'endDate': '2020-04-01'
+                'srtDate': '1990-01-01'
+                , 'endDate': '1990-04-01'
+                # 'srtDate': '1979-01-01'
+                # , 'endDate': '1981-01-01'
 
                 # 경도 최소/최대/간격
                 , 'lonMin': 0
@@ -529,7 +528,8 @@ class DtaProcess(object):
                 # mrgDataL1.isel(time = 1)['contIdx'].plot()
                 # plt.show()
 
-                contIdxList = np.unique(mrgDataL1['contIdx'].values)
+                getContIdx = np.unique(mrgDataL1['contIdx'].values)
+                contIdxList = getContIdx[~np.isnan(getContIdx)].astype(int)
 
                 # contIdx = 100
                 for contIdxInfo in contIdxList:
