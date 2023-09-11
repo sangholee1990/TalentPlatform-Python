@@ -359,7 +359,7 @@ class DtaProcess(object):
                 # 'srtDate': '1990-01-01'
                 # , 'endDate': '1990-04-01'
                 'srtDate': '1979-01-01'
-                , 'endDate': '1982-01-01'
+                , 'endDate': '1989-01-01'
 
                 # 경도 최소/최대/간격
                 , 'lonMin': 0
