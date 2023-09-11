@@ -291,6 +291,8 @@ class DtaProcess(object):
     # ================================================
     # Python을 이용한 전 지구 규모의 일 단위 강수량 편의보정 및 성능평가
 
+    # 편향 조정 관련 API 명세
+    # https://xclim.readthedocs.io/en/v0.30.1/sdba_api.html#bias-adjustment-algos
     # https://xclim.readthedocs.io/en/stable/notebooks/sdba.html
     # https://xclim.readthedocs.io/en/stable/apidoc/xclim.sdba.html#xclim.sdba.processing.jitter_under_thresh
     # https://xclim.readthedocs.io/en/stable/notebooks/sdba.html
@@ -356,10 +358,10 @@ class DtaProcess(object):
             # 옵션 설정
             sysOpt = {
                 # 시작/종료 시간
-                # 'srtDate': '1990-01-01'
-                # , 'endDate': '1990-04-01'
-                'srtDate': '1979-01-01'
-                , 'endDate': '1989-01-01'
+                'srtDate': '1990-01-01'
+                , 'endDate': '1993-01-01'
+                # 'srtDate': '1979-01-01'
+                # , 'endDate': '1989-01-01'
 
                 # 경도 최소/최대/간격
                 , 'lonMin': 0
@@ -460,24 +462,120 @@ class DtaProcess(object):
 
                 mrgData = xr.merge([obsDataL2, modDataL2])
 
-                # qdm = sdba.QuantileDeltaMapping.train(obsDataL2['rain'], modDataL2['pr'], group='time.dayofyear')
+
+                # ***********************************************************************************
+                # Cannon, A. J., Sobie, S. R., & Murdock, T. Q. (2015). Bias correction of GCM precipitation by quantile mapping: How well do methods preserve changes in quantiles and extremes? Journal of Climate, 28(17), 6938–6959. https://doi.org/10.1175/JCLI-D-14-00754.1
+                # ***********************************************************************************
+                # qdm = sdba.QuantileDeltaMapping.train(mrgData['rain'], mrgData['pr'], group='time.dayofyear')
+                # qdm = sdba.QuantileDeltaMapping.train(mrgData['rain'], mrgData['pr'], group='time.month')
                 qdm = sdba.QuantileDeltaMapping.train(mrgData['rain'], mrgData['pr'], group='time')
-                qdmData = qdm.adjust(mrgData['pr'])
+                qdmData = qdm.adjust(mrgData['pr'], extrapolation="nan", interp="linear")
 
                 # qdm.ds.af.plot()
                 # plt.show()
 
-                eqm =  sdba.EmpiricalQuantileMapping.train(obsDataL2['rain'], modDataL2['pr'], group='time.dayofyear')
-                # eqm =  sdba.EmpiricalQuantileMapping.train(mrgData['rain'], mrgData['pr'], group='time')
-                eqmData = eqm.adjust(mrgData['pr'])
+                # ***********************************************************************************
+                # Dequé, M. (2007). Frequency of precipitation and temperature extremes over France in an anthropogenic scenario: Model results and statistical correction according to observed values. Global and Planetary Change, 57(1–2), 16–26. https://doi.org/10.1016/j.gloplacha.2006.11.030
+                # ***********************************************************************************
+                # eqm =  sdba.EmpiricalQuantileMapping.train(mrgData['rain'], mrgData['pr'], group='time.dayofyear')
+                # eqm =  sdba.EmpiricalQuantileMapping.train(mrgData['rain'], mrgData['pr'], group='time.month')
+                eqm =  sdba.EmpiricalQuantileMapping.train(mrgData['rain'], mrgData['pr'], group='time')
+                eqmData = eqm.adjust(mrgData['pr'], extrapolation="nan", interp="linear")
 
                 # eqm.ds.af.plot()
                 # plt.show()
 
-                print(f"[CHECK] min : {np.nanmin(mrgData['rain'].isel(time=2))} / max : {np.nanmax(mrgData['rain'].isel(time=2))}")
-                print(f"[CHECK] min : {np.nanmin(mrgData['pr'].isel(time=2))} / max : {np.nanmax(mrgData['pr'].isel(time=2))}")
-                print(f"[CHECK] min : {np.nanmin(qdmData.isel(time=2))} / max : {np.nanmax(qdmData.isel(time=2))}")
-                print(f"[CHECK] min : {np.nanmin(eqmData.isel(time=2))} / max : {np.nanmax(eqmData.isel(time=2))}")
+                # ***********************************************************************************
+                # Cannon, A. J., Sobie, S. R., & Murdock, T. Q. (2015). Bias correction of GCM precipitation by quantile mapping: How well do methods preserve changes in quantiles and extremes? Journal of Climate, 28(17), 6938–6959. https://doi.org/10.1175/JCLI-D-14-00754.1
+                # ***********************************************************************************
+                # dqm = sdba.DetrendedQuantileMapping.train(mrgData['rain'], mrgData['pr'], group='time.dayofyear')
+                # dqm = sdba.DetrendedQuantileMapping.train(mrgData['rain'], mrgData['pr'], group='time.month')
+                dqm = sdba.DetrendedQuantileMapping.train(mrgData['rain'], mrgData['pr'], group='time')
+                dqmData = dqm.adjust(mrgData['pr'], extrapolation="nan", interp="linear")
+
+                # ***********************************************************************************
+                # ***********************************************************************************
+                # dqm = sdba.NpdfTransform.train(mrgData['rain'], mrgData['pr'], group='time.dayofyear')
+                # dqm = sdba.NpdfTransform.train(mrgData['rain'], mrgData['pr'], group='time.month')
+                # dqm = sdba.NpdfTransform._train(mrgData['rain'], mrgData['pr'], group='time', thresh=0.0001, power=0.5)
+                # dqmData = dqm.adjust(mrgData['pr'], extrapolation="nan", interp="linear")
+
+
+
+                timeIdx = 0
+                print(f"[CHECK] min : {np.nanmin(mrgData['rain'].isel(time=timeIdx))} / max : {np.nanmax(mrgData['rain'].isel(time=timeIdx))}")
+                print(f"[CHECK] min : {np.nanmin(mrgData['pr'].isel(time=timeIdx))} / max : {np.nanmax(mrgData['pr'].isel(time=timeIdx))}")
+                print(f"[CHECK] min : {np.nanmin(qdmData.isel(time=timeIdx))} / max : {np.nanmax(qdmData.isel(time=timeIdx))}")
+                print(f"[CHECK] min : {np.nanmin(eqmData.isel(time=timeIdx))} / max : {np.nanmax(eqmData.isel(time=timeIdx))}")
+                print(f"[CHECK] min : {np.nanmin(dqmData.isel(time=timeIdx))} / max : {np.nanmax(dqmData.isel(time=timeIdx))}")
+
+                from xclim.core.units import convert_units_to
+                dref = mrgData['rain']
+                dhist = mrgData['pr']
+                dsim = mrgData['pr']
+
+                # additive for tasmax
+                # QDMtx = sdba.QuantileDeltaMapping.train(
+                #     dref, dhist, nquantiles=20, kind="+", group="time"
+                # )
+                # # Adjust both hist and sim, we'll feed both to the Npdf transform.
+                # scenh_tx = QDMtx.adjust(dhist)
+                # scens_tx = QDMtx.adjust(dsim)
+
+                # remove == 0 values in pr:
+                dref = sdba.processing.jitter_under_thresh(dref, "0.01 mm d-1")
+                dhist = sdba.processing.jitter_under_thresh(dhist, "0.01 mm d-1")
+                dsim = sdba.processing.jitter_under_thresh(dsim, "0.01 mm d-1")
+
+                # multiplicative for pr
+                QDMpr = sdba.QuantileDeltaMapping.train(
+                    dref, dhist, nquantiles=20, kind="*", group="time"
+                )
+                # Adjust both hist and sim, we'll feed both to the Npdf transform.
+                scenh_pr = QDMpr.adjust(dhist)
+                scens_pr = QDMpr.adjust(dsim)
+
+                dref =  xr.Dataset(dict(tasmax=dref, pr=dref))
+                scenh = xr.Dataset(dict(tasmax=scenh_pr, pr=scenh_pr))
+                scens = xr.Dataset(dict(tasmax=scens_pr, pr=scens_pr))
+
+                # Stack the variables (tasmax and pr)
+                ref = sdba.processing.stack_variables(dref)
+                scenh = sdba.processing.stack_variables(scenh)
+                scens = sdba.processing.stack_variables(scens)
+
+                # Standardize
+                ref, _, _ = sdba.processing.standardize(ref)
+
+                allsim_std, _, _ = sdba.processing.standardize(xr.concat((scenh, scens), "time"))
+                scenh_std = allsim_std
+                scens_std = allsim_std
+
+                from xclim import set_options
+
+                # See the advanced notebook for details on how this option work
+                with set_options(sdba_extra_output=True):
+                    out = sdba.adjustment.NpdfTransform.adjust(
+                        ref,
+                        scenh_std,
+                        scens_std,
+                        base=sdba.QuantileDeltaMapping,  # Use QDM as the univariate adjustment.
+                        base_kws={"nquantiles": 20, "group": "time"},
+                        n_iter=20,  # perform 20 iteration
+                        n_escore=1000,  # only send 1000 points to the escore metric (it is realy slow)
+                    )
+
+                scenh_npdft = out.scenh.rename(time_hist="time")  # Bias-adjusted historical period
+                scens_npdft = out.scen  # Bias-adjusted future period
+                extra = out.drop_vars(["scenh", "scen"])
+
+                scenh = sdba.processing.reordering(scenh_npdft, scenh, group="time")
+                scens = sdba.processing.reordering(scens_npdft, scens, group="time")
+
+                scenh = sdba.processing.unstack_variables(scenh)
+                scens = sdba.processing.unstack_variables(scens)
+
+
 
                 # mrgData['rain'].isel(time=2).plot(vmin=0, vmax=100)
                 # mrgData['pr'].isel(time=2).plot(vmin=0, vmax=100)
@@ -511,13 +609,13 @@ class DtaProcess(object):
                 # NetCDF 자료 저장
                 saveFile = '{}/{}/{}_{}.nc'.format(globalVar['outPath'], serviceName, 'RES-MBC', fileNameNoExt)
                 os.makedirs(os.path.dirname(saveFile), exist_ok=True)
-                mrgDataL1.to_netcdf(saveFile)
+                # mrgDataL1.to_netcdf(saveFile)
                 log.info(f'[CHECK] saveFile : {saveFile}')
 
                 # CSV 자료 저장
                 saveFile = '{}/{}/{}_{}.csv'.format(globalVar['outPath'], serviceName, 'RES-MBC', fileNameNoExt)
                 os.makedirs(os.path.dirname(saveFile), exist_ok=True)
-                mrgDataL1.to_dataframe().reset_index(drop=False).to_csv(saveFile, index=False)
+                # mrgDataL1.to_dataframe().reset_index(drop=False).to_csv(saveFile, index=False)
                 log.info(f'[CHECK] saveFile : {saveFile}')
 
                 # mrgDataL1.isel(time = 0)['OBS'].plot()
@@ -536,8 +634,8 @@ class DtaProcess(object):
                     if np.isnan(contIdxInfo): continue
                     selData = mrgDataL1.where(mrgDataL1['contIdx'] == contIdxInfo, drop=True)
 
-                    result = calcLassoScore(contIdxInfo, fileNameNoExt, selData, 'OBS', 'QDM')
-                    result = calcLassoScore(contIdxInfo, fileNameNoExt, selData, 'OBS', 'EQM')
+                    # result = calcLassoScore(contIdxInfo, fileNameNoExt, selData, 'OBS', 'QDM')
+                    # result = calcLassoScore(contIdxInfo, fileNameNoExt, selData, 'OBS', 'EQM')
                     print(f'[CHECK] result : {result}')
 
                 # 95% 이상 분위수 계산
@@ -546,13 +644,13 @@ class DtaProcess(object):
                 # NetCDF 자료 저장
                 saveFile = '{}/{}/{}_{}.nc'.format(globalVar['outPath'], serviceName, 'RES-95', fileNameNoExt)
                 os.makedirs(os.path.dirname(saveFile), exist_ok=True)
-                mrgDataL2.to_netcdf(saveFile)
+                # mrgDataL2.to_netcdf(saveFile)
                 log.info(f'[CHECK] saveFile : {saveFile}')
 
                 # CSV 자료 저장
                 saveFile = '{}/{}/{}_{}.csv'.format(globalVar['outPath'], serviceName, 'RES-95', fileNameNoExt)
                 os.makedirs(os.path.dirname(saveFile), exist_ok=True)
-                mrgDataL2.to_dataframe().reset_index(drop=False).to_csv(saveFile, index=False)
+                # mrgDataL2.to_dataframe().reset_index(drop=False).to_csv(saveFile, index=False)
                 log.info(f'[CHECK] saveFile : {saveFile}')
 
         except Exception as e:
