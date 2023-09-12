@@ -232,7 +232,6 @@ def calcLassoScore(contIdx, fileNameNoExt, dataset, var1, var2):
         plt.tight_layout()
         # plt.show()
         plt.close()
-        # log.info(f'[CHECK] saveImg : {saveFile}')
 
         result = {
             'msg': 'succ'
@@ -474,11 +473,6 @@ class DtaProcess(object):
                 # Pitie, F., Kokaram, A. C., & Dahyot, R. (2005). N-dimensional probability density function transfer and its application to color transfer. Tenth IEEE International Conference on Computer Vision (ICCV’05) Volume 1, 2, 1434-1439 Vol. 2. https://doi.org/10.1109/ICCV.2005.166
                 # Szekely, G. J. and Rizzo, M. L. (2004) Testing for Equal Distributions in High Dimension, InterStat, November (5)
                 # ***********************************************************************************
-                # dqm = sdba.NpdfTransform.train(mrgData['rain'], mrgData['pr'], group='time.dayofyear')
-                dqm = sdba.NpdfTransform.train(mrgData['rain'], mrgData['pr'], group='time.month')
-                # dqm = sdba.NpdfTransform._train(mrgData['rain'], mrgData['pr'], group='time')
-                dqmData = dqm.adjust(mrgData['pr'], extrapolation="nan", interp="linear")
-
                 # dref = mrgData['rain']
                 # dhist = mrgData['pr']
                 # dsim = mrgData['pr']
@@ -587,13 +581,13 @@ class DtaProcess(object):
                 # NetCDF 자료 저장
                 saveFile = '{}/{}/{}_{}.nc'.format(globalVar['outPath'], serviceName, 'RES-MBC', fileNameNoExt)
                 os.makedirs(os.path.dirname(saveFile), exist_ok=True)
-                # mrgDataL1.to_netcdf(saveFile)
+                mrgDataL1.to_netcdf(saveFile)
                 log.info(f'[CHECK] saveFile : {saveFile}')
 
                 # CSV 자료 저장
                 saveFile = '{}/{}/{}_{}.csv'.format(globalVar['outPath'], serviceName, 'RES-MBC', fileNameNoExt)
                 os.makedirs(os.path.dirname(saveFile), exist_ok=True)
-                # mrgDataL1.to_dataframe().reset_index(drop=False).to_csv(saveFile, index=False)
+                mrgDataL1.to_dataframe().reset_index(drop=False).to_csv(saveFile, index=False)
                 log.info(f'[CHECK] saveFile : {saveFile}')
 
                 # mrgDataL1.isel(time = 0)['OBS'].plot()
@@ -627,13 +621,13 @@ class DtaProcess(object):
                 # NetCDF 자료 저장
                 saveFile = '{}/{}/{}_{}.nc'.format(globalVar['outPath'], serviceName, 'RES-95', fileNameNoExt)
                 os.makedirs(os.path.dirname(saveFile), exist_ok=True)
-                # mrgDataL2.to_netcdf(saveFile)
+                mrgDataL2.to_netcdf(saveFile)
                 log.info(f'[CHECK] saveFile : {saveFile}')
 
                 # CSV 자료 저장
                 saveFile = '{}/{}/{}_{}.csv'.format(globalVar['outPath'], serviceName, 'RES-95', fileNameNoExt)
                 os.makedirs(os.path.dirname(saveFile), exist_ok=True)
-                # mrgDataL2.to_dataframe().reset_index(drop=False).to_csv(saveFile, index=False)
+                mrgDataL2.to_dataframe().reset_index(drop=False).to_csv(saveFile, index=False)
                 log.info(f'[CHECK] saveFile : {saveFile}')
 
         except Exception as e:
