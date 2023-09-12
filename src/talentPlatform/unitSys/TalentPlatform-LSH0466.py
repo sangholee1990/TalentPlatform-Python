@@ -444,7 +444,7 @@ class DtaProcess(object):
                 qdm = sdba.QuantileDeltaMapping.train(mrgData['rain'], mrgData['pr'], group='time.month')
                 # 일 단위로 가중치 조정
                 # qdm = sdba.QuantileDeltaMapping.train(mrgData['rain'], mrgData['pr'], group='time')
-                qdmData = qdm.adjust(mrgData['pr'], extrapolation="nan", interp="linear")
+                qdmData = qdm.adjust(mrgData['pr'], interp="linear")
 
                 # qdm.ds.af.plot()
                 # plt.show()
@@ -455,7 +455,7 @@ class DtaProcess(object):
                 # eqm =  sdba.EmpiricalQuantileMapping.train(mrgData['rain'], mrgData['pr'], group='time.dayofyear')
                 eqm =  sdba.EmpiricalQuantileMapping.train(mrgData['rain'], mrgData['pr'], group='time.month')
                 # eqm =  sdba.EmpiricalQuantileMapping.train(mrgData['rain'], mrgData['pr'], group='time')
-                eqmData = eqm.adjust(mrgData['pr'], extrapolation="nan", interp="linear")
+                eqmData = eqm.adjust(mrgData['pr'], interp="linear")
 
                 # eqm.ds.af.plot()
                 # plt.show()
@@ -466,7 +466,7 @@ class DtaProcess(object):
                 # dqm = sdba.DetrendedQuantileMapping.train(mrgData['rain'], mrgData['pr'], group='time.dayofyear')
                 dqm = sdba.DetrendedQuantileMapping.train(mrgData['rain'], mrgData['pr'], group='time.month')
                 # dqm = sdba.DetrendedQuantileMapping.train(mrgData['rain'], mrgData['pr'], group='time')
-                dqmData = dqm.adjust(mrgData['pr'], extrapolation="nan", interp="linear")
+                dqmData = dqm.adjust(mrgData['pr'], interp="linear")
 
                 # ***********************************************************************************
                 # Cannon, A. J. (2018). Multivariate quantile mapping bias correction: An N-dimensional probability density function transform for climate model simulations of multiple variables. Climate Dynamics, 50(1), 31–49. https://doi.org/10.1007/s00382-017-3580-6
