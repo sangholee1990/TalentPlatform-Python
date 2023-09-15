@@ -219,7 +219,7 @@ def readJsonProc(fileInfo):
         if ownerChangeDateList:
             result["소유권변동일자"] = max(ownerChangeDateList)
 
-        return result
+        return list(result.values())
 
     except Exception as e:
         print(f'Exception : {e}')
