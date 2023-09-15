@@ -155,6 +155,79 @@ def initArgument(globalVar, inParams):
     return globalVar
 
 
+def readJsonProc(fileInfo):
+
+    print(f'[START] readJsonProc')
+
+    result = None
+
+    try:
+        # JSON 파일 읽기
+        with open(fileInfo, 'r', encoding='utf-8') as f:
+            data = json.load(f)
+
+        if not data: return result
+
+        # 초기화 설정
+        result = {
+            "고유번호": "" if data.get('고유번호') is None or len(data.get('고유번호')) < 1 else data["고유번호"],
+            "토지소재": "" if data.get('토지소재') is None or len(data.get('토지소재')) < 1 else data["토지소재"],
+            "지번": "" if data.get('지번') is None or len(data.get('지번')) < 1 else data["지번"],
+            "지목": "" if data.get('토지표시') is None or len(data.get('토지표시')) < 1 else data["토지표시"][-1]["지목"],
+            "면적": "" if data.get('토지표시') is None or len(data.get('토지표시')) < 1 else data["토지표시"][-1]["면적"],
+            "공시지가": "" if data.get('개별공시지가') is None or len(data.get('개별공시지가')) < 1 else data["개별공시지가"][-1]["공시지가"],
+            "변동일자": "",
+            "소유자이름": "",
+            "소유자주소": "",
+            "소유자등록번호": "",
+            "소유권변동일자": ""
+        }
+
+        # 미동기 여부
+        isNotReg = any(entry["변동원인"] == "미등기" for entry in data["소유자정보"])
+
+        if isNotReg:
+            # 미등기일 경우
+            for ownerInfo in reversed(data["소유자정보"]):
+                if ownerInfo["성명"]:
+                    result["소유자이름"] = ownerInfo["성명"]
+                    break
+
+            for ownerInfo in reversed(data["소유자정보"]):
+                if ownerInfo["주소"]:
+                    result["소유자주소"] = ownerInfo["주소"]
+                    break
+
+            for ownerInfo in reversed(data["소유자정보"]):
+                if ownerInfo["등록번호"]:
+                    result["소유자등록번호"] = ownerInfo["등록번호"]
+                    break
+
+            result["변동일자"] = data["소유자정보"][-1]["변동일자"]
+        else:
+            # 미등기가 아닌 경우
+            lastChangeDate = data["소유자정보"][-1]["변동일자"]
+            for ownerInfo in data["소유자정보"]:
+                if ownerInfo["변동일자"] == lastChangeDate:
+                    result["변동일자"] = ownerInfo["변동일자"]
+                    result["소유자이름"] = ownerInfo["성명"]
+                    result["소유자주소"] = ownerInfo["주소"]
+                    result["소유자등록번호"] = ownerInfo["등록번호"]
+
+        # 소유권변동일자
+        ownerChangeDateList = [entry["변동일자"] for entry in data["소유자정보"] if "소유" in entry["변동원인"]]
+        if ownerChangeDateList:
+            result["소유권변동일자"] = max(ownerChangeDateList)
+
+        return result
+
+    except Exception as e:
+        print(f'Exception : {e}')
+        return result
+
+    finally:
+        print(f'[END] readJsonProc')
+
 # ================================================
 # 4. 부 프로그램
 # ================================================
@@ -254,90 +327,8 @@ class DtaProcess(object):
                     log.info(f'')
                     log.info(f'[CHECK] fileInfo : {fileInfo}')
 
-                    # 1. JSON 파일 읽기
-                    with open(fileInfo, 'r', encoding='utf-8') as f:
-                        data = json.load(f)
-                    log.info(f'[CHECK] data : {data}')
-
-                    # 결과를 저장할 dictionary 초기화
-                    result = {
-                        "고유번호": "" if data.get('고유번호') is None or len(data.get('고유번호')) < 1 else data["고유번호"],
-                        "토지소재": "" if data.get('토지소재') is None or len(data.get('토지소재')) < 1 else data["토지소재"],
-                        "지번": "" if data.get('지번') is None or len(data.get('지번')) < 1 else data["지번"],
-                        "지목": "" if data.get('토지표시') is None or len(data.get('토지표시')) < 1 else data["토지표시"][-1]["지목"],
-                        "면적": "" if data.get('토지표시') is None or len(data.get('토지표시')) < 1 else data["토지표시"][-1]["면적"],
-                        "공시지가": "" if data.get('개별공시지가') is None or len(data.get('개별공시지가')) < 1 else data["개별공시지가"][-1]["공시지가"],
-                        "변동일자": "",
-                        "소유자이름": "",
-                        "소유자주소": "",
-                        "소유자등록번호": "",
-                        "소유권변동일자": ""
-                    }
-
-                    # 5. '미등기'가 있는지 확인
-                    isNotReg = any(entry["변동원인"] == "미등기" for entry in data["소유자정보"])
-
-                    if isNotReg:
-                        # 미등기일 경우
-                        for ownerInfo in reversed(data["소유자정보"]):
-                            if ownerInfo["성명"]:
-                                result["소유자이름"] = ownerInfo["성명"]
-                                break
-
-                        for ownerInfo in reversed(data["소유자정보"]):
-                            if ownerInfo["주소"]:
-                                result["소유자주소"] = ownerInfo["주소"]
-                                break
-
-                        for ownerInfo in reversed(data["소유자정보"]):
-                            if ownerInfo["등록번호"]:
-                                result["소유자등록번호"] = ownerInfo["등록번호"]
-                                break
-
-                        result["변동일자"] = data["소유자정보"][-1]["변동일자"]
-                    else:
-                        # 미등기가 아닌 경우
-                        lastChangeDate = data["소유자정보"][-1]["변동일자"]
-                        for ownerInfo in data["소유자정보"]:
-                            if ownerInfo["변동일자"] == lastChangeDate:
-                                result["변동일자"] = ownerInfo["변동일자"]
-                                result["소유자이름"] = ownerInfo["성명"]
-                                result["소유자주소"] = ownerInfo["주소"]
-                                result["소유자등록번호"] = ownerInfo["등록번호"]
-
-                    # 4. 소유권변동일자
-                    ownerChangeDateList = [entry["변동일자"] for entry in data["소유자정보"] if "소유" in entry["변동원인"]]
-                    if ownerChangeDateList:
-                        result["소유권변동일자"] = max(ownerChangeDateList)
-
-                    log.info(f'[CHECK] result : {result}')
-
-
-
-                #
-                #     data = pd.read_csv(fileInfo)
-                #     data['anaDt'] = anaDt
-                #     data['forDt'] = forDt
-                #
-                #     dataL1 = data.drop(columns=['n'])
-                #
-                #     dataL2 = pd.concat([dataL2, dataL1], ignore_index=False)
-                #
-                # dataL3 = dataL2.set_index(['anaDt', 'forDt', 'Latitude', 'Longitude'])
-                # dataL4 = dataL3.to_xarray()
-                #
-                # # dataL4['gfs_Value'].isel(anaDt = 0, forDt = 0).plot()
-                # # plt.show()
-                #
-                # saveFilePath = os.path.dirname(fileInfo)
-                # saveFileName = os.path.basename(fileInfo)
-                # saveFileName = re.sub(r'(\d+h)', '{}', saveFileName, re.IGNORECASE).replace('.csv', '.nc')
-                #
-                # # NetCDF 자료 저장
-                # saveFile = f'{saveFilePath}/{saveFileName}'.format(len(dataL4['forDt']))
-                # os.makedirs(os.path.dirname(saveFile), exist_ok=True)
-                # dataL4.to_netcdf(saveFile)
-                # log.info(f'[CHECK] saveFile : {saveFile}')
+                    result = readJsonProc(fileInfo)
+                    print(f'[CHECK] result : {result}')
 
         except Exception as e:
             log.error(f'Exception : {e}')
