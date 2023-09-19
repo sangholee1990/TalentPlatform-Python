@@ -431,6 +431,12 @@ class DtaProcess(object):
 
                 mrgData = xr.merge([obsDataL2, modDataL2])
 
+                import SBCK
+
+                corrected_data_qm = SBCK.quantile_mapping(observed_data, model_data, n_quantiles=[5, 7, 14], method='non_parametric')
+                corrected_data_mbcn = SBCK.mbcn(observed_data, model_data, parameters...)
+
+
                 # ***********************************************************************************
                 # Cannon, A. J., Sobie, S. R., & Murdock, T. Q. (2015). Bias correction of GCM precipitation by quantile mapping: How well do methods preserve changes in quantiles and extremes? Journal of Climate, 28(17), 6938–6959. https://doi.org/10.1175/JCLI-D-14-00754.1
                 # ***********************************************************************************
