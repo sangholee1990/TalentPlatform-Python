@@ -185,6 +185,7 @@ def readJsonProc(fileInfo):
 
         # 미동기 여부
         isNotReg = any(entry["변동원인"] == "미등기" for entry in data["소유자정보"])
+        # isNotReg = True
 
         if isNotReg:
             # 미등기일 경우
