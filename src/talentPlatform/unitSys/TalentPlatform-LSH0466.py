@@ -173,7 +173,8 @@ def calcLassoScore(contIdx, fileNameNoExt, dataset, var1, var2):
         y = dataset[var2].values.flatten()
 
         # NaN 값을 가진 행의 인덱스를 찾습니다.
-        mask = ~np.isnan(y) & ~np.isnan(X[:, 0])
+        # mask = ~np.isnan(y) & ~np.isnan(X[:, 0])
+        mask = ~np.isnan(y) & ~np.isnan(X[:, 0]) & (X[:, 0] > 0) & (y > 0)
 
         # NaN 값을 제거합니다.
         X = X[mask]
@@ -330,8 +331,10 @@ class DtaProcess(object):
                 # 시작/종료 시간
                 # 'srtDate': '1990-01-01'
                 # , 'endDate': '1993-01-01'
+                # 'srtDate': '1979-01-01'
+                # , 'endDate': '1989-01-01'
                 'srtDate': '1979-01-01'
-                , 'endDate': '1989-01-01'
+                , 'endDate': '1981-01-01'
 
                 # 경도 최소/최대/간격
                 , 'lonMin': 0
@@ -417,7 +420,6 @@ class DtaProcess(object):
                     except Exception as e:
                         log.error("Exception : {}".format(e))
 
-
                 modDataL1 = modData.interp({'lon': lonList, 'lat': latList}, method='linear')
 
                 # 일 강수량 단위 환산 : 60 * 60 * 24
@@ -431,10 +433,9 @@ class DtaProcess(object):
 
                 mrgData = xr.merge([obsDataL2, modDataL2])
 
-                import SBCK
-
-                corrected_data_qm = SBCK.quantile_mapping(observed_data, model_data, n_quantiles=[5, 7, 14], method='non_parametric')
-                corrected_data_mbcn = SBCK.mbcn(observed_data, model_data, parameters...)
+                # import SBCK
+                # corrected_data_qm = SBCK.quantile_mapping(observed_data, model_data, n_quantiles=[5, 7, 14], method='non_parametric')
+                # corrected_data_mbcn = SBCK.mbcn(observed_data, model_data, parameters...)
 
 
                 # ***********************************************************************************
@@ -548,11 +549,11 @@ class DtaProcess(object):
                 # 요약 통계량
                 # ***********************************************************************************
                 timeIdx = 0
-                print(f"[CHECK] min : {np.nanmin(mrgData['rain'].isel(time=timeIdx))} / max : {np.nanmax(mrgData['rain'].isel(time=timeIdx))}")
-                print(f"[CHECK] min : {np.nanmin(mrgData['pr'].isel(time=timeIdx))} / max : {np.nanmax(mrgData['pr'].isel(time=timeIdx))}")
-                print(f"[CHECK] min : {np.nanmin(qdmData.isel(time=timeIdx))} / max : {np.nanmax(qdmData.isel(time=timeIdx))}")
-                print(f"[CHECK] min : {np.nanmin(eqmData.isel(time=timeIdx))} / max : {np.nanmax(eqmData.isel(time=timeIdx))}")
-                print(f"[CHECK] min : {np.nanmin(dqmData.isel(time=timeIdx))} / max : {np.nanmax(dqmData.isel(time=timeIdx))}")
+                log.info(f"[CHECK] min : {np.nanmin(mrgData['rain'].isel(time=timeIdx))} / max : {np.nanmax(mrgData['rain'].isel(time=timeIdx))}")
+                log.info(f"[CHECK] min : {np.nanmin(mrgData['pr'].isel(time=timeIdx))} / max : {np.nanmax(mrgData['pr'].isel(time=timeIdx))}")
+                log.info(f"[CHECK] min : {np.nanmin(qdmData.isel(time=timeIdx))} / max : {np.nanmax(qdmData.isel(time=timeIdx))}")
+                log.info(f"[CHECK] min : {np.nanmin(eqmData.isel(time=timeIdx))} / max : {np.nanmax(eqmData.isel(time=timeIdx))}")
+                log.info(f"[CHECK] min : {np.nanmin(dqmData.isel(time=timeIdx))} / max : {np.nanmax(dqmData.isel(time=timeIdx))}")
 
                 # mrgData['rain'].isel(time=2).plot(vmin=0, vmax=100)
                 # mrgData['pr'].isel(time=2).plot(vmin=0, vmax=100)
@@ -591,10 +592,10 @@ class DtaProcess(object):
                 log.info(f'[CHECK] saveFile : {saveFile}')
 
                 # CSV 자료 저장
-                saveFile = '{}/{}/{}_{}.csv'.format(globalVar['outPath'], serviceName, 'RES-MBC', fileNameNoExt)
-                os.makedirs(os.path.dirname(saveFile), exist_ok=True)
-                mrgDataL1.to_dataframe().reset_index(drop=False).to_csv(saveFile, index=False)
-                log.info(f'[CHECK] saveFile : {saveFile}')
+                # saveFile = '{}/{}/{}_{}.csv'.format(globalVar['outPath'], serviceName, 'RES-MBC', fileNameNoExt)
+                # os.makedirs(os.path.dirname(saveFile), exist_ok=True)
+                # mrgDataL1.to_dataframe().reset_index(drop=False).to_csv(saveFile, index=False)
+                # log.info(f'[CHECK] saveFile : {saveFile}')
 
                 # mrgDataL1.isel(time = 0)['OBS'].plot()
                 # mrgDataL1.isel(time = 0)['MOD'].plot()
@@ -613,13 +614,13 @@ class DtaProcess(object):
                     selData = mrgDataL1.where(mrgDataL1['contIdx'] == contIdxInfo, drop=True)
 
                     result = calcLassoScore(contIdxInfo, fileNameNoExt, selData, 'OBS', 'QDM')
-                    print(f'[CHECK] result : {result}')
+                    log.info(f'[CHECK] result : {result}')
 
                     result = calcLassoScore(contIdxInfo, fileNameNoExt, selData, 'OBS', 'EQM')
-                    print(f'[CHECK] result : {result}')
+                    log.info(f'[CHECK] result : {result}')
 
                     result = calcLassoScore(contIdxInfo, fileNameNoExt, selData, 'OBS', 'DQM')
-                    print(f'[CHECK] result : {result}')
+                    log.info(f'[CHECK] result : {result}')
 
                 # 95% 이상 분위수 계산
                 mrgDataL2 = mrgDataL1.quantile(0.95, dim='time')
