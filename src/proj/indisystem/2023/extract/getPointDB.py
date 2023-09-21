@@ -171,13 +171,26 @@ results = cur.fetchall()
 # 결과 출력
 colNameList = [desc[0] for desc in cur.description]
 data = pd.DataFrame(results, columns=colNameList)
-print(data)
+print(f'[CHECK] data : {data}')
 
-# csv 저장
-saveFile = f'{ctxPath}/CSV/{modelType}_{lon}_{lat}_{srtDt}_{endDt}.csv'
-os.makedirs(os.path.dirname(saveFile), exist_ok=True)
-data.to_csv(saveFile, index=False)
-print(f'[CHECK] saveFile : {saveFile}')
+# data.columns
+colOrdList = [
+    'ANA_DT', 'FOR_DT', 'MODEL_TYPE'
+    , 'ROW_SFC', 'COL_SFC', 'ROW_PRE', 'COL_PRE'
+    , 'LON_SFC', 'LAT_SFC', 'LON_PRE', 'LAT_PRE'
+    , 'SW_D', 'SW_DC', 'SW_DDIF', 'SW_DDNI', 'SW_NET', 'U', 'V'
+    , 'U1000', 'U975', 'U950', 'U925', 'U900', 'U875', 'U850'
+    , 'V1000', 'V975', 'V950', 'V925', 'V900', 'V875', 'V850'
+]
+
+colExtList = [col for col in colOrdList if col in data.columns]
+
+if len(data) > 0:
+    # csv 저장
+    saveFile = f'{ctxPath}/CSV/{modelType}_{lon}_{lat}_{srtDt}_{endDt}.csv'
+    os.makedirs(os.path.dirname(saveFile), exist_ok=True)
+    data[colExtList].to_csv(saveFile, index=False)
+    print(f'[CHECK] saveFile : {saveFile}')
 
 # 커서와 연결 종료
 cur.close()

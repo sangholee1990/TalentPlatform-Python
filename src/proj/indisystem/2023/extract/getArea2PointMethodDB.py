@@ -260,11 +260,11 @@ data = pd.DataFrame(resultList, columns=colNameList)
 print(f'[CHECK] data : {data}')
 
 # 원본 저장
-if len(data) > 0:
-    saveFile = f'{ctxPath}/CSV/{modelType}_{minLon}-{maxLon}_{minLat}-{maxLat}_{srtDt}_{endDt}_{len(newLon)}_org.csv'
-    os.makedirs(os.path.dirname(saveFile), exist_ok=True)
-    data.to_csv(saveFile, index=False)
-    print(f'[CHECK] saveFile : {saveFile}')
+# if len(data) > 0:
+#     saveFile = f'{ctxPath}/CSV/{modelType}_{minLon}-{maxLon}_{minLat}-{maxLat}_{srtDt}_{endDt}_{len(newLon)}_org.csv'
+#     os.makedirs(os.path.dirname(saveFile), exist_ok=True)
+#     data.to_csv(saveFile, index=False)
+#     print(f'[CHECK] saveFile : {saveFile}')
 
 metaData = pd.DataFrame({
     'col' : ['SW_D', 'SW_DC', 'SW_DDIF', 'SW_DDNI', 'SW_NET', 'SW_U', 'SW_UC', 'U', 'V', 'U1000', 'U975', 'U950', 'U925', 'U900', 'U875', 'U850', 'V1000', 'V975', 'V950', 'V925', 'V900', 'V875', 'V850']
@@ -320,12 +320,21 @@ for anaDt in anaDtList:
             # plt.show()
 
         dataL4 = pd.concat([dataL4, dataL3], ignore_index=True)
-print(f'[dataL4] data : {dataL4}')
+print(f'[CHECK] data : {dataL4}')
+
+colOrdList = [
+    'ANA_DT', 'FOR_DT', 'MODEL_TYPE', 'LON', 'LAT'
+    , 'SW_D', 'SW_DC', 'SW_DDIF', 'SW_DDNI', 'SW_NET', 'U', 'V'
+    , 'U1000', 'U975', 'U950', 'U925', 'U900', 'U875', 'U850'
+    , 'V1000', 'V975', 'V950', 'V925', 'V900', 'V875', 'V850'
+]
+
+colExtList = [col for col in colOrdList if col in dataL4.columns]
 
 if len(dataL4) > 0:
     saveFile = f'{ctxPath}/CSV/{modelType}_{minLon}-{maxLon}_{minLat}-{maxLat}_{srtDt}_{endDt}_{len(newLon)}_{method}.csv'
     os.makedirs(os.path.dirname(saveFile), exist_ok=True)
-    data.to_csv(saveFile, index=False)
+    dataL4[colExtList].to_csv(saveFile, index=False)
     print(f'[CHECK] saveFile : {saveFile}')
 
 # 커서와 연결 종료

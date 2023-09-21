@@ -242,12 +242,27 @@ results = cur.fetchall()
 # 결과 출력
 colNameList = [desc[0] for desc in cur.description]
 data = pd.DataFrame(results, columns=colNameList)
-print(data)
+print(f'[CHECK] data : {data}')
+
+# data.columns
+colOrdList = [
+    'ANA_DT', 'FOR_DT', 'MODEL_TYPE'
+    , 'MIN_ROW_SFC', 'MAX_ROW_SFC', 'MIN_COL_SFC', 'MAX_COL_SFC'
+    , 'MIN_LON_SFC', 'MAX_LON_SFC', 'MIN_LAT_SFC', 'MAX_LAT_SFC'
+    , 'MIN_ROW_PRE', 'MAX_ROW_PRE', 'MIN_COL_PRE', 'MAX_COL_PRE'
+    , 'MIN_LON_PRE', 'MAX_LON_PRE', 'MIN_LAT_PRE', 'MAX_LAT_PRE'
+    , 'LON_SFC', 'LAT_SFC', 'LON_PRE', 'LAT_PRE'
+    , 'SW_D', 'SW_DC', 'SW_DDIF', 'SW_DDNI', 'SW_NET', 'U', 'V'
+    , 'U1000', 'U975', 'U950', 'U925', 'U900', 'U875', 'U850'
+    , 'V1000', 'V975', 'V950', 'V925', 'V900', 'V875', 'V850'
+]
+
+colExtList = [col for col in colOrdList if col in data.columns]
 
 if len(data) > 0:
     saveFile = f'{ctxPath}/CSV/{modelType}_{minLon}-{maxLon}_{minLat}-{maxLat}_{srtDt}_{endDt}.csv'
     os.makedirs(os.path.dirname(saveFile), exist_ok=True)
-    data.to_csv(saveFile, index=False)
+    data[colExtList].to_csv(saveFile, index=False)
     print(f'[CHECK] saveFile : {saveFile}')
 
 # 커서와 연결 종료
