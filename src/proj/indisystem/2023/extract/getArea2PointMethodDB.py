@@ -70,6 +70,9 @@ newLat = np.array([37.5665, 35.1796, 36.3504])
 print(f'[CHECK] newLon : {newLon}')
 print(f'[CHECK] newLat : {newLat}')
 
+# ===========================================================
+# 위경도 기본/상세 정보
+# ===========================================================
 # 위경도 기본 정보 (TB_GEO), 위경도 상세 정보 (TB_GEO_DTL)
 modelTypeToGeo = {
     'KIER-LDAPS-2K': 'KIER-LDAPS-2K'
@@ -258,7 +261,7 @@ print(f'[CHECK] data : {data}')
 
 # 원본 저장
 if len(data) > 0:
-    saveFile = f'{ctxPath}/CSV/{modelType}_{minLon}-{maxLon}_{minLat}-{maxLat}_{srtDt}_{endDt}.csv'
+    saveFile = f'{ctxPath}/CSV/{modelType}_{minLon}-{maxLon}_{minLat}-{maxLat}_{srtDt}_{endDt}_{len(newLon)}_org.csv'
     os.makedirs(os.path.dirname(saveFile), exist_ok=True)
     data.to_csv(saveFile, index=False)
     print(f'[CHECK] saveFile : {saveFile}')
@@ -269,15 +272,13 @@ metaData = pd.DataFrame({
     , 'lat' : ['LAT_SFC', 'LAT_SFC', 'LAT_SFC', 'LAT_SFC', 'LAT_SFC', 'LAT_SFC', 'LAT_SFC', 'LAT_SFC', 'LAT_SFC', 'LAT_PRE', 'LAT_PRE', 'LAT_PRE', 'LAT_PRE', 'LAT_PRE', 'LAT_PRE', 'LAT_PRE', 'LAT_PRE', 'LAT_PRE', 'LAT_PRE', 'LAT_PRE', 'LAT_PRE', 'LAT_PRE', 'LAT_PRE']
 })
 
-anaDtList = set(data['ANA_DT'])
-forDtList = set(data['FOR_DT'])
+anaDtList = sorted(set(data['ANA_DT']))
+forDtList = sorted(set(data['FOR_DT']))
 
 dataL4 = pd.DataFrame()
 for anaDt in anaDtList:
     for forDt in forDtList:
-        print(f'[CHECK] anaDt : {anaDt}')
-        print(f'[CHECK] forDt : {forDt}')
-        print(f'[CHECK] modelType : {modelType}')
+        print(f'[CHECK] modelType : {modelType} / anaDt : {anaDt} / forDt : {forDt}')
 
         dataL1 = data.loc[
             (data['ANA_DT'] == anaDt)

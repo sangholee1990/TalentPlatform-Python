@@ -50,6 +50,9 @@ modelType = 'KIER-LDAPS-2K'
 # modelType = 'GFS-25K'
 print(f'[CHECK] modelType : {modelType}')
 
+# ===========================================================
+# 위경도 기본/상세 정보
+# ===========================================================
 # 위경도 기본 정보 (TB_GEO), 위경도 상세 정보 (TB_GEO_DTL)
 modelTypeToGeo = {
     'KIER-LDAPS-2K': 'KIER-LDAPS-2K'
