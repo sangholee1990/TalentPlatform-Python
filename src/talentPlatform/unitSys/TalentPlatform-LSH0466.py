@@ -196,6 +196,7 @@ def calcLassoScore(contIdx, fileNameNoExt, dataset, var1, var2):
         valData["BIC criterion"] = lasso_lars_ic[-1].criterion_
         alpha_bic = lasso_lars_ic[-1].alpha_
 
+
         # CSV 자료 저장
         saveFile = '{}/{}/{}-{}_{}-{}_{}.csv'.format(globalVar['outPath'], serviceName, 'RES-ABIC', var1, var2, contIdx, fileNameNoExt)
         os.makedirs(os.path.dirname(saveFile), exist_ok=True)
@@ -334,7 +335,7 @@ class DtaProcess(object):
                 # 'srtDate': '1979-01-01'
                 # , 'endDate': '1989-01-01'
                 'srtDate': '1979-01-01'
-                , 'endDate': '1981-01-01'
+                , 'endDate': '1980-01-01'
 
                 # 경도 최소/최대/간격
                 , 'lonMin': 0
@@ -448,9 +449,9 @@ class DtaProcess(object):
                 # 계절 단위로 가중치 조정
                 # qdm = sdba.QuantileDeltaMapping.train(mrgData['rain'], mrgData['pr'], group='time.season')
                 # 월 단위로 가중치 조정
-                qdm = sdba.QuantileDeltaMapping.train(mrgData['rain'], mrgData['pr'], group='time.month')
+                # qdm = sdba.QuantileDeltaMapping.train(mrgData['rain'], mrgData['pr'], group='time.month')
                 # 일 단위로 가중치 조정
-                # qdm = sdba.QuantileDeltaMapping.train(mrgData['rain'], mrgData['pr'], group='time')
+                qdm = sdba.QuantileDeltaMapping.train(mrgData['rain'], mrgData['pr'], group='time')
                 qdmData = qdm.adjust(mrgData['pr'], interp="linear")
 
                 # qdm.ds.af.plot()
@@ -460,8 +461,8 @@ class DtaProcess(object):
                 # Dequé, M. (2007). Frequency of precipitation and temperature extremes over France in an anthropogenic scenario: Model results and statistical correction according to observed values. Global and Planetary Change, 57(1–2), 16–26. https://doi.org/10.1016/j.gloplacha.2006.11.030
                 # ***********************************************************************************
                 # eqm =  sdba.EmpiricalQuantileMapping.train(mrgData['rain'], mrgData['pr'], group='time.dayofyear')
-                eqm =  sdba.EmpiricalQuantileMapping.train(mrgData['rain'], mrgData['pr'], group='time.month')
-                # eqm =  sdba.EmpiricalQuantileMapping.train(mrgData['rain'], mrgData['pr'], group='time')
+                # eqm =  sdba.EmpiricalQuantileMapping.train(mrgData['rain'], mrgData['pr'], group='time.month')
+                eqm =  sdba.EmpiricalQuantileMapping.train(mrgData['rain'], mrgData['pr'], group='time')
                 eqmData = eqm.adjust(mrgData['pr'], interp="linear")
 
                 # eqm.ds.af.plot()
@@ -471,8 +472,8 @@ class DtaProcess(object):
                 # Cannon, A. J., Sobie, S. R., & Murdock, T. Q. (2015). Bias correction of GCM precipitation by quantile mapping: How well do methods preserve changes in quantiles and extremes? Journal of Climate, 28(17), 6938–6959. https://doi.org/10.1175/JCLI-D-14-00754.1
                 # ***********************************************************************************
                 # dqm = sdba.DetrendedQuantileMapping.train(mrgData['rain'], mrgData['pr'], group='time.dayofyear')
-                dqm = sdba.DetrendedQuantileMapping.train(mrgData['rain'], mrgData['pr'], group='time.month')
-                # dqm = sdba.DetrendedQuantileMapping.train(mrgData['rain'], mrgData['pr'], group='time')
+                # dqm = sdba.DetrendedQuantileMapping.train(mrgData['rain'], mrgData['pr'], group='time.month')
+                dqm = sdba.DetrendedQuantileMapping.train(mrgData['rain'], mrgData['pr'], group='time')
                 dqmData = dqm.adjust(mrgData['pr'], interp="linear")
 
                 # ***********************************************************************************
@@ -615,6 +616,9 @@ class DtaProcess(object):
 
                     result = calcLassoScore(contIdxInfo, fileNameNoExt, selData, 'OBS', 'QDM')
                     log.info(f'[CHECK] result : {result}')
+
+                    #  = dataset[var1].values.flatten()[:, np.newaxis]
+                    #         y = dataset[var2].values.flatten()
 
                     result = calcLassoScore(contIdxInfo, fileNameNoExt, selData, 'OBS', 'EQM')
                     log.info(f'[CHECK] result : {result}')
