@@ -11,10 +11,6 @@ import pandas as pd
 import common.initiator as common
 import matplotlib.pyplot as plt
 import pygrib
-import wrf
-# from wrf import (getvar, interplevel, to_np, latlon_coords, get_cartopy,
-#                  cartopy_xlim, cartopy_ylim)
-from netCDF4 import Dataset
 
 class Application:
 
@@ -86,38 +82,7 @@ class Application:
         initDB = dbapp.initCfgInfo()
 
         # NetCDF 파일 읽기
-        orgData = xr.open_dataset(self.inFile)
-        # orgData = xr.open_dataset(self.inFile, engine='pynio')
-        # orgData = Dataset(self.inFile, 'r')
-        # time = wrf.getvar(orgData, "Time")
-        # orgData['DateStrLen']
-        # wrf.enable_xarray()
-
-        # temp = wrf.getvar(orgData, "T2", timeidx=-1)
-        #
-        # mean_t2 = temp.mean(dim=["south_north", "west_east"])
-        # print(mean_t2)
-        #
-        # wrf.ALL_TIMES
-
-        # xarray 데이터 배열 생성
-        xarray_data = xr.DataArray(temp)
-        xarray_data['Time'] = pd.to_datetime(xarray_data['Time'].values)
-
-        # 'Time' 차원을 기준으로 60분 간격으로 리샘플링하고 빈도 변환
-        resampled_data = xarray_data.resample(Time='60T').asfreq()
-
-
-
-        # times = orgData.variables["Times"][:,:]
-
-        # times_values = orgData.variables['Times'][:]
-        # times_str_list = [''.join(time.decode() for time in times_values[i]) for i in range(times_values.shape[0])]
-        # orgData['Times'][:]
-
-        # orgData['Time'] = pd.to_datetime(times_str_list, format='%Y-%m-%d_%H:%M:%S')
-
-
+        orgData = xr.open_mfdataset(self.inFile)
         common.logger.info(f'[CHECK] inFile : {self.inFile}')
 
         # 분석시간
@@ -187,90 +152,6 @@ class Application:
                         else:
                             if len(data[name].isel(Time=idx, bottom_top=int(level)).values) < 1: continue
                             self.dbData[colName] = self.convFloatToIntList(data[name].isel(Time=idx, bottom_top=int(level)).values)
-
-                        # import xwrf
-                        # wrf.xarray_enabled()
-                        #
-                        # data.get("slp")
-                        # slp = wrf.getvar(data, "slp")
-
-                        orgData
-
-                        a = wrf.getvar(orgData, "pressure")
-                        a['Time']
-
-                        # resample(Time='10T').asfreq()
-
-                        slp = wrf.getvar(data._file_obj.data, "slp")
-
-                        ds = xr.open_dataset(self.inFile)
-                        slp = wrf.getvar(data, "slp")
-
-                        b = Dataset(data)
-
-                        wrf.getvar(data, "slp")
-
-                        ds = xr.open_dataset(self.inFile)
-                        slp = wrf.getvar(ds._file_obj.ds, "slp")
-
-
-                        slp = wrf.getvar(orgData._file_obj.orgData, "slp")
-
-
-
-                        # Open the NetCDF file
-                        ncFile = Dataset(self.inFile)
-
-                        timeidx = wrf.ALL_TIMES
-
-                        data
-
-                        u = data[name].xwrf.destagger().variable
-
-
-                        # pressure = getvar(data['PRE'], "pressure")
-                        # pressure = getvar(ncFile, "pressure")
-
-                        pressure = wrf.getvar(data.to_netcdf(), "pressure")
-
-                        nc = data.to_netcdf()
-                        pressure = wrf.getvar(nc, "pressure")
-
-                        # wrf.extract_times(ncFile, timeidx=wrf.ALL_TIMES)
-                        times = wrf.extract_times(ncFile, timeidx=wrf.ALL_TIMES, squeeze=True)
-
-
-
-                        # Extract the pressure, geopotential height, and wind variables
-                        pressure = wrf.getvar(ncFile, "pressure", timeidx=wrf.ALL_TIMES)
-                        height = wrf.getvar(ncFile, "z", units="dm", timeidx=wrf.ALL_TIMES)
-                        ua = wrf.getvar(ncFile, "ua", units="kt", timeidx=wrf.ALL_TIMES)
-                        va = wrf.getvar(ncFile, "va", units="kt", timeidx=wrf.ALL_TIMES)
-
-                        # dbData[colName] = interplevel(height, pressure, int(level))
-
-                        a = wrf.interplevel(ua, pressure, 850)
-                        a = wrf.interplevel(ua, pressure, 500)
-                        a.plot()
-                        plt.show()
-
-
-                        # Interpolate geopotential height, u, and v winds to 500 hPa
-                        # ht_500 = interplevel(z, p, 500)
-                        # u_1000 = interplevel(ua, p, 1000)
-                        # u_1000.plot()
-                        # plt.show()
-
-                        u_850 = interplevel(ua, p, 850)
-
-                        u_850.plot()
-                        plt.show()
-
-
-
-                        data[name].isel(Time=idx, bottom_top=int(level)).plot()
-                        plt.show()
-
                     except Exception as e:
                         common.logger.error(f'Exception : {e}')
 
