@@ -12,8 +12,6 @@ import common.initiator as common
 import matplotlib.pyplot as plt
 import pygrib
 import wrf
-# from wrf import (getvar, interplevel, to_np, latlon_coords, get_cartopy,
-#                  cartopy_xlim, cartopy_ylim)
 from netCDF4 import Dataset
 
 class Application:
@@ -31,7 +29,8 @@ class Application:
 
     def run(self):
         if re.search('KIER-LDAPS|KIER-RDAPS|KIER-WIND', self.modelName, re.IGNORECASE):
-            self.processKIER()
+            self.processWrfKIER()
+            # self.processXarrayKIER()
         elif re.search('KIM|LDAPS|RDAPS', self.modelName, re.IGNORECASE):
             gribApp = Grib12(self.inFile)
             gribApp.openFile()
@@ -76,57 +75,28 @@ class Application:
             common.logger.error(f'해당 파일 ({self.inFile})에서 지표면 및 상층 데이터를 확인해주세요.')
             sys.exit(1)
 
-        common.logger.info(f'[CHECK] dbData : {self.dbData.keys()} : {np.shape(self.dbData[list(self.dbData.keys())[3]])}')
+        common.logger.info(f'[CHECK] dbData : {self.dbData.keys()} : {np.shape(self.dbData[list(self.dbData.keys())[3]])} : {len(self.dbData.keys())}')
         dbapp.dbMergeData(initDB['session'], initDB['tbIntModel'], self.dbData, pkList=['MODEL_TYPE', 'ANA_DT', 'FOR_DT'])
 
-    def processKIER(self):
+    def processWrfKIER(self):
 
         # DB 가져오기
         dbapp = ManageDB(self.dbconfig)
         initDB = dbapp.initCfgInfo()
 
         # NetCDF 파일 읽기
-        orgData = xr.open_dataset(self.inFile)
-        # orgData = xr.open_dataset(self.inFile, engine='pynio')
-        # orgData = Dataset(self.inFile, 'r')
-        # time = wrf.getvar(orgData, "Time")
-        # orgData['DateStrLen']
-        # wrf.enable_xarray()
-
-        # temp = wrf.getvar(orgData, "T2", timeidx=-1)
-        #
-        # mean_t2 = temp.mean(dim=["south_north", "west_east"])
-        # print(mean_t2)
-        #
-        # wrf.ALL_TIMES
-
-        # xarray 데이터 배열 생성
-        xarray_data = xr.DataArray(temp)
-        xarray_data['Time'] = pd.to_datetime(xarray_data['Time'].values)
-
-        # 'Time' 차원을 기준으로 60분 간격으로 리샘플링하고 빈도 변환
-        resampled_data = xarray_data.resample(Time='60T').asfreq()
-
-
-
-        # times = orgData.variables["Times"][:,:]
-
-        # times_values = orgData.variables['Times'][:]
-        # times_str_list = [''.join(time.decode() for time in times_values[i]) for i in range(times_values.shape[0])]
-        # orgData['Times'][:]
-
-        # orgData['Time'] = pd.to_datetime(times_str_list, format='%Y-%m-%d_%H:%M:%S')
-
-
+        orgData = Dataset(self.inFile, 'r')
         common.logger.info(f'[CHECK] inFile : {self.inFile}')
 
         # 분석시간
         anaDate = pd.to_datetime(orgData.START_DATE, format='%Y-%m-%d_%H:%M:%S')
 
         # 시간 인덱스를 예보 시간 기준으로 변환
-        timeByteList = orgData['Times'].values
-        timeList = [timeInfo.decode('UTF-8').replace('_', ' ') for timeInfo in timeByteList]
-        orgData['Time'] = pd.to_datetime(timeList)
+        timeByteList = wrf.getvar(orgData, "times", timeidx=wrf.ALL_TIMES).values
+        timeList = pd.to_datetime(timeByteList)
+
+        # 그룹핑
+        grpData = pd.Series(range(len(timeList)), index=timeList)
 
         # 해당 조건 시 처리 필요
         # KIER-LDAPS-2K-60M : 60분 평균 (지표 평균)
@@ -141,6 +111,93 @@ class Application:
         # KIER-RDAPS-3K : 1시간 순간 (지표 순간, 상층 순간)
 
         # KIER-WIND : 10분 단위 (지표 순간, 상층 순간)
+
+        if re.search('60M', self.modelName, re.IGNORECASE):
+            grpDataL1 = grpData.resample('60T')
+        elif re.search('30M', self.modelName, re.IGNORECASE):
+            grpDataL1 = grpData.resample('30T')
+        elif re.search('KIER-LDAPS|KIER-RDAPS', self.modelName, re.IGNORECASE):
+            grpDataL1 = grpData.resample('60T')
+        elif re.search('KIER-WIND', self.modelName, re.IGNORECASE):
+            grpDataL1 = grpData.resample('10T')
+        else:
+            common.logger.error(f'모델 종류 ({self.modelName})를 확인해주세요.')
+            sys.exit(1)
+
+        for forDate, group in grpDataL1:
+            if re.search('60M', self.modelName, re.IGNORECASE):
+                timeIdxList = group.values
+            elif re.search('30M', self.modelName, re.IGNORECASE):
+                timeIdxList = group.values
+            elif re.search('KIER-LDAPS|KIER-RDAPS', self.modelName, re.IGNORECASE):
+                timeIdxList = [group.values[0]] if forDate == grpData.index[group.values[0]] else None
+            elif re.search('KIER-WIND', self.modelName, re.IGNORECASE):
+                timeIdxList = [group.values[0]] if forDate == grpData.index[group.values[0]] else None
+            else:
+                common.logger.error(f'모델 종류 ({self.modelName})를 확인해주세요.')
+                sys.exit(1)
+
+            if timeIdxList is None: continue
+
+            # DB 등록/수정
+            self.dbData = {}
+            self.dbData['ANA_DT'] = anaDate
+            self.dbData['FOR_DT'] = forDate
+            self.dbData['MODEL_TYPE'] = self.modelName
+
+            modelInfo = self.config['modelName'].get(f'{self.modelName}_{self.modelKey}')
+            if modelInfo is None:
+                common.logger.warn(f'설정 파일 (config.yml)에서 설정 정보 (KIER-LDAPS/RDAPS, UNIS/PRES/ALL)를 확인해주세요.')
+                continue
+
+            common.logger.info(f'[CHECK] anaDate : {anaDate} / forDate : {forDate} / timeIdxList : {timeIdxList}')
+
+            # 선택 컬럼
+            for j, varInfo in enumerate(modelInfo['varName']):
+                name = varInfo['name']
+                for level, colName in zip(varInfo['level'], varInfo['colName']):
+                    try:
+                        valList = []
+                        for timeIdx in timeIdxList:
+                            if level == '-1':
+                                val = wrf.getvar(orgData, name, timeidx=timeIdx)
+                            else:
+                                pressure = wrf.getvar(orgData, "pressure", timeidx=timeIdx)
+                                selVal = wrf.getvar(orgData, name, units="kt", timeidx=timeIdx)
+                                val = wrf.interplevel(selVal, pressure, int(level))
+                            if len(val) < 1: continue
+                            valList.append(val)
+
+                        if len(valList) < 1: continue
+                        meanVal = np.nanmean(np.nan_to_num(valList), axis=0)
+                        self.dbData[colName] = self.convFloatToIntList(meanVal)
+                    except Exception as e:
+                        common.logger.error(f'Exception : {e}')
+
+            if len(self.dbData) < 1:
+                common.logger.error(f'해당 파일 ({self.inFile})에서 지표면 및 상층 데이터를 확인해주세요.')
+                sys.exit(1)
+
+            common.logger.info(f'[CHECK] dbData : {self.dbData.keys()} : {np.shape(self.dbData[list(self.dbData.keys())[3]])} : {len(self.dbData.keys())}')
+            dbapp.dbMergeData(initDB['session'], initDB['tbIntModel'], self.dbData, pkList=['MODEL_TYPE', 'ANA_DT', 'FOR_DT'])
+
+    def processXarrayKIER(self):
+
+        # DB 가져오기
+        dbapp = ManageDB(self.dbconfig)
+        initDB = dbapp.initCfgInfo()
+
+        # NetCDF 파일 읽기
+        orgData = xr.open_mfdataset(self.inFile)
+        common.logger.info(f'[CHECK] inFile : {self.inFile}')
+
+        # 분석시간
+        anaDate = pd.to_datetime(orgData.START_DATE, format='%Y-%m-%d_%H:%M:%S')
+
+        # 시간 인덱스를 예보 시간 기준으로 변환
+        timeByteList = orgData['Times'].values
+        timeList = [timeInfo.decode('UTF-8').replace('_', ' ') for timeInfo in timeByteList]
+        orgData['Time'] = pd.to_datetime(timeList)
 
         if re.search('60M', self.modelName, re.IGNORECASE):
             data = orgData.resample(Time='60T').mean(dim='Time', skipna=True)
@@ -187,90 +244,6 @@ class Application:
                         else:
                             if len(data[name].isel(Time=idx, bottom_top=int(level)).values) < 1: continue
                             self.dbData[colName] = self.convFloatToIntList(data[name].isel(Time=idx, bottom_top=int(level)).values)
-
-                        # import xwrf
-                        # wrf.xarray_enabled()
-                        #
-                        # data.get("slp")
-                        # slp = wrf.getvar(data, "slp")
-
-                        orgData
-
-                        a = wrf.getvar(orgData, "pressure")
-                        a['Time']
-
-                        # resample(Time='10T').asfreq()
-
-                        slp = wrf.getvar(data._file_obj.data, "slp")
-
-                        ds = xr.open_dataset(self.inFile)
-                        slp = wrf.getvar(data, "slp")
-
-                        b = Dataset(data)
-
-                        wrf.getvar(data, "slp")
-
-                        ds = xr.open_dataset(self.inFile)
-                        slp = wrf.getvar(ds._file_obj.ds, "slp")
-
-
-                        slp = wrf.getvar(orgData._file_obj.orgData, "slp")
-
-
-
-                        # Open the NetCDF file
-                        ncFile = Dataset(self.inFile)
-
-                        timeidx = wrf.ALL_TIMES
-
-                        data
-
-                        u = data[name].xwrf.destagger().variable
-
-
-                        # pressure = getvar(data['PRE'], "pressure")
-                        # pressure = getvar(ncFile, "pressure")
-
-                        pressure = wrf.getvar(data.to_netcdf(), "pressure")
-
-                        nc = data.to_netcdf()
-                        pressure = wrf.getvar(nc, "pressure")
-
-                        # wrf.extract_times(ncFile, timeidx=wrf.ALL_TIMES)
-                        times = wrf.extract_times(ncFile, timeidx=wrf.ALL_TIMES, squeeze=True)
-
-
-
-                        # Extract the pressure, geopotential height, and wind variables
-                        pressure = wrf.getvar(ncFile, "pressure", timeidx=wrf.ALL_TIMES)
-                        height = wrf.getvar(ncFile, "z", units="dm", timeidx=wrf.ALL_TIMES)
-                        ua = wrf.getvar(ncFile, "ua", units="kt", timeidx=wrf.ALL_TIMES)
-                        va = wrf.getvar(ncFile, "va", units="kt", timeidx=wrf.ALL_TIMES)
-
-                        # dbData[colName] = interplevel(height, pressure, int(level))
-
-                        a = wrf.interplevel(ua, pressure, 850)
-                        a = wrf.interplevel(ua, pressure, 500)
-                        a.plot()
-                        plt.show()
-
-
-                        # Interpolate geopotential height, u, and v winds to 500 hPa
-                        # ht_500 = interplevel(z, p, 500)
-                        # u_1000 = interplevel(ua, p, 1000)
-                        # u_1000.plot()
-                        # plt.show()
-
-                        u_850 = interplevel(ua, p, 850)
-
-                        u_850.plot()
-                        plt.show()
-
-
-
-                        data[name].isel(Time=idx, bottom_top=int(level)).plot()
-                        plt.show()
-
                     except Exception as e:
                         common.logger.error(f'Exception : {e}')
 
@@ -278,7 +251,7 @@ class Application:
                 common.logger.error(f'해당 파일 ({self.inFile})에서 지표면 및 상층 데이터를 확인해주세요.')
                 sys.exit(1)
 
-            common.logger.info(f'[CHECK] dbData : {self.dbData.keys()} : {np.shape(self.dbData[list(self.dbData.keys())[3]])}')
+            common.logger.info(f'[CHECK] dbData : {self.dbData.keys()} : {np.shape(self.dbData[list(self.dbData.keys())[3]])} : {len(self.dbData.keys())}')
             dbapp.dbMergeData(initDB['session'], initDB['tbIntModel'], self.dbData, pkList=['MODEL_TYPE', 'ANA_DT', 'FOR_DT'])
 
     def processGFS(self):
@@ -331,7 +304,7 @@ class Application:
             common.logger.error(f'해당 파일 ({self.inFile})에서 지표면 및 상층 데이터를 확인해주세요.')
             sys.exit(1)
 
-        common.logger.info(f'[CHECK] dbData : {self.dbData.keys()} : {np.shape(self.dbData[list(self.dbData.keys())[3]])}')
+        common.logger.info(f'[CHECK] dbData : {self.dbData.keys()} : {np.shape(self.dbData[list(self.dbData.keys())[3]])} : {len(self.dbData.keys())}')
         dbapp.dbMergeData(initDB['session'], initDB['tbIntModel'], self.dbData, pkList=['MODEL_TYPE', 'ANA_DT', 'FOR_DT'])
 
     def getVar(self):
@@ -340,7 +313,8 @@ class Application:
     def convFloatToIntList(self, val):
         scaleFactor = 10000
         addOffset = 0
-        return ((np.around(val, 4) * scaleFactor) - addOffset).astype(int).tolist()
+        result = np.where(~np.isnan(val), ((np.around(val, 4) * scaleFactor) - addOffset).astype(int), np.nan)
+        return result.tolist()
 
     """
     def insertData(self,):
@@ -349,3 +323,19 @@ class Application:
     def getConfig(self) :
         return 	
     """
+
+    # dtSrtDate = pd.to_datetime('2022-01-01', format='%Y-%m-%d')
+    # dtEndDate = pd.to_datetime('2022-01-02', format='%Y-%m-%d')
+    # timeList = pd.date_range(start=dtSrtDate, end=dtEndDate, freq='10T')
+
+    # lat1D = wrf.getvar(orgData, 'XLAT', timeidx=0)
+    # lon1D = wrf.getvar(orgData, 'XLONG', timeidx=0)
+    # val1D = val
+    # val1D = meanVal
+
+    # val1D.plot()
+    # plt.show()
+
+    # plt.scatter(lon1D, lat1D, c=val1D)
+    # plt.colorbar()
+s    # plt.show()
