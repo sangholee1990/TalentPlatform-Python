@@ -150,6 +150,7 @@ class Application:
                 common.logger.warn(f'설정 파일 (config.yml)에서 설정 정보 (KIER-LDAPS/RDAPS, UNIS/PRES/ALL)를 확인해주세요.')
                 continue
 
+            # common.logger.info(f'[CHECK] anaDate : {anaDate} / forDate : {forDate} / timeIdxList : {timeIdxList} / timeList : {timeList[timeIdxList]}')
             common.logger.info(f'[CHECK] anaDate : {anaDate} / forDate : {forDate} / timeIdxList : {timeIdxList}')
 
             # 선택 컬럼
