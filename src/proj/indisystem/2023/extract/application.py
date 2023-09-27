@@ -302,7 +302,10 @@ class Application:
                 try:
                     if level == '-1':
                         if len(data[name].values) < 1: continue
-                        self.dbData[colName] = self.convFloatToIntList(data[name].values)
+                        if re.search('ALB', name, re.IGNORECASE):
+                            self.dbData[colName] = self.convFloatToIntList(data[name].values / 100)
+                        else:
+                            self.dbData[colName] = self.convFloatToIntList(data[name].values)
                     else:
                         if len(data[name].isel(lv_ISBL0=int(level)).values) < 1: continue
                         self.dbData[colName] = self.convFloatToIntList(data[name].isel(lv_ISBL0=int(level)).values)
@@ -322,7 +325,10 @@ class Application:
     def convFloatToIntList(self, val):
         scaleFactor = 10000
         addOffset = 0
-        result = np.where(~np.isnan(val), ((np.around(val, 4) * scaleFactor) - addOffset).astype(int), np.nan)
+
+        # result = np.where(~np.isnan(val), ((np.around(val, 4) * scaleFactor) - addOffset).astype(int), np.nan)
+        result = ((np.around(val, 4) * scaleFactor) - addOffset).astype(int)
+
         return result.tolist()
 
     """
@@ -393,3 +399,24 @@ class Application:
     # plt.savefig(saveImg, dpi=600, bbox_inches='tight', transparent=True)
     # plt.show()
     # plt.close()
+
+    #      aa = xr.open_dataset(self.inFile, engine='pynio')
+    #         aa.info()
+    #         # aa2 = aa['HGT_P0_L100_GLC0'].isel(lv_ISBL0 = 17)
+    #         aa2 = aa['TMP_P0_L1_GLC0']
+    #         aa2 = aa['RH_P0_L103_GLC0']
+    #         aa2 = aa['PRES_P0_L1_GLC0']
+    #         aa2 = aa['SNFALB_P0_L103_GLC0']
+    #
+    #         # aa2 = aa['SNFALB_P0_L103_GLC0']
+    #         aa2.plot()
+    #         plt.show()
+
+    # data.info()
+    # data['HGT_P0_L100_GLL0'].isel(lv_ISBL0 = 35).plot()
+    # data['TMP_P0_L1_GLL0'].plot()
+    # # data['RH_P0_L103_GLL0'].plot()
+    # data['RH_P0_L100_GLL0'].plot()
+    # data['PRES_P0_L1_GLL0'].plot()
+    # data['ALBDO_P8_L1_GLL0_avg'].plot()
+    # plt.show()

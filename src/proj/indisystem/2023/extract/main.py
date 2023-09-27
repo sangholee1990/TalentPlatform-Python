@@ -37,13 +37,12 @@ def main():
         # inFile = '/DATA/INPUT/INDI2023/MODEL/RDAPS/g120_v070_erea_unis_h024.2023062918.gb2'
         # modelName = 'RDAPS-12K'
 
-        # inFile = '/DATA/INPUT/INDI2023/MODEL/GFS/gfs.0p25.2023062912.f003.grib2'
         # inFile = '/DATA/INPUT/INDI2023/DATA/GFS/2023/08/28/00/gfs.t00z.pgrb2.0p25.f003.gb2'
         # modelName = 'GFS-25K'
 
         option = get_option()
         inFile = option.inFile
-        modelName = option.modelName.upper()
+        modelName = option.modelName()
 
         ctxPath = os.getcwd()
         logInfo = f'{ctxPath}/log/daemon-kierDB-{modelName}.log'
