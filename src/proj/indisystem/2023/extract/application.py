@@ -13,6 +13,7 @@ import matplotlib.pyplot as plt
 import pygrib
 import wrf
 from netCDF4 import Dataset
+import os
 
 class Application:
 
@@ -164,8 +165,52 @@ class Application:
                                 val = wrf.getvar(orgData, name, timeidx=timeIdx)
                             else:
                                 pressure = wrf.getvar(orgData, "pressure", timeidx=timeIdx)
-                                selVal = wrf.getvar(orgData, name, units="kt", timeidx=timeIdx)
-                                val = wrf.interplevel(selVal, pressure, int(level))
+                                # selVal = wrf.getvar(orgData, name, units="kt", timeidx=timeIdx)
+                                selVal = wrf.getvar(orgData, name, units="m/s", timeidx=timeIdx)
+
+                                # level = 1000
+                                # bottom_top = 0
+                                # level = 975
+                                # bottom_top = 1
+                                # level = 950
+                                # bottom_top = 2
+                                # level = 925
+                                # bottom_top = 3
+                                # level = 900
+                                # bottom_top = 4
+                                # level = 875
+                                # bottom_top = 5
+                                level = 850
+                                bottom_top = 6
+
+                                # NEW 방법
+                                # val = wrf.interplevel(selVal, pressure, int(level))
+                                # NEW2 방법
+                                val = wrf.vinterp(orgData, field = selVal, vert_coord = 'pressure', interp_levels = [int(level)], extrapolate=True, timeidx=timeIdx)
+
+                                # mainTitle = f'NEW (wrf-python) / anaDate = {anaDate} \n forDate = {forDate} / level = {int(level)} hPa'
+                                mainTitle = f'NEW2 (wrf-python) / anaDate = {anaDate} \n forDate = {forDate} / level = {int(level)} hPa'
+                                val.plot()
+                                plt.title(mainTitle)
+                                # saveImg = '{}/{}.png'.format('/DATA/FIG/INDI2023/TEST', f'NEW-{int(level)}')
+                                saveImg = '{}/{}.png'.format('/DATA/FIG/INDI2023/TEST', f'NEW2-{int(level)}')
+                                os.makedirs(os.path.dirname(saveImg), exist_ok=True)
+                                plt.savefig(saveImg, dpi=600, bbox_inches='tight', transparent=True)
+                                plt.show()
+                                plt.close()
+
+                                aa = xr.open_dataset(self.inFile)
+                                aa2 = aa['U'].isel(Time = 0, bottom_top=bottom_top)
+
+                                mainTitle = f'ORG (xarray) / anaDate = {anaDate} \n forDate = {forDate} / level = {int(level)} hPa'
+                                aa2.plot()
+                                plt.title(mainTitle)
+                                saveImg = '{}/{}.png'.format('/DATA/FIG/INDI2023/TEST', f'ORG-{int(level)}')
+                                os.makedirs(os.path.dirname(saveImg), exist_ok=True)
+                                plt.savefig(saveImg, dpi=600, bbox_inches='tight', transparent=True)
+                                plt.show()
+                                plt.close()
+
                             if len(val) < 1: continue
                             valList.append(val)
 
