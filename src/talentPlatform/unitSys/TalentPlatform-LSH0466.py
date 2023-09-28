@@ -164,83 +164,91 @@ def initArgument(globalVar, inParams):
     return globalVar
 
 
-def calcLassoScore(contIdx, fileNameNoExt, dataset, var1, var2):
+def calcLassoScore(contIdx, fileNameNoExt, data, var1, var2):
     # log.info(f'[START] calcLassoScore')
     result = None
 
     try:
-        X = dataset[var1].values.flatten()[:, np.newaxis]
-        y = dataset[var2].values.flatten()
+        # 결측값 제외
+        data[var1] = xr.where((data[var1] < 0), np.nan, data[var1])
+        data[var2] = xr.where((data[var2] < 0), np.nan, data[var2])
 
-        # NaN 값을 가진 행의 인덱스를 찾습니다.
-        # mask = ~np.isnan(y) & ~np.isnan(X[:, 0])
+        # 기본 정보
+        # X = data[var1].values
+        # y = data[var2].values
+
+        X = data[var1].values.flatten()[:, np.newaxis]
+        y = data[var2].values.flatten()
+
         mask = ~np.isnan(y) & ~np.isnan(X[:, 0]) & (X[:, 0] > 0) & (y > 0)
-
-        # NaN 값을 제거합니다.
         X = X[mask]
         y = y[mask]
 
-        start_time = time.time()
-        lasso_lars_ic = make_pipeline(StandardScaler(), LassoLarsIC(criterion="aic")).fit(X, y)
-        fit_time = time.time() - start_time
+        # 검증스코어 계산 : Bias (Relative Bias), RMSE (Relative RMSE)
+        Bias = np.nanmean(X[:, 0] - y)
+        RMSE = np.sqrt(np.nanmean((X[:, 0] - y) ** 2))
+        corr = np.corrcoef(X[:, 0], y)[0, 1]
+        # rBias = (Bias / np.nanmean(y)) * 100.0
+        # rRMSE = (RMSE / np.nanmean(y)) * 100.0
 
-        valData = pd.DataFrame(
-            {
-                "alphas": lasso_lars_ic[-1].alphas_,
-                "AIC criterion": lasso_lars_ic[-1].criterion_,
-            }
-        )
-        alpha_aic = lasso_lars_ic[-1].alpha_
+        dict = {
+            'Bias' : [Bias]
+            , 'RMSE' : [RMSE]
+            , 'corr': [corr]
+            # , 'rBias' : [rBias]
+            # , 'rRMSE' : [rRMSE]
+        }
 
-        lasso_lars_ic.set_params(lassolarsic__criterion="bic").fit(X, y)
-        valData["BIC criterion"] = lasso_lars_ic[-1].criterion_
-        alpha_bic = lasso_lars_ic[-1].alpha_
-
+        valData = pd.DataFrame.from_dict(dict)
 
         # CSV 자료 저장
-        saveFile = '{}/{}/{}-{}_{}-{}_{}.csv'.format(globalVar['outPath'], serviceName, 'RES-ABIC', var1, var2, contIdx, fileNameNoExt)
+        saveFile = '{}/{}/{}-{}_{}-{}_{}.csv'.format(globalVar['outPath'], serviceName, 'RES-ALL', var1, var2, contIdx, fileNameNoExt)
         os.makedirs(os.path.dirname(saveFile), exist_ok=True)
         valData.to_csv(saveFile, index=False)
-        # log.info(f'[CHECK] saveFile : {saveFile}')
+        log.info(f'[CHECK] saveFile : {saveFile}')
 
-        # 검증 스코어 저장
-        plt.figure(dpi=600)
-        saveImg = '{}/{}/{}-{}_{}-{}_{}.png'.format(globalVar['figPath'], serviceName, 'RES-ABIC', var1, var2, contIdx, fileNameNoExt)
-        os.makedirs(os.path.dirname(saveImg), exist_ok=True)
-        ax = valData.plot()
-        ax.vlines(
-            alpha_aic,
-            valData["AIC criterion"].min(),
-            valData["AIC criterion"].max(),
-            label="alpha: AIC estimate",
-            linestyles="--",
-            color="tab:blue",
-        )
+        # 상세 정보
+        valDataL1 = pd.DataFrame()
+        timeList = data['time'].values
+        for timeInfo in timeList:
+            dataL1 = data.sel(time = timeInfo)
 
-        ax.vlines(
-            alpha_bic,
-            valData["BIC criterion"].min(),
-            valData["BIC criterion"].max(),
-            label="alpha: BIC estimate",
-            linestyle="--",
-            color="tab:orange",
-        )
-        ax.set_xlabel(r"$\alpha$")
-        ax.set_ylabel("criterion")
-        ax.set_xscale("log")
-        ax.legend()
-        _ = ax.set_title(f"Information-criterion for model selection (training time {fit_time:.2f}s)")
-        plt.savefig(saveImg, dpi=600, bbox_inches='tight', transparent=True)
-        plt.tight_layout()
-        # plt.show()
-        plt.close()
+            X = dataL1[var1].values.flatten()[:, np.newaxis]
+            y = dataL1[var2].values.flatten()
+
+            mask = ~np.isnan(y) & ~np.isnan(X[:, 0]) & (X[:, 0] > 0) & (y > 0)
+            X = X[mask]
+            y = y[mask]
+
+            # 검증스코어 계산 : Bias (Relative Bias), RMSE (Relative RMSE)
+            Bias = np.nanmean(X[:, 0] - y)
+            rBias = (Bias / np.nanmean(y)) * 100.0
+            RMSE = np.sqrt(np.nanmean((X[:, 0] - y) ** 2))
+            rRMSE = (RMSE / np.nanmean(y)) * 100.0
+            corr = np.corrcoef(X[:, 0], y)[0, 1]
+
+            dict = {
+                'timeInfo': [timeInfo]
+                , 'Bias': [Bias]
+                , 'RMSE': [RMSE]
+                , 'corr': [corr]
+                # , 'rBias': [rBias]
+                # , 'rRMSE': [rRMSE]
+            }
+
+            valDataL1 = pd.concat([valDataL1, pd.DataFrame.from_dict(dict)], ignore_index=False)
+        valDataL2 = valDataL1.dropna()
+
+        # CSV 자료 저장
+        saveFile = '{}/{}/{}-{}_{}-{}_{}.csv'.format(globalVar['outPath'], serviceName, 'RES-DTL', var1, var2, contIdx, fileNameNoExt)
+        os.makedirs(os.path.dirname(saveFile), exist_ok=True)
+        valDataL2.to_csv(saveFile, index=False)
+        log.info(f'[CHECK] saveFile : {saveFile}')
 
         result = {
             'msg': 'succ'
             , 'saveFile': saveFile
             , 'isFileExist': os.path.exists(saveFile)
-            , 'saveImg': saveImg
-            , 'isImgExist': os.path.exists(saveImg)
         }
 
         return result
@@ -249,6 +257,92 @@ def calcLassoScore(contIdx, fileNameNoExt, dataset, var1, var2):
         log.error(f'Exception : {e}')
 
         return result
+
+# def calcLassoScore(contIdx, fileNameNoExt, dataset, var1, var2):
+#     # log.info(f'[START] calcLassoScore')
+#     result = None
+#
+#     try:
+#         X = dataset[var1].values.flatten()[:, np.newaxis]
+#         y = dataset[var2].values.flatten()
+#
+#         # NaN 값을 가진 행의 인덱스를 찾습니다.
+#         # mask = ~np.isnan(y) & ~np.isnan(X[:, 0])
+#         mask = ~np.isnan(y) & ~np.isnan(X[:, 0]) & (X[:, 0] > 0) & (y > 0)
+#
+#         # NaN 값을 제거합니다.
+#         X = X[mask]
+#         y = y[mask]
+#
+#         start_time = time.time()
+#         lasso_lars_ic = make_pipeline(StandardScaler(), LassoLarsIC(criterion="aic")).fit(X, y)
+#         fit_time = time.time() - start_time
+#
+#         valData = pd.DataFrame(
+#             {
+#                 "alphas": lasso_lars_ic[-1].alphas_,
+#                 "AIC criterion": lasso_lars_ic[-1].criterion_,
+#             }
+#         )
+#         alpha_aic = lasso_lars_ic[-1].alpha_
+#
+#         lasso_lars_ic.set_params(lassolarsic__criterion="bic").fit(X, y)
+#         valData["BIC criterion"] = lasso_lars_ic[-1].criterion_
+#         alpha_bic = lasso_lars_ic[-1].alpha_
+#
+#
+#         # CSV 자료 저장
+#         saveFile = '{}/{}/{}-{}_{}-{}_{}.csv'.format(globalVar['outPath'], serviceName, 'RES-ABIC', var1, var2, contIdx, fileNameNoExt)
+#         os.makedirs(os.path.dirname(saveFile), exist_ok=True)
+#         valData.to_csv(saveFile, index=False)
+#         # log.info(f'[CHECK] saveFile : {saveFile}')
+#
+#         # 검증 스코어 저장
+#         plt.figure(dpi=600)
+#         saveImg = '{}/{}/{}-{}_{}-{}_{}.png'.format(globalVar['figPath'], serviceName, 'RES-ABIC', var1, var2, contIdx, fileNameNoExt)
+#         os.makedirs(os.path.dirname(saveImg), exist_ok=True)
+#         ax = valData.plot()
+#         ax.vlines(
+#             alpha_aic,
+#             valData["AIC criterion"].min(),
+#             valData["AIC criterion"].max(),
+#             label="alpha: AIC estimate",
+#             linestyles="--",
+#             color="tab:blue",
+#         )
+#
+#         ax.vlines(
+#             alpha_bic,
+#             valData["BIC criterion"].min(),
+#             valData["BIC criterion"].max(),
+#             label="alpha: BIC estimate",
+#             linestyle="--",
+#             color="tab:orange",
+#         )
+#         ax.set_xlabel(r"$\alpha$")
+#         ax.set_ylabel("criterion")
+#         ax.set_xscale("log")
+#         ax.legend()
+#         _ = ax.set_title(f"Information-criterion for model selection (training time {fit_time:.2f}s)")
+#         plt.savefig(saveImg, dpi=600, bbox_inches='tight', transparent=True)
+#         plt.tight_layout()
+#         # plt.show()
+#         plt.close()
+#
+#         result = {
+#             'msg': 'succ'
+#             , 'saveFile': saveFile
+#             , 'isFileExist': os.path.exists(saveFile)
+#             , 'saveImg': saveImg
+#             , 'isImgExist': os.path.exists(saveImg)
+#         }
+#
+#         return result
+#
+#     except Exception as e:
+#         log.error(f'Exception : {e}')
+#
+#         return result
 
 # ================================================
 # 4. 부 프로그램
@@ -442,6 +536,9 @@ class DtaProcess(object):
                 # ***********************************************************************************
                 # Cannon, A. J., Sobie, S. R., & Murdock, T. Q. (2015). Bias correction of GCM precipitation by quantile mapping: How well do methods preserve changes in quantiles and extremes? Journal of Climate, 28(17), 6938–6959. https://doi.org/10.1175/JCLI-D-14-00754.1
                 # ***********************************************************************************
+                # ref : Training target, usually a reference time series drawn from observations.
+                # hist : Training data, usually a model output whose biases are to be adjusted.
+
                 # 일수 단위로 가중치 조정
                 # qdm = sdba.QuantileDeltaMapping.train(mrgData['rain'], mrgData['pr'], group='time.dayofyear')
                 # 연 단위로 가중치 조정
@@ -451,18 +548,74 @@ class DtaProcess(object):
                 # 월 단위로 가중치 조정
                 # qdm = sdba.QuantileDeltaMapping.train(mrgData['rain'], mrgData['pr'], group='time.month')
                 # 일 단위로 가중치 조정
-                qdm = sdba.QuantileDeltaMapping.train(mrgData['rain'], mrgData['pr'], group='time')
-                qdmData = qdm.adjust(mrgData['pr'], interp="linear")
+                # qdm = sdba.QuantileDeltaMapping.train(ref=mrgData['rain'], hist=mrgData['pr'], nquantiles=15, group='time')
+                # qdmData = qdm.adjust(mrgData['pr'], interp="linear")
+
+                qdm = sdba.QuantileDeltaMapping.train(ref=mrgData['rain'], hist=mrgData['pr'], nquantiles=15, group='time')
+                qdmData = qdm.adjust(sim=mrgData['pr'], interp="linear")
+
+
+                # ref = mrgData['rain']
+                # hist = mrgData['pr']
+                # # ref_n, _ = sdba.processing.normalize(ref, group='time', kind="+")
+                # hist_n, _ = sdba.processing.normalize(hist, group='time', kind="+")
+
+                # qdm = sdba.QuantileDeltaMapping.train(ref = ref_n, hist = hist_n, nquantiles=15, group='time')
+                # qdmData = qdm.adjust(mrgData['pr'], interp="linear")
 
                 # qdm.ds.af.plot()
                 # plt.show()
+                #
+                # mrgData['rain'].isel(time = 2).plot(vmin = 0, vmax = 100)
+                # plt.show()
+                #
+                # hist_n.isel(time=2).plot(x='lon', y='lat', vmin = 0, vmax = 100)
+                # plt.show()
+
+                # xclim.core.calendar
+                # for nquantiles in range(10, 101, 10):
+                #     log.info(f'[CHECK] nquantiles : {nquantiles}')
+                #     # qdm = sdba.QuantileDeltaMapping.train(ref=mrgData['rain'], hist=mrgData['pr'], kind="+", nquantiles=nquantiles, group='time')
+                #     qdm = sdba.QuantileDeltaMapping.train(ref=mrgData['rain'], hist=mrgData['pr'], kind="+", nquantiles=15, group='time.dayOfYear')
+                #     # qdm = sdba.QuantileDeltaMapping.train(ref=mrgData['rain'], hist=mrgData['pr'], kind="*", nquantiles=nquantiles, group='time')
+                #     qdmData = qdm.adjust(sim=mrgData['pr'], interp="linear")
+                #
+                #     X = mrgData['rain'].isel(time=2).values.flatten()[:, np.newaxis]
+                #     y = qdmData.isel(time=2).values.flatten()
+                #
+                #     mask = ~np.isnan(y) & ~np.isnan(X[:, 0]) & (X[:, 0] > 0) & (y > 0)
+                #     X = X[mask]
+                #     y = y[mask]
+                #
+                #     # 검증스코어 계산 : Bias (Relative Bias), RMSE (Relative RMSE)
+                #     Bias = np.nanmean(X[:, 0] - y)
+                #     RMSE = np.sqrt(np.nanmean((X[:, 0] - y) ** 2))
+                #     corr = np.corrcoef(X[:, 0], y)[0, 1]
+                #
+                #     dict = {
+                #         'Bias': [Bias]
+                #         , 'RMSE': [RMSE]
+                #         , 'corr': [corr]
+                #     }
+                #
+                #     # valData = pd.DataFrame.from_dict(dict)
+                #     log.info(f'[CHECK] dict : {dict}')
+                #
+                #     # mainTitle = f'QDM / nquantiles = {nquantiles}'
+                #     # qdmData.isel(time=2).plot(x='lon', y='lat', vmin=0, vmax=100)
+                #     # plt.title(mainTitle)
+                #     # saveImg = '{}/{}/{}.png'.format(globalVar['figPath'], serviceName, f'QDM-{nquantiles}')
+                #     # os.makedirs(os.path.dirname(saveImg), exist_ok=True)
+                #     # plt.savefig(saveImg, dpi=600, bbox_inches='tight', transparent=True)
+                #     # plt.show()
+                #     # plt.close()
 
                 # ***********************************************************************************
                 # Dequé, M. (2007). Frequency of precipitation and temperature extremes over France in an anthropogenic scenario: Model results and statistical correction according to observed values. Global and Planetary Change, 57(1–2), 16–26. https://doi.org/10.1016/j.gloplacha.2006.11.030
                 # ***********************************************************************************
                 # eqm =  sdba.EmpiricalQuantileMapping.train(mrgData['rain'], mrgData['pr'], group='time.dayofyear')
                 # eqm =  sdba.EmpiricalQuantileMapping.train(mrgData['rain'], mrgData['pr'], group='time.month')
-                eqm =  sdba.EmpiricalQuantileMapping.train(mrgData['rain'], mrgData['pr'], group='time')
+                eqm =  sdba.EmpiricalQuantileMapping.train(ref = mrgData['rain'], hist = mrgData['pr'], nquantiles=15, group='time')
                 eqmData = eqm.adjust(mrgData['pr'], interp="linear")
 
                 # eqm.ds.af.plot()
@@ -473,7 +626,7 @@ class DtaProcess(object):
                 # ***********************************************************************************
                 # dqm = sdba.DetrendedQuantileMapping.train(mrgData['rain'], mrgData['pr'], group='time.dayofyear')
                 # dqm = sdba.DetrendedQuantileMapping.train(mrgData['rain'], mrgData['pr'], group='time.month')
-                dqm = sdba.DetrendedQuantileMapping.train(mrgData['rain'], mrgData['pr'], group='time')
+                dqm = sdba.DetrendedQuantileMapping.train(ref = mrgData['rain'], hist = mrgData['pr'], nquantiles=15, group='time')
                 dqmData = dqm.adjust(mrgData['pr'], interp="linear")
 
                 # ***********************************************************************************
@@ -549,13 +702,6 @@ class DtaProcess(object):
                 # ***********************************************************************************
                 # 요약 통계량
                 # ***********************************************************************************
-                timeIdx = 0
-                log.info(f"[CHECK] min : {np.nanmin(mrgData['rain'].isel(time=timeIdx))} / max : {np.nanmax(mrgData['rain'].isel(time=timeIdx))}")
-                log.info(f"[CHECK] min : {np.nanmin(mrgData['pr'].isel(time=timeIdx))} / max : {np.nanmax(mrgData['pr'].isel(time=timeIdx))}")
-                log.info(f"[CHECK] min : {np.nanmin(qdmData.isel(time=timeIdx))} / max : {np.nanmax(qdmData.isel(time=timeIdx))}")
-                log.info(f"[CHECK] min : {np.nanmin(eqmData.isel(time=timeIdx))} / max : {np.nanmax(eqmData.isel(time=timeIdx))}")
-                log.info(f"[CHECK] min : {np.nanmin(dqmData.isel(time=timeIdx))} / max : {np.nanmax(dqmData.isel(time=timeIdx))}")
-
                 # mrgData['rain'].isel(time=2).plot(vmin=0, vmax=100)
                 # mrgData['pr'].isel(time=2).plot(vmin=0, vmax=100)
                 # qdmData.isel(time=2).plot(x='lon', y='lat', vmin=0, vmax=100, cmap='viridis')
@@ -577,7 +723,6 @@ class DtaProcess(object):
                         , 'DQM': (('time', 'lat', 'lon'), (dqmData.transpose('time', 'lat', 'lon').values).reshape(len(time1D), len(lat1D), len(lon1D)))
                         , 'isLand': (('time', 'lat', 'lon'), np.tile(contDataL4['isLand'].values[np.newaxis, :, :], (len(time1D), 1, 1)).reshape(len(time1D), len(lat1D), len(lon1D)))
                         , 'contIdx': (('time', 'lat', 'lon'), np.tile(contDataL4['contIdx'].values[np.newaxis, :, :], (len(time1D), 1, 1)).reshape(len(time1D), len(lat1D), len(lon1D)))
-
                     }
                     , coords={
                         'time': time1D
@@ -585,6 +730,19 @@ class DtaProcess(object):
                         , 'lon': lon1D
                     }
                 )
+
+                # 음수의 경우 0으로 대체
+                mrgDataL1['QDM'] = xr.where((mrgDataL1['QDM'] < 0), 0.0, mrgDataL1['QDM'])
+                mrgDataL1['EQM'] = xr.where((mrgDataL1['EQM'] < 0), 0.0, mrgDataL1['EQM'])
+                mrgDataL1['DQM'] = xr.where((mrgDataL1['DQM'] < 0), 0.0, mrgDataL1['DQM'])
+
+                timeIdx = 2
+                log.info(f"[CHECK] OBS min : {np.nanmin(mrgDataL1['OBS'].isel(time=timeIdx))} / max : {np.nanmax(mrgDataL1['OBS'].isel(time=timeIdx))}")
+                log.info(f"[CHECK] MOD min : {np.nanmin(mrgDataL1['MOD'].isel(time=timeIdx))} / max : {np.nanmax(mrgDataL1['MOD'].isel(time=timeIdx))}")
+                log.info(f"[CHECK] QDM min : {np.nanmin(mrgDataL1['QDM'].isel(time=timeIdx))} / max : {np.nanmax(mrgDataL1['QDM'].isel(time=timeIdx))}")
+                log.info(f"[CHECK] EQM min : {np.nanmin(mrgDataL1['EQM'].isel(time=timeIdx))} / max : {np.nanmax(mrgDataL1['EQM'].isel(time=timeIdx))}")
+                log.info(f"[CHECK] DQM min : {np.nanmin(mrgDataL1['DQM'].isel(time=timeIdx))} / max : {np.nanmax(mrgDataL1['DQM'].isel(time=timeIdx))}")
+
 
                 # NetCDF 자료 저장
                 saveFile = '{}/{}/{}_{}.nc'.format(globalVar['outPath'], serviceName, 'RES-MBC', fileNameNoExt)
@@ -616,9 +774,6 @@ class DtaProcess(object):
 
                     result = calcLassoScore(contIdxInfo, fileNameNoExt, selData, 'OBS', 'QDM')
                     log.info(f'[CHECK] result : {result}')
-
-                    #  = dataset[var1].values.flatten()[:, np.newaxis]
-                    #         y = dataset[var2].values.flatten()
 
                     result = calcLassoScore(contIdxInfo, fileNameNoExt, selData, 'OBS', 'EQM')
                     log.info(f'[CHECK] result : {result}')
