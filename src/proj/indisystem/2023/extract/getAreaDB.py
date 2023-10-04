@@ -1,11 +1,11 @@
 # -*- coding: utf-8 -*-
 import sys
-
 import pandas as pd
 import psycopg2
 import re
 import yaml
 import os
+import matplotlib.pyplot as plt
 
 # ===========================================================
 # 실행 방법
@@ -18,10 +18,14 @@ import os
 ctxPath = os.getcwd()
 
 # 특정 영역 정보
-minLon = 128
-maxLon = 128.5
-minLat = 33
-maxLat = 33.5
+# minLon = 128
+# maxLon = 128.5
+# minLat = 33
+# maxLat = 33.5
+minLon = 108
+maxLon = 147
+minLat = 22
+maxLat = 49
 print(f'[CHECK] minLon : {minLon}')
 print(f'[CHECK] maxLon : {maxLon}')
 print(f'[CHECK] minLat : {minLat}')
@@ -172,19 +176,32 @@ SELECT TO_CHAR(AA."ANA_DT", 'YYYY-MM-DD HH24:MI:SS') AS "ANA_DT"
      , unnest(AA."SW_U")::Float / 100000             AS "SW_U"
      , unnest(AA."U")::Float / 100000                AS "U"
      , unnest(AA."V")::Float / 100000                AS "V"
+     , unnest(AA."TM")::Float / 100000                AS "TM"
+     , unnest(AA."RH")::Float / 100000                AS "RH"
+     , unnest(AA."PRE")::Float / 100000                AS "PRE"
+     , unnest(AA."ALB")::Float / 100000                AS "ALB"
     /* 상층 */
      , unnest(AA."U850")::Float / 100000             AS "U850"
      , unnest(AA."U875")::Float / 100000             AS "U875"
      , unnest(AA."U900")::Float / 100000             AS "U900"
      , unnest(AA."U925")::Float / 100000             AS "U925"
+     , unnest(AA."U950")::Float / 100000             AS "U950"
      , unnest(AA."U975")::Float / 100000             AS "U975"
      , unnest(AA."U1000")::Float / 100000            AS "U1000"
      , unnest(AA."V850")::Float / 100000             AS "V850"
      , unnest(AA."V875")::Float / 100000             AS "V875"
      , unnest(AA."V900")::Float / 100000             AS "V900"
      , unnest(AA."V925")::Float / 100000             AS "V925"
+     , unnest(AA."V950")::Float / 100000             AS "V950"
      , unnest(AA."V975")::Float / 100000             AS "V975"
      , unnest(AA."V1000")::Float / 100000            AS "V1000"
+     , unnest(AA."G850")::Float / 100000             AS "G850"
+     , unnest(AA."G875")::Float / 100000             AS "G875"
+     , unnest(AA."G900")::Float / 100000             AS "G900"
+     , unnest(AA."G925")::Float / 100000             AS "G925"
+     , unnest(AA."G950")::Float / 100000             AS "G950"
+     , unnest(AA."G975")::Float / 100000             AS "G975"
+     , unnest(AA."G1000")::Float / 100000            AS "G1000"
 FROM (SELECT C."ANA_DT"                                                                                                                                                                        AS "ANA_DT"
            , C."FOR_DT"                                                                                                                                                                        AS "FOR_DT"
            , C."MODEL_TYPE"
@@ -204,20 +221,33 @@ FROM (SELECT C."ANA_DT"                                                         
            , C."SW_U"[(SELECT "MIN_ROW_SFC" FROM GET_SFC_INFO):(SELECT "MAX_ROW_SFC" FROM GET_SFC_INFO)][(SELECT "MIN_COL_SFC" FROM GET_SFC_INFO):(SELECT "MAX_COL_SFC" FROM GET_SFC_INFO)]    AS "SW_U"
            , C."U"[(SELECT "MIN_ROW_SFC" FROM GET_SFC_INFO):(SELECT "MAX_ROW_SFC" FROM GET_SFC_INFO)][(SELECT "MIN_COL_SFC" FROM GET_SFC_INFO):(SELECT "MAX_COL_SFC" FROM GET_SFC_INFO)]       AS "U"
            , C."V"[(SELECT "MIN_ROW_SFC" FROM GET_SFC_INFO):(SELECT "MAX_ROW_SFC" FROM GET_SFC_INFO)][(SELECT "MIN_COL_SFC" FROM GET_SFC_INFO):(SELECT "MAX_COL_SFC" FROM GET_SFC_INFO)]       AS "V"
+           , C."TM"[(SELECT "MIN_ROW_SFC" FROM GET_SFC_INFO):(SELECT "MAX_ROW_SFC" FROM GET_SFC_INFO)][(SELECT "MIN_COL_SFC" FROM GET_SFC_INFO):(SELECT "MAX_COL_SFC" FROM GET_SFC_INFO)]       AS "TM"
+           , C."RH"[(SELECT "MIN_ROW_SFC" FROM GET_SFC_INFO):(SELECT "MAX_ROW_SFC" FROM GET_SFC_INFO)][(SELECT "MIN_COL_SFC" FROM GET_SFC_INFO):(SELECT "MAX_COL_SFC" FROM GET_SFC_INFO)]       AS "RH"
+           , C."PRE"[(SELECT "MIN_ROW_SFC" FROM GET_SFC_INFO):(SELECT "MAX_ROW_SFC" FROM GET_SFC_INFO)][(SELECT "MIN_COL_SFC" FROM GET_SFC_INFO):(SELECT "MAX_COL_SFC" FROM GET_SFC_INFO)]       AS "PRE"
+           , C."ALB"[(SELECT "MIN_ROW_SFC" FROM GET_SFC_INFO):(SELECT "MAX_ROW_SFC" FROM GET_SFC_INFO)][(SELECT "MIN_COL_SFC" FROM GET_SFC_INFO):(SELECT "MAX_COL_SFC" FROM GET_SFC_INFO)]       AS "ALB"
 
           /* 상층 */
            , C."U850"[(SELECT "MIN_ROW_PRE" FROM GET_PRE_INFO):(SELECT "MAX_ROW_PRE" FROM GET_PRE_INFO)][(SELECT "MIN_COL_PRE" FROM GET_PRE_INFO):(SELECT "MAX_COL_PRE" FROM GET_PRE_INFO)]    AS "U850"
            , C."U875"[(SELECT "MIN_ROW_PRE" FROM GET_PRE_INFO):(SELECT "MAX_ROW_PRE" FROM GET_PRE_INFO)][(SELECT "MIN_COL_PRE" FROM GET_PRE_INFO):(SELECT "MAX_COL_PRE" FROM GET_PRE_INFO)]    AS "U875"
            , C."U900"[(SELECT "MIN_ROW_PRE" FROM GET_PRE_INFO):(SELECT "MAX_ROW_PRE" FROM GET_PRE_INFO)][(SELECT "MIN_COL_PRE" FROM GET_PRE_INFO):(SELECT "MAX_COL_PRE" FROM GET_PRE_INFO)]    AS "U900"
            , C."U925"[(SELECT "MIN_ROW_PRE" FROM GET_PRE_INFO):(SELECT "MAX_ROW_PRE" FROM GET_PRE_INFO)][(SELECT "MIN_COL_PRE" FROM GET_PRE_INFO):(SELECT "MAX_COL_PRE" FROM GET_PRE_INFO)]    AS "U925"
+           , C."U950"[(SELECT "MIN_ROW_PRE" FROM GET_PRE_INFO):(SELECT "MAX_ROW_PRE" FROM GET_PRE_INFO)][(SELECT "MIN_COL_PRE" FROM GET_PRE_INFO):(SELECT "MAX_COL_PRE" FROM GET_PRE_INFO)]    AS "U950"
            , C."U975"[(SELECT "MIN_ROW_PRE" FROM GET_PRE_INFO):(SELECT "MAX_ROW_PRE" FROM GET_PRE_INFO)][(SELECT "MIN_COL_PRE" FROM GET_PRE_INFO):(SELECT "MAX_COL_PRE" FROM GET_PRE_INFO)]    AS "U975"
            , C."U1000"[(SELECT "MIN_ROW_PRE" FROM GET_PRE_INFO):(SELECT "MAX_ROW_PRE" FROM GET_PRE_INFO)][(SELECT "MIN_COL_PRE" FROM GET_PRE_INFO):(SELECT "MAX_COL_PRE" FROM GET_PRE_INFO)]   AS "U1000"
            , C."V850"[(SELECT "MIN_ROW_PRE" FROM GET_PRE_INFO):(SELECT "MAX_ROW_PRE" FROM GET_PRE_INFO)][(SELECT "MIN_COL_PRE" FROM GET_PRE_INFO):(SELECT "MAX_COL_PRE" FROM GET_PRE_INFO)]    AS "V850"
            , C."V875"[(SELECT "MIN_ROW_PRE" FROM GET_PRE_INFO):(SELECT "MAX_ROW_PRE" FROM GET_PRE_INFO)][(SELECT "MIN_COL_PRE" FROM GET_PRE_INFO):(SELECT "MAX_COL_PRE" FROM GET_PRE_INFO)]    AS "V875"
            , C."V900"[(SELECT "MIN_ROW_PRE" FROM GET_PRE_INFO):(SELECT "MAX_ROW_PRE" FROM GET_PRE_INFO)][(SELECT "MIN_COL_PRE" FROM GET_PRE_INFO):(SELECT "MAX_COL_PRE" FROM GET_PRE_INFO)]    AS "V900"
            , C."V925"[(SELECT "MIN_ROW_PRE" FROM GET_PRE_INFO):(SELECT "MAX_ROW_PRE" FROM GET_PRE_INFO)][(SELECT "MIN_COL_PRE" FROM GET_PRE_INFO):(SELECT "MAX_COL_PRE" FROM GET_PRE_INFO)]    AS "V925"
+           , C."V950"[(SELECT "MIN_ROW_PRE" FROM GET_PRE_INFO):(SELECT "MAX_ROW_PRE" FROM GET_PRE_INFO)][(SELECT "MIN_COL_PRE" FROM GET_PRE_INFO):(SELECT "MAX_COL_PRE" FROM GET_PRE_INFO)]    AS "V950"
            , C."V975"[(SELECT "MIN_ROW_PRE" FROM GET_PRE_INFO):(SELECT "MAX_ROW_PRE" FROM GET_PRE_INFO)][(SELECT "MIN_COL_PRE" FROM GET_PRE_INFO):(SELECT "MAX_COL_PRE" FROM GET_PRE_INFO)]    AS "V975"
            , C."V1000"[(SELECT "MIN_ROW_PRE" FROM GET_PRE_INFO):(SELECT "MAX_ROW_PRE" FROM GET_PRE_INFO)][(SELECT "MIN_COL_PRE" FROM GET_PRE_INFO):(SELECT "MAX_COL_PRE" FROM GET_PRE_INFO)]   AS "V1000"
+           , C."G850"[(SELECT "MIN_ROW_PRE" FROM GET_PRE_INFO):(SELECT "MAX_ROW_PRE" FROM GET_PRE_INFO)][(SELECT "MIN_COL_PRE" FROM GET_PRE_INFO):(SELECT "MAX_COL_PRE" FROM GET_PRE_INFO)]    AS "G850"
+           , C."G875"[(SELECT "MIN_ROW_PRE" FROM GET_PRE_INFO):(SELECT "MAX_ROW_PRE" FROM GET_PRE_INFO)][(SELECT "MIN_COL_PRE" FROM GET_PRE_INFO):(SELECT "MAX_COL_PRE" FROM GET_PRE_INFO)]    AS "G875"
+           , C."G900"[(SELECT "MIN_ROW_PRE" FROM GET_PRE_INFO):(SELECT "MAX_ROW_PRE" FROM GET_PRE_INFO)][(SELECT "MIN_COL_PRE" FROM GET_PRE_INFO):(SELECT "MAX_COL_PRE" FROM GET_PRE_INFO)]    AS "G900"
+           , C."G925"[(SELECT "MIN_ROW_PRE" FROM GET_PRE_INFO):(SELECT "MAX_ROW_PRE" FROM GET_PRE_INFO)][(SELECT "MIN_COL_PRE" FROM GET_PRE_INFO):(SELECT "MAX_COL_PRE" FROM GET_PRE_INFO)]    AS "G925"
+           , C."G950"[(SELECT "MIN_ROW_PRE" FROM GET_PRE_INFO):(SELECT "MAX_ROW_PRE" FROM GET_PRE_INFO)][(SELECT "MIN_COL_PRE" FROM GET_PRE_INFO):(SELECT "MAX_COL_PRE" FROM GET_PRE_INFO)]    AS "G950"
+           , C."G975"[(SELECT "MIN_ROW_PRE" FROM GET_PRE_INFO):(SELECT "MAX_ROW_PRE" FROM GET_PRE_INFO)][(SELECT "MIN_COL_PRE" FROM GET_PRE_INFO):(SELECT "MAX_COL_PRE" FROM GET_PRE_INFO)]    AS "G975"
+           , C."G1000"[(SELECT "MIN_ROW_PRE" FROM GET_PRE_INFO):(SELECT "MAX_ROW_PRE" FROM GET_PRE_INFO)][(SELECT "MIN_COL_PRE" FROM GET_PRE_INFO):(SELECT "MAX_COL_PRE" FROM GET_PRE_INFO)]   AS "G1000"
 
           /* 최근접 인덱스 SFC/PRE */
            , A.*
@@ -253,8 +283,10 @@ colOrdList = [
     , 'MIN_LON_PRE', 'MAX_LON_PRE', 'MIN_LAT_PRE', 'MAX_LAT_PRE'
     , 'LON_SFC', 'LAT_SFC', 'LON_PRE', 'LAT_PRE'
     , 'SW_D', 'SW_DC', 'SW_DDIF', 'SW_DDNI', 'SW_NET', 'U', 'V'
+    , 'TM', 'RH', 'PRE', 'ALB'
     , 'U1000', 'U975', 'U950', 'U925', 'U900', 'U875', 'U850'
     , 'V1000', 'V975', 'V950', 'V925', 'V900', 'V875', 'V850'
+    , 'G1000', 'G975', 'G950', 'G925', 'G900', 'G875', 'G850'
 ]
 
 colExtList = [col for col in colOrdList if col in data.columns]
@@ -264,6 +296,19 @@ if len(data) > 0:
     os.makedirs(os.path.dirname(saveFile), exist_ok=True)
     data[colExtList].to_csv(saveFile, index=False)
     print(f'[CHECK] saveFile : {saveFile}')
+
+# dataL2 = data[colExtList].dropna()
+# lon1D = dataL2['LON_SFC'].values
+# lat1D = dataL2['LAT_SFC'].values
+# val1D = dataL2['G850'].values
+# val1D = dataL2['TM'].values
+# val1D = dataL2['RH'].values
+# val1D = dataL2['PRE'].values
+# val1D = dataL2['ALB'].values
+
+# plt.scatter(lon1D, lat1D, c=val1D)
+# plt.colorbar()
+# plt.show()
 
 # 커서와 연결 종료
 cur.close()
