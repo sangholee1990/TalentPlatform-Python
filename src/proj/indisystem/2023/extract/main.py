@@ -16,12 +16,14 @@ def main():
         # inFile = '/DATA/INPUT/INDI2023/MODEL/KIER-LDAPS/wrfout_d02_2023-06-30_03:00:00.nc'
         # inFile = '/DATA/INPUT/INDI2023/MODEL/KIER-LDAPS/wrfsolar_d02.2023-06-30_03:00:00.nc'
         # modelName = 'KIER-LDAPS-2K'
+        # modelName = 'KIER-LDAPS-2K-ORG'
         # modelName = 'KIER-LDAPS-2K-30M'
         # modelName = 'KIER-LDAPS-2K-60M'
 
         # inFile = '/DATA/INPUT/INDI2023/MODEL/KIER-RDAPS/wrfout_d02_2023-06-30_04:00:00.nc'
         # inFile = '/DATA/INPUT/INDI2023/MODEL/KIER-RDAPS/wrfsolar_d02.2023-06-30_04:00:00.nc'
         # modelName = 'KIER-RDAPS-3K'
+        # modelName = 'KIER-RDAPS-3K-ORG'
         # modelName = 'KIER-RDAPS-3K-30M'
         # modelName = 'KIER-RDAPS-3K-60M'
 
@@ -40,9 +42,9 @@ def main():
         # inFile = '/DATA/INPUT/INDI2023/DATA/GFS/2023/08/28/00/gfs.t00z.pgrb2.0p25.f003.gb2'
         # modelName = 'GFS-25K'
 
-        option = get_option()
-        inFile = option.inFile
-        modelName = option.modelName()
+        # option = get_option()
+        # inFile = option.inFile
+        # modelName = option.modelName
 
         ctxPath = os.getcwd()
         logInfo = f'{ctxPath}/log/daemon-kierDB-{modelName}.log'

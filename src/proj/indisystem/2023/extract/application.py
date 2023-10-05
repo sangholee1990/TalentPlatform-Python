@@ -118,8 +118,12 @@ class Application:
             grpDataL1 = grpData.resample('60T')
         elif re.search('30M', self.modelName, re.IGNORECASE):
             grpDataL1 = grpData.resample('30T')
+        elif re.search('KIER-LDAPS-2K-ORG|KIER-RDAPS-3K-ORG', self.modelName, re.IGNORECASE):
+            grpDataL1 = grpData.resample('3T')
         elif re.search('KIER-LDAPS|KIER-RDAPS', self.modelName, re.IGNORECASE):
             grpDataL1 = grpData.resample('60T')
+        elif re.search('KIER-WINDre', self.modelName, re.IGNORECASE):
+            grpDataL1 = grpData.resample('30T')
         elif re.search('KIER-WIND', self.modelName, re.IGNORECASE):
             grpDataL1 = grpData.resample('10T')
         else:
@@ -131,7 +135,11 @@ class Application:
                 timeIdxList = group.values
             elif re.search('30M', self.modelName, re.IGNORECASE):
                 timeIdxList = group.values
+            elif re.search('KIER-LDAPS-2K-ORG|KIER-RDAPS-3K-ORG', self.modelName, re.IGNORECASE):
+                timeIdxList = [group.values[0]] if forDate == grpData.index[group.values[0]] else None
             elif re.search('KIER-LDAPS|KIER-RDAPS', self.modelName, re.IGNORECASE):
+                timeIdxList = [group.values[0]] if forDate == grpData.index[group.values[0]] else None
+            elif re.search('KIER-WINDre', self.modelName, re.IGNORECASE):
                 timeIdxList = [group.values[0]] if forDate == grpData.index[group.values[0]] else None
             elif re.search('KIER-WIND', self.modelName, re.IGNORECASE):
                 timeIdxList = [group.values[0]] if forDate == grpData.index[group.values[0]] else None
@@ -170,7 +178,7 @@ class Application:
                                 else:
                                     val = wrf.getvar(orgData, name, timeidx=timeIdx)
                             else:
-                                pressure = wrf.getvar(orgData, 'pressure', timeidx=timeIdx)
+                                # pressure = wrf.getvar(orgData, 'pressure', timeidx=timeIdx)
                                 selVal = wrf.getvar(orgData, name, units=varInfo['unit'], timeidx=timeIdx)
                                 # val = wrf.interplevel(selVal, pressure, int(level))
                                 val = wrf.vinterp(orgData, field = selVal, vert_coord = 'pressure', interp_levels = [int(level)], extrapolate=True, timeidx=timeIdx).isel(interp_level = 0)
@@ -180,6 +188,136 @@ class Application:
                         if len(valList) < 1: continue
                         meanVal = np.nanmean(np.nan_to_num(valList), axis=0)
                         self.dbData[colName] = self.convFloatToIntList(meanVal)
+                    except Exception as e:
+                        common.logger.error(f'Exception : {e}')
+
+            if len(self.dbData) < 1:
+                common.logger.error(f'해당 파일 ({self.inFile})에서 지표면 및 상층 데이터를 확인해주세요.')
+                sys.exit(1)
+
+            common.logger.info(f'[CHECK] dbData : {self.dbData.keys()} : {np.shape(self.dbData[list(self.dbData.keys())[3]])} : {len(self.dbData.keys())}')
+            dbapp.dbMergeData(initDB['session'], initDB['tbIntModel'], self.dbData, pkList=['MODEL_TYPE', 'ANA_DT', 'FOR_DT'])
+
+    def processGFS(self):
+
+        # DB 가져오기
+        dbapp = ManageDB(self.dbconfig)
+        initDB = dbapp.initCfgInfo()
+
+        # 관심영역 설정
+        roi = {'minLat': 22.0, 'maxLat': 49.0, 'minLon': 108.0, 'maxLon': 147.0}
+
+        # GFS 파일 읽기
+        data = xr.open_dataset(self.inFile, engine='pynio').sel(lat_0=slice(roi['maxLat'], roi['minLat']), lon_0=slice(roi['minLon'], roi['maxLon']))
+        common.logger.info(f'[CHECK] inFile : {self.inFile}')
+
+        attrInfo = data[list(data.dtypes)[0]].attrs
+        anaDate = pd.to_datetime(attrInfo['initial_time'], format="%m/%d/%Y (%H:%M)")
+        forDate = anaDate + pd.DateOffset(hours = int(attrInfo['forecast_time'][0]))
+
+        modelInfo = self.config['modelName'].get(f'{self.modelName}_{self.modelKey}')
+        if modelInfo is None:
+            common.logger.warn(f'설정 파일 (config.yml)에서 설정 정보 (GFS-25K, ALL)를 확인해주세요.')
+            sys.exit(1)
+
+        common.logger.info(f'[CHECK] anaDate : {anaDate} / forDate : {forDate}')
+
+        # DB 등록/수정
+        self.dbData = {}
+        self.dbData['ANA_DT'] = anaDate
+        self.dbData['FOR_DT'] = forDate
+        self.dbData['MODEL_TYPE'] = self.modelName
+
+        # 선택 컬럼
+        for j, varInfo in enumerate(modelInfo['varName']):
+            name = varInfo['name']
+            for level, colName in zip(varInfo['level'], varInfo['colName']):
+                if data.get(name) is None: continue
+
+                try:
+                    if level == '-1':
+                        if len(data[name].values) < 1: continue
+                        if re.search('ALB', name, re.IGNORECASE):
+                            self.dbData[colName] = self.convFloatToIntList(data[name].values / 100)
+                        else:
+                            self.dbData[colName] = self.convFloatToIntList(data[name].values)
+                    else:
+                        if len(data[name].isel(lv_ISBL0=int(level)).values) < 1: continue
+                        self.dbData[colName] = self.convFloatToIntList(data[name].isel(lv_ISBL0=int(level)).values)
+                except Exception as e:
+                    common.logger.error(f'Exception : {e}')
+
+        if len(self.dbData) < 1:
+            common.logger.error(f'해당 파일 ({self.inFile})에서 지표면 및 상층 데이터를 확인해주세요.')
+            sys.exit(1)
+
+        common.logger.info(f'[CHECK] dbData : {self.dbData.keys()} : {np.shape(self.dbData[list(self.dbData.keys())[3]])} : {len(self.dbData.keys())}')
+        dbapp.dbMergeData(initDB['session'], initDB['tbIntModel'], self.dbData, pkList=['MODEL_TYPE', 'ANA_DT', 'FOR_DT'])
+
+
+    def processXarrayKIER(self):
+
+        # DB 가져오기
+        dbapp = ManageDB(self.dbconfig)
+        initDB = dbapp.initCfgInfo()
+
+        # NetCDF 파일 읽기
+        orgData = xr.open_mfdataset(self.inFile)
+        common.logger.info(f'[CHECK] inFile : {self.inFile}')
+
+        # 분석시간
+        anaDate = pd.to_datetime(orgData.START_DATE, format='%Y-%m-%d_%H:%M:%S')
+
+        # 시간 인덱스를 예보 시간 기준으로 변환
+        timeByteList = orgData['Times'].values
+        timeList = [timeInfo.decode('UTF-8').replace('_', ' ') for timeInfo in timeByteList]
+        orgData['Time'] = pd.to_datetime(timeList)
+
+        if re.search('60M', self.modelName, re.IGNORECASE):
+            data = orgData.resample(Time='60T').mean(dim='Time', skipna=True)
+        elif re.search('30M', self.modelName, re.IGNORECASE):
+            data = orgData.resample(Time='30T').mean(dim='Time', skipna=True)
+        elif re.search('KIER-LDAPS|KIER-RDAPS', self.modelName, re.IGNORECASE):
+            data = orgData.resample(Time='60T').asfreq()
+        elif re.search('KIER-WINDre', self.modelName, re.IGNORECASE):
+            data = orgData.resample(Time='30T').asfreq()
+        elif re.search('KIER-WIND', self.modelName, re.IGNORECASE):
+            data = orgData.resample(Time='10T').asfreq()
+        else:
+            common.logger.error(f'모델 종류 ({self.modelName})를 확인해주세요.')
+            sys.exit(1)
+
+        # 예보 시간
+        forDateList = data['Time'].values
+        for idx, forDateInfo in enumerate(forDateList):
+            forDate = pd.to_datetime(forDateInfo, format='%Y-%m-%d_%H:%M:%S')
+
+            modelInfo = self.config['modelName'].get(f'{self.modelName}_{self.modelKey}')
+            if modelInfo is None:
+                common.logger.warn(f'설정 파일 (config.yml)에서 설정 정보 (KIER-LDAPS/RDAPS, UNIS/PRES/ALL)를 확인해주세요.')
+                continue
+
+            common.logger.info(f'[CHECK] anaDate : {anaDate} / forDate : {forDate}')
+
+            # DB 등록/수정
+            self.dbData = {}
+            self.dbData['ANA_DT'] = anaDate
+            self.dbData['FOR_DT'] = forDate
+            self.dbData['MODEL_TYPE'] = self.modelName
+
+            # 선택 컬럼
+            for j, varInfo in enumerate(modelInfo['varName']):
+                name = varInfo['name']
+                for level, colName in zip(varInfo['level'], varInfo['colName']):
+                    if data.get(name) is None: continue
+
+                    try:
+                        if level == '-1':
+                            if len(data[name].isel(Time=idx).values) < 1: continue
+                            self.dbData[colName] = self.convFloatToIntList(data[name].isel(Time=idx).values)
+                        else:
+                            if len(data[name].isel(Time=idx, bottom_top=int(level)).values) < 1: continue
+                            self.dbData[colName] = self.convFloatToIntList(data[name].isel(Time=idx, bottom_top=int(level)).values)
                     except Exception as e:
                         common.logger.error(f'Exception : {e}')
 
@@ -262,62 +400,6 @@ class Application:
 
             common.logger.info(f'[CHECK] dbData : {self.dbData.keys()} : {np.shape(self.dbData[list(self.dbData.keys())[3]])} : {len(self.dbData.keys())}')
             dbapp.dbMergeData(initDB['session'], initDB['tbIntModel'], self.dbData, pkList=['MODEL_TYPE', 'ANA_DT', 'FOR_DT'])
-
-    def processGFS(self):
-
-        # DB 가져오기
-        dbapp = ManageDB(self.dbconfig)
-        initDB = dbapp.initCfgInfo()
-
-        # 관심영역 설정
-        roi = {'minLat': 22.0, 'maxLat': 49.0, 'minLon': 108.0, 'maxLon': 147.0}
-
-        # GFS 파일 읽기
-        data = xr.open_dataset(self.inFile, engine='pynio').sel(lat_0=slice(roi['maxLat'], roi['minLat']), lon_0=slice(roi['minLon'], roi['maxLon']))
-        common.logger.info(f'[CHECK] inFile : {self.inFile}')
-
-        attrInfo = data[list(data.dtypes)[0]].attrs
-        anaDate = pd.to_datetime(attrInfo['initial_time'], format="%m/%d/%Y (%H:%M)")
-        forDate = anaDate + pd.DateOffset(hours = int(attrInfo['forecast_time'][0]))
-
-        modelInfo = self.config['modelName'].get(f'{self.modelName}_{self.modelKey}')
-        if modelInfo is None:
-            common.logger.warn(f'설정 파일 (config.yml)에서 설정 정보 (GFS-25K, ALL)를 확인해주세요.')
-            sys.exit(1)
-
-        common.logger.info(f'[CHECK] anaDate : {anaDate} / forDate : {forDate}')
-
-        # DB 등록/수정
-        self.dbData = {}
-        self.dbData['ANA_DT'] = anaDate
-        self.dbData['FOR_DT'] = forDate
-        self.dbData['MODEL_TYPE'] = self.modelName
-
-        # 선택 컬럼
-        for j, varInfo in enumerate(modelInfo['varName']):
-            name = varInfo['name']
-            for level, colName in zip(varInfo['level'], varInfo['colName']):
-                if data.get(name) is None: continue
-
-                try:
-                    if level == '-1':
-                        if len(data[name].values) < 1: continue
-                        if re.search('ALB', name, re.IGNORECASE):
-                            self.dbData[colName] = self.convFloatToIntList(data[name].values / 100)
-                        else:
-                            self.dbData[colName] = self.convFloatToIntList(data[name].values)
-                    else:
-                        if len(data[name].isel(lv_ISBL0=int(level)).values) < 1: continue
-                        self.dbData[colName] = self.convFloatToIntList(data[name].isel(lv_ISBL0=int(level)).values)
-                except Exception as e:
-                    common.logger.error(f'Exception : {e}')
-
-        if len(self.dbData) < 1:
-            common.logger.error(f'해당 파일 ({self.inFile})에서 지표면 및 상층 데이터를 확인해주세요.')
-            sys.exit(1)
-
-        common.logger.info(f'[CHECK] dbData : {self.dbData.keys()} : {np.shape(self.dbData[list(self.dbData.keys())[3]])} : {len(self.dbData.keys())}')
-        dbapp.dbMergeData(initDB['session'], initDB['tbIntModel'], self.dbData, pkList=['MODEL_TYPE', 'ANA_DT', 'FOR_DT'])
 
     def getVar(self):
         self.varNameLists = self.config['modelName'][f'{self.modelName}_{self.modelKey}']['varName']

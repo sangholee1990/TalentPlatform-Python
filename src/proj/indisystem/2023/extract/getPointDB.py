@@ -38,12 +38,16 @@ print(f'[CHECK] endDt : {endDt}')
 modelType = 'KIER-LDAPS-2K'
 # modelType = 'KIER-LDAPS-2K-30M'
 # modelType = 'KIER-LDAPS-2K-60M'
+# modelType = 'KIER-LDAPS-2K-ORG'
 # modelType = 'KIER-RDAPS-3K'
 # modelType = 'KIER-RDAPS-3K-30M'
 # modelType = 'KIER-RDAPS-3K-60M'
+# modelType = 'KIER-RDAPS-3K-ORG'
 # modelType = 'KIER-WIND'
 # modelType = 'KIER-WIND-30M'
 # modelType = 'KIER-WIND-60M'
+# modelType = 'KIER-WINDre'
+# modelType = 'KIER-WINDre-60M'
 # modelType = 'KIM-3K'
 # modelType = 'LDAPS-1.5K'
 # modelType = 'RDAPS-12K'
@@ -58,12 +62,16 @@ modelTypeToGeo = {
     'KIER-LDAPS-2K': 'KIER-LDAPS-2K'
     , 'KIER-LDAPS-2K-30M': 'KIER-LDAPS-2K'
     , 'KIER-LDAPS-2K-60M': 'KIER-LDAPS-2K'
+    , 'KIER-LDAPS-2K-ORG': 'KIER-LDAPS-2K'
     , 'KIER-RDAPS-3K': 'KIER-RDAPS-3K'
     , 'KIER-RDAPS-3K-30M': 'KIER-RDAPS-3K'
     , 'KIER-RDAPS-3K-60M': 'KIER-RDAPS-3K'
+    , 'KIER-RDAPS-3K-ORG': 'KIER-RDAPS-3K'
     , 'KIER-WIND': 'KIER-WIND'
     , 'KIER-WIND-30M': 'KIER-WIND'
     , 'KIER-WIND-60M': 'KIER-WIND'
+    , 'KIER-WINDre': 'KIER-WIND'
+    , 'KIER-WINDre-60M': 'KIER-WIND'
     , 'KIM-3K': 'KIM-3K'
     , 'LDAPS-1.5K': 'LDAPS-1.5K'
     , 'RDAPS-12K': 'RDAPS-12K'
@@ -71,6 +79,7 @@ modelTypeToGeo = {
 }
 
 geoType = modelTypeToGeo.get(modelType)
+
 # ===========================================================
 # PostgreSQL 설정 정보
 # ===========================================================
