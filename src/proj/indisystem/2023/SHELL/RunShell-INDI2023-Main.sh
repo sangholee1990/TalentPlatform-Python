@@ -76,15 +76,25 @@ metaData["KIER-LDAPS-2K","UNIS"]="/data1/LDAPS-WRF/%Y/%m/%d/%H/wrfsolar_d02*"
 metaData["KIER-LDAPS-2K","PRES"]="/data1/LDAPS-WRF/%Y/%m/%d/%H/wrfout_d02*"
 metaData["KIER-LDAPS-2K-30M","UNIS"]="/data1/LDAPS-WRF/%Y/%m/%d/%H/wrfsolar_d02*"
 metaData["KIER-LDAPS-2K-60M","UNIS"]="/data1/LDAPS-WRF/%Y/%m/%d/%H/wrfsolar_d02*"
+metaData["KIER-LDAPS-2K-ORG","UNIS"]="/data1/LDAPS-WRF/%Y/%m/%d/%H/wrfsolar_d02*"
 
 metaData["KIER-RDAPS-3K","UNIS"]="/data1/RDAPS-WRF/%Y/%m/%d/%H/wrfsolar_d02*"
 metaData["KIER-RDAPS-3K","PRES"]="/data1/RDAPS-WRF/%Y/%m/%d/%H/wrfout_d02*"
 metaData["KIER-RDAPS-3K-30M","UNIS"]="/data1/RDAPS-WRF/%Y/%m/%d/%H/wrfsolar_d02*"
 metaData["KIER-RDAPS-3K-60M","UNIS"]="/data1/RDAPS-WRF/%Y/%m/%d/%H/wrfsolar_d02*"
+metaData["KIER-RDAPS-3K-ORG","UNIS"]="/data1/RDAPS-WRF/%Y/%m/%d/%H/wrfsolar_d02*"
 
 metaData["KIER-WIND","ALL"]="/thermal1/Rawdata/rawdata/wrf%Y_%m/wrfout_d04s_%Y-%m-%d*"
 metaData["KIER-WIND-30M","ALL"]="/thermal1/Rawdata/rawdata/wrf%Y_%m/wrfout_d04s_%Y-%m-%d*"
 metaData["KIER-WIND-60M","ALL"]="/thermal1/Rawdata/rawdata/wrf%Y_%m/wrfout_d04s_%Y-%m-%d*"
+
+# 2011.{01|02|03|04|06|08|09|12}
+metaData["KIER-WINDre","ALL"]="/thermal1/Reanalysis/wrf%Y_%m/wrfout_d04_%Y-%m-%d*"
+metaData["KIER-WINDre-60M","ALL"]="/thermal1/Reanalysis/wrf%Y_%m/wrfout_d04_%Y-%m-%d*"
+
+# 2011.{03|06|09|12}
+#metaData["KIER-WINDre","ALL"]="/thermal2/data2/jykim/src/jykim/jykim2/wrf2011/wrf%Y_%m/wrfout_d04_%Y-%m-%d*"
+#metaData["KIER-WINDre-60M","ALL"]="/thermal2/data2/jykim/src/jykim/jykim2/wrf2011/wrf%Y_%m/wrfout_d04_%Y-%m-%d*"
 
 metaData["KIM-3K","UNIS"]="/data1/%Y/%m/%d/%H/r030_v040_ne36_unis_h*.%Y%m%d%H.gb2"
 metaData["KIM-3K","PRES"]="/data1/%Y/%m/%d/%H/r030_v040_ne36_pres_h*.%Y%m%d%H.gb2"
@@ -107,6 +117,7 @@ metaData["GFS-25K","ALL"]="/data1/GFS/%Y/%m/%d/%H/gfs.t*z.pgrb2.0p25.f*.gb2"
 #keyList=("UNIS" "PRES")
 
 #modelList=("KIER-WIND" "KIER-WIND-30M" "KIER-WIND-60M")
+#modelList=("KIER-WINDre")
 #keyList=("ALL")
 
 #modelList=("GFS-25K")
@@ -141,10 +152,12 @@ while [ $(date -d "$incDate" +"%s") -le $(date -d "$endDate" +"%s") ]; do
 		  filePath=${fileInfoPtrn%/*}
    		fileName="${fileInfoPtrn##*/}"
 
-		  fileListCnt=$(find ${filePath} -name "${fileName}" -type f 2>/dev/null | sort -u | wc -l)
+#		  fileListCnt=$(find ${filePath} -name "${fileName}" -type f 2>/dev/null | sort -u | wc -l)
+      fileListCnt=$(find -L ${filePath} -name "${fileName}" -type f 2>/dev/null | sort -u | wc -l)
 		  if [ ${fileListCnt} -lt 1 ]; then continue; fi
 
-		  fileList=$(find ${filePath} -name "${fileName}" -type f 2>/dev/null | sort -u)
+#		  fileList=$(find ${filePath} -name "${fileName}" -type f 2>/dev/null | sort -u)
+		  fileList=$(find -L ${filePath} -name "${fileName}" -type f 2>/dev/null | sort -u)
 		  for fileInfo in $fileList; do
 			  echo "[$(date +"%Y-%m-%d %H:%M:%S")] [CHECK] fileInfo : $fileInfo"
 			  ${PY38_BIN} ${RUN_PATH}/main.py "$fileInfo" "$model"
