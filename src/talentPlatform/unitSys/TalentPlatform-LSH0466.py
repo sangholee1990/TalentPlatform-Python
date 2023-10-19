@@ -554,7 +554,6 @@ class DtaProcess(object):
                 qdm = sdba.QuantileDeltaMapping.train(ref=mrgData['rain'], hist=mrgData['pr'], nquantiles=15, group='time')
                 qdmData = qdm.adjust(sim=mrgData['pr'], interp="linear")
 
-
                 # ref = mrgData['rain']
                 # hist = mrgData['pr']
                 # # ref_n, _ = sdba.processing.normalize(ref, group='time', kind="+")

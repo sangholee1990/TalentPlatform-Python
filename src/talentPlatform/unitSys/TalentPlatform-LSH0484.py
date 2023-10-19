@@ -15,6 +15,7 @@ import matplotlib.pyplot as plt
 import json
 import pandas as pd
 import re
+import numpy as np
 
 # =================================================
 # 사용자 매뉴얼
@@ -320,14 +321,14 @@ class DtaProcess(object):
                         for group in groups:
                             match_count = 0
 
+                            # 성명 비교
                             for land in group:
                                 if pd.isna(current_land['성명']) or pd.isna(land['성명']): continue
-                                # 성명 비교
                                 if land['성명'] == current_land['성명']:
                                     match_count += 1
                                     break  # 그룹 내 다른 토지와 비교할 필요 없음
 
-                            # 주소 비교 (띄어쓰기 제거)
+                            # 주소 비교
                             for land in group:
                                 if pd.isna(current_land['주소']) or pd.isna(land['주소']): continue
                                 current_address = current_land['주소'].replace(" ", "")
@@ -336,9 +337,7 @@ class DtaProcess(object):
                                 len_diff = abs(len(current_address) - len(land_address))
                                 max_len = max(len(current_address), len(land_address))
 
-                                if current_address == land_address or \
-                                        (5 <= max_len <= 9 and len_diff <= 1) or \
-                                        (max_len >= 10 and len_diff <= 2):
+                                if current_address == land_address or (5 <= max_len <= 9 and len_diff <= 1) or (max_len >= 10 and len_diff <= 2):
                                     match_count += 1
                                     break
 
@@ -353,32 +352,32 @@ class DtaProcess(object):
                             if match_count >= 2:
                                 matched_groups.append(group)
 
+
                         # 매칭된 그룹 처리
                         if len(matched_groups) == 0:
-                            # 새 그룹 생성
                             groups.append([current_land])
                         else:
                             # 매칭된 모든 그룹에 추가
                             for group in matched_groups:
                                 group.append(current_land)
 
-                        if len(matched_groups) > 1:
-                            print(f"Row {i} matches multiple groups and requires manual verification.")
-                            current_land['Note'] = 'Manual verification required'
-
-                # 결과 출력 (두 명 이상의 사람에게 속한 토지의 수)
-                multiple_owners_count = sum(1 for group in groups if len(group) > 1)
-                print(f"Total lands with multiple owners: {multiple_owners_count}")
-
                 dataL2 = pd.DataFrame()
                 for i, groupInfo in enumerate(groups):
-
+                    if len(groups[i]) < 2: continue
                     dataL1 = pd.DataFrame(groups[i])
+
+                    # 면적과 공시지가 있을 경우 가격 계산, 그 외 None
+                    dataL1['가격'] = np.where(pd.notna(dataL1['면적']) & pd.notna(dataL1['공시지가']), dataL1['면적'] * dataL1['공시지가'], np.nan)
+                    dataL1['총 가격'] = np.where(pd.notna(dataL1['가격']), np.nansum(dataL1['가격']), np.nan)
                     dataL1['i'] = i
                     dataL1['j'] = dataL1.index
                     dataL1['cnt'] = len(dataL1)
 
                     dataL2 = pd.concat([dataL2, dataL1], ignore_index=True)
+
+                groupList = dataL2.groupby('i')
+                sorted_groups = groupList.apply(lambda x: x.sort_values('가격', ascending=False))
+
 
         except Exception as e:
             log.error(f'Exception : {e}')
