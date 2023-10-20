@@ -158,58 +158,103 @@ def initArgument(globalVar, inParams):
     return globalVar
 
 
-# def readSrcProc(fileInfo, includeQuoteExt):
-#
-#     print(f'[START] readSrcProc')
-#     result = None
-#
-#     try:
-#         with open(fileInfo, 'r', encoding='EUC-KR') as file:
-#             lineList = file.readlines()
-#
-#         if (len(lineList) < 1): result
-#
-#         data = pd.DataFrame()
-#         for i, lineInfo in enumerate(lineList):
-#             content = lineInfo.strip()
-#             if len(content) < 1: continue
-#
-#             # 정규식 추출
-#             if includeQuoteExt == 0:
-#                 pattern = r"(?<!\")'([^'\"]+)'(?!\")"
-#             else:
-#                 pattern = r"'(.*?)'"
-#
-#             matchChk = re.findall(pattern, content)
-#
-#             # Filter out empty values
-#             matchList = [match for match in matchChk if match]
-#             if len(matchList) < 1: continue
-#
-#             # print(f'[CHECK] i : {i} / content : {content}')
-#             # print(f'[CHECK] matchList : {matchList}')
-#
-#             dict = {
-#                 'i': [i]
-#                 , 'content': [content]
-#                 , 'match': [' '.join(matchList)]
-#             }
-#
-#             data = pd.concat([data, pd.DataFrame.from_dict(dict)], ignore_index=True)
-#
-#         saveFile = '.'.join(fileInfo.split('.')[:-1]) + f'_{includeQuoteExt}.xlsx'
-#         os.makedirs(os.path.dirname(saveFile), exist_ok=True)
-#         data.to_excel(saveFile, index=False)
-#         print(f'[CHECK] saveFile : {saveFile}')
-#
-#         return data
-#
-#     except Exception as e:
-#         print(f'Exception : {e}')
-#         return result
-#
-#     finally:
-#         print(f'[END] readSrcProc')
+def makeCsvProc(fileInfo):
+
+    print(f'[START] makeCsvProc')
+
+    result = None
+
+    try:
+
+        fileNameNoExt = os.path.basename(fileInfo).split('.')[0]
+        data = pd.read_csv(fileInfo, encoding='EUC-KR')
+
+        # 그룹 리스트 초기화
+        groups = []
+
+        # 데이터 처리
+        for i in data.index:
+            current_land = data.loc[i]
+            matched_groups = []
+
+            for group in groups:
+                match_count = 0
+
+                # 성명 비교
+                for land in group:
+                    if pd.isna(current_land['성명']) or pd.isna(land['성명']): continue
+                    if land['성명'] == current_land['성명']:
+                        match_count += 1
+                        break  # 그룹 내 다른 토지와 비교할 필요 없음
+
+                # 주소 비교
+                for land in group:
+                    if pd.isna(current_land['주소']) or pd.isna(land['주소']): continue
+                    current_address = current_land['주소'].replace(" ", "")
+                    land_address = land['주소'].replace(" ", "")
+
+                    len_diff = abs(len(current_address) - len(land_address))
+                    max_len = max(len(current_address), len(land_address))
+
+                    if current_address == land_address or (5 <= max_len <= 9 and len_diff <= 1) or (max_len >= 10 and len_diff <= 2):
+                        match_count += 1
+                        break
+
+                # 등록번호 비교 (앞 6글자)
+                for land in group:
+                    if pd.isna(current_land['등록번호']) or pd.isna(land['등록번호']): continue
+                    if land['등록번호'][:6] == current_land['등록번호'][:6]:
+                        match_count += 1
+                        break
+
+                # 일치 조건 확인
+                if match_count >= 2:
+                    matched_groups.append(group)
+
+            # 매칭된 그룹 처리
+            if len(matched_groups) == 0:
+                groups.append([current_land])
+            else:
+                # 매칭된 모든 그룹에 추가
+                for group in matched_groups:
+                    group.append(current_land)
+
+        dataL2 = pd.DataFrame()
+        for i, groupInfo in enumerate(groups):
+            if len(groups[i]) < 2: continue
+            dataL1 = pd.DataFrame(groups[i])
+
+            # 면적과 공시지가 있을 경우 가격 계산, 그 외 None
+            dataL1['가격'] = np.where(pd.notna(dataL1['면적']) & pd.notna(dataL1['공시지가']), dataL1['면적'] * dataL1['공시지가'], np.nan)
+            dataL1['i'] = i
+            dataL1['j'] = dataL1.index
+            dataL1['cnt'] = len(dataL1)
+
+            dataL2 = pd.concat([dataL2, dataL1], ignore_index=True)
+
+        # saveFile = '{}/{}/{}-{}.csv'.format(globalVar['outPath'], serviceName, fileNameNoExt, 'dataL2')
+        # os.makedirs(os.path.dirname(saveFile), exist_ok=True)
+        # dataL2.to_csv(saveFile, index=False)
+        # print(f'[CHECK] saveFile : {saveFile}')
+
+        rankData = dataL2.groupby('i')['가격'].sum().reset_index().rename({'가격': '총계'}, axis=1)
+        rankData['순위'] = rankData['총계'].rank(method="min", ascending=False)
+
+        dataL3 = dataL2.merge(rankData, left_on=['i'], right_on=['i'], how='left')
+
+        fnlData = dataL3.groupby('순위').apply(lambda x: x.sort_values(['총계', '가격'], ascending=False, na_position='last'))
+
+        saveFile = '{}/{}/{}-{}.csv'.format(globalVar['outPath'], serviceName, fileNameNoExt, 'fnlData')
+        os.makedirs(os.path.dirname(saveFile), exist_ok=True)
+        fnlData.to_csv(saveFile, index=False)
+        print(f'[CHECK] saveFile : {saveFile}')
+
+    except Exception as e:
+        print(f'Exception : {e}')
+        return result
+
+    finally:
+        print(f'[END] makeCsvProc')
 
 # ================================================
 # 4. 부 프로그램
@@ -308,90 +353,7 @@ class DtaProcess(object):
                 for j, fileInfo in enumerate(fileList):
                     log.info(f'[CHECK] fileInfo : {fileInfo}')
 
-                    fileNameNoExt = os.path.basename(fileInfo).split('.')[0]
-                    data = pd.read_csv(fileInfo, encoding='EUC-KR')
-
-                    # 그룹 리스트 초기화
-                    groups = []
-
-                    # 데이터 처리
-                    for i in data.index:
-                        current_land = data.loc[i]
-                        matched_groups = []
-
-                        for group in groups:
-                            match_count = 0
-
-                            # 성명 비교
-                            for land in group:
-                                if pd.isna(current_land['성명']) or pd.isna(land['성명']): continue
-                                if land['성명'] == current_land['성명']:
-                                    match_count += 1
-                                    break  # 그룹 내 다른 토지와 비교할 필요 없음
-
-                            # 주소 비교
-                            for land in group:
-                                if pd.isna(current_land['주소']) or pd.isna(land['주소']): continue
-                                current_address = current_land['주소'].replace(" ", "")
-                                land_address = land['주소'].replace(" ", "")
-
-                                len_diff = abs(len(current_address) - len(land_address))
-                                max_len = max(len(current_address), len(land_address))
-
-                                if current_address == land_address or (5 <= max_len <= 9 and len_diff <= 1) or (max_len >= 10 and len_diff <= 2):
-                                    match_count += 1
-                                    break
-
-                            # 등록번호 비교 (앞 6글자)
-                            for land in group:
-                                if pd.isna(current_land['등록번호']) or pd.isna(land['등록번호']): continue
-                                if land['등록번호'][:6] == current_land['등록번호'][:6]:
-                                    match_count += 1
-                                    break
-
-                            # 일치 조건 확인
-                            if match_count >= 2:
-                                matched_groups.append(group)
-
-
-                        # 매칭된 그룹 처리
-                        if len(matched_groups) == 0:
-                            groups.append([current_land])
-                        else:
-                            # 매칭된 모든 그룹에 추가
-                            for group in matched_groups:
-                                group.append(current_land)
-
-                dataL2 = pd.DataFrame()
-                for i, groupInfo in enumerate(groups):
-                    if len(groups[i]) < 2: continue
-                    dataL1 = pd.DataFrame(groups[i])
-
-                    # 면적과 공시지가 있을 경우 가격 계산, 그 외 None
-                    dataL1['가격'] = np.where(pd.notna(dataL1['면적']) & pd.notna(dataL1['공시지가']), dataL1['면적'] * dataL1['공시지가'], np.nan)
-                    # dataL1['총 가격'] = np.where(pd.notna(dataL1['가격']), np.nansum(dataL1['가격']), np.nan)
-                    dataL1['i'] = i
-                    dataL1['j'] = dataL1.index
-                    dataL1['cnt'] = len(dataL1)
-
-                    dataL2 = pd.concat([dataL2, dataL1], ignore_index=True)
-
-                saveFile = '{}/{}/{}-{}.csv'.format(globalVar['outPath'], serviceName, fileNameNoExt, 'dataL2')
-                os.makedirs(os.path.dirname(saveFile), exist_ok=True)
-                dataL2.to_csv(saveFile, index=False)
-                print(f'[CHECK] saveFile : {saveFile}')
-
-                rankData = dataL2.groupby('i')['가격'].sum().reset_index().rename({'가격': '총계'}, axis=1)
-                rankData['순위'] = rankData['총계'].rank(method="min", ascending=False)
-
-                dataL3 = dataL2.merge(rankData, left_on=['i'], right_on=['i'], how='left')
-
-                fnlData = dataL3.groupby('순위').apply(lambda x: x.sort_values(['총계', '가격'], ascending=False, na_position='last'))
-
-                saveFile = '{}/{}/{}-{}.csv'.format(globalVar['outPath'], serviceName, fileNameNoExt, 'fnlData')
-                os.makedirs(os.path.dirname(saveFile), exist_ok=True)
-                fnlData.to_csv(saveFile, index=False)
-                print(f'[CHECK] saveFile : {saveFile}')
+                    makeCsvProc(fileInfo)
 
         except Exception as e:
             log.error(f'Exception : {e}')
