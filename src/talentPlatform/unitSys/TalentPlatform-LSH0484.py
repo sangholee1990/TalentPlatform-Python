@@ -308,6 +308,7 @@ class DtaProcess(object):
                 for j, fileInfo in enumerate(fileList):
                     log.info(f'[CHECK] fileInfo : {fileInfo}')
 
+                    fileNameNoExt = os.path.basename(fileInfo).split('.')[0]
                     data = pd.read_csv(fileInfo, encoding='EUC-KR')
 
                     # 그룹 리스트 초기화
@@ -368,16 +369,29 @@ class DtaProcess(object):
 
                     # 면적과 공시지가 있을 경우 가격 계산, 그 외 None
                     dataL1['가격'] = np.where(pd.notna(dataL1['면적']) & pd.notna(dataL1['공시지가']), dataL1['면적'] * dataL1['공시지가'], np.nan)
-                    dataL1['총 가격'] = np.where(pd.notna(dataL1['가격']), np.nansum(dataL1['가격']), np.nan)
+                    # dataL1['총 가격'] = np.where(pd.notna(dataL1['가격']), np.nansum(dataL1['가격']), np.nan)
                     dataL1['i'] = i
                     dataL1['j'] = dataL1.index
                     dataL1['cnt'] = len(dataL1)
 
                     dataL2 = pd.concat([dataL2, dataL1], ignore_index=True)
 
-                groupList = dataL2.groupby('i')
-                sorted_groups = groupList.apply(lambda x: x.sort_values('가격', ascending=False))
+                saveFile = '{}/{}/{}-{}.csv'.format(globalVar['outPath'], serviceName, fileNameNoExt, 'dataL2')
+                os.makedirs(os.path.dirname(saveFile), exist_ok=True)
+                dataL2.to_csv(saveFile, index=False)
+                print(f'[CHECK] saveFile : {saveFile}')
 
+                rankData = dataL2.groupby('i')['가격'].sum().reset_index().rename({'가격': '총계'}, axis=1)
+                rankData['순위'] = rankData['총계'].rank(method="min", ascending=False)
+
+                dataL3 = dataL2.merge(rankData, left_on=['i'], right_on=['i'], how='left')
+
+                fnlData = dataL3.groupby('순위').apply(lambda x: x.sort_values(['총계', '가격'], ascending=False, na_position='last'))
+
+                saveFile = '{}/{}/{}-{}.csv'.format(globalVar['outPath'], serviceName, fileNameNoExt, 'fnlData')
+                os.makedirs(os.path.dirname(saveFile), exist_ok=True)
+                fnlData.to_csv(saveFile, index=False)
+                print(f'[CHECK] saveFile : {saveFile}')
 
         except Exception as e:
             log.error(f'Exception : {e}')
