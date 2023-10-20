@@ -196,7 +196,7 @@ def makeCsvProc(fileInfo):
                     len_diff = abs(len(current_address) - len(land_address))
                     max_len = max(len(current_address), len(land_address))
 
-                    if current_address == land_address or (5 <= max_len <= 9 and len_diff <= 1) or (max_len >= 10 and len_diff <= 2):
+                    if (current_address == land_address) or (5 <= max_len <= 9 and len_diff <= 1) or (max_len >= 10 and len_diff <= 2):
                         match_count += 1
                         break
 
