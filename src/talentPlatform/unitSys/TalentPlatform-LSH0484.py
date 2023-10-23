@@ -208,7 +208,7 @@ def makeCsvProc(fileInfo):
             isAddr = (len(row['주소']) > 0) & (row['주소'] == dataL1['주소']) | ((5 <= max_len) & (max_len <= 9)  & (len_diff <= 1)) | ((max_len >= 10) & (len_diff <= 2))
 
             # 처음 6글자 만족
-            isReg = (len(row['등록번호2']) > 0) & (row['등록번호2'] == dataL1['등록번호'])
+            isReg = (len(row['등록번호2']) > 0) & (row['등록번호2'] == dataL1['등록번호2'])
             # 처음/중간/끝 4글자 모두 만족
             # isReg = (len(row['등록번호2']) > 0) & pd.concat([dataL1['등록번호'].str.contains(pat) for pat in isRegPattern], axis=1).all(axis=1)
 
