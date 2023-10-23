@@ -258,11 +258,16 @@ class DtaProcess(object):
                     log.info(f'[CHECK] fileInfo : {fileInfo}')
 
                     fileNameNoExt = os.path.basename(fileInfo).split('.xls')[0]
-                    data = pd.read_excel(fileInfo)
+
+                    dataL1 = pd.DataFrame()
+                    sheetList = pd.read_excel(fileInfo, sheet_name=None)
+                    for sheetName, data in sheetList.items():
+                        log.info(f'[CHECK] sheetName : {sheetName}')
+                        dataL1 = pd.concat([dataL1, data], ignore_index=False)
 
                     saveCsvFile = '{}/{}/{}.csv'.format(globalVar['outPath'], serviceName, fileNameNoExt)
                     os.makedirs(os.path.dirname(saveCsvFile), exist_ok=True)
-                    data.to_csv(saveCsvFile, index=False, encoding='EUC-KR')
+                    dataL1.to_csv(saveCsvFile, index=False, encoding='UTF-8')
                     log.info('[CHECK] saveCsvFile : {}'.format(saveCsvFile))
 
         except Exception as e:
