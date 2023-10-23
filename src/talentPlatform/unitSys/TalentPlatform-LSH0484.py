@@ -160,32 +160,6 @@ def initArgument(globalVar, inParams):
 
     return globalVar
 
-def compute_match_count(row, group):
-    match_count = 0
-
-    # 성명 비교
-    if pd.notna(row['성명']) and pd.notna(group['성명']).any() and row['성명'] in group['성명'].values:
-        match_count += 1
-
-    # 주소 비교
-    if pd.notna(row['주소']) and pd.notna(group['주소']).any():
-        current_address = row['주소'].replace(" ", "")
-        # group DataFrame 내 주소에 대한 NaN이 아닌 값만 필터링합니다.
-        valid_addresses = group['주소'].dropna().str.replace(" ", "")
-        len_diff = (valid_addresses.str.len() - len(current_address)).abs()
-        max_len = valid_addresses.str.len().max()
-
-        if (current_address in valid_addresses.values) or \
-                ((5 <= max_len <= 9) and len_diff.min() <= 1) or \
-                (max_len >= 10 and len_diff.min() <= 2):
-            match_count += 1
-
-    # 등록번호 비교 (앞 6글자)
-    if pd.notna(row['등록번호']) and pd.notna(group['등록번호']).any() and row['등록번호'][:6] in group['등록번호'].dropna().str[:6].values:
-        match_count += 1
-
-    return match_count
-
 def makeCsvProc(fileInfo):
 
     print(f'[START] makeCsvProc')
@@ -201,11 +175,16 @@ def makeCsvProc(fileInfo):
         dataL1 = data.copy()
 
         # 가공 변수
+        dataL1['성명2'] = dataL1['성명'].str[:3]
         dataL1['주소'] = dataL1['주소'].str.replace(" ", "")
-        dataL1['등록번호'] = dataL1['등록번호'].str[:6]
+        dataL1['등록번호2'] = dataL1['등록번호'].str[:6]
+
         dataL1['성명'] = dataL1['성명'].where(~ pd.isna(dataL1['성명']), other="")
         dataL1['주소'] = dataL1['주소'].where(~ pd.isna(dataL1['주소']), other="")
         dataL1['등록번호'] = dataL1['등록번호'].where(~ pd.isna(dataL1['등록번호']), other="")
+
+        dataL1['성명2'] = dataL1['성명2'].where(~ pd.isna(dataL1['성명2']), other="")
+        dataL1['등록번호2'] = dataL1['등록번호2'].where(~ pd.isna(dataL1['등록번호2']), other="")
 
         groupData = pd.DataFrame()
         matchIdxList = set()
@@ -217,13 +196,21 @@ def makeCsvProc(fileInfo):
             # 이미 포함된 경우 제외
             if i in matchIdxList: continue
 
+            # 처음/중간/끝 4글자
+            isRegPattern = [row['등록번호2'][:4], row['등록번호2'][1:5], row['등록번호2'][2:]]
+
             len_diff = abs(dataL1['주소'].str.len() - len(row['주소']))
             max_len = dataL1['주소'].str.len().combine(len(row['주소']), max)
 
             # 성명, 주소, 등록번호 일치 검사
-            isName = (len(row['성명']) > 0) & (row['성명'] == dataL1['성명'])
+            # isName = (len(row['성명']) > 0) & (row['성명'] == dataL1['성명'])
+            isName = (len(row['성명2']) > 0) & (dataL1['성명'].str.contains(r'^' + re.escape(row['성명2']), regex=True))
             isAddr = (len(row['주소']) > 0) & (row['주소'] == dataL1['주소']) | ((5 <= max_len) & (max_len <= 9)  & (len_diff <= 1)) | ((max_len >= 10) & (len_diff <= 2))
-            isReg = (len(row['등록번호']) > 0) & (row['등록번호'] == dataL1['등록번호'])
+
+            # 처음 6글자 만족
+            isReg = (len(row['등록번호2']) > 0) & (row['등록번호2'] == dataL1['등록번호'])
+            # 처음/중간/끝 4글자 모두 만족
+            # isReg = (len(row['등록번호2']) > 0) & pd.concat([dataL1['등록번호'].str.contains(pat) for pat in isRegPattern], axis=1).all(axis=1)
 
             # 일치 검사에 대한 개수
             isFlagData = pd.concat([isName, isAddr, isReg], keys=['name', 'addr', 'reg'], ignore_index=False, axis=1)
@@ -231,12 +218,13 @@ def makeCsvProc(fileInfo):
 
             # 2개 이상 매칭
             filterData = isFlagData[isFlagData['cnt'] >= 2]
+            filterDataL1 = filterData[~ filterData.index.isin(matchIdxList)]
             matchIdxList.update(filterData.index)
             if (len(filterData) < 2): continue
 
             data['matchIdx'] = matchIdx
             matchIdx += 1
-            groupData = pd.concat([groupData, data.loc[filterData.index].reset_index(drop=False) ], ignore_index=True)
+            groupData = pd.concat([groupData, data.loc[filterDataL1.index].reset_index(drop=False) ], ignore_index=True)
 
         # 면적과 공시지가 있을 경우 가격 계산, 그 외 None
         groupData['가격'] = np.where(pd.notna(groupData['면적']) & pd.notna(groupData['공시지가']), groupData['면적'] * groupData['공시지가'], np.nan)
