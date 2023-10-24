@@ -180,7 +180,8 @@ def makeCsvProc(fileInfo):
         dataL1 = data.copy()
 
         # 가공 변수
-        dataL1['성명2'] = dataL1['성명'].str[:3]
+        # dataL1['성명2'] = dataL1['성명'].str[:3]
+        dataL1['성명2'] = dataL1['성명'].str.replace(" 외 ", "")
         dataL1['주소'] = dataL1['주소'].str.replace(" ", "")
         dataL1['등록번호2'] = dataL1['등록번호'].str[:6]
 
@@ -209,7 +210,8 @@ def makeCsvProc(fileInfo):
 
             # 성명, 주소, 등록번호 일치 검사
             # isName = (len(row['성명']) > 0) & (row['성명'] == dataL1['성명'])
-            isName = (len(row['성명2']) > 0) & (dataL1['성명'].str.contains(r'^' + re.escape(row['성명2']), regex=True))
+            # isName = (len(row['성명2']) > 0) & (dataL1['성명'].str.contains(r'^' + re.escape(row['성명2']), regex=True))
+            isName = (len(row['성명2']) > 0) & (row['성명2'] == dataL1['성명2'])
 
             # 주소 검사
             # 문자열 4글자 일치, 10글자 미만 오타 1개, 10글자 이상 오타 2개
