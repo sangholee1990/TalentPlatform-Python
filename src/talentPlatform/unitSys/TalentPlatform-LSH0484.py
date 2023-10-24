@@ -162,12 +162,17 @@ def initArgument(globalVar, inParams):
 
 def makeCsvProc(fileInfo):
 
+    # 오타 개수 검사
+    def count_mismatches(single_address, row_address):
+        min_length = min(len(single_address), len(row_address))
+        mismatches = sum(1 for i in range(min_length) if single_address[i] != row_address[i])
+        return mismatches
+
     print(f'[START] makeCsvProc')
 
     result = None
 
     try:
-
         filePath = os.path.dirname(fileInfo)
         fileNameNoExt = os.path.basename(fileInfo).split('.')[0]
         data = pd.read_csv(fileInfo, encoding='EUC-KR')
@@ -197,15 +202,18 @@ def makeCsvProc(fileInfo):
             if i in matchIdxList: continue
 
             # 처음/중간/끝 4글자
-            isRegPattern = [row['등록번호2'][:4], row['등록번호2'][1:5], row['등록번호2'][2:]]
+            # isRegPattern = [row['등록번호2'][:4], row['등록번호2'][1:5], row['등록번호2'][2:]]
 
-            len_diff = abs(dataL1['주소'].str.len() - len(row['주소']))
-            max_len = dataL1['주소'].str.len().combine(len(row['주소']), max)
+            addr_mismatch = dataL1['주소'].apply(lambda x: count_mismatches(x, row['주소']))
+            addr_len = len(row['주소'])
 
             # 성명, 주소, 등록번호 일치 검사
             # isName = (len(row['성명']) > 0) & (row['성명'] == dataL1['성명'])
             isName = (len(row['성명2']) > 0) & (dataL1['성명'].str.contains(r'^' + re.escape(row['성명2']), regex=True))
-            isAddr = (len(row['주소']) > 0) & (row['주소'] == dataL1['주소']) | ((5 <= max_len) & (max_len <= 9)  & (len_diff <= 1)) | ((max_len >= 10) & (len_diff <= 2))
+
+            # 주소 검사
+            # 문자열 4글자 일치, 10글자 미만 오타 1개, 10글자 이상 오타 2개
+            isAddr = (len(row['주소']) > 0) & ((addr_len < 5) & (row['주소'][:4] == dataL1['주소'].str[:4])) | ((5 <= addr_len) & (addr_len <= 9)  & (addr_mismatch <= 1)) | ((addr_len >= 10) & (addr_mismatch <= 2))
 
             # 처음 6글자 만족
             isReg = (len(row['등록번호2']) > 0) & (row['등록번호2'] == dataL1['등록번호2'])
