@@ -181,7 +181,7 @@ def makeCsvProc(fileInfo):
 
         # 가공 변수
         # dataL1['성명2'] = dataL1['성명'].str[:3]
-        dataL1['성명2'] = dataL1['성명'].str.replace(" 외 ", "")
+        dataL1['성명2'] = dataL1['성명'].str.split(' ').str[0]
         dataL1['주소'] = dataL1['주소'].str.replace(" ", "")
         dataL1['등록번호2'] = dataL1['등록번호'].str[:6]
 
