@@ -532,7 +532,6 @@ class DtaProcess(object):
                 # corrected_data_qm = SBCK.quantile_mapping(observed_data, model_data, n_quantiles=[5, 7, 14], method='non_parametric')
                 # corrected_data_mbcn = SBCK.mbcn(observed_data, model_data, parameters...)
 
-
                 # ***********************************************************************************
                 # Cannon, A. J., Sobie, S. R., & Murdock, T. Q. (2015). Bias correction of GCM precipitation by quantile mapping: How well do methods preserve changes in quantiles and extremes? Journal of Climate, 28(17), 6938–6959. https://doi.org/10.1175/JCLI-D-14-00754.1
                 # ***********************************************************************************
@@ -551,12 +550,24 @@ class DtaProcess(object):
                 # qdm = sdba.QuantileDeltaMapping.train(ref=mrgData['rain'], hist=mrgData['pr'], nquantiles=15, group='time')
                 # qdmData = qdm.adjust(mrgData['pr'], interp="linear")
 
-                qdm = sdba.QuantileDeltaMapping.train(ref=mrgData['rain'], hist=mrgData['pr'], nquantiles=15, group='time')
+                # qdm = sdba.QuantileDeltaMapping.train(ref=mrgData['rain'], hist=mrgData['pr'], nquantiles=15, group='time')
+                # qdm = sdba.QuantileDeltaMapping.train(ref=mrgData['rain'], hist=mrgData['pr'], nquantiles=100, group='time')
+                qdm = sdba.QuantileDeltaMapping.train(ref=mrgData['rain'], hist=mrgData['pr'], nquantiles=20, group='time')
                 qdmData = qdm.adjust(sim=mrgData['pr'], interp="linear")
+
+                # qdm.ds['af']['quantiles'].values
+                qdm.ds['af'].isel(group = 0, quantiles = 0).plot()
+                qdm.ds['af'].isel(group = 0).sel(quantiles = 0.975).plot()
+                plt.show()
+
+                qdm.ds['hist_q'].isel(group = 0).plot()
+                qdm.ds['hist_q'].isel(group=0).sel(quantiles=0.975).plot()
+                plt.show()
+
 
                 # ref = mrgData['rain']
                 # hist = mrgData['pr']
-                # # ref_n, _ = sdba.processing.normalize(ref, group='time', kind="+")
+                # ref_n, _ = sdba.processing.normalize(ref, group='time', kind="+")
                 # hist_n, _ = sdba.processing.normalize(hist, group='time', kind="+")
 
                 # qdm = sdba.QuantileDeltaMapping.train(ref = ref_n, hist = hist_n, nquantiles=15, group='time')
@@ -565,56 +576,67 @@ class DtaProcess(object):
                 # qdm.ds.af.plot()
                 # plt.show()
                 #
-                # mrgData['rain'].isel(time = 2).plot(vmin = 0, vmax = 100)
-                # plt.show()
-                #
+                mrgData['rain'].isel(time = 2).plot(vmin = 0, vmax = 100)
+                plt.show()
+
+                mrgData['pr'].isel(time = 2).plot(vmin = 0, vmax = 100)
+                plt.show()
+
+                qdmData.isel(time = 2).plot(vmin = 0, vmax = 100)
+                plt.show()
+
                 # hist_n.isel(time=2).plot(x='lon', y='lat', vmin = 0, vmax = 100)
                 # plt.show()
 
                 # xclim.core.calendar
-                # for nquantiles in range(10, 101, 10):
-                #     log.info(f'[CHECK] nquantiles : {nquantiles}')
-                #     # qdm = sdba.QuantileDeltaMapping.train(ref=mrgData['rain'], hist=mrgData['pr'], kind="+", nquantiles=nquantiles, group='time')
-                #     qdm = sdba.QuantileDeltaMapping.train(ref=mrgData['rain'], hist=mrgData['pr'], kind="+", nquantiles=15, group='time.dayOfYear')
-                #     # qdm = sdba.QuantileDeltaMapping.train(ref=mrgData['rain'], hist=mrgData['pr'], kind="*", nquantiles=nquantiles, group='time')
-                #     qdmData = qdm.adjust(sim=mrgData['pr'], interp="linear")
-                #
-                #     X = mrgData['rain'].isel(time=2).values.flatten()[:, np.newaxis]
-                #     y = qdmData.isel(time=2).values.flatten()
-                #
-                #     mask = ~np.isnan(y) & ~np.isnan(X[:, 0]) & (X[:, 0] > 0) & (y > 0)
-                #     X = X[mask]
-                #     y = y[mask]
-                #
-                #     # 검증스코어 계산 : Bias (Relative Bias), RMSE (Relative RMSE)
-                #     Bias = np.nanmean(X[:, 0] - y)
-                #     RMSE = np.sqrt(np.nanmean((X[:, 0] - y) ** 2))
-                #     corr = np.corrcoef(X[:, 0], y)[0, 1]
-                #
-                #     dict = {
-                #         'Bias': [Bias]
-                #         , 'RMSE': [RMSE]
-                #         , 'corr': [corr]
-                #     }
-                #
-                #     # valData = pd.DataFrame.from_dict(dict)
-                #     log.info(f'[CHECK] dict : {dict}')
-                #
-                #     # mainTitle = f'QDM / nquantiles = {nquantiles}'
-                #     # qdmData.isel(time=2).plot(x='lon', y='lat', vmin=0, vmax=100)
-                #     # plt.title(mainTitle)
-                #     # saveImg = '{}/{}/{}.png'.format(globalVar['figPath'], serviceName, f'QDM-{nquantiles}')
-                #     # os.makedirs(os.path.dirname(saveImg), exist_ok=True)
-                #     # plt.savefig(saveImg, dpi=600, bbox_inches='tight', transparent=True)
-                #     # plt.show()
-                #     # plt.close()
+                for nquantiles in range(10, 101, 10):
+                    log.info(f'[CHECK] nquantiles : {nquantiles}')
+                    # qdm = sdba.QuantileDeltaMapping.train(ref=mrgData['rain'], hist=mrgData['pr'], kind="+", nquantiles=nquantiles, group='time')
+                    # qdm = sdba.QuantileDeltaMapping.train(ref=mrgData['rain'], hist=mrgData['pr'], kind="+", nquantiles=15, group='time.dayOfYear')
+                    # qdm = sdba.QuantileDeltaMapping.train(ref=mrgData['rain'], hist=mrgData['pr'], kind="*", nquantiles=nquantiles, group='time')
+
+                    # qdm = sdba.QuantileDeltaMapping.train(ref=mrgData['rain'], hist=mrgData['pr'], kind="+", nquantiles=100, group='time')
+                    # qdmData = qdm.adjust(sim=mrgData['pr'], interp="linear")
+
+                    x = mrgData['rain'].isel(time=2).values.flatten()[:, np.newaxis]
+                    y = mrgData['pr'].isel(time=2).values.flatten()
+                    yhat = qdmData.isel(time=2).values.flatten()
+
+                    mask = ~np.isnan(x[:, 0]) & (x[:, 0] > 0) & (y > 0) & ~np.isnan(y) & (yhat > 0) & ~np.isnan(yhat)
+
+                    X = x[mask][:, 0]
+                    Y = y[mask]
+                    Yhat = yhat[mask]
+
+                    # 검증스코어 계산 : Bias (Relative Bias), RMSE (Relative RMSE)
+                    dict = {
+                        'orgBias': [np.nanmean(X - Y)]
+                        , 'orgRMSE': [np.sqrt(np.nanmean((X - Y) ** 2))]
+                        , 'orgcorr': [np.corrcoef(X, Y)[0, 1]]
+                        , 'newBias': [np.nanmean(X - Yhat)]
+                        , 'newRMSE': [np.sqrt(np.nanmean((X - Yhat) ** 2))]
+                        , 'newcorr': [np.corrcoef(X, Yhat)[0, 1]]
+                    }
+
+                    valData = pd.DataFrame.from_dict(dict)
+                    log.info(f'[CHECK] valData : {valData}')
+
+                    # mainTitle = f'QDM / nquantiles = {nquantiles}'
+                    # qdmData.isel(time=2).plot(x='lon', y='lat', vmin=0, vmax=100)
+                    # plt.title(mainTitle)
+                    # saveImg = '{}/{}/{}.png'.format(globalVar['figPath'], serviceName, f'QDM-{nquantiles}')
+                    # os.makedirs(os.path.dirname(saveImg), exist_ok=True)
+                    # plt.savefig(saveImg, dpi=600, bbox_inches='tight', transparent=True)
+                    # plt.show()
+                    # plt.close()
 
                 # ***********************************************************************************
                 # Dequé, M. (2007). Frequency of precipitation and temperature extremes over France in an anthropogenic scenario: Model results and statistical correction according to observed values. Global and Planetary Change, 57(1–2), 16–26. https://doi.org/10.1016/j.gloplacha.2006.11.030
                 # ***********************************************************************************
                 # eqm =  sdba.EmpiricalQuantileMapping.train(mrgData['rain'], mrgData['pr'], group='time.dayofyear')
                 # eqm =  sdba.EmpiricalQuantileMapping.train(mrgData['rain'], mrgData['pr'], group='time.month')
-                eqm =  sdba.EmpiricalQuantileMapping.train(ref = mrgData['rain'], hist = mrgData['pr'], nquantiles=15, group='time')
+                # eqm =  sdba.EmpiricalQuantileMapping.train(ref = mrgData['rain'], hist = mrgData['pr'], nquantiles=15, group='time')
+                eqm =  sdba.EmpiricalQuantileMapping.train(ref = mrgData['rain'], hist = mrgData['pr'], nquantiles=100, group='time')
                 eqmData = eqm.adjust(mrgData['pr'], interp="linear")
 
                 # eqm.ds.af.plot()
@@ -625,7 +647,8 @@ class DtaProcess(object):
                 # ***********************************************************************************
                 # dqm = sdba.DetrendedQuantileMapping.train(mrgData['rain'], mrgData['pr'], group='time.dayofyear')
                 # dqm = sdba.DetrendedQuantileMapping.train(mrgData['rain'], mrgData['pr'], group='time.month')
-                dqm = sdba.DetrendedQuantileMapping.train(ref = mrgData['rain'], hist = mrgData['pr'], nquantiles=15, group='time')
+                # dqm = sdba.DetrendedQuantileMapping.train(ref = mrgData['rain'], hist = mrgData['pr'], nquantiles=15, group='time')
+                dqm = sdba.DetrendedQuantileMapping.train(ref = mrgData['rain'], hist = mrgData['pr'], nquantiles=100, group='time')
                 dqmData = dqm.adjust(mrgData['pr'], interp="linear")
 
                 # ***********************************************************************************
