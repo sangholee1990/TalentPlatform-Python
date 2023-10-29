@@ -150,7 +150,6 @@ def initLog(env=None, contextPath=None, prjName=None):
 
     return log
 
-
 #  초기 변수 설정
 def initGlobalVar(env=None, contextPath=None, prjName=None):
     if env is None: env = 'local'
