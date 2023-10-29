@@ -582,7 +582,8 @@ class DtaProcess(object):
                 # , 'addrList': ['서울특별시 용산구']
                 # , 'addrList': ['서울특별시 양천구']
                 # , 'addrList': ['경기도 과천시']
-                , 'addrList': [globalVar['addrList']]
+                , 'addrList': ['경기도 의정부시']
+                # , 'addrList': [globalVar['addrList']]
             }
 
             # *********************************************************************************
@@ -973,10 +974,67 @@ class DtaProcess(object):
                         # saveImg = '{}/{}/{}/{}/{}.png'.format(globalVar['figPath'], serviceName, '예측', addrInfo, mainTitle)
                         # makeUserTimeSeriesPlot(dataL2['date'], dataL2['realPriceML'], dataL2['realPriceDL'], dataL2['realPrice'], '예측 (머신러닝)', '예측 (딥러닝)', '실측', '날짜 [연도]', '매매가 [만원]', mainTitle, saveImg, False)
 
-                        try:
-                            tsForPeriod = sysOpt['tsModel']['forYear'] - dataL2['year'].max()
-                            log.info(f'[CHECK] tsForPeriod : {tsForPeriod}')
+                        tsForPeriod = sysOpt['tsModel']['forYear'] - dataL2['year'].max()
+                        log.info(f'[CHECK] tsForPeriod : {tsForPeriod}')
 
+                        # 미래 전세가
+                        try:
+                            tsDlModel = Prophet(n_changepoints=2)
+                            tsDlModel.fit(TimeSeries.from_dataframe(dataL2, time_col='date', value_cols='realBjPriceML'))
+                            tsDlFor = tsDlModel.predict(tsForPeriod).pd_dataframe().rename(columns={'0': 'realBjPriceML'})
+                            tsDlFor['date'] = tsDlFor.index
+                            tsDlFor.reset_index(drop=True, inplace=True)
+
+                            tsMlModel = Prophet(n_changepoints=2)
+                            tsMlModel.fit(TimeSeries.from_dataframe(dataL2, time_col='date', value_cols='realBjPriceDL'))
+                            tsMlFor = tsMlModel.predict(tsForPeriod).pd_dataframe().rename(columns={'0': 'realBjPriceDL'})
+                            tsMlFor['date'] = tsMlFor.index
+                            tsMlFor.reset_index(drop=True, inplace=True)
+
+                            tsForData = tsDlFor.merge(tsMlFor, left_on=['date'], right_on=['date'], how='inner')
+                            tsForData['name'] = nameInfo
+                            tsForData['capacity'] = capInfo
+                            tsForData['year'] = tsForData['date'].dt.strftime('%Y').astype('int')
+                            tsForData['lat'] = selInfoFirst['lat']
+                            tsForData['lon'] = selInfoFirst['lon']
+                            tsForData['inhuga'] = selInfoFirst['inhuga']
+                            tsForData['conYear'] = selInfoFirst['conYear']
+
+                            tsForBjPriceData = tsForData
+
+                        except Exception as e:
+                            log.error('Exception : {}'.format(e))
+
+                        # 미래 매매가
+                        try:
+                            tsDlModel = Prophet(n_changepoints=2)
+                            tsDlModel.fit(TimeSeries.from_dataframe(dataL2, time_col='date', value_cols='realPriceML'))
+                            tsDlFor = tsDlModel.predict(tsForPeriod).pd_dataframe().rename(columns={'0': 'realPriceML'})
+                            tsDlFor['date'] = tsDlFor.index
+                            tsDlFor.reset_index(drop=True, inplace=True)
+
+                            tsMlModel = Prophet(n_changepoints=2)
+                            tsMlModel.fit(TimeSeries.from_dataframe(dataL2, time_col='date', value_cols='realPriceDL'))
+                            tsMlFor = tsMlModel.predict(tsForPeriod).pd_dataframe().rename(columns={'0': 'realPriceDL'})
+                            tsMlFor['date'] = tsMlFor.index
+                            tsMlFor.reset_index(drop=True, inplace=True)
+
+                            tsForData = tsDlFor.merge(tsMlFor, left_on=['date'], right_on=['date'], how='inner')
+                            tsForData['name'] = nameInfo
+                            tsForData['capacity'] = capInfo
+                            tsForData['year'] = tsForData['date'].dt.strftime('%Y').astype('int')
+                            tsForData['lat'] = selInfoFirst['lat']
+                            tsForData['lon'] = selInfoFirst['lon']
+                            tsForData['inhuga'] = selInfoFirst['inhuga']
+                            tsForData['conYear'] = selInfoFirst['conYear']
+
+                            tsForPriceData = tsForData
+
+                        except Exception as e:
+                            log.error('Exception : {}'.format(e))
+
+                        # 미래 갭투자
+                        try:
                             # tsModel = AutoTS(forecast_length=sysOpt['tsModel']['forYear'], min_allowed_train_percent=1.0, frequency='infer', ensemble='all', model_list='superfast', transformer_list='superfast')
                             # tsModel = AutoTS(forecast_length=tsForPeriod, frequency='infer', ensemble='all', model_list='superfast', transformer_list='superfast')
 
@@ -1014,15 +1072,21 @@ class DtaProcess(object):
                             tsForData['inhuga'] = selInfoFirst['inhuga']
                             tsForData['conYear'] = selInfoFirst['conYear']
 
+                            tsForGapData = tsForData
+
                         except Exception as e:
                             log.error('Exception : {}'.format(e))
 
-                        if len(tsForData) < 1: continue
+                        if len(tsForGapData) < 1: continue
+
+                        tsForComData = (tsForBjPriceData
+                                        .merge(tsForPriceData, on=['name', 'capacity', 'year', 'lat', 'lon', 'inhuga', 'conYear', 'date'])
+                                        .merge(tsForGapData, on=['name', 'capacity', 'year', 'lat', 'lon', 'inhuga', 'conYear', 'date']))
 
                         dataL3 = dataL2.merge(
-                            tsForData
-                            , left_on=['name', 'capacity', 'year', 'lat', 'lon', 'inhuga', 'conYear', 'date', 'gapDL', 'gapML']
-                            , right_on=['name', 'capacity', 'year', 'lat', 'lon', 'inhuga', 'conYear', 'date', 'gapDL', 'gapML']
+                            tsForComData
+                            , left_on=['name', 'capacity', 'year', 'lat', 'lon', 'inhuga', 'conYear', 'date', 'realBjPriceDL', 'realBjPriceML', 'realPriceDL', 'realPriceML', 'gapDL', 'gapML']
+                            , right_on=['name', 'capacity', 'year', 'lat', 'lon', 'inhuga', 'conYear', 'date', 'realBjPriceDL', 'realBjPriceML', 'realPriceDL', 'realPriceML', 'gapDL', 'gapML']
                             , how='outer'
                         )
 
