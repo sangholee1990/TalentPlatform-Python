@@ -65,3 +65,5 @@ src/talentPlatform/testSys/LSH0279/desktop.ini
 *.ini
 src/talentPlatform/testSys/LSH0279/desktop.ini
 src/proj/bdwide/2021/에카디자인/eKoNLPy/
+.idea/TalentPlatform-Python.iml
+.idea/deployment.xml
