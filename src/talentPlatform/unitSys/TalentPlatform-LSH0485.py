@@ -408,8 +408,23 @@ class DtaProcess(object):
                         continue
 
                     for j, fileInfo in enumerate(fileList):
-                        data = pyart.io.read(fileInfo)
+
+                        # 파일 읽기
+                        # data = pyart.io.read(fileInfo)
+                        data = pyart.io.read_uf(fileInfo)
                         log.info(f'[CHECK] fileInfo : {fileInfo}')
+
+                        # 메타 정보
+                        data.info()
+
+
+                        # pyart.
+
+                        display = pyart.graph.RadarMapDisplay(data)
+                        display.plot("reflectivity")
+                        # display.plot_point("reflectivity")
+                        plt.show()
+
 
                         fileNameNoExt = os.path.basename(fileInfo).split('.uf')[0]
 
@@ -418,7 +433,134 @@ class DtaProcess(object):
                             log.info(f'[CHECK] field : {field}')
                             dataL1[field] = data.fields[field]
 
+                        time1D = data.time['data']
+                        # range1D = data.range['data']
+                        range1D = data.range['data']
+                        # range1D = data.elevation['data']
+                        ref = data.fields['reflectivity']['data']
+
+                        pyart.io.write_grid_geotiff(data)
+
+                        da = xr.DataArray(
+                            data=ref,
+                            coords={
+                                'time': np.arange(time1D.shape[0]),
+                                'range': np.arange(range1D.shape[0]),
+                            },
+                            dims=['time', 'range'],
+                            name='reflectivity',
+                            attrs={
+                                # 'standard_name': data_dict['standard_name'],
+                                # 'long_name': data_dict['long_name'],
+                                # '_FillValue': data_dict['_FillValue']
+                            }
+                        )
+
+                        ds = da.to_dataset()
+                        ds['reflectivity'].plot()
+                        plt.show()
+
+                        nx = data.elevation['data']
+                        ny = data.azimuth['data']
+                        # nz = data.range['data']
+
+                        # elevation azimuth range
+                        nray = data.nrays
+                        ngat = data.ngates
+                        nswp = data.nsweeps
+
+                        fang = data.fixed_angle['data']
+
+                        felv = data.elevation['data']
+                        fazm = data.azimuth['data']
+                        frng = data.range['data']
+
+
+                        fpul = data.instrument_parameters['pulse_width']['data']
+                        ffrq = data.instrument_parameters['frequency']['data']
+                        fscn = data.scan_rate['data']
+
+                        fswp = data.sweep_number['data']
+                        fsws = data.sweep_start_ray_index['data']
+                        fswe = data.sweep_end_ray_index['data']
+                        ftme = data.time['data']
+
+
+                        data.latitude['data']
+
+                        #    rnam = data.metadata['instrument_name']
+                        #         rlat = data.latitude['data']
+                        #         rlon = data.longitude['data']
+                        #         ralt = data.altitude['data']
+                        #
+                        #         styp = data.scan_type
+                        #
+                        #         fbwh = data.instrument_parameters['radar_beam_width_h']['data']
+                        #         fprt = data.instrument_parameters['prt']['data']
+                        #         fvel = data.instrument_parameters['nyquist_velocity']['data']
+                        #
+                        #         nray = data.nrays
+                        #         ngat = data.ngates
+                        #         nswp = data.nsweeps
+                        #
+                        #         fang = data.fixed_angle['data']
+                        #
+                        #         fazm = data.azimuth['data']
+                        #         frng = data.range['data']
+                        #         felv = data.elevation['data']
+                        #
+                        #         fpul = data.instrument_parameters['pulse_width']['data']
+                        #         ffrq = data.instrument_parameters['frequency']['data']
+                        #         fscn = data.scan_rate['data']
+                        #
+                        #         fswp = data.sweep_number['data']
+                        #         fsws = data.sweep_start_ray_index['data']
+                        #         fswe = data.sweep_end_ray_index['data']
+                        #         ftme = data.time['data']
+                        #
+                        #         fdat_ref = data.fields['reflectivity']['data']
+                        #         fdat_crf = data.fields['corrected_reflectivity']['data']
+                        #         fdat_vel = data.fields['velocity']['data']
+                        #         fdat_spw = data.fields['spectrum_width']['data']
+                        #         fdat_zdr = data.fields['corrected_differential_reflectivity']['data']
+                        #         fdat_kdp = data.fields['specific_differential_phase']['data']
+                        #         fdat_pdp = data.fields['differential_phase']['data']
+                        #         fdat_ncp = data.fields['normalized_coherent_power']['data']
+                        #         fdat_phv = data.fields['cross_correlation_ratio']['data']
+                        #         fdat_ecf = data.fields['radar_echo_classification']['data']
+
+                        data.latitude
+                        data.altitude
+                        data.elevation
+                        data.azimuth
+                        data.range
+
+                        dataL1['reflectivity']
+
+
+
+                        a = data.time.values()
+                        xr.Dataset(a)
+                        d = xr.DataArray(a)
+
                         dataL1.keys()
+                        # dataL1.keys()
+
+
+                        data_array = xr.DataArray(
+                            data_dict['data'],
+                            dims=['elevation', 'azimuth'],  # 차원의 이름. 실제 데이터의 차원에 따라 조정해야 할 수 있습니다.
+                            attrs={
+                                'units': data_dict['units'],
+                                'standard_name': data_dict['standard_name'],
+                                'long_name': data_dict['long_name'],
+                                '_FillValue': data_dict['_FillValue']
+                            }
+                        )
+
+                        dataL1['reflectivity']
+                        a = xr.DataArray(dataL1.data)
+                        a['reflectivity'].plot()
 
                         # data.latitude
                         # data.longitude
