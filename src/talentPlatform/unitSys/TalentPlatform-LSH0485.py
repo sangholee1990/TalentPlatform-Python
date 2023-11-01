@@ -224,7 +224,8 @@ class DtaProcess(object):
             sysOpt = {
                 # 시작/종료 시간, 5분 간격
                 'srtDate': '2023-02-09 13:00'
-                , 'endDate': '2023-02-09 13:30'
+                # , 'endDate': '2023-02-09 13:30'
+                , 'endDate': '2023-02-09 13:10'
                 , 'invDate': '5T'
 
                 # 수행 목록
