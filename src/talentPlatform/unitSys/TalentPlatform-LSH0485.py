@@ -230,7 +230,7 @@ class DtaProcess(object):
                 # 수행 목록
                 , 'nameList': ['radar']
 
-                # 모델 정보 : 파일 경로, 파일명, 변수 선택
+                # 수행 정보 : 파일 경로, 파일명, 변수 선택
                 , 'nameInfo': {
                     'radar': {
                         'filePath': '/DATA/INPUT/LSH0485/GDK_230209-10'
