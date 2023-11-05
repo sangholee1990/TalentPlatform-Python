@@ -188,10 +188,9 @@ def makeCsvProc(fileInfo):
         choices = ['1티어', '2티어', '3티어', '4티어']
         data['구간'] = pd.np.select(conditions, choices, default='가격없음')
 
-
         # 가공 파일
         dataL1 = data
-        dataL1['총계'] = dataL1['토지가격']
+        # dataL1['총계'] = dataL1['토지가격']
 
         # 해당 순서대로 순차적으로 진행
         # 1티어 대지
@@ -214,12 +213,13 @@ def makeCsvProc(fileInfo):
 
                 # 토지소재를 기준으로 그룹별 총계 및 순위 선정
                 # 즉 토지소재의 합계가 높은 경우부터 우선순위 부여
-                rankData = dataL2.groupby(['토지소재'])['총계'].sum().reset_index().rename({'총계': '그룹총계'}, axis=1)
-                rankData['순위'] = rankData['그룹총계'].rank(method="min", ascending=False)
-                dataL3 = dataL2.merge(rankData, left_on=['토지소재'], right_on=['토지소재'], how='left')
+                # rankData = dataL2.groupby(['토지소재'])['총계'].sum().reset_index().rename({'총계': '그룹총계'}, axis=1)
+                # rankData['순위'] = rankData['그룹총계'].rank(method="min", ascending=False)
+                # dataL3 = dataL2.merge(rankData, left_on=['토지소재'], right_on=['토지소재'], how='left')
 
                 # 오름차순 정렬
-                dataL4 = dataL3.sort_values(by=['순위', '토지소재', '지번'])
+                # dataL4 = dataL3.sort_values(by=['순위', '토지소재', '지번'])
+                dataL4 = dataL2.sort_values(by=['토지소재', '지번'])
 
                 dataL5 = pd.concat([dataL5, dataL4], ignore_index=True)
 
