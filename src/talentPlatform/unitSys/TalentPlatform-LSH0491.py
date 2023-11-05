@@ -178,18 +178,19 @@ def makeCsvProc(fileInfo):
 
         dataL1 = data.copy()
 
-        # 가공 변수
-        # dataL1['성명2'] = dataL1['성명'].str[:3]
-        dataL1['성명2'] = dataL1['성명'].str.split(' ').str[0]
-        dataL1['주소'] = dataL1['주소'].str.replace(" ", "")
-        dataL1['등록번호2'] = dataL1['등록번호'].str[:6]
+        # 고유번호 중복검사 및 중복 제거
+        # isUniqe = dataL1['고유번호'].duplicated()
+        dataL1 = dataL1.drop_duplicates(subset='고유번호', keep='first')
 
         dataL1['성명'] = dataL1['성명'].where(~ pd.isna(dataL1['성명']), other="")
         dataL1['주소'] = dataL1['주소'].where(~ pd.isna(dataL1['주소']), other="")
         dataL1['등록번호'] = dataL1['등록번호'].where(~ pd.isna(dataL1['등록번호']), other="")
 
-        dataL1['성명2'] = dataL1['성명2'].where(~ pd.isna(dataL1['성명2']), other="")
-        dataL1['등록번호2'] = dataL1['등록번호2'].where(~ pd.isna(dataL1['등록번호2']), other="")
+        # 가공 변수
+        # dataL1['성명2'] = dataL1['성명'].str[:3]
+        dataL1['성명2'] = dataL1['성명'].str.split(' ').str[0]
+        dataL1['주소2'] = dataL1['주소'].str.replace(" ", "")
+        dataL1['등록번호2'] = dataL1['등록번호'].str[:6]
 
         groupData = pd.DataFrame()
         groupData2 = pd.DataFrame()
@@ -205,8 +206,8 @@ def makeCsvProc(fileInfo):
             # 처음/중간/끝 4글자
             # isRegPattern = [row['등록번호2'][:4], row['등록번호2'][1:5], row['등록번호2'][2:]]
 
-            addr_mismatch = dataL1['주소'].apply(lambda x: count_mismatches(x, row['주소']))
-            addr_len = len(row['주소'])
+            addr_mismatch = dataL1['주소2'].apply(lambda x: count_mismatches(x, row['주소2']))
+            addr_len = len(row['주소2'])
 
             # 성명, 주소, 등록번호 일치 검사
             # isName = (len(row['성명']) > 0) & (row['성명'] == dataL1['성명'])
@@ -215,7 +216,7 @@ def makeCsvProc(fileInfo):
 
             # 주소 검사
             # 문자열 4글자 일치, 10글자 미만 오타 1개, 10글자 이상 오타 2개
-            isAddr = (len(row['주소']) > 0) & ((addr_len < 5) & (row['주소'][:4] == dataL1['주소'].str[:4])) | ((5 <= addr_len) & (addr_len <= 9)  & (addr_mismatch <= 1)) | ((addr_len >= 10) & (addr_mismatch <= 2))
+            isAddr = (len(row['주소2']) > 0) & ((addr_len < 5) & (row['주소2'][:4] == dataL1['주소2'].str[:4])) | ((5 <= addr_len) & (addr_len <= 9)  & (addr_mismatch <= 1)) | ((addr_len >= 10) & (addr_mismatch <= 2))
 
             # 처음 6글자 만족
             isReg = (len(row['등록번호2']) > 0) & (row['등록번호2'] == dataL1['등록번호2'])
@@ -231,16 +232,15 @@ def makeCsvProc(fileInfo):
             filterDataL1 = filterData[~ filterData.index.isin(matchIdxList)]
             matchIdxList.update(filterData.index)
 
-            if len(filterData) < 2: continue
+            if (len(filterData) < 2): continue
 
-            # 1인 2개 필지를 지닌 경우 (그룹 1)
-            # if len(filterData) >= 2:
             data['matchIdx'] = matchIdx
             matchIdx += 1
             groupData = pd.concat([groupData, data.loc[filterDataL1.index].reset_index(drop=False) ], ignore_index=True)
 
-        groupData2 = dataL1.loc[~dataL1.index.isin(groupData.index)].copy()
-        # groupData2['matchIdx'] = 0
+        # 고유번호 인식
+        # groupData2 = data.loc[~data.index.isin(groupData.index)].copy()
+        groupData2 = data.loc[~data['고유번호'].isin(groupData['고유번호'])].copy()
         groupData2['matchIdx'] = groupData2.index
 
         # 면적과 공시지가 있을 경우 가격 계산, 그 외 None
@@ -361,6 +361,7 @@ class DtaProcess(object):
                         'filePath': '/DATA/INPUT/LSH0491'
                         , 'fileName': '04경기용인_data.csv'
                         # , 'fileName': '04경기용인_data_summary.csv'
+                        # , 'fileName': '04경기용인_data_summary2.csv'
                     }
                 }
             }
