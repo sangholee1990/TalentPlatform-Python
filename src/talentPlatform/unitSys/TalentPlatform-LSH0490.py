@@ -170,40 +170,62 @@ def makeCsvProc(fileInfo):
         fileNameNoExt = os.path.basename(fileInfo).split('.')[0]
         data = pd.read_csv(fileInfo, encoding='EUC-KR')
 
-        # '고유번호', '토지소재', '지번', '지목', '면적', '변동일자', '성명', '주소', '등록번호', '공시지가', '소유권이전 변동일자', '토지가격'
         # data.columns
+        # '고유번호', '토지소재', '지번', '지목', '면적', '변동일자', '성명', '주소', '등록번호', '공시지가', '소유권이전 변동일자', '토지가격'
 
         data['토지가격'] = pd.to_numeric(data['토지가격'], errors='coerce')
         data['면적'] = pd.to_numeric(data['면적'], errors='coerce')
-        data['isMount'] = data['지번'].str.contains('산', na=False)
-
-        # 토지가격, 면적 순으로 내림차순 정렬
-        dataL1 = data.sort_values(by=['토지가격', '면적'], ascending=[False, False], na_position='last')
+        data['산여부'] = data['지번'].str.contains('산', na=False).apply(lambda x: '산' if x else '대지')
 
         # 토지가격을 기준으로 구간 설정
         conditions = [
-            dataL1['토지가격'] >= 5e8,
-            (dataL1['토지가격'] < 5e8) & (dataL1['토지가격'] >= 3e8),
-            (dataL1['토지가격'] < 3e8) & (dataL1['토지가격'] >= 1e8),
-            dataL1['토지가격'] < 1e8
+            data['토지가격'] >= 5e8,
+            (data['토지가격'] < 5e8) & (data['토지가격'] >= 3e8),
+            (data['토지가격'] < 3e8) & (data['토지가격'] >= 1e8),
+            data['토지가격'] < 1e8
         ]
 
-        choices = ['1그룹', '2그룹', '3그룹', '4그룹']
-        dataL1['구간'] = pd.np.select(conditions, choices, default='가격없음')
+        choices = ['1티어', '2티어', '3티어', '4티어']
+        data['구간'] = pd.np.select(conditions, choices, default='가격없음')
 
-        # 우선 순위 선정
-        rankData = dataL1.groupby(['isMount', '구간', '토지소재'])['토지가격'].sum().reset_index().rename({'토지가격': '총계'}, axis=1)
-        rankData['순위'] = rankData['총계'].rank(method="min", ascending=False)
 
-        # 병합
-        dataL2 = dataL1.merge(rankData, left_on=['isMount', '구간', '토지소재'], right_on=['isMount', '구간', '토지소재'], how='left')
+        # 가공 파일
+        dataL1 = data
+        dataL1['총계'] = dataL1['토지가격']
 
-        # 재 정렬
-        fnlData = dataL2.sort_values(by=['순위', '토지가격', '면적', 'isMount', '토지소재', '지번'])
+        # 해당 순서대로 순차적으로 진행
+        # 1티어 대지
+        # 1티어 산
+        # 2티어 대지
+        typeList = sorted(set(dataL1['구간']))
+        flagList = sorted(set(dataL1['산여부']))
+
+        dataL5 = pd.DataFrame()
+        for type in typeList:
+            for flag in flagList:
+                print(f'[CHECK] type : {type} / flag : {flag}')
+
+                dataL2 = dataL1.loc[
+                    (dataL1['구간'] == type)
+                    & (dataL1['산여부'] == flag)
+                ].reset_index(drop=True)
+
+                if len(dataL2) < 1: continue
+
+                # 토지소재를 기준으로 그룹별 총계 및 순위 선정
+                # 즉 토지소재의 합계가 높은 경우부터 우선순위 부여
+                rankData = dataL2.groupby(['토지소재'])['총계'].sum().reset_index().rename({'총계': '그룹총계'}, axis=1)
+                rankData['순위'] = rankData['그룹총계'].rank(method="min", ascending=False)
+                dataL3 = dataL2.merge(rankData, left_on=['토지소재'], right_on=['토지소재'], how='left')
+
+                # 오름차순 정렬
+                dataL4 = dataL3.sort_values(by=['순위', '토지소재', '지번'])
+
+                dataL5 = pd.concat([dataL5, dataL4], ignore_index=True)
 
         saveFile = '{}/{}-{}.csv'.format(filePath, fileNameNoExt, 'fnlData')
         os.makedirs(os.path.dirname(saveFile), exist_ok=True)
-        fnlData.to_csv(saveFile, index=False, encoding='CP949')
+        dataL5.to_csv(saveFile, index=False, encoding='CP949')
         print(f'[CHECK] saveFile : {saveFile}')
 
     except Exception as e:
