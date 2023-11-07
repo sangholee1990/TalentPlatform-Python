@@ -13,6 +13,9 @@ modelName:
       - name: 'VGRD_P0_L100_GLC0'
         level: [ '23','22','21','20','19','18','17' ]
         colName: [ 'V1000','V975','V950','V925','V900','V875','V850' ]
+      - name: 'HGT_P0_L100_GLC0'
+        level: [ '23','22','21','20','19','18','17' ]
+        colName: [ 'G1000','G975','G950','G925','G900','G875','G850' ]
     tblName: 'TB_INT_MODEL'
   KIM-3K_UNIS:
     varName:
@@ -22,6 +25,15 @@ modelName:
       - name: 'DIFSWRF_P0_L1_GLC0'
         level: [ '-1' ]
         colName: [ 'SW_DDIF' ]
+      - name: 'SKINT_P0_L1_GLC0'
+        level: [ '-1' ]
+        colName: [ 'TM' ]
+      - name: 'PRES_P0_L1_GLC0'
+        level: [ '-1' ]
+        colName: [ 'PRE' ]
+      - name: 'RH_P0_L103_GLC0'
+        level: [ '-1' ]
+        colName: [ 'RH' ]
     tblName: 'TB_INT_MODEL'
   #********************************************************
   # LDAPS-1.5K
@@ -34,6 +46,9 @@ modelName:
       - name: 'VGRD_P0_L100_GLC0'
         level: [ '23','22','21','20','19','18','17' ]
         colName: [ 'V1000','V975','V950','V925','V900','V875','V850' ]
+      - name: 'HGT_P0_L100_GLC0'
+        level: [ '23','22','21','20','19','18','17' ]
+        colName: [ 'G1000','G975','G950','G925','G900','G875','G850' ]
   LDAPS-1.5K_UNIS:
     varName:
       - name: 'UGRD_P0_L103_GLC0'
@@ -54,6 +69,18 @@ modelName:
       - name: 'CFNSF_P8_L103_GLC0_avg1h'
         level: [ '-1' ]
         colName: [ 'SW_DDIF' ]
+      - name: 'TMP_P0_L1_GLC0'
+        level: [ '-1' ]
+        colName: [ 'TM' ]
+      - name: 'RH_P0_L103_GLC0'
+        level: [ '-1' ]
+        colName: [ 'RH' ]
+      - name: 'PRES_P0_L1_GLC0'
+        level: [ '-1' ]
+        colName: [ 'PRE' ]
+      - name: 'SNFALB_P0_L103_GLC0'
+        level: [ '-1' ]
+        colName: [ 'ALB' ]
   #********************************************************
   # RDAPS-12K
   #********************************************************
@@ -65,6 +92,9 @@ modelName:
       - name: 'VGRD_P0_L100_GLC0'
         level: [ '23','22','21','20','19','18','17' ]
         colName: [ 'V1000','V975','V950','V925','V900','V875','V850' ]
+      - name: 'HGT_P0_L100_GLC0'
+        level: [ '23','22','21','20','19','18','17' ]
+        colName: [ 'G1000','G975','G950','G925','G900','G875','G850' ]
   RDAPS-12K_UNIS:
     varName:
       - name: 'UGRD_P0_L103_GLC0'
@@ -85,6 +115,18 @@ modelName:
       - name: 'CSUSF_P8_L103_GLC0_avg3h'
         level: [ '-1' ]
         colName: [ 'SW_UC' ]
+      - name: 'TMP_P0_L1_GLC0'
+        level: [ '-1' ]
+        colName: [ 'TM' ]
+      - name: 'RH_P0_L103_GLC0'
+        level: [ '-1' ]
+        colName: [ 'RH' ]
+      - name: 'PRES_P0_L1_GLC0'
+        level: [ '-1' ]
+        colName: [ 'PRE' ]
+      - name: 'SNFALB_P0_L103_GLC0'
+        level: [ '-1' ]
+        colName: [ 'ALB' ]
   #********************************************************
   # KIER-LDAPS-2K
   #********************************************************
@@ -187,6 +229,30 @@ modelName:
         level: [ '-1' ]
         colName: [ 'V' ]
     tblName: 'TB_INT_MODEL'
+  KIER-LDAPS-2K-ORG_UNIS:
+    varName:
+      - name: 'SWDOWN'
+        level: [ '-1' ]
+        colName: [ 'SW_D' ]
+      - name: 'SWDOWNC'
+        level: [ '-1' ]
+        colName: [ 'SW_DC' ]
+      - name: 'GSW'
+        level: [ '-1' ]
+        colName: [ 'SW_NET' ]
+      - name: 'SWDDNI'
+        level: [ '-1' ]
+        colName: [ 'SW_DDNI' ]
+      - name: 'SWDDIF'
+        level: [ '-1' ]
+        colName: [ 'SW_DDIF' ]
+      - name: 'U10'
+        level: [ '-1' ]
+        colName: [ 'U' ]
+      - name: 'V10'
+        level: [ '-1' ]
+        colName: [ 'V' ]
+    tblName: 'TB_INT_MODEL'
   #********************************************************
   # KIER-RDAPS-3K
   #********************************************************
@@ -266,6 +332,30 @@ modelName:
         colName: [ 'V' ]
     tblName: 'TB_INT_MODEL'
   KIER-RDAPS-3K-60M_UNIS:
+    varName:
+      - name: 'SWDOWN'
+        level: [ '-1' ]
+        colName: [ 'SW_D' ]
+      - name: 'SWDOWNC'
+        level: [ '-1' ]
+        colName: [ 'SW_DC' ]
+      - name: 'GSW'
+        level: [ '-1' ]
+        colName: [ 'SW_NET' ]
+      - name: 'SWDDNI'
+        level: [ '-1' ]
+        colName: [ 'SW_DDNI' ]
+      - name: 'SWDDIF'
+        level: [ '-1' ]
+        colName: [ 'SW_DDIF' ]
+      - name: 'U10'
+        level: [ '-1' ]
+        colName: [ 'U' ]
+      - name: 'V10'
+        level: [ '-1' ]
+        colName: [ 'V' ]
+    tblName: 'TB_INT_MODEL'
+  KIER-RDAPS-3K-ORG_UNIS:
     varName:
       - name: 'SWDOWN'
         level: [ '-1' ]
@@ -436,6 +526,105 @@ modelName:
         level: [ '-1' ]
         colName: [ 'V' ]
     tblName: 'TB_INT_MODEL'
+  #********************************************************
+  # KIER-WINDre
+  #********************************************************
+  KIER-WINDre_ALL:
+    varName:
+      - name: 'ua'
+        level: [ '1000', '975', '950', '925' ,'900', '875', '850' ]
+        colName: [ 'U1000','U975','U950','U925','U900','U875','U850' ]
+        unit: 'm/s'
+      - name: 'va'
+        level: [ '1000', '975', '950', '925' ,'900', '875', '850' ]
+        colName: [ 'V1000','V975','V950','V925','V900','V875','V850' ]
+        unit: 'm/s'
+      - name: 'z'
+        level: [ '1000', '975', '950', '925' ,'900', '875', '850' ]
+        colName: [ 'G1000','G975','G950','G925','G900','G875','G850' ]
+        unit: 'dm'
+      - name: 'ALBEDO'
+        level: [ '-1' ]
+        colName: [ 'ALB' ]
+      - name: 'T2'
+        level: [ '-1' ]
+        colName: [ 'TM' ]
+      - name: 'PSFC'
+        level: [ '-1' ]
+        colName: [ 'PRE' ]
+      - name: 'RH'
+        level: [ '-1' ]
+        colName: [ 'RH' ]
+      - name: 'SWDOWN'
+        level: [ '-1' ]
+        colName: [ 'SW_D' ]
+      - name: 'SWDOWNC'
+        level: [ '-1' ]
+        colName: [ 'SW_DC' ]
+      - name: 'GSW'
+        level: [ '-1' ]
+        colName: [ 'SW_NET' ]
+      - name: 'SWDDNI'
+        level: [ '-1' ]
+        colName: [ 'SW_DDNI' ]
+      - name: 'SWDDIF'
+        level: [ '-1' ]
+        colName: [ 'SW_DDIF' ]
+      - name: 'U10'
+        level: [ '-1' ]
+        colName: [ 'U' ]
+      - name: 'V10'
+        level: [ '-1' ]
+        colName: [ 'V' ]
+    tblName: 'TB_INT_MODEL'
+  KIER-WINDre-60M_ALL:
+    varName:
+      - name: 'ua'
+        level: [ '1000', '975', '950', '925' ,'900', '875', '850' ]
+        colName: [ 'U1000','U975','U950','U925','U900','U875','U850' ]
+        unit: 'm/s'
+      - name: 'va'
+        level: [ '1000', '975', '950', '925' ,'900', '875', '850' ]
+        colName: [ 'V1000','V975','V950','V925','V900','V875','V850' ]
+        unit: 'm/s'
+      - name: 'z'
+        level: [ '1000', '975', '950', '925' ,'900', '875', '850' ]
+        colName: [ 'G1000','G975','G950','G925','G900','G875','G850' ]
+        unit: 'dm'
+      - name: 'ALBEDO'
+        level: [ '-1' ]
+        colName: [ 'ALB' ]
+      - name: 'T2'
+        level: [ '-1' ]
+        colName: [ 'TM' ]
+      - name: 'PSFC'
+        level: [ '-1' ]
+        colName: [ 'PRE' ]
+      - name: 'RH'
+        level: [ '-1' ]
+        colName: [ 'RH' ]
+      - name: 'SWDOWN'
+        level: [ '-1' ]
+        colName: [ 'SW_D' ]
+      - name: 'SWDOWNC'
+        level: [ '-1' ]
+        colName: [ 'SW_DC' ]
+      - name: 'GSW'
+        level: [ '-1' ]
+        colName: [ 'SW_NET' ]
+      - name: 'SWDDNI'
+        level: [ '-1' ]
+        colName: [ 'SW_DDNI' ]
+      - name: 'SWDDIF'
+        level: [ '-1' ]
+        colName: [ 'SW_DDIF' ]
+      - name: 'U10'
+        level: [ '-1' ]
+        colName: [ 'U' ]
+      - name: 'V10'
+        level: [ '-1' ]
+        colName: [ 'V' ]
+    tblName: 'TB_INT_MODEL'
   # =======================================================
   # 국외 예보모델
   # =======================================================
@@ -465,10 +654,28 @@ modelName:
       - name: 'VGRD_P0_L100_GLL0'
         level: [ '40', '39', '38', '37', '36', '35' ]
         colName: [ 'V1000', 'V975', 'V950', 'V925', 'V900', 'V850' ]
+      - name: 'HGT_P0_L100_GLL0'
+        level: [ '40', '39', '38', '37', '36', '35' ]
+        colName: [ 'G1000', 'G975', 'G950', 'G925', 'G900', 'G850' ]
       - name: 'DSWRF_P8_L1_GLL0_avg'
         level: [ '-1' ]
         colName: [ 'SW_D' ]
-      - name: 'USWRF_P8_L8_GLL0_avg'
+      - name: 'USWRF_P8_L1_GLL0_avg'
         level: [ '-1' ]
         colName: [ 'SW_UC' ]
+      - name: 'TMP_P0_L1_GLL0'
+        level: [ '-1' ]
+        colName: [ 'TM' ]
+      - name: 'RH_P0_L100_GLL0'
+        level: [ '-1' ]
+        colName: [ 'RH' ]
+      - name: 'PRES_P0_L1_GLL0'
+        level: [ '-1' ]
+        colName: [ 'PRE' ]
+      - name: 'ALBDO_P8_L1_GLL0_avg'
+        level: [ '-1' ]
+        colName: [ 'ALB' ]
     tblName: 'TB_INT_MODEL'
+# =======================================================
+# DB 설정 정보
+# =======================================================
