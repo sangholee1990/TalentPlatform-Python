@@ -219,10 +219,21 @@ def find_end_of_snowmelt(da):
     # day of year로 변환
     return end_of_snowmelt.dt.dayofyear
 
+# (movMean == 0)
+
+movMean['time'] = pd.to_datetime(movMean['time']).dt.strftime('%j')
+
+aa = movMean.to_dataframe().reset_index(drop=False)
+
+# aa['time']
+
+# jd = pd.to_datetime(aa['time']).dt.strftime('%j')
+
+bb = aa.pivot(index=['lon', 'lat'], columns='time', values='scfg').reset_index(drop=False)
 
 grouped = movMean.stack(points=('lat', 'lon'))
 end_of_snowmelt = grouped.groupby('points').apply(find_end_of_snowmelt)
-end_of_snowmelt2 = end_of_snowmelt.unstack('points')
+# end_of_snowmelt2 = end_of_snowmelt.unstack('points')
 
 # 각 격자점에서 end of snowmelt 계산
 # test = movMean.groupby(('time')).apply(find_end_of_snowmelt)
