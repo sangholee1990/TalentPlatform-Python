@@ -195,62 +195,52 @@ fileList = sorted(glob.glob(inpFile))
 data = xr.open_mfdataset(fileList)
 
 scfg = data['scfg']
-# 0=snow free, 1-100=SCF[%], 205=Cloud, 206=Night, 210=Water, 215=Glaciers, icecaps, ice sheets, 252|253|254=ERROR, 255=Not valid data
 
-scfgL1 = scfg.where((scfg <= 100))
+yearList = set(pd.to_datetime(scfg['time']).strftime('%Y'))
+for year in yearList:
+    print(f'[CHECK] year : {year}')
 
-# 10일 이동평균 계산
-movMean = scfgL1.rolling(time=10, center=True).sum()
+    # 0=snow free, 1-100=SCF[%], 205=Cloud, 206=Night, 210=Water, 215=Glaciers, icecaps, ice sheets, 252|253|254=ERROR, 255=Not valid data
+    scfgL1 = scfg.sel(time=year).where((scfg <= 100))
+    # scfgL1 = scfg.where((scfg <= 100))
 
-# movMean.isel(time = 11).plot()
-# plt.show()
+    # 5일 이동평균 계산
+    movMean = scfgL1.rolling(time=2, center=True).mean()
 
-# 각 격자점에서 end of snowmelt를 찾기 위한 함수
-def find_end_of_snowmelt(da):
-    # 연속적인 0 값을 찾기 위한 Boolean 마스크 생성
-    zeros_mask = (da == 0)
+    # 시간을 쥴리안데이터 변환
+    movMean['time'] = pd.to_datetime(movMean['time']).strftime('%j')
 
-    # 연속적인 0 값을 갖는 시간의 길이를 계산
-    lengths = zeros_mask.groupby('time.year').apply(lambda y: y.cumsum(dim='time') - y.cumsum(dim='time').where(~y).ffill(dim='time').fillna(0))
+    selData = movMean.to_dataframe().reset_index(drop=False)
+    selDataL1 = selData.pivot(index=['lon', 'lat'], columns='time', values='scfg').reset_index(drop=False)
+    # selDataL1.describe()
 
-    # 각 해마다 마지막 연속 0값 찾기
-    end_of_snowmelt = lengths.groupby('time.year').apply(lambda y: y.where(y.groupby('time.year').max() == y).dropna(dim='time', how='all').time)
+    # j = 5
+    selDataL3 = pd.DataFrame()
+    colList = sorted(selDataL1.columns.difference(['time', 'lon', 'lat']))
+    for j in range(len(colList)):
+        print(f'[CHECK] j : {j}')
 
-    # day of year로 변환
-    return end_of_snowmelt.dt.dayofyear
+        selDataL2 = selDataL1[colList].iloc[ :, 0:(j+1)]
 
-# (movMean == 0)
+        # 행 단위로 누적합
+        cumData = selDataL2.cumsum(axis=1, skipna = True)
 
-movMean['time'] = pd.to_datetime(movMean['time']).dt.strftime('%j')
+        # 행 단위로 0일때 마지막 날 찾기
+        endJulDay = cumData.idxmax(axis=1).where(cumData.eq(0).any(axis=1))
 
-aa = movMean.to_dataframe().reset_index(drop=False)
+        selDataL3[colList[j]] = endJulDay.astype(float)
 
-# aa['time']
+    selDataL3['max'] = selDataL3.max(axis=1, skipna=True).dropna()
+    dataL1 = pd.concat([selDataL1[['lon', 'lat']], selDataL3], ignore_index=False, axis=1)
+    dataL1.describe()
 
-# jd = pd.to_datetime(aa['time']).dt.strftime('%j')
+    # CSV to NetCDF 변환
+    dataL2 = dataL1.set_index(['lat', 'lon'])
+    dataL3 = dataL2.to_xarray()
 
-bb = aa.pivot(index=['lon', 'lat'], columns='time', values='scfg').reset_index(drop=False)
-
-grouped = movMean.stack(points=('lat', 'lon'))
-end_of_snowmelt = grouped.groupby('points').apply(find_end_of_snowmelt)
-# end_of_snowmelt2 = end_of_snowmelt.unstack('points')
-
-# 각 격자점에서 end of snowmelt 계산
-# test = movMean.groupby(('time')).apply(find_end_of_snowmelt)
-# end_of_snowmelt = grouped.groupby('lat').apply(find_end_of_snowmelt)
-# end_of_snowmelt = grouped.apply(lambda x: x.groupby('lon').apply(find_end_of_snowmelt))
-# end_of_snowmelt = movMean.groupby('time').groupby('lat').apply(find_end_of_snowmelt)
-# end_of_snowmelt = movMean.groupby(['time']).apply(find_end_of_snowmelt)
-
-print('asdasdasd')
-
-# 10일 이동평균이 0이고, 원래의 눈 덮인 지역이 0인 마지막 날 찾기
-# condition = (movMean == 0)
-# last_true = condition.where(condition).resample(time='AS').map(lambda x: x.idxmax(dim='time'))
-
-# last_true.isel(time=0)
-# last_true.isel(time=0).plot()
-# plt.show()
-
-
-
+    # NetCDF 저장
+    # saveImg = '{}/{}/{}-{}.png'.format('/home/sbpark/analysis/python_resources/4satellites/20230723/figs', satType, obsDateTime)
+    saveNcFile = '{}/{}/{}.nc'.format('/DATA/OUTPUT/LSH0442', year, 'ESACCI-L3C_SNOW-SCFG-MODIS_TERRA-fv2.0')
+    os.makedirs(os.path.dirname(saveNcFile), exist_ok=True)
+    dataL3.to_netcdf(saveNcFile)
+    print('[CHECK] saveNcFile : {}'.format(saveNcFile))
