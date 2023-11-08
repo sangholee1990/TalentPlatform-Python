@@ -479,8 +479,13 @@ class DtaProcess(object):
     # ================================================
     # Python을 이용한 부동산 데이터 분석 및 가격 예측 고도화 및 구글 스튜디오 시각화
 
+    # 전처리 파일 업로드
+    # /DATA/OUTPUT/LSH0454/전처리
+
+    # 프로그램 종료
     # ps -ef | grep "TalentPlatform-LSH0454-Active-OpenAPI-Model" | awk '{print $2}' | xargs kill -9
 
+    # 프로그램 시작
     # conda activate py36
     # cd /SYSTEMS/PROG/PYTHON/PyCharm/src/talentPlatform/unitSys
     # nohup python TalentPlatform-LSH0454-Active-OpenAPI-Model.py --addrList "서울특별시 강남구" &
@@ -489,8 +494,10 @@ class DtaProcess(object):
     # nohup python TalentPlatform-LSH0454-Active-OpenAPI-Model.py --addrList "서울특별시 양천구" &
     # nohup python TalentPlatform-LSH0454-Active-OpenAPI-Model.py --addrList "서울특별시 강북구" &
     # nohup python TalentPlatform-LSH0454-Active-OpenAPI-Model.py --addrList "서울특별시 송파구" &
+    # nohup python TalentPlatform-LSH0454-Active-OpenAPI-Model.py --addrList "서울특별시 성북구" &
     # nohup python TalentPlatform-LSH0454-Active-OpenAPI-Model.py --addrList "경기도 과천시" &
     # nohup python TalentPlatform-LSH0454-Active-OpenAPI-Model.py --addrList "경기도 의정부시" &
+    # nohup python TalentPlatform-LSH0454-Active-OpenAPI-Model.py &
 
     # ================================================================================================
     # 환경변수 설정
@@ -555,15 +562,15 @@ class DtaProcess(object):
                     'isInit': False
 
                     # 모델 업데이트 여부
-                    # , 'isOverWrite': True
-                    , 'isOverWrite': False
+                    , 'isOverWrite': True
+                    # , 'isOverWrite': False
                 }
 
                 #  머신러닝
                 , 'mlModel': {
                     # 모델 업데이트 여부
-                    # 'isOverWrite': True
-                    'isOverWrite': False
+                    'isOverWrite': True
+                    # 'isOverWrite': False
                 }
 
                 #  시계열
@@ -583,7 +590,8 @@ class DtaProcess(object):
                 # , 'addrList': ['서울특별시 양천구']
                 # , 'addrList': ['경기도 과천시']
                 # , 'addrList': ['경기도 의정부시']
-                , 'addrList': [globalVar['addrList']]
+                , 'addrList': ['서울특별시 강남구', '서울특별시 용산구', '서울특별시 서초구', '서울특별시 양천구', '서울특별시 강북구', '서울특별시 송파구', '서울특별시 성북구', '경기도 과천시']
+                # , 'addrList': [globalVar['addrList']]
             }
 
             # *********************************************************************************
