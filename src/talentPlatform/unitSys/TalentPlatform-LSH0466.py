@@ -560,9 +560,11 @@ class DtaProcess(object):
                 qdm.ds['af'].isel(group = 0).sel(quantiles = 0.975).plot()
                 plt.show()
 
-                qdm.ds['hist_q'].isel(group = 0).plot()
-                qdm.ds['hist_q'].isel(group=0).sel(quantiles=0.975).plot()
+                qdm.ds['hist_q'].isel(group=0).plot()
+                # qdm.ds['hist_q'].isel(group=0).sel(quantiles=0.975).plot()
+                qdm.ds['hist_q'].isel(group=0).sel(quantiles=0.025).plot()
                 plt.show()
+
 
 
                 # ref = mrgData['rain']
@@ -587,6 +589,37 @@ class DtaProcess(object):
 
                 # hist_n.isel(time=2).plot(x='lon', y='lat', vmin = 0, vmax = 100)
                 # plt.show()
+
+                timeList = qdmData['time'].values
+                valData = pd.DataFrame()
+                for time in timeList:
+                    log.info(f'[CHECK] time : {time}')
+
+                    x = mrgData['rain'].sel(time = time).values.flatten()
+                    y = mrgData['pr'].sel(time = time).values.flatten()
+                    yhat = qdmData.sel(time = time).values.flatten()
+
+                    mask = ~np.isnan(x) & (x > 0) & (y > 0) & ~np.isnan(y) & (yhat > 0) & ~np.isnan(yhat)
+
+                    X = x[mask]
+                    Y = y[mask]
+                    Yhat = yhat[mask]
+
+                    # 검증스코어 계산 : Bias (Relative Bias), RMSE (Relative RMSE)
+                    dict = {
+                        'time': [time]
+                        , 'cnt': [len(X)]
+                        , 'orgBias': [np.nanmean(X - Y)]
+                        , 'orgRMSE': [np.sqrt(np.nanmean((X - Y) ** 2))]
+                        , 'orgCorr': [np.corrcoef(X, Y)[0, 1]]
+                        , 'newBias': [np.nanmean(X - Yhat)]
+                        , 'newRMSE': [np.sqrt(np.nanmean((X - Yhat) ** 2))]
+                        , 'newCorr': [np.corrcoef(X, Yhat)[0, 1]]
+                    }
+
+                    valData = pd.concat([valData, pd.DataFrame.from_dict(dict)], ignore_index=True)
+                    # log.info(f'[CHECK] valData : {valData}')
+
 
                 # xclim.core.calendar
                 for nquantiles in range(10, 101, 10):
