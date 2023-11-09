@@ -161,6 +161,13 @@ def initArgument(globalVar, inParams):
 
 def makeCsvProc(fileInfo):
 
+    # 문장의 유사성 분석 라이브러리
+    import Levenshtein
+
+    # str1 = '서울혜화53-16'
+    # str2 = '서울혜화동53-16'
+    # Levenshtein.distance(str1, str2)
+
     # 오타 개수 검사
     def count_mismatches(single_address, row_address):
         min_length = min(len(single_address), len(row_address))
@@ -193,7 +200,6 @@ def makeCsvProc(fileInfo):
         dataL1['등록번호2'] = dataL1['등록번호'].str[:6]
 
         groupData = pd.DataFrame()
-        groupData2 = pd.DataFrame()
         matchIdxList = set()
         matchIdx = 1
         for i, row in dataL1.iterrows():
@@ -206,7 +212,8 @@ def makeCsvProc(fileInfo):
             # 처음/중간/끝 4글자
             # isRegPattern = [row['등록번호2'][:4], row['등록번호2'][1:5], row['등록번호2'][2:]]
 
-            addr_mismatch = dataL1['주소2'].apply(lambda x: count_mismatches(x, row['주소2']))
+            # addr_mismatch = dataL1['주소2'].apply(lambda x: count_mismatches(x, row['주소2']))
+            addr_mismatch = dataL1['주소2'].apply(lambda x: Levenshtein.distance(x, row['주소2']))
             addr_len = len(row['주소2'])
 
             # 성명, 주소, 등록번호 일치 검사
@@ -216,6 +223,7 @@ def makeCsvProc(fileInfo):
 
             # 주소 검사
             # 문자열 4글자 일치, 10글자 미만 오타 1개, 10글자 이상 오타 2개
+            # isAddr = (len(row['주소2']) > 0) & ((addr_len < 5) & (row['주소2'][:4] == dataL1['주소2'].str[:4])) | ((5 <= addr_len) & (addr_len <= 9)  & (addr_mismatch <= 1)) | ((addr_len >= 10) & (addr_mismatch <= 2))
             isAddr = (len(row['주소2']) > 0) & ((addr_len < 5) & (row['주소2'][:4] == dataL1['주소2'].str[:4])) | ((5 <= addr_len) & (addr_len <= 9)  & (addr_mismatch <= 1)) | ((addr_len >= 10) & (addr_mismatch <= 2))
 
             # 처음 6글자 만족
@@ -362,13 +370,14 @@ class DtaProcess(object):
                         , 'fileName': '04경기용인_data.csv'
                         # , 'fileName': '04경기용인_data_summary.csv'
                         # , 'fileName': '04경기용인_data_summary2.csv'
+                        # , 'fileName': 'test.csv'
                     }
                 }
             }
 
 
             for i, nameType in enumerate(sysOpt['nameList']):
-                log.info(f'[CHECK] nameType : {nameType}')
+                log.info(f'[CHECK] nameTypeㅇ : {nameType}')
 
                 nameInfo = sysOpt['nameInfo'].get(nameType)
                 if nameInfo is None: continue
