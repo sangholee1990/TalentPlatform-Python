@@ -488,13 +488,13 @@ class DtaProcess(object):
     # 프로그램 시작
     # conda activate py36
     # cd /SYSTEMS/PROG/PYTHON/PyCharm/src/talentPlatform/unitSys
-    # nohup python TalentPlatform-LSH0454-Active-OpenAPI-Model.py --addrList "서울특별시 강남구" &
-    # nohup python TalentPlatform-LSH0454-Active-OpenAPI-Model.py --addrList "서울특별시 용산구" &
-    # nohup python TalentPlatform-LSH0454-Active-OpenAPI-Model.py --addrList "서울특별시 서초구" &
-    # nohup python TalentPlatform-LSH0454-Active-OpenAPI-Model.py --addrList "서울특별시 양천구" &
     # nohup python TalentPlatform-LSH0454-Active-OpenAPI-Model.py --addrList "서울특별시 강북구" &
-    # nohup python TalentPlatform-LSH0454-Active-OpenAPI-Model.py --addrList "서울특별시 송파구" &
     # nohup python TalentPlatform-LSH0454-Active-OpenAPI-Model.py --addrList "서울특별시 성북구" &
+    # nohup python TalentPlatform-LSH0454-Active-OpenAPI-Model.py --addrList "서울특별시 용산구" &
+    # nohup python TalentPlatform-LSH0454-Active-OpenAPI-Model.py --addrList "서울특별시 양천구" &
+    # nohup python TalentPlatform-LSH0454-Active-OpenAPI-Model.py --addrList "서울특별시 강남구" &
+    # nohup python TalentPlatform-LSH0454-Active-OpenAPI-Model.py --addrList "서울특별시 서초구" &
+    # nohup python TalentPlatform-LSH0454-Active-OpenAPI-Model.py --addrList "서울특별시 송파구" &
     # nohup python TalentPlatform-LSH0454-Active-OpenAPI-Model.py --addrList "경기도 과천시" &
     # nohup python TalentPlatform-LSH0454-Active-OpenAPI-Model.py --addrList "경기도 의정부시" &
     # nohup python TalentPlatform-LSH0454-Active-OpenAPI-Model.py &
@@ -562,15 +562,15 @@ class DtaProcess(object):
                     'isInit': False
 
                     # 모델 업데이트 여부
-                    , 'isOverWrite': True
-                    # , 'isOverWrite': False
+                    # , 'isOverWrite': True
+                    , 'isOverWrite': False
                 }
 
                 #  머신러닝
                 , 'mlModel': {
                     # 모델 업데이트 여부
-                    'isOverWrite': True
-                    # 'isOverWrite': False
+                    # 'isOverWrite': True
+                    'isOverWrite': False
                 }
 
                 #  시계열
