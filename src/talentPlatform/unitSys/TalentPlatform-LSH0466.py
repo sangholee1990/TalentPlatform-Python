@@ -552,44 +552,67 @@ class DtaProcess(object):
 
                 # qdm = sdba.QuantileDeltaMapping.train(ref=mrgData['rain'], hist=mrgData['pr'], nquantiles=15, group='time')
                 # qdm = sdba.QuantileDeltaMapping.train(ref=mrgData['rain'], hist=mrgData['pr'], nquantiles=100, group='time')
+
+                # 학습 데이터 (ref 실측, hist 관측)
                 qdm = sdba.QuantileDeltaMapping.train(ref=mrgData['rain'], hist=mrgData['pr'], nquantiles=20, group='time')
+                # 보정 (sim 관측)
                 qdmData = qdm.adjust(sim=mrgData['pr'], interp="linear")
 
-                # qdm.ds['af']['quantiles'].values
-                qdm.ds['af'].isel(group = 0, quantiles = 0).plot()
-                qdm.ds['af'].isel(group = 0).sel(quantiles = 0.975).plot()
-                plt.show()
 
-                qdm.ds['hist_q'].isel(group=0).plot()
-                # qdm.ds['hist_q'].isel(group=0).sel(quantiles=0.975).plot()
-                qdm.ds['hist_q'].isel(group=0).sel(quantiles=0.025).plot()
-                plt.show()
+                qdmHistData = qdm.ds['hist_q'].isel(group=0)
+
+                # NetCDF 자료 저장
+                saveFile = '{}/{}/{}_{}.nc'.format(globalVar['outPath'], serviceName, 'QDM-HIST', fileNameNoExt)
+                os.makedirs(os.path.dirname(saveFile), exist_ok=True)
+                qdmHistData.to_netcdf(saveFile)
+                log.info(f'[CHECK] saveFile : {saveFile}')
+
+                # CSV 자료 저장
+                saveFile = '{}/{}/{}_{}.csv'.format(globalVar['outPath'], serviceName, 'QDM-HIST', fileNameNoExt)
+                os.makedirs(os.path.dirname(saveFile), exist_ok=True)
+                qdmHistData.to_dataframe().reset_index(drop=False).to_csv(saveFile, index=False)
+                log.info(f'[CHECK] saveFile : {saveFile}')
+
+                qdmAfData = qdm.ds['af'].isel(group=0)
+
+                # NetCDF 자료 저장
+                saveFile = '{}/{}/{}_{}.nc'.format(globalVar['outPath'], serviceName, 'QDM-AF', fileNameNoExt)
+                os.makedirs(os.path.dirname(saveFile), exist_ok=True)
+                qdmAfData.to_netcdf(saveFile)
+                log.info(f'[CHECK] saveFile : {saveFile}')
+
+                # CSV 자료 저장
+                saveFile = '{}/{}/{}_{}.csv'.format(globalVar['outPath'], serviceName, 'QDM-AF', fileNameNoExt)
+                os.makedirs(os.path.dirname(saveFile), exist_ok=True)
+                qdmAfData.to_dataframe().reset_index(drop=False).to_csv(saveFile, index=False)
+                log.info(f'[CHECK] saveFile : {saveFile}')
+
+                quantList = qdm.ds['quantiles'].values
+                for quant in quantList:
+                    log.info(f'[CHECK] quant : {round(quant, 3)}')
 
 
+                    mainTitle = f'QDM / HIST / quant = {round(quant, 3)}'
+                    qdmHistData.sel(quantiles=quant).plot(x='lon', y='lat')
+                    plt.title(mainTitle)
+                    saveImg = '{}/{}/{}.png'.format(globalVar['figPath'], serviceName, f'QDM-HIST-{round(quant, 3)}')
+                    os.makedirs(os.path.dirname(saveImg), exist_ok=True)
+                    plt.savefig(saveImg, dpi=600, bbox_inches='tight', transparent=True)
+                    # plt.show()
+                    plt.close()
+                    log.info(f'[CHECK] saveImg : {saveImg}')
 
-                # ref = mrgData['rain']
-                # hist = mrgData['pr']
-                # ref_n, _ = sdba.processing.normalize(ref, group='time', kind="+")
-                # hist_n, _ = sdba.processing.normalize(hist, group='time', kind="+")
+                    mainTitle = f'QDM / AF / quant = {round(quant, 3)}'
+                    qdmAfData.sel(quantiles=quant).plot(x='lon', y='lat')
+                    plt.title(mainTitle)
+                    saveImg = '{}/{}/{}.png'.format(globalVar['figPath'], serviceName, f'QDM-AF-{round(quant, 3)}')
+                    os.makedirs(os.path.dirname(saveImg), exist_ok=True)
+                    plt.savefig(saveImg, dpi=600, bbox_inches='tight', transparent=True)
+                    # plt.show()
+                    plt.close()
+                    log.info(f'[CHECK] saveImg : {saveImg}')
 
-                # qdm = sdba.QuantileDeltaMapping.train(ref = ref_n, hist = hist_n, nquantiles=15, group='time')
-                # qdmData = qdm.adjust(mrgData['pr'], interp="linear")
-
-                # qdm.ds.af.plot()
-                # plt.show()
-                #
-                mrgData['rain'].isel(time = 2).plot(vmin = 0, vmax = 100)
-                plt.show()
-
-                mrgData['pr'].isel(time = 2).plot(vmin = 0, vmax = 100)
-                plt.show()
-
-                qdmData.isel(time = 2).plot(vmin = 0, vmax = 100)
-                plt.show()
-
-                # hist_n.isel(time=2).plot(x='lon', y='lat', vmin = 0, vmax = 100)
-                # plt.show()
-
+                # 시간에 따른 검증 데이터
                 timeList = qdmData['time'].values
                 valData = pd.DataFrame()
                 for time in timeList:
@@ -618,238 +641,242 @@ class DtaProcess(object):
                     }
 
                     valData = pd.concat([valData, pd.DataFrame.from_dict(dict)], ignore_index=True)
-                    # log.info(f'[CHECK] valData : {valData}')
 
+                # CSV 자료 저장
+                saveFile = '{}/{}/{}_{}.csv'.format(globalVar['outPath'], serviceName, 'QDM-VALID', fileNameNoExt)
+                os.makedirs(os.path.dirname(saveFile), exist_ok=True)
+                valData.to_csv(saveFile, index=False)
+                log.info(f'[CHECK] saveFile : {saveFile}')
 
-                # xclim.core.calendar
-                for nquantiles in range(10, 101, 10):
-                    log.info(f'[CHECK] nquantiles : {nquantiles}')
-                    # qdm = sdba.QuantileDeltaMapping.train(ref=mrgData['rain'], hist=mrgData['pr'], kind="+", nquantiles=nquantiles, group='time')
-                    # qdm = sdba.QuantileDeltaMapping.train(ref=mrgData['rain'], hist=mrgData['pr'], kind="+", nquantiles=15, group='time.dayOfYear')
-                    # qdm = sdba.QuantileDeltaMapping.train(ref=mrgData['rain'], hist=mrgData['pr'], kind="*", nquantiles=nquantiles, group='time')
+                # sdba.QuantileDeltaMapping.train에서 파라미터 별 시뮬레이션
+                valData = pd.DataFrame()
+                for nquant in range(10, 101, 10):
+                    log.info(f'[CHECK] nquant : {nquant}')
+                    qdm = sdba.QuantileDeltaMapping.train(ref=mrgData['rain'], hist=mrgData['pr'], kind="+", nquantiles=nquant, group='time')
+                    qdmData = qdm.adjust(sim=mrgData['pr'], interp="linear")
 
-                    # qdm = sdba.QuantileDeltaMapping.train(ref=mrgData['rain'], hist=mrgData['pr'], kind="+", nquantiles=100, group='time')
-                    # qdmData = qdm.adjust(sim=mrgData['pr'], interp="linear")
+                    # 시간에 따른 검증 데이터
+                    timeList = qdmData['time'].values
+                    for time in timeList:
+                        log.info(f'[CHECK] time : {time}')
 
-                    x = mrgData['rain'].isel(time=2).values.flatten()[:, np.newaxis]
-                    y = mrgData['pr'].isel(time=2).values.flatten()
-                    yhat = qdmData.isel(time=2).values.flatten()
+                        x = mrgData['rain'].sel(time=time).values.flatten()
+                        y = mrgData['pr'].sel(time=time).values.flatten()
+                        yhat = qdmData.sel(time=time).values.flatten()
 
-                    mask = ~np.isnan(x[:, 0]) & (x[:, 0] > 0) & (y > 0) & ~np.isnan(y) & (yhat > 0) & ~np.isnan(yhat)
+                        mask = ~np.isnan(x) & (x > 0) & (y > 0) & ~np.isnan(y) & (yhat > 0) & ~np.isnan(yhat)
 
-                    X = x[mask][:, 0]
-                    Y = y[mask]
-                    Yhat = yhat[mask]
+                        X = x[mask]
+                        Y = y[mask]
+                        Yhat = yhat[mask]
 
-                    # 검증스코어 계산 : Bias (Relative Bias), RMSE (Relative RMSE)
-                    dict = {
-                        'orgBias': [np.nanmean(X - Y)]
-                        , 'orgRMSE': [np.sqrt(np.nanmean((X - Y) ** 2))]
-                        , 'orgcorr': [np.corrcoef(X, Y)[0, 1]]
-                        , 'newBias': [np.nanmean(X - Yhat)]
-                        , 'newRMSE': [np.sqrt(np.nanmean((X - Yhat) ** 2))]
-                        , 'newcorr': [np.corrcoef(X, Yhat)[0, 1]]
-                    }
+                        # 검증스코어 계산 : Bias (Relative Bias), RMSE (Relative RMSE)
+                        dict = {
+                            'nquant': [nquant]
+                            , 'time': [time]
+                            , 'cnt': [len(X)]
+                            , 'orgBias': [np.nanmean(X - Y)]
+                            , 'orgRMSE': [np.sqrt(np.nanmean((X - Y) ** 2))]
+                            , 'orgCorr': [np.corrcoef(X, Y)[0, 1]]
+                            , 'newBias': [np.nanmean(X - Yhat)]
+                            , 'newRMSE': [np.sqrt(np.nanmean((X - Yhat) ** 2))]
+                            , 'newCorr': [np.corrcoef(X, Yhat)[0, 1]]
+                        }
 
-                    valData = pd.DataFrame.from_dict(dict)
-                    log.info(f'[CHECK] valData : {valData}')
+                        valData = pd.concat([valData, pd.DataFrame.from_dict(dict)], ignore_index=True)
 
-                    # mainTitle = f'QDM / nquantiles = {nquantiles}'
-                    # qdmData.isel(time=2).plot(x='lon', y='lat', vmin=0, vmax=100)
-                    # plt.title(mainTitle)
-                    # saveImg = '{}/{}/{}.png'.format(globalVar['figPath'], serviceName, f'QDM-{nquantiles}')
-                    # os.makedirs(os.path.dirname(saveImg), exist_ok=True)
-                    # plt.savefig(saveImg, dpi=600, bbox_inches='tight', transparent=True)
-                    # plt.show()
-                    # plt.close()
+                # CSV 자료 저장
+                saveFile = '{}/{}/{}_{}.csv'.format(globalVar['outPath'], serviceName, 'QDM-VALID-nquant', fileNameNoExt)
+                os.makedirs(os.path.dirname(saveFile), exist_ok=True)
+                valData.to_csv(saveFile, index=False)
+                log.info(f'[CHECK] saveFile : {saveFile}')
 
-                # ***********************************************************************************
-                # Dequé, M. (2007). Frequency of precipitation and temperature extremes over France in an anthropogenic scenario: Model results and statistical correction according to observed values. Global and Planetary Change, 57(1–2), 16–26. https://doi.org/10.1016/j.gloplacha.2006.11.030
-                # ***********************************************************************************
-                # eqm =  sdba.EmpiricalQuantileMapping.train(mrgData['rain'], mrgData['pr'], group='time.dayofyear')
-                # eqm =  sdba.EmpiricalQuantileMapping.train(mrgData['rain'], mrgData['pr'], group='time.month')
-                # eqm =  sdba.EmpiricalQuantileMapping.train(ref = mrgData['rain'], hist = mrgData['pr'], nquantiles=15, group='time')
-                eqm =  sdba.EmpiricalQuantileMapping.train(ref = mrgData['rain'], hist = mrgData['pr'], nquantiles=100, group='time')
-                eqmData = eqm.adjust(mrgData['pr'], interp="linear")
-
-                # eqm.ds.af.plot()
-                # plt.show()
-
-                # ***********************************************************************************
-                # Cannon, A. J., Sobie, S. R., & Murdock, T. Q. (2015). Bias correction of GCM precipitation by quantile mapping: How well do methods preserve changes in quantiles and extremes? Journal of Climate, 28(17), 6938–6959. https://doi.org/10.1175/JCLI-D-14-00754.1
-                # ***********************************************************************************
-                # dqm = sdba.DetrendedQuantileMapping.train(mrgData['rain'], mrgData['pr'], group='time.dayofyear')
-                # dqm = sdba.DetrendedQuantileMapping.train(mrgData['rain'], mrgData['pr'], group='time.month')
-                # dqm = sdba.DetrendedQuantileMapping.train(ref = mrgData['rain'], hist = mrgData['pr'], nquantiles=15, group='time')
-                dqm = sdba.DetrendedQuantileMapping.train(ref = mrgData['rain'], hist = mrgData['pr'], nquantiles=100, group='time')
-                dqmData = dqm.adjust(mrgData['pr'], interp="linear")
-
-                # ***********************************************************************************
-                # Cannon, A. J. (2018). Multivariate quantile mapping bias correction: An N-dimensional probability density function transform for climate model simulations of multiple variables. Climate Dynamics, 50(1), 31–49. https://doi.org/10.1007/s00382-017-3580-6
-                # Pitie, F., Kokaram, A. C., & Dahyot, R. (2005). N-dimensional probability density function transfer and its application to color transfer. Tenth IEEE International Conference on Computer Vision (ICCV’05) Volume 1, 2, 1434-1439 Vol. 2. https://doi.org/10.1109/ICCV.2005.166
-                # Szekely, G. J. and Rizzo, M. L. (2004) Testing for Equal Distributions in High Dimension, InterStat, November (5)
-                # ***********************************************************************************
-                # dref = mrgData['rain']
-                # dhist = mrgData['pr']
-                # dsim = mrgData['pr']
+                # # ***********************************************************************************
+                # # Dequé, M. (2007). Frequency of precipitation and temperature extremes over France in an anthropogenic scenario: Model results and statistical correction according to observed values. Global and Planetary Change, 57(1–2), 16–26. https://doi.org/10.1016/j.gloplacha.2006.11.030
+                # # ***********************************************************************************
+                # # eqm =  sdba.EmpiricalQuantileMapping.train(mrgData['rain'], mrgData['pr'], group='time.dayofyear')
+                # # eqm =  sdba.EmpiricalQuantileMapping.train(mrgData['rain'], mrgData['pr'], group='time.month')
+                # # eqm =  sdba.EmpiricalQuantileMapping.train(ref = mrgData['rain'], hist = mrgData['pr'], nquantiles=15, group='time')
+                # eqm =  sdba.EmpiricalQuantileMapping.train(ref = mrgData['rain'], hist = mrgData['pr'], nquantiles=100, group='time')
+                # eqmData = eqm.adjust(mrgData['pr'], interp="linear")
                 #
-                # # additive for tasmax
-                # # QDMtx = sdba.QuantileDeltaMapping.train(
-                # #     dref, dhist, nquantiles=20, kind="+", group="time"
+                # # eqm.ds.af.plot()
+                # # plt.show()
+                #
+                # # ***********************************************************************************
+                # # Cannon, A. J., Sobie, S. R., & Murdock, T. Q. (2015). Bias correction of GCM precipitation by quantile mapping: How well do methods preserve changes in quantiles and extremes? Journal of Climate, 28(17), 6938–6959. https://doi.org/10.1175/JCLI-D-14-00754.1
+                # # ***********************************************************************************
+                # # dqm = sdba.DetrendedQuantileMapping.train(mrgData['rain'], mrgData['pr'], group='time.dayofyear')
+                # # dqm = sdba.DetrendedQuantileMapping.train(mrgData['rain'], mrgData['pr'], group='time.month')
+                # # dqm = sdba.DetrendedQuantileMapping.train(ref = mrgData['rain'], hist = mrgData['pr'], nquantiles=15, group='time')
+                # dqm = sdba.DetrendedQuantileMapping.train(ref = mrgData['rain'], hist = mrgData['pr'], nquantiles=100, group='time')
+                # dqmData = dqm.adjust(mrgData['pr'], interp="linear")
+                #
+                # # ***********************************************************************************
+                # # Cannon, A. J. (2018). Multivariate quantile mapping bias correction: An N-dimensional probability density function transform for climate model simulations of multiple variables. Climate Dynamics, 50(1), 31–49. https://doi.org/10.1007/s00382-017-3580-6
+                # # Pitie, F., Kokaram, A. C., & Dahyot, R. (2005). N-dimensional probability density function transfer and its application to color transfer. Tenth IEEE International Conference on Computer Vision (ICCV’05) Volume 1, 2, 1434-1439 Vol. 2. https://doi.org/10.1109/ICCV.2005.166
+                # # Szekely, G. J. and Rizzo, M. L. (2004) Testing for Equal Distributions in High Dimension, InterStat, November (5)
+                # # ***********************************************************************************
+                # # dref = mrgData['rain']
+                # # dhist = mrgData['pr']
+                # # dsim = mrgData['pr']
+                # #
+                # # # additive for tasmax
+                # # # QDMtx = sdba.QuantileDeltaMapping.train(
+                # # #     dref, dhist, nquantiles=20, kind="+", group="time"
+                # # # )
+                # # # # Adjust both hist and sim, we'll feed both to the Npdf transform.
+                # # # scenh_tx = QDMtx.adjust(dhist)
+                # # # scens_tx = QDMtx.adjust(dsim)
+                # #
+                # # # remove == 0 values in pr:
+                # # dref = sdba.processing.jitter_under_thresh(dref, "0.01 mm d-1")
+                # # dhist = sdba.processing.jitter_under_thresh(dhist, "0.01 mm d-1")
+                # # dsim = sdba.processing.jitter_under_thresh(dsim, "0.01 mm d-1")
+                # #
+                # # # multiplicative for pr
+                # # QDMpr = sdba.QuantileDeltaMapping.train(
+                # #     dref, dhist, nquantiles=20, kind="*", group="time"
                 # # )
                 # # # Adjust both hist and sim, we'll feed both to the Npdf transform.
-                # # scenh_tx = QDMtx.adjust(dhist)
-                # # scens_tx = QDMtx.adjust(dsim)
+                # # scenh_pr = QDMpr.adjust(dhist)
+                # # scens_pr = QDMpr.adjust(dsim)
+                # #
+                # # dref =  xr.Dataset(dict(tasmax=dref, pr=dref))
+                # # scenh = xr.Dataset(dict(tasmax=scenh_pr, pr=scenh_pr))
+                # # scens = xr.Dataset(dict(tasmax=scens_pr, pr=scens_pr))
+                # #
+                # # # Stack the variables (tasmax and pr)
+                # # ref = sdba.processing.stack_variables(dref)
+                # # scenh = sdba.processing.stack_variables(scenh)
+                # # scens = sdba.processing.stack_variables(scens)
+                # #
+                # # # Standardize
+                # # ref, _, _ = sdba.processing.standardize(ref)
+                # #
+                # # allsim_std, _, _ = sdba.processing.standardize(xr.concat((scenh, scens), "time"))
+                # # scenh_std = allsim_std
+                # # scens_std = allsim_std
+                # #
+                # # from xclim import set_options
+                # #
+                # # # See the advanced notebook for details on how this option work
+                # # with set_options(sdba_extra_output=True):
+                # #     out = sdba.adjustment.NpdfTransform.adjust(
+                # #         ref,
+                # #         scenh_std,
+                # #         scens_std,
+                # #         base=sdba.QuantileDeltaMapping,  # Use QDM as the univariate adjustment.
+                # #         base_kws={"nquantiles": 20, "group": "time"},
+                # #         n_iter=20,  # perform 20 iteration
+                # #         n_escore=1000,  # only send 1000 points to the escore metric (it is realy slow)
+                # #     )
+                # #
+                # # scenh_npdft = out.scenh.rename(time_hist="time")  # Bias-adjusted historical period
+                # # scens_npdft = out.scen  # Bias-adjusted future period
+                # # extra = out.drop_vars(["scenh", "scen"])
+                # #
+                # # scenh = sdba.processing.reordering(scenh_npdft, scenh, group="time")
+                # # scens = sdba.processing.reordering(scens_npdft, scens, group="time")
+                # #
+                # # scenh = sdba.processing.unstack_variables(scenh)
+                # # scens = sdba.processing.unstack_variables(scens)
                 #
-                # # remove == 0 values in pr:
-                # dref = sdba.processing.jitter_under_thresh(dref, "0.01 mm d-1")
-                # dhist = sdba.processing.jitter_under_thresh(dhist, "0.01 mm d-1")
-                # dsim = sdba.processing.jitter_under_thresh(dsim, "0.01 mm d-1")
+                # # ***********************************************************************************
+                # # 요약 통계량
+                # # ***********************************************************************************
+                # # mrgData['rain'].isel(time=2).plot(vmin=0, vmax=100)
+                # # mrgData['pr'].isel(time=2).plot(vmin=0, vmax=100)
+                # # qdmData.isel(time=2).plot(x='lon', y='lat', vmin=0, vmax=100, cmap='viridis')
+                # # eqmData.isel(time=2).plot(vmin=0, vmax=100, cmap='viridis')
+                # # plt.show()
                 #
-                # # multiplicative for pr
-                # QDMpr = sdba.QuantileDeltaMapping.train(
-                #     dref, dhist, nquantiles=20, kind="*", group="time"
+                # # 동적으로 생성
+                # lat1D = mrgData['lat'].values
+                # lon1D = mrgData['lon'].values
+                # time1D = mrgData['time'].values
+                #
+                # # (time: 91, lat: 180, lon: 360)
+                # mrgDataL1 = xr.Dataset(
+                #     {
+                #         'OBS': (('time', 'lat', 'lon'), (mrgData['rain'].values).reshape(len(time1D), len(lat1D), len(lon1D)))
+                #         , 'MOD': (('time', 'lat', 'lon'), (mrgData['pr'].values).reshape(len(time1D), len(lat1D), len(lon1D)))
+                #         , 'QDM': (('time', 'lat', 'lon'), (qdmData.transpose('time', 'lat', 'lon').values).reshape(len(time1D), len(lat1D), len(lon1D)))
+                #         , 'EQM': (('time', 'lat', 'lon'), (eqmData.transpose('time', 'lat', 'lon').values).reshape(len(time1D), len(lat1D), len(lon1D)))
+                #         , 'DQM': (('time', 'lat', 'lon'), (dqmData.transpose('time', 'lat', 'lon').values).reshape(len(time1D), len(lat1D), len(lon1D)))
+                #         , 'isLand': (('time', 'lat', 'lon'), np.tile(contDataL4['isLand'].values[np.newaxis, :, :], (len(time1D), 1, 1)).reshape(len(time1D), len(lat1D), len(lon1D)))
+                #         , 'contIdx': (('time', 'lat', 'lon'), np.tile(contDataL4['contIdx'].values[np.newaxis, :, :], (len(time1D), 1, 1)).reshape(len(time1D), len(lat1D), len(lon1D)))
+                #     }
+                #     , coords={
+                #         'time': time1D
+                #         , 'lat': lat1D
+                #         , 'lon': lon1D
+                #     }
                 # )
-                # # Adjust both hist and sim, we'll feed both to the Npdf transform.
-                # scenh_pr = QDMpr.adjust(dhist)
-                # scens_pr = QDMpr.adjust(dsim)
                 #
-                # dref =  xr.Dataset(dict(tasmax=dref, pr=dref))
-                # scenh = xr.Dataset(dict(tasmax=scenh_pr, pr=scenh_pr))
-                # scens = xr.Dataset(dict(tasmax=scens_pr, pr=scens_pr))
+                # # 음수의 경우 0으로 대체
+                # mrgDataL1['QDM'] = xr.where((mrgDataL1['QDM'] < 0), 0.0, mrgDataL1['QDM'])
+                # mrgDataL1['EQM'] = xr.where((mrgDataL1['EQM'] < 0), 0.0, mrgDataL1['EQM'])
+                # mrgDataL1['DQM'] = xr.where((mrgDataL1['DQM'] < 0), 0.0, mrgDataL1['DQM'])
                 #
-                # # Stack the variables (tasmax and pr)
-                # ref = sdba.processing.stack_variables(dref)
-                # scenh = sdba.processing.stack_variables(scenh)
-                # scens = sdba.processing.stack_variables(scens)
+                # timeIdx = 2
+                # log.info(f"[CHECK] OBS min : {np.nanmin(mrgDataL1['OBS'].isel(time=timeIdx))} / max : {np.nanmax(mrgDataL1['OBS'].isel(time=timeIdx))}")
+                # log.info(f"[CHECK] MOD min : {np.nanmin(mrgDataL1['MOD'].isel(time=timeIdx))} / max : {np.nanmax(mrgDataL1['MOD'].isel(time=timeIdx))}")
+                # log.info(f"[CHECK] QDM min : {np.nanmin(mrgDataL1['QDM'].isel(time=timeIdx))} / max : {np.nanmax(mrgDataL1['QDM'].isel(time=timeIdx))}")
+                # log.info(f"[CHECK] EQM min : {np.nanmin(mrgDataL1['EQM'].isel(time=timeIdx))} / max : {np.nanmax(mrgDataL1['EQM'].isel(time=timeIdx))}")
+                # log.info(f"[CHECK] DQM min : {np.nanmin(mrgDataL1['DQM'].isel(time=timeIdx))} / max : {np.nanmax(mrgDataL1['DQM'].isel(time=timeIdx))}")
                 #
-                # # Standardize
-                # ref, _, _ = sdba.processing.standardize(ref)
-                #
-                # allsim_std, _, _ = sdba.processing.standardize(xr.concat((scenh, scens), "time"))
-                # scenh_std = allsim_std
-                # scens_std = allsim_std
-                #
-                # from xclim import set_options
-                #
-                # # See the advanced notebook for details on how this option work
-                # with set_options(sdba_extra_output=True):
-                #     out = sdba.adjustment.NpdfTransform.adjust(
-                #         ref,
-                #         scenh_std,
-                #         scens_std,
-                #         base=sdba.QuantileDeltaMapping,  # Use QDM as the univariate adjustment.
-                #         base_kws={"nquantiles": 20, "group": "time"},
-                #         n_iter=20,  # perform 20 iteration
-                #         n_escore=1000,  # only send 1000 points to the escore metric (it is realy slow)
-                #     )
-                #
-                # scenh_npdft = out.scenh.rename(time_hist="time")  # Bias-adjusted historical period
-                # scens_npdft = out.scen  # Bias-adjusted future period
-                # extra = out.drop_vars(["scenh", "scen"])
-                #
-                # scenh = sdba.processing.reordering(scenh_npdft, scenh, group="time")
-                # scens = sdba.processing.reordering(scens_npdft, scens, group="time")
-                #
-                # scenh = sdba.processing.unstack_variables(scenh)
-                # scens = sdba.processing.unstack_variables(scens)
-
-                # ***********************************************************************************
-                # 요약 통계량
-                # ***********************************************************************************
-                # mrgData['rain'].isel(time=2).plot(vmin=0, vmax=100)
-                # mrgData['pr'].isel(time=2).plot(vmin=0, vmax=100)
-                # qdmData.isel(time=2).plot(x='lon', y='lat', vmin=0, vmax=100, cmap='viridis')
-                # eqmData.isel(time=2).plot(vmin=0, vmax=100, cmap='viridis')
-                # plt.show()
-
-                # 동적으로 생성
-                lat1D = mrgData['lat'].values
-                lon1D = mrgData['lon'].values
-                time1D = mrgData['time'].values
-
-                # (time: 91, lat: 180, lon: 360)
-                mrgDataL1 = xr.Dataset(
-                    {
-                        'OBS': (('time', 'lat', 'lon'), (mrgData['rain'].values).reshape(len(time1D), len(lat1D), len(lon1D)))
-                        , 'MOD': (('time', 'lat', 'lon'), (mrgData['pr'].values).reshape(len(time1D), len(lat1D), len(lon1D)))
-                        , 'QDM': (('time', 'lat', 'lon'), (qdmData.transpose('time', 'lat', 'lon').values).reshape(len(time1D), len(lat1D), len(lon1D)))
-                        , 'EQM': (('time', 'lat', 'lon'), (eqmData.transpose('time', 'lat', 'lon').values).reshape(len(time1D), len(lat1D), len(lon1D)))
-                        , 'DQM': (('time', 'lat', 'lon'), (dqmData.transpose('time', 'lat', 'lon').values).reshape(len(time1D), len(lat1D), len(lon1D)))
-                        , 'isLand': (('time', 'lat', 'lon'), np.tile(contDataL4['isLand'].values[np.newaxis, :, :], (len(time1D), 1, 1)).reshape(len(time1D), len(lat1D), len(lon1D)))
-                        , 'contIdx': (('time', 'lat', 'lon'), np.tile(contDataL4['contIdx'].values[np.newaxis, :, :], (len(time1D), 1, 1)).reshape(len(time1D), len(lat1D), len(lon1D)))
-                    }
-                    , coords={
-                        'time': time1D
-                        , 'lat': lat1D
-                        , 'lon': lon1D
-                    }
-                )
-
-                # 음수의 경우 0으로 대체
-                mrgDataL1['QDM'] = xr.where((mrgDataL1['QDM'] < 0), 0.0, mrgDataL1['QDM'])
-                mrgDataL1['EQM'] = xr.where((mrgDataL1['EQM'] < 0), 0.0, mrgDataL1['EQM'])
-                mrgDataL1['DQM'] = xr.where((mrgDataL1['DQM'] < 0), 0.0, mrgDataL1['DQM'])
-
-                timeIdx = 2
-                log.info(f"[CHECK] OBS min : {np.nanmin(mrgDataL1['OBS'].isel(time=timeIdx))} / max : {np.nanmax(mrgDataL1['OBS'].isel(time=timeIdx))}")
-                log.info(f"[CHECK] MOD min : {np.nanmin(mrgDataL1['MOD'].isel(time=timeIdx))} / max : {np.nanmax(mrgDataL1['MOD'].isel(time=timeIdx))}")
-                log.info(f"[CHECK] QDM min : {np.nanmin(mrgDataL1['QDM'].isel(time=timeIdx))} / max : {np.nanmax(mrgDataL1['QDM'].isel(time=timeIdx))}")
-                log.info(f"[CHECK] EQM min : {np.nanmin(mrgDataL1['EQM'].isel(time=timeIdx))} / max : {np.nanmax(mrgDataL1['EQM'].isel(time=timeIdx))}")
-                log.info(f"[CHECK] DQM min : {np.nanmin(mrgDataL1['DQM'].isel(time=timeIdx))} / max : {np.nanmax(mrgDataL1['DQM'].isel(time=timeIdx))}")
-
-
-                # NetCDF 자료 저장
-                saveFile = '{}/{}/{}_{}.nc'.format(globalVar['outPath'], serviceName, 'RES-MBC', fileNameNoExt)
-                os.makedirs(os.path.dirname(saveFile), exist_ok=True)
-                mrgDataL1.to_netcdf(saveFile)
-                log.info(f'[CHECK] saveFile : {saveFile}')
-
-                # CSV 자료 저장
-                # saveFile = '{}/{}/{}_{}.csv'.format(globalVar['outPath'], serviceName, 'RES-MBC', fileNameNoExt)
+                # # NetCDF 자료 저장
+                # saveFile = '{}/{}/{}_{}.nc'.format(globalVar['outPath'], serviceName, 'RES-MBC', fileNameNoExt)
                 # os.makedirs(os.path.dirname(saveFile), exist_ok=True)
-                # mrgDataL1.to_dataframe().reset_index(drop=False).to_csv(saveFile, index=False)
+                # mrgDataL1.to_netcdf(saveFile)
                 # log.info(f'[CHECK] saveFile : {saveFile}')
-
-                # mrgDataL1.isel(time = 0)['OBS'].plot()
-                # mrgDataL1.isel(time = 0)['MOD'].plot()
-                # mrgDataL1.isel(time = 0)['QDM'].plot()
-                # mrgDataL1.isel(time = 0)['EQM'].plot()
-                # mrgDataL1.isel(time = 0)['isLand'].plot()
-                # mrgDataL1.isel(time = 1)['contIdx'].plot()
-                # plt.show()
-
-                getContIdx = np.unique(mrgDataL1['contIdx'].values)
-                contIdxList = getContIdx[~np.isnan(getContIdx)].astype(int)
-
-                # contIdx = 100
-                for contIdxInfo in contIdxList:
-                    if np.isnan(contIdxInfo): continue
-                    selData = mrgDataL1.where(mrgDataL1['contIdx'] == contIdxInfo, drop=True)
-
-                    result = calcLassoScore(contIdxInfo, fileNameNoExt, selData, 'OBS', 'QDM')
-                    log.info(f'[CHECK] result : {result}')
-
-                    result = calcLassoScore(contIdxInfo, fileNameNoExt, selData, 'OBS', 'EQM')
-                    log.info(f'[CHECK] result : {result}')
-
-                    result = calcLassoScore(contIdxInfo, fileNameNoExt, selData, 'OBS', 'DQM')
-                    log.info(f'[CHECK] result : {result}')
-
-                # 95% 이상 분위수 계산
-                mrgDataL2 = mrgDataL1.quantile(0.95, dim='time')
-
-                # NetCDF 자료 저장
-                saveFile = '{}/{}/{}_{}.nc'.format(globalVar['outPath'], serviceName, 'RES-95', fileNameNoExt)
-                os.makedirs(os.path.dirname(saveFile), exist_ok=True)
-                mrgDataL2.to_netcdf(saveFile)
-                log.info(f'[CHECK] saveFile : {saveFile}')
-
-                # CSV 자료 저장
-                saveFile = '{}/{}/{}_{}.csv'.format(globalVar['outPath'], serviceName, 'RES-95', fileNameNoExt)
-                os.makedirs(os.path.dirname(saveFile), exist_ok=True)
-                mrgDataL2.to_dataframe().reset_index(drop=False).to_csv(saveFile, index=False)
-                log.info(f'[CHECK] saveFile : {saveFile}')
+                #
+                # # CSV 자료 저장
+                # # saveFile = '{}/{}/{}_{}.csv'.format(globalVar['outPath'], serviceName, 'RES-MBC', fileNameNoExt)
+                # # os.makedirs(os.path.dirname(saveFile), exist_ok=True)
+                # # mrgDataL1.to_dataframe().reset_index(drop=False).to_csv(saveFile, index=False)
+                # # log.info(f'[CHECK] saveFile : {saveFile}')
+                #
+                # # mrgDataL1.isel(time = 0)['OBS'].plot()
+                # # mrgDataL1.isel(time = 0)['MOD'].plot()
+                # # mrgDataL1.isel(time = 0)['QDM'].plot()
+                # # mrgDataL1.isel(time = 0)['EQM'].plot()
+                # # mrgDataL1.isel(time = 0)['isLand'].plot()
+                # # mrgDataL1.isel(time = 1)['contIdx'].plot()
+                # # plt.show()
+                #
+                # getContIdx = np.unique(mrgDataL1['contIdx'].values)
+                # contIdxList = getContIdx[~np.isnan(getContIdx)].astype(int)
+                #
+                # # contIdx = 100
+                # for contIdxInfo in contIdxList:
+                #     if np.isnan(contIdxInfo): continue
+                #     selData = mrgDataL1.where(mrgDataL1['contIdx'] == contIdxInfo, drop=True)
+                #
+                #     result = calcLassoScore(contIdxInfo, fileNameNoExt, selData, 'OBS', 'QDM')
+                #     log.info(f'[CHECK] result : {result}')
+                #
+                #     result = calcLassoScore(contIdxInfo, fileNameNoExt, selData, 'OBS', 'EQM')
+                #     log.info(f'[CHECK] result : {result}')
+                #
+                #     result = calcLassoScore(contIdxInfo, fileNameNoExt, selData, 'OBS', 'DQM')
+                #     log.info(f'[CHECK] result : {result}')
+                #
+                # # 95% 이상 분위수 계산
+                # mrgDataL2 = mrgDataL1.quantile(0.95, dim='time')
+                #
+                # # NetCDF 자료 저장
+                # saveFile = '{}/{}/{}_{}.nc'.format(globalVar['outPath'], serviceName, 'RES-95', fileNameNoExt)
+                # os.makedirs(os.path.dirname(saveFile), exist_ok=True)
+                # mrgDataL2.to_netcdf(saveFile)
+                # log.info(f'[CHECK] saveFile : {saveFile}')
+                #
+                # # CSV 자료 저장
+                # saveFile = '{}/{}/{}_{}.csv'.format(globalVar['outPath'], serviceName, 'RES-95', fileNameNoExt)
+                # os.makedirs(os.path.dirname(saveFile), exist_ok=True)
+                # mrgDataL2.to_dataframe().reset_index(drop=False).to_csv(saveFile, index=False)
+                # log.info(f'[CHECK] saveFile : {saveFile}')
 
         except Exception as e:
             log.error("Exception : {}".format(e))
