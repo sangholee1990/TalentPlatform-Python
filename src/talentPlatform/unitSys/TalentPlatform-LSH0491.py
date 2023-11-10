@@ -367,10 +367,10 @@ class DtaProcess(object):
                 , 'nameInfo': {
                     'csv': {
                         'filePath': '/DATA/INPUT/LSH0491'
-                        , 'fileName': '04경기용인_data.csv'
+                        # , 'fileName': '04경기용인_data.csv'
                         # , 'fileName': '04경기용인_data_summary.csv'
                         # , 'fileName': '04경기용인_data_summary2.csv'
-                        # , 'fileName': 'test.csv'
+                        , 'fileName': 'test.csv'
                     }
                 }
             }
