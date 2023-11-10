@@ -553,12 +553,12 @@ class DtaProcess(object):
                 # qdm = sdba.QuantileDeltaMapping.train(ref=mrgData['rain'], hist=mrgData['pr'], nquantiles=15, group='time')
                 # qdm = sdba.QuantileDeltaMapping.train(ref=mrgData['rain'], hist=mrgData['pr'], nquantiles=100, group='time')
 
-                # 학습 데이터 (ref 실측, hist 관측)
+                # QDM 학습 데이터 (ref 실측, hist 관측)
                 qdm = sdba.QuantileDeltaMapping.train(ref=mrgData['rain'], hist=mrgData['pr'], nquantiles=20, group='time')
-                # 보정 (sim 관측)
+                # 시뮬레이션 보정 (sim 관측)
                 qdmData = qdm.adjust(sim=mrgData['pr'], interp="linear")
 
-
+                # QDM 학습 결과에서 분위수 정보 추출
                 qdmHistData = qdm.ds['hist_q'].isel(group=0)
 
                 # NetCDF 자료 저장
@@ -573,6 +573,7 @@ class DtaProcess(object):
                 qdmHistData.to_dataframe().reset_index(drop=False).to_csv(saveFile, index=False)
                 log.info(f'[CHECK] saveFile : {saveFile}')
 
+                # QDM 학습 결과에서 조정 계수 (QDM 시뮬레이션 필요) 추출
                 qdmAfData = qdm.ds['af'].isel(group=0)
 
                 # NetCDF 자료 저장
