@@ -62,9 +62,7 @@ import numpy as np
 # 옵션 설정
 sysOpt = {
     # 시작/종료 시간
-    # 'srtDate': '2020-12-01'
-    # , 'endDate': '2020-12-31'
-    'srtDate': '2016-12-01'
+    'srtDate': '2020-12-01'
     , 'endDate': '2020-12-31'
 
     # 신규 격자
@@ -259,7 +257,7 @@ for i, dtYearInfo in enumerate(dtYearList):
             # endJulDay = cumData.idxmax(axis=1).where(cumData.eq(0).any(axis=1))
 
             # 0이 아닌 경우 NaN 처리
-            aa = selDataL2.loc[is.na(selDataL2)]
+            # aa = selDataL2.loc[is.na(selDataL2)]
 
             selDataL2.loc[selDataL2 == 0] = float(colInfo)
 
