@@ -227,8 +227,11 @@ for i, dtYearInfo in enumerate(dtYearList):
 
         # 5일 이동평균 계산 (-2, -1, 0, 1, 2)
         # movMean = scfgL1.rolling(time=2, center=True).mean()
-        # movMean = scfgL1.rolling(time=10, center=True).mean()
-        movMean = scfgL1.rolling(time=10, center=True).mean(skipna = True)
+        movMean = scfgL1.rolling(time=10, center=True).mean(skipna = False)
+        # movMean = scfgL1.rolling(time=10, center=True).mean(skipna = True)
+
+        # movMean.isel(time = 200).plot()
+        # plt.show()
 
         # 시간을 쥴리안데이터 변환
         movMean['time'] = pd.to_datetime(movMean['time']).strftime('%j')
@@ -240,21 +243,35 @@ for i, dtYearInfo in enumerate(dtYearList):
         # j = 5
         selDataL3 = pd.DataFrame()
         colList = sorted(selDataL1.columns.difference(['time', 'lon', 'lat']))
-        for j in range(len(colList)):
-            print(f'[CHECK] j : {j}')
+        for colInfo in colList:
+            print(f'[CHECK] colInfo : {colInfo}')
 
-            selDataL2 = selDataL1[colList].iloc[ :, 0:(j+1)]
+            # selDataL2 = selDataL1[colList].iloc[ :, 0:(j+1)]
+            # selDataL2 = selDataL1[colList].iloc[ :, 0:(j+1)]
+            # selDataL2 = selDataL1[colList].iloc[ :, j]
+            selDataL2 = selDataL1[colInfo]
 
             # 행 단위로 누적합
-            cumData = selDataL2.cumsum(axis=1, skipna = True)
+            # cumData = selDataL2.cumsum(axis=1, skipna = False)
+            # cumData = selDataL2.cumsum(axis=1, skipna = True)
 
             # 행 단위로 0일때 마지막 날 찾기
-            endJulDay = cumData.idxmax(axis=1).where(cumData.eq(0).any(axis=1))
+            # endJulDay = cumData.idxmax(axis=1).where(cumData.eq(0).any(axis=1))
 
-            selDataL3[colList[j]] = endJulDay.astype(float)
+            # 0이 아닌 경우 NaN 처리
+            aa = selDataL2.loc[is.na(selDataL2)]
 
-        selDataL3['max'] = selDataL3.max(axis=1, skipna=True).dropna()
-        dataL1 = pd.concat([selDataL1[['lon', 'lat']], selDataL3], ignore_index=False, axis=1)
+            selDataL2.loc[selDataL2 == 0] = float(colInfo)
+
+
+
+
+            # endJulDay = np.where(selDataL2 == 0, colInfo, np.nan)
+            # selDataL3[colInfo] = endJulDay.astype(float)
+
+        selDataL4 = pd.DataFrame()
+        selDataL4['max'] = selDataL3.max(axis=0, skipna=True)
+        dataL1 = pd.concat([selDataL1[['lon', 'lat']], selDataL4], ignore_index=False, axis=1)
         dataL1.describe()
 
         # CSV to NetCDF 변환
@@ -263,7 +280,7 @@ for i, dtYearInfo in enumerate(dtYearList):
 
         # NetCDF 저장
         # saveImg = '{}/{}/{}-{}.png'.format('/home/sbpark/analysis/python_resources/4satellites/20230723/figs', satType, obsDateTime)
-        saveNcFile = '{}/{}/{}-{}_{}.nc'.format('/DATA/OUTPUT/LSH0442', year, 'snowMelt', fileNameNoExt)
+        saveNcFile = '{}/{}-{}_{}.nc'.format('/DATA/OUTPUT/LSH0442', year, 'snowMelt', fileNameNoExt)
         os.makedirs(os.path.dirname(saveNcFile), exist_ok=True)
         dataL3.to_netcdf(saveNcFile)
         print('[CHECK] saveNcFile : {}'.format(saveNcFile))
