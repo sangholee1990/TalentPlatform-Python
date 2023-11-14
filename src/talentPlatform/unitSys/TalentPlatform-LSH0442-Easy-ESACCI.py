@@ -62,7 +62,9 @@ import numpy as np
 # 옵션 설정
 sysOpt = {
     # 시작/종료 시간
-    'srtDate': '2020-12-01'
+    # 'srtDate': '2020-12-01'
+    # , 'endDate': '2020-12-31'
+    'srtDate': '2016-01-01'
     , 'endDate': '2020-12-31'
 
     # 신규 격자
@@ -220,13 +222,16 @@ for i, dtYearInfo in enumerate(dtYearList):
         print(f'[CHECK] year : {year}')
 
         # 0=snow free, 1-100=SCF[%], 205=Cloud, 206=Night, 210=Water, 215=Glaciers, icecaps, ice sheets, 252|253|254=ERROR, 255=Not valid data
+        # scfgL1 = scfg.isel(time = slice(1, 50)).sel(time=year).where((scfg <= 100))
         scfgL1 = scfg.sel(time=year).where((scfg <= 100))
         # scfgL1 = scfg.where((scfg <= 100))
 
-        # 5일 이동평균 계산 (-2, -1, 0, 1, 2)
+        # 10일 이동평균 계산 (-5, ..., -2, -1, 0, 1, 2, ..., 5)
+        # 이동평균 과정에서 NA 1개라도 포함할 경우 NA 처리
         # movMean = scfgL1.rolling(time=2, center=True).mean()
-        movMean = scfgL1.rolling(time=10, center=True).mean(skipna = False)
+        # movMean = scfgL1.rolling(time=10, center=True).mean(skipna = False)
         # movMean = scfgL1.rolling(time=10, center=True).mean(skipna = True)
+        movMean = scfgL1.rolling(min_periods = 10, time=10, center=True).mean(skipna = True)
 
         # movMean.isel(time = 200).plot()
         # plt.show()
@@ -237,6 +242,9 @@ for i, dtYearInfo in enumerate(dtYearList):
         selData = movMean.to_dataframe().reset_index(drop=False)
         selDataL1 = selData.pivot(index=['lon', 'lat'], columns='time', values='scfg').reset_index(drop=False)
         # selDataL1.describe()
+
+        # movMean.isel(time = 300).plot()
+        # plt.show()
 
         # j = 5
         selDataL3 = pd.DataFrame()
@@ -255,21 +263,25 @@ for i, dtYearInfo in enumerate(dtYearList):
 
             # 행 단위로 0일때 마지막 날 찾기
             # endJulDay = cumData.idxmax(axis=1).where(cumData.eq(0).any(axis=1))
-
-            # 0이 아닌 경우 NaN 처리
-            # aa = selDataL2.loc[is.na(selDataL2)]
-
-            selDataL2.loc[selDataL2 == 0] = float(colInfo)
-
-
-
-
-            # endJulDay = np.where(selDataL2 == 0, colInfo, np.nan)
             # selDataL3[colInfo] = endJulDay.astype(float)
 
-        selDataL4 = pd.DataFrame()
-        selDataL4['max'] = selDataL3.max(axis=0, skipna=True)
-        dataL1 = pd.concat([selDataL1[['lon', 'lat']], selDataL4], ignore_index=False, axis=1)
+            # 10일 이동평균 결과가 0이 아닌 경우 NA 처리
+            # 10일 이동평균 결과가 0일 경우 쥴리안데이 처리
+            # selDataL2 = selDataL2.where(selDataL2 != 0).where(selDataL2 == 0, float(colInfo))
+            selDataL3[colInfo] = selDataL2.apply(lambda x: float(colInfo) if x == 0 else np.nan)
+            # selDataL3.describe()
+
+            # selDataL2.loc[selDataL2 == 0] = float(colInfo)
+            # selDataL3[colInfo] = selDataL2
+
+        # selDataL4 = pd.DataFrame()
+        # selDataL4['max'] = selDataL3.max(axis=0, skipna=True)
+
+        # 위도, 경도, 쥴리안데이 (1, 2, ..., 365)에서 NA를 제거하여 최대값 넣기
+        selDataL3['max'] = selDataL3.max(axis=1, skipna=True)
+        # selDataL3.describe()
+
+        dataL1 = pd.concat([selDataL1[['lon', 'lat']], selDataL3[['max']]], ignore_index=False, axis=1)
         dataL1.describe()
 
         # CSV to NetCDF 변환
@@ -278,7 +290,8 @@ for i, dtYearInfo in enumerate(dtYearList):
 
         # NetCDF 저장
         # saveImg = '{}/{}/{}-{}.png'.format('/home/sbpark/analysis/python_resources/4satellites/20230723/figs', satType, obsDateTime)
-        saveNcFile = '{}/{}-{}_{}.nc'.format('/DATA/OUTPUT/LSH0442', year, 'snowMelt', fileNameNoExt)
+        saveNcFile = '{}/{}-{}_{}.nc'.format('/DATA/OUTPUT/LSH0442', year, 'org-snowMelt', fileNameNoExt)
+        # saveNcFile = '{}/{}-{}_{}.nc'.format('/DATA/OUTPUT/LSH0442', year, 'snowMelt', fileNameNoExt)
         os.makedirs(os.path.dirname(saveNcFile), exist_ok=True)
         dataL3.to_netcdf(saveNcFile)
         print('[CHECK] saveNcFile : {}'.format(saveNcFile))
