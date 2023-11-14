@@ -58,7 +58,6 @@ import numpy as np
 # 사용할 라이브러리: xarray, pandas, numpy, pyhdf (netCDF4가 더 유용하다면 사용하셔도 됩니다)
 # 예시: https://stackoverflow.com/questions/57990038/genrate-grid-information-file-from-modis-hdfeos-data
 
-
 # 옵션 설정
 sysOpt = {
     # 시작/종료 시간
@@ -208,6 +207,7 @@ for i, dtYearInfo in enumerate(dtYearList):
     fileNameNoExt = os.path.basename(fileList[0]).split('.nc')[0]
 
     # data = xr.open_mfdataset(fileList)
+
     data = xr.Dataset()
     for fileInfo in fileList:
         print(f'[CHECK] fileInfo : {fileInfo}')
@@ -227,25 +227,13 @@ for i, dtYearInfo in enumerate(dtYearList):
         # scfgL1 = scfg.where((scfg <= 100))
 
         # 10일 이동평균 계산 (-5, ..., -2, -1, 0, 1, 2, ..., 5)
-        # 이동평균 과정에서 NA 1개라도 포함할 경우 NA 처리
-        # movMean = scfgL1.rolling(time=2, center=True).mean()
-        # movMean = scfgL1.rolling(time=10, center=True).mean(skipna = False)
-        # movMean = scfgL1.rolling(time=10, center=True).mean(skipna = True)
-        # movMean = scfgL1.rolling(time=10, center=True).mean(skipna = True)
-        movMean = scfgL1.rolling(min_periods=10, time=10, center=True).mean(skipna = True)
-
-        # movMean.isel(time = 200).plot()
-        # plt.show()
+        movMean = scfgL1.rolling(min_periods=10, time=10, center=True).mean(skipna = False)
 
         # 시간을 쥴리안데이터 변환
         movMean['time'] = pd.to_datetime(movMean['time']).strftime('%j')
 
         selData = movMean.to_dataframe().reset_index(drop=False)
         selDataL1 = selData.pivot(index=['lon', 'lat'], columns='time', values='scfg').reset_index(drop=False)
-        # selDataL1.describe()
-
-        # movMean.isel(time = 300).plot()
-        # plt.show()
 
         # j = 5
         selDataL3 = pd.DataFrame()
@@ -253,36 +241,17 @@ for i, dtYearInfo in enumerate(dtYearList):
         for colInfo in colList:
             print(f'[CHECK] colInfo : {colInfo}')
 
-            # selDataL2 = selDataL1[colList].iloc[ :, 0:(j+1)]
-            # selDataL2 = selDataL1[colList].iloc[ :, 0:(j+1)]
-            # selDataL2 = selDataL1[colList].iloc[ :, j]
+            # 특정 컬럼 가져오기
             selDataL2 = selDataL1[colInfo]
 
-            # 행 단위로 누적합
-            # cumData = selDataL2.cumsum(axis=1, skipna = False)
-            # cumData = selDataL2.cumsum(axis=1, skipna = True)
-
-            # 행 단위로 0일때 마지막 날 찾기
-            # endJulDay = cumData.idxmax(axis=1).where(cumData.eq(0).any(axis=1))
-            # selDataL3[colInfo] = endJulDay.astype(float)
-
-            # 10일 이동평균 결과가 0이 아닌 경우 NA 처리
-            # 10일 이동평균 결과가 0일 경우 쥴리안데이 처리
-            # selDataL2 = selDataL2.where(selDataL2 != 0).where(selDataL2 == 0, float(colInfo))
+            # 10일 이동평균 결과에서 0인 경우 쥴리안데이 그 외 NA 처리
             selDataL3[colInfo] = selDataL2.apply(lambda x: float(colInfo) if x == 0 else np.nan)
-            # selDataL3.describe()
-
-            # selDataL2.loc[selDataL2 == 0] = float(colInfo)
-            # selDataL3[colInfo] = selDataL2
-
-        # selDataL4 = pd.DataFrame()
-        # selDataL4['max'] = selDataL3.max(axis=0, skipna=True)
 
         # 위도, 경도, 쥴리안데이 (1, 2, ..., 365)에서 NA를 제거하여 최대값 넣기
-        selDataL3['max'] = selDataL3.max(axis=1, skipna=True)
+        selDataL3['snowMelt'] = selDataL3.max(axis=1, skipna=True)
         # selDataL3.describe()
 
-        dataL1 = pd.concat([selDataL1[['lon', 'lat']], selDataL3[['max']]], ignore_index=False, axis=1)
+        dataL1 = pd.concat([selDataL1[['lon', 'lat']], selDataL3[['snowMelt']]], ignore_index=False, axis=1)
         dataL1.describe()
 
         # CSV to NetCDF 변환
@@ -291,8 +260,8 @@ for i, dtYearInfo in enumerate(dtYearList):
 
         # NetCDF 저장
         # saveImg = '{}/{}/{}-{}.png'.format('/home/sbpark/analysis/python_resources/4satellites/20230723/figs', satType, obsDateTime)
-        saveNcFile = '{}/{}-{}_{}.nc'.format('/DATA/OUTPUT/LSH0442', year, 'org-snowMelt', fileNameNoExt)
-        # saveNcFile = '{}/{}-{}_{}.nc'.format('/DATA/OUTPUT/LSH0442', year, 'snowMelt', fileNameNoExt)
+        # saveNcFile = '{}/{}-{}_{}.nc'.format('/DATA/OUTPUT/LSH0442', year, 'org-snowMelt', fileNameNoExt)
+        saveNcFile = '{}/{}-{}_{}.nc'.format('/DATA/OUTPUT/LSH0442', year, 'snowMelt', fileNameNoExt)
         os.makedirs(os.path.dirname(saveNcFile), exist_ok=True)
         dataL3.to_netcdf(saveNcFile)
         print('[CHECK] saveNcFile : {}'.format(saveNcFile))
