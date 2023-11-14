@@ -222,7 +222,9 @@ def makeCsvProc(fileInfo):
             isName = (len(row['성명2']) > 0) & (row['성명2'] == dataL1['성명2'])
 
             # 주소 검사
-            # 문자열 4글자 일치, 10글자 미만 오타 1개, 10글자 이상 오타 2개
+            # 문자열 4글자 일치
+            # 또는 10글자 미만 오타 1개
+            # 또는 10글자 이상 오타 2개
             # isAddr = (len(row['주소2']) > 0) & ((addr_len < 5) & (row['주소2'][:4] == dataL1['주소2'].str[:4])) | ((5 <= addr_len) & (addr_len <= 9)  & (addr_mismatch <= 1)) | ((addr_len >= 10) & (addr_mismatch <= 2))
             isAddr = (len(row['주소2']) > 0) & ((addr_len < 5) & (row['주소2'][:4] == dataL1['주소2'].str[:4])) | ((5 <= addr_len) & (addr_len <= 9)  & (addr_mismatch <= 1)) | ((addr_len >= 10) & (addr_mismatch <= 2))
 
@@ -370,7 +372,9 @@ class DtaProcess(object):
                         # , 'fileName': '04경기용인_data.csv'
                         # , 'fileName': '04경기용인_data_summary.csv'
                         # , 'fileName': '04경기용인_data_summary2.csv'
-                        , 'fileName': 'test.csv'
+                        # , 'fileName': 'test.csv'
+                        # , 'fileName': '대전_프린트.csv'
+                        , 'fileName': '대전_프린트_원본.csv'
                     }
                 }
             }
