@@ -231,7 +231,8 @@ for i, dtYearInfo in enumerate(dtYearList):
         # movMean = scfgL1.rolling(time=2, center=True).mean()
         # movMean = scfgL1.rolling(time=10, center=True).mean(skipna = False)
         # movMean = scfgL1.rolling(time=10, center=True).mean(skipna = True)
-        movMean = scfgL1.rolling(min_periods = 10, time=10, center=True).mean(skipna = True)
+        # movMean = scfgL1.rolling(time=10, center=True).mean(skipna = True)
+        movMean = scfgL1.rolling(min_periods=10, time=10, center=True).mean(skipna = True)
 
         # movMean.isel(time = 200).plot()
         # plt.show()
