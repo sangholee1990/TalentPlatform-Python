@@ -169,37 +169,48 @@ def makeCsvProc(fileInfo):
     # Levenshtein.distance(str1, str2)
 
     # 오타 개수 검사
-    def count_mismatches(single_address, row_address):
-        min_length = min(len(single_address), len(row_address))
-        mismatches = sum(1 for i in range(min_length) if single_address[i] != row_address[i])
-        return mismatches
+    # def count_mismatches(single_address, row_address):
+    #     min_length = min(len(single_address), len(row_address))
+    #     mismatches = sum(1 for i in range(min_length) if single_address[i] != row_address[i])
+    #     return mismatches
 
     print(f'[START] makeCsvProc')
 
     result = None
 
     try:
+        # 파일 경로
         filePath = os.path.dirname(fileInfo)
+
+        # 파일명 내 확장자 제외
         fileNameNoExt = os.path.basename(fileInfo).split('.')[0]
+
+        # CSV 파일 읽기
         data = pd.read_csv(fileInfo, encoding='EUC-KR')
 
+        # 변수 재 할당
         dataL1 = data.copy()
 
         # 고유번호 중복검사 및 중복 제거
         # isUniqe = dataL1['고유번호'].duplicated()
         dataL1 = dataL1.drop_duplicates(subset='고유번호', keep='first')
 
+        # 결측값 (NA)의 경우 빈 문자열 넣기
         dataL1['성명'] = dataL1['성명'].where(~ pd.isna(dataL1['성명']), other="")
         dataL1['주소'] = dataL1['주소'].where(~ pd.isna(dataL1['주소']), other="")
         dataL1['등록번호'] = dataL1['등록번호'].where(~ pd.isna(dataL1['등록번호']), other="")
 
         # 가공 변수
+        # 성명2: 성명 컬럼 내 공백제거
+        # 주소2: 주소 컬럼 내 공백 제거
+        # 등록번호2: 등록번호 컬럼 내 6자리 추출
         # dataL1['성명2'] = dataL1['성명'].str[:3]
         dataL1['성명2'] = dataL1['성명'].str.split(' ').str[0]
         dataL1['주소2'] = dataL1['주소'].str.replace(" ", "")
         dataL1['등록번호2'] = dataL1['등록번호'].str[:6]
 
         groupData = pd.DataFrame()
+        # 매칭파일 제외
         matchIdxList = set()
         matchIdx = 1
         for i, row in dataL1.iterrows():
@@ -213,12 +224,15 @@ def makeCsvProc(fileInfo):
             # isRegPattern = [row['등록번호2'][:4], row['등록번호2'][1:5], row['등록번호2'][2:]]
 
             # addr_mismatch = dataL1['주소2'].apply(lambda x: count_mismatches(x, row['주소2']))
+            # 문장의 유사성 분석 결과
             addr_mismatch = dataL1['주소2'].apply(lambda x: Levenshtein.distance(x, row['주소2']))
+            # 주소2 길이
             addr_len = len(row['주소2'])
 
             # 성명, 주소, 등록번호 일치 검사
             # isName = (len(row['성명']) > 0) & (row['성명'] == dataL1['성명'])
             # isName = (len(row['성명2']) > 0) & (dataL1['성명'].str.contains(r'^' + re.escape(row['성명2']), regex=True))
+            # (빈문자열 제외) 그리고 (동일한 이름 포함)
             isName = (len(row['성명2']) > 0) & (row['성명2'] == dataL1['성명2'])
 
             # 주소 검사
@@ -226,24 +240,33 @@ def makeCsvProc(fileInfo):
             # 또는 10글자 미만 오타 1개
             # 또는 10글자 이상 오타 2개
             # isAddr = (len(row['주소2']) > 0) & ((addr_len < 5) & (row['주소2'][:4] == dataL1['주소2'].str[:4])) | ((5 <= addr_len) & (addr_len <= 9)  & (addr_mismatch <= 1)) | ((addr_len >= 10) & (addr_mismatch <= 2))
+            # (빈문자열 제외) 그리고 ((주소 4글자 일치) 또는 (주소 5~9글자, 오타 1개 허용) 또는 (주소 10글자 이상, 오타 2개 허용))
             isAddr = (len(row['주소2']) > 0) & ((addr_len < 5) & (row['주소2'][:4] == dataL1['주소2'].str[:4])) | ((5 <= addr_len) & (addr_len <= 9)  & (addr_mismatch <= 1)) | ((addr_len >= 10) & (addr_mismatch <= 2))
 
             # 처음 6글자 만족
+            # (빈문자열 제외) 그리고 (6글자 비교)
             isReg = (len(row['등록번호2']) > 0) & (row['등록번호2'] == dataL1['등록번호2'])
             # 처음/중간/끝 4글자 모두 만족
             # isReg = (len(row['등록번호2']) > 0) & pd.concat([dataL1['등록번호'].str.contains(pat) for pat in isRegPattern], axis=1).all(axis=1)
 
             # 일치 검사에 대한 개수
+            # 전체 결과는 데이터프레임 형태로 TRUE, FALSE, TRUE와 같은 형태 제공
             isFlagData = pd.concat([isName, isAddr, isReg], keys=['name', 'addr', 'reg'], ignore_index=False, axis=1)
+
+            # 행마다 TRUE의 개수 계산
             isFlagData['cnt'] = isFlagData.sum(axis=1)
 
             # 2개 이상 매칭
+            # TRUE 개수가 2개 이상인 경우
             filterData = isFlagData[isFlagData['cnt'] >= 2]
+            # 매칭 파일과 제외한 최종적인 데이터 선택
             filterDataL1 = filterData[~ filterData.index.isin(matchIdxList)]
+            # 신규 매칭 파일에 업데이트
             matchIdxList.update(filterData.index)
 
             if (len(filterData) < 2): continue
 
+            # 매칭에 맞게끔 별도의 매칭 인덱스 (matchIdx) 및 그룹 데이터 적재
             data['matchIdx'] = matchIdx
             matchIdx += 1
             groupData = pd.concat([groupData, data.loc[filterDataL1.index].reset_index(drop=False) ], ignore_index=True)
@@ -254,26 +277,30 @@ def makeCsvProc(fileInfo):
         groupData2['matchIdx'] = groupData2.index
 
         # 면적과 공시지가 있을 경우 가격 계산, 그 외 None
-        # 그룹 1
+        # 그룹 1에 대한 정렬
+        # 면적과 공시지가 컬럼이 동시에 존재하는 경우 가격 계산, 그 외 결측값 처리
         groupData['가격'] = np.where(pd.notna(groupData['면적']) & pd.notna(groupData['공시지가']), groupData['면적'] * groupData['공시지가'], np.nan)
 
+        # 매칭 인덱스를 기준으로 총계 계산
         rankData = groupData.groupby('matchIdx')['가격'].sum().reset_index().rename({'가격': '총계'}, axis=1)
+        # 총계를 기준으로 별도의 순위
         rankData['순위'] = rankData['총계'].rank(method="min", ascending=False)
 
+        # 매칭 인덱스에 따라 순위 및 총계를 좌측 조인
         dataL3 = groupData.merge(rankData, left_on=['matchIdx'], right_on=['matchIdx'], how='left')
+        # 순위에 따라 총계, 가격 순으로 내림차순 정렬
         fnlData = dataL3.groupby('순위').apply(lambda x: x.sort_values(['총계', '가격'], ascending=False, na_position='last'))
 
+        # 파일 저장
         saveFile = '{}/{}-{}.csv'.format(filePath, fileNameNoExt, 'fnlData')
         os.makedirs(os.path.dirname(saveFile), exist_ok=True)
         fnlData.to_csv(saveFile, index=False, encoding='CP949')
         print(f'[CHECK] saveFile : {saveFile}')
 
-        # 그룹 2
+        # 그룹 2에 대한 정렬
         groupData2['가격'] = np.where(pd.notna(groupData2['면적']) & pd.notna(groupData2['공시지가']), groupData2['면적'] * groupData2['공시지가'], np.nan)
 
-        # rankData2 = groupData2.groupby('matchIdx')['가격'].sum().reset_index().rename({'가격': '총계'}, axis=1)
         rankData2 = groupData2.groupby('matchIdx')['가격'].sum().reset_index().rename({'가격': '총계'}, axis=1)
-        # rankData2['순위'] = rankData2['총계'].rank(method="min", ascending=False)
         rankData2['순위'] = rankData2['총계'].rank(method="min", ascending=False)
 
         # dataL4 = groupData2.merge(rankData2, left_on=['matchIdx'], right_on=['matchIdx'], how='left')
