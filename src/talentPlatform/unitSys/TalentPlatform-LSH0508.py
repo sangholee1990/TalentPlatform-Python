@@ -255,7 +255,9 @@ class DtaProcess(object):
             fileList = sorted(glob.glob(inpFile))
             data = pd.read_excel(fileList[0], engine='openpyxl', skiprows=2)
 
-
+            # ********************************************************************
+            # 데이터 전처리 과정
+            # ********************************************************************
             dataL1 = data
 
             # 컬럼 재 정의
@@ -285,159 +287,83 @@ class DtaProcess(object):
             # 결측값 제거
             dataL4 = dataL3.dropna()
 
+            # ********************************************************************
+            # 기초 데이터 분석
+            # ********************************************************************
+            # 유럽 국가별 수입/수출 빈도 분포 시각화
+            # 유럽 국가마다 종류 (수입, 수출)에 관계 없이 10년간 (2012~2021년) 동안 균일하게 분포됨 (데이터 개수 = 10개)
+            dataL5 = dataL4.loc[(dataL4['특성'] == '원데이터')]
 
-            # 유럽 국가별 무역의존도 분석
-
-            # 기초 데이터 분석:
-            sns.barplot(x='국가', y='val', data=dataL4)
-            plt.xticks(rotation=45)
+            sns.countplot(y="국가", hue="종류", data=dataL5)
+            plt.title('유럽 국가별 수입/수출 빈도 분포')
+            plt.xlabel('개수')
             plt.show()
 
-               # 데이터 분석 주제: 유럽 회원국 무역의존도 최근 10년 데이터 분석
-               #  세부목표1. 유럽 국가별 무역의존도 비교 분석
-               #  세부목표2. 유럽 시기별(수출)무역의존도 추이 분석
-               #  세부목표3. 유럽 시기별(수입)무역의존도 추이 분석
-               #
-               #  요청 분석 내용
-               #  - 데이터 전처리 과정
-               #  - 데이터 분석 (pandas, matplotlib, seaborn, autopct, scatter, strip plot, dis plot 함수 포함 사용 요청)
-               #  1) 기초 데이터 분석-주요 칼럼 별 분포 분석 (범주형인 경우 counplot 막대 차트 분포 분석, 수치형인 경우 histogram 으로 분포 분석)
-               #  2) 세부목표1,2,3 각각에 대한 분석
-                #
-                # 요청 파일
-                # - ipynb 파일 (분석결과가 표시되는 Colab의 ipynb 파일)
-                # - pdf파일 (ipynb 파일을 pdf 파일로 출력한 내용)
-                # - 데이터 분석 각 구간(함수)에 대한 해석 필요
-                # - (Colab에 업로드하기 위해 전처리된 데이터 파일)
-
-            # 국가 컬럼
-
-            fig, axs = plt.subplots(2, 2, figsize=(10, 8))
-            # fig, axs = plt.subplots(2, 2)
-            plt.subplots_adjust(hspace=0.3)
-            axs = axs.flatten()
-
-            # dataL2 = xr.Dataset()
-            typeList = ['coal', 'gas', 'oil', 'mean']
-            for i, type in enumerate(typeList):
-                log.info(f"[CHECK] type : {type}")
-
-                inpFileNamePattern = f'leak_basin_GFEI_grid_y19-21_*{type}*.nc'
-                inpFile = '{}/{}/{}'.format(globalVar['inpPath'], serviceName, inpFileNamePattern)
-                fileList = sorted(glob.glob(inpFile))
-
-                dataL2 = xr.Dataset()
-                for fileInfo in fileList:
-                    log.info(f"[CHECK] fileInfo : {fileInfo}")
-
-                    fileNameNoExt = os.path.basename(fileInfo).split('.nc')[0]
-
-                    if re.search('mean', type, re.IGNORECASE):
-                        # label = type + '_' + fileNameNoExt.split('_')[5].upper()
-                        label = fileNameNoExt.split('_')[5].upper()
-                    else:
-                        # label = type + '_' + fileNameNoExt.split('_')[6]
-                        label = fileNameNoExt.split('_')[6]
-
-                    data = xr.open_dataset(fileInfo)
-
-                    varList = list(data.variables.keys())
-                    dataL1 = data.rename({varList[2] : label})
-                    dataL1[label] = np.log(dataL1[label])
-
-                    dataL2 = xr.merge([dataL2, dataL1])
-
-                dataL3 = dataL2.to_dataframe().reset_index(drop=False).drop(columns=['lat', 'lon'])
-                dataL4 = dataL3.to_dict(orient='list')
-
-                # ******************************************************************************
-                # 다중 그림
-                # ******************************************************************************
-                # x축 눈금의 범위 설정
-                bin_edges = np.arange(-24, 28, 4)
-                valList = list(dataL4.values())
-                keyList = list(dataL4.keys())
-
-                ax = axs[i]
-                n, bins, patches = ax.hist(valList, bins=bin_edges, alpha=1.0, label=keyList, zorder=3)
-
-                colors = plt.cm.coolwarm(np.linspace(0, 1, len(dataL4)))
-                for patch, color in zip(patches, colors):
-                    for rect in patch:
-                        rect.set_facecolor(color)
-
-                # x축 눈금 레이블 설정
-                bin_labels = [f"{int(bins[j])}~{int(bins[j + 1])}" for j in range(len(bins) - 1)]
-                ax.set_xticks(bins[:-1])
-                ax.set_xticklabels(bin_labels, rotation=45, ha='right', fontsize=10)
-
-                ax.ticklabel_format(axis='y', style='scientific', scilimits=(0, 0))
-                # plt.gca().yaxis.set_major_formatter(ScalarFormatter(useMathText=True))
-
-                # 그래프 제목과 축 레이블 추가
-                mainTitle = f'{type.upper()}'
-                ax.set_title(mainTitle, loc='right')
-                # ax.set_xlabel('Ln Emission [kg/C/year]')
-                # ax.set_ylabel('Number of Grids')
-                ax.legend(loc='upper left')
-                ax.grid(True, color='lightgrey', linestyle='-', linewidth=0.5, zorder=0)
-
-            # plt.xlabel('Ln Emission [kg/C/year]')
-            # plt.ylabel('Number of Grids')
-
-            fig.text(0.5, 0.02, 'Ln Emission [kg/C/year]', ha='center', va='center', fontsize=12)
-            fig.text(0.08, 0.5, 'Number of Grids', ha='center', va='center', rotation='vertical', fontsize=12)
-
-            # mainTitle = f'Ln Emission'
-            # plt.suptitle(mainTitle)
-            saveImg = '{}/{}/{}.png'.format(globalVar['figPath'], serviceName, 'leak_basin_GFEI_grid_y19-21')
-            os.makedirs(os.path.dirname(saveImg), exist_ok=True)
-            plt.savefig(saveImg, dpi=600, bbox_inches='tight', transparent=False)
-            plt.tight_layout()
+            # 무역의존도 수입/수출 히스토그램 시각화
+            # 무역의존도 수입은 17.03 ~ 93.22 (평균 45.29)으로 나타내는 반면 수출에서는 보다 넓게 14.58 ~ 92.88 (평균 45.42)로 분포함
+            # 특히 수입 및 수출은 무역의존도 25 부근에 높은 빈도를 보임
+            sns.histplot(x='val', hue='종류', data=dataL5, multiple='dodge')
+            plt.title('무역의존도 수입/수출 히스토그램')
+            plt.xlabel('무역의존도')
+            plt.ylabel('개수')
             plt.show()
-            plt.close()
-            log.info(f'[CHECK] saveImg : {saveImg}')
 
-            # ******************************************************************************
-            # 단일 그림
-            # ******************************************************************************
-            # # x축 눈금의 범위를 설정
-            # bin_edges = np.arange(-24, 28, 4)  # -24부터 20까지 4 단위로 설정 (마지막 bin을 포함하기 위해 24까지)
-            #
-            # # 히스토그램 생성
-            # n, bins, patches = plt.hist(list(dataL4.values()), bins=bin_edges, alpha=1.0, label=list(dataL4.keys()), zorder=3)
-            #
-            # # 색상 팔레트 설정 (각 데이터 세트마다 다른 색상)
-            # colors = plt.cm.coolwarm(np.linspace(0, 1, len(dataL4)))
-            # for patch, color in zip(patches, colors):
-            #     for rect in patch:
-            #         rect.set_facecolor(color)
-            #
-            # # x축 눈금 레이블 설정 (요청하신 형태로)
-            # bin_labels = [f"{int(bins[i])}~{int(bins[i + 1])}" for i in range(len(bins) - 1)]
-            # plt.xticks(bins[:-1], labels=bin_labels, rotation=45, ha='right')
-            #
-            # # 그래프 제목과 축 레이블 추가
-            # plt.xlabel('Ln Emission [kg/C/year]')
-            # plt.ylabel('Number of Grids')
-            #
-            # plt.ticklabel_format(axis='y', style='scientific', scilimits=(0, 0))
-            # # plt.gca().yaxis.set_major_formatter(ScalarFormatter(useMathText=True))
-            #
-            # # 범례 추가
-            # plt.legend(loc='upper left')
-            # # plt.grid(True)
-            # plt.grid(True, color='lightgrey', linestyle='-', linewidth=0.5, zorder=0)
-            #
-            # mainTitle = f'{type.upper()} Ln Emission'
-            # plt.title(mainTitle)
-            # saveImg = '{}/{}/{}_leak_basin_GFEI_grid_y19-21.png'.format(globalVar['figPath'], serviceName, type.upper())
-            # os.makedirs(os.path.dirname(saveImg), exist_ok=True)
-            # plt.savefig(saveImg, dpi=600, bbox_inches='tight', transparent=False)
-            # plt.tight_layout()
-            # # plt.show()
-            # plt.close()
-            # log.info(f'[CHECK] saveImg : {saveImg}')
+            # 수입/수출에 따른 요약 통계량
+            # dataL5.loc[(dataL5['종류'] == '수입')].describe()
+            # dataL5.loc[(dataL5['종류'] == '수출')].describe()
+
+            # ********************************************************************
+            # 세부 목표1. 유럽 국가별 무역의존도 비교 분석
+            # ********************************************************************
+            # 유럽 국가별 무역의존도 비교 분석 시각화
+            # 특정 국가 (벨기에, 슬로바키아)의 경우 수출 및 수입의 무역의존도가 둘다 높은 반면 일부 국가 (체코, 라트비아 등)은 하나만 의존 (수출 또는 수입) 경향을 보임
+            # 이는 벨기에 및 슬로바키아는 유럽연합 회원국으로서 EU 시장과 긴밀한 관계를 유지하고 특히 벨기는 유럽 내에서 중요한 국제 물류 및 운송의 중심지 역할을 수행함
+            dataL5 =  dataL4.loc[(dataL4['특성'] == '원데이터')]
+
+            statDataL1 = dataL5.groupby(['국가', '종류'])['val'].mean().reset_index(drop=False)
+            statDataL2 = statDataL1.sort_values('val', ascending=False)
+
+            sns.barplot(x='val', y='국가', hue='종류', data=statDataL2)
+            plt.title('유럽 국가별 무역의존도 비교 분석')
+            plt.xlabel('평균 무역의존도')
+            # plt.ylabel('국가')
+            plt.show()
+
+            # ********************************************************************
+            # 세부 목표2. 유럽 시기별(수출) 무역의존도 추이 분석
+            # ********************************************************************
+            # 유럽 시기별(수출) 무역의존도 추이 분석 시각화
+            # 10년간 (2019~2020년) 무역의존도는 다양한 변화 패턴을 보임
+            # 즉 2012~2015년은 일정한 감소 경향을 보이다가 2016년 다소 증가함
+            # 또한 2017~2019년까지 점차 감소 경향을 보이며 2020년 급격히 감소함
+            # 그러나 2021년에는 폭발적으로 증가하여 2012년과 유사한 분포를 보임
+            #  특히 2020년의 급격한 변화는 COVID-19 팬데믹과 관련이 있을 수 있으며, 이는 많은 국가들의 수출입 활동에 큰 변화를 가져왔습니다. 팬데믹으로 인한 글로벌 무역의 중단이나 제약이 무역의존도 감소에 기여했을 수 있으며, 이후의 회복 과정에서 무역 활동이 다시 증가하여 2021년에 무역의존도가 상승한 것으로 추측
+
+            # 특히
+            dataL5 = dataL4.loc[(dataL4['특성'] == '원데이터') & (dataL4['종류'] == '수출')]
+
+            statDataL1 = dataL5.groupby(['연도', '종류'])['val'].mean().reset_index(drop=False)
+            statDataL2 = statDataL1.sort_values('연도', ascending=True)
+
+            sns.lineplot(x='연도', y='val', hue='종류', style="종류", markers=['o'], data=statDataL2)
+            plt.title('유럽 시기별 수출 무역의존도 추이 분석')
+            plt.xlabel('연도')
+            plt.ylabel('평균 무역의존도')
+            plt.show()
+
+            # ********************************************************************
+            # 세부 목표3. 유럽 시기별(수입) 무역의존도 추이 분석
+            # ********************************************************************
+            dataL5 = dataL4.loc[(dataL4['특성'] == '원데이터') & (dataL4['종류'] == '수입')]
+
+            statDataL1 = dataL5.groupby(['연도', '종류'])['val'].mean().reset_index(drop=False)
+            sstatDataL2 = statDataL1.sort_values('연도', ascending=True)
+
+            sns.lineplot(x='연도', y='val', hue='종류', style="종류", markers=['o'], data=statDataL2)
+            plt.title('유럽 시기별 수입 무역의존도 추이 분석')
+            plt.xlabel('연도')
+            plt.ylabel('평균 무역의존도')
+            plt.show()
 
         except Exception as e:
             log.error("Exception : {}".format(e))
