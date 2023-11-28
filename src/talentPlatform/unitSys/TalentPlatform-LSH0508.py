@@ -180,7 +180,8 @@ class DtaProcess(object):
     # 요청 분석 내용
     # - 데이터 전처리 과정
     # - 데이터 분석 (pandas, matplotlib, seaborn, autopct, scatter, strip plot, dis plot 함수 포함 사용 요청)
-    # 1) 기초 데이터 분석-주요 칼럼 별 분포 분석 (범주형인 경우 counplot 막대 차트 분포 분석, 수치형인 경우 histogram 으로 분포 분석)
+    # 1) 기초 데이터 분석
+    #   주요 칼럼 별 분포 분석 (범주형인 경우 counplot 막대 차트 분포 분석, 수치형인 경우 histogram 으로 분포 분석)
     # 2) 세부목표1,2,3 각각에 대한 분석
     #
     # 요청 파일
