@@ -499,6 +499,10 @@ class DtaProcess(object):
     # nohup python TalentPlatform-LSH0454-Active-OpenAPI-Model.py --addrList "경기도 의정부시" &
     # nohup python TalentPlatform-LSH0454-Active-OpenAPI-Model.py &
 
+    # nohup python TalentPlatform-LSH0454-Active-OpenAPI-Model.py --addrList "충청남도 홍성군" &
+    # nohup python TalentPlatform-LSH0454-Active-OpenAPI-Model.py --addrList "충청남도 아산시" &
+    # nohup python TalentPlatform-LSH0454-Active-OpenAPI-Model.py --addrList "충청남도 천안시" &
+
     # ================================================================================================
     # 환경변수 설정
     # ================================================================================================
