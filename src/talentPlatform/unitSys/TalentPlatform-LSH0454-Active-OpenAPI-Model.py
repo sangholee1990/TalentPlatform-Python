@@ -482,6 +482,9 @@ class DtaProcess(object):
     # 전처리 파일 업로드
     # /DATA/OUTPUT/LSH0454/전처리
 
+    # 예측 파일 다운로드
+    # /DATA/OUTPUT/LSH0454/예측
+
     # 프로그램 종료
     # ps -ef | grep "TalentPlatform-LSH0454-Active-OpenAPI-Model" | awk '{print $2}' | xargs kill -9
 

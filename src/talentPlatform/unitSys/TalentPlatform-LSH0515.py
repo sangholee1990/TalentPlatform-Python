@@ -243,6 +243,16 @@ class DtaProcess(object):
                 , 'endDate': '2021-02-01'
                 , 'invDateList': ['1y', '1m', '1d']
 
+                # 경도 최소/최대/간격
+                , 'lonMin': -180
+                , 'lonMax': 180
+                , 'lonInv': 0.5
+
+                # 위도 최소/최대/간격
+                , 'latMin': -90
+                , 'latMax': 90
+                , 'latInv': 0.5
+
                 # 수행 목록
                 , 'modelList': ['ECMWF-SFC']
 
@@ -255,8 +265,8 @@ class DtaProcess(object):
                     , 'comVar': {'Longitude': 'lon', 'Latitude': 'lat', 'Value': '{}'}
 
                     # 가공 파일 덮어쓰기 여부
-                    # , 'isOverWrite': True
-                    , 'isOverWrite': False
+                    , 'isOverWrite': True
+                    # , 'isOverWrite': False
 
                     # 가공 파일 정보
                     , 'procPath': '/DATA/OUTPUT/LSH0515/PROC/%Y%m/%d/%H'
@@ -292,6 +302,13 @@ class DtaProcess(object):
             dtSrtDate = pd.to_datetime(sysOpt['srtDate'], format='%Y-%m-%d')
             dtEndDate = pd.to_datetime(sysOpt['endDate'], format='%Y-%m-%d')
             dtDateList = pd.date_range(start=dtSrtDate, end=dtEndDate, freq='1h')
+
+            # 기준 위도/경도 설정
+            lonList = np.arange(sysOpt['lonMin'], sysOpt['lonMax'], sysOpt['lonInv'])
+            latList = np.arange(sysOpt['latMin'], sysOpt['latMax'], sysOpt['latInv'])
+
+            log.info(f'[CHECK] len(lonList) : {len(lonList)}')
+            log.info(f'[CHECK] len(latList) : {len(latList)}')
 
             # ===================================================================================
             # 가공 파일 생산
@@ -338,15 +355,18 @@ class DtaProcess(object):
                             dataL2 = dataL1.set_index(['time', 'lat', 'lon'])
                             dataL3 = dataL2.to_xarray()
 
-                            # 0 초과 필터, 그 외 결측값 NA
-                            dataL4 = dataL3.where((dataL3[varInfo] > 0))
+                            # 특정 변수 선택 및  위경도 내삽
+                            dataL4 = dataL3[varInfo].interp({'lon': lonList, 'lat': latList}, method='linear')
 
-                            # dataL4[varInfo].isel(time = 0).plot()
+                            # 0 초과 필터, 그 외 결측값 NA
+                            dataL5 = dataL4.where((dataL4 > 0))
+
+                            # dataL5.isel(time = 0).plot()
                             # plt.show()
 
                             # NetCDF 저장
                             os.makedirs(os.path.dirname(procFile), exist_ok=True)
-                            dataL4.to_netcdf(procFile)
+                            dataL5.to_netcdf(procFile)
                             log.info(f'[CHECK] procFile : {procFile}')
 
             # ===================================================================================
