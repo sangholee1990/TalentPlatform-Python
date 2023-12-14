@@ -491,6 +491,7 @@ class DtaProcess(object):
     # 프로그램 시작
     # conda activate py36
     # cd /SYSTEMS/PROG/PYTHON/PyCharm/src/talentPlatform/unitSys
+
     # nohup python TalentPlatform-LSH0454-Active-OpenAPI-Model.py --addrList "서울특별시 강북구" &
     # nohup python TalentPlatform-LSH0454-Active-OpenAPI-Model.py --addrList "서울특별시 성북구" &
     # nohup python TalentPlatform-LSH0454-Active-OpenAPI-Model.py --addrList "서울특별시 용산구" &
@@ -505,6 +506,9 @@ class DtaProcess(object):
     # nohup python TalentPlatform-LSH0454-Active-OpenAPI-Model.py --addrList "충청남도 홍성군" &
     # nohup python TalentPlatform-LSH0454-Active-OpenAPI-Model.py --addrList "충청남도 아산시" &
     # nohup python TalentPlatform-LSH0454-Active-OpenAPI-Model.py --addrList "충청남도 천안시" &
+
+    # nohup python TalentPlatform-LSH0454-Active-OpenAPI-Model.py --addrList "대구광역시 수성구" &
+    # nohup python TalentPlatform-LSH0454-Active-OpenAPI-Model.py --addrList "대구광역시 북구" &
 
     # ================================================================================================
     # 환경변수 설정
@@ -1176,6 +1180,17 @@ class DtaProcess(object):
                     saveFile = '{}/{}/{}/{}_{}_{}.xlsx'.format(globalVar['outPath'], serviceName, '예측', '수익률 테이블', addrInfo, datetime.now().strftime('%Y%m%d'))
                     os.makedirs(os.path.dirname(saveFile), exist_ok=True)
                     fnlData.to_excel(saveFile, index=False)
+                    log.info('[CHECK] saveFile : {}'.format(saveFile))
+
+                    # 2023.12.15
+                    fnlDataL1 = fnlData
+                    colList = ['realPrice', 'realBjprice', 'realPriceDL', 'realBjpriceDL', 'realPriceML', 'realBjpriceML', 'gapReal', 'gapML', 'gapDL', 'gapDiffReal', 'gapDiffDL', 'gapDiffML']
+                    for colInfo in colList:
+                        fnlDataL1[colInfo] = fnlDataL1[colInfo] * 10000
+
+                    saveFile = '{}/{}/{}/{}_{}_{}.xlsx'.format(globalVar['outPath'], serviceName, '예측', 'NEW 수익률 테이블', addrInfo, datetime.now().strftime('%Y%m%d'))
+                    os.makedirs(os.path.dirname(saveFile), exist_ok=True)
+                    fnlDataL1.to_excel(saveFile, index=False)
                     log.info('[CHECK] saveFile : {}'.format(saveFile))
 
         except Exception as e:
