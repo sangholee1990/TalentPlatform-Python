@@ -33,23 +33,38 @@ import os
 # from fastapi.security import OAuth2PasswordBearer
 # oauth2_scheme = OAuth2PasswordBearer(tokenUrl="token")
 
+# iptables -I INPUT -p tcp --dport 8080 -j ACCEPT
+# http://223.130.134.136:8080
+# http://223.130.134.136:8080/docs
+
+# http://223.130.134.136:8080/make_plot
+# =IMAGE("http://223.130.134.136:8080/make_plot")
+# http://223.130.134.136:8000/IMG/OLD/202310/05/20200421_143235.jpg
+
+# cd /SYSTEMS/PROG/PYTHON/PyCharm/src/talentPlatform/fast-api
+# conda activate py38
+
+# 테스트
+# ps -ef | grep uvicorn | awk '{print $2}' | xargs kill -9
+# uvicorn main:app --reload --host=0.0.0.0 --port=8080 --workers 1
+
 UPLOAD_PATH = "/DATA/UPLOAD"
 
 app = FastAPI()
 
-origins = [
-    "http://localhost:8080",
-    "http://localhost:9000",
-    "http://localhost:9100",
-]
+# origins = [
+#     "http://localhost:8080",
+#     "http://localhost:9000",
+#     "http://localhost:9100",
+# ]
 
-app.add_middleware(
-    CORSMiddleware,
-    allow_origins=origins,  # 허용되는 출처 목록
-    allow_credentials=True,
-    allow_methods=["*"],  # 허용되는 HTTP 메서드
-    allow_headers=["*"]  # 허용되는 HTTP 헤더
-)
+# app.add_middleware(
+#     CORSMiddleware,
+#     # allow_origins=origins,  # 허용되는 출처 목록
+#     allow_credentials=True,
+#     allow_methods=["*"],  # 허용되는 HTTP 메서드
+#     allow_headers=["*"]  # 허용되는 HTTP 헤더
+# )
 
 # 공유폴더
 # app.mount('/UPLOAD', StaticFiles(directory='/DATA/UPLOAD'), name='/DATA/UPLOAD')
@@ -187,15 +202,3 @@ async def make_plot():
         return StreamingResponse(buf, media_type="image/png")
     except Exception as e:
         return {"error": str(e)}
-
-
-if __name__ == "__main__":
-    # reload : 코드 변경 시 자동으로 저장되어 재시작 됨
-    # host : 모든 접근이 가능하게 하려면 0.0.0.0을 입력한다
-    # port : 접속 원하는 포트를 지정해준다.
-
-    # uvicorn main:app --reload --host=0.0.0.0 --port=8000
-    # uvicorn.run(app, host="0.0.0.0", port=8000, reload=True)
-
-    # iptables -I INPUT 1 -p tcp --dport 9998 -j ACCEPT
-    uvicorn.run(app, host="0.0.0.0", port=9998)
