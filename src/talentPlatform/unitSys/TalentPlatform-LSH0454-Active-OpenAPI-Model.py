@@ -1138,34 +1138,7 @@ class DtaProcess(object):
                         )
 
                         resDataL2 = pd.concat([dataL3, resDiffData, resPctData * 100], axis=1)
-                        resDataL3 = resDataL2.sort_values(by=['date'], ascending=False).rename(
-                            columns={
-                                'name': '아파트(도로명)'
-                                , 'capacity': '면적'
-                                , 'construction_year': '건축연도'
-                                , 'year': '연도'
-                                , 'date': '날짜'
-                                , 'lat': '위도'
-                                , 'lon': '경도'
-                                , 'inhuga': '인허가'
-                                , 'conYear': '건축년도'
-                                , 'realPrice': '매매가'
-                                , 'realBjprice': '전세가'
-                                , 'realPriceDL': '예측 딥러닝 매매가'
-                                , 'realBjpriceDL': '예측 딥러닝 전세가'
-                                , 'realPriceML': '예측 머신러닝 매매가'
-                                , 'realBjpriceML': '예측 머신러닝 전세가'
-                                , 'gapReal': '실측 갭투자'
-                                , 'gapML': '예측 머신러닝 갭투자'
-                                , 'gapDL': '예측 딥러닝 갭투자'
-                                , 'gapDiffReal': '실측 수익금'
-                                , 'gapDiffDL': '예측 딥러닝 수익금'
-                                , 'gapDiffML': '예측 머신러닝 수익금'
-                                , 'gapPctReal': '실측 수익률'
-                                , 'gapPctDL': '예측 딥러닝 수익률'
-                                , 'gapPctML': '예측 머신러닝 수익률'
-                            }
-                        )
+                        resDataL3 = resDataL2.sort_values(by=['date'], ascending=False)
 
                         fnlData = pd.concat([fnlData, resDataL3], ignore_index=True)
 
@@ -1176,21 +1149,51 @@ class DtaProcess(object):
                         #     log.info('[CHECK] saveFile : {}'.format(saveFile))
 
                 if len(fnlData) > 0:
+
+                    fnlDataL1 = fnlData.rename(
+                        columns={
+                            'name': '아파트(도로명)'
+                            , 'capacity': '면적'
+                            , 'construction_year': '건축연도'
+                            , 'year': '연도'
+                            , 'date': '날짜'
+                            , 'lat': '위도'
+                            , 'lon': '경도'
+                            , 'inhuga': '인허가'
+                            , 'conYear': '건축년도'
+                            , 'realPrice': '매매가'
+                            , 'realBjprice': '전세가'
+                            , 'realPriceDL': '예측 딥러닝 매매가'
+                            , 'realBjpriceDL': '예측 딥러닝 전세가'
+                            , 'realPriceML': '예측 머신러닝 매매가'
+                            , 'realBjpriceML': '예측 머신러닝 전세가'
+                            , 'gapReal': '실측 갭투자'
+                            , 'gapML': '예측 머신러닝 갭투자'
+                            , 'gapDL': '예측 딥러닝 갭투자'
+                            , 'gapDiffReal': '실측 수익금'
+                            , 'gapDiffDL': '예측 딥러닝 수익금'
+                            , 'gapDiffML': '예측 머신러닝 수익금'
+                            , 'gapPctReal': '실측 수익률'
+                            , 'gapPctDL': '예측 딥러닝 수익률'
+                            , 'gapPctML': '예측 머신러닝 수익률'
+                        }
+                    )
+
                     # saveFile = '{}/{}/{}/{}/{}_{}_{}.xlsx'.format(globalVar['outPath'], serviceName, '예측', addrInfo, '수익률 테이블', addrInfo, datetime.now().strftime('%Y%m%d'))
                     saveFile = '{}/{}/{}/{}_{}_{}.xlsx'.format(globalVar['outPath'], serviceName, '예측', '수익률 테이블', addrInfo, datetime.now().strftime('%Y%m%d'))
                     os.makedirs(os.path.dirname(saveFile), exist_ok=True)
-                    fnlData.to_excel(saveFile, index=False)
+                    fnlDataL1.to_excel(saveFile, index=False)
                     log.info('[CHECK] saveFile : {}'.format(saveFile))
 
                     # 2023.12.15
-                    fnlDataL1 = fnlData
-                    colList = ['realPrice', 'realBjprice', 'realPriceDL', 'realBjpriceDL', 'realPriceML', 'realBjpriceML', 'gapReal', 'gapML', 'gapDL', 'gapDiffReal', 'gapDiffDL', 'gapDiffML']
+                    fnlDataL2 = fnlDataL1
+                    colList = ['매매가', '전세가', '예측 딥러닝 매매가', '예측 머신러닝 매매가', '예측 딥러닝 전세가', '예측 머신러닝 전세가', '실측 갭투자', '예측 머신러닝 갭투자', '예측 딥러닝 갭투자', '실측 수익금', '예측 딥러닝 수익금', '예측 머신러닝 수익금']
                     for colInfo in colList:
-                        fnlDataL1[colInfo] = fnlDataL1[colInfo] * 10000
+                        fnlDataL2[colInfo] = fnlDataL2[colInfo] * 10000
 
                     saveFile = '{}/{}/{}/{}_{}_{}.xlsx'.format(globalVar['outPath'], serviceName, '예측', 'NEW 수익률 테이블', addrInfo, datetime.now().strftime('%Y%m%d'))
                     os.makedirs(os.path.dirname(saveFile), exist_ok=True)
-                    fnlDataL1.to_excel(saveFile, index=False)
+                    fnlDataL2.to_excel(saveFile, index=False)
                     log.info('[CHECK] saveFile : {}'.format(saveFile))
 
         except Exception as e:
