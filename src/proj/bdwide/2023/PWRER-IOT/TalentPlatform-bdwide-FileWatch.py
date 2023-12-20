@@ -24,6 +24,7 @@ import re
 import tempfile
 import subprocess
 import shutil
+import asyncio
 
 # =================================================
 # 사용자 매뉴얼
@@ -206,7 +207,7 @@ class Handler(FileSystemEventHandler):
                 shutil.move(fileInfo, saveFile)
                 log.info(f'[CHECK] saveFile : {saveFile}')
             except OSError as e:
-                log.error(f'Exception : {e}')
+                log.error(f'OSError : {e}')
 
         if re.search('json', fileExt, re.IGNORECASE):
             tmpPath = globalVar['tmpPath']
@@ -229,16 +230,16 @@ class Handler(FileSystemEventHandler):
                 shutil.move(oldFile, saveFile)
                 log.info(f'[CHECK] saveFile : {saveFile}')
             except OSError as e:
-                log.error(f'Exception : {e}')
+                log.error(f'OSError : {e}')
 
             # 파일 삭제
             try:
-                shutil.rmtree(tmpPath)
+                os.remove(fileInfo)
             except OSError as e:
                 pass
 
             try:
-                shutil.rmtree(fileInfo)
+                shutil.rmtree(tmpPath)
             except OSError as e:
                 pass
 
@@ -326,7 +327,7 @@ class DtaProcess(object):
             fileList = sysOpt['mntrgFileList']
             log.info(f'[CHECK] fileList : {fileList}')
 
-            # 파일 경로로부터 디렉터리 경로를 추출하고 중복을 제거
+            # 파일 경로 목록
             filePathList = set(os.path.dirname(os.path.dirname(fileInfo)) for fileInfo in fileList)
 
             observer = Observer()
@@ -341,6 +342,7 @@ class DtaProcess(object):
                 while True:
                     time.sleep(1)
             except KeyboardInterrupt as e:
+                log.error(f'KeyboardInterrupt : {e}')
                 observer.stop()
 
             observer.join()
