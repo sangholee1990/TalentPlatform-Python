@@ -181,17 +181,13 @@ def initArgument(globalVar, inParams):
     return globalVar
 
 
-class Handler(FileSystemEventHandler):
-    def __init__(self, patterns):
-        self.patterns = patterns
+def makeFileProc(fileInfo):
 
-    def on_any_event(self, event):
-        if not any(fnmatch.fnmatch(event.src_path, pattern) for pattern in self.patterns): return
-        if not re.search('closed', event.event_type, re.IGNORECASE): return
+    # log.info(f'[START] makeFileProc')
 
-        fileInfo = event.src_path
+    try:
         if not os.path.exists(fileInfo): return
-        log.info(f'[CHECK] event : {event} / event_type : {event.event_type} / fileInfo : {fileInfo}')
+        log.info(f'[CHECK] fileInfo : {fileInfo}')
 
         fileRegDate = fileInfo.replace(globalVar['orgPath'], '').split('/')[1]
         fileName = os.path.basename(fileInfo)
@@ -242,6 +238,25 @@ class Handler(FileSystemEventHandler):
                 shutil.rmtree(tmpPath)
             except OSError as e:
                 pass
+
+    except Exception as e:
+        log.error(f'Exception : {e}')
+
+    # finally:
+        # log.info(f'[END] makeFileProc')
+
+class Handler(FileSystemEventHandler):
+    def __init__(self, patterns):
+        self.patterns = patterns
+
+    def on_any_event(self, event):
+        if not any(fnmatch.fnmatch(event.src_path, pattern) for pattern in self.patterns): return
+        if not re.search('closed', event.event_type, re.IGNORECASE): return
+        if not os.path.exists(event.src_path): return
+
+        log.info(f'[CHECK] event : {event} / event_type : {event.event_type} / src_path : {event.src_path}')
+
+        makeFileProc(event.src_path)
 
 # ================================================
 # 4. 부 프로그램
@@ -324,14 +339,20 @@ class DtaProcess(object):
                 ]
             }
 
-            fileList = sysOpt['mntrgFileList']
-            log.info(f'[CHECK] fileList : {fileList}')
+            mntrgFileList = sysOpt['mntrgFileList']
+            log.info(f'[CHECK] mntrgFileList : {mntrgFileList}')
 
-            # 파일 경로 목록
-            filePathList = set(os.path.dirname(os.path.dirname(fileInfo)) for fileInfo in fileList)
+            filePathList = set(os.path.dirname(os.path.dirname(fileInfo)) for fileInfo in mntrgFileList)
 
+            # 기존 파일 처리
+            for mntrgFileInfo in mntrgFileList:
+                fileList = glob.glob(mntrgFileInfo)
+                for fileInfo in fileList:
+                    makeFileProc(fileInfo)
+
+            # 신규 파일 감시
             observer = Observer()
-            eventHandler = Handler(fileList)
+            eventHandler = Handler(mntrgFileList)
 
             for filePathInfo in filePathList:
                 observer.schedule(eventHandler, filePathInfo, recursive=True)
