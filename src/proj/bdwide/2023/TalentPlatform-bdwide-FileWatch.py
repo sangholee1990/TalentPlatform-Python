@@ -272,7 +272,7 @@ class DtaProcess(object):
     # conda activate py38
     # cd /SYSTEMS/PROG/PYTHON/PyCharm/src/proj/bdwide/2023
 
-    # nohup TalentPlatform-bdwide-FileWatch.py &
+    # nohup python TalentPlatform-bdwide-FileWatch.py &
 
     # ================================================================================================
     # 환경변수 설정
