@@ -250,6 +250,8 @@ class Handler(FileSystemEventHandler):
         self.patterns = patterns
 
     def on_any_event(self, event):
+        log.info(f'[CHECK] event : {event} / event_type : {event.event_type} / src_path : {event.src_path}')
+
         if not any(fnmatch.fnmatch(event.src_path, pattern) for pattern in self.patterns): return
         if not re.search('closed', event.event_type, re.IGNORECASE): return
         if not os.path.exists(event.src_path): return
@@ -267,6 +269,9 @@ class DtaProcess(object):
     # 요구사항
     # ================================================
     # Python을 이용한 기존 파일 처리 및 신규 파일 감시
+
+    # 프로그램 종료
+    # ps -ef | grep python | grep TalentPlatform-bdwide-FileWatch.py | awk '{print $2}' | xargs kill -9
 
     # 프로그램 시작
     # conda activate py38
