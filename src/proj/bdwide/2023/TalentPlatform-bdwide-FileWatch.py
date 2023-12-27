@@ -26,6 +26,19 @@ import subprocess
 import shutil
 import asyncio
 
+import argparse
+import base64
+import json
+import os
+import os.path as osp
+
+import imgviz
+import PIL.Image
+
+from labelme.logger import logger
+from labelme import utils
+
+
 # =================================================
 # 사용자 매뉴얼
 # =================================================
@@ -276,7 +289,6 @@ class DtaProcess(object):
     # 프로그램 시작
     # conda activate py38
     # cd /SYSTEMS/PROG/PYTHON/PyCharm/src/proj/bdwide/2023
-
     # nohup python TalentPlatform-bdwide-FileWatch.py &
 
     # ================================================================================================
