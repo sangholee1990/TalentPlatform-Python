@@ -33,7 +33,7 @@ from googleapiclient.errors import HttpError
 from oauth2client.tools import argparser
 
 
-youtube = build('youtube', 'v3', developerKey='AIzaSyDZmbCknZOLCEBrFBBFe0Tp66rd20lEq-E')
+youtube = build('youtube', 'v3', developerKey='인증키')
 
 def get_playlist_videos(playlist_id):
     videos = []
