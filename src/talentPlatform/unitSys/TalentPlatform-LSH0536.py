@@ -343,6 +343,7 @@ class DtaProcess(object):
                     , 'apiVer': 'v3'
                     , 'apiKey': '인증키'
 
+
                     # 국가 코드 목록
                     , 'regionCodeList': ['BR', 'CA', 'DE', 'FR', 'GB', 'IN', 'JP', 'MX', 'RU', 'US', 'KR']
 
@@ -360,9 +361,16 @@ class DtaProcess(object):
                 }
                 , 'analy': {
                     # 시작일, 종료일, 시간 간격 (시간 1h)
-                    'srtDate': '2024-01-03'
-                    , 'endDate': '2024-01-03'
+                    'srtDate': '2024-01-01'
+                    , 'endDate': '2024-01-04'
                     , 'invDate': '1h'
+
+                    # 수행 목록
+                    , 'modelList': ['API']
+
+                    # 수행 정보
+                    , 'inpPath': '/DATA/OUTPUT/LSH0536/colct/%Y%m/%d'
+                    , 'inpName': '{}_{}_youtube_trending_data_%Y%m%d%H.csv'
                 }
             }
 
@@ -378,67 +386,228 @@ class DtaProcess(object):
             #     # - 7. 4 댓글들의 키워드 빈도 순위 (tf & tf-idf)
             #     # *빈도는 업무에서는 tf-idf를 주로 활용하나, 단순 tf도 참고를 위해 확인하고 있습니다
 
+            # ============================================================================================
+            # Python을 이용한 유튜브 급상승 영상 및 댓글 수집
+            # ============================================================================================
+            # # youtube = build('youtube', 'v3', developerKey='인증키')
+            # apiYoutube = build(sysOpt['colct']['apiName'], sysOpt['colct']['apiVer'], developerKey=sysOpt['colct']['apiKey'])
+            # log.info(f'[CHECK] sysOpt(colct) : {sysOpt["colct"]}')
+            #
+            # for regionCode in sysOpt['colct']['regionCodeList']:
+            #     log.info(f'[CHECK] regionCode : {regionCode}')
+            #
+            #     # 특정 지역의 급상승 동영상을 가져옴
+            #     trendVideoList = getTrendVideo(apiYoutube=apiYoutube, regionCode=regionCode, maxResultsVideo=sysOpt['colct']['videnCnt'])
+            #
+            #     # trendVideoInfo = trendVideoList[0]
+            #     dataL2 = pd.DataFrame()
+            #     for trendVideoInfo in trendVideoList:
+            #         videoId = trendVideoInfo['id']
+            #         snippetInfo = trendVideoInfo['snippet']
+            #         channelId = snippetInfo.get('channelId')
+            #
+            #         data = pd.DataFrame({
+            #             'videoId': [videoId]
+            #             , 'channelId': [channelId]
+            #             , 'url': [f'https://www.youtube.com/watch?v={videoId}&ab_channel={channelId}']
+            #             , 'regionCode': [regionCode]
+            #             , 'title': [snippetInfo.get('title')]
+            #             , 'description': [snippetInfo.get('description')]
+            #             , 'channelTitle': [snippetInfo.get('channelTitle')]
+            #             , 'tags': [snippetInfo.get('tags')]
+            #             , 'publishedAt': [snippetInfo.get('publishedAt')]
+            #             , 'defaultAudioLanguage': [snippetInfo.get('defaultAudioLanguage')]
+            #         })
+            #
+            #         dataDtl = getVideoReply(apiYoutube=apiYoutube, videoId=videoId, maxResultsRep=sysOpt['colct']['replyCnt'], maxResultsRepDtl=sysOpt['colct']['replyDtlCnt'])
+            #         dataDtl['videoId'] = videoId
+            #
+            #         dataL1 = pd.merge(data, dataDtl, how='left', on='videoId')
+            #
+            #         dataL2 = pd.concat([dataL2, dataL1], ignore_index=True)
+            #
+            #     if len(dataL2) < 1: continue
+            #
+            #     # CSV 생성
+            #     saveFilePattern = '{}/{}'.format(sysOpt['colct']['savePath'], sysOpt['colct']['saveName'])
+            #     saveFile = datetime.now().strftime(saveFilePattern).format(regionCode, 'API')
+            #     os.makedirs(os.path.dirname(saveFile), exist_ok=True)
+            #     dataL2.to_csv(saveFile, index=False)
+            #     log.info(f'[CHECK] saveFile : {saveFile}')
 
+            # ===================================================================================
+            # Python을 이용한 유튜브 급상승 영상 및 댓글 분석
+            # ===================================================================================
             # 시작일/종료일 설정
             dtSrtDate = pd.to_datetime(sysOpt['analy']['srtDate'], format='%Y-%m-%d')
             dtEndDate = pd.to_datetime(sysOpt['analy']['endDate'], format='%Y-%m-%d')
             dtDateList = pd.date_range(start=dtSrtDate, end=dtEndDate, freq=sysOpt['analy']['invDate'])
 
-            # ============================================================================================
-            # Python을 이용한 유튜브 급상승 영상 및 댓글 수집
-            # ============================================================================================
-            # apiYoutube 인증
-            # youtube = build('youtube', 'v3', developerKey='인증키')
-            apiYoutube = build(sysOpt['colct']['apiName'], sysOpt['colct']['apiVer'], developerKey=sysOpt['colct']['apiKey'])
-            log.info(f'[CHECK] sysOpt(colct) : {sysOpt["colct"]}')
+            for modelType in sysOpt['analy']['modelList']:
+                log.info(f'[CHECK] modelType : {modelType}')
 
-            for regionCodeInfo in sysOpt['colct']['regionCodeList']:
-                log.info(f'[CHECK] regionCodeInfo : {regionCodeInfo}')
+                allData = pd.DataFrame()
+                for dtDateInfo in dtDateList:
+                    log.info(f'[CHECK] dtDateInfo : {dtDateInfo}')
 
-                # 특정 지역의 급상승 동영상을 가져옴
-                trendVideoList = getTrendVideo(apiYoutube=apiYoutube, regionCode=regionCodeInfo, maxResultsVideo=sysOpt['colct']['videnCnt'])
+                    analyDataL1 = pd.DataFrame()
+                    for regionCode in sysOpt['colct']['regionCodeList']:
+                        log.info(f'[CHECK] regionCode : {regionCode}')
 
-                # trendVideoInfo = trendVideoList[0]
-                dataL2 = pd.DataFrame()
-                for trendVideoInfo in trendVideoList:
-                    videoId = trendVideoInfo['id']
-                    snippetInfo = trendVideoInfo['snippet']
-                    channelId = snippetInfo.get('channelId')
+                        inpFilePattern = '{}/{}'.format(sysOpt['colct']['savePath'], sysOpt['colct']['saveName'])
+                        inpFile = dtDateInfo.strftime(inpFilePattern).format(regionCode, modelType)
 
-                    data = pd.DataFrame({
-                        'videoId': [videoId]
-                        , 'channelId': [channelId]
-                        , 'url': [f'https://www.youtube.com/watch?v={videoId}&ab_channel={channelId}']
-                        , 'title': [snippetInfo.get('title')]
-                        , 'description': [snippetInfo.get('description')]
-                        , 'channelTitle': [snippetInfo.get('channelTitle')]
-                        , 'tags': [snippetInfo.get('tags')]
-                        , 'publishedAt': [snippetInfo.get('publishedAt')]
-                        , 'defaultAudioLanguage': [snippetInfo.get('defaultAudioLanguage')]
-                    })
+                        fileList = sorted(glob.glob(inpFile))
+                        if fileList is None or len(fileList) < 1: continue
 
-                    dataDtl = getVideoReply(apiYoutube=apiYoutube, videoId=videoId, maxResultsRep=sysOpt['colct']['replyCnt'], maxResultsRepDtl=sysOpt['colct']['replyDtlCnt'])
-                    dataDtl['videoId'] = videoId
+                        # 파일 읽기
+                        for fileInfo in fileList:
+                            analyData = pd.read_csv(fileInfo)
+                            analyDataL1 = pd.concat([analyDataL1, analyData], ignore_index=True)
+                            allData = pd.concat([allData, analyData], ignore_index=True)
 
-                    dataL1 = pd.merge(data, dataDtl, how='left', on='videoId')
+                    # 일별 분석
+                    import nltk
+                    from nltk.tokenize import word_tokenize
+                    from nltk.corpus import stopwords
+                    from sklearn.feature_extraction.text import TfidfVectorizer
+                    import pandas as pd
+                    from konlpy.tag import Okt
+                    import nagisa
 
-                    dataL2 = pd.concat([dataL2, dataL1], ignore_index=True)
+                    # NLTK Stopwords 다운로드
+                    nltk.download('punkt')
+                    nltk.download('averaged_perceptron_tagger')
+                    nltk.download('stopwords')
+                    # stop_words = set(stopwords.words('english'))
+                    stop_words = set(stopwords.words())
 
-                if len(dataL2) < 1: continue
+                    def preprocess_and_tag_japanese(text):
+                        tagged = nagisa.tagging(text)
+                        # nouns = tagged.nouns()
+                        nouns = [word for word, tag in zip(tagged.words, tagged.postags) if tag == '名詞']
+                        return ' '.join(nouns)
 
-                # CSV 생성
-                saveFilePattern = '{}/{}'.format(sysOpt['colct']['savePath'], sysOpt['colct']['saveName'])
-                saveFile = datetime.now().strftime(saveFilePattern).format(regionCodeInfo, 'API')
-                os.makedirs(os.path.dirname(saveFile), exist_ok=True)
-                dataL2.to_csv(saveFile, index=False)
-                log.info(f'[CHECK] saveFile : {saveFile}')
 
-            # ===================================================================================
-            # 가공 파일 생산
-            # ===================================================================================
-            # for dtDateIdx, dtDateInfo in enumerate(dtDateList):
-            #     # log.info(f'[CHECK] dtDateInfo : {dtDateInfo}')
-            #
+                    # 텍스트 전처리 함수
+                    def preprocess_and_tag(text):
+                        words = word_tokenize(text.lower())
+                        words = [word for word in words if word.isalpha() and word not in stop_words]
+                        tagged = nltk.pos_tag(words)
+                        nouns = [word for word, pos in tagged if pos.startswith('NN')]
+                        return ' '.join(nouns)
+
+                    # TF-IDF 계산 함수
+                    def calculate_tfidf(corpus):
+                        # vectorizer = TfidfVectorizer(stop_words='english')
+                        vectorizer = TfidfVectorizer()
+                        tfidf_matrix = vectorizer.fit_transform(corpus)
+                        feature_names = vectorizer.get_feature_names_out()
+                        return pd.DataFrame(tfidf_matrix.toarray(), columns=feature_names)
+
+                    TfidfVectorizer(tokenizer=japanese_tokenizer())
+
+
+                    # 예시 데이터
+                    # texts = ["This is a sample sentence.", "Another example sentence with different words."]
+                    texts = analyDataL1['title'].drop_duplicates().tolist()
+
+                    # texts = ["This is a sample sentence.", "Another example sentence with different words."]
+                    # processed_texts = [preprocess_and_tag(text) for text in texts]
+
+                    # getDataTextAll = ' '.join([str(x) for x in texts])
+
+                    # 일본어 형태소 분석을 위한 토크나이저 함수
+                    def japanese_tokenizer(text):
+                        words = nagisa.tagging(text)
+                        return words.words
+
+                    # TF-IDF 계산 함수
+                    def calculate_tfidf_japanese(corpus):
+                        vectorizer = TfidfVectorizer(tokenizer=japanese_tokenizer)
+                        tfidf_matrix = vectorizer.fit_transform(corpus)
+                        feature_names = vectorizer.get_feature_names_out()
+                        return pd.DataFrame(tfidf_matrix.toarray(), columns=feature_names)
+
+                    # TF-IDF 점수가 가장 높은 단어를 찾는 함수
+                    def find_top_tfidf_words(tfidf_result, top_n=10):
+                        # 각 단어의 평균 TF-IDF 점수 계산
+                        mean_scores = tfidf_result.mean(axis=0)
+
+                        # 점수가 높은 순으로 정렬
+                        sorted_scores = mean_scores.sort_values(ascending=False)
+
+                        # 상위 N개의 단어 반환
+                        return sorted_scores.head(top_n)
+
+                    # 예시 데이터
+                    corpus = [
+                        '私は猫が好きです。',
+                        '犬も好きですが、猫の方がもっと好きです。',
+                        'では、猫と犬、どちらが好きですか？'
+                    ]
+
+                    # TF-IDF 계산
+                    tfidf_result = calculate_tfidf_japanese(corpus)
+
+                    # 결과 출력
+                    print(tfidf_result)
+
+
+                    # nlpy = Okt()
+                    # nounList = nlpy.nouns(getDataTextAll)
+
+                    # 전처리 및 품사 태깅
+                    processed_texts = [preprocess_and_tag(text) for text in texts]
+
+                    processed_texts = preprocess_and_tag_japanese(texts[11])
+
+                    nagisa.tagging(texts[11])
+
+                    # text = texts[11]
+
+                    # TF-IDF 계산
+                    # tfidf_result.columns
+                    tfidf_result = calculate_tfidf(processed_texts)
+
+                    top_words = find_top_tfidf_words(tfidf_result, top_n=10)
+                    print(top_words)
+
+                    from wordcloud import WordCloud
+                    import matplotlib.pyplot as plt
+
+                    def generate_wordcloud(tfidf_scores):
+                        wordcloud = WordCloud(background_color='white').generate_from_frequencies(tfidf_scores)
+                        plt.figure(figsize=(10, 8))
+                        plt.imshow(wordcloud, interpolation='bilinear')
+                        plt.axis('off')
+                        plt.show()
+
+                    tfidf_scores = tfidf_result.mean(axis=0).to_dict()
+
+                    wc = WordCloud(
+                                   background_color="white",
+                                   relative_scaling=1,
+                                   stopwords=stopwords)
+
+
+                    generate_wordcloud(tfidf_scores)
+
+                    # nounList = nlpy.nouns(getDataTextAll)
+                    # nounList = analyDataL1['title'].tolist()
+
+                    # 빈도 계산
+                    # countList = Counter(nounList)
+
+
+
+                # 전체 분석
+
+
+
+
+
+                #
             #     # dataL1 = xr.Dataset()
             #     for modelIdx, modelType in enumerate(sysOpt['modelList']):
             #         # log.info(f'[CHECK] modelType : {modelType}')
