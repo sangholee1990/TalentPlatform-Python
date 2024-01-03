@@ -6,32 +6,22 @@ import logging.handlers
 import os
 import platform
 import sys
-import time
 import traceback
 import warnings
+from collections import Counter
 from datetime import datetime
 
 import matplotlib as mpl
 import matplotlib.pyplot as plt
-import numpy as np
+import nagisa
+import nltk
 import pandas as pd
-import xarray as xr
-import re
-
-import matplotlib.pyplot as plt
-import numpy as np
-from matplotlib.ticker import ScalarFormatter
-import seaborn as sns
-import xarray as xr
-import seaborn as sns
-from pandas.tseries.offsets import Day, Hour, Minute, Second
-import re
-import tempfile
-import shutil
 from googleapiclient.discovery import build
-from googleapiclient.errors import HttpError
-from oauth2client.tools import argparser
-
+from konlpy.tag import Okt
+from nltk.corpus import stopwords
+from nltk.tokenize import word_tokenize
+from sklearn.feature_extraction.text import TfidfVectorizer
+from wordcloud import WordCloud
 
 # =================================================
 # 사용자 매뉴얼
@@ -248,6 +238,147 @@ def getVideoReply(apiYoutube=None, videoId=None, maxResultsRep=10, maxResultsRep
         log.error(f'Exception : {e}')
         return dataL1
 
+def getTermFreqIdf(corpus):
+
+    result = None
+
+    try:
+        vectorizer = TfidfVectorizer()
+        tfidf_matrix = vectorizer.fit_transform(corpus)
+        feature_names = vectorizer.get_feature_names_out()
+        result = pd.DataFrame(tfidf_matrix.toarray(), columns=feature_names)
+
+        return result
+
+    except Exception as e:
+        log.error(f'Exception : {e}')
+        return result
+
+
+def getProcTag(text, regionCode):
+
+    result = None
+    stop_words = set(stopwords.words())
+
+    try:
+        if regionCode == 'JP':
+            tagged = nagisa.tagging(text)
+            nouns = [word for word, tag in zip(tagged.words, tagged.postags) if tag == '名詞']
+        elif regionCode == 'KR':
+            nouns = Okt().nouns(text)
+        else:
+            words = word_tokenize(text.lower())
+            words = [word for word in words if word.isalpha() and word not in stop_words]
+            tagged = nltk.pos_tag(words)
+            nouns = [word for word, pos in tagged if pos.startswith('NN')]
+
+        result = ' '.join(nouns)
+        return result
+
+    except Exception as e:
+        log.error(f'Exception : {e}')
+        return result
+
+def getTopTermFreqIdf(tfidf_result, topNum=10):
+
+    result = None
+
+    try:
+        mean_scores = tfidf_result.mean(axis=0)
+        sorted_scores = mean_scores.sort_values(ascending=False)
+
+        result = sorted_scores.head(topNum)
+        return result
+
+    except Exception as e:
+        log.error(f'Exception : {e}')
+        return result
+
+
+def makeTermProc(sysOpt, dtDateInfo, modelType, period, data, key, regionCode):
+
+    try:
+        textList = data[key].drop_duplicates().tolist()
+
+        # 전처리 및 품사 태깅
+        procText = [getProcTag(text, regionCode=regionCode) for text in textList]
+
+        # TF 단어
+        termList = ' '.join(procText).split()
+
+        # TF 단어 빈도
+        termFreq = Counter(termList)
+
+        # TF 저장
+        saveFilePattern = '{}/{}'.format(sysOpt['analy']['savePath'], sysOpt['analy']['saveTfName'])
+        saveFile = dtDateInfo.strftime(saveFilePattern).format(regionCode, modelType, period, key)
+        os.makedirs(os.path.dirname(saveFile), exist_ok=True)
+
+        saveData = pd.DataFrame.from_dict(termFreq.items()).rename({0: 'term', 1: 'freq'}, axis=1)
+        saveData['cum'] = saveData['freq'].cumsum() / saveData['freq'].sum() * 100
+        saveData.to_csv(saveFile, index=False)
+        log.info(f'[CHECK] saveFile : {saveFile}')
+
+        # TF 시각화
+        saveImgPattern = '{}/{}'.format(sysOpt['analy']['savePath'], sysOpt['analy']['saveTfImg'])
+        saveImg = dtDateInfo.strftime(saveImgPattern).format(regionCode, modelType, period, key)
+        os.makedirs(os.path.dirname(saveImg), exist_ok=True)
+
+        wordcloud = WordCloud(
+            width=1500
+            , height=1500
+            , background_color=None
+            , mode='RGBA'
+            , font_path=globalVar['fontPath']
+        ).generate_from_frequencies(termFreq)
+
+        plt.imshow(wordcloud, interpolation='bilinear')
+        plt.axis('off')
+        plt.tight_layout()
+        plt.savefig(saveImg, dpi=600, bbox_inches='tight', transparent=True)
+        # plt.show()
+        plt.close()
+        log.info(f'[CHECK] saveImg : {saveImg}')
+
+        # TF-IDF 계산
+        termFreqIdfData = getTermFreqIdf(procText)
+        topTermFreqIdf = getTopTermFreqIdf(termFreqIdfData, topNum=100)
+
+        # TF-IDF 저장
+        saveFilePattern = '{}/{}'.format(sysOpt['analy']['savePath'], sysOpt['analy']['saveTfIdfName'])
+        saveFile = dtDateInfo.strftime(saveFilePattern).format(regionCode, modelType, period, key)
+        os.makedirs(os.path.dirname(saveFile), exist_ok=True)
+
+        saveData = pd.DataFrame.from_dict(topTermFreqIdf.items()).rename({0: 'term', 1: 'freq'}, axis=1)
+        saveData['cum'] = saveData['freq'].cumsum() / saveData['freq'].sum() * 100
+        saveData.to_csv(saveFile, index=False)
+        log.info(f'[CHECK] saveFile : {saveFile}')
+
+        # TF 시각화
+        saveImgPattern = '{}/{}'.format(sysOpt['analy']['savePath'], sysOpt['analy']['saveTfIdfImg'])
+        saveImg = dtDateInfo.strftime(saveImgPattern).format(regionCode, modelType, period, key)
+        os.makedirs(os.path.dirname(saveImg), exist_ok=True)
+
+        # TF-IDF 시각화
+        wordcloud = WordCloud(
+            width=1500
+            , height=1500
+            , background_color=None
+            , mode='RGBA'
+            , font_path=globalVar['fontPath']
+        ).generate_from_frequencies(topTermFreqIdf)
+
+        plt.imshow(wordcloud, interpolation='bilinear')
+        plt.axis('off')
+        plt.tight_layout()
+        plt.savefig(saveImg, dpi=600, bbox_inches='tight', transparent=True)
+        # plt.show()
+        plt.close()
+        log.info(f'[CHECK] saveImg : {saveImg}')
+
+    except Exception as e:
+        log.error(f'Exception : {e}')
+
 # ================================================
 # 4. 부 프로그램
 # ================================================
@@ -329,12 +460,14 @@ class DtaProcess(object):
         try:
 
             if (platform.system() == 'Windows'):
+                globalVar['fontPath'] = 'C:/Windows/Fonts/malgun.ttf'
                 pass
             else:
                 globalVar['inpPath'] = '/DATA/INPUT'
                 globalVar['outPath'] = '/DATA/OUTPUT'
                 globalVar['figPath'] = '/DATA/FIG'
                 globalVar['updPath'] = '/DATA/CSV'
+                globalVar['fontPath'] = '/SYSTEMS/PROG/PYTHON/PyCharm/resources/config/fontInfo/malgun.ttf'
 
             # 옵션 설정
             sysOpt = {
@@ -343,17 +476,16 @@ class DtaProcess(object):
                     , 'apiVer': 'v3'
                     , 'apiKey': '인증키'
 
-
                     # 국가 코드 목록
                     , 'regionCodeList': ['BR', 'CA', 'DE', 'FR', 'GB', 'IN', 'JP', 'MX', 'RU', 'US', 'KR']
 
                     # 수집 최대 개수 설정
                     # 영상 개수
-                    , 'videnCnt': 2
+                    , 'videnCnt': 10
                     # 영상 1개당 댓글 개수
-                    , 'replyCnt': 2
+                    , 'replyCnt': 10
                     # 영상 1개, 댓글 1개당 대댓글 수
-                    , 'replyDtlCnt': 2
+                    , 'replyDtlCnt': 10
 
                     # 저장 파일경로/파일명
                     , 'savePath': '/DATA/OUTPUT/LSH0536/colct/%Y%m/%d'
@@ -361,79 +493,72 @@ class DtaProcess(object):
                 }
                 , 'analy': {
                     # 시작일, 종료일, 시간 간격 (시간 1h)
-                    'srtDate': '2024-01-01'
+                    # 'srtDate': '2024-01-01'
+                    # , 'endDate': '2024-01-04'
+                    'srtDate': '2024-01-03'
                     , 'endDate': '2024-01-04'
                     , 'invDate': '1h'
 
                     # 수행 목록
                     , 'modelList': ['API']
 
-                    # 수행 정보
-                    , 'inpPath': '/DATA/OUTPUT/LSH0536/colct/%Y%m/%d'
-                    , 'inpName': '{}_{}_youtube_trending_data_%Y%m%d%H.csv'
+                    # 저장 파일경로/파일명
+                    , 'savePath': '/DATA/OUTPUT/LSH0536/analy/%Y%m/%d'
+                    , 'saveTfName': '{}_{}_{}_{}_termFreq_%Y%m%d%H.csv'
+                    , 'saveTfIdfName': '{}_{}_{}_{}_termFreqIdf_%Y%m%d%H.csv'
+                    , 'saveTfImg': '{}_{}_{}_{}_termFreq_%Y%m%d%H.png'
+                    , 'saveTfIdfImg': '{}_{}_{}_{}_termFreqIdf_%Y%m%d%H.png'
                 }
             }
-
-            #     # 이렇게 진행 중인데, 코드 자체를 오래된 버전을 쓰고 있기도 하고 (1) 사이트가 막히면 인급동 크롤링을 못하는 상황이어서요.
-            #     # 코드를 좀 더 간단하고 최신 버전으로 업그레이드해서 여러 사이트와 툴을 오가는 작업을 좀 간추려보고 싶습니다.
-            #
-            #     # 오 네! 1번은 제가 지금 가지고 있는 api로 현재 코드를 실행했을 때 하루치 인급동(50개 영상 정보)은 여유롭게 됐던 것 같은데, 24시간 리셋을 기다려야 하니.
-            #     # 그러면 하루에 인급동 2회 정도만 (오전/오후) 크롤링 할 수 있게 되면 좋을 것 같아요.
-            #
-            #     # 댓글 수집은 제가 코드를 가지고 있는 게 있는데, 대댓글까지 완벽히 수집되지는 않아서 수정 필요한 부분이 있는지만 봐주시면 될 것 같습니다!
-            #     # 2번은 파이썬으로 통합 부탁드립니다!
-            #     # - 6. 3에서 뽑은 영상의 title, description 등 텍스트 정보 추출해서 유튜브 영상 키워드의 빈도 순위 (tf & tf-idf)
-            #     # - 7. 4 댓글들의 키워드 빈도 순위 (tf & tf-idf)
-            #     # *빈도는 업무에서는 tf-idf를 주로 활용하나, 단순 tf도 참고를 위해 확인하고 있습니다
 
             # ============================================================================================
             # Python을 이용한 유튜브 급상승 영상 및 댓글 수집
             # ============================================================================================
-            # # youtube = build('youtube', 'v3', developerKey='인증키')
-            # apiYoutube = build(sysOpt['colct']['apiName'], sysOpt['colct']['apiVer'], developerKey=sysOpt['colct']['apiKey'])
-            # log.info(f'[CHECK] sysOpt(colct) : {sysOpt["colct"]}')
-            #
-            # for regionCode in sysOpt['colct']['regionCodeList']:
-            #     log.info(f'[CHECK] regionCode : {regionCode}')
-            #
-            #     # 특정 지역의 급상승 동영상을 가져옴
-            #     trendVideoList = getTrendVideo(apiYoutube=apiYoutube, regionCode=regionCode, maxResultsVideo=sysOpt['colct']['videnCnt'])
-            #
-            #     # trendVideoInfo = trendVideoList[0]
-            #     dataL2 = pd.DataFrame()
-            #     for trendVideoInfo in trendVideoList:
-            #         videoId = trendVideoInfo['id']
-            #         snippetInfo = trendVideoInfo['snippet']
-            #         channelId = snippetInfo.get('channelId')
-            #
-            #         data = pd.DataFrame({
-            #             'videoId': [videoId]
-            #             , 'channelId': [channelId]
-            #             , 'url': [f'https://www.youtube.com/watch?v={videoId}&ab_channel={channelId}']
-            #             , 'regionCode': [regionCode]
-            #             , 'title': [snippetInfo.get('title')]
-            #             , 'description': [snippetInfo.get('description')]
-            #             , 'channelTitle': [snippetInfo.get('channelTitle')]
-            #             , 'tags': [snippetInfo.get('tags')]
-            #             , 'publishedAt': [snippetInfo.get('publishedAt')]
-            #             , 'defaultAudioLanguage': [snippetInfo.get('defaultAudioLanguage')]
-            #         })
-            #
-            #         dataDtl = getVideoReply(apiYoutube=apiYoutube, videoId=videoId, maxResultsRep=sysOpt['colct']['replyCnt'], maxResultsRepDtl=sysOpt['colct']['replyDtlCnt'])
-            #         dataDtl['videoId'] = videoId
-            #
-            #         dataL1 = pd.merge(data, dataDtl, how='left', on='videoId')
-            #
-            #         dataL2 = pd.concat([dataL2, dataL1], ignore_index=True)
-            #
-            #     if len(dataL2) < 1: continue
-            #
-            #     # CSV 생성
-            #     saveFilePattern = '{}/{}'.format(sysOpt['colct']['savePath'], sysOpt['colct']['saveName'])
-            #     saveFile = datetime.now().strftime(saveFilePattern).format(regionCode, 'API')
-            #     os.makedirs(os.path.dirname(saveFile), exist_ok=True)
-            #     dataL2.to_csv(saveFile, index=False)
-            #     log.info(f'[CHECK] saveFile : {saveFile}')
+            # youtube = build('youtube', 'v3', developerKey='인증키')
+            apiYoutube = build(sysOpt['colct']['apiName'], sysOpt['colct']['apiVer'], developerKey=sysOpt['colct']['apiKey'])
+            log.info(f'[CHECK] sysOpt(colct) : {sysOpt["colct"]}')
+
+            for regionCode in sysOpt['colct']['regionCodeList']:
+                log.info(f'[CHECK] regionCode : {regionCode}')
+
+                # 특정 지역의 급상승 동영상을 가져옴
+                trendVideoList = getTrendVideo(apiYoutube=apiYoutube, regionCode=regionCode, maxResultsVideo=sysOpt['colct']['videnCnt'])
+
+                # trendVideoInfo = trendVideoList[0]
+                dataL2 = pd.DataFrame()
+                for trendVideoInfo in trendVideoList:
+                    videoId = trendVideoInfo['id']
+                    snippetInfo = trendVideoInfo['snippet']
+                    channelId = snippetInfo.get('channelId')
+
+                    data = pd.DataFrame({
+                        'videoId': [videoId]
+                        , 'channelId': [channelId]
+                        , 'url': [f'https://www.youtube.com/watch?v={videoId}&ab_channel={channelId}']
+                        , 'regionCode': [regionCode]
+                        , 'title': [snippetInfo.get('title')]
+                        , 'description': [snippetInfo.get('description')]
+                        , 'channelTitle': [snippetInfo.get('channelTitle')]
+                        , 'tags': [snippetInfo.get('tags')]
+                        , 'publishedAt': [snippetInfo.get('publishedAt')]
+                        , 'defaultAudioLanguage': [snippetInfo.get('defaultAudioLanguage')]
+                    })
+
+                    dataDtl = getVideoReply(apiYoutube=apiYoutube, videoId=videoId, maxResultsRep=sysOpt['colct']['replyCnt'], maxResultsRepDtl=sysOpt['colct']['replyDtlCnt'])
+                    dataDtl['videoId'] = videoId
+
+                    dataL1 = pd.merge(data, dataDtl, how='left', on='videoId')
+
+                    dataL2 = pd.concat([dataL2, dataL1], ignore_index=True)
+
+                if len(dataL2) < 1: continue
+
+                # CSV 생성
+                saveFilePattern = '{}/{}'.format(sysOpt['colct']['savePath'], sysOpt['colct']['saveName'])
+                saveFile = datetime.now().strftime(saveFilePattern).format(regionCode, 'API')
+                os.makedirs(os.path.dirname(saveFile), exist_ok=True)
+                dataL2.to_csv(saveFile, index=False)
+                log.info(f'[CHECK] saveFile : {saveFile}')
 
             # ===================================================================================
             # Python을 이용한 유튜브 급상승 영상 및 댓글 분석
@@ -443,16 +568,20 @@ class DtaProcess(object):
             dtEndDate = pd.to_datetime(sysOpt['analy']['endDate'], format='%Y-%m-%d')
             dtDateList = pd.date_range(start=dtSrtDate, end=dtEndDate, freq=sysOpt['analy']['invDate'])
 
+            # NLTK Stopwords 다운로드
+            nltk.download('punkt', quiet=True)
+            nltk.download('averaged_perceptron_tagger', quiet=True)
+            nltk.download('stopwords', quiet=True)
+
             for modelType in sysOpt['analy']['modelList']:
                 log.info(f'[CHECK] modelType : {modelType}')
 
-                allData = pd.DataFrame()
-                for dtDateInfo in dtDateList:
-                    log.info(f'[CHECK] dtDateInfo : {dtDateInfo}')
+                for regionCode in sysOpt['colct']['regionCodeList']:
+                    log.info(f'[CHECK] regionCode : {regionCode}')
 
-                    analyDataL1 = pd.DataFrame()
-                    for regionCode in sysOpt['colct']['regionCodeList']:
-                        log.info(f'[CHECK] regionCode : {regionCode}')
+                    allData = pd.DataFrame()
+                    for dtDateInfo in dtDateList:
+                        log.info(f'[CHECK] dtDateInfo : {dtDateInfo}')
 
                         inpFilePattern = '{}/{}'.format(sysOpt['colct']['savePath'], sysOpt['colct']['saveName'])
                         inpFile = dtDateInfo.strftime(inpFilePattern).format(regionCode, modelType)
@@ -463,280 +592,21 @@ class DtaProcess(object):
                         # 파일 읽기
                         for fileInfo in fileList:
                             analyData = pd.read_csv(fileInfo)
-                            analyDataL1 = pd.concat([analyDataL1, analyData], ignore_index=True)
                             allData = pd.concat([allData, analyData], ignore_index=True)
 
-                    # 일별 분석
-                    import nltk
-                    from nltk.tokenize import word_tokenize
-                    from nltk.corpus import stopwords
-                    from sklearn.feature_extraction.text import TfidfVectorizer
-                    import pandas as pd
-                    from konlpy.tag import Okt
-                    import nagisa
+                            # 매 국가코드/시간에 따른 텍스트 분석
+                            makeTermProc(sysOpt, dtDateInfo, modelType, 'hourly', analyData, 'title', regionCode)
+                            makeTermProc(sysOpt, dtDateInfo, modelType, 'hourly', analyData, 'description', regionCode)
+                            makeTermProc(sysOpt, dtDateInfo, modelType, 'hourly', analyData, 'replyText', regionCode)
+                            makeTermProc(sysOpt, dtDateInfo, modelType, 'hourly', analyData, 'replyDtlText', regionCode)
 
-                    # NLTK Stopwords 다운로드
-                    nltk.download('punkt')
-                    nltk.download('averaged_perceptron_tagger')
-                    nltk.download('stopwords')
-                    # stop_words = set(stopwords.words('english'))
-                    stop_words = set(stopwords.words())
+                    if len(allData) < 1: continue
 
-                    def preprocess_and_tag_japanese(text):
-                        tagged = nagisa.tagging(text)
-                        # nouns = tagged.nouns()
-                        nouns = [word for word, tag in zip(tagged.words, tagged.postags) if tag == '名詞']
-                        return ' '.join(nouns)
-
-
-                    # 텍스트 전처리 함수
-                    def preprocess_and_tag(text):
-                        words = word_tokenize(text.lower())
-                        words = [word for word in words if word.isalpha() and word not in stop_words]
-                        tagged = nltk.pos_tag(words)
-                        nouns = [word for word, pos in tagged if pos.startswith('NN')]
-                        return ' '.join(nouns)
-
-                    # TF-IDF 계산 함수
-                    def calculate_tfidf(corpus):
-                        # vectorizer = TfidfVectorizer(stop_words='english')
-                        vectorizer = TfidfVectorizer()
-                        tfidf_matrix = vectorizer.fit_transform(corpus)
-                        feature_names = vectorizer.get_feature_names_out()
-                        return pd.DataFrame(tfidf_matrix.toarray(), columns=feature_names)
-
-                    TfidfVectorizer(tokenizer=japanese_tokenizer())
-
-
-                    # 예시 데이터
-                    # texts = ["This is a sample sentence.", "Another example sentence with different words."]
-                    texts = analyDataL1['title'].drop_duplicates().tolist()
-
-                    # texts = ["This is a sample sentence.", "Another example sentence with different words."]
-                    # processed_texts = [preprocess_and_tag(text) for text in texts]
-
-                    # getDataTextAll = ' '.join([str(x) for x in texts])
-
-                    # 일본어 형태소 분석을 위한 토크나이저 함수
-                    def japanese_tokenizer(text):
-                        words = nagisa.tagging(text)
-                        return words.words
-
-                    # TF-IDF 계산 함수
-                    def calculate_tfidf_japanese(corpus):
-                        vectorizer = TfidfVectorizer(tokenizer=japanese_tokenizer)
-                        tfidf_matrix = vectorizer.fit_transform(corpus)
-                        feature_names = vectorizer.get_feature_names_out()
-                        return pd.DataFrame(tfidf_matrix.toarray(), columns=feature_names)
-
-                    # TF-IDF 점수가 가장 높은 단어를 찾는 함수
-                    def find_top_tfidf_words(tfidf_result, top_n=10):
-                        # 각 단어의 평균 TF-IDF 점수 계산
-                        mean_scores = tfidf_result.mean(axis=0)
-
-                        # 점수가 높은 순으로 정렬
-                        sorted_scores = mean_scores.sort_values(ascending=False)
-
-                        # 상위 N개의 단어 반환
-                        return sorted_scores.head(top_n)
-
-                    # 예시 데이터
-                    corpus = [
-                        '私は猫が好きです。',
-                        '犬も好きですが、猫の方がもっと好きです。',
-                        'では、猫と犬、どちらが好きですか？'
-                    ]
-
-                    # TF-IDF 계산
-                    tfidf_result = calculate_tfidf_japanese(corpus)
-
-                    # 결과 출력
-                    print(tfidf_result)
-
-
-                    # nlpy = Okt()
-                    # nounList = nlpy.nouns(getDataTextAll)
-
-                    # 전처리 및 품사 태깅
-                    processed_texts = [preprocess_and_tag(text) for text in texts]
-
-                    processed_texts = preprocess_and_tag_japanese(texts[11])
-
-                    nagisa.tagging(texts[11])
-
-                    # text = texts[11]
-
-                    # TF-IDF 계산
-                    # tfidf_result.columns
-                    tfidf_result = calculate_tfidf(processed_texts)
-
-                    top_words = find_top_tfidf_words(tfidf_result, top_n=10)
-                    print(top_words)
-
-                    from wordcloud import WordCloud
-                    import matplotlib.pyplot as plt
-
-                    def generate_wordcloud(tfidf_scores):
-                        wordcloud = WordCloud(background_color='white').generate_from_frequencies(tfidf_scores)
-                        plt.figure(figsize=(10, 8))
-                        plt.imshow(wordcloud, interpolation='bilinear')
-                        plt.axis('off')
-                        plt.show()
-
-                    tfidf_scores = tfidf_result.mean(axis=0).to_dict()
-
-                    wc = WordCloud(
-                                   background_color="white",
-                                   relative_scaling=1,
-                                   stopwords=stopwords)
-
-
-                    generate_wordcloud(tfidf_scores)
-
-                    # nounList = nlpy.nouns(getDataTextAll)
-                    # nounList = analyDataL1['title'].tolist()
-
-                    # 빈도 계산
-                    # countList = Counter(nounList)
-
-
-
-                # 전체 분석
-
-
-
-
-
-                #
-            #     # dataL1 = xr.Dataset()
-            #     for modelIdx, modelType in enumerate(sysOpt['modelList']):
-            #         # log.info(f'[CHECK] modelType : {modelType}')
-            #
-            #         modelInfo = sysOpt.get(modelType)
-            #         if modelInfo is None: continue
-            #
-            #         for varIdx, varInfo in enumerate(modelInfo['varList']):
-            #             # log.info(f'[CHECK] varInfo : {varInfo}')
-            #
-            #             procFilePattern = '{}/{}'.format(modelInfo['procPath'], modelInfo['procName'])
-            #             procFile = dtDateInfo.strftime(procFilePattern).format(modelType.lower(), varInfo)
-            #
-            #             # 파일 덮어쓰기 및 파일 존재 여부
-            #             if not modelInfo['isOverWrite'] and os.path.exists(procFile): continue
-            #
-            #             inpFilePattern = '{}/{}'.format(modelInfo['filePath'], modelInfo['fileName'])
-            #             inpFile = dtDateInfo.strftime(inpFilePattern).format(varInfo, varInfo)
-            #             fileList = sorted(glob.glob(inpFile))
-            #
-            #             if fileList is None or len(fileList) < 1:
-            #                 # log.error(f'inpFile : {inpFile} / 입력 자료를 확인해주세요')
-            #                 continue
-            #
-            #             # 파일 읽기
-            #             for j, fileInfo in enumerate(fileList):
-            #                 data = pd.read_csv(fileInfo, sep='\s+')
-            #                 log.info(f'[CHECK] fileInfo : {fileInfo}')
-            #
-            #                 modelInfo['comVar']['Value'] = varInfo
-            #                 dataL1 = data.rename(columns = modelInfo['comVar'])[modelInfo['comVar'].values()]
-            #                 dataL1['time'] = dtDateInfo
-            #
-            #                 if (len(dataL1) < 1): continue
-            #
-            #                 # CSV to NetCDF 변환
-            #                 dataL2 = dataL1.set_index(['time', 'lat', 'lon'])
-            #                 dataL3 = dataL2.to_xarray()
-            #
-            #                 # 특정 변수 선택 및  위경도 내삽
-            #                 dataL4 = dataL3[varInfo].interp({'lon': lonList, 'lat': latList}, method='linear')
-            #
-            #                 # 0 초과 필터, 그 외 결측값 NA
-            #                 dataL5 = dataL4.where((dataL4 > 0))
-            #
-            #                 # dataL5.isel(time = 0).plot()
-            #                 # plt.show()
-            #
-            #                 # NetCDF 저장
-            #                 os.makedirs(os.path.dirname(procFile), exist_ok=True)
-            #                 dataL5.to_netcdf(procFile)
-            #                 log.info(f'[CHECK] procFile : {procFile}')
-            #
-            # # ===================================================================================
-            # # 통계 파일 생산
-            # # ===================================================================================
-            # for invIdx, invDate in enumerate(sysOpt['invDateList']):
-            #     log.info(f'[CHECK] invDate : {invDate}')
-            #
-            #     dtDateList = pd.date_range(start=dtSrtDate, end=dtEndDate, freq=invDate)
-            #     for dtDateIdx, dtDateInfo in enumerate(dtDateList):
-            #         # log.info(f'[CHECK] dtDateInfo : {dtDateInfo}')
-            #
-            #         # dataL1 = xr.Dataset()
-            #         for modelIdx, modelType in enumerate(sysOpt['modelList']):
-            #             # log.info(f'[CHECK] modelType : {modelType}')
-            #
-            #             modelInfo = sysOpt.get(modelType)
-            #             if modelInfo is None: continue
-            #
-            #             for varIdx, varInfo in enumerate(modelInfo['varList']):
-            #                 # log.info(f'[CHECK] varInfo : {varInfo}')
-            #
-            #                 searchFilePattern = '{}/{}'.format(modelInfo['searchPath'][invDate], modelInfo['searchName'][invDate])
-            #                 searchFile = dtDateInfo.strftime(searchFilePattern).format(modelType.lower(), varInfo)
-            #                 fileList = sorted(glob.glob(searchFile))
-            #
-            #                 if fileList is None or len(fileList) < 1:
-            #                     # log.error(f'inpFile : {inpFile} / 입력 자료를 확인해주세요')
-            #                     continue
-            #
-            #                 data = xr.open_mfdataset(fileList)
-            #
-            #                 # 통계 종류 (연, 월, 일)
-            #                 if re.search('y', invDate, re.IGNORECASE):
-            #                     statType = 'time.year'
-            #                 elif re.search('m', invDate, re.IGNORECASE):
-            #                     statType = 'time.month'
-            #                 elif re.search('d', invDate, re.IGNORECASE):
-            #                     statType = 'time.day'
-            #                 else:
-            #                     continue
-            #
-            #                 # 주요 변수에 따라 통계 (평균 mean, 합계 sum) 계산
-            #                 if re.search('2t|2t', varInfo, re.IGNORECASE):
-            #                     statData = data.groupby(statType).mean(skipna=True)
-            #                 elif re.search('cp|cp', varInfo, re.IGNORECASE):
-            #                     statData = data.groupby(statType).sum(skipna=True)
-            #                 else:
-            #                     continue
-            #
-            #                 # cntData = data.groupby('time.day').count().isel(day = 0).rename({'2t': 'cnt'})
-            #
-            #                 # 불필요한 변수/차원 삭제
-            #                 delList = ['year', 'month', 'day']
-            #                 for i, delInfo in enumerate(delList):
-            #                     try:
-            #                         statData = statData.drop_vars(delInfo)
-            #                         statData = statData[varInfo].isel({delInfo : 0})
-            #                         break
-            #                     except Exception as e:
-            #                         pass
-            #
-            #                 # dataL1 = xr.merge([statData, cntData])
-            #                 dataL1 = statData
-            #                 dataL2 = dataL1.to_dataframe().reset_index(drop=False)
-            #
-            #                 # CSV 생성
-            #                 saveFilePattern = '{}/{}'.format(modelInfo['savePath'][invDate], modelInfo['saveName'][invDate])
-            #                 saveFile = dtDateInfo.strftime(saveFilePattern).format(modelType.lower(), invDate, varInfo, len(fileList))
-            #                 os.makedirs(os.path.dirname(saveFile), exist_ok=True)
-            #                 dataL2.to_csv(saveFile, index=False)
-            #                 log.info(f'[CHECK] saveFile : {saveFile}')
-            #
-            #                 # NetCDF 생성
-            #                 saveNcFile = saveFile.replace('.csv', '.nc')
-            #                 os.makedirs(os.path.dirname(saveNcFile), exist_ok=True)
-            #                 statData.to_netcdf(saveNcFile)
-            #                 log.info(f'[CHECK] saveNcFile : {saveNcFile}')
+                    # 매 국가코드에 따른 텍스트 분석
+                    makeTermProc(sysOpt, datetime.now(), modelType, 'period', allData, 'title', regionCode)
+                    makeTermProc(sysOpt, datetime.now(), modelType, 'period', allData, 'description', regionCode)
+                    makeTermProc(sysOpt, datetime.now(), modelType, 'period', allData,  'replyText', regionCode)
+                    makeTermProc(sysOpt, datetime.now(), modelType, 'period', allData,  'replyDtlText', regionCode)
 
         except Exception as e:
             log.error("Exception : {}".format(e))
