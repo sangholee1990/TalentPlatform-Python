@@ -263,8 +263,6 @@ class Handler(FileSystemEventHandler):
         self.patterns = patterns
 
     def on_any_event(self, event):
-        log.info(f'[CHECK] event : {event} / event_type : {event.event_type} / src_path : {event.src_path}')
-
         if not any(fnmatch.fnmatch(event.src_path, pattern) for pattern in self.patterns): return
         if not re.search('closed', event.event_type, re.IGNORECASE): return
         if not os.path.exists(event.src_path): return
@@ -291,6 +289,10 @@ class DtaProcess(object):
     # conda activate py38
     # cd /SYSTEMS/PROG/PYTHON/PyCharm/src/proj/bdwide/2023
     # nohup python TalentPlatform-bdwide-FileWatch.py &
+
+    # 입력 자료
+    # /DATA/LABEL/ORG/생성일
+    # *.jpg, *.json
 
     # ================================================================================================
     # 환경변수 설정
