@@ -21,6 +21,7 @@ from nltk.corpus import stopwords
 from nltk.tokenize import word_tokenize
 from sklearn.feature_extraction.text import TfidfVectorizer
 from wordcloud import WordCloud
+import itertools
 
 # =================================================
 # 사용자 매뉴얼
@@ -196,6 +197,7 @@ def getProcTag(text, regionCode):
             nouns = [word for word, pos in tagged if pos.startswith('NN')]
 
         result = ' '.join(nouns)
+
         return result
 
     except Exception as e:
@@ -223,21 +225,36 @@ def makeTermProc(sysOpt, dtDateInfo, modelType, period, data, key, regionCode):
     try:
         srtDate = pd.to_datetime(sysOpt['analy']['srtDate']).strftime('%Y%m%d')
         endDate = pd.to_datetime(sysOpt['analy']['endDate']).strftime('%Y%m%d')
+        keyJoin = '-'.join(key)
 
-        textList = data[key].drop_duplicates().tolist()
+        # joined_string = ', '.join(a)
+
+        # 중복 제거
+        # textList = data[key].drop_duplicates().tolist()
+        # textList = data[key].tolist()
+
+        # 병합 처리
+        comTextList = [data[k].tolist() for k in key]
+        procTextList = list(itertools.chain(*comTextList))
+
+        # 결측값 제거
+        textList = [item for item in procTextList if not pd.isna(item)]
 
         # 전처리 및 품사 태깅
         procText = [getProcTag(text, regionCode=regionCode) for text in textList]
 
+        # 공백 제거
+        procTextL1 = [item for item in procText if item.strip()]
+
         # TF 단어
-        termList = ' '.join(procText).split()
+        termList = ' '.join(procTextL1).split()
 
         # TF 단어 빈도
         termFreq = Counter(termList)
 
         # TF 저장
         saveFilePattern = '{}/{}'.format(sysOpt['analy']['savePath'], sysOpt['analy']['saveTfName'])
-        saveFile = dtDateInfo.strftime(saveFilePattern).format(regionCode, modelType, period, key, srtDate, endDate)
+        saveFile = dtDateInfo.strftime(saveFilePattern).format(regionCode, modelType, period, keyJoin, srtDate, endDate)
         os.makedirs(os.path.dirname(saveFile), exist_ok=True)
 
         saveData = pd.DataFrame.from_dict(termFreq.items()).rename({0: 'term', 1: 'freq'}, axis=1).sort_values(by='freq', ascending=False)
@@ -247,7 +264,7 @@ def makeTermProc(sysOpt, dtDateInfo, modelType, period, data, key, regionCode):
 
         # TF 시각화
         saveImgPattern = '{}/{}'.format(sysOpt['analy']['savePath'], sysOpt['analy']['saveTfImg'])
-        saveImg = dtDateInfo.strftime(saveImgPattern).format(regionCode, modelType, period, key, srtDate, endDate)
+        saveImg = dtDateInfo.strftime(saveImgPattern).format(regionCode, modelType, period, keyJoin, srtDate, endDate)
         os.makedirs(os.path.dirname(saveImg), exist_ok=True)
 
         wordcloud = WordCloud(
@@ -272,7 +289,7 @@ def makeTermProc(sysOpt, dtDateInfo, modelType, period, data, key, regionCode):
 
         # TF-IDF 저장
         saveFilePattern = '{}/{}'.format(sysOpt['analy']['savePath'], sysOpt['analy']['saveTfIdfName'])
-        saveFile = dtDateInfo.strftime(saveFilePattern).format(regionCode, modelType, period, key, srtDate, endDate)
+        saveFile = dtDateInfo.strftime(saveFilePattern).format(regionCode, modelType, period, keyJoin, srtDate, endDate)
         os.makedirs(os.path.dirname(saveFile), exist_ok=True)
 
         saveData = pd.DataFrame.from_dict(topTermFreqIdf.items()).rename({0: 'term', 1: 'freq'}, axis=1)
@@ -282,7 +299,7 @@ def makeTermProc(sysOpt, dtDateInfo, modelType, period, data, key, regionCode):
 
         # TF 시각화
         saveImgPattern = '{}/{}'.format(sysOpt['analy']['savePath'], sysOpt['analy']['saveTfIdfImg'])
-        saveImg = dtDateInfo.strftime(saveImgPattern).format(regionCode, modelType, period, key, srtDate, endDate)
+        saveImg = dtDateInfo.strftime(saveImgPattern).format(regionCode, modelType, period, keyJoin, srtDate, endDate)
         os.makedirs(os.path.dirname(saveImg), exist_ok=True)
 
         # TF-IDF 시각화
@@ -401,7 +418,7 @@ class DtaProcess(object):
                     # 시작일, 종료일, 시간 간격 (시간 1h)
                     # 'srtDate': '2024-01-01'
                     # , 'endDate': '2024-01-04'
-                    'srtDate': '2024-01-01'
+                    'srtDate': '2024-01-09'
                     , 'endDate': '2024-01-10'
                     , 'invDate': '1h'
 
@@ -475,17 +492,14 @@ class DtaProcess(object):
 
                         # 매 국가코드/일별에 따른 텍스트 분석
                         if len(dailyData) > 0:
-                            makeTermProc(sysOpt, dtDateInfo.normalize(), modelType, 'daily', dailyData, 'title', regionCode)
-                            makeTermProc(sysOpt, dtDateInfo.normalize(), modelType, 'daily', dailyData, 'description', regionCode)
-                            makeTermProc(sysOpt, dtDateInfo.normalize(), modelType, 'daily', dailyData, 'replyText', regionCode)
-                            makeTermProc(sysOpt, dtDateInfo.normalize(), modelType, 'daily', dailyData, 'replyDtlText', regionCode)
+                            makeTermProc(sysOpt, dtDateInfo.normalize(), modelType, 'daily', dailyData, ['title'], regionCode)
+                            makeTermProc(sysOpt, dtDateInfo.normalize(), modelType, 'daily', dailyData, ['description', 'replyText', 'replyDtlText'], regionCode)
+
 
                     # 매 국가코드에 따른 텍스트 분석
                     if len(periodData) > 0:
-                        makeTermProc(sysOpt, datetime.now(), modelType, 'period', periodData, 'title', regionCode)
-                        makeTermProc(sysOpt, datetime.now(), modelType, 'period', periodData, 'description', regionCode)
-                        makeTermProc(sysOpt, datetime.now(), modelType, 'period', periodData,  'replyText', regionCode)
-                        makeTermProc(sysOpt, datetime.now(), modelType, 'period', periodData,  'replyDtlText', regionCode)
+                        makeTermProc(sysOpt, datetime.now(), modelType, 'period', periodData, ['title'], regionCode)
+                        makeTermProc(sysOpt, datetime.now(), modelType, 'period', periodData, ['description', 'replyText', 'replyDtlText'], regionCode)
 
         except Exception as e:
             log.error("Exception : {}".format(e))

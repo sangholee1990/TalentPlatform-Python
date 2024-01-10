@@ -238,6 +238,8 @@ def getVideoReply(apiYoutube=None, videoId=None, maxResultsRep=10, maxResultsRep
 
 async def colctTrendVideo(sysOpt, apiYoutube):
 
+    preDateTime = datetime.now()
+
     for regionCode in sysOpt['colct']['regionCodeList']:
         log.info(f'[CHECK] regionCode : {regionCode}')
 
@@ -275,7 +277,7 @@ async def colctTrendVideo(sysOpt, apiYoutube):
 
         # CSV 생성
         saveFilePattern = '{}/{}'.format(sysOpt['colct']['savePath'], sysOpt['colct']['saveName'])
-        saveFile = datetime.now().strftime(saveFilePattern).format(regionCode, 'API')
+        saveFile = preDateTime.strftime(saveFilePattern).format(regionCode, 'API')
         os.makedirs(os.path.dirname(saveFile), exist_ok=True)
         dataL2.to_csv(saveFile, index=False)
         log.info(f'[CHECK] saveFile : {saveFile}')
@@ -411,11 +413,13 @@ class DtaProcess(object):
             # AsyncIOExecutor 추가
             scheduler.add_executor(AsyncIOExecutor(), 'default')
 
-            # 매 1시간마다 수행
-            scheduler.add_job(colctTrendVideo, 'cron', minute=0, args=[sysOpt, apiYoutube])
+            # 매 10 또는 22시간 마다 수행
+            scheduler.add_job(colctTrendVideo, 'cron', minute=0, hour='10,22', args=[sysOpt, apiYoutube])
 
-            # 매 1분마다 수행
+            # 매 1분 마다 수행
             # scheduler.add_job(colctTrendVideo, 'cron', second=0, args=[sysOpt, apiYoutube])
+            # 매 0,10,20,30,40,50분 마다 수행
+            # scheduler.add_job(colctTrendVideo, 'cron', second=0, minute='0,10,20,30,40,50', args=[sysOpt, apiYoutube])
 
             # 스케줄러 시작
             scheduler.start()

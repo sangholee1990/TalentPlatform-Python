@@ -477,7 +477,8 @@ class DtaProcess(object):
                     , 'apiKey': '인증키'
 
                     # 국가 코드 목록
-                    , 'regionCodeList': ['BR', 'CA', 'DE', 'FR', 'GB', 'IN', 'JP', 'MX', 'RU', 'US', 'KR']
+                    # , 'regionCodeList': ['BR', 'CA', 'DE', 'FR', 'GB', 'IN', 'JP', 'MX', 'RU', 'US', 'KR']
+                    , 'regionCodeList': ['KR']
 
                     # 수집 최대 개수 설정
                     # 영상 개수
@@ -568,7 +569,7 @@ class DtaProcess(object):
             dtEndDate = pd.to_datetime(sysOpt['analy']['endDate'], format='%Y-%m-%d')
             dtDateList = pd.date_range(start=dtSrtDate, end=dtEndDate, freq=sysOpt['analy']['invDate'])
 
-            # NLTK Stopwords 다운로드
+            # NLTK 다운로드
             nltk.download('punkt', quiet=True)
             nltk.download('averaged_perceptron_tagger', quiet=True)
             nltk.download('stopwords', quiet=True)
