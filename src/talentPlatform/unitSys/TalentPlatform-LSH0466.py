@@ -1,4 +1,4 @@
-# -*- coding: utf-8 -*-
+2# -*- coding: utf-8 -*-
 import argparse
 import glob
 import logging
@@ -423,13 +423,17 @@ class DtaProcess(object):
 
             # 옵션 설정
             sysOpt = {
-                # 시작/종료 시간
+                # 실측 시작/종료 시간
                 # 'srtDate': '1990-01-01'
                 # , 'endDate': '1993-01-01'
                 # 'srtDate': '1979-01-01'
                 # , 'endDate': '1989-01-01'
                 'srtDate': '1979-01-01'
                 , 'endDate': '1980-01-01'
+
+                # 관측 시작/종료 시간
+                , 'srtDate2': '2015-01-01'
+                , 'endDate2': '2020-01-01'
 
                 # 경도 최소/최대/간격
                 , 'lonMin': 0
@@ -493,7 +497,9 @@ class DtaProcess(object):
 
             # 모델 자료
             # inpFile = '{}/{}/{}'.format(globalVar['inpPath'], serviceName, 'pr_day_MRI-ESM2-0_historical_r1i1p1f1_gn_19500101-19991231-003.nc')
-            inpFile = '{}/{}/{}'.format(globalVar['inpPath'], serviceName, 'pr_*.nc')
+            # inpFile = '{}/{}/{}'.format(globalVar['inpPath'], serviceName, 'pr_*.nc')
+            inpFile = '{}/{}/{}'.format(globalVar['inpPath'], serviceName, 'pr_day_MRI-ESM2-0_ssp126_r1i1p1f1_gn_20150101-20641231.nc')
+            # inpFile = '{}/{}/{}'.format(globalVar['inpPath'], serviceName, 'pr_day_MRI-ESM2-0_ssp126_r1i1p1f1_gn_20650101-21001231.nc')
             fileList = sorted(glob.glob(inpFile))
 
             # fileInfo = fileList[0]
@@ -503,7 +509,8 @@ class DtaProcess(object):
                 fileNameNoExt = os.path.basename(fileInfo).split('.')[0]
 
                 # modData = xr.open_dataset(fileInfo).sel(time=slice(sysOpt['srtDate'], sysOpt['endDate']))
-                modData = xr.open_dataset(fileInfo).sel(time=slice(sysOpt['srtDate'], sysOpt['endDate']))
+                # modData = xr.open_dataset(fileInfo).sel(time=slice(sysOpt['srtDate'], sysOpt['endDate']))
+                modData = xr.open_dataset(fileInfo).sel(time=slice(sysOpt['srtDate2'], sysOpt['endDate2']))
                 if (len(modData['time']) < 1): continue
 
                 # 필요없는 변수 삭제
@@ -521,12 +528,14 @@ class DtaProcess(object):
                 modDataL1['pr'] = modDataL1['pr'] * 86400
                 modDataL1['pr'].attrs["units"] = "mm d-1"
 
-                modDataL2 = modDataL1
+                modDataL2 = xr.merge([modDataL1, contDataL4])
+
+                # modDataL2 = modDataL1
                 # modDataL2.attrs
                 # modDataL2['rain'].attrs
                 # modDataL2.isel(time = 0).plot
 
-                mrgData = xr.merge([obsDataL2, modDataL2])
+                # mrgData = xr.merge([obsDataL2, modDataL2])
 
                 # import SBCK
                 # corrected_data_qm = SBCK.quantile_mapping(observed_data, model_data, n_quantiles=[5, 7, 14], method='non_parametric')
@@ -554,9 +563,20 @@ class DtaProcess(object):
                 # qdm = sdba.QuantileDeltaMapping.train(ref=mrgData['rain'], hist=mrgData['pr'], nquantiles=100, group='time')
 
                 # QDM 학습 데이터 (ref 실측, hist 관측)
-                qdm = sdba.QuantileDeltaMapping.train(ref=mrgData['rain'], hist=mrgData['pr'], nquantiles=20, group='time')
+                # qdm = sdba.QuantileDeltaMapping.train(ref=mrgData['rain'], hist=mrgData['pr'], nquantiles=20, group='time')
+                qdm = sdba.QuantileDeltaMapping.train(ref=obsDataL2['rain'], hist=modDataL2['pr'], nquantiles=20, group='time')
+
                 # 시뮬레이션 보정 (sim 관측)
-                qdmData = qdm.adjust(sim=mrgData['pr'], interp="linear")
+                # qdmData = qdm.adjust(sim=mrgData['pr'], interp="linear")
+                qdmData = qdm.adjust(sim=modDataL2['pr'], interp="linear")
+
+                qdmDataL1 = xr.merge([qdmData, contDataL4])
+
+                # obsDataL2['rain'].isel(time=10).plot(x='lon', y='lat', vmin=0, vmax=100, cmap='viridis')
+                # qdmDataL1.isel(time=10).plot(x='lon', y='lat', vmin=0, vmax=100, cmap='viridis')
+                # qdmDataL1['contIdx'].plot(x='lon', y='lat', cmap='viridis')
+                # plt.show()
+
 
                 # QDM 학습 결과에서 분위수 정보 추출
                 qdmHistData = qdm.ds['hist_q'].isel(group=0)
@@ -588,57 +608,61 @@ class DtaProcess(object):
                 qdmAfData.to_dataframe().reset_index(drop=False).to_csv(saveFile, index=False)
                 log.info(f'[CHECK] saveFile : {saveFile}')
 
-                quantList = qdm.ds['quantiles'].values
-                for quant in quantList:
-                    log.info(f'[CHECK] quant : {round(quant, 3)}')
-
-
-                    mainTitle = f'QDM / HIST / quant = {round(quant, 3)}'
-                    qdmHistData.sel(quantiles=quant).plot(x='lon', y='lat')
-                    plt.title(mainTitle)
-                    saveImg = '{}/{}/{}.png'.format(globalVar['figPath'], serviceName, f'QDM-HIST-{round(quant, 3)}')
-                    os.makedirs(os.path.dirname(saveImg), exist_ok=True)
-                    plt.savefig(saveImg, dpi=600, bbox_inches='tight', transparent=True)
-                    # plt.show()
-                    plt.close()
-                    log.info(f'[CHECK] saveImg : {saveImg}')
-
-                    mainTitle = f'QDM / AF / quant = {round(quant, 3)}'
-                    qdmAfData.sel(quantiles=quant).plot(x='lon', y='lat')
-                    plt.title(mainTitle)
-                    saveImg = '{}/{}/{}.png'.format(globalVar['figPath'], serviceName, f'QDM-AF-{round(quant, 3)}')
-                    os.makedirs(os.path.dirname(saveImg), exist_ok=True)
-                    plt.savefig(saveImg, dpi=600, bbox_inches='tight', transparent=True)
-                    # plt.show()
-                    plt.close()
-                    log.info(f'[CHECK] saveImg : {saveImg}')
+                # quantList = qdm.ds['quantiles'].values
+                # for quant in quantList:
+                #     log.info(f'[CHECK] quant : {round(quant, 3)}')
+                #
+                #
+                #     mainTitle = f'QDM / HIST / quant = {round(quant, 3)}'
+                #     qdmHistData.sel(quantiles=quant).plot(x='lon', y='lat')
+                #     plt.title(mainTitle)
+                #     saveImg = '{}/{}/{}.png'.format(globalVar['figPath'], serviceName, f'QDM-HIST-{round(quant, 3)}')
+                #     os.makedirs(os.path.dirname(saveImg), exist_ok=True)
+                #     plt.savefig(saveImg, dpi=600, bbox_inches='tight', transparent=True)
+                #     # plt.show()
+                #     plt.close()
+                #     log.info(f'[CHECK] saveImg : {saveImg}')
+                #
+                #     mainTitle = f'QDM / AF / quant = {round(quant, 3)}'
+                #     qdmAfData.sel(quantiles=quant).plot(x='lon', y='lat')
+                #     plt.title(mainTitle)
+                #     saveImg = '{}/{}/{}.png'.format(globalVar['figPath'], serviceName, f'QDM-AF-{round(quant, 3)}')
+                #     os.makedirs(os.path.dirname(saveImg), exist_ok=True)
+                #     plt.savefig(saveImg, dpi=600, bbox_inches='tight', transparent=True)
+                #     # plt.show()
+                #     plt.close()
+                #     log.info(f'[CHECK] saveImg : {saveImg}')
 
                 # 시간에 따른 검증 데이터
-                timeList = qdmData['time'].values
+                timeList = qdmDataL1['time'].values
                 valData = pd.DataFrame()
                 for time in timeList:
                     log.info(f'[CHECK] time : {time}')
 
-                    x = mrgData['rain'].sel(time = time).values.flatten()
-                    y = mrgData['pr'].sel(time = time).values.flatten()
-                    yhat = qdmData.sel(time = time).values.flatten()
+                    # x = mrgData['rain'].sel(time = time).values.flatten()
+                    # y = mrgData['pr'].sel(time = time).values.flatten()
+                    # x = obsDataL2['rain'].sel(time = time).values.flatten()
+                    # x = qdmDataL1['scen'].sel(time = time).values.flatten()
+                    y = modDataL2['pr'].sel(time = time).values.flatten()
+                    yhat = qdmDataL1['scen'].sel(time = time).values.flatten()
 
-                    mask = ~np.isnan(x) & (x > 0) & (y > 0) & ~np.isnan(y) & (yhat > 0) & ~np.isnan(yhat)
+                    # mask = ~np.isnan(x) & (x > 0) & (y > 0) & ~np.isnan(y) & (yhat > 0) & ~np.isnan(yhat)
+                    mask = (y > 0) & ~np.isnan(y) & (yhat > 0) & ~np.isnan(yhat)
 
-                    X = x[mask]
+                    # X = x[mask]
                     Y = y[mask]
                     Yhat = yhat[mask]
 
                     # 검증스코어 계산 : Bias (Relative Bias), RMSE (Relative RMSE)
                     dict = {
                         'time': [time]
-                        , 'cnt': [len(X)]
-                        , 'orgBias': [np.nanmean(X - Y)]
-                        , 'orgRMSE': [np.sqrt(np.nanmean((X - Y) ** 2))]
-                        , 'orgCorr': [np.corrcoef(X, Y)[0, 1]]
-                        , 'newBias': [np.nanmean(X - Yhat)]
-                        , 'newRMSE': [np.sqrt(np.nanmean((X - Yhat) ** 2))]
-                        , 'newCorr': [np.corrcoef(X, Yhat)[0, 1]]
+                        , 'cnt': [len(Y)]
+                        # , 'orgBias': [np.nanmean(X - Y)]
+                        # , 'orgRMSE': [np.sqrt(np.nanmean((X - Y) ** 2))]
+                        # , 'orgCorr': [np.corrcoef(X, Y)[0, 1]]
+                        , 'newBias': [np.nanmean(Yhat - Y)]
+                        , 'newRMSE': [np.sqrt(np.nanmean((Yhat - Y) ** 2))]
+                        , 'newCorr': [np.corrcoef(Yhat, Y)[0, 1]]
                     }
 
                     valData = pd.concat([valData, pd.DataFrame.from_dict(dict)], ignore_index=True)
