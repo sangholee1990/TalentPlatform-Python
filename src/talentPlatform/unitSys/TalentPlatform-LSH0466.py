@@ -424,16 +424,12 @@ class DtaProcess(object):
             # 옵션 설정
             sysOpt = {
                 # 실측 시작/종료 시간
-                # 'srtDate': '1990-01-01'
-                # , 'endDate': '1993-01-01'
-                # 'srtDate': '1979-01-01'
-                # , 'endDate': '1989-01-01'
                 'srtDate': '1979-01-01'
                 , 'endDate': '1980-01-01'
 
                 # 관측 시작/종료 시간
                 , 'srtDate2': '2015-01-01'
-                , 'endDate2': '2020-01-01'
+                , 'endDate2': '2016-01-01'
 
                 # 경도 최소/최대/간격
                 , 'lonMin': 0
@@ -528,7 +524,7 @@ class DtaProcess(object):
                 modDataL1['pr'] = modDataL1['pr'] * 86400
                 modDataL1['pr'].attrs["units"] = "mm d-1"
 
-                modDataL2 = xr.merge([modDataL1, contDataL4])
+                modDataL2 = xr.merge([modDataL2['pr'], contDataL4])
 
                 # modDataL2 = modDataL1
                 # modDataL2.attrs
@@ -577,141 +573,58 @@ class DtaProcess(object):
                 # qdmDataL1['contIdx'].plot(x='lon', y='lat', cmap='viridis')
                 # plt.show()
 
-
                 # QDM 학습 결과에서 분위수 정보 추출
-                qdmHistData = qdm.ds['hist_q'].isel(group=0)
-
-                # NetCDF 자료 저장
-                saveFile = '{}/{}/{}_{}.nc'.format(globalVar['outPath'], serviceName, 'QDM-HIST', fileNameNoExt)
-                os.makedirs(os.path.dirname(saveFile), exist_ok=True)
-                qdmHistData.to_netcdf(saveFile)
-                log.info(f'[CHECK] saveFile : {saveFile}')
-
-                # CSV 자료 저장
-                saveFile = '{}/{}/{}_{}.csv'.format(globalVar['outPath'], serviceName, 'QDM-HIST', fileNameNoExt)
-                os.makedirs(os.path.dirname(saveFile), exist_ok=True)
-                qdmHistData.to_dataframe().reset_index(drop=False).to_csv(saveFile, index=False)
-                log.info(f'[CHECK] saveFile : {saveFile}')
+                # qdmHistData = qdm.ds['hist_q'].isel(group=0)
 
                 # QDM 학습 결과에서 조정 계수 (QDM 시뮬레이션 필요) 추출
-                qdmAfData = qdm.ds['af'].isel(group=0)
+                # qdmAfData = qdm.ds['af'].isel(group=0)
 
-                # NetCDF 자료 저장
-                saveFile = '{}/{}/{}_{}.nc'.format(globalVar['outPath'], serviceName, 'QDM-AF', fileNameNoExt)
-                os.makedirs(os.path.dirname(saveFile), exist_ok=True)
-                qdmAfData.to_netcdf(saveFile)
-                log.info(f'[CHECK] saveFile : {saveFile}')
 
-                # CSV 자료 저장
-                saveFile = '{}/{}/{}_{}.csv'.format(globalVar['outPath'], serviceName, 'QDM-AF', fileNameNoExt)
-                os.makedirs(os.path.dirname(saveFile), exist_ok=True)
-                qdmAfData.to_dataframe().reset_index(drop=False).to_csv(saveFile, index=False)
-                log.info(f'[CHECK] saveFile : {saveFile}')
-
-                # quantList = qdm.ds['quantiles'].values
-                # for quant in quantList:
-                #     log.info(f'[CHECK] quant : {round(quant, 3)}')
-                #
-                #
-                #     mainTitle = f'QDM / HIST / quant = {round(quant, 3)}'
-                #     qdmHistData.sel(quantiles=quant).plot(x='lon', y='lat')
-                #     plt.title(mainTitle)
-                #     saveImg = '{}/{}/{}.png'.format(globalVar['figPath'], serviceName, f'QDM-HIST-{round(quant, 3)}')
-                #     os.makedirs(os.path.dirname(saveImg), exist_ok=True)
-                #     plt.savefig(saveImg, dpi=600, bbox_inches='tight', transparent=True)
-                #     # plt.show()
-                #     plt.close()
-                #     log.info(f'[CHECK] saveImg : {saveImg}')
-                #
-                #     mainTitle = f'QDM / AF / quant = {round(quant, 3)}'
-                #     qdmAfData.sel(quantiles=quant).plot(x='lon', y='lat')
-                #     plt.title(mainTitle)
-                #     saveImg = '{}/{}/{}.png'.format(globalVar['figPath'], serviceName, f'QDM-AF-{round(quant, 3)}')
-                #     os.makedirs(os.path.dirname(saveImg), exist_ok=True)
-                #     plt.savefig(saveImg, dpi=600, bbox_inches='tight', transparent=True)
-                #     # plt.show()
-                #     plt.close()
-                #     log.info(f'[CHECK] saveImg : {saveImg}')
 
                 # 시간에 따른 검증 데이터
+                contIdxList = np.unique(qdmDataL1['contIdx'].values)
                 timeList = qdmDataL1['time'].values
                 valData = pd.DataFrame()
-                for time in timeList:
-                    log.info(f'[CHECK] time : {time}')
+                for contIdx in contIdxList:
+                    if pd.isna(contIdx): continue
+                    log.info(f'[CHECK] contIdx : {contIdx}')
 
-                    # x = mrgData['rain'].sel(time = time).values.flatten()
-                    # y = mrgData['pr'].sel(time = time).values.flatten()
-                    # x = obsDataL2['rain'].sel(time = time).values.flatten()
-                    # x = qdmDataL1['scen'].sel(time = time).values.flatten()
-                    y = modDataL2['pr'].sel(time = time).values.flatten()
-                    yhat = qdmDataL1['scen'].sel(time = time).values.flatten()
-
-                    # mask = ~np.isnan(x) & (x > 0) & (y > 0) & ~np.isnan(y) & (yhat > 0) & ~np.isnan(yhat)
-                    mask = (y > 0) & ~np.isnan(y) & (yhat > 0) & ~np.isnan(yhat)
-
-                    # X = x[mask]
-                    Y = y[mask]
-                    Yhat = yhat[mask]
-
-                    # 검증스코어 계산 : Bias (Relative Bias), RMSE (Relative RMSE)
-                    dict = {
-                        'time': [time]
-                        , 'cnt': [len(Y)]
-                        # , 'orgBias': [np.nanmean(X - Y)]
-                        # , 'orgRMSE': [np.sqrt(np.nanmean((X - Y) ** 2))]
-                        # , 'orgCorr': [np.corrcoef(X, Y)[0, 1]]
-                        , 'newBias': [np.nanmean(Yhat - Y)]
-                        , 'newRMSE': [np.sqrt(np.nanmean((Yhat - Y) ** 2))]
-                        , 'newCorr': [np.corrcoef(Yhat, Y)[0, 1]]
-                    }
-
-                    valData = pd.concat([valData, pd.DataFrame.from_dict(dict)], ignore_index=True)
-
-                # CSV 자료 저장
-                saveFile = '{}/{}/{}_{}.csv'.format(globalVar['outPath'], serviceName, 'QDM-VALID', fileNameNoExt)
-                os.makedirs(os.path.dirname(saveFile), exist_ok=True)
-                valData.to_csv(saveFile, index=False)
-                log.info(f'[CHECK] saveFile : {saveFile}')
-
-                # sdba.QuantileDeltaMapping.train에서 파라미터 별 시뮬레이션
-                valData = pd.DataFrame()
-                for nquant in range(10, 101, 10):
-                    log.info(f'[CHECK] nquant : {nquant}')
-                    qdm = sdba.QuantileDeltaMapping.train(ref=mrgData['rain'], hist=mrgData['pr'], kind="+", nquantiles=nquant, group='time')
-                    qdmData = qdm.adjust(sim=mrgData['pr'], interp="linear")
-
-                    # 시간에 따른 검증 데이터
-                    timeList = qdmData['time'].values
                     for time in timeList:
                         log.info(f'[CHECK] time : {time}')
 
-                        x = mrgData['rain'].sel(time=time).values.flatten()
-                        y = mrgData['pr'].sel(time=time).values.flatten()
-                        yhat = qdmData.sel(time=time).values.flatten()
+                        # x = mrgData['rain'].sel(time = time).values.flatten()
+                        # y = mrgData['pr'].sel(time = time).values.flatten()
+                        # x = obsDataL2['rain'].sel(time = time).values.flatten()
+                        # x = qdmDataL1['scen'].sel(time = time).values.flatten()
+                        # y = modDataL2.sel(time=time).values.flatten()
+                        # yhat = qdmDataL1.sel(time=time).values.flatten()
+                        y = modDataL2.sel(time = time).where(modDataL2['contIdx'] == 700, drop=True)['pr'].values.flatten()
+                        yhat = qdmDataL1.sel(time = time).where(qdmDataL1['contIdx'] == 700, drop=True)['scen'].values.flatten()
 
-                        mask = ~np.isnan(x) & (x > 0) & (y > 0) & ~np.isnan(y) & (yhat > 0) & ~np.isnan(yhat)
+                        # mask = ~np.isnan(x) & (x > 0) & (y > 0) & ~np.isnan(y) & (yhat > 0) & ~np.isnan(yhat)
+                        mask = (y > 0) & ~np.isnan(y) & (yhat > 0) & ~np.isnan(yhat)
 
-                        X = x[mask]
+                        # X = x[mask]
                         Y = y[mask]
                         Yhat = yhat[mask]
 
                         # 검증스코어 계산 : Bias (Relative Bias), RMSE (Relative RMSE)
                         dict = {
-                            'nquant': [nquant]
+                            'contIdx': [contIdx]
                             , 'time': [time]
-                            , 'cnt': [len(X)]
-                            , 'orgBias': [np.nanmean(X - Y)]
-                            , 'orgRMSE': [np.sqrt(np.nanmean((X - Y) ** 2))]
-                            , 'orgCorr': [np.corrcoef(X, Y)[0, 1]]
-                            , 'newBias': [np.nanmean(X - Yhat)]
-                            , 'newRMSE': [np.sqrt(np.nanmean((X - Yhat) ** 2))]
-                            , 'newCorr': [np.corrcoef(X, Yhat)[0, 1]]
+                            , 'cnt': [len(Y)]
+                            # , 'orgBias': [np.nanmean(X - Y)]
+                            # , 'orgRMSE': [np.sqrt(np.nanmean((X - Y) ** 2))]
+                            # , 'orgCorr': [np.corrcoef(X, Y)[0, 1]]
+                            , 'bias': [np.nanmean(Yhat - Y)]
+                            , 'rmse': [np.sqrt(np.nanmean((Yhat - Y) ** 2))]
+                            , 'corr': [np.corrcoef(Yhat, Y)[0, 1]]
                         }
 
                         valData = pd.concat([valData, pd.DataFrame.from_dict(dict)], ignore_index=True)
 
                 # CSV 자료 저장
-                saveFile = '{}/{}/{}_{}.csv'.format(globalVar['outPath'], serviceName, 'QDM-VALID-nquant', fileNameNoExt)
+                saveFile = '{}/{}/{}_{}.csv'.format(globalVar['outPath'], serviceName, 'QDM-VALID', fileNameNoExt)
                 os.makedirs(os.path.dirname(saveFile), exist_ok=True)
                 valData.to_csv(saveFile, index=False)
                 log.info(f'[CHECK] saveFile : {saveFile}')
