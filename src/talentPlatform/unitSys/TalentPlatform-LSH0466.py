@@ -555,17 +555,11 @@ class DtaProcess(object):
                 # qdm = sdba.QuantileDeltaMapping.train(ref=mrgData['rain'], hist=mrgData['pr'], nquantiles=15, group='time')
                 # qdmData = qdm.adjust(mrgData['pr'], interp="linear")
 
-                # qdm = sdba.QuantileDeltaMapping.train(ref=mrgData['rain'], hist=mrgData['pr'], nquantiles=15, group='time')
-                # qdm = sdba.QuantileDeltaMapping.train(ref=mrgData['rain'], hist=mrgData['pr'], nquantiles=100, group='time')
-
                 # QDM 학습 데이터 (ref 실측, hist 관측)
-                # qdm = sdba.QuantileDeltaMapping.train(ref=mrgData['rain'], hist=mrgData['pr'], nquantiles=20, group='time')
                 qdm = sdba.QuantileDeltaMapping.train(ref=obsDataL2['rain'], hist=modDataL2['pr'], nquantiles=20, group='time')
 
                 # 시뮬레이션 보정 (sim 관측)
-                # qdmData = qdm.adjust(sim=mrgData['pr'], interp="linear")
                 qdmData = qdm.adjust(sim=modDataL2['pr'], interp="linear")
-
                 qdmDataL1 = xr.merge([qdmData, contDataL4])
 
                 # obsDataL2['rain'].isel(time=10).plot(x='lon', y='lat', vmin=0, vmax=100, cmap='viridis')
@@ -578,8 +572,6 @@ class DtaProcess(object):
 
                 # QDM 학습 결과에서 조정 계수 (QDM 시뮬레이션 필요) 추출
                 # qdmAfData = qdm.ds['af'].isel(group=0)
-
-
 
                 # 시간에 따른 검증 데이터
                 contIdxList = np.unique(qdmDataL1['contIdx'].values)
