@@ -491,6 +491,43 @@ class DtaProcess(object):
             # obsDataL2.attrs
             # obsDataL2['rain'].attrs
 
+
+            # 시뮬레이션 자료
+            inpFile = '{}/{}/{}'.format(globalVar['inpPath'], serviceName, '*_historical_*.nc')
+            # inpFile = '{}/{}/{}'.format(globalVar['inpPath'], serviceName, 'pr_day_MRI-ESM2-0_ssp126_r1i1p1f1_gn_20650101-21001231.nc')
+            fileList = sorted(glob.glob(inpFile))
+
+            # fileInfo = fileList[0]
+            for fileInfo in fileList:
+                log.info(f"[CHECK] fileInfo : {fileInfo}")
+
+                fileNameNoExt = os.path.basename(fileInfo).split('.')[0]
+
+                # modData = xr.open_dataset(fileInfo).sel(time=slice(sysOpt['srtDate'], sysOpt['endDate']))
+                # modData = xr.open_dataset(fileInfo).sel(time=slice(sysOpt['srtDate'], sysOpt['endDate']))
+                modData = xr.open_dataset(fileInfo).sel(time=slice(sysOpt['srtDate2'], sysOpt['endDate2']))
+                if (len(modData['time']) < 1): continue
+
+                # 필요없는 변수 삭제
+                selList = ['lat_bnds', 'lon_bnds', 'time_bnds']
+
+                for i, selInfo in enumerate(selList):
+                    try:
+                        modData = modData.drop([selInfo])
+                    except Exception as e:
+                        log.error("Exception : {}".format(e))
+
+                modDataL1 = modData.interp({'lon': lonList, 'lat': latList}, method='linear')
+
+                # 일 강수량 단위 환산 : 60 * 60 * 24
+                modDataL1['pr'] = modDataL1['pr'] * 86400
+                modDataL1['pr'].attrs["units"] = "mm d-1"
+
+                modDataL2 = xr.merge([modDataL1['pr'], contDataL4])
+
+
+
+
             # 모델 자료
             # inpFile = '{}/{}/{}'.format(globalVar['inpPath'], serviceName, 'pr_day_MRI-ESM2-0_historical_r1i1p1f1_gn_19500101-19991231-003.nc')
             # inpFile = '{}/{}/{}'.format(globalVar['inpPath'], serviceName, 'pr_*.nc')
@@ -524,7 +561,7 @@ class DtaProcess(object):
                 modDataL1['pr'] = modDataL1['pr'] * 86400
                 modDataL1['pr'].attrs["units"] = "mm d-1"
 
-                modDataL2 = xr.merge([modDataL2['pr'], contDataL4])
+                modDataL2 = xr.merge([modDataL1['pr'], contDataL4])
 
                 # modDataL2 = modDataL1
                 # modDataL2.attrs
@@ -558,7 +595,7 @@ class DtaProcess(object):
                 # QDM 학습 데이터 (ref 실측, hist 관측)
                 qdm = sdba.QuantileDeltaMapping.train(ref=obsDataL2['rain'], hist=modDataL2['pr'], nquantiles=20, group='time')
 
-                # 시뮬레이션 보정 (sim 관측)
+                # 시뮬레이션 예측 (sim 관측)
                 qdmData = qdm.adjust(sim=modDataL2['pr'], interp="linear")
                 qdmDataL1 = xr.merge([qdmData, contDataL4])
 
