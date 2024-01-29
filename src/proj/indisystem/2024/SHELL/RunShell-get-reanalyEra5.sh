@@ -93,21 +93,21 @@ cat > ${TMP_PATH}/RunPython-get-reanalysisEra5.py << EOF
 
 import cdsapi
 
-c = cdsapi.Client(quiet = True, timeout=100)
+#c = cdsapi.Client(quiet = True, timeout=100)
+c = cdsapi.Client(quiet = False, timeout=10)
 
 c.retrieve(
     'reanalysis-era5-pressure-levels',
     {
         'product_type': 'reanalysis',
         'format': 'netcdf',
-#        'variable': [
-#           'u_component_of_wind', 'v_component_of_wind',
-#        ],
         'variable': [
-           'all',
+           'u_component_of_wind', 'v_component_of_wind',
+#            'all',
         ],
         'pressure_level': [
             '950', '1000',
+#            'all',
         ],
         'year': [
         '${year}'
