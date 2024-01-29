@@ -600,7 +600,7 @@ class DtaProcess(object):
             qdmData.isel(time=10).plot(x='lon', y='lat', vmin=0, vmax=100, cmap='viridis')
             plt.show()
 
-            prdDataL3['pr'].isel(time=10).plot(x='lon', y='lat', vmin=0, vmax=100, cmap='viridis')
+            simDataL3['pr'].isel(time=10).plot(x='lon', y='lat', vmin=0, vmax=100, cmap='viridis')
             plt.show()
 
             # QDM 학습 결과에서 분위수 정보 추출
@@ -620,7 +620,7 @@ class DtaProcess(object):
                 for time in timeList:
                     log.info(f'[CHECK] time : {time}')
 
-                    yList = prdDataL3.sel(time = time).where(prdDataL3['contIdx'] == contIdx, drop=True)['pr'].values.flatten()
+                    yList = simDataL3.sel(time = time).where(simDataL3['contIdx'] == contIdx, drop=True)['pr'].values.flatten()
                     yhatList = qdmDataL1.sel(time = time).where(qdmDataL1['contIdx'] == contIdx, drop=True)['scen'].values.flatten()
 
                     # mask = ~np.isnan(x) & (x > 0) & (y > 0) & ~np.isnan(y) & (yhat > 0) & ~np.isnan(yhat)
@@ -647,6 +647,21 @@ class DtaProcess(object):
                 os.makedirs(os.path.dirname(saveFile), exist_ok=True)
                 valData.to_csv(saveFile, index=False)
                 log.info(f'[CHECK] saveFile : {saveFile}')
+
+                contIdxList = np.unique(qdmDataL1['contIdx'].values)
+                for contIdx in contIdxList:
+                    if pd.isna(contIdx): continue
+                    log.info(f'[CHECK] contIdx : {contIdx}')
+
+                    # a = qdmDataL1.sel(time = time).where(qdmDataL1['contIdx'] == contIdx, drop=True)
+                    a = qdmDataL1.where(qdmDataL1['contIdx'] == 100, drop=True)
+                    a2 = a['scen'].to_dataframe().reset_index(drop=False)
+
+                    # df_pivot = a2.pivot(index=['isLand', 'contIdx', 'time'], columns=['lon', 'lat'])
+                    #
+                    # print(df_pivot)
+
+                    a3 = a2.pivot(index=['time'], columns=['lon', 'lat'])
 
                 # # ***********************************************************************************
                 # # Dequé, M. (2007). Frequency of precipitation and temperature extremes over France in an anthropogenic scenario: Model results and statistical correction according to observed values. Global and Planetary Change, 57(1–2), 16–26. https://doi.org/10.1016/j.gloplacha.2006.11.030
