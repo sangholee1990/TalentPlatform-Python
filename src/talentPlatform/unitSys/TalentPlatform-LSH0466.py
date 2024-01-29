@@ -423,11 +423,11 @@ class DtaProcess(object):
 
             # 옵션 설정
             sysOpt = {
-                # 실측 시작/종료 시간
+                # 학습 시작/종료 시간
                 'srtDate': '1979-01-01'
                 , 'endDate': '1980-01-01'
 
-                # 관측 시작/종료 시간
+                # 예측 시작/종료 시간
                 , 'srtDate2': '2015-01-01'
                 , 'endDate2': '2016-01-01'
 
@@ -476,7 +476,7 @@ class DtaProcess(object):
             # ********************************************************************
             # 강수량 파일 전처리
             # ********************************************************************
-            # 실측 자료
+            # 실측 데이터
             inpFile = '{}/{}/{}'.format(globalVar['inpPath'], serviceName, 'ERA5_1979_2020.nc')
             fileList = sorted(glob.glob(inpFile))
             obsData = xr.open_dataset(fileList[0]).sel(time=slice(sysOpt['srtDate'], sysOpt['endDate']))
@@ -487,18 +487,18 @@ class DtaProcess(object):
             obsDataL1 = obsDataL1.sortby(obsDataL1.lon)
 
             obsDataL2 = obsDataL1.interp({'lon': lonList, 'lat': latList}, method='linear')
+            obsDataL3 = xr.merge([obsDataL2['rain'], contDataL4])
 
             # obsDataL2.attrs
             # obsDataL2['rain'].attrs
 
-            # 모델 자료
-            # inpFile = '{}/{}/{}'.format(globalVar['inpPath'], serviceName, 'pr_day_MRI-ESM2-0_historical_r1i1p1f1_gn_19500101-19991231-003.nc')
-            # inpFile = '{}/{}/{}'.format(globalVar['inpPath'], serviceName, 'pr_*.nc')
-            inpFile = '{}/{}/{}'.format(globalVar['inpPath'], serviceName, 'pr_day_MRI-ESM2-0_ssp126_r1i1p1f1_gn_20150101-20641231.nc')
-            # inpFile = '{}/{}/{}'.format(globalVar['inpPath'], serviceName, 'pr_day_MRI-ESM2-0_ssp126_r1i1p1f1_gn_20650101-21001231.nc')
+            # 관측/학습 데이터
+            inpFile = '{}/{}/{}'.format(globalVar['inpPath'], serviceName, 'pr_day_MRI-ESM2-0_historical_*.nc')
             fileList = sorted(glob.glob(inpFile))
 
             # fileInfo = fileList[0]
+            # fileInfo = fileList[1]
+            modDataL2 = xr.Dataset()
             for fileInfo in fileList:
                 log.info(f"[CHECK] fileInfo : {fileInfo}")
 
@@ -506,7 +506,7 @@ class DtaProcess(object):
 
                 # modData = xr.open_dataset(fileInfo).sel(time=slice(sysOpt['srtDate'], sysOpt['endDate']))
                 # modData = xr.open_dataset(fileInfo).sel(time=slice(sysOpt['srtDate'], sysOpt['endDate']))
-                modData = xr.open_dataset(fileInfo).sel(time=slice(sysOpt['srtDate2'], sysOpt['endDate2']))
+                modData = xr.open_dataset(fileInfo).sel(time=slice(sysOpt['srtDate'], sysOpt['endDate']))
                 if (len(modData['time']) < 1): continue
 
                 # 필요없는 변수 삭제
@@ -524,96 +524,123 @@ class DtaProcess(object):
                 modDataL1['pr'] = modDataL1['pr'] * 86400
                 modDataL1['pr'].attrs["units"] = "mm d-1"
 
-                modDataL2 = xr.merge([modDataL2['pr'], contDataL4])
+                modDataL2 = xr.merge([modDataL2, modDataL1])
 
-                # modDataL2 = modDataL1
-                # modDataL2.attrs
-                # modDataL2['rain'].attrs
-                # modDataL2.isel(time = 0).plot
+            modDataL3 = xr.merge([modDataL2['pr'], contDataL4])
 
-                # mrgData = xr.merge([obsDataL2, modDataL2])
+            # 병합 데이터 : 실측 + 관측/학습
+            mrgData = xr.merge([obsDataL3, modDataL3])
 
-                # import SBCK
-                # corrected_data_qm = SBCK.quantile_mapping(observed_data, model_data, n_quantiles=[5, 7, 14], method='non_parametric')
-                # corrected_data_mbcn = SBCK.mbcn(observed_data, model_data, parameters...)
+            # 예측 데이터
+            inpFile = '{}/{}/{}'.format(globalVar['inpPath'], serviceName, 'pr_day_MRI-ESM2-0_ssp126_*.nc')
+            fileList = sorted(glob.glob(inpFile))
 
-                # ***********************************************************************************
-                # Cannon, A. J., Sobie, S. R., & Murdock, T. Q. (2015). Bias correction of GCM precipitation by quantile mapping: How well do methods preserve changes in quantiles and extremes? Journal of Climate, 28(17), 6938–6959. https://doi.org/10.1175/JCLI-D-14-00754.1
-                # ***********************************************************************************
-                # ref : Training target, usually a reference time series drawn from observations.
-                # hist : Training data, usually a model output whose biases are to be adjusted.
+            # fileInfo = fileList[0]
+            simDataL2 = xr.Dataset()
+            for fileInfo in fileList:
+                log.info(f"[CHECK] fileInfo : {fileInfo}")
 
-                # 일수 단위로 가중치 조정
-                # qdm = sdba.QuantileDeltaMapping.train(mrgData['rain'], mrgData['pr'], group='time.dayofyear')
-                # 연 단위로 가중치 조정
-                # qdm = sdba.QuantileDeltaMapping.train(mrgData['rain'], mrgData['pr'], group='time.year')
-                # 계절 단위로 가중치 조정
-                # qdm = sdba.QuantileDeltaMapping.train(mrgData['rain'], mrgData['pr'], group='time.season')
-                # 월 단위로 가중치 조정
-                # qdm = sdba.QuantileDeltaMapping.train(mrgData['rain'], mrgData['pr'], group='time.month')
-                # 일 단위로 가중치 조정
-                # qdm = sdba.QuantileDeltaMapping.train(ref=mrgData['rain'], hist=mrgData['pr'], nquantiles=15, group='time')
-                # qdmData = qdm.adjust(mrgData['pr'], interp="linear")
+                fileNameNoExt = os.path.basename(fileInfo).split('.')[0]
 
-                # QDM 학습 데이터 (ref 실측, hist 관측)
-                qdm = sdba.QuantileDeltaMapping.train(ref=obsDataL2['rain'], hist=modDataL2['pr'], nquantiles=20, group='time')
+                simData = xr.open_dataset(fileInfo).sel(time=slice(sysOpt['srtDate2'], sysOpt['endDate2']))
+                if (len(simData['time']) < 1): continue
 
-                # 시뮬레이션 보정 (sim 관측)
-                qdmData = qdm.adjust(sim=modDataL2['pr'], interp="linear")
-                qdmDataL1 = xr.merge([qdmData, contDataL4])
+                # 필요없는 변수 삭제
+                selList = ['lat_bnds', 'lon_bnds', 'time_bnds']
 
-                # obsDataL2['rain'].isel(time=10).plot(x='lon', y='lat', vmin=0, vmax=100, cmap='viridis')
-                # qdmDataL1.isel(time=10).plot(x='lon', y='lat', vmin=0, vmax=100, cmap='viridis')
-                # qdmDataL1['contIdx'].plot(x='lon', y='lat', cmap='viridis')
-                # plt.show()
+                for i, selInfo in enumerate(selList):
+                    try:
+                        simData = simData.drop([selInfo])
+                    except Exception as e:
+                        log.error("Exception : {}".format(e))
 
-                # QDM 학습 결과에서 분위수 정보 추출
-                # qdmHistData = qdm.ds['hist_q'].isel(group=0)
+                simDataL1 = simData.interp({'lon': lonList, 'lat': latList}, method='linear')
 
-                # QDM 학습 결과에서 조정 계수 (QDM 시뮬레이션 필요) 추출
-                # qdmAfData = qdm.ds['af'].isel(group=0)
+                # 일 강수량 단위 환산 : 60 * 60 * 24
+                simDataL1['pr'] = simDataL1['pr'] * 86400
+                simDataL1['pr'].attrs["units"] = "mm d-1"
 
-                # 시간에 따른 검증 데이터
-                contIdxList = np.unique(qdmDataL1['contIdx'].values)
-                timeList = qdmDataL1['time'].values
-                valData = pd.DataFrame()
-                for contIdx in contIdxList:
-                    if pd.isna(contIdx): continue
-                    log.info(f'[CHECK] contIdx : {contIdx}')
+                simDataL2 = xr.merge([simDataL2, simDataL1])
 
-                    for time in timeList:
-                        log.info(f'[CHECK] time : {time}')
+            simDataL3 = xr.merge([simDataL2['pr'], contDataL4])
 
-                        # x = mrgData['rain'].sel(time = time).values.flatten()
-                        # y = mrgData['pr'].sel(time = time).values.flatten()
-                        # x = obsDataL2['rain'].sel(time = time).values.flatten()
-                        # x = qdmDataL1['scen'].sel(time = time).values.flatten()
-                        # y = modDataL2.sel(time=time).values.flatten()
-                        # yhat = qdmDataL1.sel(time=time).values.flatten()
-                        y = modDataL2.sel(time = time).where(modDataL2['contIdx'] == 700, drop=True)['pr'].values.flatten()
-                        yhat = qdmDataL1.sel(time = time).where(qdmDataL1['contIdx'] == 700, drop=True)['scen'].values.flatten()
+            # modDataL2 = modDataL1
+            # modDataL2.attrs
+            # modDataL2['rain'].attrs
+            # modDataL2.isel(time = 0).plot
 
-                        # mask = ~np.isnan(x) & (x > 0) & (y > 0) & ~np.isnan(y) & (yhat > 0) & ~np.isnan(yhat)
-                        mask = (y > 0) & ~np.isnan(y) & (yhat > 0) & ~np.isnan(yhat)
 
-                        # X = x[mask]
-                        Y = y[mask]
-                        Yhat = yhat[mask]
+            # ***********************************************************************************
+            # Cannon, A. J., Sobie, S. R., & Murdock, T. Q. (2015). Bias correction of GCM precipitation by quantile mapping: How well do methods preserve changes in quantiles and extremes? Journal of Climate, 28(17), 6938–6959. https://doi.org/10.1175/JCLI-D-14-00754.1
+            # ***********************************************************************************
+            # ref : Training target, usually a reference time series drawn from observations.
+            # hist : Training data, usually a model output whose biases are to be adjusted.
 
-                        # 검증스코어 계산 : Bias (Relative Bias), RMSE (Relative RMSE)
-                        dict = {
-                            'contIdx': [contIdx]
-                            , 'time': [time]
-                            , 'cnt': [len(Y)]
-                            # , 'orgBias': [np.nanmean(X - Y)]
-                            # , 'orgRMSE': [np.sqrt(np.nanmean((X - Y) ** 2))]
-                            # , 'orgCorr': [np.corrcoef(X, Y)[0, 1]]
-                            , 'bias': [np.nanmean(Yhat - Y)]
-                            , 'rmse': [np.sqrt(np.nanmean((Yhat - Y) ** 2))]
-                            , 'corr': [np.corrcoef(Yhat, Y)[0, 1]]
-                        }
+            # 일수 단위로 가중치 조정
+            # qdm = sdba.QuantileDeltaMapping.train(mrgData['rain'], mrgData['pr'], group='time.dayofyear')
+            # 연 단위로 가중치 조정
+            # qdm = sdba.QuantileDeltaMapping.train(mrgData['rain'], mrgData['pr'], group='time.year')
+            # 계절 단위로 가중치 조정
+            # qdm = sdba.QuantileDeltaMapping.train(mrgData['rain'], mrgData['pr'], group='time.season')
+            # 월 단위로 가중치 조정
+            # qdm = sdba.QuantileDeltaMapping.train(mrgData['rain'], mrgData['pr'], group='time.month')
+            # 일 단위로 가중치 조정
+            # qdm = sdba.QuantileDeltaMapping.train(ref=mrgData['rain'], hist=mrgData['pr'], nquantiles=15, group='time')
 
-                        valData = pd.concat([valData, pd.DataFrame.from_dict(dict)], ignore_index=True)
+            # QDM 학습 데이터 (ref 실측, hist 관측/학습)
+            qdm = sdba.QuantileDeltaMapping.train(ref=mrgData['rain'], hist=mrgData['pr'], nquantiles=20, group='time')
+
+            # 시뮬레이션 보정 (sim 관측)
+            qdmData = qdm.adjust(sim=simDataL3['pr'], interp="linear")
+            qdmDataL1 = xr.merge([qdmData, contDataL4])
+
+            # obsDataL2['rain'].isel(time=10).plot(x='lon', y='lat', vmin=0, vmax=100, cmap='viridis')
+            # qdmDataL1['contIdx'].plot(x='lon', y='lat', cmap='viridis')
+
+            qdmData.isel(time=10).plot(x='lon', y='lat', vmin=0, vmax=100, cmap='viridis')
+            plt.show()
+
+            prdDataL3['pr'].isel(time=10).plot(x='lon', y='lat', vmin=0, vmax=100, cmap='viridis')
+            plt.show()
+
+            # QDM 학습 결과에서 분위수 정보 추출
+            # qdmHistData = qdm.ds['hist_q'].isel(group=0)
+
+            # QDM 학습 결과에서 조정 계수 (QDM 시뮬레이션 필요) 추출
+            # qdmAfData = qdm.ds['af'].isel(group=0)
+
+            # 시간에 따른 검증 데이터
+            valData = pd.DataFrame()
+            contIdxList = np.unique(qdmDataL1['contIdx'].values)
+            timeList = qdmDataL1['time'].values
+            for contIdx in contIdxList:
+                if pd.isna(contIdx): continue
+                log.info(f'[CHECK] contIdx : {contIdx}')
+
+                for time in timeList:
+                    log.info(f'[CHECK] time : {time}')
+
+                    yList = prdDataL3.sel(time = time).where(prdDataL3['contIdx'] == contIdx, drop=True)['pr'].values.flatten()
+                    yhatList = qdmDataL1.sel(time = time).where(qdmDataL1['contIdx'] == contIdx, drop=True)['scen'].values.flatten()
+
+                    # mask = ~np.isnan(x) & (x > 0) & (y > 0) & ~np.isnan(y) & (yhat > 0) & ~np.isnan(yhat)
+                    mask = (yList > 0) & ~np.isnan(yList) & (yhatList > 0) & ~np.isnan(yhatList)
+
+                    # X = x[mask]
+                    y = yList[mask]
+                    yhat = yhatList[mask]
+
+                    # 검증스코어 계산 : Bias (Relative Bias), RMSE (Relative RMSE)
+                    dict = {
+                        'contIdx': [contIdx]
+                        , 'time': [time]
+                        , 'cnt': [len(y)]
+                        , 'bias': [np.nanmean(yhat - y)]
+                        , 'rmse': [np.sqrt(np.nanmean((yhat - y) ** 2))]
+                        , 'corr': [np.corrcoef(yhat, y)[0, 1]]
+                    }
+
+                    valData = pd.concat([valData, pd.DataFrame.from_dict(dict)], ignore_index=True)
 
                 # CSV 자료 저장
                 saveFile = '{}/{}/{}_{}.csv'.format(globalVar['outPath'], serviceName, 'QDM-VALID', fileNameNoExt)
