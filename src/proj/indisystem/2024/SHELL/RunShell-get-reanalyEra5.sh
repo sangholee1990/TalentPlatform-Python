@@ -18,6 +18,8 @@ export LC_TIME=en_US.UTF-8
 
 # API키 인증
 cat > $HOME/.cdsapirc << EOF
+url: https://cds.climate.copernicus.eu/api/v2
+key: 38372:e61b5517-d919-47b6-93bf-f9a01ee4246f
 EOF
 
 # 작업 경로 설정
