@@ -6,7 +6,7 @@
       <paths name="root@223.130.134.136:22 password">
         <serverdata>
           <mappings>
-            <mapping local="$PROJECT_DIR$" web="/" />
+            <mapping deploy="/SYSTEMS/PROG/PYTHON/PyCharm" local="$PROJECT_DIR$" />
           </mappings>
         </serverdata>
       </paths>
