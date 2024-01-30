@@ -24,6 +24,7 @@ EOF
 
 # 작업 경로 설정
 CTX_PATH=$(pwd)
+# CTX_PATH=/SYSTEMS/PROG/PYTHON/PyCharm/src/proj/indisystem/2024/SHELL
 # CTX_PATH=/home/guest_user1/SYSTEMS/KIER
 
 # 실행 파일 경로
@@ -85,16 +86,16 @@ while [ $(date -d "$incDate" +"%s") -le $(date -d "$endDate" +"%s") ]; do
   updFilePath=${UPD_PATH}/${year}/${month}/${day}
   mkdir -p ${updFilePath}
 
-  tmpFileName=reanalysis-era5-pressure-levels_${year}${month}${day}${hour}${min}.nc
+  tmpFileName=reanaly-era5-pres_${year}${month}${day}${hour}${min}.nc
   tmpFileInfo=${TMP_PATH}/${tmpFileName}
   updFileInfo=${updFilePath}/${tmpFileName}
 
-cat > ${TMP_PATH}/RunPython-get-reanalysisEra5.py << EOF
+cat > ${TMP_PATH}/RunPython-get-reanalyEra5-pres.py << EOF
 
 import cdsapi
 
-#c = cdsapi.Client(quiet = True, timeout=100)
-c = cdsapi.Client(quiet = False, timeout=10)
+c = cdsapi.Client(quiet = True, timeout=10)
+#c = cdsapi.Client(quiet = False, timeout=10)
 
 c.retrieve(
     'reanalysis-era5-pressure-levels',
@@ -102,12 +103,12 @@ c.retrieve(
         'product_type': 'reanalysis',
         'format': 'netcdf',
         'variable': [
-           'u_component_of_wind', 'v_component_of_wind',
-#            'all',
+#           'u_component_of_wind', 'v_component_of_wind',
+            'all',
         ],
         'pressure_level': [
-            '950', '1000',
-#            'all',
+#            '950', '1000',
+            'all',
         ],
         'year': [
         '${year}'
@@ -128,7 +129,7 @@ c.retrieve(
     '${tmpFileInfo}')
 EOF
 
-  ${PY38_BIN} ${TMP_PATH}/RunPython-get-reanalysisEra5.py
+  ${PY38_BIN} ${TMP_PATH}/RunPython-get-reanalyEra5-pres.py
 
   # 임시/업로드 파일 여부, 다운로드 용량 여부
   if [ $? -eq 0 ] && [ -e $tmpFileInfo ] && ([ ! -e ${updFileInfo} ] || [ $(stat -c %s ${tmpFileInfo}) -gt $(stat -c %s ${updFileInfo}) ]); then
