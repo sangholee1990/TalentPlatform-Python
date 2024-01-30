@@ -1,4 +1,4 @@
-2# -*- coding: utf-8 -*-
+# -*- coding: utf-8 -*-
 import argparse
 import glob
 import logging
@@ -540,7 +540,7 @@ class DtaProcess(object):
             # 대륙별 분류 전처리
             # ********************************************************************
             inpFile = '{}/{}/{}'.format(globalVar['inpPath'], serviceName, 'TT4.csv')
-            # inpFile = '{}/Historical/{}'.format(globalVar['inpPath'], 'TT4.csv')
+            # inpFile = '{}/{}/{}'.format(globalVar['inpPath'], 'Historical', 'TT4.csv')
             fileList = glob.glob(inpFile)
             if fileList is None or len(fileList) < 1:
                 log.error('[ERROR] inpFile : {} / {}'.format(fileList, '입력 자료를 확인해주세요.'))
@@ -561,7 +561,7 @@ class DtaProcess(object):
             # ********************************************************************
             # 실측 데이터
             inpFile = '{}/{}/{}'.format(globalVar['inpPath'], serviceName, 'ERA5_1979_2020.nc')
-            # inpFile = '{}/Historical/{}'.format(globalVar['inpPath'], 'ERA5_1979_2020.nc')
+            # inpFile = '{}/{}/{}'.format(globalVar['inpPath'], 'Historical', 'ERA5_1979_2020.nc')
             fileList = sorted(glob.glob(inpFile))
             obsData = xr.open_dataset(fileList[0]).sel(time=slice(sysOpt['srtDate'], sysOpt['endDate']))
 
@@ -582,7 +582,7 @@ class DtaProcess(object):
 
                 # 관측/학습 데이터
                 inpFile = '{}/{}/*{}*{}*.nc'.format(globalVar['inpPath'], serviceName, keyInfo, 'historical')
-                # inpFile = '{}/Historical/*{}*{}*.nc'.format(globalVar['inpPath'], keyInfo, 'historical')
+                # inpFile = '{}/{}/*{}*{}*.nc'.format(globalVar['inpPath'], 'Historical', keyInfo, 'historical')
                 fileList = sorted(glob.glob(inpFile))
 
                 # fileInfo = fileList[0]
@@ -621,7 +621,7 @@ class DtaProcess(object):
 
                 # 예측 데이터
                 inpFile = '{}/{}/*{}*{}*.nc'.format(globalVar['inpPath'], serviceName, keyInfo, 'ssp126')
-                # inpFile = '{}/Future/*{}*{}*.nc'.format(globalVar['inpPath'], keyInfo, 'ssp126')
+                # inpFile = '{}/{}/*{}*{}*.nc'.format(globalVar['inpPath'], 'Future', keyInfo, 'ssp126')
                 fileList = sorted(glob.glob(inpFile))
 
                 # fileInfo = fileList[0]
