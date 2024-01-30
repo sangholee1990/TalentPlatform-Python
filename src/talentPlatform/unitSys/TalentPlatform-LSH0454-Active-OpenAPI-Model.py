@@ -510,6 +510,10 @@ class DtaProcess(object):
     # nohup python TalentPlatform-LSH0454-Active-OpenAPI-Model.py --addrList "대구광역시 수성구" &
     # nohup python TalentPlatform-LSH0454-Active-OpenAPI-Model.py --addrList "대구광역시 북구" &
 
+    # 2024.01.30
+    # nohup /SYSTEMS/anaconda3/envs/py36/bin/python3.6 TalentPlatform-LSH0454-Active-OpenAPI-Model.py --addrList "경기도 과천시, 서울특별시 용산구, 서울특별시 송파구, 서울특별시 서초구, 서울특별시 강남구, 서울특별시 강북구, 서울특별시 양천구" &
+
+
     # ================================================================================================
     # 환경변수 설정
     # ================================================================================================
@@ -573,21 +577,21 @@ class DtaProcess(object):
                     'isInit': False
 
                     # 모델 업데이트 여부
-                    # , 'isOverWrite': True
-                    , 'isOverWrite': False
+                    , 'isOverWrite': True
+                    # , 'isOverWrite': False
                 }
 
                 #  머신러닝
                 , 'mlModel': {
                     # 모델 업데이트 여부
-                    # 'isOverWrite': True
-                    'isOverWrite': False
+                    'isOverWrite': True
+                    # 'isOverWrite': False
                 }
 
                 #  시계열
                 , 'tsModel': {
                     # 미래 예측 연도
-                    'forYear': 2026
+                    'forYear': 2027
 
                     # 아파트 설정
                     , 'aptList': [] # 전체 아파트 검색
@@ -601,7 +605,6 @@ class DtaProcess(object):
                 # , 'addrList': ['서울특별시 양천구']
                 # , 'addrList': ['경기도 과천시']
                 # , 'addrList': ['경기도 의정부시']
-                # , 'addrList': ['서울특별시 강남구', '서울특별시 용산구', '서울특별시 서초구', '서울특별시 양천구', '서울특별시 강북구', '서울특별시 송파구', '서울특별시 성북구', '경기도 과천시']
                 , 'addrList': [globalVar['addrList']]
             }
 
@@ -622,7 +625,8 @@ class DtaProcess(object):
             # 건축 인허가
             # *****************************************************
             # addrInfo = sysOpt['addrList'][0]
-            for ii, addrInfo in enumerate(sysOpt['addrList']):
+            for ii, addrInfo in enumerate(sysOpt['addrList'][0].split(", ")):
+                log.info(f'[CHECK] addrInfo : {addrInfo}')
 
                 admDataL1 = admData[admData['법정동명'].str.contains(addrInfo)]
                 if (len(admDataL1) < 1): continue
