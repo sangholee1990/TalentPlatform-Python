@@ -485,12 +485,19 @@ class DtaProcess(object):
     # 예측 파일 다운로드
     # /DATA/OUTPUT/LSH0454/예측
 
+    # 학습 모형 삭제
+    # rm -rf /DATA/OUTPUT/LSH0454/MODEL/*
+
     # 프로그램 종료
     # ps -ef | grep "TalentPlatform-LSH0454-Active-OpenAPI-Model" | awk '{print $2}' | xargs kill -9
 
     # 프로그램 시작
     # conda activate py36
     # cd /SYSTEMS/PROG/PYTHON/PyCharm/src/talentPlatform/unitSys
+
+    # 쉘 수행
+    # cd /SYSTEMS/PROG/PYTHON/PyCharm/src/talentPlatform/shell
+    # nohup bash /SYSTEMS/PROG/PYTHON/PyCharm/src/talentPlatform/shell/RunShell-LSH0454.sh &
 
     # nohup python TalentPlatform-LSH0454-Active-OpenAPI-Model.py --addrList "서울특별시 강북구" &
     # nohup python TalentPlatform-LSH0454-Active-OpenAPI-Model.py --addrList "서울특별시 성북구" &
@@ -512,7 +519,16 @@ class DtaProcess(object):
 
     # 2024.01.30
     # nohup /SYSTEMS/anaconda3/envs/py36/bin/python3.6 TalentPlatform-LSH0454-Active-OpenAPI-Model.py --addrList "경기도 과천시, 서울특별시 용산구, 서울특별시 송파구, 서울특별시 서초구, 서울특별시 강남구, 서울특별시 강북구, 서울특별시 양천구" &
-
+    # ohup bash /SYSTEMS/PROG/PYTHON/PyCharm/src/talentPlatform/shell/RunShell-LSH0454.sh &
+    # ${PY38_PATH} ${RUN_PATH}/${RUN_NAME} --addrList "경기도 과천시"
+    # ${PY38_PATH} ${RUN_PATH}/${RUN_NAME} --addrList "서울특별시 용산구"
+    # ${PY38_PATH} ${RUN_PATH}/${RUN_NAME} --addrList "서울특별시 송파구"
+    # ${PY38_PATH} ${RUN_PATH}/${RUN_NAME} --addrList "서울특별시 서초구"
+    # ${PY38_PATH} ${RUN_PATH}/${RUN_NAME} --addrList "서울특별시 강남구"
+    # ${PY38_PATH} ${RUN_PATH}/${RUN_NAME} --addrList "서울특별시 강북구"
+    # ${PY38_PATH} ${RUN_PATH}/${RUN_NAME} --addrList "서울특별시 양천구"
+    # ${PY38_PATH} ${RUN_PATH}/${RUN_NAME} --addrList "경기도 의정부시"
+    # ${PY38_PATH} ${RUN_PATH}/${RUN_NAME} --addrList "경기도 하남시"
 
     # ================================================================================================
     # 환경변수 설정
@@ -577,15 +593,15 @@ class DtaProcess(object):
                     'isInit': False
 
                     # 모델 업데이트 여부
-                    , 'isOverWrite': True
-                    # , 'isOverWrite': False
+                    # , 'isOverWrite': True
+                    , 'isOverWrite': False
                 }
 
                 #  머신러닝
                 , 'mlModel': {
                     # 모델 업데이트 여부
-                    'isOverWrite': True
-                    # 'isOverWrite': False
+                    # 'isOverWrite': True
+                    'isOverWrite': False
                 }
 
                 #  시계열

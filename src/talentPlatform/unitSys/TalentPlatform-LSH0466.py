@@ -190,6 +190,102 @@ def makeSbckProc(method=None, contDataL4 = None, mrgData=None, simDataL3=None, k
         prd = methodList[method]()
 
         # ***********************************************************************************
+        # 보정 결과
+        # ***********************************************************************************
+        corData = prd.adjust(sim=mrgData['pr'], interp="linear")
+        corDataL1 = xr.merge([corData, contDataL4])
+
+        # 음수의 경우 0으로 대체
+        corDataL1['scen'] = xr.where((corDataL1['scen'] < 0), 0.0, corDataL1['scen'])
+
+        # ***********************************************************************************
+        # 격자에 따른 검증지표
+        # ***********************************************************************************
+        lonList = corDataL1['lon'].values
+        latList = corDataL1['lat'].values
+
+        valData = pd.DataFrame()
+        for lon in lonList:
+            for lat in latList:
+                # log.info(f'[CHECK] lon : {lon} / lat : {lat}')
+
+                yList = mrgData['rain'].sel({'lon': lon, 'lat': lat}).values.flatten()
+                yhatList = corDataL1['scen'].sel({'lon': lon, 'lat': lat}).values.flatten()
+
+                mask = (yList > 0) & ~np.isnan(yList) & (yhatList > 0) & ~np.isnan(yhatList)
+
+                y = yList[mask]
+                yhat = yhatList[mask]
+
+                if (len(y) == 0) or (len(yhat) == 0): continue
+
+                # 검증 지표 계산
+                dict = {
+                    'lon': [lon]
+                    , 'lat': [lat]
+                    , 'cnt': [len(y)]
+                    , 'bias': [np.nanmean(yhat - y)]
+                    , 'rmse': [np.sqrt(np.nanmean((yhat - y) ** 2))]
+                    , 'corr': [np.corrcoef(yhat, y)[0, 1]]
+                }
+
+                valData = pd.concat([valData, pd.DataFrame.from_dict(dict)], ignore_index=True)
+
+        saveFile = '{}/{}/{}_{}_{}.csv'.format(globalVar['outPath'], serviceName, 'PAST-VALID', method, keyInfo)
+        os.makedirs(os.path.dirname(saveFile), exist_ok=True)
+        valData.to_csv(saveFile, index=False)
+        log.info(f'[CHECK] saveFile : {saveFile}')
+
+
+        # ***********************************************************************************
+        # 과거 기간 보정 NetCDF 저장
+        # ***********************************************************************************
+        lat1D = corDataL1['lat'].values
+        lon1D = corDataL1['lon'].values
+        time1D = corDataL1['time'].values
+
+        corDataL2 = xr.Dataset(
+            {
+                'OBS': (('time', 'lat', 'lon'), (mrgData['rain'].values).reshape(len(time1D), len(lat1D), len(lon1D)))
+                , method: (('time', 'lat', 'lon'), (corDataL1['scen'].transpose('time', 'lat', 'lon').values).reshape(len(time1D), len(lat1D), len(lon1D)))
+                , 'isLand': (('time', 'lat', 'lon'), np.tile(contDataL4['isLand'].values[np.newaxis, :, :], (len(time1D), 1, 1)).reshape(len(time1D), len(lat1D), len(lon1D)))
+                , 'contIdx': (('time', 'lat', 'lon'), np.tile(contDataL4['contIdx'].values[np.newaxis, :, :], (len(time1D), 1, 1)).reshape(len(time1D), len(lat1D), len(lon1D)))
+            }
+            , coords={
+                'time': time1D
+                , 'lat': lat1D
+                , 'lon': lon1D
+            }
+        )
+
+        # corDataL2['OBS'].isel(time = 10).plot()
+        # corDataL2[method].isel(time = 10).plot()
+        # plt.show()
+
+        saveFile = '{}/{}/{}_{}_{}.nc'.format(globalVar['outPath'], serviceName, 'PAST-MBC', method, keyInfo)
+        os.makedirs(os.path.dirname(saveFile), exist_ok=True)
+        corDataL2.to_netcdf(saveFile)
+        log.info(f'[CHECK] saveFile : {saveFile}')
+
+        # ***********************************************************************************
+        # 과거 기간 95% 이상 분위수 계산
+        # ***********************************************************************************
+        # 95% 이상 분위수 계산
+        corDataL3 = corDataL2.quantile(0.95, dim='time')
+
+        # NetCDF 자료 저장
+        saveFile = '{}/{}/{}_{}_{}.nc'.format(globalVar['outPath'], serviceName, 'PAST-RES95', method, keyInfo)
+        os.makedirs(os.path.dirname(saveFile), exist_ok=True)
+        corDataL3.to_netcdf(saveFile)
+        log.info(f'[CHECK] saveFile : {saveFile}')
+
+        # CSV 자료 저장
+        saveFile = '{}/{}/{}_{}_{}.csv'.format(globalVar['outPath'], serviceName, 'PAST-RES95', method, keyInfo)
+        os.makedirs(os.path.dirname(saveFile), exist_ok=True)
+        corDataL3.to_dataframe().reset_index(drop=False).to_csv(saveFile, index=False)
+        log.info(f'[CHECK] saveFile : {saveFile}')
+
+        # ***********************************************************************************
         # 시뮬레이션 예측 (sim 관측)
         # ***********************************************************************************
         prdData = prd.adjust(sim=simDataL3['pr'], interp="linear")
@@ -208,7 +304,7 @@ def makeSbckProc(method=None, contDataL4 = None, mrgData=None, simDataL3=None, k
         # plt.show()
 
         # ***********************************************************************************
-        # NetCDF 저장
+        # 미래 기간 예측 NetCDF 저장
         # ***********************************************************************************
         lat1D = simDataL3['lat'].values
         lon1D = simDataL3['lon'].values
@@ -232,10 +328,29 @@ def makeSbckProc(method=None, contDataL4 = None, mrgData=None, simDataL3=None, k
         # mrgDataL1[method].isel(time = 10).plot()
         # plt.show()
 
-        saveFile = '{}/{}/{}_{}_{}.nc'.format(globalVar['outPath'], serviceName, 'RES-MBC', method, keyInfo)
+        saveFile = '{}/{}/{}_{}_{}.nc'.format(globalVar['outPath'], serviceName, 'FUTURE-MBC', method, keyInfo)
         os.makedirs(os.path.dirname(saveFile), exist_ok=True)
         mrgDataL1.to_netcdf(saveFile)
         log.info(f'[CHECK] saveFile : {saveFile}')
+
+        # ***********************************************************************************
+        # 과거 기간 95% 이상 분위수 계산
+        # ***********************************************************************************
+        # 95% 이상 분위수 계산
+        mrgDataL2 = mrgDataL1.quantile(0.95, dim='time')
+
+        # NetCDF 자료 저장
+        saveFile = '{}/{}/{}_{}_{}.nc'.format(globalVar['outPath'], serviceName, 'FUTURE-RES95', method, keyInfo)
+        os.makedirs(os.path.dirname(saveFile), exist_ok=True)
+        mrgDataL2.to_netcdf(saveFile)
+        log.info(f'[CHECK] saveFile : {saveFile}')
+
+        # CSV 자료 저장
+        saveFile = '{}/{}/{}_{}_{}.csv'.format(globalVar['outPath'], serviceName, 'FUTURE-RES95', method, keyInfo)
+        os.makedirs(os.path.dirname(saveFile), exist_ok=True)
+        mrgDataL2.to_dataframe().reset_index(drop=False).to_csv(saveFile, index=False)
+        log.info(f'[CHECK] saveFile : {saveFile}')
+
 
         # ***********************************************************************************
         # 대륙 및 시간에 따른 검증 데이터
@@ -260,6 +375,8 @@ def makeSbckProc(method=None, contDataL4 = None, mrgData=None, simDataL3=None, k
                 y = yList[mask]
                 yhat = yhatList[mask]
 
+                if (len(y) == 0) or (len(yhat) == 0): continue
+
                 # 검증스코어 계산 : Bias (Relative Bias), RMSE (Relative RMSE)
                 dict = {
                     'contIdx': [contIdx]
@@ -273,7 +390,7 @@ def makeSbckProc(method=None, contDataL4 = None, mrgData=None, simDataL3=None, k
                 valData = pd.concat([valData, pd.DataFrame.from_dict(dict)], ignore_index=True)
 
         # 대륙에 따른 CSV 자료 저장
-        saveFile = '{}/{}/{}-VALID_{}.csv'.format(globalVar['outPath'], serviceName, method, keyInfo)
+        saveFile = '{}/{}/{}_{}_{}.csv'.format(globalVar['outPath'], serviceName, 'FUTURE-VALID', method, keyInfo)
         os.makedirs(os.path.dirname(saveFile), exist_ok=True)
         valData.to_csv(saveFile, index=False)
         log.info(f'[CHECK] saveFile : {saveFile}')
@@ -294,7 +411,7 @@ def makeSbckProc(method=None, contDataL4 = None, mrgData=None, simDataL3=None, k
             selDataL2 = selDataL1.pivot(index=['time'], columns=['lon', 'lat'])
 
             # 엑셀 저장
-            saveXlsxFile = '{}/{}/{}-ORG-{}_{}.xlsx'.format(globalVar['outPath'], serviceName, method, int(contIdx), keyInfo)
+            saveXlsxFile = '{}/{}/{}_{}-{}_{}.xlsx'.format(globalVar['outPath'], serviceName, 'FUTURE-ORG', method, int(contIdx), keyInfo)
             os.makedirs(os.path.dirname(saveXlsxFile), exist_ok=True)
             with pd.ExcelWriter(saveXlsxFile, engine='openpyxl') as writer:
                 selDataL2.to_excel(writer, startcol=1, startrow=1, index=True)
@@ -375,16 +492,14 @@ class DtaProcess(object):
         try:
 
             if (platform.system() == 'Windows'):
-                # globalVar['inpPath'] = '/DATA/INPUT'
                 globalVar['inpPath'] = 'E:/Global bias/Regridding'
                 globalVar['outPath'] = 'E:/Global bias/Regridding/OUTPUT'
                 globalVar['figPath'] = 'E:/Global bias/Regridding/FIG'
-                # globalVar['updPath'] = 'E:/Global bias/Regridding/CSV'
+
             else:
                 globalVar['inpPath'] = '/DATA/INPUT'
                 globalVar['outPath'] = '/DATA/OUTPUT'
                 globalVar['figPath'] = '/DATA/FIG'
-                # globalVar['updPath'] = '/DATA/CSV'
 
             # 옵션 설정
             sysOpt = {
@@ -424,8 +539,8 @@ class DtaProcess(object):
             # ********************************************************************
             # 대륙별 분류 전처리
             # ********************************************************************
-            # inpFile = '{}/{}/{}'.format(globalVar['inpPath'], serviceName, 'TT4.csv')
-            inpFile = '{}/Historical/{}'.format(globalVar['inpPath'], 'TT4.csv')
+            inpFile = '{}/{}/{}'.format(globalVar['inpPath'], serviceName, 'TT4.csv')
+            # inpFile = '{}/Historical/{}'.format(globalVar['inpPath'], 'TT4.csv')
             fileList = glob.glob(inpFile)
             if fileList is None or len(fileList) < 1:
                 log.error('[ERROR] inpFile : {} / {}'.format(fileList, '입력 자료를 확인해주세요.'))
@@ -445,8 +560,8 @@ class DtaProcess(object):
             # 강수량 데이터 전처리
             # ********************************************************************
             # 실측 데이터
-            # inpFile = '{}/{}/{}'.format(globalVar['inpPath'], serviceName, 'ERA5_1979_2020.nc')
-            inpFile = '{}/Historical/{}'.format(globalVar['inpPath'], 'ERA5_1979_2020.nc')
+            inpFile = '{}/{}/{}'.format(globalVar['inpPath'], serviceName, 'ERA5_1979_2020.nc')
+            # inpFile = '{}/Historical/{}'.format(globalVar['inpPath'], 'ERA5_1979_2020.nc')
             fileList = sorted(glob.glob(inpFile))
             obsData = xr.open_dataset(fileList[0]).sel(time=slice(sysOpt['srtDate'], sysOpt['endDate']))
 
@@ -461,14 +576,13 @@ class DtaProcess(object):
             # obsDataL2.attrs
             # obsDataL2['rain'].attrs
 
-
-            keyList = sysOpt['keyList'];
+            keyList = sysOpt['keyList']
             for keyInfo in keyList:
                 log.info(f"[CHECK] keyInfo : {keyInfo}")
 
                 # 관측/학습 데이터
-                # inpFile = '{}/{}/*{}*{}*.nc'.format(globalVar['inpPath'], serviceName, keyInfo, 'historical')
-                inpFile = '{}/Historical/*{}*{}*.nc'.format(globalVar['inpPath'], keyInfo, 'historical')
+                inpFile = '{}/{}/*{}*{}*.nc'.format(globalVar['inpPath'], serviceName, keyInfo, 'historical')
+                # inpFile = '{}/Historical/*{}*{}*.nc'.format(globalVar['inpPath'], keyInfo, 'historical')
                 fileList = sorted(glob.glob(inpFile))
 
                 # fileInfo = fileList[0]
@@ -479,8 +593,6 @@ class DtaProcess(object):
 
                     # fileNameNoExt = os.path.basename(fileInfo).split('.')[0]
 
-                    # modData = xr.open_dataset(fileInfo).sel(time=slice(sysOpt['srtDate'], sysOpt['endDate']))
-                    # modData = xr.open_dataset(fileInfo).sel(time=slice(sysOpt['srtDate'], sysOpt['endDate']))
                     modData = xr.open_dataset(fileInfo).sel(time=slice(sysOpt['srtDate'], sysOpt['endDate']))
                     if (len(modData['time']) < 1): continue
 
@@ -508,9 +620,8 @@ class DtaProcess(object):
                 mrgData = xr.merge([obsDataL3, modDataL3])
 
                 # 예측 데이터
-                # inpFile = '{}/{}/{}'.format(globalVar['inpPath'], serviceName, 'pr_day_MRI-ESM2-0_ssp126_*.nc')
-                # inpFile = '{}/{}/*{}*{}*.nc'.format(globalVar['inpPath'], serviceName, keyInfo, 'ssp126')
-                inpFile = '{}/Future/*{}*{}*.nc'.format(globalVar['inpPath'], keyInfo, 'ssp126')
+                inpFile = '{}/{}/*{}*{}*.nc'.format(globalVar['inpPath'], serviceName, keyInfo, 'ssp126')
+                # inpFile = '{}/Future/*{}*{}*.nc'.format(globalVar['inpPath'], keyInfo, 'ssp126')
                 fileList = sorted(glob.glob(inpFile))
 
                 # fileInfo = fileList[0]
