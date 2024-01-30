@@ -7,13 +7,15 @@ echo
 # Set Env
 #========================================
 ulimit -s unlimited
+export LANG=en_US.UTF-8
+export LC_TIME=en_US.UTF-8
 
 # 작업 경로 설정
-PY38_PATH=/SYSTEMS/anaconda3/envs/py36/bin/python3.6
 #CTX_PATH=$(pwd)
 CTX_PATH=/SYSTEMS/PROG/PYTHON/PyCharm/src/talentPlatform/shell
 RUN_PATH=/SYSTEMS/PROG/PYTHON/PyCharm/src/talentPlatform/unitSys
 RUN_NAME=TalentPlatform-LSH0454-Active-OpenAPI-Model.py
+PY38_PATH=/SYSTEMS/anaconda3/envs/py36/bin/python3.6
 
 echo "[$(date +"%Y-%m-%d %H:%M:%S")] [CHECK] CTX_PATH : $CTX_PATH"
 
