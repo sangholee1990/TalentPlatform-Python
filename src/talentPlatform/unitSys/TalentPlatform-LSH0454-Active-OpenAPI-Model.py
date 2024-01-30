@@ -1221,7 +1221,13 @@ class DtaProcess(object):
             raise e
         finally:
             log.info('[END] {}'.format('exec'))
-
+    # nohup /SYSTEMS/anaconda3/envs/py36/bin/python3.6 TalentPlatform-LSH0454-Active-OpenAPI-Model.py --addrList "경기도 과천시" &
+    # nohup /SYSTEMS/anaconda3/envs/py36/bin/python3.6 TalentPlatform-LSH0454-Active-OpenAPI-Model.py --addrList "서울특별시 용산구" &
+    # nohup /SYSTEMS/anaconda3/envs/py36/bin/python3.6 TalentPlatform-LSH0454-Active-OpenAPI-Model.py --addrList "서울특별시 송파구" &
+    # nohup /SYSTEMS/anaconda3/envs/py36/bin/python3.6 TalentPlatform-LSH0454-Active-OpenAPI-Model.py --addrList "서울특별시 서초구" &
+    # nohup /SYSTEMS/anaconda3/envs/py36/bin/python3.6 TalentPlatform-LSH0454-Active-OpenAPI-Model.py --addrList "서울특별시 강남구" &
+    # nohup /SYSTEMS/anaconda3/envs/py36/bin/python3.6 TalentPlatform-LSH0454-Active-OpenAPI-Model.py --addrList "서울특별시 강북구" &
+    # nohup /SYSTEMS/anaconda3/envs/py36/bin/python3.6 TalentPlatform-LSH0454-Active-OpenAPI-Model.py --addrList "서울특별시 양천구" &
 
 # ================================================
 # 3. 주 프로그램
