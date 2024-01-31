@@ -353,7 +353,7 @@ def makeSbckProc(method=None, contDataL4 = None, mrgData=None, simDataL3=None, k
 
 
         # ***********************************************************************************
-        # 대륙 및 시간에 따른 검증 데이터
+        # 대륙 및 시간에 따른 검증 지표
         # ***********************************************************************************
         valData = pd.DataFrame()
         contIdxList = np.unique(prdDataL1['contIdx'].values)
