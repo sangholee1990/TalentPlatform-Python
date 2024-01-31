@@ -274,7 +274,7 @@ class DtaProcess(object):
 
                     # 가공 파일 정보
                     , 'procPath': '/DATA/OUTPUT/LSH0540/PROC/%Y%m/%d'
-                    , 'procName': '{}_{}_%Y%m%d%H%M.csv'
+                    , 'procName': '{}_{}_HighRes_%Y%m%d%H%M.csv'
                 }
             }
 

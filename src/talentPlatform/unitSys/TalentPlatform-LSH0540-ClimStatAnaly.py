@@ -279,7 +279,7 @@ class DtaProcess(object):
 
                     # 가공 파일 정보
                     , 'procPath': '/DATA/OUTPUT/LSH0540/OUTPUT'
-                    , 'procName': '{}_{}_ClimStatAnaly_%Y.csv'
+                    , 'procName': '{}_{}_ClimStatAnaly_{}_%Y.csv'
                 }
             }
 
@@ -395,15 +395,17 @@ class DtaProcess(object):
 
                     # 연별 분석
                     statDataL4 = statDataL3.resample(time='1Y').sum()
+                    cntData = statDataL3.resample(time='1Y').count()
 
                     timeList = pd.to_datetime(statDataL4['time'].values)
                     for timeInfo in timeList:
                         log.info(f'[CHECK] timeInfo : {timeInfo}')
 
                         statDataL5 = statDataL4.sel(time = timeInfo)
+                        cntDataL1 = cntData.sel(time = timeInfo)
 
                         procFilePattern = '{}/{}'.format(modelInfo['procPath'], modelInfo['procName'])
-                        procFile = timeInfo.strftime(procFilePattern).format(modelType.lower(), varInfo)
+                        procFile = timeInfo.strftime(procFilePattern).format(modelType.lower(), varInfo, np.nanmax(cntDataL1['cnt']))
 
                         # 파일 덮어쓰기 및 파일 존재 여부
                         if not modelInfo['isOverWrite'] and os.path.exists(procFile): continue
@@ -413,7 +415,7 @@ class DtaProcess(object):
 
                         # CSV 생산
                         os.makedirs(os.path.dirname(procFile), exist_ok=True)
-                        dataL5.to_dataframe().reset_index(drop=False).to_csv(procFile, index=False)
+                        statDataL5.to_dataframe().reset_index(drop=False).to_csv(procFile, index=False)
                         log.info(f'[CHECK] procFile : {procFile}')
 
         except Exception as e:
