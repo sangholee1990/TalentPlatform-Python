@@ -327,12 +327,13 @@ class DtaProcess(object):
 
                             modelInfo['comVar']['Value'] = varInfo
                             dataL1 = data.rename(columns = modelInfo['comVar'])[modelInfo['comVar'].values()]
-                            dataL1['time'] = dtDateInfo
+                            # dataL1['time'] = dtDateInfo
 
                             if (len(dataL1) < 1): continue
 
                             # CSV to NetCDF 변환
-                            dataL2 = dataL1.set_index(['time', 'lat', 'lon'])
+                            # dataL2 = dataL1.set_index(['time', 'lat', 'lon'])
+                            dataL2 = dataL1.set_index(['lat', 'lon'])
                             dataL3 = dataL2.to_xarray()
 
                             # 특정 변수 선택 및  위경도 내삽
