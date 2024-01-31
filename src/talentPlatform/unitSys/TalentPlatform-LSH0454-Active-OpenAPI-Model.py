@@ -519,7 +519,12 @@ class DtaProcess(object):
 
     # 2024.01.30
     # nohup /SYSTEMS/anaconda3/envs/py36/bin/python3.6 TalentPlatform-LSH0454-Active-OpenAPI-Model.py --addrList "경기도 과천시, 서울특별시 용산구, 서울특별시 송파구, 서울특별시 서초구, 서울특별시 강남구, 서울특별시 강북구, 서울특별시 양천구" &
-    # ohup bash /SYSTEMS/PROG/PYTHON/PyCharm/src/talentPlatform/shell/RunShell-LSH0454.sh &
+    # nohup /SYSTEMS/anaconda3/envs/py36/bin/python3.6 TalentPlatform-LSH0454-Active-OpenAPI-Model.py --addrList "경기도 과천시" &
+    # nohup /SYSTEMS/anaconda3/envs/py36/bin/python3.6 TalentPlatform-LSH0454-Active-OpenAPI-Model.py --addrList "서울특별시 송파구" &
+    # nohup /SYSTEMS/anaconda3/envs/py36/bin/python3.6 TalentPlatform-LSH0454-Active-OpenAPI-Model.py --addrList "서울특별시 서초구" &
+    # nohup /SYSTEMS/anaconda3/envs/py36/bin/python3.6 TalentPlatform-LSH0454-Active-OpenAPI-Model.py --addrList "서울특별시 강남구" &
+
+    # nohup bash /SYSTEMS/PROG/PYTHON/PyCharm/src/talentPlatform/shell/RunShell-LSH0454.sh &
     # ${PY38_PATH} ${RUN_PATH}/${RUN_NAME} --addrList "경기도 과천시"
     # ${PY38_PATH} ${RUN_PATH}/${RUN_NAME} --addrList "서울특별시 용산구"
     # ${PY38_PATH} ${RUN_PATH}/${RUN_NAME} --addrList "서울특별시 송파구"
