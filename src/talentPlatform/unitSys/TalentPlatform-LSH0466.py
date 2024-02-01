@@ -231,7 +231,50 @@ def makeSbckProc(method=None, contDataL4 = None, mrgData=None, simDataL3=None, k
 
                 valData = pd.concat([valData, pd.DataFrame.from_dict(dict)], ignore_index=True)
 
-        saveFile = '{}/{}/{}_{}_{}.csv'.format(globalVar['outPath'], serviceName, 'PAST-VALID', method, keyInfo)
+        saveFile = '{}/{}/{}_{}_{}.csv'.format(globalVar['outPath'], serviceName, 'PAST-VALID-ByGeoCont', method, keyInfo)
+        os.makedirs(os.path.dirname(saveFile), exist_ok=True)
+        valData.to_csv(saveFile, index=False)
+        log.info(f'[CHECK] saveFile : {saveFile}')
+
+        # ***********************************************************************************
+        # 대륙 및 격자에 따른 검증지표
+        # ***********************************************************************************
+        lonList = corDataL1['lon'].values
+        latList = corDataL1['lat'].values
+
+        valData = pd.DataFrame()
+        for lon in lonList:
+            for lat in latList:
+                # log.info(f'[CHECK] lon : {lon} / lat : {lat}')
+
+                yList = mrgData['rain'].sel({'lon': lon, 'lat': lat}).values.flatten()
+                yhatList = corDataL1['scen'].sel({'lon': lon, 'lat': lat}).values.flatten()
+
+                isLand = contDataL4['isLand'].sel({'lon': lon, 'lat': lat}).values.item()
+                contIdx = contDataL4['contIdx'].sel({'lon': lon, 'lat': lat}).values.item()
+
+                mask = (yList > 0) & ~np.isnan(yList) & (yhatList > 0) & ~np.isnan(yhatList)
+
+                y = yList[mask]
+                yhat = yhatList[mask]
+
+                if (len(y) == 0) or (len(yhat) == 0): continue
+
+                # 검증 지표 계산
+                dict = {
+                    'lon': [lon]
+                    , 'lat': [lat]
+                    , 'isLand': [isLand]
+                    , 'contIdx': [contIdx]
+                    , 'cnt': [len(y)]
+                    , 'bias': [np.nanmean(yhat - y)]
+                    , 'rmse': [np.sqrt(np.nanmean((yhat - y) ** 2))]
+                    , 'corr': [np.corrcoef(yhat, y)[0, 1]]
+                }
+
+                valData = pd.concat([valData, pd.DataFrame.from_dict(dict)], ignore_index=True)
+
+        saveFile = '{}/{}/{}_{}_{}.csv'.format(globalVar['outPath'], serviceName, 'PAST-VALID-ByGeoLandCont', method, keyInfo)
         os.makedirs(os.path.dirname(saveFile), exist_ok=True)
         valData.to_csv(saveFile, index=False)
         log.info(f'[CHECK] saveFile : {saveFile}')
@@ -247,6 +290,7 @@ def makeSbckProc(method=None, contDataL4 = None, mrgData=None, simDataL3=None, k
         corDataL2 = xr.Dataset(
             {
                 'OBS': (('time', 'lat', 'lon'), (mrgData['rain'].values).reshape(len(time1D), len(lat1D), len(lon1D)))
+                , 'ERA': (('time', 'lat', 'lon'), (mrgData['pr'].values).reshape(len(time1D), len(lat1D), len(lon1D)))
                 , method: (('time', 'lat', 'lon'), (corDataL1['scen'].transpose('time', 'lat', 'lon').values).reshape(len(time1D), len(lat1D), len(lon1D)))
                 , 'isLand': (('time', 'lat', 'lon'), np.tile(contDataL4['isLand'].values[np.newaxis, :, :], (len(time1D), 1, 1)).reshape(len(time1D), len(lat1D), len(lon1D)))
                 , 'contIdx': (('time', 'lat', 'lon'), np.tile(contDataL4['contIdx'].values[np.newaxis, :, :], (len(time1D), 1, 1)).reshape(len(time1D), len(lat1D), len(lon1D)))
@@ -266,6 +310,24 @@ def makeSbckProc(method=None, contDataL4 = None, mrgData=None, simDataL3=None, k
         os.makedirs(os.path.dirname(saveFile), exist_ok=True)
         corDataL2.to_netcdf(saveFile)
         log.info(f'[CHECK] saveFile : {saveFile}')
+
+        # ***********************************************************************************
+        # 과거 기간 보정 NetCDF에서 세부 저장
+        # ***********************************************************************************
+        varList = ['OBS', 'ERA', method]
+        corDataL3 = corDataL2.to_dataframe().reset_index(drop=False)
+        for varInfo in varList:
+            selCol = ['time', 'lon', 'lat', varInfo]
+            corDataL4 = corDataL3[selCol].pivot(index=['time'], columns=['lon', 'lat'])
+
+            # 엑셀 저장
+            saveXlsxFile = '{}/{}/{}-{}_{}_{}.xlsx'.format(globalVar['outPath'], serviceName, 'PAST-MBC', varInfo, method, keyInfo)
+            os.makedirs(os.path.dirname(saveXlsxFile), exist_ok=True)
+            with pd.ExcelWriter(saveXlsxFile, engine='openpyxl', mode='a', if_sheet_exists='overlay') as writer:
+                if varInfo not in writer.book.sheetnames: writer.book.create_sheet(varInfo)
+                corDataL4.to_excel(writer, sheet_name=varInfo, startcol=1, startrow=1, index=True)
+
+            log.info(f'[CHECK] saveXlsxFile : {saveXlsxFile}')
 
         # ***********************************************************************************
         # 과거 기간 95% 이상 분위수 계산
@@ -328,10 +390,28 @@ def makeSbckProc(method=None, contDataL4 = None, mrgData=None, simDataL3=None, k
         # mrgDataL1[method].isel(time = 10).plot()
         # plt.show()
 
-        saveFile = '{}/{}/{}_{}_{}.nc'.format(globalVar['outPath'], serviceName, 'FUTURE-MBC', method, keyInfo)
-        os.makedirs(os.path.dirname(saveFile), exist_ok=True)
-        mrgDataL1.to_netcdf(saveFile)
-        log.info(f'[CHECK] saveFile : {saveFile}')
+        # saveFile = '{}/{}/{}_{}_{}.nc'.format(globalVar['outPath'], serviceName, 'FUTURE-MBC', method, keyInfo)
+        # os.makedirs(os.path.dirname(saveFile), exist_ok=True)
+        # mrgDataL1.to_netcdf(saveFile)
+        # log.info(f'[CHECK] saveFile : {saveFile}')
+
+        # ***********************************************************************************
+        # 미래 기간 보정 NetCDF에서 세부 저장
+        # ***********************************************************************************
+        varList = ['SIM', method]
+        corDataL3 = corDataL2.to_dataframe().reset_index(drop=False)
+        for varInfo in varList:
+            selCol = ['time', 'lon', 'lat', varInfo]
+            corDataL4 = corDataL3[selCol].pivot(index=['time'], columns=['lon', 'lat'])
+
+            # 엑셀 저장
+            saveXlsxFile = '{}/{}/{}-{}_{}_{}.xlsx'.format(globalVar['outPath'], serviceName, 'FUTURE-MBC', varInfo, method, keyInfo)
+            os.makedirs(os.path.dirname(saveXlsxFile), exist_ok=True)
+            with pd.ExcelWriter(saveXlsxFile, engine='openpyxl') as writer:
+                corDataL4.to_excel(writer, sheet_name=varInfo, startcol=1, startrow=1, index=True)
+
+            log.info(f'[CHECK] saveXlsxFile : {saveXlsxFile}')
+
 
         # ***********************************************************************************
         # 과거 기간 95% 이상 분위수 계산
@@ -390,7 +470,7 @@ def makeSbckProc(method=None, contDataL4 = None, mrgData=None, simDataL3=None, k
                 valData = pd.concat([valData, pd.DataFrame.from_dict(dict)], ignore_index=True)
 
         # 대륙에 따른 CSV 자료 저장
-        saveFile = '{}/{}/{}_{}_{}.csv'.format(globalVar['outPath'], serviceName, 'FUTURE-VALID', method, keyInfo)
+        saveFile = '{}/{}/{}_{}_{}.csv'.format(globalVar['outPath'], serviceName, 'FUTURE-VALID-ByContTime', method, keyInfo)
         os.makedirs(os.path.dirname(saveFile), exist_ok=True)
         valData.to_csv(saveFile, index=False)
         log.info(f'[CHECK] saveFile : {saveFile}')
