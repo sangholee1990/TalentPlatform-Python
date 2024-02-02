@@ -318,14 +318,17 @@ def makeSbckProc(method=None, contDataL4 = None, mrgData=None, simDataL3=None, k
         corDataL3 = corDataL2.to_dataframe().reset_index(drop=False)
         for varInfo in varList:
             selCol = ['time', 'lon', 'lat', varInfo]
-            corDataL4 = corDataL3[selCol].pivot(index=['time'], columns=['lon', 'lat'])
+            # corDataL4 = corDataL3[selCol].pivot(index=['time'], columns=['lon', 'lat'])
+            corDataL4 = corDataL3[selCol].pivot(index=['lon', 'lat'], columns=['time'])
 
             # 엑셀 저장
             saveXlsxFile = '{}/{}/{}-{}_{}_{}.xlsx'.format(globalVar['outPath'], serviceName, 'PAST-MBC', varInfo, method, keyInfo)
             os.makedirs(os.path.dirname(saveXlsxFile), exist_ok=True)
-            with pd.ExcelWriter(saveXlsxFile, engine='openpyxl', mode='a', if_sheet_exists='overlay') as writer:
-                if varInfo not in writer.book.sheetnames: writer.book.create_sheet(varInfo)
-                corDataL4.to_excel(writer, sheet_name=varInfo, startcol=1, startrow=1, index=True)
+            corDataL4.to_excel(saveXlsxFile, index=True)
+
+            # if (os.path.exists(saveXlsxFile)): os.remove(saveXlsxFile)
+            # with pd.ExcelWriter(saveXlsxFile, engine='xlsxwriter') as writer:
+            #     corDataL4.to_excel(writer, index=True)
 
             log.info(f'[CHECK] saveXlsxFile : {saveXlsxFile}')
 
@@ -399,16 +402,20 @@ def makeSbckProc(method=None, contDataL4 = None, mrgData=None, simDataL3=None, k
         # 미래 기간 보정 NetCDF에서 세부 저장
         # ***********************************************************************************
         varList = ['SIM', method]
-        corDataL3 = corDataL2.to_dataframe().reset_index(drop=False)
+        mrgDataL2 = mrgDataL1.to_dataframe().reset_index(drop=False)
         for varInfo in varList:
             selCol = ['time', 'lon', 'lat', varInfo]
-            corDataL4 = corDataL3[selCol].pivot(index=['time'], columns=['lon', 'lat'])
+            # mrgDataL3 = mrgDataL2[selCol].pivot(index=['time'], columns=['lon', 'lat'])
+            mrgDataL3 = mrgDataL2[selCol].pivot(index=['lon', 'lat'], columns=['time'])
 
             # 엑셀 저장
             saveXlsxFile = '{}/{}/{}-{}_{}_{}.xlsx'.format(globalVar['outPath'], serviceName, 'FUTURE-MBC', varInfo, method, keyInfo)
             os.makedirs(os.path.dirname(saveXlsxFile), exist_ok=True)
-            with pd.ExcelWriter(saveXlsxFile, engine='openpyxl') as writer:
-                corDataL4.to_excel(writer, sheet_name=varInfo, startcol=1, startrow=1, index=True)
+            mrgDataL3.to_excel(saveXlsxFile, index=True)
+
+            # if (os.path.exists(saveXlsxFile)): os.remove(saveXlsxFile)
+            # with pd.ExcelWriter(saveXlsxFile, engine='openpyxl') as writer:
+            #     mrgDataL3.to_excel(writer, sheet_name='Sheet1', index=False)
 
             log.info(f'[CHECK] saveXlsxFile : {saveXlsxFile}')
 
@@ -488,13 +495,18 @@ def makeSbckProc(method=None, contDataL4 = None, mrgData=None, simDataL3=None, k
             selDataL1 = selData['scen'].to_dataframe().reset_index(drop=False)
             if len(selDataL1['scen'].dropna()) < 0: continue
 
-            selDataL2 = selDataL1.pivot(index=['time'], columns=['lon', 'lat'])
+            # selDataL2 = selDataL1.pivot(index=['time'], columns=['lon', 'lat'])
+            selDataL2 = selDataL1.pivot(index=['lon', 'lat'], columns=['time'])
 
             # 엑셀 저장
             saveXlsxFile = '{}/{}/{}_{}-{}_{}.xlsx'.format(globalVar['outPath'], serviceName, 'FUTURE-ORG', method, int(contIdx), keyInfo)
             os.makedirs(os.path.dirname(saveXlsxFile), exist_ok=True)
-            with pd.ExcelWriter(saveXlsxFile, engine='openpyxl') as writer:
-                selDataL2.to_excel(writer, startcol=1, startrow=1, index=True)
+            selDataL2.to_excel(saveXlsxFile, index=True)
+
+            # if (os.path.exists(saveXlsxFile)): os.remove(saveXlsxFile)
+            # with pd.ExcelWriter(saveXlsxFile, engine='openpyxl') as writer:
+            #     selDataL2.to_excel(writer, sheet_name='Sheet1', index=False)
+
             log.info(f'[CHECK] saveXlsxFile : {saveXlsxFile}')
 
     except Exception as e:
