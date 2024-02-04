@@ -250,7 +250,7 @@ def makeSbckProc(method=None, contDataL4 = None, mrgData=None, simDataL3=None, k
                 yList = mrgData['rain'].sel({'lon': lon, 'lat': lat}).values.flatten()
                 yhatList = corDataL1['scen'].sel({'lon': lon, 'lat': lat}).values.flatten()
 
-                isLand = contDataL4['isLand'].sel({'lon': lon, 'lat': lat}).values.item()
+                # isLand = contDataL4['isLand'].sel({'lon': lon, 'lat': lat}).values.item()
                 contIdx = contDataL4['contIdx'].sel({'lon': lon, 'lat': lat}).values.item()
 
                 mask = (yList > 0) & ~np.isnan(yList) & (yhatList > 0) & ~np.isnan(yhatList)
@@ -264,7 +264,7 @@ def makeSbckProc(method=None, contDataL4 = None, mrgData=None, simDataL3=None, k
                 dict = {
                     'lon': [lon]
                     , 'lat': [lat]
-                    , 'isLand': [isLand]
+                    # , 'isLand': [isLand]
                     , 'contIdx': [contIdx]
                     , 'cnt': [len(y)]
                     , 'bias': [np.nanmean(yhat - y)]
@@ -292,7 +292,7 @@ def makeSbckProc(method=None, contDataL4 = None, mrgData=None, simDataL3=None, k
                 'OBS': (('time', 'lat', 'lon'), (mrgData['rain'].values).reshape(len(time1D), len(lat1D), len(lon1D)))
                 , 'ERA': (('time', 'lat', 'lon'), (mrgData['pr'].values).reshape(len(time1D), len(lat1D), len(lon1D)))
                 , method: (('time', 'lat', 'lon'), (corDataL1['scen'].transpose('time', 'lat', 'lon').values).reshape(len(time1D), len(lat1D), len(lon1D)))
-                , 'isLand': (('time', 'lat', 'lon'), np.tile(contDataL4['isLand'].values[np.newaxis, :, :], (len(time1D), 1, 1)).reshape(len(time1D), len(lat1D), len(lon1D)))
+                # , 'isLand': (('time', 'lat', 'lon'), np.tile(contDataL4['isLand'].values[np.newaxis, :, :], (len(time1D), 1, 1)).reshape(len(time1D), len(lat1D), len(lon1D)))
                 , 'contIdx': (('time', 'lat', 'lon'), np.tile(contDataL4['contIdx'].values[np.newaxis, :, :], (len(time1D), 1, 1)).reshape(len(time1D), len(lat1D), len(lon1D)))
             }
             , coords={
@@ -304,6 +304,7 @@ def makeSbckProc(method=None, contDataL4 = None, mrgData=None, simDataL3=None, k
 
         # corDataL2['OBS'].isel(time = 10).plot()
         # corDataL2[method].isel(time = 10).plot()
+        # corDataL2['contIdx'].isel(time=10).plot()
         # plt.show()
 
         saveFile = '{}/{}/{}_{}_{}.nc'.format(globalVar['outPath'], serviceName, 'PAST-MBC', method, keyInfo)
@@ -315,6 +316,7 @@ def makeSbckProc(method=None, contDataL4 = None, mrgData=None, simDataL3=None, k
         # 과거 기간 보정 NetCDF에서 세부 저장
         # ***********************************************************************************
         varList = ['OBS', 'ERA', method]
+        contIdxList = np.unique(corDataL2['contIdx'])
         corDataL3 = corDataL2.to_dataframe().reset_index(drop=False)
         for varInfo in varList:
             selCol = ['time', 'lon', 'lat', varInfo]
@@ -326,11 +328,19 @@ def makeSbckProc(method=None, contDataL4 = None, mrgData=None, simDataL3=None, k
             os.makedirs(os.path.dirname(saveXlsxFile), exist_ok=True)
             corDataL4.to_excel(saveXlsxFile, index=True)
 
-            # if (os.path.exists(saveXlsxFile)): os.remove(saveXlsxFile)
-            # with pd.ExcelWriter(saveXlsxFile, engine='xlsxwriter') as writer:
-            #     corDataL4.to_excel(writer, index=True)
+            for contIdx in contIdxList:
+                if np.isnan(contIdx): continue
+
+                corDataL5 = corDataL3.loc[(corDataL3['contIdx'] == contIdx)].reset_index(drop=True)
+                if len(corDataL5) < 0: continue
+
+                corDataL6 = corDataL5[selCol].pivot(index=['lon', 'lat'], columns=['time'])
+                with pd.ExcelWriter(saveXlsxFile, engine='openpyxl', mode='a') as writer:
+                    corDataL6.to_excel(writer, sheet_name=str(int(contIdx)), index=True)
 
             log.info(f'[CHECK] saveXlsxFile : {saveXlsxFile}')
+
+        sys.exit(0)
 
         # ***********************************************************************************
         # 과거 기간 95% 이상 분위수 계산
@@ -379,7 +389,7 @@ def makeSbckProc(method=None, contDataL4 = None, mrgData=None, simDataL3=None, k
             {
                 'SIM': (('time', 'lat', 'lon'), (simDataL3['pr'].values).reshape(len(time1D), len(lat1D), len(lon1D)))
                 , method: (('time', 'lat', 'lon'), (prdDataL1['scen'].transpose('time', 'lat', 'lon').values).reshape(len(time1D), len(lat1D), len(lon1D)))
-                , 'isLand': (('time', 'lat', 'lon'), np.tile(contDataL4['isLand'].values[np.newaxis, :, :], (len(time1D), 1, 1)).reshape(len(time1D), len(lat1D), len(lon1D)))
+                # , 'isLand': (('time', 'lat', 'lon'), np.tile(contDataL4['isLand'].values[np.newaxis, :, :], (len(time1D), 1, 1)).reshape(len(time1D), len(lat1D), len(lon1D)))
                 , 'contIdx': (('time', 'lat', 'lon'), np.tile(contDataL4['contIdx'].values[np.newaxis, :, :], (len(time1D), 1, 1)).reshape(len(time1D), len(lat1D), len(lon1D)))
             }
             , coords={
@@ -393,15 +403,16 @@ def makeSbckProc(method=None, contDataL4 = None, mrgData=None, simDataL3=None, k
         # mrgDataL1[method].isel(time = 10).plot()
         # plt.show()
 
-        # saveFile = '{}/{}/{}_{}_{}.nc'.format(globalVar['outPath'], serviceName, 'FUTURE-MBC', method, keyInfo)
-        # os.makedirs(os.path.dirname(saveFile), exist_ok=True)
-        # mrgDataL1.to_netcdf(saveFile)
-        # log.info(f'[CHECK] saveFile : {saveFile}')
+        saveFile = '{}/{}/{}_{}_{}.nc'.format(globalVar['outPath'], serviceName, 'FUTURE-MBC', method, keyInfo)
+        os.makedirs(os.path.dirname(saveFile), exist_ok=True)
+        mrgDataL1.to_netcdf(saveFile)
+        log.info(f'[CHECK] saveFile : {saveFile}')
 
         # ***********************************************************************************
         # 미래 기간 보정 NetCDF에서 세부 저장
         # ***********************************************************************************
         varList = ['SIM', method]
+        contIdxList = np.unique(mrgDataL1['contIdx'])
         mrgDataL2 = mrgDataL1.to_dataframe().reset_index(drop=False)
         for varInfo in varList:
             selCol = ['time', 'lon', 'lat', varInfo]
@@ -413,9 +424,15 @@ def makeSbckProc(method=None, contDataL4 = None, mrgData=None, simDataL3=None, k
             os.makedirs(os.path.dirname(saveXlsxFile), exist_ok=True)
             mrgDataL3.to_excel(saveXlsxFile, index=True)
 
-            # if (os.path.exists(saveXlsxFile)): os.remove(saveXlsxFile)
-            # with pd.ExcelWriter(saveXlsxFile, engine='openpyxl') as writer:
-            #     mrgDataL3.to_excel(writer, sheet_name='Sheet1', index=False)
+            for contIdx in contIdxList:
+                if np.isnan(contIdx): continue
+
+                mrgDataL5 = mrgDataL2.loc[(mrgDataL2['contIdx'] == contIdx)].reset_index(drop=True)
+                if len(mrgDataL5) < 0: continue
+
+                mrgDataL6 = mrgDataL5[selCol].pivot(index=['lon', 'lat'], columns=['time'])
+                with pd.ExcelWriter(saveXlsxFile, engine='openpyxl', mode='a') as writer:
+                    mrgDataL6.to_excel(writer, sheet_name=str(int(contIdx)), index=True)
 
             log.info(f'[CHECK] saveXlsxFile : {saveXlsxFile}')
 
@@ -631,15 +648,23 @@ class DtaProcess(object):
             # ********************************************************************
             # 대륙별 분류 전처리
             # ********************************************************************
-            inpFile = '{}/{}/{}'.format(globalVar['inpPath'], serviceName, 'TT4.csv')
+            # inpFile = '{}/{}/{}'.format(globalVar['inpPath'], serviceName, 'TT4.csv')
             # inpFile = '{}/{}/{}'.format(globalVar['inpPath'], 'Historical', 'TT4.csv')
+
+            inpFile = '{}/{}/{}'.format(globalVar['inpPath'], serviceName, 'TTL4.csv')
+            # inpFile = '{}/{}/{}'.format(globalVar['inpPath'], 'Historical', 'TTL4.csv')
             fileList = glob.glob(inpFile)
             if fileList is None or len(fileList) < 1:
                 log.error('[ERROR] inpFile : {} / {}'.format(fileList, '입력 자료를 확인해주세요.'))
                 raise Exception('[ERROR] inpFile : {} / {}'.format(fileList, '입력 자료를 확인해주세요.'))
 
-            contData = pd.read_csv(fileList[0]).rename(columns={'type': 'contIdx'})
-            contDataL1 = contData[['lon', 'lat', 'isLand', 'contIdx']]
+            contData = pd.read_csv(fileList[0]).rename(columns={'type': 'contIdx', 'Latitude': 'lat', 'Longitude': 'lon'})
+            # contDataL1 = contData[['lon', 'lat', 'isLand', 'contIdx']]
+            contDataL1 = contData[['lon', 'lat', 'contIdx']]
+
+            # 경도 변환 (-180~180 to 0~360)
+            contDataL1['lon'] = np.where(contDataL1['lon'] < 0, (contDataL1['lon']) % 360, contDataL1['lon'])
+
             contDataL2 = contDataL1.set_index(['lat', 'lon'])
             contDataL3 = contDataL2.to_xarray()
             contDataL4 = contDataL3.interp({'lon': lonList, 'lat': latList}, method='nearest')
