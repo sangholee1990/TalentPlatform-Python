@@ -16,6 +16,9 @@ import pandas as pd
 import pyart
 import xarray as xr
 
+import pyproj
+from pyproj import Transformer
+
 # =================================================
 # 사용자 매뉴얼
 # =================================================
@@ -276,25 +279,28 @@ class DtaProcess(object):
                         data = pyart.io.read_uf(fileInfo)
                         log.info(f'[CHECK] fileInfo : {fileInfo}')
 
-                        # 메타 정보
-                        # data.info()
+                        # 2024.02.06 Python 구동 부분에서 R처럼 자료의 정보를 구조적으로 확인이 안됨
+                        # 메타 정보 출력
+                        data.info()
 
                         # 위경도 추출
-                        # data.init_gate_altitude()
-                        # data.init_gate_longitude_latitude()
-                        lon2D = data.gate_longitude["data"]
-                        lat2D = data.gate_latitude["data"]
+                        lon2D = data.gate_longitude['data']
+                        lat2D = data.gate_latitude['data']
 
                         # x, y축 배열 정보
                         xdim = lon2D.shape[0]
                         ydim = lon2D.shape[1]
+
+                        # 2024.02.06 저장형태 변경 부분
+                        # 좌표계 변환을 위한 Transformer 초기화
+                        transformer = Transformer.from_crs("EPSG:4326", "EPSG:3857", always_xy=True)
+                        xEle2D, yEle2D = transformer.transform(lon2D, lat2D)
 
                         for field in data.fields.keys():
                             if not (field in modelInfo['varList']): continue
                             log.info(f'[CHECK] field : {field}')
 
                             val2D = data.fields[field]['data']
-
 
                             dsData = xr.Dataset(
                                 {
@@ -303,6 +309,8 @@ class DtaProcess(object):
                                 , coords={
                                     'row': np.arange(val2D.shape[0])
                                     , 'col': np.arange(val2D.shape[1])
+                                    , 'x': (('time', 'row', 'col'), (xEle2D).reshape(1, xdim, ydim))
+                                    , 'y': (('time', 'row', 'col'), (yEle2D).reshape(1, xdim, ydim))
                                     , 'lon': (('time', 'row', 'col'), (lon2D).reshape(1, xdim, ydim))
                                     , 'lat': (('time', 'row', 'col'), (lat2D).reshape(1, xdim, ydim))
                                     , 'time': pd.date_range(dtDateInfo, periods=1)
@@ -311,13 +319,36 @@ class DtaProcess(object):
 
                             dataL1 = xr.merge([dataL1, dsData])
 
+
+
+                            # 2024.02.06 저장형태 변경 부분
+                            # dsData['reflectivity']
+
+            #                 RDR_COMP_ADJ_202208060000.RKDP.bin.asc
+
+                            saveFile = '{}/{}/{}-{}_{}.{}.bin.asc'.format(globalVar['outPath'], serviceName, 'RDR_COMP_ADJ', field, pd.to_datetime(dtDateInfo).strftime('%Y%m%d%H%M'), 'RKDP')
+                            os.makedirs(os.path.dirname(saveFile), exist_ok=True)
+
+                            fillVal = 65535
+                            val2DList = np.nan_to_num(val2D.data, nan=fillVal)
+
+                            headerInfo = """ncols {}\nnrows {}\nxllcorner {}\nyllcorner {}\ncellsize {}\nNODATA_value {}\n""".format(val2D.shape[0], val2D.shape[1], '-', '-', '-', fillVal)
+
+                            with open(saveFile, 'w') as file:
+                                file.write(headerInfo)
+                                for row in val2DList:
+                                    line = ' '.join(str(int(value)) for value in row) + '\n'
+                                    file.write(line)
+
+                            log.info(f'[CHECK] saveFile : {saveFile}')
+
             # NetCDF 저장
             timeStrList = pd.to_datetime(dataL1['time'].values).strftime('%Y%m%d%H%M')
 
             saveNcFile = '{}/{}/{}_{}-{}.nc'.format(globalVar['outPath'], serviceName, 'RDR_GDK_FQC', timeStrList.min(), timeStrList.max())
             os.makedirs(os.path.dirname(saveNcFile), exist_ok=True)
             dataL1.to_netcdf(saveNcFile)
-            log.info('[CHECK] saveNcFile : {}'.format(saveNcFile))
+            log.info(f'[CHECK] saveNcFile : {saveNcFile}')
 
             # CSV 저장
             saveCsvFile = '{}/{}/{}_{}-{}.csv'.format(globalVar['outPath'], serviceName, 'RDR_GDK_FQC', timeStrList.min(), timeStrList.max())
