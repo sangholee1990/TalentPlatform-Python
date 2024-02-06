@@ -291,8 +291,7 @@ class DtaProcess(object):
                         xdim = lon2D.shape[0]
                         ydim = lon2D.shape[1]
 
-                        # 2024.02.06 저장형태 변경 부분
-                        # 좌표계 변환을 위한 Transformer 초기화
+                        # 2024.02.06 좌표계 변환
                         transformer = Transformer.from_crs("EPSG:4326", "EPSG:3857", always_xy=True)
                         xEle2D, yEle2D = transformer.transform(lon2D, lat2D)
 
@@ -319,25 +318,19 @@ class DtaProcess(object):
 
                             dataL1 = xr.merge([dataL1, dsData])
 
-
-
                             # 2024.02.06 저장형태 변경 부분
-                            # dsData['reflectivity']
-
-            #                 RDR_COMP_ADJ_202208060000.RKDP.bin.asc
-
                             saveFile = '{}/{}/{}-{}_{}.{}.bin.asc'.format(globalVar['outPath'], serviceName, 'RDR_COMP_ADJ', field, pd.to_datetime(dtDateInfo).strftime('%Y%m%d%H%M'), 'RKDP')
                             os.makedirs(os.path.dirname(saveFile), exist_ok=True)
 
-                            fillVal = 65535
+                            # fillVal = val2D.fill_value
+                            fillVal = 66635
                             val2DList = np.nan_to_num(val2D.data, nan=fillVal)
 
-                            headerInfo = """ncols {}\nnrows {}\nxllcorner {}\nyllcorner {}\ncellsize {}\nNODATA_value {}\n""".format(val2D.shape[0], val2D.shape[1], '-', '-', '-', fillVal)
-
+                            headerInfo = """ncols {}\nnrows {}\nxllcorner {}\nyllcorner {}\ncellsize {}\nNODATA_value {}\ncount {}\nminVal {}\nmaxVal {}\n""".format(val2D.shape[0], val2D.shape[1], '-', '-', '-', fillVal, np.count_nonzero(~np.isnan(val2D)), np.nanmin(val2D.data), np.nanmax(val2D.data))
                             with open(saveFile, 'w') as file:
                                 file.write(headerInfo)
                                 for row in val2DList:
-                                    line = ' '.join(str(int(value)) for value in row) + '\n'
+                                    line = ' '.join(str(value) for value in row) + '\n'
                                     file.write(line)
 
                             log.info(f'[CHECK] saveFile : {saveFile}')
