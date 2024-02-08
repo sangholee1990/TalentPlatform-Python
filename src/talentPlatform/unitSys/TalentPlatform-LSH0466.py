@@ -326,21 +326,32 @@ def makeSbckProc(method=None, contDataL4 = None, mrgData=None, simDataL3=None, k
             # 엑셀 저장
             saveXlsxFile = '{}/{}/{}-{}_{}_{}.xlsx'.format(globalVar['outPath'], serviceName, 'PAST-MBC', varInfo, method, keyInfo)
             os.makedirs(os.path.dirname(saveXlsxFile), exist_ok=True)
-            corDataL4.to_excel(saveXlsxFile, index=True)
 
-            for contIdx in contIdxList:
-                if np.isnan(contIdx): continue
+            with pd.ExcelWriter(saveXlsxFile, engine='xlsxwriter', options={'use_zip64': True}) as writer:
+                corDataL4.to_excel(writer, index=True)
 
-                corDataL5 = corDataL3.loc[(corDataL3['contIdx'] == contIdx)].reset_index(drop=True)
-                if len(corDataL5) < 0: continue
+                for contIdx in contIdxList:
+                    if pd.isna(contIdx): continue
 
-                corDataL6 = corDataL5[selCol].pivot(index=['lon', 'lat'], columns=['time'])
-                with pd.ExcelWriter(saveXlsxFile, engine='openpyxl', mode='a') as writer:
+                    corDataL5 = corDataL3.loc[corDataL3['contIdx'] == contIdx].reset_index(drop=True)
+                    if len(corDataL5) < 0: continue
+
+                    corDataL6 = corDataL5[selCol].pivot(index=['lon', 'lat'], columns=['time'])
                     corDataL6.to_excel(writer, sheet_name=str(int(contIdx)), index=True)
 
             log.info(f'[CHECK] saveXlsxFile : {saveXlsxFile}')
 
-        sys.exit(0)
+            # corDataL4.to_excel(saveXlsxFile, index=True)
+            #
+            # for contIdx in contIdxList:
+            #     if np.isnan(contIdx): continue
+            #
+            #     corDataL5 = corDataL3.loc[(corDataL3['contIdx'] == contIdx)].reset_index(drop=True)
+            #     if len(corDataL5) < 0: continue
+            #
+            #     corDataL6 = corDataL5[selCol].pivot(index=['lon', 'lat'], columns=['time'])
+            #     with pd.ExcelWriter(saveXlsxFile, engine='openpyxl', mode='a') as writer:
+            #         corDataL6.to_excel(writer, sheet_name=str(int(contIdx)), index=True)
 
         # ***********************************************************************************
         # 과거 기간 95% 이상 분위수 계산
@@ -422,19 +433,32 @@ def makeSbckProc(method=None, contDataL4 = None, mrgData=None, simDataL3=None, k
             # 엑셀 저장
             saveXlsxFile = '{}/{}/{}-{}_{}_{}.xlsx'.format(globalVar['outPath'], serviceName, 'FUTURE-MBC', varInfo, method, keyInfo)
             os.makedirs(os.path.dirname(saveXlsxFile), exist_ok=True)
-            mrgDataL3.to_excel(saveXlsxFile, index=True)
 
-            for contIdx in contIdxList:
-                if np.isnan(contIdx): continue
+            with pd.ExcelWriter(saveXlsxFile, engine='xlsxwriter', options={'use_zip64': True}) as writer:
+                mrgDataL3.to_excel(writer, index=True)
 
-                mrgDataL5 = mrgDataL2.loc[(mrgDataL2['contIdx'] == contIdx)].reset_index(drop=True)
-                if len(mrgDataL5) < 0: continue
+                for contIdx in contIdxList:
+                    if np.isnan(contIdx): continue
 
-                mrgDataL6 = mrgDataL5[selCol].pivot(index=['lon', 'lat'], columns=['time'])
-                with pd.ExcelWriter(saveXlsxFile, engine='openpyxl', mode='a') as writer:
+                    mrgDataL5 = mrgDataL2.loc[mrgDataL2['contIdx'] == contIdx].reset_index(drop=True)
+                    if len(mrgDataL5) < 0: continue
+
+                    mrgDataL6 = mrgDataL5[selCol].pivot(index=['lon', 'lat'], columns=['time'])
                     mrgDataL6.to_excel(writer, sheet_name=str(int(contIdx)), index=True)
 
             log.info(f'[CHECK] saveXlsxFile : {saveXlsxFile}')
+
+            # mrgDataL3.to_excel(saveXlsxFile, index=True)
+
+            # for contIdx in contIdxList:
+            #     if np.isnan(contIdx): continue
+            #
+            #     mrgDataL5 = mrgDataL2.loc[(mrgDataL2['contIdx'] == contIdx)].reset_index(drop=True)
+            #     if len(mrgDataL5) < 0: continue
+            #
+            #     mrgDataL6 = mrgDataL5[selCol].pivot(index=['lon', 'lat'], columns=['time'])
+            #     with pd.ExcelWriter(saveXlsxFile, engine='openpyxl', mode='a') as writer:
+            #         mrgDataL6.to_excel(writer, sheet_name=str(int(contIdx)), index=True)
 
 
         # ***********************************************************************************
@@ -505,7 +529,7 @@ def makeSbckProc(method=None, contDataL4 = None, mrgData=None, simDataL3=None, k
         contIdxList = np.unique(prdDataL1['contIdx'])
         for contIdx in contIdxList:
             if pd.isna(contIdx): continue
-            log.info(f'[CHECK] contIdx : {contIdx}')
+            # log.info(f'[CHECK] contIdx : {contIdx}')
 
             selData = prdDataL1.where(prdDataL1['contIdx'] == contIdx, drop=True)
 
@@ -518,13 +542,17 @@ def makeSbckProc(method=None, contDataL4 = None, mrgData=None, simDataL3=None, k
             # 엑셀 저장
             saveXlsxFile = '{}/{}/{}_{}-{}_{}.xlsx'.format(globalVar['outPath'], serviceName, 'FUTURE-ORG', method, int(contIdx), keyInfo)
             os.makedirs(os.path.dirname(saveXlsxFile), exist_ok=True)
-            selDataL2.to_excel(saveXlsxFile, index=True)
+
+            with pd.ExcelWriter(saveXlsxFile, engine='xlsxwriter', options={'use_zip64': True}) as writer:
+                selDataL2.to_excel(writer, index=True)
+
+            log.info(f'[CHECK] saveXlsxFile : {saveXlsxFile}')
+
+            # selDataL2.to_excel(saveXlsxFile, index=True)
 
             # if (os.path.exists(saveXlsxFile)): os.remove(saveXlsxFile)
             # with pd.ExcelWriter(saveXlsxFile, engine='openpyxl') as writer:
             #     selDataL2.to_excel(writer, sheet_name='Sheet1', index=False)
-
-            log.info(f'[CHECK] saveXlsxFile : {saveXlsxFile}')
 
     except Exception as e:
         log.error(f'Exception : {e}')
@@ -651,8 +679,8 @@ class DtaProcess(object):
             # inpFile = '{}/{}/{}'.format(globalVar['inpPath'], serviceName, 'TT4.csv')
             # inpFile = '{}/{}/{}'.format(globalVar['inpPath'], 'Historical', 'TT4.csv')
 
-            # inpFile = '{}/{}/{}'.format(globalVar['inpPath'], serviceName, 'TTL4.csv')
-            inpFile = '{}/{}/{}'.format(globalVar['inpPath'], 'Historical', 'TTL4.csv')
+            inpFile = '{}/{}/{}'.format(globalVar['inpPath'], serviceName, 'TTL4.csv')
+            # inpFile = '{}/{}/{}'.format(globalVar['inpPath'], 'Historical', 'TTL4.csv')
             fileList = glob.glob(inpFile)
             if fileList is None or len(fileList) < 1:
                 log.error('[ERROR] inpFile : {} / {}'.format(fileList, '입력 자료를 확인해주세요.'))
@@ -677,8 +705,8 @@ class DtaProcess(object):
             # 강수량 데이터 전처리
             # ********************************************************************
             # 실측 데이터
-            # inpFile = '{}/{}/{}'.format(globalVar['inpPath'], serviceName, 'ERA5_1979_2020.nc')
-            inpFile = '{}/{}/{}'.format(globalVar['inpPath'], 'Historical', 'ERA5_1979_2020.nc')
+            inpFile = '{}/{}/{}'.format(globalVar['inpPath'], serviceName, 'ERA5_1979_2020.nc')
+            # inpFile = '{}/{}/{}'.format(globalVar['inpPath'], 'Historical', 'ERA5_1979_2020.nc')
             fileList = sorted(glob.glob(inpFile))
             obsData = xr.open_dataset(fileList[0]).sel(time=slice(sysOpt['srtDate'], sysOpt['endDate']))
 
@@ -698,8 +726,8 @@ class DtaProcess(object):
                 log.info(f"[CHECK] keyInfo : {keyInfo}")
 
                 # 관측/학습 데이터
-                # inpFile = '{}/{}/*{}*{}*.nc'.format(globalVar['inpPath'], serviceName, keyInfo, 'historical')
-                inpFile = '{}/{}/*{}*{}*.nc'.format(globalVar['inpPath'], 'Historical', keyInfo, 'historical')
+                inpFile = '{}/{}/*{}*{}*.nc'.format(globalVar['inpPath'], serviceName, keyInfo, 'historical')
+                # inpFile = '{}/{}/*{}*{}*.nc'.format(globalVar['inpPath'], 'Historical', keyInfo, 'historical')
                 fileList = sorted(glob.glob(inpFile))
 
                 # fileInfo = fileList[0]
@@ -737,8 +765,8 @@ class DtaProcess(object):
                 mrgData = xr.merge([obsDataL3, modDataL3])
 
                 # 예측 데이터
-                # inpFile = '{}/{}/*{}*{}*.nc'.format(globalVar['inpPath'], serviceName, keyInfo, 'ssp126')
-                inpFile = '{}/{}/*{}*{}*.nc'.format(globalVar['inpPath'], 'Future', keyInfo, 'ssp126')
+                inpFile = '{}/{}/*{}*{}*.nc'.format(globalVar['inpPath'], serviceName, keyInfo, 'ssp126')
+                # inpFile = '{}/{}/*{}*{}*.nc'.format(globalVar['inpPath'], 'Future', keyInfo, 'ssp126')
                 fileList = sorted(glob.glob(inpFile))
 
                 # fileInfo = fileList[0]
