@@ -1,0 +1,2 @@
+https://science.globalwindatlas.info/api/satwinds/v1/get_netcdf?name=S1A_ESA_2024_02_13_20_33_51_0761171631_143.32E_42.46N_VV_C11_GFS025CDF&satellite=sentinel1&date=2024-02-13-20:33:51.000Z
+https://science.globalwindatlas.info/api/satwinds/v1/get_netcdf?name=S1A_ESA_2024_02_13_20_33_19_0761171599_143.78E_44.35N_VV_C11_GFS025CDF&satellite=sentinel1&date=2024-02-13-20:33:19.000Z
