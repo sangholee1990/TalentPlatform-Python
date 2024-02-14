@@ -11,7 +11,9 @@ import pandas as pd
 import common.initiator as common
 import wrf
 from netCDF4 import Dataset
-
+from metpy.calc import relative_humidity_from_dewpoint
+from metpy.units import units
+import matplotlib.pyplot as plt
 
 class Application:
 
@@ -262,55 +264,60 @@ class Application:
         dbapp = ManageDB(self.dbconfig)
         initDB = dbapp.initCfgInfo()
 
-        # 관심영역 설정
-        roi = {'minLat': 22.0, 'maxLat': 49.0, 'minLon': 108.0, 'maxLon': 147.0}
-
         # REANALY-ERA5 파일 읽기
-        data = xr.open_dataset(self.inFile, engine='pynio').sel(lat_0=slice(roi['maxLat'], roi['minLat']), lon_0=slice(roi['minLon'], roi['maxLon']))
+        orgData = xr.open_dataset(self.inFile, engine='pynio')
         common.logger.info(f'[CHECK] inFile : {self.inFile}')
-
-        attrInfo = data[list(data.dtypes)[0]].attrs
-        anaDate = pd.to_datetime(attrInfo['initial_time'], format="%m/%d/%Y (%H:%M)")
-        forDate = anaDate + pd.DateOffset(hours = int(attrInfo['forecast_time'][0]))
 
         modelInfo = self.config['modelName'].get(f'{self.modelName}_{self.modelKey}')
         if modelInfo is None:
             common.logger.warn(f'설정 파일 (config.yml)에서 설정 정보 (GFS-25K, ALL)를 확인해주세요.')
             sys.exit(1)
 
-        common.logger.info(f'[CHECK] anaDate : {anaDate} / forDate : {forDate}')
+        timeList = orgData['time'].values
+        for timeInfo in timeList:
 
-        # DB 등록/수정
-        self.dbData = {}
-        self.dbData['ANA_DT'] = anaDate
-        self.dbData['FOR_DT'] = forDate
-        self.dbData['MODEL_TYPE'] = self.modelName
+            data = orgData.sel(time=timeInfo)
+            anaDate = pd.to_datetime(timeInfo, format='%Y-%m-%d_%H:%M:%S')
+            forDate = anaDate
 
-        # 선택 컬럼
-        for j, varInfo in enumerate(modelInfo['varName']):
-            name = varInfo['name']
-            for level, colName in zip(varInfo['level'], varInfo['colName']):
-                if data.get(name) is None: continue
+            common.logger.info(f'[CHECK] anaDate : {anaDate} / forDate : {forDate}')
 
-                try:
-                    if level == '-1':
-                        if len(data[name].values) < 1: continue
-                        if re.search('ALB', name, re.IGNORECASE):
-                            self.dbData[colName] = self.convFloatToIntList(data[name].values / 100)
+            # DB 등록/수정
+            self.dbData = {}
+            self.dbData['ANA_DT'] = anaDate
+            self.dbData['FOR_DT'] = forDate
+            self.dbData['MODEL_TYPE'] = self.modelName
+
+            # 선택 컬럼
+            for j, varInfo in enumerate(modelInfo['varName']):
+                name = varInfo['name']
+                for level, colName in zip(varInfo['level'], varInfo['colName']):
+                    if data.get(name) is None: continue
+
+                    try:
+                        if level == '-1':
+                            if len(data[name].values) < 1: continue
+                            if re.search('t2m', name, re.IGNORECASE):
+                                # 상대습도 계산 (t2m 기온 K, d2m 이슬점온도 K)
+                                rh = relative_humidity_from_dewpoint(data[name].values * units.kelvin, data['d2m'].values * units.kelvin).to('percent')
+                                self.dbData[colName] = self.convFloatToIntList(rh.magnitude)
+                            elif re.search('ssrd|ssrdc|fdir|ssr', name, re.IGNORECASE):
+                                # 단위 변환 (Jm-2 -> Wm-2)
+                                self.dbData[colName] = self.convFloatToIntList(data[name].values / 3600)
+                            else:
+                                self.dbData[colName] = self.convFloatToIntList(data[name].values)
                         else:
-                            self.dbData[colName] = self.convFloatToIntList(data[name].values)
-                    else:
-                        if len(data[name].isel(lv_ISBL0=int(level)).values) < 1: continue
-                        self.dbData[colName] = self.convFloatToIntList(data[name].isel(lv_ISBL0=int(level)).values)
-                except Exception as e:
-                    common.logger.error(f'Exception : {e}')
+                            if len(data[name].sel(level=int(level)).values) < 1: continue
+                            self.dbData[colName] = self.convFloatToIntList(data[name].sel(level=int(level)).values)
+                    except Exception as e:
+                        common.logger.error(f'Exception : {e}')
 
-        if len(self.dbData) < 1:
-            common.logger.error(f'해당 파일 ({self.inFile})에서 지표면 및 상층 데이터를 확인해주세요.')
-            sys.exit(1)
+            if len(self.dbData) < 1:
+                common.logger.error(f'해당 파일 ({self.inFile})에서 지표면 및 상층 데이터를 확인해주세요.')
+                sys.exit(1)
 
-        common.logger.info(f'[CHECK] dbData : {self.dbData.keys()} : {np.shape(self.dbData[list(self.dbData.keys())[3]])} : {len(self.dbData.keys())}')
-        dbapp.dbMergeData(initDB['session'], initDB['tbIntModel'], self.dbData, pkList=['MODEL_TYPE', 'ANA_DT', 'FOR_DT'])
+            common.logger.info(f'[CHECK] dbData : {self.dbData.keys()} : {np.shape(self.dbData[list(self.dbData.keys())[3]])} : {len(self.dbData.keys())}')
+            dbapp.dbMergeData(initDB['session'], initDB['tbIntModel'], self.dbData, pkList=['MODEL_TYPE', 'ANA_DT', 'FOR_DT'])
 
     def processSatSent1(self):
 

@@ -10,7 +10,6 @@ from application import Application
 import re
 import os
 
-
 def main():
     try:
         # inFile = '/DATA/INPUT/INDI2023/MODEL/KIER-LDAPS/wrfout_d02_2023-06-30_03:00:00.nc'
@@ -42,7 +41,8 @@ def main():
         # inFile = '/DATA/INPUT/INDI2023/DATA/GFS/2023/08/28/00/gfs.t00z.pgrb2.0p25.f003.gb2'
         # modelName = 'GFS-25K'
 
-        inFile = '/DATA/INPUT/INDI2024//DATA/REANALY-ERA5/2024/01/01/reanaly-era5-pres_202401010600.nc'
+        # inFile = '/DATA/INPUT/INDI2024//DATA/REANALY-ERA5/2024/01/01/reanaly-era5-pres_202401010600.nc'
+        inFile = '/DATA/INPUT/INDI2024//DATA/REANALY-ERA5/2024/01/01/reanaly-era5-unis_202401010600.nc'
         modelName = 'REANALY-ERA5-25K'
 
         # option = get_option()
