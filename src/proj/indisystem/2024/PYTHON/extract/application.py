@@ -13,7 +13,7 @@ import wrf
 from netCDF4 import Dataset
 from metpy.calc import relative_humidity_from_dewpoint
 from metpy.units import units
-import matplotlib.pyplot as plt
+
 
 class Application:
 
