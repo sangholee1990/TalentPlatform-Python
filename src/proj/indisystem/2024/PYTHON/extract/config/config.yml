@@ -676,6 +676,87 @@ modelName:
         level: [ '-1' ]
         colName: [ 'ALB' ]
     tblName: 'TB_INT_MODEL'
+  #********************************************************
+  # REANALY-ERA5-25K
+  #********************************************************
+  REANALY-ERA5-25K_UNIS:
+    varName:
+      - name: 'ssrd'
+        level: [ '-1' ]
+        colName: [ 'SW_D' ]
+      - name: 'ssrdc'
+        level: [ '-1' ]
+        colName: [ 'SW_DC' ]
+      - name: 'fdir'
+        level: [ '-1' ]
+        colName: [ 'SW_DDNI' ]
+      - name: 'ssr'
+        level: [ '-1' ]
+        colName: [ 'SW_NET' ]
+      - name: 'u10'
+        level: [ '-1' ]
+        colName: [ 'U' ]
+      - name: 'v10'
+        level: [ '-1' ]
+        colName: [ 'V' ]
+      - name: 'skt'
+        level: [ '-1' ]
+        colName: [ 'TM' ]
+      - name: 'sp'
+        level: [ '-1' ]
+        colName: [ 'PRE' ]
+      - name: 't2m'
+        level: [ '-1' ]
+        colName: [ 'RH' ]
+      - name: 'ALB'
+        level: [ '-1' ]
+        colName: [ 'ALB' ]
+    tblName: 'TB_INT_MODEL'
+  REANALY-ERA5-25K_PRES:
+    varName:
+      - name: 'u'
+        level: [ '1000', '975', '950', '925', '900', '875', '850' ]
+        colName: [ 'U1000', 'U975', 'U950', 'U925', 'U900', 'U875', 'U850' ]
+      - name: 'v'
+        level: [ '1000', '975', '950', '925', '900', '875', '850' ]
+        colName: [ 'V1000', 'V975', 'V950', 'V925', 'V900', 'V875', 'V850' ]
+      - name: 'z'
+        level: [ '1000', '975', '950', '925', '900', '875', '850' ]
+        colName: [ 'G1000', 'G975', 'G950', 'G925', 'G900', 'G875', 'G850' ]
+    tblName: 'TB_INT_MODEL'
+  #********************************************************
+  # SAT-SENT1
+  #********************************************************
+  SAT-SENT1:
+    varName:
+      - name: 'UGRD_P0_L100_GLL0'
+        level: [ '40', '39', '38', '37', '36', '35' ]
+        colName: [ 'U1000', 'U975', 'U950', 'U925', 'U900', 'U850' ]
+      - name: 'VGRD_P0_L100_GLL0'
+        level: [ '40', '39', '38', '37', '36', '35' ]
+        colName: [ 'V1000', 'V975', 'V950', 'V925', 'V900', 'V850' ]
+      - name: 'HGT_P0_L100_GLL0'
+        level: [ '40', '39', '38', '37', '36', '35' ]
+        colName: [ 'G1000', 'G975', 'G950', 'G925', 'G900', 'G850' ]
+      - name: 'DSWRF_P8_L1_GLL0_avg'
+        level: [ '-1' ]
+        colName: [ 'SW_D' ]
+      - name: 'USWRF_P8_L1_GLL0_avg'
+        level: [ '-1' ]
+        colName: [ 'SW_UC' ]
+      - name: 'TMP_P0_L1_GLL0'
+        level: [ '-1' ]
+        colName: [ 'TM' ]
+      - name: 'RH_P0_L100_GLL0'
+        level: [ '-1' ]
+        colName: [ 'RH' ]
+      - name: 'PRES_P0_L1_GLL0'
+        level: [ '-1' ]
+        colName: [ 'PRE' ]
+      - name: 'ALBDO_P8_L1_GLL0_avg'
+        level: [ '-1' ]
+        colName: [ 'ALB' ]
+    tblName: 'TB_INT_MODEL'
 # =======================================================
 # DB 설정 정보
 # =======================================================
