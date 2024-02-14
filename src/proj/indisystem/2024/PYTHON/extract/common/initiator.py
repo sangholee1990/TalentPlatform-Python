@@ -1,6 +1,5 @@
 import logging
 
-
 def init_logger(log_path):
     """
     Init Logger.

@@ -1,6 +1,5 @@
 # -*- coding: utf-8 -*-
 
-import initiator as common
 import os
 import Nio
 
