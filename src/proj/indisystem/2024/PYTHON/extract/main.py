@@ -41,13 +41,16 @@ def main():
         # inFile = '/DATA/INPUT/INDI2023/DATA/GFS/2023/08/28/00/gfs.t00z.pgrb2.0p25.f003.gb2'
         # modelName = 'GFS-25K'
 
-        # inFile = '/DATA/INPUT/INDI2024//DATA/REANALY-ERA5/2024/01/01/reanaly-era5-pres_202401010600.nc'
-        inFile = '/DATA/INPUT/INDI2024//DATA/REANALY-ERA5/2024/01/01/reanaly-era5-unis_202401010600.nc'
-        modelName = 'REANALY-ERA5-25K'
+        # inFile = '/DATA/INPUT/INDI2024/DATA/REANALY-ERA5/2024/01/01/reanaly-era5-pres_202401010600.nc'
+        # inFile = '/DATA/INPUT/INDI2024/DATA/REANALY-ERA5/2024/01/01/reanaly-era5-unis_202401010600.nc'
+        # modelName = 'REANALY-ERA5-25K'
 
-        # option = get_option()
-        # inFile = option.inFile
-        # modelName = option.modelName
+        # inFile = '/DATA/INPUT/INDI2024/DATA/SAT-SENT1/2024/01/19/S1A_ESA_2024_01_19_09_32_41_0758971961_126.46E_37.99N_VV_C11_GFS025CDF_wind.png'
+        # modelName = 'SAT-SENT1'
+
+        option = get_option()
+        inFile = option.inFile
+        modelName = option.modelName
 
         ctxPath = os.getcwd()
         logInfo = f'{ctxPath}/log/daemon-kierDB-{modelName}.log'
@@ -65,7 +68,7 @@ def main():
         common.logger.info(f'[CHECK] cfgInfo : {cfgInfo}')
 
         modelKey = ""
-        if re.search('wrfout_d04|gfs', inFile, re.IGNORECASE):
+        if re.search('wrfout_d04|gfs|S1A_ESA', inFile, re.IGNORECASE):
             modelKey = "ALL"
         elif re.search('unis|wrfsolar_d02', inFile, re.IGNORECASE):
             modelKey = "UNIS"

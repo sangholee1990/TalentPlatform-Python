@@ -13,7 +13,7 @@ import wrf
 from netCDF4 import Dataset
 from metpy.calc import relative_humidity_from_dewpoint
 from metpy.units import units
-
+import os
 
 class Application:
 
@@ -270,7 +270,7 @@ class Application:
 
         modelInfo = self.config['modelName'].get(f'{self.modelName}_{self.modelKey}')
         if modelInfo is None:
-            common.logger.warn(f'설정 파일 (config.yml)에서 설정 정보 (GFS-25K, ALL)를 확인해주세요.')
+            common.logger.warn(f'설정 파일 (config.yml)에서 설정 정보 (REANALY-ERA5-25K, UNIS|PRES)를 확인해주세요.')
             sys.exit(1)
 
         timeList = orgData['time'].values
@@ -325,21 +325,25 @@ class Application:
         dbapp = ManageDB(self.dbconfig)
         initDB = dbapp.initCfgInfo()
 
-        # 관심영역 설정
-        roi = {'minLat': 22.0, 'maxLat': 49.0, 'minLon': 108.0, 'maxLon': 147.0}
-
-        # REANALY-ERA5 파일 읽기
-        data = xr.open_dataset(self.inFile, engine='pynio').sel(lat_0=slice(roi['maxLat'], roi['minLat']), lon_0=slice(roi['minLon'], roi['maxLon']))
-        common.logger.info(f'[CHECK] inFile : {self.inFile}')
-
-        attrInfo = data[list(data.dtypes)[0]].attrs
-        anaDate = pd.to_datetime(attrInfo['initial_time'], format="%m/%d/%Y (%H:%M)")
-        forDate = anaDate + pd.DateOffset(hours = int(attrInfo['forecast_time'][0]))
+        # SAT-SENT1 파일 읽기
+        isExist = os.path.exists(self.inFile)
+        if not isExist:
+            common.logger.warn(f'입력 파일 ({self.inFile}을 확인해주세요.')
+            sys.exit(1)
 
         modelInfo = self.config['modelName'].get(f'{self.modelName}_{self.modelKey}')
         if modelInfo is None:
-            common.logger.warn(f'설정 파일 (config.yml)에서 설정 정보 (GFS-25K, ALL)를 확인해주세요.')
+            common.logger.warn(f'설정 파일 (config.yml)에서 설정 정보 (SAT-SENT1, ALL)를 확인해주세요.')
             sys.exit(1)
+
+        # 정규 표현식을 사용하여 날짜와 시간 부분 추출
+        sDateTime = re.search(r'_(\d{4}_\d{2}_\d{2}_\d{2}_\d{2}_\d{2})', self.inFile).group(1)
+
+        # 추출된 문자열을 datetime 객체로 변환
+        dtDateTime = pd.to_datetime(sDateTime, format='%Y_%m_%d_%H_%M_%S')
+
+        anaDate = dtDateTime
+        forDate = dtDateTime
 
         common.logger.info(f'[CHECK] anaDate : {anaDate} / forDate : {forDate}')
 
@@ -349,32 +353,12 @@ class Application:
         self.dbData['FOR_DT'] = forDate
         self.dbData['MODEL_TYPE'] = self.modelName
 
-        # 선택 컬럼
-        for j, varInfo in enumerate(modelInfo['varName']):
-            name = varInfo['name']
-            for level, colName in zip(varInfo['level'], varInfo['colName']):
-                if data.get(name) is None: continue
-
-                try:
-                    if level == '-1':
-                        if len(data[name].values) < 1: continue
-                        if re.search('ALB', name, re.IGNORECASE):
-                            self.dbData[colName] = self.convFloatToIntList(data[name].values / 100)
-                        else:
-                            self.dbData[colName] = self.convFloatToIntList(data[name].values)
-                    else:
-                        if len(data[name].isel(lv_ISBL0=int(level)).values) < 1: continue
-                        self.dbData[colName] = self.convFloatToIntList(data[name].isel(lv_ISBL0=int(level)).values)
-                except Exception as e:
-                    common.logger.error(f'Exception : {e}')
-
         if len(self.dbData) < 1:
             common.logger.error(f'해당 파일 ({self.inFile})에서 지표면 및 상층 데이터를 확인해주세요.')
             sys.exit(1)
 
-        common.logger.info(f'[CHECK] dbData : {self.dbData.keys()} : {np.shape(self.dbData[list(self.dbData.keys())[3]])} : {len(self.dbData.keys())}')
+        common.logger.info(f'[CHECK] dbData : {self.dbData.keys()} : {np.shape(self.dbData[list(self.dbData.keys())[2]])} : {len(self.dbData.keys())}')
         dbapp.dbMergeData(initDB['session'], initDB['tbIntModel'], self.dbData, pkList=['MODEL_TYPE', 'ANA_DT', 'FOR_DT'])
-
 
     # def processXarrayKIER(self):
     #
