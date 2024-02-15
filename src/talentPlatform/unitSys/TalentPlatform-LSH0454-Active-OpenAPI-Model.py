@@ -666,8 +666,6 @@ class DtaProcess(object):
                 if (len(admDataL1) < 1): continue
                 addrCode = np.unique(admDataL1['sigunguCd'])[0]
 
-                log.info(f'[CHECK] addrInfo : {addrInfo}')
-
                 lcnsInpFile = '{}/{}/{}/{}/{}.csv'.format(globalVar['outPath'], serviceName, '전처리', addrInfo, '건축 인허가_*_*')
                 lcnsFileList = sorted(glob.glob(lcnsInpFile), reverse=True)
                 if lcnsFileList is None or len(lcnsFileList) < 1:
