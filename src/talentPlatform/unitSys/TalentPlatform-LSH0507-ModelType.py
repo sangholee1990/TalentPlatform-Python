@@ -268,7 +268,8 @@ class DtaProcess(object):
                     logVal = np.log(val)
                     dataL1[type] = logVal[np.isfinite(logVal)]
 
-                    log.info(f'[CHECK] min : {int(np.nanmin(dataL1[type]))} / max : {int(np.nanmax(dataL1[type]))} / mean : {int(np.nanmean(dataL1[type]))}')
+                    log.info(f'[CHECK] min : {int(np.nanmin(val))} / max : {int(np.nanmax(val))} / mean : {int(np.nanmean(val))} / sum : {int(np.nansum(val))}')
+                    log.info(f'[CHECK] min : {int(np.nanmin(dataL1[type]))} / max : {int(np.nanmax(dataL1[type]))} / mean : {int(np.nanmean(dataL1[type]))} / sum : {int(np.nansum(dataL1[type]))}')
 
             # ******************************************************************************
             # 시각화
