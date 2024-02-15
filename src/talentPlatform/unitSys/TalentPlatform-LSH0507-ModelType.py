@@ -232,17 +232,10 @@ class DtaProcess(object):
             # ********************************************************************
             # 파일 읽기
             # ********************************************************************
-            # fig, axs = plt.subplots(2, 2, figsize=(10, 8))
-            fig, axs = plt.subplots(1, 1, figsize=(10, 8))
-            # fig, axs = plt.subplots(2, 2)
-            plt.subplots_adjust(hspace=0.3)
-            # axs = axs.flatten()
-
-            # dataL2 = xr.Dataset()
             dataL1 = {}
-            typeList = ['GRACED 2019', 'EDGAR 2019', 'ODIAC 2019', 'GCP GridFED 2019']
+            typeList = ['GRACED 2019', 'GRACED 2020', 'GRACED 2021', 'GRACED 2022', 'EDGAR 2019', 'GCP GridFED 2019', 'ODIAC 2019']
             for type in typeList:
-                log.info(f"[CHECK] type : {type}")
+                log.info(f'[CHECK] type : {type}')
 
                 inpFileNamePattern = f'MODEL_TYPE/{type}/*.nc'
                 inpFile = '{}/{}/{}'.format(globalVar['inpPath'], serviceName, inpFileNamePattern)
@@ -253,118 +246,78 @@ class DtaProcess(object):
 
                     data = xr.open_dataset(fileInfo, group=None)
 
+                    # 컬럼 선택 및 단위 변환 (kgC/year)
                     if re.search('GRACED', type, re.IGNORECASE):
-                        valList = data['emission'].values
+                        # kgC/d -> kgC/year
+                        val = data['emission'].values * 365
                     elif re.search('EDGAR', type, re.IGNORECASE):
-                        valList = data['emissions'].values
+                        # tonC/year -> kgC/year
+                        val = data['emissions'].values / 1000
                     elif re.search('ODIAC', type, re.IGNORECASE):
-                        valList = data['land'].values
+                        # gC/m2/d -> kgC/year
+                        sumData = data.sum(dim='month')
+                        # val = sumData['land'].values * (365 / 1000)
+                        val = (sumData['land'] + sumData['intl_bunker']).values * (365 / 1000)
                     elif re.search('GCP GridFED', type, re.IGNORECASE):
                         dataGrp = xr.open_dataset(fileInfo, group='CO2')
-                        dataGrp2 = xr.open_dataset(fileInfo, group='O2')
-
-                        # dataGrp['OIL'] + dataGrp['GAS'] + dataGrp['GAS']
-                        # kgC/d -> kgC/year
-
+                        sumData = dataGrp.sum(dim='time')
+                        val = (sumData['OIL'] + sumData['GAS'] + sumData['COAL'] + sumData['CEMENT'] + sumData['BUNKER']).values
                     else:
                         continue
 
-                    dataL1[type] = np.log(valList)
+                    logVal = np.log(val)
+                    dataL1[type] = logVal[np.isfinite(logVal)]
 
-                    # dataL2 = xr.merge([dataL2, dataL1])
-
-                # dataL3 = dataL2.to_dataframe().reset_index(drop=False).drop(columns=['lat', 'lon'])
-                # dataL2 = dataL1.to_dict(orient='list')
-
-                # ******************************************************************************
-                # 다중 그림
-                # ******************************************************************************
-                # x축 눈금의 범위 설정
-            #     bin_edges = np.arange(-24, 28, 4)
-            #     valList = list(dataL1.values())
-            #     keyList = list(dataL1.keys())
-            #
-            #     # ax = axs[0]
-            #     ax = axs
-            #     n, bins, patches = ax.hist(valList, bins=bin_edges, alpha=1.0, label=keyList, zorder=3)
-            #
-            #     colors = plt.cm.coolwarm(np.linspace(0, 1, len(dataL1)))
-            #     for patch, color in zip(patches, colors):
-            #         for rect in patch:
-            #             rect.set_facecolor(color)
-            #
-            #     # x축 눈금 레이블 설정
-            #     bin_labels = [f"{int(bins[j])}~{int(bins[j + 1])}" for j in range(len(bins) - 1)]
-            #     ax.set_xticks(bins[:-1])
-            #     ax.set_xticklabels(bin_labels, rotation=45, ha='right', fontsize=10)
-            #
-            #     ax.ticklabel_format(axis='y', style='scientific', scilimits=(0, 0))
-            #     # plt.gca().yaxis.set_major_formatter(ScalarFormatter(useMathText=True))
-            #
-            #     # 그래프 제목과 축 레이블 추가
-            #     mainTitle = f'{type.upper()}'
-            #     ax.set_title(mainTitle, loc='right')
-            #     # ax.set_xlabel('Ln Emission [kg/C/year]')
-            #     # ax.set_ylabel('Number of Grids')
-            #     ax.legend(loc='upper left')
-            #     ax.grid(True, color='lightgrey', linestyle='-', linewidth=0.5, zorder=0)
-            #
-            # # plt.xlabel('Ln Emission [kg/C/year]')
-            # # plt.ylabel('Number of Grids')
-            #
-            # fig.text(0.5, 0.02, 'Ln Emission [kg/C/year]', ha='center', va='center', fontsize=12)
-            # fig.text(0.08, 0.5, 'Number of Grids', ha='center', va='center', rotation='vertical', fontsize=12)
-            #
-            # # mainTitle = f'Ln Emission'
-            # # plt.suptitle(mainTitle)
-            # saveImg = '{}/{}/{}.png'.format(globalVar['figPath'], serviceName, 'leak_basin_GFEI_grid_y19-21')
-            # os.makedirs(os.path.dirname(saveImg), exist_ok=True)
-            # plt.savefig(saveImg, dpi=600, bbox_inches='tight', transparent=False)
-            # plt.tight_layout()
-            # plt.show()
-            # plt.close()
-            # log.info(f'[CHECK] saveImg : {saveImg}')
+                    log.info(f'[CHECK] min : {int(np.nanmin(dataL1[type]))} / max : {int(np.nanmax(dataL1[type]))} / mean : {int(np.nanmean(dataL1[type]))}')
 
             # ******************************************************************************
-            # 단일 그림
+            # 시각화
             # ******************************************************************************
-            # # x축 눈금의 범위를 설정
-            # bin_edges = np.arange(-24, 28, 4)  # -24부터 20까지 4 단위로 설정 (마지막 bin을 포함하기 위해 24까지)
-            #
-            # # 히스토그램 생성
-            # n, bins, patches = plt.hist(list(dataL4.values()), bins=bin_edges, alpha=1.0, label=list(dataL4.keys()), zorder=3)
-            #
-            # # 색상 팔레트 설정 (각 데이터 세트마다 다른 색상)
-            # colors = plt.cm.coolwarm(np.linspace(0, 1, len(dataL4)))
-            # for patch, color in zip(patches, colors):
-            #     for rect in patch:
-            #         rect.set_facecolor(color)
-            #
-            # # x축 눈금 레이블 설정 (요청하신 형태로)
-            # bin_labels = [f"{int(bins[i])}~{int(bins[i + 1])}" for i in range(len(bins) - 1)]
-            # plt.xticks(bins[:-1], labels=bin_labels, rotation=45, ha='right')
-            #
-            # # 그래프 제목과 축 레이블 추가
+            fig, ax = plt.subplots(figsize=(10, 8))
+            plt.subplots_adjust(hspace=0.3)
+
+            # x축 눈금의 범위 설정
+            binEdgeList = np.arange(-24, 32, 4)
+            # valList = list(dataL1.values())
+            valList = [np.ravel(value) for value in dataL1.values()]
+            keyList = list(dataL1.keys())
+
+            n, bins, patches = ax.hist(valList, bins=binEdgeList, alpha=1.0, label=keyList, zorder=3)
+
+            colors = plt.cm.coolwarm(np.linspace(0, 1, len(dataL1)))
+            for patch, color in zip(patches, colors):
+                for rect in patch:
+                    rect.set_facecolor(color)
+
+            # x축 눈금 레이블 설정
+            binLabelList = [f"{int(bins[j])}~{int(bins[j + 1])}" for j in range(len(bins) - 1)]
+            ax.set_xticks(bins[:-1])
+            ax.set_xticklabels(binLabelList, rotation=45, ha='right', fontsize=10)
+
+            ax.ticklabel_format(axis='y', style='scientific', scilimits=(0, 0))
+            # plt.gca().yaxis.set_major_formatter(ScalarFormatter(useMathText=True))
+
+            # 그래프 제목과 축 레이블 추가
+            mainTitle = f'TOTAL LN EMISSION HIST'
+            ax.set_title(mainTitle, loc='left')
+            ax.legend(loc='upper left')
+            ax.grid(True, color='lightgrey', linestyle='-', linewidth=0.5, zorder=0)
+
             # plt.xlabel('Ln Emission [kg/C/year]')
             # plt.ylabel('Number of Grids')
-            #
-            # plt.ticklabel_format(axis='y', style='scientific', scilimits=(0, 0))
-            # # plt.gca().yaxis.set_major_formatter(ScalarFormatter(useMathText=True))
-            #
-            # # 범례 추가
-            # plt.legend(loc='upper left')
-            # # plt.grid(True)
-            # plt.grid(True, color='lightgrey', linestyle='-', linewidth=0.5, zorder=0)
-            #
-            # mainTitle = f'{type.upper()} Ln Emission'
-            # plt.title(mainTitle)
-            # saveImg = '{}/{}/{}_leak_basin_GFEI_grid_y19-21.png'.format(globalVar['figPath'], serviceName, type.upper())
-            # os.makedirs(os.path.dirname(saveImg), exist_ok=True)
-            # plt.savefig(saveImg, dpi=600, bbox_inches='tight', transparent=False)
-            # plt.tight_layout()
-            # # plt.show()
-            # plt.close()
-            # log.info(f'[CHECK] saveImg : {saveImg}')
+
+            fig.text(0.5, 0.02, 'Ln Emission [kg/C/year]', ha='center', va='center', fontsize=12)
+            fig.text(0.08, 0.5, 'Number of Grids', ha='center', va='center', rotation='vertical', fontsize=12)
+
+            # mainTitle = f'Ln Emission'
+            # plt.suptitle(mainTitle)
+            saveImg = '{}/{}/{}.png'.format(globalVar['figPath'], serviceName, 'TOTAL_EMI_HIST')
+            os.makedirs(os.path.dirname(saveImg), exist_ok=True)
+            plt.savefig(saveImg, dpi=600, bbox_inches='tight', transparent=False)
+            plt.tight_layout()
+            plt.show()
+            plt.close()
+            log.info(f'[CHECK] saveImg : {saveImg}')
 
         except Exception as e:
             log.error("Exception : {}".format(e))
