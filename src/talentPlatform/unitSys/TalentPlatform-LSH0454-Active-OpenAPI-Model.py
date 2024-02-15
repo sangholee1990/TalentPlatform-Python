@@ -542,6 +542,7 @@ class DtaProcess(object):
     # ${PY38_PATH} ${RUN_PATH}/${RUN_NAME} --addrList "경기도 하남시"
 
     # 2024.02.15
+    # cd /SYSTEMS/PROG/PYTHON/PyCharm/src/talentPlatform/unitSys
     # nohup /SYSTEMS/anaconda3/envs/py36/bin/python3.6 TalentPlatform-LSH0454-Active-OpenAPI-Model.py --addrList "서울특별시 강동구" &
     # nohup /SYSTEMS/anaconda3/envs/py36/bin/python3.6 TalentPlatform-LSH0454-Active-OpenAPI-Model.py --addrList "서울특별시 강서구" &
     # nohup /SYSTEMS/anaconda3/envs/py36/bin/python3.6 TalentPlatform-LSH0454-Active-OpenAPI-Model.py --addrList "서울특별시 동작구" &
