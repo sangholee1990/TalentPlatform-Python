@@ -10,6 +10,8 @@ import time
 import traceback
 import warnings
 from datetime import datetime
+import faulthandler
+faulthandler.enable()
 
 import matplotlib as mpl
 import matplotlib.pyplot as plt
@@ -239,45 +241,45 @@ def makeSbckProc(method=None, contDataL4 = None, mrgData=None, simDataL3=None, k
         # ***********************************************************************************
         # 대륙 및 격자에 따른 검증지표
         # ***********************************************************************************
-        lonList = corDataL1['lon'].values
-        latList = corDataL1['lat'].values
-
-        valData = pd.DataFrame()
-        for lon in lonList:
-            for lat in latList:
-                # log.info(f'[CHECK] lon : {lon} / lat : {lat}')
-
-                yList = mrgData['rain'].sel({'lon': lon, 'lat': lat}).values.flatten()
-                yhatList = corDataL1['scen'].sel({'lon': lon, 'lat': lat}).values.flatten()
-
-                # isLand = contDataL4['isLand'].sel({'lon': lon, 'lat': lat}).values.item()
-                contIdx = contDataL4['contIdx'].sel({'lon': lon, 'lat': lat}).values.item()
-
-                mask = (yList > 0) & ~np.isnan(yList) & (yhatList > 0) & ~np.isnan(yhatList)
-
-                y = yList[mask]
-                yhat = yhatList[mask]
-
-                if (len(y) == 0) or (len(yhat) == 0): continue
-
-                # 검증 지표 계산
-                dict = {
-                    'lon': [lon]
-                    , 'lat': [lat]
-                    # , 'isLand': [isLand]
-                    , 'contIdx': [contIdx]
-                    , 'cnt': [len(y)]
-                    , 'bias': [np.nanmean(yhat - y)]
-                    , 'rmse': [np.sqrt(np.nanmean((yhat - y) ** 2))]
-                    , 'corr': [np.corrcoef(yhat, y)[0, 1]]
-                }
-
-                valData = pd.concat([valData, pd.DataFrame.from_dict(dict)], ignore_index=True)
-
-        saveFile = '{}/{}/{}_{}_{}.csv'.format(globalVar['outPath'], serviceName, 'PAST-VALID-ByGeoLandCont', method, keyInfo)
-        os.makedirs(os.path.dirname(saveFile), exist_ok=True)
-        valData.to_csv(saveFile, index=False)
-        log.info(f'[CHECK] saveFile : {saveFile}')
+        # lonList = corDataL1['lon'].values
+        # latList = corDataL1['lat'].values
+        #
+        # valData = pd.DataFrame()
+        # for lon in lonList:
+        #     for lat in latList:
+        #         # log.info(f'[CHECK] lon : {lon} / lat : {lat}')
+        #
+        #         yList = mrgData['rain'].sel({'lon': lon, 'lat': lat}).values.flatten()
+        #         yhatList = corDataL1['scen'].sel({'lon': lon, 'lat': lat}).values.flatten()
+        #
+        #         # isLand = contDataL4['isLand'].sel({'lon': lon, 'lat': lat}).values.item()
+        #         contIdx = contDataL4['contIdx'].sel({'lon': lon, 'lat': lat}).values.item()
+        #
+        #         mask = (yList > 0) & ~np.isnan(yList) & (yhatList > 0) & ~np.isnan(yhatList)
+        #
+        #         y = yList[mask]
+        #         yhat = yhatList[mask]
+        #
+        #         if (len(y) == 0) or (len(yhat) == 0): continue
+        #
+        #         # 검증 지표 계산
+        #         dict = {
+        #             'lon': [lon]
+        #             , 'lat': [lat]
+        #             # , 'isLand': [isLand]
+        #             , 'contIdx': [contIdx]
+        #             , 'cnt': [len(y)]
+        #             , 'bias': [np.nanmean(yhat - y)]
+        #             , 'rmse': [np.sqrt(np.nanmean((yhat - y) ** 2))]
+        #             , 'corr': [np.corrcoef(yhat, y)[0, 1]]
+        #         }
+        #
+        #         valData = pd.concat([valData, pd.DataFrame.from_dict(dict)], ignore_index=True)
+        #
+        # saveFile = '{}/{}/{}_{}_{}.csv'.format(globalVar['outPath'], serviceName, 'PAST-VALID-ByGeoLandCont', method, keyInfo)
+        # os.makedirs(os.path.dirname(saveFile), exist_ok=True)
+        # valData.to_csv(saveFile, index=False)
+        # log.info(f'[CHECK] saveFile : {saveFile}')
 
 
         # ***********************************************************************************
@@ -321,7 +323,8 @@ def makeSbckProc(method=None, contDataL4 = None, mrgData=None, simDataL3=None, k
         for varInfo in varList:
             selCol = ['time', 'lon', 'lat', varInfo]
             # corDataL4 = corDataL3[selCol].pivot(index=['time'], columns=['lon', 'lat'])
-            corDataL4 = corDataL3[selCol].pivot(index=['lon', 'lat'], columns=['time'])
+            # corDataL4 = corDataL3[selCol].pivot(index=['lon', 'lat'], columns=['time'])
+            corDataL4 = corDataL3[selCol].dropna().pivot(index=['lon', 'lat'], columns=['time'])
 
             # 엑셀 저장
             saveXlsxFile = '{}/{}/{}-{}_{}_{}.xlsx'.format(globalVar['outPath'], serviceName, 'PAST-MBC', varInfo, method, keyInfo)
@@ -336,7 +339,9 @@ def makeSbckProc(method=None, contDataL4 = None, mrgData=None, simDataL3=None, k
                     corDataL5 = corDataL3.loc[corDataL3['contIdx'] == contIdx].reset_index(drop=True)
                     if len(corDataL5) < 0: continue
 
-                    corDataL6 = corDataL5[selCol].pivot(index=['lon', 'lat'], columns=['time'])
+                    # corDataL6 = corDataL5[selCol].pivot(index=['lon', 'lat'], columns=['time'])
+                    corDataL6 = corDataL5[selCol].dropna().pivot(index=['lon', 'lat'], columns=['time'])
+                    # corDataL6.to_excel(writer, sheet_name=str(int(contIdx)), index=True)
                     corDataL6.to_excel(writer, sheet_name=str(int(contIdx)), index=True)
 
             log.info(f'[CHECK] saveXlsxFile : {saveXlsxFile}')
@@ -428,7 +433,8 @@ def makeSbckProc(method=None, contDataL4 = None, mrgData=None, simDataL3=None, k
         for varInfo in varList:
             selCol = ['time', 'lon', 'lat', varInfo]
             # mrgDataL3 = mrgDataL2[selCol].pivot(index=['time'], columns=['lon', 'lat'])
-            mrgDataL3 = mrgDataL2[selCol].pivot(index=['lon', 'lat'], columns=['time'])
+            # mrgDataL3 = mrgDataL2[selCol].pivot(index=['lon', 'lat'], columns=['time'])
+            mrgDataL3 = mrgDataL2[selCol].dropna().pivot(index=['lon', 'lat'], columns=['time'])
 
             # 엑셀 저장
             saveXlsxFile = '{}/{}/{}-{}_{}_{}.xlsx'.format(globalVar['outPath'], serviceName, 'FUTURE-MBC', varInfo, method, keyInfo)
@@ -443,7 +449,8 @@ def makeSbckProc(method=None, contDataL4 = None, mrgData=None, simDataL3=None, k
                     mrgDataL5 = mrgDataL2.loc[mrgDataL2['contIdx'] == contIdx].reset_index(drop=True)
                     if len(mrgDataL5) < 0: continue
 
-                    mrgDataL6 = mrgDataL5[selCol].pivot(index=['lon', 'lat'], columns=['time'])
+                    # mrgDataL6 = mrgDataL5[selCol].pivot(index=['lon', 'lat'], columns=['time'])
+                    mrgDataL6 = mrgDataL5[selCol].dropna().pivot(index=['lon', 'lat'], columns=['time'])
                     mrgDataL6.to_excel(writer, sheet_name=str(int(contIdx)), index=True)
 
             log.info(f'[CHECK] saveXlsxFile : {saveXlsxFile}')
@@ -483,76 +490,70 @@ def makeSbckProc(method=None, contDataL4 = None, mrgData=None, simDataL3=None, k
         # ***********************************************************************************
         # 대륙 및 시간에 따른 검증 지표
         # ***********************************************************************************
-        valData = pd.DataFrame()
-        contIdxList = np.unique(prdDataL1['contIdx'].values)
-        timeList = prdDataL1['time'].values
-        for contIdx in contIdxList:
-            if pd.isna(contIdx): continue
-            # log.info(f'[CHECK] contIdx : {contIdx}')
-
-            for time in timeList:
-                # log.info(f'[CHECK] time : {time}')
-
-                yList = simDataL3.sel(time=time).where(simDataL3['contIdx'] == contIdx, drop=True)['pr'].values.flatten()
-                yhatList = prdDataL1.sel(time=time).where(prdDataL1['contIdx'] == contIdx, drop=True)['scen'].values.flatten()
-
-                # mask = ~np.isnan(x) & (x > 0) & (y > 0) & ~np.isnan(y) & (yhat > 0) & ~np.isnan(yhat)
-                mask = (yList > 0) & ~np.isnan(yList) & (yhatList > 0) & ~np.isnan(yhatList)
-
-                # X = x[mask]
-                y = yList[mask]
-                yhat = yhatList[mask]
-
-                if (len(y) == 0) or (len(yhat) == 0): continue
-
-                # 검증스코어 계산 : Bias (Relative Bias), RMSE (Relative RMSE)
-                dict = {
-                    'contIdx': [contIdx]
-                    , 'time': [time]
-                    , 'cnt': [len(y)]
-                    , 'bias': [np.nanmean(yhat - y)]
-                    , 'rmse': [np.sqrt(np.nanmean((yhat - y) ** 2))]
-                    , 'corr': [np.corrcoef(yhat, y)[0, 1]]
-                }
-
-                valData = pd.concat([valData, pd.DataFrame.from_dict(dict)], ignore_index=True)
-
-        # 대륙에 따른 CSV 자료 저장
-        saveFile = '{}/{}/{}_{}_{}.csv'.format(globalVar['outPath'], serviceName, 'FUTURE-VALID-ByContTime', method, keyInfo)
-        os.makedirs(os.path.dirname(saveFile), exist_ok=True)
-        valData.to_csv(saveFile, index=False)
-        log.info(f'[CHECK] saveFile : {saveFile}')
+        # valData = pd.DataFrame()
+        # contIdxList = np.unique(prdDataL1['contIdx'].values)
+        # timeList = prdDataL1['time'].values
+        # for contIdx in contIdxList:
+        #     if pd.isna(contIdx): continue
+        #     # log.info(f'[CHECK] contIdx : {contIdx}')
+        #
+        #     for time in timeList:
+        #         # log.info(f'[CHECK] time : {time}')
+        #
+        #         yList = simDataL3.sel(time=time).where(simDataL3['contIdx'] == contIdx, drop=True)['pr'].values.flatten()
+        #         yhatList = prdDataL1.sel(time=time).where(prdDataL1['contIdx'] == contIdx, drop=True)['scen'].values.flatten()
+        #
+        #         # mask = ~np.isnan(x) & (x > 0) & (y > 0) & ~np.isnan(y) & (yhat > 0) & ~np.isnan(yhat)
+        #         mask = (yList > 0) & ~np.isnan(yList) & (yhatList > 0) & ~np.isnan(yhatList)
+        #
+        #         # X = x[mask]
+        #         y = yList[mask]
+        #         yhat = yhatList[mask]
+        #
+        #         if (len(y) == 0) or (len(yhat) == 0): continue
+        #
+        #         # 검증스코어 계산 : Bias (Relative Bias), RMSE (Relative RMSE)
+        #         dict = {
+        #             'contIdx': [contIdx]
+        #             , 'time': [time]
+        #             , 'cnt': [len(y)]
+        #             , 'bias': [np.nanmean(yhat - y)]
+        #             , 'rmse': [np.sqrt(np.nanmean((yhat - y) ** 2))]
+        #             , 'corr': [np.corrcoef(yhat, y)[0, 1]]
+        #         }
+        #
+        #         valData = pd.concat([valData, pd.DataFrame.from_dict(dict)], ignore_index=True)
+        #
+        # # 대륙에 따른 CSV 자료 저장
+        # saveFile = '{}/{}/{}_{}_{}.csv'.format(globalVar['outPath'], serviceName, 'FUTURE-VALID-ByContTime', method, keyInfo)
+        # os.makedirs(os.path.dirname(saveFile), exist_ok=True)
+        # valData.to_csv(saveFile, index=False)
+        # log.info(f'[CHECK] saveFile : {saveFile}')
 
         # ***********************************************************************************
         # 대륙에 따른 XLSX 자료 저장
         # ***********************************************************************************
-        contIdxList = np.unique(prdDataL1['contIdx'])
-        for contIdx in contIdxList:
-            if pd.isna(contIdx): continue
-            # log.info(f'[CHECK] contIdx : {contIdx}')
-
-            selData = prdDataL1.where(prdDataL1['contIdx'] == contIdx, drop=True)
-
-            selDataL1 = selData['scen'].to_dataframe().reset_index(drop=False)
-            if len(selDataL1['scen'].dropna()) < 0: continue
-
-            # selDataL2 = selDataL1.pivot(index=['time'], columns=['lon', 'lat'])
-            selDataL2 = selDataL1.pivot(index=['lon', 'lat'], columns=['time'])
-
-            # 엑셀 저장
-            saveXlsxFile = '{}/{}/{}_{}-{}_{}.xlsx'.format(globalVar['outPath'], serviceName, 'FUTURE-ORG', method, int(contIdx), keyInfo)
-            os.makedirs(os.path.dirname(saveXlsxFile), exist_ok=True)
-
-            with pd.ExcelWriter(saveXlsxFile, engine='xlsxwriter', options={'use_zip64': True}) as writer:
-                selDataL2.to_excel(writer, index=True)
-
-            log.info(f'[CHECK] saveXlsxFile : {saveXlsxFile}')
-
-            # selDataL2.to_excel(saveXlsxFile, index=True)
-
-            # if (os.path.exists(saveXlsxFile)): os.remove(saveXlsxFile)
-            # with pd.ExcelWriter(saveXlsxFile, engine='openpyxl') as writer:
-            #     selDataL2.to_excel(writer, sheet_name='Sheet1', index=False)
+        # contIdxList = np.unique(prdDataL1['contIdx'])
+        # for contIdx in contIdxList:
+        #     if pd.isna(contIdx): continue
+        #     # log.info(f'[CHECK] contIdx : {contIdx}')
+        #
+        #     selData = prdDataL1.where(prdDataL1['contIdx'] == contIdx, drop=True)
+        #
+        #     selDataL1 = selData['scen'].to_dataframe().reset_index(drop=False)
+        #     if len(selDataL1['scen'].dropna()) < 0: continue
+        #
+        #     # selDataL2 = selDataL1.pivot(index=['time'], columns=['lon', 'lat'])
+        #     selDataL2 = selDataL1.pivot(index=['lon', 'lat'], columns=['time'])
+        #
+        #     # 엑셀 저장
+        #     saveXlsxFile = '{}/{}/{}_{}-{}_{}.xlsx'.format(globalVar['outPath'], serviceName, 'FUTURE-ORG', method, int(contIdx), keyInfo)
+        #     os.makedirs(os.path.dirname(saveXlsxFile), exist_ok=True)
+        #
+        #     with pd.ExcelWriter(saveXlsxFile, engine='xlsxwriter', options={'use_zip64': True}) as writer:
+        #         selDataL2.to_excel(writer, index=True)
+        #
+        #     log.info(f'[CHECK] saveXlsxFile : {saveXlsxFile}')
 
     except Exception as e:
         log.error(f'Exception : {e}')
