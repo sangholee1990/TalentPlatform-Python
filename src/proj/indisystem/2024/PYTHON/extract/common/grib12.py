@@ -16,6 +16,7 @@ class Grib12:
 #Show variable names and coordinates
 	def getVariableName(self):
 		return self.gribFP.variables.keys()
+
 	def getCoordinate(self):
 		return self.gribFP.dimensions.keys()
 
@@ -23,9 +24,11 @@ class Grib12:
 	def getVariable(self,varName):
 		data=self.gribFP.variables[varName][:]
 		return data
+
 	def getVariable3(self,varName):
 		data=self.gribFP.variables[varName][:,:,:]
 		return data
+
 	def getVariable31(self,varName,level):
 		data=self.gribFP.variables[varName][level][:]
 		return data
@@ -37,7 +40,9 @@ class Grib12:
 #Variable attributes
 	def getAttributes(self,varName):
 		return list(self.gribFP.variables[varName].attributes.keys())
+
 	def getAttrValue(self,varName,attName):
 		return self.gribFP.variables[varName].attributes[attName]
+
 	def getxxx(self,varName):
 		return self.gribFP.variables[varName]

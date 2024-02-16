@@ -3,7 +3,7 @@
 import datetime
 import numpy as np
 from common.grib12 import Grib12
-from common.manageDB import ManageDB
+from manageDB import ManageDB
 import re
 import sys
 import xarray as xr
