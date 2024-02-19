@@ -13,25 +13,20 @@ export LC_TIME=en_US.UTF-8
 # 작업 경로 설정
 #CTX_PATH=$(pwd)
 # KIM, LDAPS/RDAPS
-CTX_PATH=/SYSTEMS/PROG/PYTHON/PyCharm/src/proj/indisystem/2024
-#CTX_PATH=/home/guest_user1/SYSTEMS/KIER
+#CTX_PATH=/SYSTEMS/PROG/PYTHON/PyCharm/src/proj/indisystem/2024
+CTX_PATH=/home/guest_user1/SYSTEMS/KIER
 
 # 아나콘다 가상환경 활성화
 #source /home/indisystem/.bashrc
 #conda activate py38
-#PY38_BIN=/home/indisystem/.conda/envs/py38/bin/python3
-#PY38_BIN=/vol01/SYSTEMS/KIER/LIB/py38/bin/python3
-#PY38_BIN=/vol01/SYSTEMS/KIER/LIB/py38/bin/python3
-PY38_PATH=/SYSTEMS/anaconda3/envs/py38
-#PY38_BIN=${CTX_PATH}/LIB/py38/bin/python3
 
-
-#PY38_PATH=/home/guest_user1/SYSTEMS/KIER/LIB/
+#PY38_PATH=/SYSTEMS/anaconda3/envs/py38
+PY38_PATH=/home/guest_user1/SYSTEMS/KIER/LIB/py38
 PY38_BIN=${PY38_PATH}/bin/python3
 
 # 작업경로 설정
-#RUN_PATH=${CTX_PATH}/PROG/PYTHON/extract
-RUN_PATH=${CTX_PATH}/PYTHON/extract
+#RUN_PATH=${CTX_PATH}/PYTHON/extract
+RUN_PATH=${CTX_PATH}/PROG/PYTHON/extract
 
 # 작업경로 이동
 cd $RUN_PATH
@@ -115,10 +110,13 @@ metaData["RDAPS-12K","PRES"]="/only-wrf-data2/Forecast/RDAPS/%Y/%m/%d/%H/g120_v0
 
 metaData["GFS-25K","ALL"]="/data1/GFS/%Y/%m/%d/%H/gfs.t*z.pgrb2.0p25.f*.gb2"
 
-metaData["REANALY-ERA5-25K","UNIS"]="/DATA/INPUT/INDI2024/DATA/REANALY-ERA5/%Y/%m/%d/reanaly-era5-unis%Y%m%d*.nc"
-metaData["REANALY-ERA5-25K","PRES"]="/DATA/INPUT/INDI2024/DATA/REANALY-ERA5/%Y/%m/%d/reanaly-era5-pres_%Y%m%d*.nc"
+#metaData["REANALY-ERA5-25K","UNIS"]="/DATA/INPUT/INDI2024/DATA/REANALY-ERA5/%Y/%m/%d/reanaly-era5-unis_%Y%m%d*.nc"
+#metaData["REANALY-ERA5-25K","PRES"]="/DATA/INPUT/INDI2024/DATA/REANALY-ERA5/%Y/%m/%d/reanaly-era5-pres_%Y%m%d*.nc"
+metaData["REANALY-ERA5-25K","UNIS"]="/data1/REANALY-ERA5/%Y/%m/%d/reanaly-era5-unis_%Y%m%d*.nc"
+metaData["REANALY-ERA5-25K","PRES"]="/data1/REANALY-ERA5/%Y/%m/%d/reanaly-era5-pres_%Y%m%d*.nc"
 
-metaData["SAT-SENT1","ALL"]="/DATA/INPUT/INDI2024/DATA/SAT-SENT1/%Y/%m/%d/S1A_ESA_%Y_%m_%d_*_GFS025CDF_wind.png"
+#metaData["SAT-SENT1","ALL"]="/DATA/INPUT/INDI2024/DATA/SAT-SENT1/%Y/%m/%d/S1A_ESA_%Y_%m_%d_*_GFS025CDF_wind.png"
+metaData["SAT-SENT1","ALL"]="/data1/SAT-SENT1/%Y/%m/%d/S1A_ESA_%Y_%m_%d_*_GFS025CDF_wind.png"
 
 #modelList=("LDAPS-1.5K")
 #modelList=("RDAPS-12K")

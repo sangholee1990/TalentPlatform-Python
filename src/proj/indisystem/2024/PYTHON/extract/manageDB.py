@@ -75,7 +75,7 @@ class ManageDB:
             return result
 
         except Exception as e:
-            common.initiator.error(f'Exception : {e}')
+            common.logger.error(f'Exception : {e}')
             return result
         # finally:
         #     common.logger.info(f'[END] initCfgInfo')
@@ -94,7 +94,7 @@ class ManageDB:
 
         except Exception as e:
             session.rollback()
-            common.initiator.error(f'Exception : {e}')
+            common.logger.error(f'Exception : {e}')
 
         finally:
             session.close()
