@@ -298,6 +298,9 @@ class DtaProcess(object):
                         data = xr.open_dataset(fileInfo)
                         log.info(f'[CHECK] fileInfo : {fileInfo}')
 
+                        # 0 초과 필터, 그 외 결측값 NA
+                        dataL1 = data[varInfo].where((data[varInfo] > 0))
+
                         # 변수 삭제
                         selList = ['expver']
 
@@ -317,11 +320,11 @@ class DtaProcess(object):
                     maxDayT2m = mrgData['t2m'].resample(time='1D').max(skipna=True)
                     maxMonthT2m = maxDayT2m.resample(time='1M').max(skipna=True)
 
-                    maxMonthT2m.isel(time = 0).plot()
-                    plt.show()
-
-                    mrgData['t2m'].isel(time=0).plot()
-                    plt.show()
+                    # maxMonthT2m.isel(time = 0).plot()
+                    # plt.show()
+                    #
+                    # mrgData['t2m'].isel(time=0).plot()
+                    # plt.show()
 
                     maxDayT2m.isel(time=0).plot()
                     plt.show()
