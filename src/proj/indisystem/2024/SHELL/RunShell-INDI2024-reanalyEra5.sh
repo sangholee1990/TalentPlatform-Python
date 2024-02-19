@@ -19,13 +19,14 @@ CTX_PATH=/SYSTEMS/PROG/PYTHON/PyCharm/src/proj/indisystem/2024
 # 아나콘다 가상환경 활성화
 #source /home/indisystem/.bashrc
 #conda activate py38
-PY38_PATH=/SYSTEMS/anaconda3/envs/py38
-#PY38_PATH=/home/guest_user1/SYSTEMS/KIER/LIB/py38
+
+#PY38_PATH=/SYSTEMS/anaconda3/envs/py38
+PY38_PATH=/home/guest_user1/SYSTEMS/KIER/LIB/py38
 PY38_BIN=${PY38_PATH}/bin/python3
 
 # 작업경로 설정
-#RUN_PATH=${CTX_PATH}/PROG/PYTHON/extract
-RUN_PATH=${CTX_PATH}/PYTHON/extract
+#RUN_PATH=${CTX_PATH}/PYTHON/extract
+RUN_PATH=${CTX_PATH}/PROG/PYTHON/extract
 
 # 작업경로 이동
 cd $RUN_PATH
