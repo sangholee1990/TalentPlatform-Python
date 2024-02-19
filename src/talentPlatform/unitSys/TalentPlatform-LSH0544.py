@@ -306,18 +306,18 @@ class DtaProcess(object):
 
                         for selInfo in selList:
                             try:
-                                data = data.isel(expver=0).drop_vars([selInfo])
+                                dataL1 = dataL1.isel(expver=0).drop_vars([selInfo])
                             except Exception as e:
                                 pass
 
-                        mrgData = xr.merge([mrgData, data])
-
+                        # mrgData = dataL1
+                        mrgData = xr.merge([mrgData, dataL1])
 
                     print('asfdasdf')
 
                     timeList = pd.to_datetime(mrgData['time'].values)
 
-                    maxDayT2m = mrgData['t2m'].resample(time='1D').max(skipna=True)
+                    maxDayT2m = mrgData.resample(time='1D').max(skipna=True)
                     maxMonthT2m = maxDayT2m.resample(time='1M').max(skipna=True)
 
                     # maxMonthT2m.isel(time = 0).plot()
