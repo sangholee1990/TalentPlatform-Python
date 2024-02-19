@@ -317,8 +317,8 @@ class DtaProcess(object):
 
                     timeList = pd.to_datetime(mrgData['time'].values)
 
-                    maxDayT2m = mrgData.resample(time='1D').max(skipna=True)
-                    maxMonthT2m = maxDayT2m.resample(time='1M').max(skipna=True)
+                    maxDayT2m = mrgData.resample(time='1D').max()
+                    maxMonthT2m = maxDayT2m.resample(time='1M').max()
 
                     # maxMonthT2m.isel(time = 0).plot()
                     # plt.show()
