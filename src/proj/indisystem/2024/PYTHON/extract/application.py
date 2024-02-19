@@ -360,151 +360,78 @@ class Application:
         common.logger.info(f'[CHECK] dbData : {self.dbData.keys()} : {np.shape(self.dbData[list(self.dbData.keys())[2]])} : {len(self.dbData.keys())}')
         dbapp.dbMergeData(initDB['session'], initDB['tbIntModel'], self.dbData, pkList=['MODEL_TYPE', 'ANA_DT', 'FOR_DT'])
 
-    # def processXarrayKIER(self):
-    #
-    #     # DB 가져오기
-    #     dbapp = ManageDB(self.dbconfig)
-    #     initDB = dbapp.initCfgInfo()
-    #
-    #     # NetCDF 파일 읽기
-    #     orgData = xr.open_mfdataset(self.inFile)
-    #     common.logger.info(f'[CHECK] inFile : {self.inFile}')
-    #
-    #     # 분석시간
-    #     anaDate = pd.to_datetime(orgData.START_DATE, format='%Y-%m-%d_%H:%M:%S')
-    #
-    #     # 시간 인덱스를 예보 시간 기준으로 변환
-    #     timeByteList = orgData['Times'].values
-    #     timeList = [timeInfo.decode('UTF-8').replace('_', ' ') for timeInfo in timeByteList]
-    #     orgData['Time'] = pd.to_datetime(timeList)
-    #
-    #     if re.search('60M', self.modelName, re.IGNORECASE):
-    #         data = orgData.resample(Time='60T').mean(dim='Time', skipna=True)
-    #     elif re.search('30M', self.modelName, re.IGNORECASE):
-    #         data = orgData.resample(Time='30T').mean(dim='Time', skipna=True)
-    #     elif re.search('KIER-LDAPS|KIER-RDAPS', self.modelName, re.IGNORECASE):
-    #         data = orgData.resample(Time='60T').asfreq()
-    #     elif re.search('KIER-WINDre', self.modelName, re.IGNORECASE):
-    #         data = orgData.resample(Time='30T').asfreq()
-    #     elif re.search('KIER-WIND', self.modelName, re.IGNORECASE):
-    #         data = orgData.resample(Time='10T').asfreq()
-    #     else:
-    #         common.logger.error(f'모델 종류 ({self.modelName})를 확인해주세요.')
-    #         sys.exit(1)
-    #
-    #     # 예보 시간
-    #     forDateList = data['Time'].values
-    #     for idx, forDateInfo in enumerate(forDateList):
-    #         forDate = pd.to_datetime(forDateInfo, format='%Y-%m-%d_%H:%M:%S')
-    #
-    #         modelInfo = self.config['modelName'].get(f'{self.modelName}_{self.modelKey}')
-    #         if modelInfo is None:
-    #             common.logger.warn(f'설정 파일 (config.yml)에서 설정 정보 (KIER-LDAPS/RDAPS, UNIS/PRES/ALL)를 확인해주세요.')
-    #             continue
-    #
-    #         common.logger.info(f'[CHECK] anaDate : {anaDate} / forDate : {forDate}')
-    #
-    #         # DB 등록/수정
-    #         self.dbData = {}
-    #         self.dbData['ANA_DT'] = anaDate
-    #         self.dbData['FOR_DT'] = forDate
-    #         self.dbData['MODEL_TYPE'] = self.modelName
-    #
-    #         # 선택 컬럼
-    #         for j, varInfo in enumerate(modelInfo['varName']):
-    #             name = varInfo['name']
-    #             for level, colName in zip(varInfo['level'], varInfo['colName']):
-    #                 if data.get(name) is None: continue
-    #
-    #                 try:
-    #                     if level == '-1':
-    #                         if len(data[name].isel(Time=idx).values) < 1: continue
-    #                         self.dbData[colName] = self.convFloatToIntList(data[name].isel(Time=idx).values)
-    #                     else:
-    #                         if len(data[name].isel(Time=idx, bottom_top=int(level)).values) < 1: continue
-    #                         self.dbData[colName] = self.convFloatToIntList(data[name].isel(Time=idx, bottom_top=int(level)).values)
-    #                 except Exception as e:
-    #                     common.logger.error(f'Exception : {e}')
-    #
-    #         if len(self.dbData) < 1:
-    #             common.logger.error(f'해당 파일 ({self.inFile})에서 지표면 및 상층 데이터를 확인해주세요.')
-    #             sys.exit(1)
-    #
-    #         common.logger.info(f'[CHECK] dbData : {self.dbData.keys()} : {np.shape(self.dbData[list(self.dbData.keys())[3]])} : {len(self.dbData.keys())}')
-    #         dbapp.dbMergeData(initDB['session'], initDB['tbIntModel'], self.dbData, pkList=['MODEL_TYPE', 'ANA_DT', 'FOR_DT'])
+    def processXarrayKIER(self):
 
-    # def processXarrayKIER(self):
-    #
-    #     # DB 가져오기
-    #     dbapp = ManageDB(self.dbconfig)
-    #     initDB = dbapp.initCfgInfo()
-    #
-    #     # NetCDF 파일 읽기
-    #     orgData = xr.open_mfdataset(self.inFile)
-    #     common.logger.info(f'[CHECK] inFile : {self.inFile}')
-    #
-    #     # 분석시간
-    #     anaDate = pd.to_datetime(orgData.START_DATE, format='%Y-%m-%d_%H:%M:%S')
-    #
-    #     # 시간 인덱스를 예보 시간 기준으로 변환
-    #     timeByteList = orgData['Times'].values
-    #     timeList = [timeInfo.decode('UTF-8').replace('_', ' ') for timeInfo in timeByteList]
-    #     orgData['Time'] = pd.to_datetime(timeList)
-    #
-    #     if re.search('60M', self.modelName, re.IGNORECASE):
-    #         data = orgData.resample(Time='60T').mean(dim='Time', skipna=True)
-    #     elif re.search('30M', self.modelName, re.IGNORECASE):
-    #         data = orgData.resample(Time='30T').mean(dim='Time', skipna=True)
-    #     elif re.search('KIER-LDAPS|KIER-RDAPS', self.modelName, re.IGNORECASE):
-    #         data = orgData.resample(Time='60T').asfreq()
-    #     elif re.search('KIER-WIND', self.modelName, re.IGNORECASE):
-    #         data = orgData.resample(Time='10T').asfreq()
-    #     else:
-    #         common.logger.error(f'모델 종류 ({self.modelName})를 확인해주세요.')
-    #         sys.exit(1)
-    #
-    #     # 예보 시간
-    #     forDateList = data['Time'].values
-    #     for idx, forDateInfo in enumerate(forDateList):
-    #         forDate = pd.to_datetime(forDateInfo, format='%Y-%m-%d_%H:%M:%S')
-    #
-    #         # modelType = 'KIER-LDAPS-2K' if re.search('KIER-LDAPS', self.modelName, re.IGNORECASE) else 'KIER-RDAPS-3K'
-    #         # modelInfo = self.config['modelName'].get(f'{modelType}_{self.modelKey}')
-    #         modelInfo = self.config['modelName'].get(f'{self.modelName}_{self.modelKey}')
-    #         if modelInfo is None:
-    #             common.logger.warn(f'설정 파일 (config.yml)에서 설정 정보 (KIER-LDAPS/RDAPS, UNIS/PRES/ALL)를 확인해주세요.')
-    #             continue
-    #
-    #         common.logger.info(f'[CHECK] anaDate : {anaDate} / forDate : {forDate}')
-    #
-    #         # DB 등록/수정
-    #         self.dbData = {}
-    #         self.dbData['ANA_DT'] = anaDate
-    #         self.dbData['FOR_DT'] = forDate
-    #         self.dbData['MODEL_TYPE'] = self.modelName
-    #
-    #         # 선택 컬럼
-    #         for j, varInfo in enumerate(modelInfo['varName']):
-    #             name = varInfo['name']
-    #             for level, colName in zip(varInfo['level'], varInfo['colName']):
-    #                 if data.get(name) is None: continue
-    #
-    #                 try:
-    #                     if level == '-1':
-    #                         if len(data[name].isel(Time=idx).values) < 1: continue
-    #                         self.dbData[colName] = self.convFloatToIntList(data[name].isel(Time=idx).values)
-    #                     else:
-    #                         if len(data[name].isel(Time=idx, bottom_top=int(level)).values) < 1: continue
-    #                         self.dbData[colName] = self.convFloatToIntList(data[name].isel(Time=idx, bottom_top=int(level)).values)
-    #                 except Exception as e:
-    #                     common.logger.error(f'Exception : {e}')
-    #
-    #         if len(self.dbData) < 1:
-    #             common.logger.error(f'해당 파일 ({self.inFile})에서 지표면 및 상층 데이터를 확인해주세요.')
-    #             sys.exit(1)
-    #
-    #         common.logger.info(f'[CHECK] dbData : {self.dbData.keys()} : {np.shape(self.dbData[list(self.dbData.keys())[3]])} : {len(self.dbData.keys())}')
-    #         dbapp.dbMergeData(initDB['session'], initDB['tbIntModel'], self.dbData, pkList=['MODEL_TYPE', 'ANA_DT', 'FOR_DT'])
+        # DB 가져오기
+        dbapp = ManageDB(self.dbconfig)
+        initDB = dbapp.initCfgInfo()
+
+        # NetCDF 파일 읽기
+        orgData = xr.open_mfdataset(self.inFile)
+        common.logger.info(f'[CHECK] inFile : {self.inFile}')
+
+        # 분석시간
+        anaDate = pd.to_datetime(orgData.START_DATE, format='%Y-%m-%d_%H:%M:%S')
+
+        # 시간 인덱스를 예보 시간 기준으로 변환
+        timeByteList = orgData['Times'].values
+        timeList = [timeInfo.decode('UTF-8').replace('_', ' ') for timeInfo in timeByteList]
+        orgData['Time'] = pd.to_datetime(timeList)
+
+        if re.search('60M', self.modelName, re.IGNORECASE):
+            data = orgData.resample(Time='60T').mean(dim='Time', skipna=True)
+        elif re.search('30M', self.modelName, re.IGNORECASE):
+            data = orgData.resample(Time='30T').mean(dim='Time', skipna=True)
+        elif re.search('KIER-LDAPS|KIER-RDAPS', self.modelName, re.IGNORECASE):
+            data = orgData.resample(Time='60T').asfreq()
+        elif re.search('KIER-WINDre', self.modelName, re.IGNORECASE):
+            data = orgData.resample(Time='30T').asfreq()
+        elif re.search('KIER-WIND', self.modelName, re.IGNORECASE):
+            data = orgData.resample(Time='10T').asfreq()
+        else:
+            common.logger.error(f'모델 종류 ({self.modelName})를 확인해주세요.')
+            sys.exit(1)
+
+        # 예보 시간
+        forDateList = data['Time'].values
+        for idx, forDateInfo in enumerate(forDateList):
+            forDate = pd.to_datetime(forDateInfo, format='%Y-%m-%d_%H:%M:%S')
+
+            modelInfo = self.config['modelName'].get(f'{self.modelName}_{self.modelKey}')
+            if modelInfo is None:
+                common.logger.warn(f'설정 파일 (config.yml)에서 설정 정보 (KIER-LDAPS/RDAPS, UNIS/PRES/ALL)를 확인해주세요.')
+                continue
+
+            common.logger.info(f'[CHECK] anaDate : {anaDate} / forDate : {forDate}')
+
+            # DB 등록/수정
+            self.dbData = {}
+            self.dbData['ANA_DT'] = anaDate
+            self.dbData['FOR_DT'] = forDate
+            self.dbData['MODEL_TYPE'] = self.modelName
+
+            # 선택 컬럼
+            for j, varInfo in enumerate(modelInfo['varName']):
+                name = varInfo['name']
+                for level, colName in zip(varInfo['level'], varInfo['colName']):
+                    if data.get(name) is None: continue
+
+                    try:
+                        if level == '-1':
+                            if len(data[name].isel(Time=idx).values) < 1: continue
+                            self.dbData[colName] = self.convFloatToIntList(data[name].isel(Time=idx).values)
+                        else:
+                            if len(data[name].isel(Time=idx, bottom_top=int(level)).values) < 1: continue
+                            self.dbData[colName] = self.convFloatToIntList(data[name].isel(Time=idx, bottom_top=int(level)).values)
+                    except Exception as e:
+                        common.logger.error(f'Exception : {e}')
+
+            if len(self.dbData) < 1:
+                common.logger.error(f'해당 파일 ({self.inFile})에서 지표면 및 상층 데이터를 확인해주세요.')
+                sys.exit(1)
+
+            common.logger.info(f'[CHECK] dbData : {self.dbData.keys()} : {np.shape(self.dbData[list(self.dbData.keys())[3]])} : {len(self.dbData.keys())}')
+            dbapp.dbMergeData(initDB['session'], initDB['tbIntModel'], self.dbData, pkList=['MODEL_TYPE', 'ANA_DT', 'FOR_DT'])
 
     def getVar(self):
         self.varNameLists = self.config['modelName'][f'{self.modelName}_{self.modelKey}']['varName']
@@ -517,93 +444,3 @@ class Application:
         result = ((np.around(val, 4) * scaleFactor) - addOffset).astype(int)
 
         return result.tolist()
-
-    """
-    def insertData(self,):
-        #decoding grib data
-        # insert DB
-    def getConfig(self) :
-        return 	
-    """
-
-    # dtSrtDate = pd.to_datetime('2022-01-01', format='%Y-%m-%d')
-    # dtEndDate = pd.to_datetime('2022-01-02', format='%Y-%m-%d')
-    # timeList = pd.date_range(start=dtSrtDate, end=dtEndDate, freq='10T')
-
-    # lat1D = wrf.getvar(orgData, 'XLAT', timeidx=0)
-    # lon1D = wrf.getvar(orgData, 'XLONG', timeidx=0)
-    # val1D = val
-    # val1D = meanVal
-
-    # val1D.plot()
-    # plt.show()
-
-    # plt.scatter(lon1D, lat1D, c=val1D)
-    # plt.colorbar()
-    # plt.show()
-
-    # level = 1000
-    # bottom_top = 0
-    # level = 975
-    # bottom_top = 1
-    # level = 950
-    # bottom_top = 2
-    # level = 925
-    # bottom_top = 3
-    # level = 900
-    # bottom_top = 4
-    # level = 875
-    # bottom_top = 5
-    # level = 850
-    # bottom_top = 6
-    #
-    # # NEW 방법
-    # # val = wrf.interplevel(selVal, pressure, int(level))
-    # # NEW2 방법
-    # # val = wrf.vinterp(orgData, field = selVal, vert_coord = 'pressure', interp_levels = [int(level)], extrapolate=True, timeidx=timeIdx)
-    # val = wrf.vinterp(orgData, field=geoHgt, vert_coord='pressure', interp_levels=[int(level)], extrapolate=True,
-    #                   timeidx=timeIdx)
-    #
-    # # mainTitle = f'NEW (wrf-python) / anaDate = {anaDate} \n forDate = {forDate} / level = {int(level)} hPa'
-    # mainTitle = f'NEW2 (wrf-python) / anaDate = {anaDate} \n forDate = {forDate} / level = {int(level)} hPa'
-    # val.plot()
-    # plt.title(mainTitle)
-    # # saveImg = '{}/{}.png'.format('/DATA/FIG/INDI2023/TEST', f'NEW-{int(level)}')
-    # saveImg = '{}/{}.png'.format('/DATA/FIG/INDI2023/TEST', f'NEW2-{int(level)}')
-    # os.makedirs(os.path.dirname(saveImg), exist_ok=True)
-    # # plt.savefig(saveImg, dpi=600, bbox_inches='tight', transparent=True)
-    # plt.show()
-    # plt.close()
-    #
-    # aa = xr.open_dataset(self.inFile)
-    # aa2 = aa['U'].isel(Time=0, bottom_top=bottom_top)
-    #
-    # mainTitle = f'ORG (xarray) / anaDate = {anaDate} \n forDate = {forDate} / level = {int(level)} hPa'
-    # aa2.plot()
-    # plt.title(mainTitle)
-    # saveImg = '{}/{}.png'.format('/DATA/FIG/INDI2023/TEST', f'ORG-{int(level)}')
-    # os.makedirs(os.path.dirname(saveImg), exist_ok=True)
-    # plt.savefig(saveImg, dpi=600, bbox_inches='tight', transparent=True)
-    # plt.show()
-    # plt.close()
-
-    #      aa = xr.open_dataset(self.inFile, engine='pynio')
-    #         aa.info()
-    #         # aa2 = aa['HGT_P0_L100_GLC0'].isel(lv_ISBL0 = 17)
-    #         aa2 = aa['TMP_P0_L1_GLC0']
-    #         aa2 = aa['RH_P0_L103_GLC0']
-    #         aa2 = aa['PRES_P0_L1_GLC0']
-    #         aa2 = aa['SNFALB_P0_L103_GLC0']
-    #
-    #         # aa2 = aa['SNFALB_P0_L103_GLC0']
-    #         aa2.plot()
-    #         plt.show()
-
-    # data.info()
-    # data['HGT_P0_L100_GLL0'].isel(lv_ISBL0 = 35).plot()
-    # data['TMP_P0_L1_GLL0'].plot()
-    # # data['RH_P0_L103_GLL0'].plot()
-    # data['RH_P0_L100_GLL0'].plot()
-    # data['PRES_P0_L1_GLL0'].plot()
-    # data['ALBDO_P8_L1_GLL0_avg'].plot()
-    # plt.show()

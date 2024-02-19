@@ -25,8 +25,11 @@ TMP_PATH=$(mktemp -d)
 UPD_PATH=/DATA/INPUT/INDI2024/DATA/SAT-SENT1
 URL_PATH="https://science.globalwindatlas.info/full/sentinel1"
 
+# 아나콘다 가상환경 활성화
+#source /home/indisystem/.bashrc
+#conda activate py38
 #PY38_PATH=/SYSTEMS/anaconda3/envs/py38
-#PY38_PATH=/home/guest_user1/SYSTEMS/KIER/LIB/
+#PY38_PATH=/home/guest_user1/SYSTEMS/KIER/LIB/py38
 #PY38_BIN=${PY38_PATH}/bin/python3
 
 mkdir -p ${TMP_PATH}
@@ -61,6 +64,8 @@ echo "[$(date +"%Y-%m-%d %H:%M:%S")] [CHECK] downFile : $downFile"
 while IFS= read -r line; do
 
 #  echo "[$(date +"%Y-%m-%d %H:%M:%S")] [CHECK] line : $line"
+
+  [ ${#line} -lt 1 ] && continue
 
   donwName=$(echo "$line" | awk -F'name=' '{print $2}' | awk -F'&' '{print $1}')
 #  echo "[$(date +"%Y-%m-%d %H:%M:%S")] [CHECK] donwName : $donwName"
