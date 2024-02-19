@@ -332,19 +332,46 @@ def makeSbckProc(method=None, contDataL4 = None, mrgData=None, simDataL3=None, k
 
             with pd.ExcelWriter(saveXlsxFile, engine='xlsxwriter', options={'use_zip64': True}) as writer:
                 corDataL4.to_excel(writer, index=True)
+                log.info(f'[CHECK] saveXlsxFile : {saveXlsxFile}')
 
-                for contIdx in contIdxList:
-                    if pd.isna(contIdx): continue
+            saveCsvFile = '{}/{}/{}-{}_{}_{}.csv'.format(globalVar['outPath'], serviceName, 'PAST-MBC', varInfo, method, keyInfo)
+            os.makedirs(os.path.dirname(saveCsvFile), exist_ok=True)
 
-                    corDataL5 = corDataL3.loc[corDataL3['contIdx'] == contIdx].reset_index(drop=True)
-                    if len(corDataL5) < 0: continue
+            csvData = corDataL4.reset_index(drop=False)
+            csvData.columns = [col[0] if pd.isna(col[1]) else col[1] for col in csvData.columns]
+            csvData.to_csv(saveCsvFile, index=False)
+            log.info(f'[CHECK] saveCsvFile : {saveCsvFile}')
 
-                    # corDataL6 = corDataL5[selCol].pivot(index=['lon', 'lat'], columns=['time'])
-                    corDataL6 = corDataL5[selCol].dropna().pivot(index=['lon', 'lat'], columns=['time'])
-                    # corDataL6.to_excel(writer, sheet_name=str(int(contIdx)), index=True)
-                    corDataL6.to_excel(writer, sheet_name=str(int(contIdx)), index=True)
+            # 대륙별로 엑셀 저장
+            for contIdx in contIdxList:
+                if pd.isna(contIdx): continue
 
-            log.info(f'[CHECK] saveXlsxFile : {saveXlsxFile}')
+                corDataL5 = corDataL3.loc[corDataL3['contIdx'] == contIdx].reset_index(drop=True)
+                if len(corDataL5) < 0: continue
+
+                sheetName = str(int(contIdx))
+
+                # corDataL6 = corDataL5[selCol].pivot(index=['lon', 'lat'], columns=['time'])
+                corDataL6 = corDataL5[selCol].dropna().pivot(index=['lon', 'lat'], columns=['time'])
+
+                # 엑셀 저장
+                saveXlsxFile = '{}/{}/{}-{}_{}-{}_{}.xlsx'.format(globalVar['outPath'], serviceName, 'PAST-MBC', varInfo, method, sheetName, keyInfo)
+                os.makedirs(os.path.dirname(saveXlsxFile), exist_ok=True)
+
+                # corDataL6.to_excel(writer, sheet_name=str(int(contIdx)), index=True)
+                # corDataL6.to_excel(writer, sheet_name=sheetName, index=True)
+                with pd.ExcelWriter(saveXlsxFile, engine='xlsxwriter', options={'use_zip64': True}) as writer2:
+                    corDataL6.to_excel(writer2, sheet_name=sheetName, index=True)
+                    log.info(f'[CHECK] saveXlsxFile : {saveXlsxFile}')
+
+                saveCsvFile = '{}/{}/{}-{}_{}-{}_{}.csv'.format(globalVar['outPath'], serviceName, 'PAST-MBC', varInfo, method, sheetName, keyInfo)
+                os.makedirs(os.path.dirname(saveCsvFile), exist_ok=True)
+
+                csvData = corDataL6.reset_index(drop=False)
+                csvData.columns = [col[0] if pd.isna(col[1]) else col[1] for col in csvData.columns]
+                csvData.to_csv(saveCsvFile, index=False)
+                log.info(f'[CHECK] saveCsvFile : {saveCsvFile}')
+
 
             # corDataL4.to_excel(saveXlsxFile, index=True)
             #
@@ -442,31 +469,44 @@ def makeSbckProc(method=None, contDataL4 = None, mrgData=None, simDataL3=None, k
 
             with pd.ExcelWriter(saveXlsxFile, engine='xlsxwriter', options={'use_zip64': True}) as writer:
                 mrgDataL3.to_excel(writer, index=True)
+                log.info(f'[CHECK] saveXlsxFile : {saveXlsxFile}')
 
-                for contIdx in contIdxList:
-                    if np.isnan(contIdx): continue
+            saveCsvFile = '{}/{}/{}-{}_{}_{}.csv'.format(globalVar['outPath'], serviceName, 'FUTURE-MBC', varInfo, method, keyInfo)
+            os.makedirs(os.path.dirname(saveCsvFile), exist_ok=True)
 
-                    mrgDataL5 = mrgDataL2.loc[mrgDataL2['contIdx'] == contIdx].reset_index(drop=True)
-                    if len(mrgDataL5) < 0: continue
+            csvData = mrgDataL3.reset_index(drop=False)
+            csvData.columns = [col[0] if pd.isna(col[1]) else col[1] for col in csvData.columns]
+            csvData.to_csv(saveCsvFile, index=False)
+            log.info(f'[CHECK] saveCsvFile : {saveCsvFile}')
 
-                    # mrgDataL6 = mrgDataL5[selCol].pivot(index=['lon', 'lat'], columns=['time'])
-                    mrgDataL6 = mrgDataL5[selCol].dropna().pivot(index=['lon', 'lat'], columns=['time'])
-                    mrgDataL6.to_excel(writer, sheet_name=str(int(contIdx)), index=True)
+            # 대륙별로 엑셀 저장
+            for contIdx in contIdxList:
+                if np.isnan(contIdx): continue
 
-            log.info(f'[CHECK] saveXlsxFile : {saveXlsxFile}')
+                mrgDataL5 = mrgDataL2.loc[mrgDataL2['contIdx'] == contIdx].reset_index(drop=True)
+                if len(mrgDataL5) < 0: continue
 
-            # mrgDataL3.to_excel(saveXlsxFile, index=True)
+                sheetName = str(int(contIdx))
 
-            # for contIdx in contIdxList:
-            #     if np.isnan(contIdx): continue
-            #
-            #     mrgDataL5 = mrgDataL2.loc[(mrgDataL2['contIdx'] == contIdx)].reset_index(drop=True)
-            #     if len(mrgDataL5) < 0: continue
-            #
-            #     mrgDataL6 = mrgDataL5[selCol].pivot(index=['lon', 'lat'], columns=['time'])
-            #     with pd.ExcelWriter(saveXlsxFile, engine='openpyxl', mode='a') as writer:
-            #         mrgDataL6.to_excel(writer, sheet_name=str(int(contIdx)), index=True)
+                # mrgDataL6 = mrgDataL5[selCol].pivot(index=['lon', 'lat'], columns=['time'])
+                mrgDataL6 = mrgDataL5[selCol].dropna().pivot(index=['lon', 'lat'], columns=['time'])
 
+                # 엑셀 저장
+                # mrgDataL6.to_excel(writer, sheet_name=sheetName, index=True)
+                saveXlsxFile = '{}/{}/{}-{}_{}-{}_{}.xlsx'.format(globalVar['outPath'], serviceName, 'FUTURE-MBC', varInfo, method, sheetName, keyInfo)
+                os.makedirs(os.path.dirname(saveXlsxFile), exist_ok=True)
+
+                with pd.ExcelWriter(saveXlsxFile, engine='xlsxwriter', options={'use_zip64': True}) as writer2:
+                    mrgDataL6.to_excel(writer2, sheet_name=sheetName, index=True)
+                    log.info(f'[CHECK] saveXlsxFile : {saveXlsxFile}')
+
+                saveCsvFile = '{}/{}/{}-{}_{}-{}_{}.csv'.format(globalVar['outPath'], serviceName, 'FUTURE-MBC', varInfo, method, sheetName, keyInfo)
+                os.makedirs(os.path.dirname(saveCsvFile), exist_ok=True)
+
+                csvData = mrgDataL6.reset_index(drop=False)
+                csvData.columns = [col[0] if pd.isna(col[1]) else col[1] for col in csvData.columns]
+                csvData.to_csv(saveCsvFile, index=False)
+                log.info(f'[CHECK] saveCsvFile : {saveCsvFile}')
 
         # ***********************************************************************************
         # 과거 기간 95% 이상 분위수 계산
