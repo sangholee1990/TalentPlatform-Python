@@ -109,10 +109,13 @@ metaData["RDAPS-12K","PRES"]="/only-wrf-data2/Forecast/RDAPS/%Y/%m/%d/%H/g120_v0
 
 metaData["GFS-25K","ALL"]="/data1/GFS/%Y/%m/%d/%H/gfs.t*z.pgrb2.0p25.f*.gb2"
 
-metaData["REANALY-ERA5-25K","UNIS"]="/DATA/INPUT/INDI2024/DATA/REANALY-ERA5/%Y/%m/%d/reanaly-era5-unis_%Y%m%d*.nc"
-metaData["REANALY-ERA5-25K","PRES"]="/DATA/INPUT/INDI2024/DATA/REANALY-ERA5/%Y/%m/%d/reanaly-era5-pres_%Y%m%d*.nc"
+#metaData["REANALY-ERA5-25K","UNIS"]="/DATA/INPUT/INDI2024/DATA/REANALY-ERA5/%Y/%m/%d/reanaly-era5-unis_%Y%m%d*.nc"
+#metaData["REANALY-ERA5-25K","PRES"]="/DATA/INPUT/INDI2024/DATA/REANALY-ERA5/%Y/%m/%d/reanaly-era5-pres_%Y%m%d*.nc"
+metaData["REANALY-ERA5-25K","UNIS"]="/data1/REANALY-ERA5/%Y/%m/%d/reanaly-era5-unis_%Y%m%d*.nc"
+metaData["REANALY-ERA5-25K","PRES"]="/data1/REANALY-ERA5/%Y/%m/%d/reanaly-era5-pres_%Y%m%d*.nc"
 
-metaData["SAT-SENT1","ALL"]="/DATA/INPUT/INDI2024/DATA/SAT-SENT1/%Y/%m/%d/S1A_ESA_%Y_%m_%d_*_GFS025CDF_wind.png"
+#metaData["SAT-SENT1","ALL"]="/DATA/INPUT/INDI2024/DATA/SAT-SENT1/%Y/%m/%d/S1A_ESA_%Y_%m_%d_*_GFS025CDF_wind.png"
+metaData["SAT-SENT1","ALL"]="/data1/SAT-SENT1/%Y/%m/%d/S1A_ESA_%Y_%m_%d_*_GFS025CDF_wind.png"
 
 #modelList=("LDAPS-1.5K")
 #modelList=("RDAPS-12K")
