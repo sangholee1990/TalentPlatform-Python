@@ -326,7 +326,7 @@ class DtaProcess(object):
                     # mrgData['t2m'].isel(time=0).plot()
                     # plt.show()
 
-                    maxDayT2m.isel(time=0).plot()
+                    maxDayT2m[varInfo].isel(time=0).plot()
                     plt.show()
 
         except Exception as e:
