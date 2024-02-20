@@ -29,13 +29,13 @@ class Application:
         self.dbData = {}
 
     def run(self):
-        if re.search('KIM|LDAPS|RDAPS', self.modelName, re.IGNORECASE):
+        if re.search('KIER-LDAPS|KIER-RDAPS|KIER-WIND', self.modelName, re.IGNORECASE):
+            self.processWrfKIER()
+            # self.processXarrayKIER()
+        elif re.search('KIM|LDAPS|RDAPS', self.modelName, re.IGNORECASE):
             gribApp = Grib12(self.inFile)
             gribApp.openFile()
             self.processKMA(gribApp)
-        elif re.search('KIER-LDAPS|KIER-RDAPS|KIER-WIND', self.modelName, re.IGNORECASE):
-            self.processWrfKIER()
-            # self.processXarrayKIER()
         elif re.search('GFS', self.modelName, re.IGNORECASE):
             self.processGFS()
         elif re.search('REANALY-ERA5', self.modelName, re.IGNORECASE):
