@@ -239,7 +239,7 @@ class DtaProcess(object):
             # 옵션 설정
             sysOpt = {
                 # 시작일, 종료일, 시간 간격 (연 1y, 월 1h, 일 1d, 시간 1h)
-                'srtDate': '2023-01-01'
+                'srtDate': '2023-12-01'
                 , 'endDate': '2024-01-01'
                 , 'invDate': '1m'
 
@@ -294,7 +294,6 @@ class DtaProcess(object):
                             continue
 
                         fileInfo = fileList[0]
-
                         data = xr.open_dataset(fileInfo)
                         log.info(f'[CHECK] fileInfo : {fileInfo}')
 
@@ -303,31 +302,37 @@ class DtaProcess(object):
 
                         # 변수 삭제
                         selList = ['expver']
-
                         for selInfo in selList:
                             try:
-                                dataL1 = dataL1.isel(expver=0).drop_vars([selInfo])
+                                dataL1 = dataL1.isel(expver=1).drop_vars([selInfo])
                             except Exception as e:
                                 pass
 
-                        # mrgData = dataL1
+                        # timeList = pd.to_datetime(dataL1['time'].values)
+                        # for timeInfo in timeList:
+                        #     selData = dataL1.sel(time = timeInfo)
+                        #     log.info(f'[CHECK] {varInfo} / {timeInfo} / min : {np.nanmin(selData)} / max : {np.nanmax(selData)} / mean : {np.nanmean(selData)}')
+
                         mrgData = xr.merge([mrgData, dataL1])
 
-                    print('asfdasdf')
-
-                    timeList = pd.to_datetime(mrgData['time'].values)
 
                     maxDayT2m = mrgData.resample(time='1D').max()
                     maxMonthT2m = maxDayT2m.resample(time='1M').max()
 
-                    # maxMonthT2m.isel(time = 0).plot()
-                    # plt.show()
-                    #
-                    # mrgData['t2m'].isel(time=0).plot()
-                    # plt.show()
+                    # timeList = pd.to_datetime(maxDayT2m['time'].values)
+                    # for timeInfo in timeList:
+                    #     selData = maxDayT2m[varInfo].sel(time=timeInfo)
+                    #     log.info(f'[CHECK] {varInfo} / {timeInfo} / min : {np.nanmin(selData)} / max : {np.nanmax(selData)} / mean : {np.nanmean(selData)}')
 
-                    maxDayT2m.isel(time=0).plot()
-                    # maxDayT2m[varInfo].isel(time=0).plot()
+                    maxDayT2m[varInfo].isel(time=0).plot()
+                    plt.show()
+
+                    # timeList = pd.to_datetime(maxMonthT2m['time'].values)
+                    # for timeInfo in timeList:
+                    #     selData = maxMonthT2m[varInfo].sel(time=timeInfo)
+                    #     log.info(f'[CHECK] {varInfo} / {timeInfo} / min : {np.nanmin(selData)} / max : {np.nanmax(selData)} / mean : {np.nanmean(selData)}')
+
+                    maxMonthT2m[varInfo].isel(time=0).plot()
                     plt.show()
 
         except Exception as e:
