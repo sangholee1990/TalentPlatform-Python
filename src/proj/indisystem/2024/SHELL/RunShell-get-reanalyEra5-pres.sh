@@ -32,7 +32,7 @@ TMP_PATH=$(mktemp -d)
 UPD_PATH=/DATA/INPUT/INDI2024/DATA/REANALY-ERA5
 
 PY38_PATH=/SYSTEMS/anaconda3/envs/py38
-#PY38_PATH=/home/guest_user1/SYSTEMS/KIER/LIB/
+#PY38_PATH=/home/guest_user1/SYSTEMS/KIER/LIB/py38
 PY38_BIN=${PY38_PATH}/bin/python3
 
 mkdir -p $UPD_PATH
