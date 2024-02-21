@@ -28,6 +28,9 @@ from pandas.tseries.offsets import Day, Hour, Minute, Second
 import re
 import tempfile
 import shutil
+import pymannkendall as mk
+from dask.distributed import Client
+import dask
 
 # =================================================
 # 사용자 매뉴얼
@@ -168,6 +171,14 @@ def initArgument(globalVar, inParams):
 
     return globalVar
 
+def calcMannKendall(data, colName):
+    try:
+        # trend 추세, p 유의수준, Tau 상관계수, z 표준 검정통계량, s 불일치 개수, slope 기울기
+        result = mk.original_test(data)
+        return getattr(result, colName)
+    except Exception:
+        return np.nan
+
 # ================================================
 # 4. 부 프로그램
 # ================================================
@@ -177,6 +188,19 @@ class DtaProcess(object):
     # 요구사항
     # ================================================
     # Python을 이용한 시간별 재분석 ERA5 모델 (NetCDF)로부터 월간 온도 및 강수량 분석 그리고 MK 검정 (Mann-Kendall)
+
+    # 1) 월간 데이터에서 격자별
+    # TXx: Montly maximum value of daily maximum temperature
+    # R10: Number of heavy precipitation days(precipitation >10mm)
+    # CDD: The largests No. of consecutive days with, 1mm of precipitation
+    # 값을 추출하고 새로운 3장(각각 1장)의 netCDF 파일로 생성
+
+    # (후에 다른 연도 파일도 같은 방식으로 처리하고 합쳐서 trend를 파악하려고 함)
+    # 2) 각 격자별 trend를 계산해서 지도로 시각화/ Mann Kendall 검정
+    # (2개월 데이터로만 처리해주셔도 됩니다. 첨부사진처럼 시각화하려고 합니다. )
+
+    # 제가 시도해봤던 코드도 보내드립니다. 하나는 대략적인 평균 강수량 및 평균 온도를 시각화한 코드이고,
+    # 다른 하나는 새로운 netCDF파일 생성하려고 한 코드입니다. time (1,)에 위도 경도 는 바뀌지 않아야 하는데 다 동일하게 변경이 되네요ㅠㅠ
 
     # ================================================================================================
     # 환경변수 설정
@@ -251,12 +275,15 @@ class DtaProcess(object):
                     # 원본 파일 정보
                     'filePath': '/DATA/INPUT/LSH0544/%Y%m'
                     , 'fileName': 'data.nc'
-                    , 'varList': ['t2m']
                     , 'comVar': {'longitude': 'lon', 'latitude': 'lat', 'Value': '{}'}
+                    , 'varList': ['t2m', 'tp', 'tp']
 
                     # 가공 파일 덮어쓰기 여부
                     , 'isOverWrite': True
                     # , 'isOverWrite': False
+
+                    # 가공 변수
+                    , 'procList': ['TXX', 'R10', 'CDD']
 
                     # 가공 파일 정보
                     , 'procPath': '/DATA/OUTPUT/LSH0542/OUTPUT'
@@ -269,6 +296,10 @@ class DtaProcess(object):
             dtEndDate = pd.to_datetime(sysOpt['endDate'], format='%Y-%m-%d')
             dtDateList = pd.date_range(start=dtSrtDate, end=dtEndDate, freq=sysOpt['invDate'])
 
+            # 멀티코어 설정
+            # client = Client(n_workers=os.cpu_count(), threads_per_worker=os.cpu_count())
+            # dask.config.set(scheduler='processes')
+
             # ===================================================================================
             # 가공 파일 생산
             # ===================================================================================
@@ -278,62 +309,138 @@ class DtaProcess(object):
                 modelInfo = sysOpt.get(modelType)
                 if modelInfo is None: continue
 
-                for varInfo in modelInfo['varList']:
+                mrgData = xr.Dataset()
+                for dtDateInfo in dtDateList:
+                    log.info(f'[CHECK] dtDateInfo : {dtDateInfo}')
+
+                    inpFilePattern = '{}/{}'.format(modelInfo['filePath'], modelInfo['fileName'])
+                    inpFile = dtDateInfo.strftime(inpFilePattern).format(varInfo, varInfo)
+                    fileList = sorted(glob.glob(inpFile))
+
+                    if fileList is None or len(fileList) < 1:
+                        # log.error(f'inpFile : {inpFile} / 입력 자료를 확인해주세요')
+                        continue
+
+                    fileInfo = fileList[0]
+                    data = xr.open_dataset(fileInfo)
+                    log.info(f'[CHECK] fileInfo : {fileInfo}')
+
+                    dataL1 = data
+
+                    # 변수 삭제
+                    selList = ['expver']
+                    for selInfo in selList:
+                        try:
+                            dataL1 = dataL1.isel(expver=1).drop_vars([selInfo])
+                        except Exception as e:
+                            pass
+
+                    mrgData = xr.merge([mrgData, dataL1])
+
+                # varIdx = 1
+                for varIdx, varInfo in enumerate(modelInfo['varList']):
                     log.info(f'[CHECK] varInfo : {varInfo}')
 
-                    mrgData = xr.Dataset()
-                    for dtDateInfo in dtDateList:
-                        log.info(f'[CHECK] dtDateInfo : {dtDateInfo}')
+                    procInfo = modelInfo['procList'][varIdx]
 
-                        inpFilePattern = '{}/{}'.format(modelInfo['filePath'], modelInfo['fileName'])
-                        inpFile = dtDateInfo.strftime(inpFilePattern).format(varInfo, varInfo)
-                        fileList = sorted(glob.glob(inpFile))
-
-                        if fileList is None or len(fileList) < 1:
-                            # log.error(f'inpFile : {inpFile} / 입력 자료를 확인해주세요')
-                            continue
-
-                        fileInfo = fileList[0]
-                        data = xr.open_dataset(fileInfo)
-                        log.info(f'[CHECK] fileInfo : {fileInfo}')
-
+                    # TXX: Montly maximum value of daily maximum temperature
+                    if re.search('TXX', procInfo, re.IGNORECASE):
                         # 0 초과 필터, 그 외 결측값 NA
-                        dataL1 = data[varInfo].where((data[varInfo] > 0))
+                        mrgDataL1 = mrgData[varInfo].where((mrgData[varInfo] > 0))
+                        maxDayT2m = mrgDataL1.resample(time='1D').max()
+                        mrgDataL2 = maxDayT2m.resample(time='1M').max()
 
-                        # 변수 삭제
-                        selList = ['expver']
-                        for selInfo in selList:
-                            try:
-                                dataL1 = dataL1.isel(expver=1).drop_vars([selInfo])
-                            except Exception as e:
-                                pass
+                    # R10: Number of heavy precipitation days(precipitation > 10mm)
+                    elif re.search('R10', procInfo, re.IGNORECASE):
 
-                        # timeList = pd.to_datetime(dataL1['time'].values)
-                        # for timeInfo in timeList:
-                        #     selData = dataL1.sel(time = timeInfo)
-                        #     log.info(f'[CHECK] {varInfo} / {timeInfo} / min : {np.nanmin(selData)} / max : {np.nanmax(selData)} / mean : {np.nanmean(selData)}')
+                        # 단위 변환 (m -> mm/day)
+                        mrgDataL1 = mrgData['tp'] * 86400 * 1000
 
-                        mrgData = xr.merge([mrgData, dataL1])
+                        sumDayTp = mrgDataL1.resample(time='1D').sum()
+                        mrgDataL2 = sumDayTp.where(sumDayTp > 10.0).count(dim='time')
+
+                        mrgDataL2.plot()
+                        plt.show()
+                        # 0 초과 필터, 그 외 결측값 NA
+                        # isFlag = mrgData[varInfo] > 10
+                        # mrgDataL1 = isFlag.resample(time='1D').sum()
+                        # heavy_precip_days = mrgData.where(mrgData[varInfo] > 10, drop=True)
 
 
-                    maxDayT2m = mrgData.resample(time='1D').max()
-                    maxMonthT2m = maxDayT2m.resample(time='1M').max()
+                    # CDD: The largests No. of consecutive days with, 1mm of precipitation
+                    elif re.search('CDD', procInfo, re.IGNORECASE):
+                        mrgDataL2.plot()
+                        plt.show()
+                    else:
+                        continue
 
-                    # timeList = pd.to_datetime(maxDayT2m['time'].values)
-                    # for timeInfo in timeList:
-                    #     selData = maxDayT2m[varInfo].sel(time=timeInfo)
-                    #     log.info(f'[CHECK] {varInfo} / {timeInfo} / min : {np.nanmin(selData)} / max : {np.nanmax(selData)} / mean : {np.nanmean(selData)}')
 
-                    maxDayT2m[varInfo].isel(time=0).plot()
+                    # maxDayT2m
+
+                    # maxMonthT2m[varInfo].isel(time=0).plot()
+                    # plt.show()
+
+                    # timeList = pd.to_datetime(maxMonthT2m['time'].values)
+                    # minDate = pd.to_datetime(timeList).min().strftime("%Y%m%d")
+                    # maxDate = pd.to_datetime(timeList).max().strftime("%Y%m%d")
+                    #
+                    # saveFile = '{}/{}/{}_{}_{}-{}.nc'.format(globalVar['outPath'], serviceName, modelType, 'TXX', minDate, maxDate)
+                    # os.makedirs(os.path.dirname(saveFile), exist_ok=True)
+                    # maxMonthT2m.to_netcdf(saveFile)
+                    # log.info(f'[CHECK] saveFile : {saveFile}')
+
+                    # R10: Number of heavy precipitation days(precipitation >10mm)
+
+
+
+                    # 2) 각 격자별 trend를 계산해서 지도로 시각화/ Mann Kendall 검정
+                    #     # (2개월 데이터로만 처리해주셔도 됩니다. 첨부사진처럼 시각화하려고 합니다. )
+
+                    # maxDayT2m
+
+
+                    maxDayT2mL1 = maxDayT2m.isel(time = slice(0, 12))
+
+                    mkData = xr.apply_ufunc(
+                        calcMannKendall,
+                        maxDayT2mL1,
+                        kwargs={'colName': 'slope'},
+                        input_core_dims=[['time']],
+                        output_core_dims=[[]],
+                        vectorize=True,
+                        dask='parallelized',
+                        output_dtypes=[np.float64],
+                        dask_gufunc_kwargs={'allow_rechunk': True}
+                    ).compute()
+
+                    mkData['t2m'].plot()
                     plt.show()
+
+
+                    # saveFile = '{}/{}/{}/{}_{}.nc'.format(globalVar['outPath'], serviceName, 'MANN', 'mann', keyInfo)
+                    # os.makedirs(os.path.dirname(saveFile), exist_ok=True)
+                    # mkData.to_netcdf(saveFile)
+                    # log.info(f'[CHECK] saveFile : {saveFile}')
+
+                    #    # 1) 월간 데이터에서 격자별
+                    #     # TXX: Montly maximum value of daily maximum temperature
+                    #     # R10: Number of heavy precipitation days(precipitation >10mm)
+                    #     # CDD: The largests No. of consecutive days with, 1mm of precipitation
+                    #     # 값을 추출하고 새로운 3장(각각 1장)의 netCDF 파일로 생성
+                    #     # (후에 다른 연도 파일도 같은 방식으로 처리하고 합쳐서 trend를 파악하려고 함)
+                    #     # 2) 각 격자별 trend를 계산해서 지도로 시각화/ Mann Kendall 검정
+                    #     # (2개월 데이터로만 처리해주셔도 됩니다. 첨부사진처럼 시각화하려고 합니다. )
+                    #
+                    #     # 제가 시도해봤던 코드도 보내드립니다. 하나는 대략적인 평균 강수량 및 평균 온도를 시각화한 코드이고,
+                    #     # 다른 하나는 새로운 netCDF파일 생성하려고 한 코드입니다. time (1,)에 위도 경도 는 바뀌지 않아야 하는데 다 동일하게 변경이 되네요ㅠㅠ
 
                     # timeList = pd.to_datetime(maxMonthT2m['time'].values)
                     # for timeInfo in timeList:
                     #     selData = maxMonthT2m[varInfo].sel(time=timeInfo)
                     #     log.info(f'[CHECK] {varInfo} / {timeInfo} / min : {np.nanmin(selData)} / max : {np.nanmax(selData)} / mean : {np.nanmean(selData)}')
 
-                    maxMonthT2m[varInfo].isel(time=0).plot()
-                    plt.show()
+                    # mkData[varInfo].isel(time=0).plot()
+                    # plt.show()
 
         except Exception as e:
             log.error("Exception : {}".format(e))
