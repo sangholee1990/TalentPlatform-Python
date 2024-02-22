@@ -298,8 +298,8 @@ class DtaProcess(object):
                     , 'procList': ['TXX', 'R10', 'CDD']
 
                     # 가공 파일 정보
-                    , 'procPath': '/DATA/OUTPUT/LSH0544/OUTPUT'
-                    , 'procName': '{}_{}-{}_{}-{}.nc'
+                    , 'procPath': '/DATA/OUTPUT/LSH0542/OUTPUT'
+                    , 'procName': '{}_{}_ClimStatAnomaly-{}_{}_{}-{}.csv'
                 }
             }
 
@@ -388,17 +388,14 @@ class DtaProcess(object):
                     else:
                         continue
 
-                    varDataL2.name = procInfo
-
                     timeList = varDataL2['time'].values
                     minDate = pd.to_datetime(timeList).min().strftime("%Y%m%d")
                     maxDate = pd.to_datetime(timeList).max().strftime("%Y%m%d")
 
-                    procFilePattern = '{}/{}'.format(modelInfo['procPath'], modelInfo['procName'])
-                    procFile = procFilePattern.format(modelType, procInfo, 'ORG', minDate, maxDate)
-                    os.makedirs(os.path.dirname(procFile), exist_ok=True)
-                    varDataL2.to_netcdf(procFile)
-                    log.info(f'[CHECK] procFile : {procFile}')
+                    saveFile = '{}/{}/{}_{}_{}-{}.nc'.format(globalVar['outPath'], serviceName, modelType, procInfo, minDate, maxDate)
+                    os.makedirs(os.path.dirname(saveFile), exist_ok=True)
+                    varDataL2.to_netcdf(saveFile)
+                    log.info(f'[CHECK] saveFile : {saveFile}')
 
                     # ******************************************************************************************************
                     # 2) 각 격자별 trend를 계산해서 지도로 시각화/ Mann Kendall 검정
@@ -421,11 +418,10 @@ class DtaProcess(object):
                     mkName = f'{procInfo}-{colName}'
                     mkData.name = mkName
 
-                    procFilePattern = '{}/{}'.format(modelInfo['procPath'], modelInfo['procName'])
-                    procFile = procFilePattern.format(modelType, mkName, 'MK', minDate, maxDate)
-                    os.makedirs(os.path.dirname(procFile), exist_ok=True)
-                    mkData.to_netcdf(procFile)
-                    log.info(f'[CHECK] procFile : {procFile}')
+                    saveFile = '{}/{}/{}_{}-{}_{}-{}.nc'.format(globalVar['outPath'], serviceName, modelType, mkName, 'MK', minDate, maxDate)
+                    os.makedirs(os.path.dirname(saveFile), exist_ok=True)
+                    mkData.to_netcdf(saveFile)
+                    log.info(f'[CHECK] saveFile : {saveFile}')
 
                     # mkData.plot()
                     # plt.show()
