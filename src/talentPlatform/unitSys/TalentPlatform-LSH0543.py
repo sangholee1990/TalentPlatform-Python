@@ -171,26 +171,6 @@ def initArgument(globalVar, inParams):
 
     return globalVar
 
-def calcMannKendall(data, colName):
-    try:
-        # trend 추세, p 유의수준, Tau 상관계수, z 표준 검정통계량, s 불일치 개수, slope 기울기
-        result = mk.original_test(data)
-        return getattr(result, colName)
-    except Exception:
-        return np.nan
-
-
-def calcMaxContDay(isMask):
-    arr = isMask.astype(int)
-    sumCum = np.where(arr, arr.cumsum(axis=0), 0)
-
-    diff = np.diff(sumCum, axis=0, prepend=0)
-    sumCumData = diff * arr
-
-    result = sumCumData.max(axis=0) - sumCumData.min(axis=0)
-
-    return result
-
 # ================================================
 # 4. 부 프로그램
 # ================================================
@@ -199,7 +179,7 @@ class DtaProcess(object):
     # ================================================
     # 요구사항
     # ================================================
-    # Python을 이용한 시간별 재분석 ERA5 모델 (NetCDF)로부터 월간 온도 및 강수량 분석 그리고 MK 검정 (Mann-Kendall)
+    # Python을 이용한 GeoPandas 기반 데이터 그리고 NetCDF 데이터를 융합 가공하여 시각화
 
     # 1) 월간 데이터에서 격자별
     # TXx: Montly maximum value of daily maximum temperature
@@ -229,7 +209,7 @@ class DtaProcess(object):
         contextPath = os.getcwd() if env in 'local' else '/SYSTEMS/PROG/PYTHON/PyCharm'
 
     prjName = 'test'
-    serviceName = 'LSH0544'
+    serviceName = 'LSH0543'
 
     # 4.1. 환경 변수 설정 (로그 설정)
     log = initLog(env, contextPath, prjName)
@@ -298,7 +278,7 @@ class DtaProcess(object):
                     , 'procList': ['TXX', 'R10', 'CDD']
 
                     # 가공 파일 정보
-                    , 'procPath': '/DATA/OUTPUT/LSH0542/OUTPUT'
+                    , 'procPath': '/DATA/OUTPUT/LSH0543/OUTPUT'
                     , 'procName': '{}_{}_ClimStatAnomaly-{}_{}_{}-{}.csv'
                 }
             }
@@ -308,123 +288,172 @@ class DtaProcess(object):
             dtEndDate = pd.to_datetime(sysOpt['endDate'], format='%Y-%m-%d')
             dtDateList = pd.date_range(start=dtSrtDate, end=dtEndDate, freq=sysOpt['invDate'])
 
+
             # 멀티코어 설정
             # client = Client(n_workers=os.cpu_count(), threads_per_worker=os.cpu_count())
             # dask.config.set(scheduler='processes')
 
-            # ===================================================================================
-            # 가공 파일 생산
-            # ===================================================================================
-            for modelType in sysOpt['modelList']:
-                log.info(f'[CHECK] modelType : {modelType}')
-
-                modelInfo = sysOpt.get(modelType)
-                if modelInfo is None: continue
-
-                # 시작일/종료일에 따른 데이터 병합
-                mrgData = xr.Dataset()
-                for dtDateInfo in dtDateList:
-                    log.info(f'[CHECK] dtDateInfo : {dtDateInfo}')
-
-                    inpFilePattern = '{}/{}'.format(modelInfo['filePath'], modelInfo['fileName'])
-                    inpFile = dtDateInfo.strftime(inpFilePattern)
-                    fileList = sorted(glob.glob(inpFile))
-
-                    if fileList is None or len(fileList) < 1:
-                        # log.error(f'inpFile : {inpFile} / 입력 자료를 확인해주세요')
-                        continue
-
-                    fileInfo = fileList[0]
-                    data = xr.open_dataset(fileInfo)
-                    log.info(f'[CHECK] fileInfo : {fileInfo}')
-
-                    dataL1 = data
-
-                    # 변수 삭제
-                    selList = ['expver']
-                    for selInfo in selList:
-                        try:
-                            dataL1 = dataL1.isel(expver=1).drop_vars([selInfo])
-                        except Exception as e:
-                            pass
-
-                    mrgData = xr.merge([mrgData, dataL1])
+            inpFile = '{}/{}/{}'.format(globalVar['inpPath'], serviceName, '*.shp')
+            fileList = glob.glob(inpFile)
+            if fileList is None or len(fileList) < 1:
+                log.error(f'[ERROR] inpFile : {inpFile} / 입력 자료를 확인해주세요.')
 
 
-                # ******************************************************************************************************
-                # 1) 월간 데이터에서 격자별 값을 추출하고 새로운 3장(각각 1장)의 netCDF 파일로 생성
-                # ******************************************************************************************************
-                for varIdx, varInfo in enumerate(modelInfo['varList']):
-                    procInfo = modelInfo['procList'][varIdx]
-                    log.info(f'[CHECK] varInfo : {varInfo} / procInfo : {procInfo}')
+            # permaice.shp
 
-                    # TXX: Montly maximum value of daily maximum temperature
-                    if re.search('TXX', procInfo, re.IGNORECASE):
-                        # 0 초과 필터, 그 외 결측값 NA
-                        varData = mrgData[varInfo]
+            import geopandas as gpd
+            import cartopy.crs as ccrs
+            import geopandas as gpd
+            # from cartopy.mpl.gridliner import LONGITUDE_FORMATTER, LATITUDE_FORMATTER
+            import matplotlib.ticker as mticker
+            import matplotlib.patches as patches
+            import matplotlib as mpl
+            import xarray as xr
+            import geopandas as gpd
+            import matplotlib.pyplot as plt
+            # import cartopy.crs as ccrs
 
-                        varDataL1 = varData.where(varData > 0).resample(time='1D').max()
-                        varDataL2 = varDataL1.resample(time='1M').max()
+            # shp1 = gpd.read_file(fileList[0])
+            # /DATA/INPUT/LSH0543/permaice.shp
+            # shp1 = gpd.read_file(fileList[1])
+            # # shp1 = gpd.read_file(fileList[2])
+            # # shp1.plot(color='None', edgecolor='black', linewidth=3)
+            # shp1.plot()
+            # plt.show()
+            #
+            # proj = ccrs.NorthPolarStereo(central_longitude=90)
+            # fig, ax = plt.subplots(figsize=(10, 10), subplot_kw={'projection': proj})
 
-                    # R10: Number of heavy precipitation days(precipitation > 10mm)
-                    elif re.search('R10', procInfo, re.IGNORECASE):
-                        # 단위 변환 (m/hour -> mm/day)
-                        varData = mrgData['tp'] * 24 * 1000
+            # import cartopy.crs as ccrs
+            # import matplotlib.pyplot as plt
+            #
+            # ax = plt.axes(projection=ccrs.PlateCarree())  # PlateCarreeは正距円筒図法
+            # ax.coastlines()
+            #
+            # ax.gridlines(draw_labels=True, dms=True, x_inline=False, y_inline=False)
+            # plt.show()
+            # # plt.show()
 
-                        varDataL1 = varData.resample(time='1D').sum()
-                        varDataL2 = varDataL1.where(varDataL1 > 10.0).resample(time='1M').count()
+            print('setset')
 
-                    # CDD: The largests No. of consecutive days with, 1mm of precipitation
-                    elif re.search('CDD', procInfo, re.IGNORECASE):
+            # shp1.to_xarray()
 
-                        # 단위 변환 (m/hour -> mm/day)
-                        varData = mrgData['tp'] * 24 * 1000
+            # shp1['EXTENT']
+            # shp1.exterior
 
-                        varDataL1 = varData.resample(time='1D').sum()
-
-                        # True: 1 mm 이상 강수량 / False: 그 외
-                        varDataL1 = varDataL1 >= 1.0
-                        varDataL2 = varDataL1.resample(time='1M').apply(calcMaxContDay)
-                    else:
-                        continue
-
-                    timeList = varDataL2['time'].values
-                    minDate = pd.to_datetime(timeList).min().strftime("%Y%m%d")
-                    maxDate = pd.to_datetime(timeList).max().strftime("%Y%m%d")
-
-                    saveFile = '{}/{}/{}_{}_{}-{}.nc'.format(globalVar['outPath'], serviceName, modelType, procInfo, minDate, maxDate)
-                    os.makedirs(os.path.dirname(saveFile), exist_ok=True)
-                    varDataL2.to_netcdf(saveFile)
-                    log.info(f'[CHECK] saveFile : {saveFile}')
-
-                    # ******************************************************************************************************
-                    # 2) 각 격자별 trend를 계산해서 지도로 시각화/ Mann Kendall 검정
-                    # (2개월 데이터로만 처리해주셔도 됩니다. 첨부사진처럼 시각화하려고 합니다. )
-                    # ******************************************************************************************************
-                    colName = 'slope'
-
-                    mkData = xr.apply_ufunc(
-                        calcMannKendall,
-                        varDataL2,
-                        kwargs={'colName': colName},
-                        input_core_dims=[['time']],
-                        output_core_dims=[[]],
-                        vectorize=True,
-                        dask='parallelized',
-                        output_dtypes=[np.float64],
-                        dask_gufunc_kwargs={'allow_rechunk': True}
-                    ).compute()
-
-                    mkName = f'{procInfo}-{colName}'
-                    mkData.name = mkName
-
-                    saveFile = '{}/{}/{}_{}-{}_{}-{}.nc'.format(globalVar['outPath'], serviceName, modelType, mkName, 'MK', minDate, maxDate)
-                    os.makedirs(os.path.dirname(saveFile), exist_ok=True)
-                    mkData.to_netcdf(saveFile)
-                    log.info(f'[CHECK] saveFile : {saveFile}')
-
-                    # mkData.plot()
-                    # plt.show()
+            # # ===================================================================================
+            # # 가공 파일 생산
+            # # ===================================================================================
+            # for modelType in sysOpt['modelList']:
+            #     log.info(f'[CHECK] modelType : {modelType}')
+            #
+            #     modelInfo = sysOpt.get(modelType)
+            #     if modelInfo is None: continue
+            #
+            #     # 시작일/종료일에 따른 데이터 병합
+            #     mrgData = xr.Dataset()
+            #     for dtDateInfo in dtDateList:
+            #         log.info(f'[CHECK] dtDateInfo : {dtDateInfo}')
+            #
+            #         inpFilePattern = '{}/{}'.format(modelInfo['filePath'], modelInfo['fileName'])
+            #         inpFile = dtDateInfo.strftime(inpFilePattern)
+            #         fileList = sorted(glob.glob(inpFile))
+            #
+            #         if fileList is None or len(fileList) < 1:
+            #             # log.error(f'inpFile : {inpFile} / 입력 자료를 확인해주세요')
+            #             continue
+            #
+            #         fileInfo = fileList[0]
+            #         data = xr.open_dataset(fileInfo)
+            #         log.info(f'[CHECK] fileInfo : {fileInfo}')
+            #
+            #         dataL1 = data
+            #
+            #         # 변수 삭제
+            #         selList = ['expver']
+            #         for selInfo in selList:
+            #             try:
+            #                 dataL1 = dataL1.isel(expver=1).drop_vars([selInfo])
+            #             except Exception as e:
+            #                 pass
+            #
+            #         mrgData = xr.merge([mrgData, dataL1])
+            #
+            #
+            #     # ******************************************************************************************************
+            #     # 1) 월간 데이터에서 격자별 값을 추출하고 새로운 3장(각각 1장)의 netCDF 파일로 생성
+            #     # ******************************************************************************************************
+            #     for varIdx, varInfo in enumerate(modelInfo['varList']):
+            #         procInfo = modelInfo['procList'][varIdx]
+            #         log.info(f'[CHECK] varInfo : {varInfo} / procInfo : {procInfo}')
+            #
+            #         # TXX: Montly maximum value of daily maximum temperature
+            #         if re.search('TXX', procInfo, re.IGNORECASE):
+            #             # 0 초과 필터, 그 외 결측값 NA
+            #             varData = mrgData[varInfo]
+            #
+            #             varDataL1 = varData.where(varData > 0).resample(time='1D').max()
+            #             varDataL2 = varDataL1.resample(time='1M').max()
+            #
+            #         # R10: Number of heavy precipitation days(precipitation > 10mm)
+            #         elif re.search('R10', procInfo, re.IGNORECASE):
+            #             # 단위 변환 (m/hour -> mm/day)
+            #             varData = mrgData['tp'] * 24 * 1000
+            #
+            #             varDataL1 = varData.resample(time='1D').sum()
+            #             varDataL2 = varDataL1.where(varDataL1 > 10.0).resample(time='1M').count()
+            #
+            #         # CDD: The largests No. of consecutive days with, 1mm of precipitation
+            #         elif re.search('CDD', procInfo, re.IGNORECASE):
+            #
+            #             # 단위 변환 (m/hour -> mm/day)
+            #             varData = mrgData['tp'] * 24 * 1000
+            #
+            #             varDataL1 = varData.resample(time='1D').sum()
+            #
+            #             # True: 1 mm 이상 강수량 / False: 그 외
+            #             varDataL1 = varDataL1 >= 1.0
+            #             varDataL2 = varDataL1.resample(time='1M').apply(calcMaxContDay)
+            #         else:
+            #             continue
+            #
+            #         timeList = varDataL2['time'].values
+            #         minDate = pd.to_datetime(timeList).min().strftime("%Y%m%d")
+            #         maxDate = pd.to_datetime(timeList).max().strftime("%Y%m%d")
+            #
+            #         saveFile = '{}/{}/{}_{}_{}-{}.nc'.format(globalVar['outPath'], serviceName, modelType, procInfo, minDate, maxDate)
+            #         os.makedirs(os.path.dirname(saveFile), exist_ok=True)
+            #         varDataL2.to_netcdf(saveFile)
+            #         log.info(f'[CHECK] saveFile : {saveFile}')
+            #
+            #         # ******************************************************************************************************
+            #         # 2) 각 격자별 trend를 계산해서 지도로 시각화/ Mann Kendall 검정
+            #         # (2개월 데이터로만 처리해주셔도 됩니다. 첨부사진처럼 시각화하려고 합니다. )
+            #         # ******************************************************************************************************
+            #         colName = 'slope'
+            #
+            #         mkData = xr.apply_ufunc(
+            #             calcMannKendall,
+            #             varDataL2,
+            #             kwargs={'colName': colName},
+            #             input_core_dims=[['time']],
+            #             output_core_dims=[[]],
+            #             vectorize=True,
+            #             dask='parallelized',
+            #             output_dtypes=[np.float64],
+            #             dask_gufunc_kwargs={'allow_rechunk': True}
+            #         ).compute()
+            #
+            #         mkName = f'{procInfo}-{colName}'
+            #         mkData.name = mkName
+            #
+            #         saveFile = '{}/{}/{}_{}-{}_{}-{}.nc'.format(globalVar['outPath'], serviceName, modelType, mkName, 'MK', minDate, maxDate)
+            #         os.makedirs(os.path.dirname(saveFile), exist_ok=True)
+            #         mkData.to_netcdf(saveFile)
+            #         log.info(f'[CHECK] saveFile : {saveFile}')
+            #
+            #         # mkData.plot()
+            #         # plt.show()
 
         except Exception as e:
             log.error("Exception : {}".format(e))
