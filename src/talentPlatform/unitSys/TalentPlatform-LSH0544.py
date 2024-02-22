@@ -397,31 +397,34 @@ class DtaProcess(object):
                     varDataL2.to_netcdf(saveFile)
                     log.info(f'[CHECK] saveFile : {saveFile}')
 
-                # ******************************************************************************************************
-                # 2) 각 격자별 trend를 계산해서 지도로 시각화/ Mann Kendall 검정
-                # (2개월 데이터로만 처리해주셔도 됩니다. 첨부사진처럼 시각화하려고 합니다. )
-                # ******************************************************************************************************
-                mkData = xr.apply_ufunc(
-                    calcMannKendall,
-                    varDataL2,
-                    kwargs={'colName': 'slope'},
-                    input_core_dims=[['time']],
-                    output_core_dims=[[]],
-                    vectorize=True,
-                    dask='parallelized',
-                    output_dtypes=[np.float64],
-                    dask_gufunc_kwargs={'allow_rechunk': True}
-                ).compute()
+                    # ******************************************************************************************************
+                    # 2) 각 격자별 trend를 계산해서 지도로 시각화/ Mann Kendall 검정
+                    # (2개월 데이터로만 처리해주셔도 됩니다. 첨부사진처럼 시각화하려고 합니다. )
+                    # ******************************************************************************************************
+                    colName = 'slope'
 
-                saveFile = '{}/{}/{}_{}-{}_{}-{}.nc'.format(globalVar['outPath'], serviceName, modelType, procInfo, 'MK', minDate, maxDate)
-                os.makedirs(os.path.dirname(saveFile), exist_ok=True)
-                mkData.to_netcdf(saveFile)
-                log.info(f'[CHECK] saveFile : {saveFile}')
+                    mkData = xr.apply_ufunc(
+                        calcMannKendall,
+                        varDataL2,
+                        kwargs={'colName': colName},
+                        input_core_dims=[['time']],
+                        output_core_dims=[[]],
+                        vectorize=True,
+                        dask='parallelized',
+                        output_dtypes=[np.float64],
+                        dask_gufunc_kwargs={'allow_rechunk': True}
+                    ).compute()
 
-                mkData['t2m'].plot()
-                plt.show()
+                    mkName = f'{procInfo}-{colName}'
+                    mkData.name = mkName
 
+                    saveFile = '{}/{}/{}_{}-{}_{}-{}.nc'.format(globalVar['outPath'], serviceName, modelType, mkName, 'MK', minDate, maxDate)
+                    os.makedirs(os.path.dirname(saveFile), exist_ok=True)
+                    mkData.to_netcdf(saveFile)
+                    log.info(f'[CHECK] saveFile : {saveFile}')
 
+                    # mkData.plot()
+                    # plt.show()
 
         except Exception as e:
             log.error("Exception : {}".format(e))
