@@ -28,9 +28,6 @@ from pandas.tseries.offsets import Day, Hour, Minute, Second
 import re
 import tempfile
 import shutil
-import pymannkendall as mk
-from dask.distributed import Client
-import dask
 
 # =================================================
 # 사용자 매뉴얼
@@ -301,22 +298,22 @@ class DtaProcess(object):
 
             # permaice.shp
 
-            import geopandas as gpd
-            import cartopy.crs as ccrs
-            import geopandas as gpd
-            # from cartopy.mpl.gridliner import LONGITUDE_FORMATTER, LATITUDE_FORMATTER
-            import matplotlib.ticker as mticker
-            import matplotlib.patches as patches
-            import matplotlib as mpl
-            import xarray as xr
-            import geopandas as gpd
-            import matplotlib.pyplot as plt
+            # import geopandas as gpd
+            # import cartopy.crs as ccrs
+            # import geopandas as gpd
+            # # from cartopy.mpl.gridliner import LONGITUDE_FORMATTER, LATITUDE_FORMATTER
+            # import matplotlib.ticker as mticker
+            # import matplotlib.patches as patches
+            # import matplotlib as mpl
+            # import xarray as xr
+            # import geopandas as gpd
+            # import matplotlib.pyplot as plt
             # import cartopy.crs as ccrs
 
             # shp1 = gpd.read_file(fileList[0])
             # /DATA/INPUT/LSH0543/permaice.shp
             # shp1 = gpd.read_file(fileList[1])
-            # # shp1 = gpd.read_file(fileList[2])
+            # shp1 = gpd.read_file(fileList[2])
             # # shp1.plot(color='None', edgecolor='black', linewidth=3)
             # shp1.plot()
             # plt.show()
