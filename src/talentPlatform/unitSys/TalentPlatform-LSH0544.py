@@ -362,16 +362,16 @@ class DtaProcess(object):
                         # 0 초과 필터, 그 외 결측값 NA
                         varData = mrgData[varInfo]
 
-                        varDataL1 = varData.where(varData > 0).resample(time='1D').max()
-                        varDataL2 = varDataL1.resample(time='1M').max()
+                        varDataL1 = varData.where(varData > 0).resample(time='1D').max(skipna=False)
+                        varDataL2 = varDataL1.resample(time='1M').max(skipna=False)
 
                     # R10: Number of heavy precipitation days(precipitation > 10mm)
                     elif re.search('R10', procInfo, re.IGNORECASE):
                         # 단위 변환 (m/hour -> mm/day)
                         varData = mrgData['tp'] * 24 * 1000
 
-                        varDataL1 = varData.resample(time='1D').sum()
-                        varDataL2 = varDataL1.where(varDataL1 > 10.0).resample(time='1M').count()
+                        varDataL1 = varData.resample(time='1D').sum(skipna=False)
+                        varDataL2 = varDataL1.where(varDataL1 > 10.0, drop=False).resample(time='1M').count(skipna=False)
 
                     # CDD: The largests No. of consecutive days with, 1mm of precipitation
                     elif re.search('CDD', procInfo, re.IGNORECASE):
@@ -379,7 +379,7 @@ class DtaProcess(object):
                         # 단위 변환 (m/hour -> mm/day)
                         varData = mrgData['tp'] * 24 * 1000
 
-                        varDataL1 = varData.resample(time='1D').sum()
+                        varDataL1 = varData.resample(time='1D').sum(skipna=False)
 
                         # True: 1 mm 미만 강수량 / False: 그 외
                         # varDataL1 = varDataL1 >= 1.0
@@ -389,6 +389,9 @@ class DtaProcess(object):
                         continue
 
                     varDataL2.name = procInfo
+
+                    # varDataL2.isel(time = 0).plot()
+                    # plt.show()
 
                     timeList = varDataL2['time'].values
                     minDate = pd.to_datetime(timeList).min().strftime("%Y%m%d")
