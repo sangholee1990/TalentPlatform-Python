@@ -275,7 +275,7 @@ class DtaProcess(object):
             # 옵션 설정
             sysOpt = {
                 # 시작일, 종료일, 시간 간격 (연 1y, 월 1h, 일 1d, 시간 1h)
-                'srtDate': '2023-10-01'
+                'srtDate': '2023-11-01'
                 , 'endDate': '2024-01-01'
                 , 'invDate': '1m'
 
@@ -298,7 +298,7 @@ class DtaProcess(object):
                     , 'procList': ['TXX', 'R10', 'CDD']
 
                     # 가공 파일 정보
-                    , 'procPath': '/DATA/OUTPUT/LSH0544/OUTPUT'
+                    , 'procPath': '/DATA/OUTPUT/LSH0544'
                     , 'procName': '{}_{}-{}_{}-{}.nc'
                 }
             }
