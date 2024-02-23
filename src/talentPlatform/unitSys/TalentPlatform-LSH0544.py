@@ -287,7 +287,6 @@ class DtaProcess(object):
                     # 원본 파일 정보
                     'filePath': '/DATA/INPUT/LSH0544/%Y%m'
                     , 'fileName': 'data.nc'
-                    , 'comVar': {'longitude': 'lon', 'latitude': 'lat', 'Value': '{}'}
                     , 'varList': ['t2m', 'tp', 'tp']
 
                     # 가공 파일 덮어쓰기 여부
@@ -382,8 +381,9 @@ class DtaProcess(object):
 
                         varDataL1 = varData.resample(time='1D').sum()
 
-                        # True: 1 mm 이상 강수량 / False: 그 외
-                        varDataL1 = varDataL1 >= 1.0
+                        # True: 1 mm 미만 강수량 / False: 그 외
+                        # varDataL1 = varDataL1 >= 1.0
+                        varDataL1 = varDataL1 < 1.0
                         varDataL2 = varDataL1.resample(time='1M').apply(calcMaxContDay)
                     else:
                         continue
