@@ -288,6 +288,7 @@ class DtaProcess(object):
                     'filePath': '/DATA/INPUT/LSH0544/%Y%m'
                     , 'fileName': 'data.nc'
                     , 'varList': ['t2m', 'tp', 'tp']
+                    # , 'varList': ['tp', 'tp']
 
                     # 가공 파일 덮어쓰기 여부
                     , 'isOverWrite': True
@@ -295,6 +296,7 @@ class DtaProcess(object):
 
                     # 가공 변수
                     , 'procList': ['TXX', 'R10', 'CDD']
+                    # , 'procList': ['R10', 'CDD']
 
                     # 가공 파일 정보
                     , 'procPath': '/DATA/OUTPUT/LSH0544'
@@ -349,7 +351,6 @@ class DtaProcess(object):
 
                     mrgData = xr.merge([mrgData, dataL1])
 
-
                 # ******************************************************************************************************
                 # 1) 월간 데이터에서 격자별 값을 추출하고 새로운 3장(각각 1장)의 netCDF 파일로 생성
                 # ******************************************************************************************************
@@ -368,7 +369,7 @@ class DtaProcess(object):
                     # R10: Number of heavy precipitation days(precipitation > 10mm)
                     elif re.search('R10', procInfo, re.IGNORECASE):
                         # 단위 변환 (m/hour -> mm/day)
-                        varData = mrgData['tp'] * 24 * 1000
+                        varData = mrgData[varInfo] * 24 * 1000
 
                         varDataL1 = varData.resample(time='1D').sum(skipna=False)
                         varDataL2 = varDataL1.where(varDataL1 > 10.0, drop=False).resample(time='1M').count(skipna=False)
@@ -377,20 +378,24 @@ class DtaProcess(object):
                     elif re.search('CDD', procInfo, re.IGNORECASE):
 
                         # 단위 변환 (m/hour -> mm/day)
-                        varData = mrgData['tp'] * 24 * 1000
+                        varData = mrgData[varInfo] * 24 * 1000
 
                         varDataL1 = varData.resample(time='1D').sum(skipna=False)
 
                         # True: 1 mm 미만 강수량 / False: 그 외
                         # varDataL1 = varDataL1 >= 1.0
-                        varDataL1 = varDataL1 < 1.0
-                        varDataL2 = varDataL1.resample(time='1M').apply(calcMaxContDay)
+                        varDataL2 = (varDataL1 < 1.0).resample(time='1M').apply(calcMaxContDay)
                     else:
                         continue
 
+                    # 마스킹 데이터
+                    maskData = varData.isel(time=0)
+                    maskDataL1 = xr.where(np.isnan(maskData), np.nan, 1)
+
+                    varDataL2 = varDataL2 * maskDataL1
                     varDataL2.name = procInfo
 
-                    # varDataL2.isel(time = 0).plot()
+                    # varDataL3.isel(time = 0).plot()
                     # plt.show()
 
                     timeList = varDataL2['time'].values
