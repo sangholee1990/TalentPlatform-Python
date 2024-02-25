@@ -21,7 +21,6 @@ import re
 import matplotlib.pyplot as plt
 import numpy as np
 from matplotlib.ticker import ScalarFormatter
-import seaborn as sns
 import xarray as xr
 import seaborn as sns
 from pandas.tseries.offsets import Day, Hour, Minute, Second
@@ -176,20 +175,6 @@ class DtaProcess(object):
     # ================================================
     # 요구사항
     # ================================================
-    # Python을 이용한 GeoPandas 기반 데이터 그리고 NetCDF 데이터를 융합 가공하여 시각화
-
-    # 1) 월간 데이터에서 격자별
-    # TXx: Montly maximum value of daily maximum temperature
-    # R10: Number of heavy precipitation days(precipitation >10mm)
-    # CDD: The largests No. of consecutive days with, 1mm of precipitation
-    # 값을 추출하고 새로운 3장(각각 1장)의 netCDF 파일로 생성
-
-    # (후에 다른 연도 파일도 같은 방식으로 처리하고 합쳐서 trend를 파악하려고 함)
-    # 2) 각 격자별 trend를 계산해서 지도로 시각화/ Mann Kendall 검정
-    # (2개월 데이터로만 처리해주셔도 됩니다. 첨부사진처럼 시각화하려고 합니다. )
-
-    # 제가 시도해봤던 코드도 보내드립니다. 하나는 대략적인 평균 강수량 및 평균 온도를 시각화한 코드이고,
-    # 다른 하나는 새로운 netCDF파일 생성하려고 한 코드입니다. time (1,)에 위도 경도 는 바뀌지 않아야 하는데 다 동일하게 변경이 되네요ㅠㅠ
 
     # ================================================================================================
     # 환경변수 설정
@@ -275,7 +260,7 @@ class DtaProcess(object):
                     , 'procList': ['TXX', 'R10', 'CDD']
 
                     # 가공 파일 정보
-                    , 'procPath': '/DATA/OUTPUT/LSH0543/OUTPUT'
+                    , 'procPath': '/DATA/OUTPUT/LSH0543'
                     , 'procName': '{}_{}_ClimStatAnomaly-{}_{}_{}-{}.csv'
                 }
             }
@@ -285,12 +270,7 @@ class DtaProcess(object):
             dtEndDate = pd.to_datetime(sysOpt['endDate'], format='%Y-%m-%d')
             dtDateList = pd.date_range(start=dtSrtDate, end=dtEndDate, freq=sysOpt['invDate'])
 
-
-            # 멀티코어 설정
-            # client = Client(n_workers=os.cpu_count(), threads_per_worker=os.cpu_count())
-            # dask.config.set(scheduler='processes')
-
-            inpFile = '{}/{}/{}'.format(globalVar['inpPath'], serviceName, '*.shp')
+            inpFile = '{}/{}/{}'.format(globalVar['inpPath'], serviceName, 'permaice.shp')
             fileList = glob.glob(inpFile)
             if fileList is None or len(fileList) < 1:
                 log.error(f'[ERROR] inpFile : {inpFile} / 입력 자료를 확인해주세요.')
@@ -298,25 +278,108 @@ class DtaProcess(object):
 
             # permaice.shp
 
-            # import geopandas as gpd
-            # import cartopy.crs as ccrs
-            # import geopandas as gpd
-            # # from cartopy.mpl.gridliner import LONGITUDE_FORMATTER, LATITUDE_FORMATTER
-            # import matplotlib.ticker as mticker
-            # import matplotlib.patches as patches
-            # import matplotlib as mpl
-            # import xarray as xr
-            # import geopandas as gpd
-            # import matplotlib.pyplot as plt
-            # import cartopy.crs as ccrs
+            import geopandas as gpd
+            import xarray as xr
+            from pyproj import CRS
 
-            # shp1 = gpd.read_file(fileList[0])
+            shpData = gpd.read_file(fileList[0])
             # /DATA/INPUT/LSH0543/permaice.shp
-            # shp1 = gpd.read_file(fileList[1])
             # shp1 = gpd.read_file(fileList[2])
-            # # shp1.plot(color='None', edgecolor='black', linewidth=3)
-            # shp1.plot()
+            # shp1.plot(color='None', edgecolor='black', linewidth=3)
+
+
+
+            # 헤더 데이터
+            # shpData.info()
+            # <class 'geopandas.geodataframe.GeoDataFrame'>
+            # RangeIndex: 13671 entries, 0 to 13670
+            # Data columns (total 7 columns):
+            #  #   Column    Non-Null Count  Dtype
+            # ---  ------    --------------  -----
+            #  0   NUM_CODE  13671 non-null  object
+            #  1   COMBO     13671 non-null  object
+            #  2   RELICT    13 non-null     object
+            #  3   EXTENT    7191 non-null   object
+            #  4   CONTENT   7191 non-null   object
+            #  5   LANDFORM  7032 non-null   object
+            #  6   geometry  13671 non-null  geometry
+            # dtypes: geometry(1), object(6)
+            # memory usage: 747.8+ KB
+
+            # 좌표계
+            # shpData.crs
+
+            # Polar Stereographic 좌표계로 변환 (여기서는 북극 스테레오그래픽 예시, EPSG:3995 사용)
+            polar_crs = CRS("EPSG:3995")  # 북극 스테레오그래픽
+            # gdf_polar = shpData.to_crs(polar_crs)
+            gdf_polar = shpData.to_crs(epsg=4326)
+
+            gdf_polar.plot()
+            saveImg = '{}/{}/{}.png'.format(globalVar['figPath'], serviceName, '테스트')
+            os.makedirs(os.path.dirname(saveImg), exist_ok=True)
+            plt.savefig(saveImg, dpi=600, bbox_inches='tight', transparent=True)
             # plt.show()
+            log.info(f'[CHECK] saveImg : {saveImg}')
+
+            # bb = gdf_polar.to_xarray()
+
+            g = gdf_polar.iloc[[1, ]]
+            g.plot()
+            plt.show()
+
+            g['geometry']
+
+            g.plot(column='NUM_CODE', legend=True)
+            plt.show()
+
+            #  0   NUM_CODE  13671 non-null  object
+            #  1   COMBO     13671 non-null  object
+            #  2   RELICT    13 non-null     object
+            #  3   EXTENT    7191 non-null   object
+            #  4   CONTENT   7191 non-null   object
+            #  5   LANDFORM  7032 non-null   object
+            #  6   geometry  13671 non-null  geometry
+
+
+
+            h = shpData.iloc[[1, ]]
+            # h.plot()
+            # plt.show()
+
+            # gdf_polar['geometry'][0].plot()
+
+            # gdf_polar['coords'] = gdf_polar['geometry'].apply(lambda x: x.representative_point().coords[:])
+            # gdf_polar['coords'] = [coords[0] for coords in gdf_polar['coords']]
+
+            # gdf_polar
+            print('sadfasdfasdf')
+
+
+            #   fig, ax = plt.subplots(figsize=(10, 8))
+            #
+            #         crs = {'init': 'epsg:4162'}
+            #         geometry = [Point(xy) for xy in zip(result_data["longitude"], result_data["latitude"])]
+            #         geodata1 = gpd.GeoDataFrame(result_data, crs=crs, geometry=geometry)
+            #
+            #         data_seoul['coords'] = data_seoul['geometry'].apply(lambda x: x.representative_point().coords[:])
+            #         data_seoul['coords'] = [coords[0] for coords in data_seoul['coords']]
+            #
+            #         # 컬러바 표시
+            #         # gplt.kdeplot(geodata1, cmap='rainbow', zorder=0, cbar=True, shade=True, alpha=0.5, ax=ax)
+            #         gplt.kdeplot(geodata1, cmap='rainbow', shade=True, alpha=0.5, ax=ax)
+            #         gplt.polyplot(data_seoul, ax=ax)
+            #
+            #         # 서울 시군구 표시
+            #         for i, row in data_seoul.iterrows():
+            #             ax.annotate(size=10, text=row['sigungu_nm'], xy=row['coords'], horizontalalignment='center')
+            #
+            #         plt.gcf()
+            #         plt.savefig(saveImg, width=10, height=8, dpi=600, bbox_inches='tight', transparent = True)
+            #         plt.show()
+
+
+            shpData.plot()
+            plt.show()
             #
             # proj = ccrs.NorthPolarStereo(central_longitude=90)
             # fig, ax = plt.subplots(figsize=(10, 10), subplot_kw={'projection': proj})
