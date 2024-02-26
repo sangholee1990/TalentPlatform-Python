@@ -219,8 +219,8 @@ class DtaProcess(object):
     # ================================================================================================
     global env, contextPath, prjName, serviceName, log, globalVar
 
-    # env = 'local'  # 로컬 : 원도우 환경, 작업환경 (현재 소스 코드 환경 시 .) 설정
-    env = 'dev'  # 개발 : 원도우 환경, 작업환경 (사용자 환경 시 contextPath) 설정
+    env = 'local'  # 로컬 : 원도우 환경, 작업환경 (현재 소스 코드 환경 시 .) 설정
+    # env = 'dev'  # 개발 : 원도우 환경, 작업환경 (사용자 환경 시 contextPath) 설정
     # env = 'oper'  # 운영 : 리눅스 환경, 작업환경 (사용자 환경 시 contextPath) 설정
 
     if (platform.system() == 'Windows'):
@@ -288,7 +288,6 @@ class DtaProcess(object):
                     'filePath': '/DATA/INPUT/LSH0544/%Y%m'
                     , 'fileName': 'data.nc'
                     , 'varList': ['t2m', 'tp', 'tp']
-                    # , 'varList': ['tp', 'tp']
 
                     # 가공 파일 덮어쓰기 여부
                     , 'isOverWrite': True
@@ -296,7 +295,6 @@ class DtaProcess(object):
 
                     # 가공 변수
                     , 'procList': ['TXX', 'R10', 'CDD']
-                    # , 'procList': ['R10', 'CDD']
 
                     # 가공 파일 정보
                     , 'procPath': '/DATA/OUTPUT/LSH0544'
@@ -323,7 +321,7 @@ class DtaProcess(object):
                 if modelInfo is None: continue
 
                 # 시작일/종료일에 따른 데이터 병합
-                mrgData = xr.Dataset()
+                # mrgData = xr.Dataset()
                 for dtDateInfo in dtDateList:
                     log.info(f'[CHECK] dtDateInfo : {dtDateInfo}')
 
@@ -349,94 +347,65 @@ class DtaProcess(object):
                         except Exception as e:
                             pass
 
-                    mrgData = xr.merge([mrgData, dataL1])
-
-                # ******************************************************************************************************
-                # 1) 월간 데이터에서 격자별 값을 추출하고 새로운 3장(각각 1장)의 netCDF 파일로 생성
-                # ******************************************************************************************************
-                for varIdx, varInfo in enumerate(modelInfo['varList']):
-                    procInfo = modelInfo['procList'][varIdx]
-                    log.info(f'[CHECK] varInfo : {varInfo} / procInfo : {procInfo}')
-
-                    # TXX: Montly maximum value of daily maximum temperature
-                    if re.search('TXX', procInfo, re.IGNORECASE):
-                        # 0 초과 필터, 그 외 결측값 NA
-                        varData = mrgData[varInfo]
-
-                        varDataL1 = varData.where(varData > 0).resample(time='1D').max(skipna=False)
-                        varDataL2 = varDataL1.resample(time='1M').max(skipna=False)
-
-                    # R10: Number of heavy precipitation days(precipitation > 10mm)
-                    elif re.search('R10', procInfo, re.IGNORECASE):
-                        # 단위 변환 (m/hour -> mm/day)
-                        varData = mrgData[varInfo] * 24 * 1000
-
-                        varDataL1 = varData.resample(time='1D').sum(skipna=False)
-                        varDataL2 = varDataL1.where(varDataL1 > 10.0, drop=False).resample(time='1M').count(skipna=False)
-
-                    # CDD: The largests No. of consecutive days with, 1mm of precipitation
-                    elif re.search('CDD', procInfo, re.IGNORECASE):
-
-                        # 단위 변환 (m/hour -> mm/day)
-                        varData = mrgData[varInfo] * 24 * 1000
-
-                        varDataL1 = varData.resample(time='1D').sum(skipna=False)
-
-                        # True: 1 mm 미만 강수량 / False: 그 외
-                        # varDataL1 = varDataL1 >= 1.0
-                        varDataL2 = (varDataL1 < 1.0).resample(time='1M').apply(calcMaxContDay)
-                    else:
-                        continue
-
-                    # 마스킹 데이터
-                    maskData = varData.isel(time=0)
-                    maskDataL1 = xr.where(np.isnan(maskData), np.nan, 1)
-
-                    varDataL2 = varDataL2 * maskDataL1
-                    varDataL2.name = procInfo
-
-                    # varDataL3.isel(time = 0).plot()
-                    # plt.show()
-
-                    timeList = varDataL2['time'].values
-                    minDate = pd.to_datetime(timeList).min().strftime("%Y%m%d")
-                    maxDate = pd.to_datetime(timeList).max().strftime("%Y%m%d")
-
-                    procFilePattern = '{}/{}'.format(modelInfo['procPath'], modelInfo['procName'])
-                    procFile = procFilePattern.format(modelType, procInfo, 'ORG', minDate, maxDate)
-                    os.makedirs(os.path.dirname(procFile), exist_ok=True)
-                    varDataL2.to_netcdf(procFile)
-                    log.info(f'[CHECK] procFile : {procFile}')
+                    # mrgData = xr.merge([mrgData, dataL1])
+                    mrgData = dataL1
 
                     # ******************************************************************************************************
-                    # 2) 각 격자별 trend를 계산해서 지도로 시각화/ Mann Kendall 검정
-                    # (2개월 데이터로만 처리해주셔도 됩니다. 첨부사진처럼 시각화하려고 합니다. )
+                    # 1) 월간 데이터에서 격자별 값을 추출하고 새로운 3장(각각 1장)의 netCDF 파일로 생성
                     # ******************************************************************************************************
-                    colName = 'slope'
+                    for varIdx, varInfo in enumerate(modelInfo['varList']):
+                        procInfo = modelInfo['procList'][varIdx]
+                        log.info(f'[CHECK] varInfo : {varInfo} / procInfo : {procInfo}')
 
-                    mkData = xr.apply_ufunc(
-                        calcMannKendall,
-                        varDataL2,
-                        kwargs={'colName': colName},
-                        input_core_dims=[['time']],
-                        output_core_dims=[[]],
-                        vectorize=True,
-                        dask='parallelized',
-                        output_dtypes=[np.float64],
-                        dask_gufunc_kwargs={'allow_rechunk': True}
-                    ).compute()
+                        # TXX: Montly maximum value of daily maximum temperature
+                        if re.search('TXX', procInfo, re.IGNORECASE):
+                            # 0 초과 필터, 그 외 결측값 NA
+                            varData = mrgData[varInfo]
 
-                    mkName = f'{procInfo}-{colName}'
-                    mkData.name = mkName
+                            varDataL1 = varData.where(varData > 0).resample(time='1D').max(skipna=False)
+                            varDataL2 = varDataL1.resample(time='1M').max(skipna=False)
 
-                    procFilePattern = '{}/{}'.format(modelInfo['procPath'], modelInfo['procName'])
-                    procFile = procFilePattern.format(modelType, mkName, 'MK', minDate, maxDate)
-                    os.makedirs(os.path.dirname(procFile), exist_ok=True)
-                    mkData.to_netcdf(procFile)
-                    log.info(f'[CHECK] procFile : {procFile}')
+                        # R10: Number of heavy precipitation days(precipitation > 10mm)
+                        elif re.search('R10', procInfo, re.IGNORECASE):
+                            # 단위 변환 (m/hour -> mm/day)
+                            varData = mrgData[varInfo] * 24 * 1000
 
-                    # mkData.plot()
-                    # plt.show()
+                            varDataL1 = varData.resample(time='1D').sum(skipna=False)
+                            varDataL2 = varDataL1.where(varDataL1 > 10.0, drop=False).resample(time='1M').count()
+
+                        # CDD: The largests No. of consecutive days with, 1mm of precipitation
+                        elif re.search('CDD', procInfo, re.IGNORECASE):
+
+                            # 단위 변환 (m/hour -> mm/day)
+                            varData = mrgData[varInfo] * 24 * 1000
+
+                            varDataL1 = varData.resample(time='1D').sum(skipna=False)
+
+                            # True: 1 mm 미만 강수량 / False: 그 외
+                            # varDataL1 = varDataL1 >= 1.0
+                            varDataL2 = (varDataL1 < 1.0).resample(time='1M').apply(calcMaxContDay)
+                        else:
+                            continue
+
+                        # 마스킹 데이터
+                        maskData = varData.isel(time=0)
+                        maskDataL1 = xr.where(np.isnan(maskData), np.nan, 1)
+
+                        varDataL2 = varDataL2 * maskDataL1
+                        varDataL2.name = procInfo
+
+                        # varDataL3.isel(time = 0).plot()
+                        # plt.show()
+
+                        timeList = varDataL2['time'].values
+                        minDate = pd.to_datetime(timeList).min().strftime("%Y%m%d")
+                        maxDate = pd.to_datetime(timeList).max().strftime("%Y%m%d")
+
+                        procFilePattern = '{}/{}'.format(modelInfo['procPath'], modelInfo['procName'])
+                        procFile = procFilePattern.format(modelType, procInfo, 'ORG', minDate, maxDate)
+                        os.makedirs(os.path.dirname(procFile), exist_ok=True)
+                        varDataL2.to_netcdf(procFile)
+                        log.info(f'[CHECK] procFile : {procFile}')
 
         except Exception as e:
             log.error("Exception : {}".format(e))
