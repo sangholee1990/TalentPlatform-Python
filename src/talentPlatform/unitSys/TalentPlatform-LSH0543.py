@@ -275,7 +275,6 @@ class DtaProcess(object):
             if fileList is None or len(fileList) < 1:
                 log.error(f'[ERROR] inpFile : {inpFile} / 입력 자료를 확인해주세요.')
 
-
             # permaice.shp
 
             import geopandas as gpd
@@ -283,11 +282,19 @@ class DtaProcess(object):
             from pyproj import CRS
 
             shpData = gpd.read_file(fileList[0])
+
+            # ncData = xr.open_dataset(fileList[0])
+
+            # import rasterio
+            # # 파일 읽기
+            # data = xr.open_rasterio(fileList[0])
+
             # /DATA/INPUT/LSH0543/permaice.shp
             # shp1 = gpd.read_file(fileList[2])
-            # shp1.plot(color='None', edgecolor='black', linewidth=3)
+            # shpData.plot(color='EXTENT', edgecolor='black', linewidth=3)
 
-
+            # shpData.plot(column=shpData['EXTENT'], legend=True)
+            # plt.show()
 
             # 헤더 데이터
             # shpData.info()
@@ -310,27 +317,103 @@ class DtaProcess(object):
             # shpData.crs
 
             # Polar Stereographic 좌표계로 변환 (여기서는 북극 스테레오그래픽 예시, EPSG:3995 사용)
-            polar_crs = CRS("EPSG:3995")  # 북극 스테레오그래픽
+            # polar_crs = CRS("EPSG:3995")  # 북극 스테레오그래픽
             # gdf_polar = shpData.to_crs(polar_crs)
-            gdf_polar = shpData.to_crs(epsg=4326)
+            # custom_crs = CRS("+proj=laea +lat_0=90 +lon_0=180 +x_0=0 +y_0=0 +a=6370997 +b=6370997 +units=m +no_defs")
+            custom_crs = CRS("+proj=laea +lat_0=90 +lon_0=0 +x_0=0 +y_0=0 +a=6370997 +b=6370997 +units=m +no_defs")
 
-            gdf_polar.plot()
-            saveImg = '{}/{}/{}.png'.format(globalVar['figPath'], serviceName, '테스트')
+            # target_crs = CRS('+proj=eqc +lat_ts=0 +lat_0=0 +lon_0=0 +x_0=0 +y_0=0 +a=6081469.53 +b=6081469.53 +units=m +no_defs')
+            # target_crs = CRS('+proj=eqc +lat_ts=0 +lat_0=0 +lon_0=0 +x_0=0 +y_0=0 +a=6081469.53 +b=6081469.53 +datum=WGS84')
+            wgs84_crs = CRS("EPSG:4326")
+
+            # Cylindrical Stereographic projection
+            # shpDataL1 = shpData.to_crs(epsg=4326)
+            # shpDataL1 = shpData.to_crs(target_crs)
+            shpDataL1 = shpData.to_crs(custom_crs)
+            shpDataL2 = shpDataL1.to_crs(wgs84_crs)
+
+            def normalize_longitude(lon):
+                if lon > 180:
+                    return lon - 360
+                return lon
+
+
+            from pyproj import CRS, Transformer
+            transformer = Transformer.from_crs(custom_crs, wgs84_crs, always_xy=True)
+
+            # 변환할 사용자 지정 투영 좌표 (예: 투영된 북극점)
+            x, y = 0, 0
+
+            # 좌표 변환
+            lon, lat = transformer.transform(x, y)
+
+            print(f"Transformed Coordinates: longitude={lon}, latitude={lat}")
+
+            shpDataL3 = shpDataL2
+            # shpDataL3['geometry'] = shpDataL3['geometry'].simplify(tolerance=0.01, preserve_topology=False)
+
+            from shapely.geometry import Polygon, MultiPolygon
+
+            # Function to normalize all coordinates in a Polygon
+            def normalize_polygon(polygon):
+                exterior = [(normalize_longitude(x), y) for x, y in polygon.exterior.coords]
+                interiors = [[(normalize_longitude(x), y) for x, y in interior.coords] for interior in
+                             polygon.interiors]
+                return Polygon(exterior, interiors)
+
+            # Function to normalize all coordinates in a geometry, including MultiPolygons
+            def normalize_geometry(geometry):
+                if isinstance(geometry, Polygon):
+                    return normalize_polygon(geometry)
+                elif isinstance(geometry, MultiPolygon):
+                    return MultiPolygon([normalize_polygon(poly) for poly in geometry])
+                else:
+                    # Raise an error or handle other geometry types as needed
+                    raise ValueError(f"Geometry type {type(geometry)} not supported")
+
+            shpDataL3['geometry'] = shpDataL3['geometry'].apply(normalize_geometry)
+
+
+            #
+            # # 각 폴리곤의 중심점을 계산하여 새로운 GeoDataFrame 생성
+            # points = shpDataL2.geometry.centroid
+            #
+            # # 새로운 GeoDataFrame에 포인트 할당
+            # points_gdf = gpd.GeoDataFrame(geometry=gpd.GeoSeries(points))
+
+            shpDataL3.plot(column=shpData['EXTENT'], legend=True)
+            saveImg = '{}/{}/{}.png'.format(globalVar['figPath'], serviceName, 'test3')
             os.makedirs(os.path.dirname(saveImg), exist_ok=True)
             plt.savefig(saveImg, dpi=600, bbox_inches='tight', transparent=True)
-            # plt.show()
+            log.info(f'[CHECK] saveImg : {saveImg}')
+
+            # 새로운 포인트 Shapefile로 저장
+            # points_gdf.to_file('your_output_point_shapefile.shp')
+
+
+
+            # gdf_polar.plot()
+
+            # shpDataL1.plot(column=shpDataL1['EXTENT'], legend=True)
+            # shpData.plot(column=shpData['EXTENT'], legend=True)
+            shpDataL2.plot(column=shpData['EXTENT'], legend=True)
+
+            # saveImg = '{}/{}/{}.png'.format(globalVar['figPath'], serviceName, 'test')
+            saveImg = '{}/{}/{}.png'.format(globalVar['figPath'], serviceName, 'test2')
+            os.makedirs(os.path.dirname(saveImg), exist_ok=True)
+            plt.savefig(saveImg, dpi=600, bbox_inches='tight', transparent=True)
             log.info(f'[CHECK] saveImg : {saveImg}')
 
             # bb = gdf_polar.to_xarray()
 
-            g = gdf_polar.iloc[[1, ]]
-            g.plot()
-            plt.show()
-
-            g['geometry']
-
-            g.plot(column='NUM_CODE', legend=True)
-            plt.show()
+            # g = gdf_polar.iloc[[1, ]]
+            # g.plot()
+            # plt.show()
+            #
+            # g['geometry']
+            #
+            # g.plot(column='NUM_CODE', legend=True)
+            # plt.show()
 
             #  0   NUM_CODE  13671 non-null  object
             #  1   COMBO     13671 non-null  object
@@ -342,7 +425,7 @@ class DtaProcess(object):
 
 
 
-            h = shpData.iloc[[1, ]]
+            # h = shpData.iloc[[1, ]]
             # h.plot()
             # plt.show()
 
@@ -352,7 +435,7 @@ class DtaProcess(object):
             # gdf_polar['coords'] = [coords[0] for coords in gdf_polar['coords']]
 
             # gdf_polar
-            print('sadfasdfasdf')
+            # print('sadfasdfasdf')
 
 
             #   fig, ax = plt.subplots(figsize=(10, 8))
@@ -395,125 +478,6 @@ class DtaProcess(object):
             # # plt.show()
 
             print('setset')
-
-            # shp1.to_xarray()
-
-            # shp1['EXTENT']
-            # shp1.exterior
-
-            # # ===================================================================================
-            # # 가공 파일 생산
-            # # ===================================================================================
-            # for modelType in sysOpt['modelList']:
-            #     log.info(f'[CHECK] modelType : {modelType}')
-            #
-            #     modelInfo = sysOpt.get(modelType)
-            #     if modelInfo is None: continue
-            #
-            #     # 시작일/종료일에 따른 데이터 병합
-            #     mrgData = xr.Dataset()
-            #     for dtDateInfo in dtDateList:
-            #         log.info(f'[CHECK] dtDateInfo : {dtDateInfo}')
-            #
-            #         inpFilePattern = '{}/{}'.format(modelInfo['filePath'], modelInfo['fileName'])
-            #         inpFile = dtDateInfo.strftime(inpFilePattern)
-            #         fileList = sorted(glob.glob(inpFile))
-            #
-            #         if fileList is None or len(fileList) < 1:
-            #             # log.error(f'inpFile : {inpFile} / 입력 자료를 확인해주세요')
-            #             continue
-            #
-            #         fileInfo = fileList[0]
-            #         data = xr.open_dataset(fileInfo)
-            #         log.info(f'[CHECK] fileInfo : {fileInfo}')
-            #
-            #         dataL1 = data
-            #
-            #         # 변수 삭제
-            #         selList = ['expver']
-            #         for selInfo in selList:
-            #             try:
-            #                 dataL1 = dataL1.isel(expver=1).drop_vars([selInfo])
-            #             except Exception as e:
-            #                 pass
-            #
-            #         mrgData = xr.merge([mrgData, dataL1])
-            #
-            #
-            #     # ******************************************************************************************************
-            #     # 1) 월간 데이터에서 격자별 값을 추출하고 새로운 3장(각각 1장)의 netCDF 파일로 생성
-            #     # ******************************************************************************************************
-            #     for varIdx, varInfo in enumerate(modelInfo['varList']):
-            #         procInfo = modelInfo['procList'][varIdx]
-            #         log.info(f'[CHECK] varInfo : {varInfo} / procInfo : {procInfo}')
-            #
-            #         # TXX: Montly maximum value of daily maximum temperature
-            #         if re.search('TXX', procInfo, re.IGNORECASE):
-            #             # 0 초과 필터, 그 외 결측값 NA
-            #             varData = mrgData[varInfo]
-            #
-            #             varDataL1 = varData.where(varData > 0).resample(time='1D').max()
-            #             varDataL2 = varDataL1.resample(time='1M').max()
-            #
-            #         # R10: Number of heavy precipitation days(precipitation > 10mm)
-            #         elif re.search('R10', procInfo, re.IGNORECASE):
-            #             # 단위 변환 (m/hour -> mm/day)
-            #             varData = mrgData['tp'] * 24 * 1000
-            #
-            #             varDataL1 = varData.resample(time='1D').sum()
-            #             varDataL2 = varDataL1.where(varDataL1 > 10.0).resample(time='1M').count()
-            #
-            #         # CDD: The largests No. of consecutive days with, 1mm of precipitation
-            #         elif re.search('CDD', procInfo, re.IGNORECASE):
-            #
-            #             # 단위 변환 (m/hour -> mm/day)
-            #             varData = mrgData['tp'] * 24 * 1000
-            #
-            #             varDataL1 = varData.resample(time='1D').sum()
-            #
-            #             # True: 1 mm 이상 강수량 / False: 그 외
-            #             varDataL1 = varDataL1 >= 1.0
-            #             varDataL2 = varDataL1.resample(time='1M').apply(calcMaxContDay)
-            #         else:
-            #             continue
-            #
-            #         timeList = varDataL2['time'].values
-            #         minDate = pd.to_datetime(timeList).min().strftime("%Y%m%d")
-            #         maxDate = pd.to_datetime(timeList).max().strftime("%Y%m%d")
-            #
-            #         saveFile = '{}/{}/{}_{}_{}-{}.nc'.format(globalVar['outPath'], serviceName, modelType, procInfo, minDate, maxDate)
-            #         os.makedirs(os.path.dirname(saveFile), exist_ok=True)
-            #         varDataL2.to_netcdf(saveFile)
-            #         log.info(f'[CHECK] saveFile : {saveFile}')
-            #
-            #         # ******************************************************************************************************
-            #         # 2) 각 격자별 trend를 계산해서 지도로 시각화/ Mann Kendall 검정
-            #         # (2개월 데이터로만 처리해주셔도 됩니다. 첨부사진처럼 시각화하려고 합니다. )
-            #         # ******************************************************************************************************
-            #         colName = 'slope'
-            #
-            #         mkData = xr.apply_ufunc(
-            #             calcMannKendall,
-            #             varDataL2,
-            #             kwargs={'colName': colName},
-            #             input_core_dims=[['time']],
-            #             output_core_dims=[[]],
-            #             vectorize=True,
-            #             dask='parallelized',
-            #             output_dtypes=[np.float64],
-            #             dask_gufunc_kwargs={'allow_rechunk': True}
-            #         ).compute()
-            #
-            #         mkName = f'{procInfo}-{colName}'
-            #         mkData.name = mkName
-            #
-            #         saveFile = '{}/{}/{}_{}-{}_{}-{}.nc'.format(globalVar['outPath'], serviceName, modelType, mkName, 'MK', minDate, maxDate)
-            #         os.makedirs(os.path.dirname(saveFile), exist_ok=True)
-            #         mkData.to_netcdf(saveFile)
-            #         log.info(f'[CHECK] saveFile : {saveFile}')
-            #
-            #         # mkData.plot()
-            #         # plt.show()
 
         except Exception as e:
             log.error("Exception : {}".format(e))
