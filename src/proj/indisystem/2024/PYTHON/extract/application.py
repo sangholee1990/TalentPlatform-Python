@@ -444,3 +444,11 @@ class Application:
         result = ((np.around(val, 4) * scaleFactor) - addOffset).astype(int)
 
         return result.tolist()
+
+    def revIntToFloatList(self, val):
+        scaleFactor = 10000
+        addOffset = 0
+
+        result = (np.array(val) + addOffset) / scaleFactor
+
+        return result.tolist()
