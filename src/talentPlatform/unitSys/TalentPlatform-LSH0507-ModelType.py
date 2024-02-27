@@ -251,8 +251,10 @@ class DtaProcess(object):
                         # kgC/d -> kgC/year
                         val = data['emission'].values * 365
                     elif re.search('EDGAR', type, re.IGNORECASE):
-                        # tonC/year -> kgC/year
-                        val = data['emissions'].values / 1000
+                        # tonCo2/year -> kgC/year
+                        # val = data['emissions'].values / 1000
+                        # 2024.02.28
+                        val = data['emissions'].values * 1000 * (12/44)
                     elif re.search('ODIAC', type, re.IGNORECASE):
                         # gC/m2/d -> kgC/year
                         sumData = data.sum(dim='month')
