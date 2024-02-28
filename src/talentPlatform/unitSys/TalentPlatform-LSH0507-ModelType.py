@@ -267,7 +267,7 @@ class DtaProcess(object):
                         lon1D = sumData['lon'].values
                         lat1D = sumData['lat'].values
 
-                        cell_areas = np.array([calculate_area_of_cell_by_row_index(lat) for lat in latitudes])
+                        # cell_areas = np.array([calculate_area_of_cell_by_row_index(lat) for lat in latitudes])
 
                     elif re.search('GCP GridFED', type, re.IGNORECASE):
                         dataGrp = xr.open_dataset(fileInfo, group='CO2')
