@@ -29,7 +29,9 @@ class Application:
         self.dbData = {}
 
     def run(self):
-        if re.search('KIER-LDAPS|KIER-RDAPS|KIER-WIND', self.modelName, re.IGNORECASE):
+        if re.search('KIER-LDAPS-0.6K', self.modelName, re.IGNORECASE):
+            self.processWrfWindKIER()
+        elif re.search('KIER-LDAPS|KIER-RDAPS|KIER-WIND', self.modelName, re.IGNORECASE):
             self.processWrfKIER()
             # self.processXarrayKIER()
         elif re.search('KIM|LDAPS|RDAPS', self.modelName, re.IGNORECASE):
@@ -433,6 +435,108 @@ class Application:
             common.logger.info(f'[CHECK] dbData : {self.dbData.keys()} : {np.shape(self.dbData[list(self.dbData.keys())[3]])} : {len(self.dbData.keys())}')
             dbapp.dbMergeData(initDB['session'], initDB['tbIntModel'], self.dbData, pkList=['MODEL_TYPE', 'ANA_DT', 'FOR_DT'])
 
+    def processWrfWindKIER(self):
+
+        # DB 가져오기
+        dbapp = ManageDB(self.dbconfig)
+        initDB = dbapp.initCfgInfo()
+
+        # NetCDF 파일 읽기
+        orgData = Dataset(self.inFile, 'r')
+        # orgData.variables
+        common.logger.info(f'[CHECK] inFile : {self.inFile}')
+
+        # 분석시간
+        anaDate = pd.to_datetime(orgData.START_DATE, format='%Y-%m-%d_%H:%M:%S')
+
+        # 시간 인덱스를 예보 시간 기준으로 변환
+        timeByteList = wrf.getvar(orgData, "times", timeidx=wrf.ALL_TIMES).values
+        timeList = pd.to_datetime(timeByteList)
+
+        # 그룹핑
+        grpData = pd.Series(range(len(timeList)), index=timeList)
+
+        if re.search('60M', self.modelName, re.IGNORECASE):
+            grpDataL1 = grpData.resample('60T')
+        elif re.search('30M', self.modelName, re.IGNORECASE):
+            grpDataL1 = grpData.resample('30T')
+        elif re.search('10M', self.modelName, re.IGNORECASE):
+            grpDataL1 = grpData.resample('10T')
+        elif re.search('KIER-LDAPS-0.6K-ORG', self.modelName, re.IGNORECASE):
+            grpDataL1 = grpData.resample('1T')
+        else:
+            common.logger.error(f'모델 종류 ({self.modelName})를 확인해주세요.')
+            sys.exit(1)
+
+        for forDate, group in grpDataL1:
+            if re.search('60M', self.modelName, re.IGNORECASE):
+                timeIdxList = group.values
+            elif re.search('30M', self.modelName, re.IGNORECASE):
+                timeIdxList = group.values
+            elif re.search('10M', self.modelName, re.IGNORECASE):
+                timeIdxList = group.values
+            elif re.search('KIER-LDAPS-0.6K-ORG', self.modelName, re.IGNORECASE):
+                timeIdxList = [group.values[0]] if forDate == grpData.index[group.values[0]] else None
+            else:
+                common.logger.error(f'모델 종류 ({self.modelName})를 확인해주세요.')
+                sys.exit(1)
+
+            if timeIdxList is None: continue
+
+            # DB 등록/수정
+            self.dbData = {}
+            self.dbData['ANA_DT'] = anaDate
+            self.dbData['FOR_DT'] = forDate
+            self.dbData['MODEL_TYPE'] = self.modelName
+
+            modelInfo = self.config['modelName'].get(f'{self.modelName}_{self.modelKey}')
+            if modelInfo is None:
+                common.logger.warn(f'설정 파일 (config.yml)에서 설정 정보 (KIER-LDAPS/RDAPS, UNIS/PRES/ALL)를 확인해주세요.')
+                continue
+
+            common.logger.info(f'[CHECK] anaDate : {anaDate} / forDate : {forDate} / timeIdxList : {timeIdxList}')
+
+            maxK = 9
+            shapeList = [orgData.variables[var].shape for var in ['U', 'V', 'PH', 'PHB']]
+            minShape = [min(dim) for dim in zip(*shapeList)]
+            mt, mz, mlat, nlon = minShape
+
+            # 선택 컬럼
+            for j, varInfo in enumerate(modelInfo['varName']):
+                name = varInfo['name']
+
+                for level, colName in zip(varInfo['level'], varInfo['colName']):
+                    try:
+                        for timeIdx in timeIdxList:
+
+                            valList = []
+                            if re.search('WSP', name, re.IGNORECASE):
+
+                                U = orgData.variables['U'][timeIdx, :maxK, :mlat, :nlon][np.newaxis]
+                                V = orgData.variables['V'][timeIdx, :maxK, :mlat, :nlon][np.newaxis]
+                                PH = orgData.variables['PH'][timeIdx, :maxK + 1, :mlat, :nlon][np.newaxis]
+                                PHB = orgData.variables['PHB'][timeIdx, :maxK + 1, :mlat, :nlon][np.newaxis]
+
+                                H_s = ( PH + PHB ) / 9.80665
+                                H = 0.5 * ( H_s[:,:-1] + H_s[:,1:])
+
+                                # 특정 고도에 따른 풍향/풍속 계산
+                                result = calcWsdWdr(U, V, H, alt=level)
+                                valList = result[name]
+                                # print(result['WSP'][107, 61], result['WDR'][107, 61])
+                        if len(valList) < 1: continue
+                        meanVal = np.nanmean(np.nan_to_num(valList), axis=0)
+                        self.dbData[colName] = self.convFloatToIntList(meanVal)
+                    except Exception as e:
+                        common.logger.error(f'Exception : {e}')
+
+            if len(self.dbData) < 1:
+                common.logger.error(f'해당 파일 ({self.inFile})에서 지표면 및 상층 데이터를 확인해주세요.')
+                sys.exit(1)
+
+            common.logger.info(f'[CHECK] dbData : {self.dbData.keys()} : {np.shape(self.dbData[list(self.dbData.keys())[3]])} : {len(self.dbData.keys())}')
+            dbapp.dbMergeData(initDB['session'], initDB['tbIntModel'], self.dbData, pkList=['MODEL_TYPE', 'ANA_DT', 'FOR_DT'])
+
     def getVar(self):
         self.varNameLists = self.config['modelName'][f'{self.modelName}_{self.modelKey}']['varName']
 
@@ -444,3 +548,45 @@ class Application:
         result = ((np.around(val, 4) * scaleFactor) - addOffset).astype(int)
 
         return result.tolist()
+
+    def revIntToFloatList(self, val):
+        scaleFactor = 10000
+        addOffset = 0
+
+        result = (np.array(val) + addOffset) / scaleFactor
+
+        return result.tolist()
+
+    def calcWsdWdr(U, V, H, alt):
+        nt, nz, nlat, nlon = U.shape
+        U_int = U[nt - 1, :, :, :]
+        V_int = V[nt - 1, :, :, :]
+        H_int = H[nt - 1, :, :, :]
+
+        WSP0 = np.sqrt(U_int[0] ** 2 + V_int[0] ** 2)
+        WSP = np.log(np.sqrt(U_int ** 2 + V_int ** 2)) - np.log(WSP0)
+        LHS = np.log(H_int / H_int[0])
+
+        WSP00 = np.full((nlat, nlon), np.nan)
+        WDR00 = np.full((nlat, nlon), np.nan)
+        for i in range(nlon):
+            for j in range(nlat):
+                alp, _, _, _ = np.linalg.lstsq(LHS[:, j, i, np.newaxis], WSP[:, j, i], rcond=None)
+                WSP00[j, i] = WSP0[j, i] * (alt / H_int[0, j, i]) ** alp[0]
+
+                k = np.argmax(H_int[:, j, i] > alt)
+                aa = (H_int[k + 1, j, i] - alt)
+                bb = (alt - H_int[k, j, i])
+                uEle = (U_int[k, j, i] * aa + U_int[k + 1, j, i] * bb) / (aa + bb)
+                vEle = (V_int[k, j, i] * aa + V_int[k + 1, j, i] * bb) / (aa + bb)
+
+                WDR00[j, i] = (np.arctan2(-uEle, -vEle) * 180.0 / np.pi) % 360.0
+
+        result = {
+            'WSP': WSP00
+            , 'WDR': WDR00
+            , 'alt': alt
+
+        }
+
+        return result
