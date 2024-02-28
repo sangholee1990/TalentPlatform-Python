@@ -257,7 +257,16 @@ class DtaProcess(object):
                         # gC/m2/d -> kgC/year
                         sumData = data.sum(dim='month')
                         # val = sumData['land'].values * (365 / 1000)
+                        # val = (sumData['land'] + sumData['intl_bunker']).values * (365 / 1000)
                         val = (sumData['land'] + sumData['intl_bunker']).values * (365 / 1000)
+
+                        # https://gis.stackexchange.com/questions/29734/how-to-calculate-area-of-1-x-1-degree-cells-in-a-raster
+
+                        lon1D = sumData['lon'].values
+                        lat1D = sumData['lat'].values
+
+                        cell_areas = np.array([calculate_area_of_cell_by_row_index(lat) for lat in latitudes])
+
                     elif re.search('GCP GridFED', type, re.IGNORECASE):
                         dataGrp = xr.open_dataset(fileInfo, group='CO2')
                         sumData = dataGrp.sum(dim='time')
