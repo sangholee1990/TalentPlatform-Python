@@ -21,6 +21,7 @@ import re
 import matplotlib.pyplot as plt
 import numpy as np
 from matplotlib.ticker import ScalarFormatter
+import calendar
 
 # =================================================
 # 사용자 매뉴얼
@@ -166,6 +167,7 @@ def getCellArea(lat):
 
     # 지구 반지름 m
     R = 6371000
+    # R = 6371
 
     # 1도 to 라디안
     delLonRad = np.radians(1.0)
@@ -272,6 +274,16 @@ class DtaProcess(object):
                         # 2024.02.28
                         val = data['emissions'].values * 1000 * (12/44)
                     elif re.search('ODIAC', type, re.IGNORECASE):
+                        # sumData = data.sum(dim='month')
+
+                        monthList = data['month'].values
+                        varList = list(data.data_vars)
+
+                        for month in monthList:
+                            endDay = calendar.monthrange(2020, month)[1]
+                            for var in varList:
+                                data.sel(month=month)[var].values = data.sel(month=month)[var].values * endDay
+
                         sumData = data.sum(dim='month')
 
                         # 위경도를 통해 면적 계산
@@ -297,12 +309,14 @@ class DtaProcess(object):
                         # gC/m2/d -> kgC/year
                         # val = sumData['land'].values * (365 / 1000)
                         # val = (sumData['land'] + sumData['intl_bunker']).values * (365 / 1000)
-                        val = (sumDataL1['land'] + sumDataL1['intl_bunker']).values * sumDataL1['area'].values * (365 / 1000)
+                        # val = (sumDataL1['land'] + sumDataL1['intl_bunker']).values * sumDataL1['area'].values * (365 / 1000)
+                        val = (sumDataL1['land'] + sumDataL1['intl_bunker']).values * sumDataL1['area'].values / 1000
 
                     elif re.search('GCP GridFED', type, re.IGNORECASE):
+                        # Co2 -> C * (12/44)
                         dataGrp = xr.open_dataset(fileInfo, group='CO2')
                         sumData = dataGrp.sum(dim='time')
-                        val = (sumData['OIL'] + sumData['GAS'] + sumData['COAL'] + sumData['CEMENT'] + sumData['BUNKER']).values
+                        val = (sumData['OIL'] + sumData['GAS'] + sumData['COAL'] + sumData['CEMENT'] + sumData['BUNKER']).values * (12/44)
                     else:
                         continue
 
