@@ -8,6 +8,7 @@ echo
 #========================================
 # 0 */12 * * * bash /home/guest_user1/SYSTEMS/KIER/PROG/SHELL/RunShell-get-gfsncep2.sh "$(date -d "2 days ago" +\%Y-\%m-\%d\ 00:00)" "$(date +\%Y-\%m-\%d\ 00:00)"
 # https://cds.climate.copernicus.eu/cdsapp#!/dataset/reanalysis-era5-pressure-levels?tab=form
+# ps -ef | grep python3 | grep RunPython-get-reanalyEra5-unis.py | awk '{print $2}' | xargs kill -9
 
 #========================================
 # Init Config
@@ -28,6 +29,9 @@ UPD_PATH=/DATA/INPUT/INDI2024/DATA/REANALY-ERA5
 PY38_PATH=/SYSTEMS/anaconda3/envs/py38
 #PY38_PATH=/home/guest_user1/SYSTEMS/KIER/LIB/py38
 PY38_BIN=${PY38_PATH}/bin/python3
+
+# 프로세스 종류
+MULTI_PROC=5
 
 mkdir -p $UPD_PATH
 
@@ -61,6 +65,7 @@ echo "[$(date +"%Y-%m-%d %H:%M:%S")] [CHECK] endDate : $endDate"
 #========================================
 # Run Shell
 #========================================
+cnt=0
 incDate=$srtDate
 while [ $(date -d "$incDate" +"%s") -le $(date -d "$endDate" +"%s") ]; do
 
@@ -74,7 +79,7 @@ while [ $(date -d "$incDate" +"%s") -le $(date -d "$endDate" +"%s") ]; do
   min=$(date -d "${incDate}" +"%M")
 
   incDate=$(date -d "${incDate} 1 hour")
-  echo "[$(date +"%Y-%m-%d %H:%M:%S")] [CHECK] dtYmdHm : $dtYmdHm"
+  echo "[$(date +"%Y-%m-%d %H:%M:%S")] [CHECK] dtYmdHm : $dtYmdHm / cnt : $cnt"
 
 #  updFilePath=${UPD_PATH}/${year}/${month}/${day}/${hour}
   updFilePath=${UPD_PATH}/${year}/${month}/${day}
@@ -125,16 +130,26 @@ url: https://cds.climate.copernicus.eu/api/v2
 key: 38372:e61b5517-d919-47b6-93bf-f9a01ee4246f
 EOF
 
-  ${PY38_BIN} ${TMP_PATH}/RunPython-get-reanalyEra5-unis.py
+#  ${PY38_BIN} ${TMP_PATH}/RunPython-get-reanalyEra5-unis.py
+  ${PY38_BIN} ${TMP_PATH}/RunPython-get-reanalyEra5-unis.py &
+  let cnt++
 
-  # 임시/업로드 파일 여부, 다운로드 용량 여부
-  if [ $? -eq 0 ] && [ -e $tmpFileInfo ] && ([ ! -e ${updFileInfo} ] || [ $(stat -c %s ${tmpFileInfo}) -gt $(stat -c %s ${updFileInfo}) ]); then
-      mv -f ${tmpFileInfo} ${updFileInfo}
-      echo "[$(date +"%Y-%m-%d %H:%M:%S")] [CHECK] CMD : mv -f ${tmpFileInfo} ${updFileInfo}"
-  else
-      rm -f ${tmpFileInfo}
-      echo "[$(date +"%Y-%m-%d %H:%M:%S")] [CHECK] CMD : rm -f ${tmpFileInfo}"
+  if [ $cnt -ge ${MULTI_PROC} ]; then
+
+    wait
+
+    # 임시/업로드 파일 여부, 다운로드 용량 여부
+    if [ $? -eq 0 ] && [ -e $tmpFileInfo ] && ([ ! -e ${updFileInfo} ] || [ $(stat -c %s ${tmpFileInfo}) -gt $(stat -c %s ${updFileInfo}) ]); then
+        mv -f ${tmpFileInfo} ${updFileInfo}
+        echo "[$(date +"%Y-%m-%d %H:%M:%S")] [CHECK] CMD : mv -f ${tmpFileInfo} ${updFileInfo}"
+    else
+        rm -f ${tmpFileInfo}
+        echo "[$(date +"%Y-%m-%d %H:%M:%S")] [CHECK] CMD : rm -f ${tmpFileInfo}"
+    fi
+
+    cnt=0
   fi
+
 done
 
 rm -rf ${TMP_PATH}
