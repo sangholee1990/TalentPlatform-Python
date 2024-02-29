@@ -25,13 +25,15 @@ CTX_PATH=$(pwd)
 # 실행 파일 경로
 TMP_PATH=$(mktemp -d)
 UPD_PATH=/DATA/INPUT/INDI2024/DATA/REANALY-ERA5
+#UPD_PATH=/data1/REANALY-ERA5
 
 PY38_PATH=/SYSTEMS/anaconda3/envs/py38
 #PY38_PATH=/home/guest_user1/SYSTEMS/KIER/LIB/py38
+
 PY38_BIN=${PY38_PATH}/bin/python3
 
 # 프로세스 종류
-MULTI_PROC=5
+MULTI_PROC_CNT=5
 
 mkdir -p $UPD_PATH
 
@@ -132,9 +134,12 @@ EOF
 
 #  ${PY38_BIN} ${TMP_PATH}/RunPython-get-reanalyEra5-unis.py
   ${PY38_BIN} ${TMP_PATH}/RunPython-get-reanalyEra5-unis.py &
+
+  sleep 1s
+
   let cnt++
 
-  if [ $cnt -ge ${MULTI_PROC} ]; then
+  if [ $cnt -ge ${MULTI_PROC_CNT} ]; then
 
     wait
 
@@ -152,6 +157,7 @@ EOF
 
 done
 
+# 임시 폴더 삭제
 rm -rf ${TMP_PATH}
 
 echo "[$(date +"%Y-%m-%d %H:%M:%S")] [END] Main Shell : $0"
