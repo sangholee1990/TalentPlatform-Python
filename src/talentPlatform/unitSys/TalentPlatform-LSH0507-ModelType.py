@@ -161,6 +161,22 @@ def initArgument(globalVar, inParams):
 
     return globalVar
 
+def getCellArea(lat):
+    # https://gis.stackexchange.com/questions/29734/how-to-calculate-area-of-1-x-1-degree-cells-in-a-raster
+
+    # 지구 반지름 m
+    R = 6371000
+
+    # 1도 to 라디안
+    delLonRad = np.radians(1.0)
+
+    f0_rad = np.radians(lat - 0.5)
+    f1_rad = np.radians(lat + 0.5)
+
+    area = (np.sin(f1_rad) - np.sin(f0_rad)) * delLonRad * (R ** 2)
+
+    return area
+
 # ================================================
 # 4. 부 프로그램
 # ================================================
@@ -256,18 +272,32 @@ class DtaProcess(object):
                         # 2024.02.28
                         val = data['emissions'].values * 1000 * (12/44)
                     elif re.search('ODIAC', type, re.IGNORECASE):
-                        # gC/m2/d -> kgC/year
                         sumData = data.sum(dim='month')
-                        # val = sumData['land'].values * (365 / 1000)
-                        # val = (sumData['land'] + sumData['intl_bunker']).values * (365 / 1000)
-                        val = (sumData['land'] + sumData['intl_bunker']).values * (365 / 1000)
 
-                        # https://gis.stackexchange.com/questions/29734/how-to-calculate-area-of-1-x-1-degree-cells-in-a-raster
-
+                        # 위경도를 통해 면적 계산
                         lon1D = sumData['lon'].values
                         lat1D = sumData['lat'].values
 
-                        # cell_areas = np.array([calculate_area_of_cell_by_row_index(lat) for lat in latitudes])
+                        cellAreaByLat = np.vectorize(getCellArea)(lat1D)
+
+                        cellAreaByGeo = np.tile(cellAreaByLat, (len(lon1D), 1)).T
+
+                        cellAreaData = xr.Dataset(
+                            {
+                                'area': (('lat', 'lon'), cellAreaByGeo)
+                            }
+                            , coords={
+                                'lon': lon1D
+                                , 'lat': lat1D
+                            }
+                        )
+
+                        sumDataL1 = xr.merge([sumData, cellAreaData])
+
+                        # gC/m2/d -> kgC/year
+                        # val = sumData['land'].values * (365 / 1000)
+                        # val = (sumData['land'] + sumData['intl_bunker']).values * (365 / 1000)
+                        val = (sumDataL1['land'] + sumDataL1['intl_bunker']).values * sumDataL1['area'].values * (365 / 1000)
 
                     elif re.search('GCP GridFED', type, re.IGNORECASE):
                         dataGrp = xr.open_dataset(fileInfo, group='CO2')
