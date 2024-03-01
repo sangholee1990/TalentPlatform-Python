@@ -19,13 +19,14 @@ export LC_TIME=en_US.UTF-8
 
 # 작업 경로 설정
 CTX_PATH=$(pwd)
-# CTX_PATH=/SYSTEMS/PROG/PYTHON/PyCharm/src/proj/indisystem/2024/SHELL
-# CTX_PATH=/home/guest_user1/SYSTEMS/KIER
+#CTX_PATH=/SYSTEMS/PROG/PYTHON/PyCharm/src/proj/indisystem/2024/SHELL
+#CTX_PATH=/home/guest_user1/SYSTEMS/KIER
 
 # 실행 파일 경로
-TMP_PATH=$(mktemp -d)
+TMP_KEY=$(mktemp .tmp-XXXXXXXXXX)
 UPD_PATH=/DATA/INPUT/INDI2024/DATA/REANALY-ERA5
 #UPD_PATH=/data1/REANALY-ERA5
+TMP_PATH=${UPD_PATH}/${TMP_KEY}
 
 PY38_PATH=/SYSTEMS/anaconda3/envs/py38
 #PY38_PATH=/home/guest_user1/SYSTEMS/KIER/LIB/py38
@@ -33,12 +34,15 @@ PY38_PATH=/SYSTEMS/anaconda3/envs/py38
 PY38_BIN=${PY38_PATH}/bin/python3
 
 # 프로세스 종류
-MULTI_PROC_CNT=5
+MULTI_PROC_CNT=2
 
 mkdir -p $UPD_PATH
+mkdir -p $TMP_PATH
+
+# 빈 폴더 삭제
+find ${UPD_PATH} -empty -type d -delete
 
 echo "[$(date +"%Y-%m-%d %H:%M:%S")] [CHECK] CTX_PATH : $CTX_PATH"
-#echo "[$(date +"%Y-%m-%d %H:%M:%S")] [CHECK] RUN_PATH : $RUN_PATH"
 echo "[$(date +"%Y-%m-%d %H:%M:%S")] [CHECK] TMP_PATH : $TMP_PATH"
 echo "[$(date +"%Y-%m-%d %H:%M:%S")] [CHECK] UPD_PATH : $UPD_PATH"
 
@@ -87,9 +91,9 @@ while [ $(date -d "$incDate" +"%s") -le $(date -d "$endDate" +"%s") ]; do
   updFilePath=${UPD_PATH}/${year}/${month}/${day}
   mkdir -p ${updFilePath}
 
-  tmpFileName=reanaly-era5-unis_${year}${month}${day}${hour}${min}.nc
-  tmpFileInfo=${TMP_PATH}/${tmpFileName}
-  updFileInfo=${updFilePath}/${tmpFileName}
+  updFileName=reanaly-era5-pres_${year}${month}${day}${hour}${min}.nc
+  urlFileInfo=${TMP_PATH}/${year}/${month}/${day}/${updFileName}
+  mkdir -p ${urlFileInfo%/*}
 
 cat > ${TMP_PATH}/RunPython-get-reanalyEra5-unis.py << EOF
 
@@ -123,7 +127,7 @@ c.retrieve(
             90, -180, -90, 180,
         ],
     },
-    '${tmpFileInfo}')
+    '${urlFileInfo}')
 EOF
 
 # API키 인증
@@ -133,24 +137,29 @@ key: 38372:e61b5517-d919-47b6-93bf-f9a01ee4246f
 EOF
 
 #  ${PY38_BIN} ${TMP_PATH}/RunPython-get-reanalyEra5-unis.py
+
   ${PY38_BIN} ${TMP_PATH}/RunPython-get-reanalyEra5-unis.py &
-
   sleep 1s
-
   let cnt++
 
   if [ $cnt -ge ${MULTI_PROC_CNT} ]; then
-
     wait
 
-    # 임시/업로드 파일 여부, 다운로드 용량 여부
-    if [ $? -eq 0 ] && [ -e $tmpFileInfo ] && ([ ! -e ${updFileInfo} ] || [ $(stat -c %s ${tmpFileInfo}) -gt $(stat -c %s ${updFileInfo}) ]); then
-        mv -f ${tmpFileInfo} ${updFileInfo}
-        echo "[$(date +"%Y-%m-%d %H:%M:%S")] [CHECK] CMD : mv -f ${tmpFileInfo} ${updFileInfo}"
-    else
-        rm -f ${tmpFileInfo}
-        echo "[$(date +"%Y-%m-%d %H:%M:%S")] [CHECK] CMD : rm -f ${tmpFileInfo}"
-    fi
+    fileList=$(find ${TMP_PATH} -type f -name "*.nc" 2>/dev/null | sort -u)
+    if [ ${#fileList} -le 0 ]; then continue; fi
+    for fileInfo in $fileList; do
+      tmpFileInfo=${fileInfo}
+      updFileInfo=${fileInfo/${TMP_KEY}/}
+
+      # 임시/업로드 파일 여부, 다운로드 용량 여부
+      if [ $? -eq 0 ] && [ -e $tmpFileInfo ] && ([ ! -e ${updFileInfo} ] || [ $(stat -c %s ${tmpFileInfo}) -gt $(stat -c %s ${updFileInfo}) ]); then
+          mv -f ${tmpFileInfo} ${updFileInfo}
+          echo "[$(date +"%Y-%m-%d %H:%M:%S")] [CHECK] CMD : mv -f ${tmpFileInfo} ${updFileInfo}"
+      else
+          rm -f ${tmpFileInfo}
+          echo "[$(date +"%Y-%m-%d %H:%M:%S")] [CHECK] CMD : rm -f ${tmpFileInfo}"
+      fi
+    done
 
     cnt=0
   fi
