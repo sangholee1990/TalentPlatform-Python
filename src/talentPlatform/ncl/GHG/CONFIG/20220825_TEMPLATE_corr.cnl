@@ -1,0 +1,39 @@
+load "$NCARG_ROOT/lib/ncarg/nclscripts/csm/gsn_code.ncl"
+load "$NCARG_ROOT/lib/ncarg/nclscripts/csm/gsn_csm.ncl"
+load "$NCARG_ROOT/lib/ncarg/nclscripts/csm/contributed.ncl"
+
+begin
+;---Read data
+  filename = "%fileInfo"
+  fn       = addfile(filename,"r")
+;  var    = fn->cors
+  var    = fn->%var
+
+;---Open workstation and change color map
+  wks = gsn_open_wks("png","%saveImg")
+
+;---Set some resources
+  res                   = True
+  res@gsnMaximize       = True     ; maximize plot in frame
+;  res@tiMainString      = filename
+;  res@gsnLeftString     = "Aerosol Optical Thickness"
+;  res@gsnRightString    = "0.55 microns"
+
+  res@cnFillOn          = True            ; turn on contour fill
+  res@cnFillMode        = "RasterFill"    ; faster than default "AreaFill"
+  res@cnLinesOn         = False           ; turn off contour lines
+  res@cnLevelSelectionMode = "AutomaticLevels"
+;  res@cnMaxLevelValF    =  1.0           ;-- maximum contour level
+;  res@cnMinLevelValF    =  -1.0            ;-- maximum contour level
+;  res@cnLevelSpacingF = 0.2
+res@gsnMaximize = True 
+
+  res@cnLevelSelectionMode = "ExplicitLevels"
+  res@gsnPaperOrientation = "auto"          
+  res@gsnMaximize         = True        ; must include w/ Paper Orientation
+   
+  res@cnRasterSmoothingOn = True
+  res@cnMissingValFillColor = "white"
+
+  plot = gsn_csm_contour_map(wks, var, res)
+end
