@@ -153,6 +153,7 @@ EOF
 
       # 임시/업로드 파일 여부, 다운로드 용량 여부
       if [ $? -eq 0 ] && [ -e $tmpFileInfo ] && ([ ! -e ${updFileInfo} ] || [ $(stat -c %s ${tmpFileInfo}) -gt $(stat -c %s ${updFileInfo}) ]); then
+          mkdir -p ${updFileInfo%/*}
           mv -f ${tmpFileInfo} ${updFileInfo}
           echo "[$(date +"%Y-%m-%d %H:%M:%S")] [CHECK] CMD : mv -f ${tmpFileInfo} ${updFileInfo}"
       else
