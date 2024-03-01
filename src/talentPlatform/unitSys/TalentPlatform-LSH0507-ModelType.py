@@ -162,8 +162,8 @@ def initArgument(globalVar, inParams):
 
     return globalVar
 
+# https://gis.stackexchange.com/questions/29734/how-to-calculate-area-of-1-x-1-degree-cells-in-a-raster
 def getCellArea(lat):
-    # https://gis.stackexchange.com/questions/29734/how-to-calculate-area-of-1-x-1-degree-cells-in-a-raster
 
     # 지구 반지름 m
     R = 6371000
@@ -172,10 +172,10 @@ def getCellArea(lat):
     # 1도 to 라디안
     delLonRad = np.radians(1.0)
 
-    f0_rad = np.radians(lat - 0.5)
-    f1_rad = np.radians(lat + 0.5)
+    f0 = np.radians(lat - 0.5)
+    f1 = np.radians(lat + 0.5)
 
-    area = (np.sin(f1_rad) - np.sin(f0_rad)) * delLonRad * (R ** 2)
+    area = (np.sin(f1) - np.sin(f0)) * delLonRad * (R ** 2)
 
     return area
 
@@ -303,6 +303,9 @@ class DtaProcess(object):
                                 , 'lat': lat1D
                             }
                         )
+
+                        # cellAreaData['area'].plot()
+                        # plt.show()
 
                         sumDataL1 = xr.merge([sumData, cellAreaData])
 
