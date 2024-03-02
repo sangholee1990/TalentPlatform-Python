@@ -91,7 +91,7 @@ while [ $(date -d "$incDate" +"%s") -le $(date -d "$endDate" +"%s") ]; do
   updFilePath=${UPD_PATH}/${year}/${month}/${day}
   mkdir -p ${updFilePath}
 
-  updFileName=reanaly-era5-pres_${year}${month}${day}${hour}${min}.nc
+  updFileName=reanaly-era5-unis_${year}${month}${day}${hour}${min}.nc
   urlFileInfo=${TMP_PATH}/${year}/${month}/${day}/${updFileName}
   mkdir -p ${urlFileInfo%/*}
 
