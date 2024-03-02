@@ -41,7 +41,8 @@ import calendar
 # =================================================
 warnings.filterwarnings("ignore")
 
-plt.rc('font', family='Malgun Gothic')
+# plt.rc('font', family='Malgun Gothic')
+plt.rc('font', family='WenQuanYi Zen Hei')
 plt.rc('axes', unicode_minus=False)
 # sns.set(font="Malgun Gothic", rc={"axes.unicode_minus": False}, style='darkgrid')
 
@@ -357,7 +358,8 @@ class DtaProcess(object):
             # plt.gca().yaxis.set_major_formatter(ScalarFormatter(useMathText=True))
 
             # 그래프 제목과 축 레이블 추가
-            mainTitle = f'TOTAL LN EMISSION HIST'
+            # mainTitle = f'TOTAL LN EMISSION HIST'
+            mainTitle = f'综合排放比较'
             ax.set_title(mainTitle, loc='left')
             ax.legend(loc='upper left')
             ax.grid(True, color='lightgrey', linestyle='-', linewidth=0.5, zorder=0)
@@ -365,8 +367,10 @@ class DtaProcess(object):
             # plt.xlabel('Ln Emission [kg/C/year]')
             # plt.ylabel('Number of Grids')
 
-            fig.text(0.5, 0.02, 'Ln Emission [kg/C/year]', ha='center', va='center', fontsize=12)
-            fig.text(0.08, 0.5, 'Number of Grids', ha='center', va='center', rotation='vertical', fontsize=12)
+            # fig.text(0.5, 0.02, 'Ln Emission [kg/C/year]', ha='center', va='center', fontsize=12)
+            # fig.text(0.08, 0.5, 'Number of Grids', ha='center', va='center', rotation='vertical', fontsize=12)
+            fig.text(0.5, 0.02, '排放量自然对数[kg/C/年]', ha='center', va='center', fontsize=12)
+            fig.text(0.08, 0.5, '格子数', ha='center', va='center', rotation='vertical', fontsize=12)
 
             # mainTitle = f'Ln Emission'
             # plt.suptitle(mainTitle)
