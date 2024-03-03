@@ -337,7 +337,8 @@ class DtaProcess(object):
             plt.subplots_adjust(hspace=0.3)
 
             # x축 눈금의 범위 설정
-            binEdgeList = np.arange(-24, 32, 4)
+            # binEdgeList = np.arange(-24, 32, 4)
+            binEdgeList = np.arange(-20, 35, 5)
             # valList = list(dataL1.values())
             valList = [np.ravel(value) for value in dataL1.values()]
             keyList = list(dataL1.keys())
