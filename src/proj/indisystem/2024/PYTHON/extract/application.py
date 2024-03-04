@@ -442,46 +442,40 @@ class Application:
         initDB = dbapp.initCfgInfo()
 
         # NetCDF 파일 읽기
-        orgData = Dataset(self.inFile, 'r')
-        # orgData.variables
+        orgData = xr.open_dataset(self.inFile)
         common.logger.info(f'[CHECK] inFile : {self.inFile}')
 
         # 분석시간
         anaDate = pd.to_datetime(orgData.START_DATE, format='%Y-%m-%d_%H:%M:%S')
 
         # 시간 인덱스를 예보 시간 기준으로 변환
-        timeByteList = wrf.getvar(orgData, "times", timeidx=wrf.ALL_TIMES).values
-        timeList = pd.to_datetime(timeByteList)
-
-        # 그룹핑
-        grpData = pd.Series(range(len(timeList)), index=timeList)
+        timeByteList = orgData['Times'].values
+        timeList = [timeInfo.decode('UTF-8').replace('_', ' ') for timeInfo in timeByteList]
+        orgData['Time'] = pd.to_datetime(timeList)
 
         if re.search('60M', self.modelName, re.IGNORECASE):
-            grpDataL1 = grpData.resample('60T')
+            data = orgData.resample(Time='60T').mean(dim='Time', skipna=True)
         elif re.search('30M', self.modelName, re.IGNORECASE):
-            grpDataL1 = grpData.resample('30T')
+            data = orgData.resample(Time='30T').mean(dim='Time', skipna=True)
         elif re.search('10M', self.modelName, re.IGNORECASE):
-            grpDataL1 = grpData.resample('10T')
+            data = orgData.resample(Time='10T').mean(dim='Time', skipna=True)
         elif re.search('KIER-LDAPS-0.6K-ORG', self.modelName, re.IGNORECASE):
-            grpDataL1 = grpData.resample('1T')
+            data = orgData.resample(Time='60T').asfreq()
         else:
             common.logger.error(f'모델 종류 ({self.modelName})를 확인해주세요.')
             sys.exit(1)
 
-        for forDate, group in grpDataL1:
-            if re.search('60M', self.modelName, re.IGNORECASE):
-                timeIdxList = group.values
-            elif re.search('30M', self.modelName, re.IGNORECASE):
-                timeIdxList = group.values
-            elif re.search('10M', self.modelName, re.IGNORECASE):
-                timeIdxList = group.values
-            elif re.search('KIER-LDAPS-0.6K-ORG', self.modelName, re.IGNORECASE):
-                timeIdxList = [group.values[0]] if forDate == grpData.index[group.values[0]] else None
-            else:
-                common.logger.error(f'모델 종류 ({self.modelName})를 확인해주세요.')
-                sys.exit(1)
+        # 예보 시간
+        forDateList = data['Time'].values
+        for forDateIdx, forDateInfo in enumerate(forDateList):
+            forDate = pd.to_datetime(forDateInfo, format='%Y-%m-%d_%H:%M:%S')
 
-            if timeIdxList is None: continue
+            modelInfo = self.config['modelName'].get(f'{self.modelName}_{self.modelKey}')
+            if modelInfo is None:
+                common.logger.warn(f'설정 파일 (config.yml)에서 설정 정보 (KIER-LDAPS-0.6K, ALL)를 확인해주세요.')
+                continue
+
+            common.logger.info(f'[CHECK] anaDate : {anaDate} / forDate : {forDate}')
 
             # DB 등록/수정
             self.dbData = {}
@@ -489,17 +483,10 @@ class Application:
             self.dbData['FOR_DT'] = forDate
             self.dbData['MODEL_TYPE'] = self.modelName
 
-            modelInfo = self.config['modelName'].get(f'{self.modelName}_{self.modelKey}')
-            if modelInfo is None:
-                common.logger.warn(f'설정 파일 (config.yml)에서 설정 정보 (KIER-LDAPS/RDAPS, UNIS/PRES/ALL)를 확인해주세요.')
-                continue
-
-            common.logger.info(f'[CHECK] anaDate : {anaDate} / forDate : {forDate} / timeIdxList : {timeIdxList}')
-
             maxK = 9
-            shapeList = [orgData.variables[var].shape for var in ['U', 'V', 'PH', 'PHB']]
+            shapeList = [data.variables[var].shape for var in ['U', 'V', 'PH', 'PHB']]
             minShape = [min(dim) for dim in zip(*shapeList)]
-            mt, mz, mlat, nlon = minShape
+            mt, mz, mlat, mlon = minShape
 
             # 선택 컬럼
             for j, varInfo in enumerate(modelInfo['varName']):
@@ -507,26 +494,24 @@ class Application:
 
                 for level, colName in zip(varInfo['level'], varInfo['colName']):
                     try:
-                        for timeIdx in timeIdxList:
+                        if not re.search('WSP', name, re.IGNORECASE): continue
 
-                            valList = []
-                            if re.search('WSP', name, re.IGNORECASE):
+                        # 2024.03.04 KIER 소스코드 참조 및 최적화
+                        U = data['U'][forDateIdx, :maxK, :mlat, :mlon].values[np.newaxis]
+                        V = data['V'][forDateIdx, :maxK, :mlat, :mlon].values[np.newaxis]
+                        PH = data['PH'][forDateIdx, :maxK + 1, :mlat, :mlon].values[np.newaxis]
+                        PHB = data['PHB'][forDateIdx, :maxK + 1, :mlat, :mlon].values[np.newaxis]
 
-                                U = orgData.variables['U'][timeIdx, :maxK, :mlat, :nlon][np.newaxis]
-                                V = orgData.variables['V'][timeIdx, :maxK, :mlat, :nlon][np.newaxis]
-                                PH = orgData.variables['PH'][timeIdx, :maxK + 1, :mlat, :nlon][np.newaxis]
-                                PHB = orgData.variables['PHB'][timeIdx, :maxK + 1, :mlat, :nlon][np.newaxis]
+                        H_s = ( PH + PHB ) / 9.80665
+                        H = 0.5 * ( H_s[:,:-1] + H_s[:,1:])
 
-                                H_s = ( PH + PHB ) / 9.80665
-                                H = 0.5 * ( H_s[:,:-1] + H_s[:,1:])
+                        # 특정 고도에 따른 풍향/풍속 계산
+                        result = self.calcWsdWdr(U, V, H, alt=int(level))
+                        if len(result) < 1: continue
 
-                                # 특정 고도에 따른 풍향/풍속 계산
-                                result = calcWsdWdr(U, V, H, alt=level)
-                                valList = result[name]
-                                # print(result['WSP'][107, 61], result['WDR'][107, 61])
-                        if len(valList) < 1: continue
-                        meanVal = np.nanmean(np.nan_to_num(valList), axis=0)
-                        self.dbData[colName] = self.convFloatToIntList(meanVal)
+                        self.dbData[colName] = self.convFloatToIntList(result['WSP'])
+                        # self.dbData[colName] = self.convFloatToIntList(result['WDR'])
+
                     except Exception as e:
                         common.logger.error(f'Exception : {e}')
 
@@ -557,7 +542,8 @@ class Application:
 
         return result.tolist()
 
-    def calcWsdWdr(U, V, H, alt):
+    def calcWsdWdr(self, U, V, H, alt):
+
         nt, nz, nlat, nlon = U.shape
         U_int = U[nt - 1, :, :, :]
         V_int = V[nt - 1, :, :, :]
