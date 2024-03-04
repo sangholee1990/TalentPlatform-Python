@@ -99,7 +99,7 @@ while [ $(date -d "$incDate" +"%s") -le $(date -d "$endDate" +"%s") ]; do
         mkdir -p ${saveImg%/*}
 
 			  echo "[$(date +"%Y-%m-%d %H:%M:%S")] [CHECK] fileInfo : $fileInfo"
-			  ${NCL_BIN} -Q  'fileInfo="'$fileInfo'"' 'mainTitle="'$mainTitle'"' 'saveImg="'$saveImg'"' ${RUN_PATH}/RunNcl-reanalyEra5-vis.ncl
+			  ${NCL_BIN} -Q 'fileInfo="'$fileInfo'"' 'mainTitle="'$mainTitle'"' 'saveImg="'$saveImg'"' ${RUN_PATH}/RunNcl-reanalyEra5-vis.ncl
 
 #			  break
 		  done
