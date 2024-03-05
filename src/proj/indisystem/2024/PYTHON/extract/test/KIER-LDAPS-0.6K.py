@@ -79,8 +79,13 @@ def initCfgInfo(sysOpt):
 
 def dbMergeData(session, table, dataList, pkList=['MODEL_TYPE']):
     try:
+
+        if isinstance(dataList, dict): dataList = [dataList]
+
         stmt = insert(table)
-        setData = {key: getattr(stmt.excluded, key) for key in dataList.keys()}
+        # setData = {key: getattr(stmt.excluded, key) for key in dataList.keys()}
+        setData = {key: getattr(stmt.excluded, key) for key in dataList[0].keys()}
+
         onConflictStmt = stmt.on_conflict_do_update(
             index_elements=pkList
             , set_=setData
@@ -90,6 +95,7 @@ def dbMergeData(session, table, dataList, pkList=['MODEL_TYPE']):
 
     except Exception as e:
         session.rollback()
+        print(f'Exception : {e}')
 
     finally:
         session.close()
@@ -165,41 +171,38 @@ maxK = 9
 # Open the NetCDF file
 # ds = xr.open_dataset(file_name)
 # with nc.Dataset(file_name) as ds:
-with xr.open_dataset(file_name) as ds:
-    # 동적 최소 차원 계산
-    shapeList = [ds.variables[var].shape for var in ['U', 'V', 'PH', 'PHB']]
-
-    minShape = [min(dim) for dim in zip(*shapeList)]
-    mt, mz, mlat, nlon = minShape
-
-    # Extract the lower 5 levels for each variable and append to the respective lists
-    # Assuming the dimensions are in the order (time, level, y, x)
-    U = ds.variables['U'][:mt, :maxK, :mlat, :nlon]
-    V = ds.variables['V'][:mt, :maxK, :mlat, :nlon]
-    PH = ds.variables['PH'][:mt, :maxK + 1, :mlat, :nlon]
-    PHB = ds.variables['PHB'][:mt, :maxK + 1, :mlat, :nlon]
-
-    H_s = ( PH + PHB ) / 9.80665
-    H = 0.5 * ( H_s[:,:-1] + H_s[:,1:])
-
-    # 특정 고도에 따른 풍향/풍속 계산
-    result = calcWsdWdr(U, V, H, alt=86)
-
-    ROW = 107
-    COL = 61
-    print(result['WSP'][ROW, COL], result['WDR'][ROW, COL])
-
-
-# # ROW                           107
+# # with xr.open_dataset(file_name) as ds:
+#     # 동적 최소 차원 계산
+#     shapeList = [ds.variables[var].shape for var in ['U', 'V', 'PH', 'PHB']]
 #
+#     minShape = [min(dim) for dim in zip(*shapeList)]
+#     mt, mz, mlat, mlon = minShape
 #
-# # 위경도
-# lat2d = ds.variables['XLAT'][0]
-# lon2d = ds.variables['XLONG'][0]
+#     # Extract the lower 5 levels for each variable and append to the respective lists
+#     # Assuming the dimensions are in the order (time, level, y, x)
+#     U = ds.variables['U'][:mt, :maxK, :mlat, :mlon]
+#     V = ds.variables['V'][:mt, :maxK, :mlat, :mlon]
+#     PH = ds.variables['PH'][:mt, :maxK + 1, :mlat, :mlon]
+#     PHB = ds.variables['PHB'][:mt, :maxK + 1, :mlat, :mlon]
 #
-# # Calculate squared distances
-# dist_squared = (lat2d - target_lat) ** 2 + (lon2d - target_lon) ** 2
+#     H_s = ( PH + PHB ) / 9.80665
+#     H = 0.5 * ( H_s[:,:-1] + H_s[:,1:])
+#
+#     # 특정 고도에 따른 풍향/풍속 계산
+#     result = calcWsdWdr(U, V, H, alt=86)
+#
+#     ROW = 107
+#     COL = 61
+#     print(result['WSP'][ROW, COL], result['WDR'][ROW, COL])
 
+
+# # # 위경도
+# # lat2d = ds.variables['XLAT'][0]
+# # lon2d = ds.variables['XLONG'][0]
+# #
+# # # Calculate squared distances
+# # dist_squared = (lat2d - target_lat) ** 2 + (lon2d - target_lon) ** 2
+#
 # *********************************************
 # [템플릿] 기본 위경도 정보를 DB 삽입
 # *********************************************
@@ -209,22 +212,22 @@ dbData = {}
 modelType = 'KIER-LDAPS-0.6K'
 dbData['MODEL_TYPE'] = modelType
 
-# 지표
-# orgData = xr.open_mfdataset('/DATA/INPUT/INDI2023/MODEL/KIER-LDAPS/wrfsolar_d02.2023-06-30_03:00:00.nc')
-# orgData = xr.open_mfdataset('/vol01/DATA/MODEL/KIER-LDAPS/wrfsolar_d02.2023-06-30_03:00:00.nc')
-# orgData = xr.open_mfdataset('/DATA/INPUT/INDI2023/MODEL/KIER-RDAPS/wrfsolar_d02.2023-06-30_04:00:00.nc')
-# orgData = xr.open_mfdataset('/DATA/INPUT/INDI2023/MODEL/KIER-RDAPS/wrfsolar_d02.2023-06-30_04:00:00.nc')
+# # 지표
+# # orgData = xr.open_mfdataset('/DATA/INPUT/INDI2023/MODEL/KIER-LDAPS/wrfsolar_d02.2023-06-30_03:00:00.nc')
+# # orgData = xr.open_mfdataset('/vol01/DATA/MODEL/KIER-LDAPS/wrfsolar_d02.2023-06-30_03:00:00.nc')
+# # orgData = xr.open_mfdataset('/DATA/INPUT/INDI2023/MODEL/KIER-RDAPS/wrfsolar_d02.2023-06-30_04:00:00.nc')
+# # orgData = xr.open_mfdataset('/DATA/INPUT/INDI2023/MODEL/KIER-RDAPS/wrfsolar_d02.2023-06-30_04:00:00.nc')
 orgData = xr.open_mfdataset('/DATA/INPUT/INDI2024/DATA/KIER-LDAPS-0.6K/wrfout_d01_2024-01-01_12_00_00')
 data = orgData['SWDOWN'].isel(Time=0)
 
 dbData['LON_SFC'] = data['XLONG'].values.tolist() if len(data['XLONG'].values) > 0 else None
 dbData['LAT_SFC'] = data['XLAT'].values.tolist() if len(data['XLAT'].values) > 0 else None
 
-# 상층
-# orgData2 = xr.open_mfdataset('/DATA/INPUT/INDI2023/MODEL/KIER-LDAPS/wrfout_d02_2023-06-30_03:00:00.nc')
-# orgData2 = xr.open_mfdataset('/vol01/DATA/MODEL/KIER-LDAPS/wrfout_d02_2023-06-30_03:00:00.nc')
-# orgData2 = xr.open_mfdataset('/DATA/INPUT/INDI2023/MODEL/KIER-RDAPS/wrfout_d02_2023-06-30_04:00:00.nc')
-# orgData2 = xr.open_mfdataset('/DATA/INPUT/INDI2023/MODEL/KIER-RDAPS/wrfout_d02_2023-06-30_04:00:00.nc')
+# # 상층
+# # orgData2 = xr.open_mfdataset('/DATA/INPUT/INDI2023/MODEL/KIER-LDAPS/wrfout_d02_2023-06-30_03:00:00.nc')
+# # orgData2 = xr.open_mfdataset('/vol01/DATA/MODEL/KIER-LDAPS/wrfout_d02_2023-06-30_03:00:00.nc')
+# # orgData2 = xr.open_mfdataset('/DATA/INPUT/INDI2023/MODEL/KIER-RDAPS/wrfout_d02_2023-06-30_04:00:00.nc')
+# # orgData2 = xr.open_mfdataset('/DATA/INPUT/INDI2023/MODEL/KIER-RDAPS/wrfout_d02_2023-06-30_04:00:00.nc')
 orgData2 = xr.open_mfdataset('/DATA/INPUT/INDI2024/DATA/KIER-LDAPS-0.6K/wrfout_d01_2024-01-01_12_00_00')
 data2 = orgData2['U'].isel(Time = 0, bottom_top = 0)
 dbData['LON_PRE'] = data2['XLONG_U'].values.tolist() if len(data2['XLONG_U'].values) > 0 else None
@@ -242,7 +245,7 @@ sfcData = orgData['SWDOWN'].isel(Time=0).to_dataframe().reset_index(drop=False).
         , 'XLAT': 'LAT_SFC'
         , 'XLONG': 'LON_SFC'
     }
-).drop(['SWDOWN'], axis='columns')
+).drop(['SWDOWN', 'XTIME'], axis='columns')
 
 preData = orgData2['U'].isel(Time = 0, bottom_top = 0).to_dataframe().reset_index(drop=False).rename(
     columns={
@@ -267,6 +270,7 @@ dataL2['MODEL_TYPE'] = modelType
 # COL                            62
 
 # # (107, 61)
+
 
 dataList = dataL2.to_dict(orient='records')
 dbMergeData(cfgOpt['session'], cfgOpt['tbGeoDtl'], dataList=dataList, pkList=['MODEL_TYPE', 'ROW', 'COL'])
