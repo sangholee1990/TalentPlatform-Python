@@ -729,6 +729,34 @@ modelName:
   #********************************************************
   SAT-SENT1_ALL:
     tblName: 'TB_INT_MODEL'
+
+  #********************************************************
+  # KIER-LDAPS-0.6K
+  #********************************************************
+  KIER-LDAPS-0.6K-ORG_ALL:
+    varName:
+      - name: 'WSP'
+        level: [ '80' ]
+        colName: [ 'WSP80' ]
+    tblName: 'TB_INT_MODEL'
+  KIER-LDAPS-0.6K-10M_ALL:
+    varName:
+      - name: 'WSP'
+        level: [ '80' ]
+        colName: [ 'WSP80' ]
+    tblName: 'TB_INT_MODEL'
+  KIER-LDAPS-0.6K-30M_ALL:
+    varName:
+      - name: 'WSP'
+        level: [ '80' ]
+        colName: [ 'WSP80' ]
+    tblName: 'TB_INT_MODEL'
+  KIER-LDAPS-0.6K-60M_ALL:
+    varName:
+      - name: 'WSP'
+        level: [ '80' ]
+        colName: [ 'WSP80' ]
+    tblName: 'TB_INT_MODEL'
 # =======================================================
 # DB 설정 정보
 # =======================================================
