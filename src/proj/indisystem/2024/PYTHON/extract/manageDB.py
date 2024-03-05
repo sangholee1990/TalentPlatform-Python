@@ -83,8 +83,13 @@ class ManageDB:
     # def dbMergeData(session, table, dataList, pkList=['ANA_DT', 'FOR_DT', 'MODEL_TYPE']):
     def dbMergeData(self, session, table, dataList, pkList=['MODEL_TYPE']):
         try:
+            if isinstance(dataList, dict): dataList = [dataList]
+
             stmt = insert(table)
-            setData = {key: getattr(stmt.excluded, key) for key in dataList.keys()}
+
+            # setData = {key: getattr(stmt.excluded, key) for key in dataList.keys()}
+            setData = {key: getattr(stmt.excluded, key) for key in dataList[0].keys()}
+
             onConflictStmt = stmt.on_conflict_do_update(
                 index_elements=pkList
                 , set_=setData

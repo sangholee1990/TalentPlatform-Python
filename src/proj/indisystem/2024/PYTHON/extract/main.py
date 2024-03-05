@@ -48,16 +48,16 @@ def main():
         # inFile = '/DATA/INPUT/INDI2024/DATA/SAT-SENT1/2024/01/19/S1A_ESA_2024_01_19_09_32_41_0758971961_126.46E_37.99N_VV_C11_GFS025CDF_wind.png'
         # modelName = 'SAT-SENT1'
 
-        # inFile = '/DATA/INPUT/INDI2024/DATA/KIER-LDAPS-0.6K/wrfout_d01_2024-01-01_12_00_00'
+        inFile = '/DATA/INPUT/INDI2024/DATA/KIER-LDAPS-0.6K/wrfout_d01_2024-01-01_12_00_00'
         # inFile = '/DATA/INPUT/INDI2024/DATA/KIER-LDAPS-0.6K/wrfout_d01_2024-01-01_13_00_00'
         # modelName = 'KIER-LDAPS-0.6K-ORG'
-        # modelName = 'KIER-LDAPS-0.6K-10M'
+        modelName = 'KIER-LDAPS-0.6K-10M'
         # modelName = 'KIER-LDAPS-0.6K-30M'
         # modelName = 'KIER-LDAPS-0.6K-60M'
 
-        option = get_option()
-        inFile = option.inFile
-        modelName = option.modelName
+        # option = get_option()
+        # inFile = option.inFile
+        # modelName = option.modelName
 
         ctxPath = os.getcwd()
         logInfo = f'{ctxPath}/log/daemon-kierDB-{modelName}.log'
@@ -66,7 +66,6 @@ def main():
         os.makedirs(os.path.dirname(logInfo), exist_ok=True)
         os.makedirs(os.path.dirname(cfgInfo), exist_ok=True)
 
-        # common.init_logger("./logdir/gribDB.log")
         common.init_logger(logInfo)
         config = parse_config(cfgInfo)
 

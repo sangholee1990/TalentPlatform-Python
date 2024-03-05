@@ -5,8 +5,6 @@ import psycopg2
 import re
 import yaml
 import os
-import os
-import cartopy.crs as ccrs
 import matplotlib.pyplot as plt
 from mpl_toolkits.basemap import Basemap
 import numpy as np
@@ -26,7 +24,8 @@ import re
 # PostgreSQL 설정 정보
 # ===========================================================
 ctxPath = os.getcwd()
-cfgInfo = f'{ctxPath}/config/config.yml'
+# cfgInfo = f'{ctxPath}/config/config.yml'
+cfgInfo = f'/SYSTEMS/PROG/PYTHON/PyCharm/src/proj/indisystem/2024/PYTHON/extract/config/config.yml'
 
 with open(cfgInfo, 'rt', encoding='UTF-8') as file:
     cfgData = yaml.safe_load(file)['db_info']
@@ -36,7 +35,7 @@ conn = psycopg2.connect(
     dbname=cfgData['dbName']
     , user=cfgData['dbUser']
     , password=cfgData['dbPwd']
-    , host=cfgData['dbHost']
+    , host='localhost' if cfgData['dbHost'] == cfgData['serverHost'] else cfgData['dbHost']
 )
 
 # 커서 생성
@@ -51,17 +50,18 @@ SELECT * FROM "DMS01"."TB_GEO_DTL";
 cur.execute(sql)
 
 # 결과 가져오기
-results = cur.fetchall()
+result = cur.fetchall()
 
 # 결과 출력
 colNameList = [desc[0] for desc in cur.description]
-data = pd.DataFrame(results, columns=colNameList)
+data = pd.DataFrame(result, columns=colNameList)
 # print(data)
 
 modelTypeList = set(data['MODEL_TYPE'])
 for modelTypeInfo in modelTypeList:
 
-    if not (modelTypeInfo == 'GFS-25K'): continue
+    # if not (modelTypeInfo == 'GFS-25K'): continue
+    if not (modelTypeInfo == 'KIER-LDAPS-0.6K'): continue
     print(f'[CHECK] modelTypeInfo : {modelTypeInfo}')
 
     dataL1 = data.loc[(data['MODEL_TYPE'] == modelTypeInfo)]
@@ -79,9 +79,7 @@ for modelTypeInfo in modelTypeList:
     mainTitle =  f'{meanLon:.2f} ({minLon:.2f} ~ {maxLon:.2f}) / {meanLat:.2f} ({minLat:.2f} ~ {maxLat:.2f})'
 
     plt.figure(dpi=600, figsize=(9/1.5, 10/1.5))
-    map = Basemap(projection='cyl', resolution='f', llcrnrlon=minLon,
-                  urcrnrlon=maxLon, llcrnrlat=minLat,
-                  urcrnrlat=maxLat)
+    map = Basemap(projection='cyl', resolution='f', llcrnrlon=minLon, urcrnrlon=maxLon, llcrnrlat=minLat, urcrnrlat=maxLat)
     cs = map.scatter(dataL1['LON_SFC'], dataL1['LAT_SFC'], c=dataL1['LAT_SFC'] * 0 + 1, s=1, vmin = 0, vmax = 2, marker='s', cmap='Greys_r')
 
     map.drawcoastlines()
@@ -112,6 +110,8 @@ for modelTypeInfo in modelTypeList:
     plt.tight_layout()
     # plt.show()
     plt.close()
+
+    print(f'[CHECK] saveImg : {saveImg}')
 
 # 커서와 연결 종료
 cur.close()
