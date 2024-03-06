@@ -17,12 +17,14 @@ export LANG=en_US.UTF-8
 export LC_TIME=en_US.UTF-8
 
 # 작업 경로 설정
-#CTX_PATH=$(pwd)
-CTX_PATH=/home/guest_user1/SYSTEMS/KIER
+CTX_PATH=$(pwd)
+#CTX_PATH=/home/guest_user1/SYSTEMS/KIER
+#CTX_PATH=/wind_home/jinyoung/SYSTEMS/KIER
 
 # 아나콘다 가상환경 활성화
 PY38_PATH=/SYSTEMS/anaconda3/envs/py38
 #PY38_PATH=/home/guest_user1/SYSTEMS/KIER/LIB/py38
+#PY38_PATH=/wind_home/jinyoung/SYSTEMS/KIER/LIB/py38
 
 PY38_BIN=${PY38_PATH}/bin/python3
 
@@ -30,7 +32,7 @@ PY38_BIN=${PY38_PATH}/bin/python3
 RUN_PATH=${CTX_PATH}/PROG/PYTHON/extract
 
 # 작업경로 이동
-#cd $RUN_PATH
+cd $RUN_PATH
 
 echo "[$(date +"%Y-%m-%d %H:%M:%S")] [CHECK] CTX_PATH : $CTX_PATH"
 echo "[$(date +"%Y-%m-%d %H:%M:%S")] [CHECK] RUN_PATH : $RUN_PATH"
@@ -110,10 +112,10 @@ metaData["RDAPS-12K","PRES"]="/only-wrf-data2/Forecast/RDAPS/%Y/%m/%d/%H/g120_v0
 
 metaData["GFS-25K","ALL"]="/data1/GFS/%Y/%m/%d/%H/gfs.t*z.pgrb2.0p25.f*.gb2"
 
-metaData["KIER-LDAPS-0.6K-ORG","ALL"]="/wind_home/dgoh313/FCST/LDAPS_WRF/%Y/%m/%d/%H/wrfwind_d02_%Y-%m-%d*"
-metaData["KIER-LDAPS-0.6K-10M","ALL"]="/wind_home/dgoh313/FCST/LDAPS_WRF/%Y/%m/%d/%H/wrfwind_d02_%Y-%m-%d*"
-metaData["KIER-LDAPS-0.6K-30M","ALL"]="/wind_home/dgoh313/FCST/LDAPS_WRF/%Y/%m/%d/%H/wrfwind_d02_%Y-%m-%d*"
-metaData["KIER-LDAPS-0.6K-60M","ALL"]="/wind_home/dgoh313/FCST/LDAPS_WRF/%Y/%m/%d/%H/wrfwind_d02_%Y-%m-%d*"
+metaData["KIER-LDAPS-0.6K-ORG","ALL"]="/wind_home/dgoh313/FCST/LDAPS_WRF/%Y/%m/%d/*/wrfwind_d02_%Y-%m-%d*"
+metaData["KIER-LDAPS-0.6K-10M","ALL"]="/wind_home/dgoh313/FCST/LDAPS_WRF/%Y/%m/%d/*/wrfwind_d02_%Y-%m-%d*"
+metaData["KIER-LDAPS-0.6K-30M","ALL"]="/wind_home/dgoh313/FCST/LDAPS_WRF/%Y/%m/%d/*/wrfwind_d02_%Y-%m-%d*"
+metaData["KIER-LDAPS-0.6K-60M","ALL"]="/wind_home/dgoh313/FCST/LDAPS_WRF/%Y/%m/%d/*/wrfwind_d02_%Y-%m-%d*"
 
 #modelList=("LDAPS-1.5K")
 #modelList=("RDAPS-12K")
