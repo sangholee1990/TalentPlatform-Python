@@ -74,7 +74,7 @@ def main():
         common.logger.info(f'[CHECK] cfgInfo : {cfgInfo}')
 
         modelKey = ""
-        if re.search('wrfout_d01|wrfout_d04|gfs|S1A_ESA', inFile, re.IGNORECASE):
+        if re.search('wrfwind_d02|wrfout_d01|wrfout_d04|gfs|S1A_ESA', inFile, re.IGNORECASE):
             modelKey = "ALL"
         elif re.search('unis|wrfsolar_d02', inFile, re.IGNORECASE):
             modelKey = "UNIS"
@@ -86,7 +86,7 @@ def main():
             exit(1)
 
         if not (
-                (re.search('wrfout_d01|wrfout_d04|gfs', inFile, re.IGNORECASE) and re.search('ALL', modelKey, re.IGNORECASE))
+                (re.search('wrfwind_d02|wrfout_d01|wrfout_d04|gfs', inFile, re.IGNORECASE) and re.search('ALL', modelKey, re.IGNORECASE))
                 or (re.search('unis|wrfsolar_d02', inFile, re.IGNORECASE) and re.search('UNIS', modelKey,re.IGNORECASE))
                 or (re.search('pres|wrfout_d02', inFile, re.IGNORECASE) and re.search('PRES', modelKey, re.IGNORECASE))
         ):
