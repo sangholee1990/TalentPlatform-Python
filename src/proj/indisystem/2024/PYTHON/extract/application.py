@@ -460,7 +460,8 @@ class Application:
         elif re.search('10M', self.modelName, re.IGNORECASE):
             data = orgData.resample(Time='10T').mean(dim='Time', skipna=True)
         elif re.search('KIER-LDAPS-0.6K-ORG', self.modelName, re.IGNORECASE):
-            data = orgData.resample(Time='60T').asfreq()
+            # data = orgData.resample(Time='60T').asfreq()
+            data = orgData
         else:
             common.logger.error(f'모델 종류 ({self.modelName})를 확인해주세요.')
             sys.exit(1)
@@ -568,11 +569,13 @@ class Application:
 
                 WDR00[j, i] = (np.arctan2(-uEle, -vEle) * 180.0 / np.pi) % 360.0
 
+        # 문턱값 검사 (DB -99999 표시)
+        WSP00 = np.where(WSP00 < 100, WSP00, -9.9999)
+
         result = {
             'WSP': WSP00
             , 'WDR': WDR00
             , 'alt': alt
-
         }
 
         return result

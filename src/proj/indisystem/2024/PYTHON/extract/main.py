@@ -49,7 +49,7 @@ def main():
         # modelName = 'SAT-SENT1'
 
         # inFile = '/DATA/INPUT/INDI2024/DATA/KIER-LDAPS-0.6K/wrfout_d01_2024-01-01_12_00_00'
-        # inFile = '/DATA/INPUT/INDI2024/DATA/KIER-LDAPS-0.6K/wrfout_d01_2024-01-01_13_00_00'
+        # inFile = '/DATA/INPUT/INDI2024/DATA/KIER-LDAPS-0.6K/wrfwind_d02_2024-02-02_23_00_00'
         # modelName = 'KIER-LDAPS-0.6K-ORG'
         # modelName = 'KIER-LDAPS-0.6K-10M'
         # modelName = 'KIER-LDAPS-0.6K-30M'
