@@ -569,7 +569,7 @@ class Application:
 
                 WDR00[j, i] = (np.arctan2(-uEle, -vEle) * 180.0 / np.pi) % 360.0
 
-        # 문턱값 검사 (DB -99999 표시)
+        # 문턱값 검사 (DB 내 결측값 -99999 표시)
         WSP00 = np.where(WSP00 < 100, WSP00, -9.9999)
 
         result = {
