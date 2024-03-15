@@ -1,0 +1,18 @@
+#  urlDir urlName Interval IntervalUnit
+# https://nmsc.kma.go.kr/IMG/GK2A/AMI/PRIMARY/L1B/COMPLETE/FD/%Y%m/%d/%H gk2a_ami_le1b_rgb-daynight_fd020ge_%Y%m%d%H%M.png 10 minute
+# https://nmsc.kma.go.kr/IMG/GK2A/AMI/PRIMARY/L1B/COMPLETE/EA/%Y%m/%d/%H gk2a_ami_le1b_rgb-daynight_ea020lc_%Y%m%d%H%M.png 10 minute
+# https://nmsc.kma.go.kr/IMG/GK2A/AMI/PRIMARY/L1B/COMPLETE/KO/%Y%m/%d/%H gk2a_ami_le1b_rgb-daynight_ko020lc_%Y%m%d%H%M.png 2 minute
+# https://nmsc.kma.go.kr/IMG/COMS/MI/L1/L1B/%Y%m/%d coms_mi_le1b_ir01+colors_ea040ps_%Y%m%d%H%M.png 15 minute
+# https://nmsc.kma.go.kr/IMG/COMS/MI/L1/L1B/%Y%m/%d coms_mi_le1b_ir01+colors_ko040ps_%Y%m%d%H%M.png 15 minute
+http://nmsc.kma.go.kr/IMG/GK2A/AMI/PRIMARY/L1B/COMPLETE/FD/%Y%m/%d/%H gk2a_ami_le1b_rgb-daynight_fd020ge_%Y%m%d%H%M.srv.png 10 minute
+http://nmsc.kma.go.kr/IMG/GK2A/AMI/PRIMARY/L1B/COMPLETE/FD/%Y%m/%d/%H gk2a_ami_le1b_ir105_fd020ge_%Y%m%d%H%M.srv.png 10 minute
+http://nmsc.kma.go.kr/IMG/GK2A/AMI/PRIMARY/L1B/COMPLETE/FD/%Y%m/%d/%H gk2a_ami_le1b_rgb-true_fd010ge_%Y%m%d%H%M.srv.png 10 minute
+http://nmsc.kma.go.kr/IMG/GK2A/AMI/PRIMARY/L1B/COMPLETE/FD/%Y%m/%d/%H gk2a_ami_le1b_rgb-airmass_fd020ge_%Y%m%d%H%M.srv.png 10 minute
+http://nmsc.kma.go.kr/IMG/GK2A/AMI/PRIMARY/L1B/COMPLETE/FD/%Y%m/%d/%H gk2a_ami_le1b_rgb-ash_fd020ge_%Y%m%d%H%M.srv.png 10 minute
+http://nmsc.kma.go.kr/IMG/GK2A/AMI/PRIMARY/L1B/COMPLETE/FD/%Y%m/%d/%H gk2a_ami_le1b_rgb-dust_fd020ge_%Y%m%d%H%M.srv.png 10 minute
+# http://nmsc.kma.go.kr/IMG/GK2A/AMI/PRIMARY/L1B/COMPLETE/EA/%Y%m/%d/%H gk2a_ami_le1b_rgb-daynight_ea020lc_%Y%m%d%H%M.srv.png 10 minute
+# http://nmsc.kma.go.kr/IMG/GK2A/AMI/PRIMARY/L1B/COMPLETE/KO/%Y%m/%d/%H gk2a_ami_le1b_rgb-daynight_ko020lc_%Y%m%d%H%M.srv.png 2 minute
+# http://nmsc.kma.go.kr/IMG/GK2A/AMI/PRIMARY/L1B/COMPLETE/EA/%Y%m/%d/%H gk2a_ami_le1b_ir105_ea020lc_%Y%m%d%H%M.srv.png 10 minute
+# http://nmsc.kma.go.kr/IMG/GK2A/AMI/PRIMARY/L1B/COMPLETE/KO/%Y%m/%d/%H gk2a_ami_le1b_ir105_ko020lc_%Y%m%d%H%M.srv.png 2 minute
+# http://venus.nies.go.jp/datadepot/gmtmap/JPN/PM25/%Y/%m JPN_PM25_%Y%m%d%H.jpg 1 hour
+# http://venus.nies.go.jp/datadepot/gmtmap/JPN/O3/%Y/%m JPN_O3_%Y%m%d%H.jpg 1 hour
