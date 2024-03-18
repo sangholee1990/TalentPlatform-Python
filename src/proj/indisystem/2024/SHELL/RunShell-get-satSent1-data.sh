@@ -19,12 +19,14 @@ export LC_TIME=en_US.UTF-8
 CTX_PATH=$(pwd)
 # CTX_PATH=/SYSTEMS/PROG/PYTHON/PyCharm/src/proj/indisystem/2024/SHELL
 # CTX_PATH=/home/guest_user1/SYSTEMS/KIER
+# CTX_PATH=/home/hanul/SYSTEMS/KIER
 
 # 실행 파일 경로
 URL_PATH="https://science.globalwindatlas.info/full/sentinel1"
 
 UPD_PATH=/DATA/INPUT/INDI2024/DATA/SAT-SENT1
 #UPD_PATH=/data1/SAT-SENT1
+#UPD_PATH=/home/hanul/SYSTEMS/KIER/DATA/SAT-SENT1
 
 TMP_KEY=$(mktemp .tmp-XXXXXXXXXX)
 TMP_PATH=${UPD_PATH}/${TMP_KEY}
@@ -32,6 +34,7 @@ TMP_PATH=${UPD_PATH}/${TMP_KEY}
 # 아나콘다 가상환경 활성화
 PY38_PATH=/SYSTEMS/anaconda3/envs/py38
 #PY38_PATH=/home/guest_user1/SYSTEMS/KIER/LIB/py38
+#PY38_PATH=/home/hanul/SYSTEMS/KIER/LIB/py38
 
 PY38_BIN=${PY38_PATH}/bin/python3
 
@@ -94,6 +97,9 @@ cat > ${TMP_PATH}/RunPython-get-satSent1-data.py << EOF
 from urllib.parse import urlparse, parse_qs
 import requests
 import os
+
+user = ""
+pw = ""
 
 def get_token():
     return requests.post("https://auth.windenergy.dtu.dk/auth/realms/DTU-Wind-Energy/protocol/openid-connect/token",

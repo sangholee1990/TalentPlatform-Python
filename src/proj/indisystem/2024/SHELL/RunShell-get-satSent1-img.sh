@@ -22,8 +22,9 @@ CTX_PATH=$(pwd)
 
 # 실행 파일 경로
 TMP_PATH=$(mktemp -d)
-UPD_PATH=/DATA/INPUT/INDI2024/DATA/SAT-SENT1
 URL_PATH="https://science.globalwindatlas.info/full/sentinel1"
+
+UPD_PATH=/DATA/INPUT/INDI2024/DATA/SAT-SENT1
 
 # 아나콘다 가상환경 활성화
 #source /home/indisystem/.bashrc

@@ -40,7 +40,7 @@ mkdir -p $UPD_PATH
 mkdir -p $TMP_PATH
 
 # 빈 폴더 삭제
-find ${UPD_PATH} -empty -type d -delete
+#find ${UPD_PATH} -empty -type d -delete
 
 echo "[$(date +"%Y-%m-%d %H:%M:%S")] [CHECK] CTX_PATH : $CTX_PATH"
 echo "[$(date +"%Y-%m-%d %H:%M:%S")] [CHECK] TMP_PATH : $TMP_PATH"
@@ -133,7 +133,6 @@ EOF
 # API키 인증
 cat > $HOME/.cdsapirc << EOF
 url: https://cds.climate.copernicus.eu/api/v2
-key: 38372:e61b5517-d919-47b6-93bf-f9a01ee4246f
 EOF
 
 #  ${PY38_BIN} ${TMP_PATH}/RunPython-get-reanalyEra5-unis.py
