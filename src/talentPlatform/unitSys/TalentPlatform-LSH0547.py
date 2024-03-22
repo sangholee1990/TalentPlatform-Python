@@ -274,14 +274,14 @@ class DtaProcess(object):
                     # 원본 파일 정보
                     'filePath': '/DATA/INPUT/LSH0547/yearly/%Y'
                     , 'fileName': 'era5_merged_yearly_mean.grib'
-                    , 'varList': ['t2m', 'tp', 'tp']
+                    , 'varList': ['t2m', 'cp']
 
                     # 가공 파일 덮어쓰기 여부
                     , 'isOverWrite': True
                     # , 'isOverWrite': False
 
                     # 가공 변수
-                    , 'procList': ['TXX', 'R10', 'CDD']
+                    , 'procList': ['t2m', 'cp']
 
                     # 가공 파일 정보
                     , 'procPath': '/DATA/OUTPUT/LSH0547'
@@ -289,6 +289,7 @@ class DtaProcess(object):
                     # , 'procName': '{}_{}-{}_{}-{}.nc'
                 }
             }
+
 
             # 시작일/종료일 설정
             dtSrtDate = pd.to_datetime(sysOpt['srtDate'], format='%Y-%m-%d')
@@ -325,117 +326,113 @@ class DtaProcess(object):
                     data = xr.open_dataset(fileInfo)
                     log.info(f'[CHECK] fileInfo : {fileInfo}')
 
-                    # data['time'].values = dtDateInfo
-                    # dataL1['t2m'] = dataL1['t2m'] - 273.15
-                    # dataL1['t2m'].plot()
-                    # plt.show()
-
-                    dataL1 = data['t2m'] - 273.15
-
-
-                    timeList = dataL1['time'].values
-                    # minDate = pd.to_datetime(timeList).min().strftime("%Y%m%d")
-                    # maxDate = pd.to_datetime(timeList).max().strftime("%Y%m%d")
-                    preDate = pd.to_datetime(timeList).strftime("%Y%m%d%H%M")
-
-                    meanVal = np.nanmean(dataL1)
-                    maxVal = np.nanmax(dataL1)
-                    minVal = np.nanmin(dataL1)
-
-                    procInfo = 't2m'
-                    # procFilePattern = '{}/{}'.format(modelInfo['procPath'], modelInfo['procName'])
-                    # procFile = '/DATA/OUTPUT/LSH0544/{}_{}_{}_{}.nc'.format(modelType, 'yearly', procInfo, preDate)
-                    os.makedirs(os.path.dirname(procFile), exist_ok=True)
-                    dataL1.plot()
-                    plt.show()
-
-                    saveImg = '{}/long-term_{}.png'.format(globalVar['figPath'], dataL1['SRV'].iloc[0])
-                    os.makedirs(os.path.dirname(saveImg), exist_ok=True)
-                    plt.savefig(saveImg, dpi=600, bbox_inches='tight', transparent = True)
-                    plt.show()
-                    plt.close()
-
-
-
-                    log.info(f'[CHECK] procFile : {procFile}')
-
-
                     dataL1 = data
-                    dataL1['time'].values = pd.to_datetime(dtDateInfo)
+
+                    # 동적 NetCDF 생선
+                    lon1D = dataL1['longitude'].values
+                    lat1D = dataL1['latitude'].values
+                    time1D = dtDateInfo
+
+                    dataL2 = xr.Dataset(
+                        coords={
+                            'time': pd.date_range(time1D, periods=1)
+                            , 'lat': lat1D
+                            , 'lon': lon1D
+                        }
+                    )
+
+                    for varInfo in modelInfo['varList']:
+                        try:
+                            dataL2[varInfo] = (('time', 'lat', 'lon'), (dataL1[varInfo].values).reshape(1, len(lat1D), len(lon1D)))
+                        except Exception as e:
+                            pass
 
                     # 변수 삭제
                     selList = ['expver']
                     for selInfo in selList:
                         try:
-                            dataL1 = dataL1.isel(expver=1).drop_vars([selInfo])
+                            dataL2 = dataL2.isel(expver=1).drop_vars([selInfo])
                         except Exception as e:
                             pass
 
-                    mrgData = xr.merge([mrgData, dataL1])
+                    mrgData = xr.merge([mrgData, dataL2])
 
                 # ******************************************************************************************************
                 # 1) 월간 데이터에서 격자별 값을 추출하고 새로운 3장(각각 1장)의 netCDF 파일로 생성
                 # ******************************************************************************************************
+                timeList = mrgData['time'].values
+                for timeInfo in timeList:
+                    selData = mrgData.sel(time = timeInfo)['t2m'] - 273.15
+
+                    preDate = pd.to_datetime(timeInfo).strftime("%Y")
+
+                    meanVal = np.nanmean(selData)
+                    maxVal = np.nanmax(selData)
+                    minVal = np.nanmin(selData)
+
+                    log.info(f'[CHECK] preDate : {preDate} / meanVal : {meanVal} / maxVal : {maxVal} / minVal : {minVal}')
+
+
+
+
                 for varIdx, varInfo in enumerate(modelInfo['varList']):
                     procInfo = modelInfo['procList'][varIdx]
                     log.info(f'[CHECK] varInfo : {varInfo} / procInfo : {procInfo}')
 
-                    # TXX: Montly maximum value of daily maximum temperature
-                    if re.search('TXX', procInfo, re.IGNORECASE):
+                    if re.search('t2m', procInfo, re.IGNORECASE):
                         # 0 초과 필터, 그 외 결측값 NA
                         varData = mrgData[varInfo]
-
-                        varDataL1 = varData.where(varData > 0).resample(time='1D').max(skipna=False)
-                        varDataL2 = varDataL1.resample(time='1M').max(skipna=False)
-
-                    # R10: Number of heavy precipitation days(precipitation > 10mm)
-                    elif re.search('R10', procInfo, re.IGNORECASE):
-                        # 단위 변환 (m/hour -> mm/day)
-                        varData = mrgData[varInfo] * 24 * 1000
-
-                        varDataL1 = varData.resample(time='1D').sum(skipna=False)
-                        varDataL2 = varDataL1.where(varDataL1 > 10.0, drop=False).resample(time='1M').count(skipna=False)
-
-                    # CDD: The largests No. of consecutive days with, 1mm of precipitation
-                    elif re.search('CDD', procInfo, re.IGNORECASE):
-
-                        # 단위 변환 (m/hour -> mm/day)
-                        varData = mrgData[varInfo] * 24 * 1000
-
-                        varDataL1 = varData.resample(time='1D').sum(skipna=False)
-
-                        # True: 1 mm 미만 강수량 / False: 그 외
-                        # varDataL1 = varDataL1 >= 1.0
-                        varDataL2 = (varDataL1 < 1.0).resample(time='1M').apply(calcMaxContDay)
+                        varDataL1 = varData.where(varData > 0)
+                        varDataL2 = varDataL1 - 273.15
                     else:
                         continue
 
                     # 마스킹 데이터
-                    maskData = varData.isel(time=0)
-                    maskDataL1 = xr.where(np.isnan(maskData), np.nan, 1)
-
-                    varDataL2 = varDataL2 * maskDataL1
-                    varDataL2.name = procInfo
-
-                    # varDataL3.isel(time = 0).plot()
-                    # plt.show()
-
+                    # maskData = varData.isel(time=0)
+                    # maskDataL1 = xr.where(np.isnan(maskData), np.nan, 1)
+                    #
+                    # varDataL2 = varDataL2 * maskDataL1
+                    # varDataL2.name = procInfo
+                    #
+                    # # varDataL3.isel(time = 0).plot()
+                    # # plt.show()
+                    #
                     timeList = varDataL2['time'].values
                     minDate = pd.to_datetime(timeList).min().strftime("%Y%m%d")
                     maxDate = pd.to_datetime(timeList).max().strftime("%Y%m%d")
-
-                    procFilePattern = '{}/{}'.format(modelInfo['procPath'], modelInfo['procName'])
-                    procFile = procFilePattern.format(modelType, procInfo, 'ORG', minDate, maxDate)
-                    os.makedirs(os.path.dirname(procFile), exist_ok=True)
-                    varDataL2.to_netcdf(procFile)
-                    log.info(f'[CHECK] procFile : {procFile}')
+                    # procFilePattern = '{}/{}'.format(modelInfo['procPath'], modelInfo['procName'])
+                    # procFile = procFilePattern.format(modelType, procInfo, 'ORG', minDate, maxDate)
+                    # os.makedirs(os.path.dirname(procFile), exist_ok=True)
+                    # varDataL2.to_netcdf(procFile)
+                    # log.info(f'[CHECK] procFile : {procFile}')
 
                     # ******************************************************************************************************
                     # 2) 각 격자별 trend를 계산해서 지도로 시각화/ Mann Kendall 검정
                     # (2개월 데이터로만 처리해주셔도 됩니다. 첨부사진처럼 시각화하려고 합니다. )
                     # ******************************************************************************************************
-                    colName = 'slope'
+                    # posData = varDataL2.interp({'lon': 126.74525, 'lat': 35.12886}, method='linear')
+                    # posData.plot()
+                    # plt.show()
 
+                    # preDate = pd.to_datetime(timeList).strftime("%Y%m%d%H%M")
+                    #
+                    # meanVal = np.nanmean(dataL1)
+                    # maxVal = np.nanmax(dataL1)
+                    # minVal = np.nanmin(dataL1)
+
+                    posCfg = [
+                        {"GU": "광산구", "NAME": "광산 관측지점", "ENGNAME": "AWS GwangSan", "ENGSHORTNAME": "St. GwangSan", "LAT": 35.12886, "LON": 126.74525, "INFO": "AWS", "MARK": "\u23F3"}
+                        , {"GU": "북구", "NAME": "과학기술원", "ENGNAME": "AWS Gwangju Institute of Science and Technology", "ENGSHORTNAME": "St. GIST", "LAT": 35.23026, "LON": 126.84076, "INFO": "AWS", "MARK": "\u23F3"}
+                        , {"GU": "서구", "NAME": "풍암 관측지점", "ENGNAME": "AWS PungArm", "ENGSHORTNAME": "St. PungArm", "LAT": 35.13159, "LON": 126.88132, "INFO": "AWS", "MARK": "\u23F3"}
+                        , {"GU": "동구", "NAME": "조선대 관측지점", "ENGNAME": "AWS Chosun University", "ENGSHORTNAME": "St. Chosun", "LAT": 35.13684, "LON": 126.92875, "INFO": "AWS", "MARK": "\u23F3"}
+                        , {"GU": "동구", "NAME": "무등산 관측지점", "ENGNAME": "AWS Mudeung Mountain", "ENGSHORTNAME": "St. M.T Mudeung", "LAT": 35.11437, "LON": 126.99743, "INFO": "AWS", "MARK": "\u23F3"}
+                        , {"GU": "남구", "NAME": "광주 남구 관측지점", "ENGNAME": "AWS Nam-gu", "ENGSHORTNAME": "St. Nam-gu", "LAT": 35.100807, "LON": 126.8985, "INFO": "AWS", "MARK": "\u23F3"}
+                        , {"GU": "북구", "NAME": "광주지방기상청", "ENGNAME": "GwangJuKMA", "ENGSHORTNAME": "GMA", "LAT": 35.17344444, "LON": 126.8914639, "INFO": "LOCATE", "MARK": "\u23F3"}
+                    ]
+
+                    # ,35.12886,126.74525
+
+                    colName = 'slope'
                     mkData = xr.apply_ufunc(
                         calcMannKendall,
                         varDataL2,
@@ -451,6 +448,8 @@ class DtaProcess(object):
                     mkName = f'{procInfo}-{colName}'
                     mkData.name = mkName
 
+
+                    # {}_{}-{}_{}-{}.nc
                     procFilePattern = '{}/{}'.format(modelInfo['procPath'], modelInfo['procName'])
                     procFile = procFilePattern.format(modelType, mkName, 'MK', minDate, maxDate)
                     os.makedirs(os.path.dirname(procFile), exist_ok=True)
