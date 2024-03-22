@@ -373,8 +373,6 @@ class DtaProcess(object):
                     log.info(f'[CHECK] preDate : {preDate} / meanVal : {meanVal} / maxVal : {maxVal} / minVal : {minVal}')
 
 
-
-
                 for varIdx, varInfo in enumerate(modelInfo['varList']):
                     procInfo = modelInfo['procList'][varIdx]
                     log.info(f'[CHECK] varInfo : {varInfo} / procInfo : {procInfo}')
