@@ -241,14 +241,18 @@ def makeFileProc(fileInfo):
             except OSError as e:
                 log.error(f'OSError : {e}')
 
-            # 파일 삭제
+            # 임시 폴더 삭제
             try:
-                os.remove(fileInfo)
+                shutil.rmtree(tmpPath)
             except OSError as e:
                 pass
 
+            # 파일 삭제
             try:
-                shutil.rmtree(tmpPath)
+                if os.path.exists(saveFile):
+                    os.remove(fileInfo)
+                # else:
+                #     makeFileProc(fileInfo)
             except OSError as e:
                 pass
 
@@ -293,6 +297,17 @@ class DtaProcess(object):
     # 입력 자료
     # /DATA/LABEL/ORG/생성일
     # *.jpg, *.json
+
+    # 2024.03.18
+    # 연구원님 저번에 주신 라벨링 이미지 변환 프로그램상에 문제가 확인되어 공유드립니다.
+    #
+    # 1. 이미지 인식 문제
+    # ORG와 OLD 폴더에는 정상적으로 이미지가 업로드되나 NEW 폴더에 있는 PNG 파일이 0바이트(빈 파일)로 생성되는 경우가 자주 발생하고 있습니다.
+    #
+    # 2. 라벨링 누락
+    # 실제 라벨링 프로그램(라벨미)에서는 확인되는 라벨링 작업이 변환된 PNG 파일에서는 없어지는 경우가 확인되고 있습니다.
+    #
+    # 2가지 사항에 대한 의견을 여쭤보고자 합니다.
 
     # ================================================================================================
     # 환경변수 설정
