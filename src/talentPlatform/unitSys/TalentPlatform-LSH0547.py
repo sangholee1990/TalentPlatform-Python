@@ -21,9 +21,7 @@ import re
 import matplotlib.pyplot as plt
 import numpy as np
 from matplotlib.ticker import ScalarFormatter
-import seaborn as sns
 import xarray as xr
-import seaborn as sns
 from pandas.tseries.offsets import Day, Hour, Minute, Second
 import re
 import tempfile
@@ -31,6 +29,8 @@ import shutil
 import pymannkendall as mk
 from dask.distributed import Client
 import dask
+import ssl
+import cartopy.crs as ccrs
 
 # =================================================
 # 사용자 매뉴얼
@@ -56,6 +56,9 @@ plt.rc('axes', unicode_minus=False)
 
 # 그래프에서 마이너스 글꼴 깨지는 문제에 대한 대처
 mpl.rcParams['axes.unicode_minus'] = False
+
+# SSL 인증 모듈
+ssl._create_default_https_context = ssl._create_unverified_context
 
 # =================================================
 # 2. 유틸리티 함수
@@ -262,8 +265,8 @@ class DtaProcess(object):
             # 옵션 설정
             sysOpt = {
                 # 시작일, 종료일, 시간 간격 (연 1y, 월 1h, 일 1d, 시간 1h)
-                'srtDate': '1990-10-01'
-                , 'endDate': '2020-01-01'
+                'srtDate': '1981-10-01'
+                , 'endDate': '2017-01-01'
                 , 'invDate': '1y'
 
                 # 수행 목록
@@ -272,16 +275,19 @@ class DtaProcess(object):
                 # 일 평균
                 , 'REANALY-ECMWF-1Y': {
                     # 원본 파일 정보
-                    'filePath': '/DATA/INPUT/LSH0547/yearly/%Y'
+                    # 'filePath': '/DATA/INPUT/LSH0547/yearly/%Y'
+                    # 'filePath': '/DATA/INPUT/LSH0547/global_yearly/yearly/%Y'
+                    'filePath': '/DATA/INPUT/LSH0547/gw_yearly/yearly/%Y'
                     , 'fileName': 'era5_merged_yearly_mean.grib'
-                    , 'varList': ['t2m', 'cp']
+                    # , 'varList': ['t2m']
+                    , 'varList': ['2T_GDS0_SFC']
 
                     # 가공 파일 덮어쓰기 여부
                     , 'isOverWrite': True
                     # , 'isOverWrite': False
 
                     # 가공 변수
-                    , 'procList': ['t2m', 'cp']
+                    , 'procList': ['t2m']
 
                     # 가공 파일 정보
                     , 'procPath': '/DATA/OUTPUT/LSH0547'
@@ -323,14 +329,17 @@ class DtaProcess(object):
                         continue
 
                     fileInfo = fileList[0]
-                    data = xr.open_dataset(fileInfo)
+                    # data = xr.open_dataset(fileInfo)
+                    data = xr.open_dataset(fileInfo, engine='pynio')
                     log.info(f'[CHECK] fileInfo : {fileInfo}')
 
                     dataL1 = data
 
                     # 동적 NetCDF 생선
-                    lon1D = dataL1['longitude'].values
-                    lat1D = dataL1['latitude'].values
+                    # lon1D = dataL1['longitude'].values
+                    # lat1D = dataL1['latitude'].values
+                    lon1D = dataL1['g0_lon_1'].values
+                    lat1D = dataL1['g0_lat_0'].values
                     time1D = dtDateInfo
 
                     dataL2 = xr.Dataset(
@@ -360,17 +369,17 @@ class DtaProcess(object):
                 # ******************************************************************************************************
                 # 1) 월간 데이터에서 격자별 값을 추출하고 새로운 3장(각각 1장)의 netCDF 파일로 생성
                 # ******************************************************************************************************
-                timeList = mrgData['time'].values
-                for timeInfo in timeList:
-                    selData = mrgData.sel(time = timeInfo)['t2m'] - 273.15
-
-                    preDate = pd.to_datetime(timeInfo).strftime("%Y")
-
-                    meanVal = np.nanmean(selData)
-                    maxVal = np.nanmax(selData)
-                    minVal = np.nanmin(selData)
-
-                    log.info(f'[CHECK] preDate : {preDate} / meanVal : {meanVal} / maxVal : {maxVal} / minVal : {minVal}')
+                # timeList = mrgData['time'].values
+                # for timeInfo in timeList:
+                #     selData = mrgData.sel(time = timeInfo)['t2m'] - 273.15
+                #
+                #     preDate = pd.to_datetime(timeInfo).strftime("%Y")
+                #
+                #     meanVal = np.nanmean(selData)
+                #     maxVal = np.nanmax(selData)
+                #     minVal = np.nanmin(selData)
+                #
+                #     log.info(f'[CHECK] preDate : {preDate} / meanVal : {meanVal} / maxVal : {maxVal} / minVal : {minVal}')
 
 
                 for varIdx, varInfo in enumerate(modelInfo['varList']):
@@ -382,6 +391,19 @@ class DtaProcess(object):
                         varData = mrgData[varInfo]
                         varDataL1 = varData.where(varData > 0)
                         varDataL2 = varDataL1 - 273.15
+
+                        timeList = varDataL2['time'].values
+                        for timeInfo in timeList:
+                            selData = varDataL2.sel(time = timeInfo)
+
+                            preDate = pd.to_datetime(timeInfo).strftime("%Y")
+
+                            meanVal = np.nanmean(selData)
+                            maxVal = np.nanmax(selData)
+                            minVal = np.nanmin(selData)
+
+                            log.info(f'[CHECK] preDate : {preDate} / meanVal : {meanVal} / maxVal : {maxVal} / minVal : {minVal}')
+
                     else:
                         continue
 
@@ -406,11 +428,20 @@ class DtaProcess(object):
 
                     # ******************************************************************************************************
                     # 2) 각 격자별 trend를 계산해서 지도로 시각화/ Mann Kendall 검정
-                    # (2개월 데이터로만 처리해주셔도 됩니다. 첨부사진처럼 시각화하려고 합니다. )
                     # ******************************************************************************************************
-                    # posData = varDataL2.interp({'lon': 126.74525, 'lat': 35.12886}, method='linear')
-                    # posData.plot()
-                    # plt.show()
+                    # 광산구 관측지점
+                    # 1990년 이후 데이터 필터
+                    posData = varDataL2.sel(time=varDataL2['time'].dt.year > 1990).interp({'lon': 126.74525, 'lat': 35.12886}, method='linear')
+                    posData.plot(marker='o')
+                    plt.show()
+
+                    moving_avg_data = posData.rolling(time=5, center=True).mean()
+                    moving_avg_data.plot(marker='o')
+                    plt.show()
+
+
+                    # 5년 이동평균
+                    # 81~86 제외
 
                     # preDate = pd.to_datetime(timeList).strftime("%Y%m%d%H%M")
                     #
@@ -428,12 +459,35 @@ class DtaProcess(object):
                         , {"GU": "북구", "NAME": "광주지방기상청", "ENGNAME": "GwangJuKMA", "ENGSHORTNAME": "GMA", "LAT": 35.17344444, "LON": 126.8914639, "INFO": "LOCATE", "MARK": "\u23F3"}
                     ]
 
-                    # ,35.12886,126.74525
+
+                    # 002_gwj_gu.shp
+                    #
+
+                    import geopandas as gpd
+                    import cartopy.feature as cfeature
+
+                    shpFileInfo = '/DATA/INPUT/LSH0547/shp/002_gwj_gu.shp'
+                    shpData = gpd.read_file(shpFileInfo, encoding='EUC-KR').to_crs(epsg=4326)
+                    shpData
+
+                    shpData.plot(color=None, edgecolor='k', facecolor='none')
+
+                    for idx, row in shpData.iterrows():
+                        # Use the centroid of each polygon to determine label position
+                        centroid = row.geometry.centroid
+                        plt.annotate(text=row['gu'], xy=(centroid.x, centroid.y),
+                                     horizontalalignment='center', verticalalignment='center')
+                    plt.show()
+
+
+
+
+
 
                     colName = 'slope'
                     mkData = xr.apply_ufunc(
                         calcMannKendall,
-                        varDataL2,
+                        varDataL2.sel(time=varDataL2['time'].dt.year > 1990),
                         kwargs={'colName': colName},
                         input_core_dims=[['time']],
                         output_core_dims=[[]],
@@ -445,6 +499,54 @@ class DtaProcess(object):
 
                     mkName = f'{procInfo}-{colName}'
                     mkData.name = mkName
+
+                    # mkData.plot()
+                    # plt.show()
+
+                    #    minlat = 35.0069
+                    #    maxlat = 35.3217
+                    #    minlon = 126.638
+                    #    maxlon = 127.023
+
+                    # mkDataL1 = mkData.sel(lon = slice( 126.5, 127.1), lat = slice(35.0, 35.5))
+                    mkDataL1 = mkData.sel(lon = slice( 126.638, 127.023), lat = slice(35.0069, 35.3217))
+
+                    minVal = np.nanmin(mkDataL1)
+                    maxVal = np.nanmax(mkDataL1)
+                    meanVal = np.nanmean(mkDataL1)
+
+
+
+
+
+
+                    fig, ax = plt.subplots(figsize=(10, 6), subplot_kw={'projection': ccrs.PlateCarree()})
+                    ax.coastlines()
+                    # mkData.plot(ax=ax, transform=ccrs.PlateCarree())
+                    mkDataL1.plot(ax=ax, transform=ccrs.PlateCarree())
+
+                    for idx, row in shpData.iterrows():
+                        centroid = row.geometry.centroid
+                        ax.annotate(text=row['gu'], xy=(centroid.x, centroid.y), horizontalalignment='center', verticalalignment='center')
+
+                    shpData.plot(ax=ax, edgecolor='k', facecolor='none')
+                    # gpd.plot(ax=ax, facecolor='none', edgecolor='red')
+
+                    gl = ax.gridlines(draw_labels=True)
+                    gl.top_labels = False
+                    gl.right_labels = False
+
+                    plt.title(f'minVal = {minVal:.2f} / meanVal = {meanVal:.2f} / maxVal = {maxVal:.2f}')
+                    # plt.show()
+                    # plt.close()
+
+
+                    saveImg = '{}/{}_{}-{}_{}-{}.png'.format(modelInfo['procPath'], modelType, mkName, 'MK', minDate, maxDate)
+                    os.makedirs(os.path.dirname(saveImg), exist_ok=True)
+                    plt.savefig(saveImg, dpi=600, bbox_inches='tight', transparent=True)
+                    # plt.show()
+                    # plt.close()
+                    log.info(f'[CHECK] saveImg : {saveImg}')
 
 
                     # {}_{}-{}_{}-{}.nc

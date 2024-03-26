@@ -251,8 +251,6 @@ def makeFileProc(fileInfo):
             try:
                 if os.path.exists(saveFile):
                     os.remove(fileInfo)
-                # else:
-                #     makeFileProc(fileInfo)
             except OSError as e:
                 pass
 
@@ -303,9 +301,12 @@ class DtaProcess(object):
     #
     # 1. 이미지 인식 문제
     # ORG와 OLD 폴더에는 정상적으로 이미지가 업로드되나 NEW 폴더에 있는 PNG 파일이 0바이트(빈 파일)로 생성되는 경우가 자주 발생하고 있습니다.
+    # json 파일에 따른 이미지 생산될 경우 기존 json 파일을 삭제하게끔 변경해놨습니다.
     #
     # 2. 라벨링 누락
     # 실제 라벨링 프로그램(라벨미)에서는 확인되는 라벨링 작업이 변환된 PNG 파일에서는 없어지는 경우가 확인되고 있습니다.
+    # 라벨링 과정에서 음영 색칠을 위한 4개 꼭지점이 없을 경우 정상적으로 표출이 안되는 것 같더라구요ㅠㅠ
+    # 혹시 관련 샘플파일을 보내주시면 확인해보겠습니다.
     #
     # 2가지 사항에 대한 의견을 여쭤보고자 합니다.
 
