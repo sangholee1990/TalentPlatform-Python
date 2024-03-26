@@ -31,6 +31,10 @@ from dask.distributed import Client
 import dask
 import ssl
 import cartopy.crs as ccrs
+from matplotlib import font_manager, rc
+
+import geopandas as gpd
+import cartopy.feature as cfeature
 
 # =================================================
 # 사용자 매뉴얼
@@ -153,6 +157,12 @@ def initArgument(globalVar, inParams):
 
         inParInfo = vars(parser.parse_args())
 
+        # 글꼴 설정
+        fontList = glob.glob('{}/{}'.format(globalVar['fontPath'], '*.ttf'))
+        # font_manager.findSystemFonts()
+        fontName = font_manager.FontProperties(fname=fontList[0]).get_name()
+        plt.rcParams['font.family'] = fontName
+
     log.info("[CHECK] inParInfo : {}".format(inParInfo))
 
     for key, val in inParInfo.items():
@@ -265,26 +275,37 @@ class DtaProcess(object):
             # 옵션 설정
             sysOpt = {
                 # 시작일, 종료일, 시간 간격 (연 1y, 월 1h, 일 1d, 시간 1h)
-                'srtDate': '1981-10-01'
+                'srtDate': '1990-10-01'
                 , 'endDate': '2017-01-01'
                 , 'invDate': '1y'
 
+                # 광주 영역
+                , 'roi': {'minLat': 35.0069, 'maxLat': 35.3217, 'minLon': 126.638, 'maxLon': 127.023}
+
+                # 관측 지점
+                , 'posData': [
+                    {"GU": "광산구", "NAME": "광산 관측지점", "ENGNAME": "AWS GwangSan", "ENGSHORTNAME": "St. GwangSan", "LAT": 35.12886, "LON": 126.74525, "INFO": "AWS", "MARK": "\u23F3"}
+                    , {"GU": "북구", "NAME": "과학기술원", "ENGNAME": "AWS Gwangju Institute of Science and Technology", "ENGSHORTNAME": "St. GIST", "LAT": 35.23026, "LON": 126.84076, "INFO": "AWS", "MARK": "\u23F3"}
+                    , {"GU": "서구", "NAME": "풍암 관측지점", "ENGNAME": "AWS PungArm", "ENGSHORTNAME": "St. PungArm", "LAT": 35.13159, "LON": 126.88132, "INFO": "AWS", "MARK": "\u23F3"}
+                    , {"GU": "동구", "NAME": "조선대 관측지점", "ENGNAME": "AWS Chosun University", "ENGSHORTNAME": "St. Chosun", "LAT": 35.13684, "LON": 126.92875, "INFO": "AWS", "MARK": "\u23F3"}
+                    , {"GU": "동구", "NAME": "무등산 관측지점", "ENGNAME": "AWS Mudeung Mountain", "ENGSHORTNAME": "St. M.T Mudeung", "LAT": 35.11437, "LON": 126.99743, "INFO": "AWS", "MARK": "\u23F3"}
+                    , {"GU": "남구", "NAME": "광주 남구 관측지점", "ENGNAME": "AWS Nam-gu", "ENGSHORTNAME": "St. Nam-gu", "LAT": 35.100807, "LON": 126.8985, "INFO": "AWS", "MARK": "\u23F3"}
+                    , {"GU": "북구", "NAME": "광주지방기상청", "ENGNAME": "GwangJuKMA", "ENGSHORTNAME": "GMA", "LAT": 35.17344444, "LON": 126.8914639, "INFO": "LOCATE", "MARK": "\u23F3"}
+                ]
+
                 # 수행 목록
-                , 'modelList': ['REANALY-ECMWF-1Y']
+                , 'modelList': ['REANALY-ECMWF-1Y-GW']
 
                 # 일 평균
-                , 'REANALY-ECMWF-1Y': {
+                , 'REANALY-ECMWF-1Y-GW': {
                     # 원본 파일 정보
-                    # 'filePath': '/DATA/INPUT/LSH0547/yearly/%Y'
                     # 'filePath': '/DATA/INPUT/LSH0547/global_yearly/yearly/%Y'
                     'filePath': '/DATA/INPUT/LSH0547/gw_yearly/yearly/%Y'
                     , 'fileName': 'era5_merged_yearly_mean.grib'
-                    # , 'varList': ['t2m']
                     , 'varList': ['2T_GDS0_SFC']
 
                     # 가공 파일 덮어쓰기 여부
                     , 'isOverWrite': True
-                    # , 'isOverWrite': False
 
                     # 가공 변수
                     , 'procList': ['t2m']
@@ -292,7 +313,14 @@ class DtaProcess(object):
                     # 가공 파일 정보
                     , 'procPath': '/DATA/OUTPUT/LSH0547'
                     , 'procName': '{}_{}-{}_{}-{}.nc'
-                    # , 'procName': '{}_{}-{}_{}-{}.nc'
+
+                    , 'figPath': '/DATA/FIG/LSH0547'
+                    , 'figName': '{}_{}-{}_{}-{}.png'
+                }
+
+                , 'SHP-GW': {
+                    'filePath': '/DATA/INPUT/LSH0547/shp'
+                    , 'fileName': '002_gwj_gu.shp'
                 }
             }
 
@@ -305,6 +333,18 @@ class DtaProcess(object):
             # 멀티코어 설정
             # client = Client(n_workers=os.cpu_count(), threads_per_worker=os.cpu_count())
             # dask.config.set(scheduler='processes')
+
+            # ===================================================================================
+            # SHP 파일 읽기
+            # ===================================================================================
+            shpFile = '{}/{}'.format(sysOpt['SHP-GW']['filePath'], sysOpt['SHP-GW']['fileName'])
+            shpData = gpd.read_file(shpFile, encoding='EUC-KR').to_crs(epsg=4326)
+
+            # shpData.plot(color=None, edgecolor='k', facecolor='none')
+            # for idx, row in shpData.iterrows():
+            #     centroid = row.geometry.centroid
+            #     plt.annotate(text=row['gu'], xy=(centroid.x, centroid.y), horizontalalignment='center', verticalalignment='center')
+            # plt.show()
 
             # ===================================================================================
             # 가공 파일 생산
@@ -333,7 +373,7 @@ class DtaProcess(object):
                     data = xr.open_dataset(fileInfo, engine='pynio')
                     log.info(f'[CHECK] fileInfo : {fileInfo}')
 
-                    dataL1 = data
+                    dataL1 = data.sel(g0_lon_1 = slice(sysOpt['roi']['minLon'], sysOpt['roi']['maxLon']), g0_lat_0 = slice(sysOpt['roi']['minLat'], sysOpt['roi']['maxLat']))
 
                     # 동적 NetCDF 생선
                     # lon1D = dataL1['longitude'].values
@@ -392,102 +432,45 @@ class DtaProcess(object):
                         varDataL1 = varData.where(varData > 0)
                         varDataL2 = varDataL1 - 273.15
 
-                        timeList = varDataL2['time'].values
-                        for timeInfo in timeList:
-                            selData = varDataL2.sel(time = timeInfo)
-
-                            preDate = pd.to_datetime(timeInfo).strftime("%Y")
-
-                            meanVal = np.nanmean(selData)
-                            maxVal = np.nanmax(selData)
-                            minVal = np.nanmin(selData)
-
-                            log.info(f'[CHECK] preDate : {preDate} / meanVal : {meanVal} / maxVal : {maxVal} / minVal : {minVal}')
+                        # timeList = varDataL2['time'].values
+                        # for timeInfo in timeList:
+                        #     selData = varDataL2.sel(time = timeInfo)
+                        #
+                        #     preDate = pd.to_datetime(timeInfo).strftime("%Y")
+                        #
+                        #     meanVal = np.nanmean(selData)
+                        #     maxVal = np.nanmax(selData)
+                        #     minVal = np.nanmin(selData)
+                        #
+                        #     log.info(f'[CHECK] preDate : {preDate} / meanVal : {meanVal} / maxVal : {maxVal} / minVal : {minVal}')
 
                     else:
                         continue
 
-                    # 마스킹 데이터
-                    # maskData = varData.isel(time=0)
-                    # maskDataL1 = xr.where(np.isnan(maskData), np.nan, 1)
-                    #
-                    # varDataL2 = varDataL2 * maskDataL1
-                    # varDataL2.name = procInfo
-                    #
-                    # # varDataL3.isel(time = 0).plot()
-                    # # plt.show()
-                    #
                     timeList = varDataL2['time'].values
                     minDate = pd.to_datetime(timeList).min().strftime("%Y%m%d")
                     maxDate = pd.to_datetime(timeList).max().strftime("%Y%m%d")
-                    # procFilePattern = '{}/{}'.format(modelInfo['procPath'], modelInfo['procName'])
-                    # procFile = procFilePattern.format(modelType, procInfo, 'ORG', minDate, maxDate)
-                    # os.makedirs(os.path.dirname(procFile), exist_ok=True)
-                    # varDataL2.to_netcdf(procFile)
-                    # log.info(f'[CHECK] procFile : {procFile}')
 
                     # ******************************************************************************************************
                     # 2) 각 격자별 trend를 계산해서 지도로 시각화/ Mann Kendall 검정
                     # ******************************************************************************************************
                     # 광산구 관측지점
-                    # 1990년 이후 데이터 필터
-                    posData = varDataL2.sel(time=varDataL2['time'].dt.year > 1990).interp({'lon': 126.74525, 'lat': 35.12886}, method='linear')
-                    posData.plot(marker='o')
-                    plt.show()
-
-                    moving_avg_data = posData.rolling(time=5, center=True).mean()
-                    moving_avg_data.plot(marker='o')
-                    plt.show()
-
-
-                    # 5년 이동평균
-                    # 81~86 제외
-
-                    # preDate = pd.to_datetime(timeList).strftime("%Y%m%d%H%M")
+                    # # 1990년 이후 데이터 필터
+                    # posData = varDataL2.interp({'lon': 126.74525, 'lat': 35.12886}, method='linear')
+                    # posData.plot(marker='o')
+                    # plt.show()
                     #
-                    # meanVal = np.nanmean(dataL1)
-                    # maxVal = np.nanmax(dataL1)
-                    # minVal = np.nanmin(dataL1)
-
-                    posCfg = [
-                        {"GU": "광산구", "NAME": "광산 관측지점", "ENGNAME": "AWS GwangSan", "ENGSHORTNAME": "St. GwangSan", "LAT": 35.12886, "LON": 126.74525, "INFO": "AWS", "MARK": "\u23F3"}
-                        , {"GU": "북구", "NAME": "과학기술원", "ENGNAME": "AWS Gwangju Institute of Science and Technology", "ENGSHORTNAME": "St. GIST", "LAT": 35.23026, "LON": 126.84076, "INFO": "AWS", "MARK": "\u23F3"}
-                        , {"GU": "서구", "NAME": "풍암 관측지점", "ENGNAME": "AWS PungArm", "ENGSHORTNAME": "St. PungArm", "LAT": 35.13159, "LON": 126.88132, "INFO": "AWS", "MARK": "\u23F3"}
-                        , {"GU": "동구", "NAME": "조선대 관측지점", "ENGNAME": "AWS Chosun University", "ENGSHORTNAME": "St. Chosun", "LAT": 35.13684, "LON": 126.92875, "INFO": "AWS", "MARK": "\u23F3"}
-                        , {"GU": "동구", "NAME": "무등산 관측지점", "ENGNAME": "AWS Mudeung Mountain", "ENGSHORTNAME": "St. M.T Mudeung", "LAT": 35.11437, "LON": 126.99743, "INFO": "AWS", "MARK": "\u23F3"}
-                        , {"GU": "남구", "NAME": "광주 남구 관측지점", "ENGNAME": "AWS Nam-gu", "ENGSHORTNAME": "St. Nam-gu", "LAT": 35.100807, "LON": 126.8985, "INFO": "AWS", "MARK": "\u23F3"}
-                        , {"GU": "북구", "NAME": "광주지방기상청", "ENGNAME": "GwangJuKMA", "ENGSHORTNAME": "GMA", "LAT": 35.17344444, "LON": 126.8914639, "INFO": "LOCATE", "MARK": "\u23F3"}
-                    ]
-
-
-                    # 002_gwj_gu.shp
-                    #
-
-                    import geopandas as gpd
-                    import cartopy.feature as cfeature
-
-                    shpFileInfo = '/DATA/INPUT/LSH0547/shp/002_gwj_gu.shp'
-                    shpData = gpd.read_file(shpFileInfo, encoding='EUC-KR').to_crs(epsg=4326)
-                    shpData
-
-                    shpData.plot(color=None, edgecolor='k', facecolor='none')
-
-                    for idx, row in shpData.iterrows():
-                        # Use the centroid of each polygon to determine label position
-                        centroid = row.geometry.centroid
-                        plt.annotate(text=row['gu'], xy=(centroid.x, centroid.y),
-                                     horizontalalignment='center', verticalalignment='center')
-                    plt.show()
-
-
-
+                    # # 5년 이동평균
+                    # moving_avg_data = posData.rolling(time=5, center=True).mean()
+                    # moving_avg_data.plot(marker='o')
+                    # plt.show()
 
 
 
                     colName = 'slope'
                     mkData = xr.apply_ufunc(
                         calcMannKendall,
-                        varDataL2.sel(time=varDataL2['time'].dt.year > 1990),
+                        varDataL2,
                         kwargs={'colName': colName},
                         input_core_dims=[['time']],
                         output_core_dims=[[]],
@@ -500,64 +483,34 @@ class DtaProcess(object):
                     mkName = f'{procInfo}-{colName}'
                     mkData.name = mkName
 
-                    # mkData.plot()
-                    # plt.show()
 
-                    #    minlat = 35.0069
-                    #    maxlat = 35.3217
-                    #    minlon = 126.638
-                    #    maxlon = 127.023
-
-                    # mkDataL1 = mkData.sel(lon = slice( 126.5, 127.1), lat = slice(35.0, 35.5))
-                    mkDataL1 = mkData.sel(lon = slice( 126.638, 127.023), lat = slice(35.0069, 35.3217))
-
-                    minVal = np.nanmin(mkDataL1)
-                    maxVal = np.nanmax(mkDataL1)
-                    meanVal = np.nanmean(mkDataL1)
-
-
-
-
-
-
+                    # 시각화
                     fig, ax = plt.subplots(figsize=(10, 6), subplot_kw={'projection': ccrs.PlateCarree()})
+
                     ax.coastlines()
-                    # mkData.plot(ax=ax, transform=ccrs.PlateCarree())
-                    mkDataL1.plot(ax=ax, transform=ccrs.PlateCarree())
-
-                    for idx, row in shpData.iterrows():
-                        centroid = row.geometry.centroid
-                        ax.annotate(text=row['gu'], xy=(centroid.x, centroid.y), horizontalalignment='center', verticalalignment='center')
-
-                    shpData.plot(ax=ax, edgecolor='k', facecolor='none')
-                    # gpd.plot(ax=ax, facecolor='none', edgecolor='red')
-
                     gl = ax.gridlines(draw_labels=True)
                     gl.top_labels = False
                     gl.right_labels = False
 
+                    mkData.plot(ax=ax, transform=ccrs.PlateCarree())
+
+                    shpData.plot(ax=ax, edgecolor='k', facecolor='none')
+                    for idx, row in shpData.iterrows():
+                        centroid = row.geometry.centroid
+                        ax.annotate(text=row['gu'], xy=(centroid.x, centroid.y), horizontalalignment='center', verticalalignment='center')
+
+                    minVal = np.nanmin(mkData)
+                    maxVal = np.nanmax(mkData)
+                    meanVal = np.nanmean(mkData)
                     plt.title(f'minVal = {minVal:.2f} / meanVal = {meanVal:.2f} / maxVal = {maxVal:.2f}')
-                    # plt.show()
-                    # plt.close()
 
-
-                    saveImg = '{}/{}_{}-{}_{}-{}.png'.format(modelInfo['procPath'], modelType, mkName, 'MK', minDate, maxDate)
+                    saveFilePattern = '{}/{}'.format(modelInfo['figPath'], modelInfo['figName'])
+                    saveImg = saveFilePattern.format(modelType, mkName, 'MK', minDate, maxDate)
                     os.makedirs(os.path.dirname(saveImg), exist_ok=True)
                     plt.savefig(saveImg, dpi=600, bbox_inches='tight', transparent=True)
-                    # plt.show()
-                    # plt.close()
+                    plt.show()
+                    plt.close()
                     log.info(f'[CHECK] saveImg : {saveImg}')
-
-
-                    # {}_{}-{}_{}-{}.nc
-                    procFilePattern = '{}/{}'.format(modelInfo['procPath'], modelInfo['procName'])
-                    procFile = procFilePattern.format(modelType, mkName, 'MK', minDate, maxDate)
-                    os.makedirs(os.path.dirname(procFile), exist_ok=True)
-                    mkData.to_netcdf(procFile)
-                    log.info(f'[CHECK] procFile : {procFile}')
-
-                    # mkData.plot()
-                    # plt.show()
 
         except Exception as e:
             log.error("Exception : {}".format(e))
