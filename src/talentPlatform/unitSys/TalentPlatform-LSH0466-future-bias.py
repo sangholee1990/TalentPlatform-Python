@@ -12,7 +12,7 @@ from datetime import datetime
 import faulthandler
 from sqlalchemy.ext.declarative import declarative_base
 import xarray as xr
-from cmethods import adjust
+# from cmethods import adjust
 import matplotlib as mpl
 import matplotlib.pyplot as plt
 import numpy as np
@@ -464,8 +464,8 @@ class DtaProcess(object):
     # ================================================================================================
     global env, contextPath, prjName, serviceName, log, globalVar
 
-    env = 'local'  # 로컬 : 원도우 환경, 작업환경 (현재 소스 코드 환경 시 .) 설정
-    # env = 'dev'  # 개발 : 원도우 환경, 작업환경 (사용자 환경 시 contextPath) 설정
+    # env = 'local'  # 로컬 : 원도우 환경, 작업환경 (현재 소스 코드 환경 시 .) 설정
+    env = 'dev'  # 개발 : 원도우 환경, 작업환경 (사용자 환경 시 contextPath) 설정
     # env = 'oper'  # 운영 : 리눅스 환경, 작업환경 (사용자 환경 시 contextPath) 설정
 
     if (platform.system() == 'Windows'):
@@ -546,7 +546,8 @@ class DtaProcess(object):
                 , 'latInv': 1
 
                 #, 'keyList' : ['GFDL-ESM4','INM-CM4-8','INM-CM5-0','IPSL-CM6A-LR','MIROC6','MPI-ESM1-2-HR','MPI-ESM1-2-LR','MRI-ESM2-0','NorESM2-LM','NorESM2-MM','TaiESM1']
-                , 'keyList': ['INM-CM5-0']
+                # , 'keyList': ['INM-CM5-0']
+                , 'keyList': ['MRI-ESM2-0']
 
                 #, 'keyList': ['MRI-ESM2-0','ACCESS-CM2','ACCESS-ESM1-5','BCC-CSM2-MR','CanESM5','CESM2-WACCM','CMCC-CM2-SR5','CMCC-ESM2','CNRM-CM6-1','CNRM-ESM2-1','EC-Earth3-Veg-LR']
 
@@ -570,8 +571,8 @@ class DtaProcess(object):
             # inpFile = '{}/{}/{}'.format(globalVar['inpPath'], serviceName, 'TT4.csv')
             # inpFile = '{}/{}/{}'.format(globalVar['inpPath'], 'Historical', 'TT4.csv')
 
-            # inpFile = '{}/{}/{}'.format(globalVar['inpPath'], serviceName, 'TTL4.csv')
-            inpFile = '{}/{}/{}'.format(globalVar['inpPath'], 'Historical', 'TTL4.csv')
+            inpFile = '{}/{}/{}'.format(globalVar['inpPath'], serviceName, 'TTL4.csv')
+            # inpFile = '{}/{}/{}'.format(globalVar['inpPath'], 'Historical', 'TTL4.csv')
             fileList = glob.glob(inpFile)
             if fileList is None or len(fileList) < 1:
                 log.error('[ERROR] inpFile : {} / {}'.format(fileList, '입력 자료를 확인해주세요.'))
@@ -596,8 +597,8 @@ class DtaProcess(object):
             # 강수량 데이터 전처리
             # ********************************************************************
             # 실측 데이터
-            # inpFile = '{}/{}/{}'.format(globalVar['inpPath'], serviceName, 'ERA5_1979_2020.nc')
-            inpFile = '{}/{}/{}'.format(globalVar['inpPath'], 'Historical', 'ERA5_1979_2020.nc')
+            inpFile = '{}/{}/{}'.format(globalVar['inpPath'], serviceName, 'ERA5_1979_2020.nc')
+            # inpFile = '{}/{}/{}'.format(globalVar['inpPath'], 'Historical', 'ERA5_1979_2020.nc')
             fileList = sorted(glob.glob(inpFile))
             obsData = xr.open_dataset(fileList[0]).sel(time=slice(sysOpt['srtDate'], sysOpt['endDate']))
 
@@ -621,8 +622,8 @@ class DtaProcess(object):
                 log.info(f"[CHECK] keyInfo : {keyInfo}")
 
                 # 관측/학습 데이터
-                # inpFile = '{}/{}/*{}*{}*.nc'.format(globalVar['inpPath'], serviceName, keyInfo, 'historical')
-                inpFile = '{}/{}/*{}*{}*.nc'.format(globalVar['inpPath'], 'Historical', keyInfo, 'historical')
+                inpFile = '{}/{}/*{}*{}*.nc'.format(globalVar['inpPath'], serviceName, keyInfo, 'historical')
+                # inpFile = '{}/{}/*{}*{}*.nc'.format(globalVar['inpPath'], 'Historical', keyInfo, 'historical')
                 fileList = sorted(glob.glob(inpFile))
 
                 if not fileList:
@@ -668,8 +669,8 @@ class DtaProcess(object):
                 # mrgData = xr.merge([obsDataL3, modDataL3C])
 
                 # 예측 데이터
-                # inpFile = '{}/{}/*{}*{}*.nc'.format(globalVar['inpPath'], serviceName, keyInfo, 'ssp126')
-                inpFile = '{}/{}/*{}*{}*.nc'.format(globalVar['inpPath'], 'Future', keyInfo, 'ssp126')
+                inpFile = '{}/{}/*{}*{}*.nc'.format(globalVar['inpPath'], serviceName, keyInfo, 'ssp126')
+                # inpFile = '{}/{}/*{}*{}*.nc'.format(globalVar['inpPath'], 'Future', keyInfo, 'ssp126')
                 fileList = sorted(glob.glob(inpFile))
 
                 # fileInfo = fileList[0]
@@ -702,7 +703,6 @@ class DtaProcess(object):
 
                 simDataL3 = xr.merge([simDataL2['pr'], contDataL4])
                 attrs = {"units":"mm d-1"}
-
 
                 simDataL3Processed = add_leap_day_L3(simDataL3.drop_vars('contIdx'), var_name='pr')
                 simDataL3Processed.transpose('time','lat','lon')
@@ -968,9 +968,11 @@ if __name__ == '__main__':
 
     try:
         logging.info('Dask 클러스터 생성 중...')
+
         # CPU 코어 수에 비례하여 워커와 스레드 수를 조정
         cluster = LocalCluster(# heartbeat_interval= 100000,
-                               n_workers=60,  # 적절한 워커 수 설정
+                               # n_workers=60,  # 적절한 워커 수 설정
+                               n_workers=10,  # 적절한 워커 수 설정
                                processes=True,
                                threads_per_worker=2,
                                memory_target_fraction=0.6,  # 메모리 사용률 60%에 도달하면 관리 시작
