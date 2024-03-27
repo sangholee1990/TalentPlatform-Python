@@ -158,10 +158,11 @@ def initArgument(globalVar, inParams):
         inParInfo = vars(parser.parse_args())
 
         # 글꼴 설정
-        fontList = glob.glob('{}/{}'.format(globalVar['fontPath'], '*.ttf'))
-        # font_manager.findSystemFonts()
-        fontName = font_manager.FontProperties(fname=fontList[0]).get_name()
-        plt.rcParams['font.family'] = fontName
+        fontList = font_manager.findSystemFonts(fontpaths=globalVar['fontPath'])
+        for fontInfo in fontList:
+            font_manager.fontManager.addfont(fontInfo)
+            fontName = font_manager.FontProperties(fname=fontInfo).get_name()
+            plt.rcParams['font.family'] = fontName
 
     log.info("[CHECK] inParInfo : {}".format(inParInfo))
 
@@ -212,7 +213,7 @@ class DtaProcess(object):
     # ================================================
     # 요구사항
     # ================================================
-    # Python을 이용한 시간별 재분석 ERA5 모델 (NetCDF)로부터 월간 온도 및 강수량 분석 그리고 MK 검정 (Mann-Kendall)
+    # Python을 이용한 시간별 재분석 ERA5 모델 (Grib)로부터 통계 분석 그리고 MK 검정 (Mann-Kendall)
 
     # ================================================================================================
     # 환경변수 설정
@@ -295,17 +296,28 @@ class DtaProcess(object):
 
                 # 수행 목록
                 , 'modelList': ['REANALY-ECMWF-1Y-GW']
+                # , 'modelList': ['REANALY-ECMWF-1M-GW']
 
-                # 일 평균
                 , 'REANALY-ECMWF-1Y-GW': {
-                    # 원본 파일 정보
-                    # 'filePath': '/DATA/INPUT/LSH0547/global_yearly/yearly/%Y'
                     'filePath': '/DATA/INPUT/LSH0547/gw_yearly/yearly/%Y'
                     , 'fileName': 'era5_merged_yearly_mean.grib'
                     , 'varList': ['2T_GDS0_SFC']
 
-                    # 가공 파일 덮어쓰기 여부
-                    , 'isOverWrite': True
+                    # 가공 변수
+                    , 'procList': ['t2m']
+
+                    # 가공 파일 정보
+                    , 'procPath': '/DATA/OUTPUT/LSH0547'
+                    , 'procName': '{}_{}-{}_{}-{}.nc'
+
+                    , 'figPath': '/DATA/FIG/LSH0547'
+                    , 'figName': '{}_{}-{}_{}-{}.png'
+                }
+
+                , 'REANALY-ECMWF-1M-GW': {
+                    'filePath': '/DATA/INPUT/LSH0547/era5_monthly_gwangju/%Y'
+                    , 'fileName': 'era5_merged_monthly_mean.grib'
+                    , 'varList': ['2T_GDS0_SFC']
 
                     # 가공 변수
                     , 'procList': ['t2m']
@@ -374,17 +386,20 @@ class DtaProcess(object):
                     log.info(f'[CHECK] fileInfo : {fileInfo}')
 
                     dataL1 = data.sel(g0_lon_1 = slice(sysOpt['roi']['minLon'], sysOpt['roi']['maxLon']), g0_lat_0 = slice(sysOpt['roi']['minLat'], sysOpt['roi']['maxLat']))
+                    # dataL1 = data.sel(g0_lon_2 = slice(sysOpt['roi']['minLon'], sysOpt['roi']['maxLon']), g0_lat_1 = slice(sysOpt['roi']['minLat'], sysOpt['roi']['maxLat']))
 
                     # 동적 NetCDF 생선
-                    # lon1D = dataL1['longitude'].values
-                    # lat1D = dataL1['latitude'].values
                     lon1D = dataL1['g0_lon_1'].values
                     lat1D = dataL1['g0_lat_0'].values
+                    # lon1D = dataL1['g0_lon_2'].values
+                    # lat1D = dataL1['g0_lat_1'].values
+                    # time1D = dataL1['initial_time0_hours'].values
                     time1D = dtDateInfo
 
                     dataL2 = xr.Dataset(
                         coords={
                             'time': pd.date_range(time1D, periods=1)
+                            # 'time': pd.to_datetime(time1D)
                             , 'lat': lat1D
                             , 'lon': lon1D
                         }
@@ -393,6 +408,7 @@ class DtaProcess(object):
                     for varInfo in modelInfo['varList']:
                         try:
                             dataL2[varInfo] = (('time', 'lat', 'lon'), (dataL1[varInfo].values).reshape(1, len(lat1D), len(lon1D)))
+                            # dataL2[varInfo] = (('time', 'lat', 'lon'), (dataL1[varInfo].values).reshape(len(time1D), len(lat1D), len(lon1D)))
                         except Exception as e:
                             pass
 
@@ -406,21 +422,10 @@ class DtaProcess(object):
 
                     mrgData = xr.merge([mrgData, dataL2])
 
-                # ******************************************************************************************************
-                # 1) 월간 데이터에서 격자별 값을 추출하고 새로운 3장(각각 1장)의 netCDF 파일로 생성
-                # ******************************************************************************************************
-                # timeList = mrgData['time'].values
-                # for timeInfo in timeList:
-                #     selData = mrgData.sel(time = timeInfo)['t2m'] - 273.15
-                #
-                #     preDate = pd.to_datetime(timeInfo).strftime("%Y")
-                #
-                #     meanVal = np.nanmean(selData)
-                #     maxVal = np.nanmax(selData)
-                #     minVal = np.nanmin(selData)
-                #
-                #     log.info(f'[CHECK] preDate : {preDate} / meanVal : {meanVal} / maxVal : {maxVal} / minVal : {minVal}')
+                if len(mrgData) < 1: continue
 
+                # 7월 추출
+                # mrgData = mrgData.sel(time = (mrgData['time'].dt.month == 7))
 
                 for varIdx, varInfo in enumerate(modelInfo['varList']):
                     procInfo = modelInfo['procList'][varIdx]
@@ -431,19 +436,6 @@ class DtaProcess(object):
                         varData = mrgData[varInfo]
                         varDataL1 = varData.where(varData > 0)
                         varDataL2 = varDataL1 - 273.15
-
-                        # timeList = varDataL2['time'].values
-                        # for timeInfo in timeList:
-                        #     selData = varDataL2.sel(time = timeInfo)
-                        #
-                        #     preDate = pd.to_datetime(timeInfo).strftime("%Y")
-                        #
-                        #     meanVal = np.nanmean(selData)
-                        #     maxVal = np.nanmax(selData)
-                        #     minVal = np.nanmin(selData)
-                        #
-                        #     log.info(f'[CHECK] preDate : {preDate} / meanVal : {meanVal} / maxVal : {maxVal} / minVal : {minVal}')
-
                     else:
                         continue
 
@@ -451,22 +443,53 @@ class DtaProcess(object):
                     minDate = pd.to_datetime(timeList).min().strftime("%Y%m%d")
                     maxDate = pd.to_datetime(timeList).max().strftime("%Y%m%d")
 
-                    # ******************************************************************************************************
-                    # 2) 각 격자별 trend를 계산해서 지도로 시각화/ Mann Kendall 검정
-                    # ******************************************************************************************************
-                    # 광산구 관측지점
-                    # # 1990년 이후 데이터 필터
-                    # posData = varDataL2.interp({'lon': 126.74525, 'lat': 35.12886}, method='linear')
-                    # posData.plot(marker='o')
-                    # plt.show()
+                    # 통계 분석
+                    # timeList = varDataL2['time'].values
+                    # for timeInfo in timeList:
+                    #     selData = varDataL2.sel(time = timeInfo)
                     #
-                    # # 5년 이동평균
-                    # moving_avg_data = posData.rolling(time=5, center=True).mean()
-                    # moving_avg_data.plot(marker='o')
-                    # plt.show()
+                    #     preDate = pd.to_datetime(timeInfo).strftime("%Y")
+                    #
+                    #     meanVal = np.nanmean(selData)
+                    #     maxVal = np.nanmax(selData)
+                    #     minVal = np.nanmin(selData)
+                    #
+                    #     log.info(f'[CHECK] preDate : {preDate} / meanVal : {meanVal} / maxVal : {maxVal} / minVal : {minVal}')
+
+                    # ******************************************************************************************************
+                    # 관측소 시계열 검정
+                    # ******************************************************************************************************
+                    for i, posInfo in pd.DataFrame(sysOpt['posData']).iterrows():
+
+                        posName = f"{posInfo['GU']}-{posInfo['NAME']}"
+
+                        saveFilePattern = '{}/{}'.format(modelInfo['figPath'], modelInfo['figName'])
+                        saveImg = saveFilePattern.format(modelType, 'orgTime', posName, minDate, maxDate)
+                        os.makedirs(os.path.dirname(saveImg), exist_ok=True)
+
+                        posData = varDataL2.interp({'lon': posInfo['LON'], 'lat': posInfo['LAT']}, method='linear')
+                        posData.plot(marker='o')
+                        plt.savefig(saveImg, dpi=600, bbox_inches='tight', transparent=True)
+                        log.info(f'[CHECK] saveImg : {saveImg}')
+                        plt.show()
+                        plt.close()
+
+                        # 5년 이동평균
+                        saveFilePattern = '{}/{}'.format(modelInfo['figPath'], modelInfo['figName'])
+                        saveImg = saveFilePattern.format(modelType, 'movTime', posName, minDate, maxDate)
+                        os.makedirs(os.path.dirname(saveImg), exist_ok=True)
+
+                        movData = posData.rolling(time=5, center=True).mean()
+                        movData.plot(marker='o')
+                        plt.savefig(saveImg, dpi=600, bbox_inches='tight', transparent=True)
+                        log.info(f'[CHECK] saveImg : {saveImg}')
+                        plt.show()
+                        plt.close()
 
 
-
+                    # ******************************************************************************************************
+                    # Mann Kendall 검정
+                    # ******************************************************************************************************
                     colName = 'slope'
                     mkData = xr.apply_ufunc(
                         calcMannKendall,
@@ -508,9 +531,9 @@ class DtaProcess(object):
                     saveImg = saveFilePattern.format(modelType, mkName, 'MK', minDate, maxDate)
                     os.makedirs(os.path.dirname(saveImg), exist_ok=True)
                     plt.savefig(saveImg, dpi=600, bbox_inches='tight', transparent=True)
+                    log.info(f'[CHECK] saveImg : {saveImg}')
                     plt.show()
                     plt.close()
-                    log.info(f'[CHECK] saveImg : {saveImg}')
 
         except Exception as e:
             log.error("Exception : {}".format(e))
