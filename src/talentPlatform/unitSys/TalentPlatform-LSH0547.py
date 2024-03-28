@@ -427,6 +427,16 @@ class DtaProcess(object):
                 # 7월 추출
                 # mrgData = mrgData.sel(time = (mrgData['time'].dt.month == 7))
 
+                # shp 영역 내 자료 추출
+                # import rioxarray
+
+                # roiData = mrgData['2T_GDS0_SFC'].rio.write_crs("epsg:4326")
+                # roiDataL1 = roiData.rio.set_spatial_dims(x_dim='lon', y_dim='lat', inplace=True)
+                # roiDataL2 = roiDataL1.rio.clip(shpData.geometry, shpData.crs, from_disk=True)
+                #
+                # roiDataL2.isel(time = 0).plot()
+                # plt.show()
+
                 for varIdx, varInfo in enumerate(modelInfo['varList']):
                     procInfo = modelInfo['procList'][varIdx]
                     log.info(f'[CHECK] varInfo : {varInfo} / procInfo : {procInfo}')
