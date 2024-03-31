@@ -490,6 +490,7 @@ class DtaProcess(object):
 
     # 프로그램 종료
     # ps -ef | grep "TalentPlatform-LSH0454-Active-OpenAPI-Model" | awk '{print $2}' | xargs kill -9
+    # ps -ef | grep "/SYSTEMS/anaconda3/envs/py36/bin/python3.6" | awk '{print $2}' | xargs kill -9
 
     # 프로그램 시작
     # conda activate py36
@@ -548,6 +549,10 @@ class DtaProcess(object):
     # nohup /SYSTEMS/anaconda3/envs/py36/bin/python3.6 TalentPlatform-LSH0454-Active-OpenAPI-Model.py --addrList "서울특별시 동작구" &
     # nohup /SYSTEMS/anaconda3/envs/py36/bin/python3.6 TalentPlatform-LSH0454-Active-OpenAPI-Model.py --addrList "서울특별시 구로구" &
     # nohup /SYSTEMS/anaconda3/envs/py36/bin/python3.6 TalentPlatform-LSH0454-Active-OpenAPI-Model.py --addrList "서울특별시 영등포구" &
+
+    # 2024.03.31
+    # cd /SYSTEMS/PROG/PYTHON/PyCharm/src/talentPlatform/unitSys
+    # nohup /SYSTEMS/anaconda3/envs/py36/bin/python3.6 TalentPlatform-LSH0454-Active-OpenAPI-Model.py --addrList "서울특별시 성북구" &
 
     # ================================================================================================
     # 환경변수 설정
@@ -612,15 +617,15 @@ class DtaProcess(object):
                     'isInit': False
 
                     # 모델 업데이트 여부
-                    # , 'isOverWrite': True
-                    , 'isOverWrite': False
+                    , 'isOverWrite': True
+                    # , 'isOverWrite': False
                 }
 
                 #  머신러닝
                 , 'mlModel': {
                     # 모델 업데이트 여부
-                    # 'isOverWrite': True
-                    'isOverWrite': False
+                    'isOverWrite': True
+                    # 'isOverWrite': False
                 }
 
                 #  시계열
@@ -665,7 +670,9 @@ class DtaProcess(object):
 
                 admDataL1 = admData[admData['법정동명'].str.contains(addrInfo)]
                 if (len(admDataL1) < 1): continue
-                addrCode = np.unique(admDataL1['sigunguCd'])[0]
+                # addrCode = np.unique(admDataL1['sigunguCd'])[0]
+                addrCode = '{}-{}'.format(np.unique(admDataL1['sigunguCd'])[0], addrInfo)
+                log.info(f'[CHECK] addrCode : {addrCode}')
 
                 lcnsInpFile = '{}/{}/{}/{}/{}.csv'.format(globalVar['outPath'], serviceName, '전처리', addrInfo, '건축 인허가_*_*')
                 lcnsFileList = sorted(glob.glob(lcnsInpFile), reverse=True)
