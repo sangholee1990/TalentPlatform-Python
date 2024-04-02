@@ -517,6 +517,7 @@ class DtaProcess(object):
 
                 modDataL1 = modData.interp({'lon': lonList, 'lat': latList}, method='linear')
 
+                # 시간 강수량 : 60 * 60
                 # 일 강수량 단위 환산 : 60 * 60 * 24
                 modDataL1['pr'] = modDataL1['pr'] * 86400
                 modDataL1['pr'].attrs["units"] = "mm d-1"

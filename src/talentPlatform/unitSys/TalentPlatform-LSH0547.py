@@ -17,6 +17,7 @@ import numpy as np
 import pandas as pd
 import xarray as xr
 import re
+import rioxarray
 
 import matplotlib.pyplot as plt
 import numpy as np
@@ -277,7 +278,9 @@ class DtaProcess(object):
             sysOpt = {
                 # 시작일, 종료일, 시간 간격 (연 1y, 월 1h, 일 1d, 시간 1h)
                 'srtDate': '1990-10-01'
-                , 'endDate': '2017-01-01'
+                # 'srtDate': '2019-01-01'
+                # , 'endDate': '2020-01-01'
+                , 'endDate': '2018-01-01'
                 , 'invDate': '1y'
 
                 # 광주 영역
@@ -295,12 +298,13 @@ class DtaProcess(object):
                 ]
 
                 # 수행 목록
-                , 'modelList': ['REANALY-ECMWF-1Y-GW']
-                # , 'modelList': ['REANALY-ECMWF-1M-GW']
+                # , 'modelList': ['REANALY-ECMWF-1M-GL']
+                , 'modelList': ['REANALY-ECMWF-1M-GW']
 
-                , 'REANALY-ECMWF-1Y-GW': {
-                    'filePath': '/DATA/INPUT/LSH0547/gw_yearly/yearly/%Y'
-                    , 'fileName': 'era5_merged_yearly_mean.grib'
+                , 'REANALY-ECMWF-1M-GL': {
+                    # 'filePath': '/DATA/INPUT/LSH0547/gw_yearly/yearly/%Y'
+                    'filePath': '/DATA/INPUT/LSH0547/global_monthly_new/monthly/%Y'
+                    , 'fileName': 'era5_merged_monthly_mean.grib'
                     , 'varList': ['2T_GDS0_SFC']
 
                     # 가공 변수
@@ -315,7 +319,8 @@ class DtaProcess(object):
                 }
 
                 , 'REANALY-ECMWF-1M-GW': {
-                    'filePath': '/DATA/INPUT/LSH0547/era5_monthly_gwangju/%Y'
+                    # 'filePath': '/DATA/INPUT/LSH0547/era5_monthly_gwangju/%Y'
+                    'filePath': '/DATA/INPUT/LSH0547/gwangju_monthly_new/monthly/%Y'
                     , 'fileName': 'era5_merged_monthly_mean.grib'
                     , 'varList': ['2T_GDS0_SFC']
 
@@ -341,10 +346,6 @@ class DtaProcess(object):
             dtSrtDate = pd.to_datetime(sysOpt['srtDate'], format='%Y-%m-%d')
             dtEndDate = pd.to_datetime(sysOpt['endDate'], format='%Y-%m-%d')
             dtDateList = pd.date_range(start=dtSrtDate, end=dtEndDate, freq=sysOpt['invDate'])
-
-            # 멀티코어 설정
-            # client = Client(n_workers=os.cpu_count(), threads_per_worker=os.cpu_count())
-            # dask.config.set(scheduler='processes')
 
             # ===================================================================================
             # SHP 파일 읽기
@@ -385,21 +386,26 @@ class DtaProcess(object):
                     data = xr.open_dataset(fileInfo, engine='pynio')
                     log.info(f'[CHECK] fileInfo : {fileInfo}')
 
-                    dataL1 = data.sel(g0_lon_1 = slice(sysOpt['roi']['minLon'], sysOpt['roi']['maxLon']), g0_lat_0 = slice(sysOpt['roi']['minLat'], sysOpt['roi']['maxLat']))
+                    # dataL1 = data.sel(g0_lon_1 = slice(sysOpt['roi']['minLon'], sysOpt['roi']['maxLon']), g0_lat_0 = slice(sysOpt['roi']['minLat'], sysOpt['roi']['maxLat']))
+                    dataL1 = data
                     # dataL1 = data.sel(g0_lon_2 = slice(sysOpt['roi']['minLon'], sysOpt['roi']['maxLon']), g0_lat_1 = slice(sysOpt['roi']['minLat'], sysOpt['roi']['maxLat']))
 
                     # 동적 NetCDF 생선
-                    lon1D = dataL1['g0_lon_1'].values
-                    lat1D = dataL1['g0_lat_0'].values
-                    # lon1D = dataL1['g0_lon_2'].values
-                    # lat1D = dataL1['g0_lat_1'].values
+
+
+                    # lon1D = dataL1['g0_lon_1'].values
+                    # lat1D = dataL1['g0_lat_0'].values
+                    lon1D = dataL1['g0_lon_2'].values
+                    lat1D = dataL1['g0_lat_1'].values
+
+                    # time1D = dtDateInfo
                     # time1D = dataL1['initial_time0_hours'].values
-                    time1D = dtDateInfo
+                    time1D = pd.to_datetime(pd.to_datetime(dataL1['initial_time0_hours'].values).strftime('%Y-%m'))
 
                     dataL2 = xr.Dataset(
                         coords={
-                            'time': pd.date_range(time1D, periods=1)
-                            # 'time': pd.to_datetime(time1D)
+                            # 'time': pd.date_range(time1D, periods=1)
+                            'time': pd.to_datetime(time1D)
                             , 'lat': lat1D
                             , 'lon': lon1D
                         }
@@ -407,8 +413,8 @@ class DtaProcess(object):
 
                     for varInfo in modelInfo['varList']:
                         try:
-                            dataL2[varInfo] = (('time', 'lat', 'lon'), (dataL1[varInfo].values).reshape(1, len(lat1D), len(lon1D)))
-                            # dataL2[varInfo] = (('time', 'lat', 'lon'), (dataL1[varInfo].values).reshape(len(time1D), len(lat1D), len(lon1D)))
+                            # dataL2[varInfo] = (('time', 'lat', 'lon'), (dataL1[varInfo].values).reshape(1, len(lat1D), len(lon1D)))
+                            dataL2[varInfo] = (('time', 'lat', 'lon'), (dataL1[varInfo].values).reshape(len(time1D), len(lat1D), len(lon1D)))
                         except Exception as e:
                             pass
 
@@ -424,18 +430,16 @@ class DtaProcess(object):
 
                 if len(mrgData) < 1: continue
 
+                # shp 영역 내 자료 추출
+                roiData = mrgData.rio.write_crs("epsg:4326")
+                roiDataL1 = roiData.rio.set_spatial_dims(x_dim='lon', y_dim='lat', inplace=True)
+                roiDataL2 = roiDataL1.rio.clip(shpData.geometry, shpData.crs, from_disk=True)
+
+                # roiDataL2['2T_GDS0_SFC'].isel(time=0).plot()
+                # plt.show()
+
                 # 7월 추출
                 # mrgData = mrgData.sel(time = (mrgData['time'].dt.month == 7))
-
-                # shp 영역 내 자료 추출
-                # import rioxarray
-
-                # roiData = mrgData['2T_GDS0_SFC'].rio.write_crs("epsg:4326")
-                # roiDataL1 = roiData.rio.set_spatial_dims(x_dim='lon', y_dim='lat', inplace=True)
-                # roiDataL2 = roiDataL1.rio.clip(shpData.geometry, shpData.crs, from_disk=True)
-                #
-                # roiDataL2.isel(time = 0).plot()
-                # plt.show()
 
                 for varIdx, varInfo in enumerate(modelInfo['varList']):
                     procInfo = modelInfo['procList'][varIdx]
@@ -443,7 +447,8 @@ class DtaProcess(object):
 
                     if re.search('t2m', procInfo, re.IGNORECASE):
                         # 0 초과 필터, 그 외 결측값 NA
-                        varData = mrgData[varInfo]
+                        # varData = mrgData[varInfo]
+                        varData = roiDataL2[varInfo]
                         varDataL1 = varData.where(varData > 0)
                         varDataL2 = varDataL1 - 273.15
                     else:
