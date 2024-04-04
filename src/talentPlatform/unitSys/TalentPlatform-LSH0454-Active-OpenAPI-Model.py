@@ -621,15 +621,15 @@ class DtaProcess(object):
                     'isInit': False
 
                     # 모델 업데이트 여부
-                    , 'isOverWrite': True
-                    # , 'isOverWrite': False
+                    # , 'isOverWrite': True
+                    , 'isOverWrite': False
                 }
 
                 #  머신러닝
                 , 'mlModel': {
                     # 모델 업데이트 여부
-                    'isOverWrite': True
-                    # 'isOverWrite': False
+                    # 'isOverWrite': True
+                    'isOverWrite': False
                 }
 
                 #  시계열
@@ -674,8 +674,11 @@ class DtaProcess(object):
 
                 admDataL1 = admData[admData['법정동명'].str.contains(addrInfo)]
                 if (len(admDataL1) < 1): continue
-                # addrCode = np.unique(admDataL1['sigunguCd'])[0]
-                addrCode = '{}-{}'.format(np.unique(admDataL1['sigunguCd'])[0], addrInfo)
+
+                # 2024.04.05 한글 포함 시 모델 재처리 불가
+                addrCode = np.unique(admDataL1['sigunguCd'])[0]
+                # addrCode = '{}-{}'.format(np.unique(admDataL1['sigunguCd'])[0], addrInfo)
+
                 log.info(f'[CHECK] addrCode : {addrCode}')
 
                 lcnsInpFile = '{}/{}/{}/{}/{}.csv'.format(globalVar['outPath'], serviceName, '전처리', addrInfo, '건축 인허가_*_*')
