@@ -554,6 +554,10 @@ class DtaProcess(object):
     # cd /SYSTEMS/PROG/PYTHON/PyCharm/src/talentPlatform/unitSys
     # nohup /SYSTEMS/anaconda3/envs/py36/bin/python3.6 TalentPlatform-LSH0454-Active-OpenAPI-Model.py --addrList "서울특별시 성북구" &
 
+    # 2024.04.04
+    # cd /SYSTEMS/PROG/PYTHON/PyCharm/src/talentPlatform/unitSys
+    # nohup /SYSTEMS/anaconda3/envs/py36/bin/python3.6 TalentPlatform-LSH0454-Active-OpenAPI-Model.py --addrList "서울특별시 성동구, 서울특별시 광진구" &
+
     # ================================================================================================
     # 환경변수 설정
     # ================================================================================================
