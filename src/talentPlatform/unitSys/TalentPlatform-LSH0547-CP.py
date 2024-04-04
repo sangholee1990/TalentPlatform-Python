@@ -277,11 +277,9 @@ class DtaProcess(object):
             # 옵션 설정
             sysOpt = {
                 # 시작일, 종료일, 시간 간격 (연 1y, 월 1h, 일 1d, 시간 1h)
-                'srtDate': '1990-10-01'
-                # 'srtDate': '2019-01-01'
-                # , 'endDate': '2020-01-01'
-                , 'endDate': '2018-01-01'
-                , 'invDate': '1y'
+                'srtDate': '2020-08-05'
+                , 'endDate': '2020-08-06'
+                , 'invDate': '1h'
 
                 # 광주 영역
                 , 'roi': {'minLat': 35.0069, 'maxLat': 35.3217, 'minLon': 126.638, 'maxLon': 127.023}
@@ -298,17 +296,15 @@ class DtaProcess(object):
                 ]
 
                 # 수행 목록
-                # , 'modelList': ['REANALY-ECMWF-1M-GL']
-                , 'modelList': ['REANALY-ECMWF-1M-GW']
+                , 'modelList': ['REANALY-ECMWF-1H-CP']
 
-                , 'REANALY-ECMWF-1M-GL': {
-                    # 'filePath': '/DATA/INPUT/LSH0547/gw_yearly/yearly/%Y'
-                    'filePath': '/DATA/INPUT/LSH0547/global_monthly_new/monthly/%Y'
-                    , 'fileName': 'era5_merged_monthly_mean.grib'
-                    , 'varList': ['2T_GDS0_SFC']
+                , 'REANALY-ECMWF-1H-CP': {
+                    'filePath': '/DATA/INPUT/LSH0547/era5t_cp'
+                    , 'fileName': 'reanalysis-era5-single-levels_%Y%m%d_%H_select.grib'
+                    , 'varList': ['CP_GDS0_SFC_acc1h']
 
                     # 가공 변수
-                    , 'procList': ['t2m']
+                    , 'procList': ['cp']
 
                     # 가공 파일 정보
                     , 'procPath': '/DATA/OUTPUT/LSH0547'
@@ -316,28 +312,6 @@ class DtaProcess(object):
 
                     , 'figPath': '/DATA/FIG/LSH0547'
                     , 'figName': '{}_{}-{}_{}-{}.png'
-                }
-
-                , 'REANALY-ECMWF-1M-GW': {
-                    # 'filePath': '/DATA/INPUT/LSH0547/era5_monthly_gwangju/%Y'
-                    'filePath': '/DATA/INPUT/LSH0547/gwangju_monthly_new/monthly/%Y'
-                    , 'fileName': 'era5_merged_monthly_mean.grib'
-                    , 'varList': ['2T_GDS0_SFC']
-
-                    # 가공 변수
-                    , 'procList': ['t2m']
-
-                    # 가공 파일 정보
-                    , 'procPath': '/DATA/OUTPUT/LSH0547'
-                    , 'procName': '{}_{}-{}_{}-{}.nc'
-
-                    , 'figPath': '/DATA/FIG/LSH0547'
-                    , 'figName': '{}_{}-{}_{}-{}.png'
-                }
-
-                , 'SHP-GW': {
-                    'filePath': '/DATA/INPUT/LSH0547/shp'
-                    , 'fileName': '002_gwj_gu.shp'
                 }
             }
 
@@ -350,8 +324,8 @@ class DtaProcess(object):
             # ===================================================================================
             # SHP 파일 읽기
             # ===================================================================================
-            shpFile = '{}/{}'.format(sysOpt['SHP-GW']['filePath'], sysOpt['SHP-GW']['fileName'])
-            shpData = gpd.read_file(shpFile, encoding='EUC-KR').to_crs(epsg=4326)
+            # shpFile = '{}/{}'.format(sysOpt['SHP-GW']['filePath'], sysOpt['SHP-GW']['fileName'])
+            # shpData = gpd.read_file(shpFile, encoding='EUC-KR').to_crs(epsg=4326)
 
             # shpData.plot(color=None, edgecolor='k', facecolor='none')
             # for idx, row in shpData.iterrows():
@@ -386,26 +360,19 @@ class DtaProcess(object):
                     data = xr.open_dataset(fileInfo, engine='pynio')
                     log.info(f'[CHECK] fileInfo : {fileInfo}')
 
-                    # dataL1 = data.sel(g0_lon_1 = slice(sysOpt['roi']['minLon'], sysOpt['roi']['maxLon']), g0_lat_0 = slice(sysOpt['roi']['minLat'], sysOpt['roi']['maxLat']))
+
                     dataL1 = data
-                    # dataL1 = data.sel(g0_lon_2 = slice(sysOpt['roi']['minLon'], sysOpt['roi']['maxLon']), g0_lat_1 = slice(sysOpt['roi']['minLat'], sysOpt['roi']['maxLat']))
+                    # dataL1['CP_GDS0_SFC_acc1h'].attrs
 
                     # 동적 NetCDF 생선
-
-
-                    # lon1D = dataL1['g0_lon_1'].values
-                    # lat1D = dataL1['g0_lat_0'].values
-                    lon1D = dataL1['g0_lon_2'].values
-                    lat1D = dataL1['g0_lat_1'].values
-
-                    # time1D = dtDateInfo
-                    # time1D = dataL1['initial_time0_hours'].values
-                    time1D = pd.to_datetime(pd.to_datetime(dataL1['initial_time0_hours'].values).strftime('%Y-%m'))
+                    lon1D = dataL1['g0_lon_1'].values
+                    lat1D = dataL1['g0_lat_0'].values
+                    time1D = dtDateInfo
 
                     dataL2 = xr.Dataset(
                         coords={
-                            # 'time': pd.date_range(time1D, periods=1)
-                            'time': pd.to_datetime(time1D)
+                            'time': pd.date_range(time1D, periods=1)
+                            # 'time': pd.to_datetime(time1D)
                             , 'lat': lat1D
                             , 'lon': lon1D
                         }
@@ -413,8 +380,7 @@ class DtaProcess(object):
 
                     for varInfo in modelInfo['varList']:
                         try:
-                            # dataL2[varInfo] = (('time', 'lat', 'lon'), (dataL1[varInfo].values).reshape(1, len(lat1D), len(lon1D)))
-                            dataL2[varInfo] = (('time', 'lat', 'lon'), (dataL1[varInfo].values).reshape(len(time1D), len(lat1D), len(lon1D)))
+                            dataL2[varInfo] = (('time', 'lat', 'lon'), (dataL1[varInfo].values).reshape(1, len(lat1D), len(lon1D)))
                         except Exception as e:
                             pass
 
@@ -431,9 +397,9 @@ class DtaProcess(object):
                 if len(mrgData) < 1: continue
 
                 # shp 영역 내 자료 추출
-                roiData = mrgData.rio.write_crs("epsg:4326")
-                roiDataL1 = roiData.rio.set_spatial_dims(x_dim='lon', y_dim='lat', inplace=True)
-                roiDataL2 = roiDataL1.rio.clip(shpData.geometry, shpData.crs, from_disk=True)
+                # roiData = mrgData.rio.write_crs("epsg:4326")
+                # roiDataL1 = roiData.rio.set_spatial_dims(x_dim='lon', y_dim='lat', inplace=True)
+                # roiDataL2 = roiDataL1.rio.clip(shpData.geometry, shpData.crs, from_disk=True)
 
                 # roiDataL2['2T_GDS0_SFC'].isel(time=0).plot()
                 # plt.show()
@@ -441,14 +407,30 @@ class DtaProcess(object):
                 # 7월 추출
                 # mrgData = mrgData.sel(time = (mrgData['time'].dt.month == 7))
 
+                # (mrgData.isel(time = 0)['CP_GDS0_SFC_acc1h'] * 1000).plot()
+                # plt.show()
+
+                # (mrgData['CP_GDS0_SFC_acc1h'] * 1000).plot()
+                # plt.show()
+
+                # 단위 변환 (m/hour -> mm/day)
+                varData = mrgData['CP_GDS0_SFC_acc1h'] * 1000
+                # varData = mrgData['CP_GDS0_SFC_acc1h'] * 1000 * 24
+
+                # 일누적 강수량
+                varDataL1 = varData.resample(time='1D').sum(skipna=True)
+
+                varDataL1.plot(vmin=0, vmax=20)
+                plt.show()
+
                 for varIdx, varInfo in enumerate(modelInfo['varList']):
                     procInfo = modelInfo['procList'][varIdx]
                     log.info(f'[CHECK] varInfo : {varInfo} / procInfo : {procInfo}')
 
                     if re.search('t2m', procInfo, re.IGNORECASE):
                         # 0 초과 필터, 그 외 결측값 NA
-                        # varData = mrgData[varInfo]
-                        varData = roiDataL2[varInfo]
+                        varData = mrgData[varInfo]
+                        # varData = roiDataL2[varInfo]
                         varDataL1 = varData.where(varData > 0)
                         varDataL2 = varDataL1 - 273.15
                     else:
