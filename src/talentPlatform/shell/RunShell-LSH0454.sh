@@ -19,6 +19,9 @@ PY38_PATH=/SYSTEMS/anaconda3/envs/py36/bin/python3.6
 
 echo "[$(date +"%Y-%m-%d %H:%M:%S")] [CHECK] CTX_PATH : $CTX_PATH"
 
+# cd /SYSTEMS/PROG/PYTHON/PyCharm/src/talentPlatform/shell
+# nohup bash /SYSTEMS/PROG/PYTHON/PyCharm/src/talentPlatform/shell/RunShell-LSH0454.sh &
+
 #========================================
 # Argument Check
 #========================================
@@ -42,15 +45,19 @@ echo "[$(date +"%Y-%m-%d %H:%M:%S")] [CHECK] CTX_PATH : $CTX_PATH"
 #========================================
 # Run Shell
 #========================================
-${PY38_PATH} ${RUN_PATH}/${RUN_NAME} --addrList "경기도 과천시"
-${PY38_PATH} ${RUN_PATH}/${RUN_NAME} --addrList "서울특별시 용산구"
-${PY38_PATH} ${RUN_PATH}/${RUN_NAME} --addrList "서울특별시 송파구"
-${PY38_PATH} ${RUN_PATH}/${RUN_NAME} --addrList "서울특별시 서초구"
-${PY38_PATH} ${RUN_PATH}/${RUN_NAME} --addrList "서울특별시 강남구"
-${PY38_PATH} ${RUN_PATH}/${RUN_NAME} --addrList "서울특별시 강북구"
-${PY38_PATH} ${RUN_PATH}/${RUN_NAME} --addrList "서울특별시 양천구"
-${PY38_PATH} ${RUN_PATH}/${RUN_NAME} --addrList "경기도 의정부시"
-${PY38_PATH} ${RUN_PATH}/${RUN_NAME} --addrList "경기도 하남시"
+#${PY38_PATH} ${RUN_PATH}/${RUN_NAME} --addrList "경기도 과천시"
+#${PY38_PATH} ${RUN_PATH}/${RUN_NAME} --addrList "서울특별시 용산구"
+#${PY38_PATH} ${RUN_PATH}/${RUN_NAME} --addrList "서울특별시 송파구"
+#${PY38_PATH} ${RUN_PATH}/${RUN_NAME} --addrList "서울특별시 서초구"
+#${PY38_PATH} ${RUN_PATH}/${RUN_NAME} --addrList "서울특별시 강남구"
+#${PY38_PATH} ${RUN_PATH}/${RUN_NAME} --addrList "서울특별시 강북구"
+#${PY38_PATH} ${RUN_PATH}/${RUN_NAME} --addrList "서울특별시 양천구"
+#${PY38_PATH} ${RUN_PATH}/${RUN_NAME} --addrList "경기도 의정부시"
+#${PY38_PATH} ${RUN_PATH}/${RUN_NAME} --addrList "경기도 하남시"
+
+# 2024.04.04
+${PY38_PATH} ${RUN_PATH}/${RUN_NAME} --addrList "서울특별시 성동구"
+#${PY38_PATH} ${RUN_PATH}/${RUN_NAME} --addrList "서울특별시 광진구"
 
 echo "[$(date +"%Y-%m-%d %H:%M:%S")] [END] Main Shell : $0"
 
