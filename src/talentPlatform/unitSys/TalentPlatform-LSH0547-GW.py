@@ -297,28 +297,10 @@ class DtaProcess(object):
                 ]
 
                 # 수행 목록
-                , 'modelList': ['REANALY-ECMWF-1M-GL']
-                # , 'modelList': ['REANALY-ECMWF-1M-GW']
+                , 'modelList': ['REANALY-ECMWF-1M-GW']
 
                 # 장기 최초30년, 장기 최근30년, 단기 최근10년, 초단기 최근1년
                 , 'analyList': ['1981-2010', '1990-2020', '2010-2020', '2022-2022']
-
-                , 'REANALY-ECMWF-1M-GL': {
-                    # 'filePath': '/DATA/INPUT/LSH0547/gw_yearly/yearly/%Y'
-                    'filePath': '/DATA/INPUT/LSH0547/global_monthly_new/monthly/%Y'
-                    , 'fileName': 'era5_merged_monthly_mean.grib'
-                    , 'varList': ['2T_GDS0_SFC']
-
-                    # 가공 변수
-                    , 'procList': ['t2m']
-
-                    # 가공 파일 정보
-                    , 'procPath': '/DATA/OUTPUT/LSH0547'
-                    , 'procName': '{}_{}-{}_{}-{}.nc'
-
-                    , 'figPath': '/DATA/FIG/LSH0547'
-                    , 'figName': '{}_{}-{}_{}-{}.png'
-                }
 
                 , 'REANALY-ECMWF-1M-GW': {
                     # 'filePath': '/DATA/INPUT/LSH0547/era5_monthly_gwangju/%Y'
@@ -392,8 +374,6 @@ class DtaProcess(object):
                 #     # dataL1 = data.sel(g0_lon_2 = slice(sysOpt['roi']['minLon'], sysOpt['roi']['maxLon']), g0_lat_1 = slice(sysOpt['roi']['minLat'], sysOpt['roi']['maxLat']))
                 #
                 #     # 동적 NetCDF 생선
-                #
-                #
                 #     # lon1D = dataL1['g0_lon_1'].values
                 #     # lat1D = dataL1['g0_lat_0'].values
                 #     lon1D = dataL1['g0_lon_2'].values
@@ -448,12 +428,12 @@ class DtaProcess(object):
                 # maxDate = pd.to_datetime(timeList).max().strftime("%Y%m%d")
                 #
                 # procFilePattern = '{}/{}'.format(modelInfo['procPath'], modelInfo['procName'])
-                # procFile = procFilePattern.format(modelType, 'proc', 't2m', minDate, maxDate)
+                # procFile = procFilePattern.format(modelType, 'proc', 'mrg', minDate, maxDate)
                 # os.makedirs(os.path.dirname(procFile), exist_ok=True)
                 # mrgData.to_netcdf(procFile)
                 # log.info(f'[CHECK] procFile : {procFile}')
 
-                mrgData = xr.open_dataset('/DATA/OUTPUT/LSH0547/REANALY-ECMWF-1M-GL_proc-t2m_19810101-20231101.nc', engine='pynio')
+                mrgData = xr.open_dataset('/DATA/OUTPUT/LSH0547/REANALY-ECMWF-1M-GW_proc-mrg_19810101-20221201.nc', engine='pynio')
 
                 # mrgData.isel(time = 0)['2T_GDS0_SFC'].plot()
                 # plt.show()
@@ -537,7 +517,7 @@ class DtaProcess(object):
                         # ******************************************************************************************************
                         # Mann Kendall 검정
                         # ******************************************************************************************************
-                        client = Client(n_workers=50, threads_per_worker=50)
+                        # client = Client(n_workers=50, threads_per_worker=50)
 
                         colName = 'slope'
                         mkData = xr.apply_ufunc(
@@ -552,7 +532,7 @@ class DtaProcess(object):
                             dask_gufunc_kwargs={'allow_rechunk': True}
                         ).compute()
 
-                        client.close()
+                        # client.close()
 
                         mkName = f'{procInfo}-{colName}'
                         mkData.name = mkName
