@@ -452,7 +452,6 @@ class DtaProcess(object):
                 # log.info(f'[CHECK] procFile : {procFile}')
 
                 mrgData = xr.open_dataset('/DATA/OUTPUT/LSH0547/REANALY-ECMWF-1M-GL_proc-mrg_19810101-20231101.nc', engine='pynio')
-
                 # mrgData.isel(time = 0)['2T_GDS0_SFC'].plot()
                 # plt.show()
 
@@ -461,15 +460,6 @@ class DtaProcess(object):
                     analySrtDate, analyEndDate = analyInfo.split('-')
 
                     mrgData = mrgData.sel(time=slice(analySrtDate, analyEndDate))
-
-                    # 장기 최초30년
-                    # mrgData = mrgData.sel(time = slice('1981', '2010'))
-                    # # 장기 최근30년
-                    # mrgData = mrgData.sel(time = slice('1990', '2020'))
-                    # # 단기 최근10년
-                    # mrgData = mrgData.sel(time = slice('2010', '2020'))
-                    # # 초단기 최근1년
-                    # mrgData = mrgData.sel(time = slice('2022', '2022'))
 
                     for varIdx, varInfo in enumerate(modelInfo['varList']):
                         procInfo = modelInfo['procList'][varIdx]
@@ -488,73 +478,63 @@ class DtaProcess(object):
                         minDate = pd.to_datetime(timeList).min().strftime("%Y%m%d")
                         maxDate = pd.to_datetime(timeList).max().strftime("%Y%m%d")
 
-                        # 통계 분석
-                        # timeList = varDataL2['time'].values
-                        # for timeInfo in timeList:
-                        #     selData = varDataL2.sel(time = timeInfo)
+                        # ******************************************************************************************************
+                        # 전체 Mann Kendall 검정
+                        # ******************************************************************************************************
+                        # # client = Client(n_workers=50, threads_per_worker=50)
+                        # colName = 'slope'
+                        # mkData = xr.apply_ufunc(
+                        #     calcMannKendall,
+                        #     varDataL2,
+                        #     kwargs={'colName': colName},
+                        #     input_core_dims=[['time']],
+                        #     output_core_dims=[[]],
+                        #     vectorize=True,
+                        #     dask='parallelized',
+                        #     output_dtypes=[np.float64],
+                        #     dask_gufunc_kwargs={'allow_rechunk': True}
+                        # ).compute()
                         #
-                        #     preDate = pd.to_datetime(timeInfo).strftime("%Y-%m")
+                        # # client.close()
                         #
-                        #     meanVal = np.nanmean(selData)
-                        #     maxVal = np.nanmax(selData)
-                        #     minVal = np.nanmin(selData)
+                        # mkName = f'{procInfo}-{colName}'
+                        # mkData.name = mkName
+                        # key = f'MK{analyInfo}'
                         #
-                        #     log.info(f'[CHECK] preDate : {preDate} / meanVal : {meanVal} / maxVal : {maxVal} / minVal : {minVal}')
+                        # # MK 생산
+                        # procFilePattern = '{}/{}'.format(modelInfo['procPath'], modelInfo['procName'])
+                        # procFile = procFilePattern.format(modelType, mkName, key, minDate, maxDate)
+                        # os.makedirs(os.path.dirname(procFile), exist_ok=True)
+                        # mkData.to_netcdf(procFile)
+                        # log.info(f'[CHECK] procFile : {procFile}')
 
                         # ******************************************************************************************************
-                        # 관측소 시계열 검정
+                        # 매월 Mann Kendall 검정
                         # ******************************************************************************************************
-                        # for i, posInfo in pd.DataFrame(sysOpt['posData']).iterrows():
-                        #
-                        #     posName = f"{posInfo['GU']}-{posInfo['NAME']}"
-                        #
-                        #     saveFilePattern = '{}/{}'.format(modelInfo['figPath'], modelInfo['figName'])
-                        #     saveImg = saveFilePattern.format(modelType, 'orgTime', posName, minDate, maxDate)
-                        #     os.makedirs(os.path.dirname(saveImg), exist_ok=True)
-                        #
-                        #     posData = varDataL2.interp({'lon': posInfo['LON'], 'lat': posInfo['LAT']}, method='linear')
-                        #     posData.plot(marker='o')
-                        #     plt.savefig(saveImg, dpi=600, bbox_inches='tight', transparent=True)
-                        #     log.info(f'[CHECK] saveImg : {saveImg}')
-                        #     plt.show()
-                        #     plt.close()
-                        #
-                        #     # 5년 이동평균
-                        #     saveFilePattern = '{}/{}'.format(modelInfo['figPath'], modelInfo['figName'])
-                        #     saveImg = saveFilePattern.format(modelType, 'movTime', posName, minDate, maxDate)
-                        #     os.makedirs(os.path.dirname(saveImg), exist_ok=True)
-                        #
-                        #     movData = posData.rolling(time=5, center=True).mean()
-                        #     movData.plot(marker='o')
-                        #     plt.savefig(saveImg, dpi=600, bbox_inches='tight', transparent=True)
-                        #     log.info(f'[CHECK] saveImg : {saveImg}')
-                        #     plt.show()
-                        #     plt.close()
+                        # client = Client(n_workers=50, threads_per_worker=50)
+                        statData = varDataL2.groupby('time.season').mean('time')
+                        timeList = statData['season'].values
+                        for timeInfo in timeList:
+                            statDataL1 = statData.sel(season=timeInfo)
 
+                            colName = 'slope'
+                            mkData = xr.apply_ufunc(
+                                calcMannKendall,
+                                statDataL1,
+                                kwargs={'colName': colName},
+                                input_core_dims=[['season']],
+                                output_core_dims=[[]],
+                                vectorize=True,
+                                dask='parallelized',
+                                output_dtypes=[np.float64],
+                                dask_gufunc_kwargs={'allow_rechunk': True}
+                            ).compute()
 
-                        # ******************************************************************************************************
-                        # Mann Kendall 검정
-                        # ******************************************************************************************************
-                        client = Client(n_workers=50, threads_per_worker=50)
+                            # client.close()
 
-                        colName = 'slope'
-                        mkData = xr.apply_ufunc(
-                            calcMannKendall,
-                            varDataL2,
-                            kwargs={'colName': colName},
-                            input_core_dims=[['time']],
-                            output_core_dims=[[]],
-                            vectorize=True,
-                            dask='parallelized',
-                            output_dtypes=[np.float64],
-                            dask_gufunc_kwargs={'allow_rechunk': True}
-                        ).compute()
-
-                        client.close()
-
-                        mkName = f'{procInfo}-{colName}'
-                        mkData.name = mkName
-                        key = f'MK{analyInfo}'
+                            mkName = f'{procInfo}-{colName}-{timeInfo}'
+                            mkData.name = mkName
+                            key = f'MK{analyInfo}'
 
                         # MK 생산
                         procFilePattern = '{}/{}'.format(modelInfo['procPath'], modelInfo['procName'])
@@ -563,34 +543,37 @@ class DtaProcess(object):
                         mkData.to_netcdf(procFile)
                         log.info(f'[CHECK] procFile : {procFile}')
 
-                        # 시각화
-                        fig, ax = plt.subplots(figsize=(10, 6), subplot_kw={'projection': ccrs.PlateCarree()})
 
-                        ax.coastlines()
-                        gl = ax.gridlines(draw_labels=True)
-                        gl.top_labels = False
-                        gl.right_labels = False
 
-                        mkData.plot(ax=ax, transform=ccrs.PlateCarree())
 
-                        shpData.plot(ax=ax, edgecolor='k', facecolor='none')
-                        for idx, row in shpData.iterrows():
-                            centroid = row.geometry.centroid
-                            ax.annotate(text=row['gu'], xy=(centroid.x, centroid.y), horizontalalignment='center', verticalalignment='center')
-
-                        minVal = np.nanmin(mkData)
-                        maxVal = np.nanmax(mkData)
-                        meanVal = np.nanmean(mkData)
-                        plt.title(f'minVal = {minVal:.3f} / meanVal = {meanVal:.3f} / maxVal = {maxVal:.3f}')
-
-                        saveFilePattern = '{}/{}'.format(modelInfo['figPath'], modelInfo['figName'])
-                        # saveImg = saveFilePattern.format(modelType, mkName, 'MK', minDate, maxDate)
-                        saveImg = saveFilePattern.format(modelType, mkName, key, minDate, maxDate)
-                        os.makedirs(os.path.dirname(saveImg), exist_ok=True)
-                        plt.savefig(saveImg, dpi=600, bbox_inches='tight', transparent=True)
-                        log.info(f'[CHECK] saveImg : {saveImg}')
-                        # plt.show()
-                        plt.close()
+                        # # 시각화
+                        # fig, ax = plt.subplots(figsize=(10, 6), subplot_kw={'projection': ccrs.PlateCarree()})
+                        #
+                        # ax.coastlines()
+                        # gl = ax.gridlines(draw_labels=True)
+                        # gl.top_labels = False
+                        # gl.right_labels = False
+                        #
+                        # mkData.plot(ax=ax, transform=ccrs.PlateCarree())
+                        #
+                        # shpData.plot(ax=ax, edgecolor='k', facecolor='none')
+                        # for idx, row in shpData.iterrows():
+                        #     centroid = row.geometry.centroid
+                        #     ax.annotate(text=row['gu'], xy=(centroid.x, centroid.y), horizontalalignment='center', verticalalignment='center')
+                        #
+                        # minVal = np.nanmin(mkData)
+                        # maxVal = np.nanmax(mkData)
+                        # meanVal = np.nanmean(mkData)
+                        # plt.title(f'minVal = {minVal:.3f} / meanVal = {meanVal:.3f} / maxVal = {maxVal:.3f}')
+                        #
+                        # saveFilePattern = '{}/{}'.format(modelInfo['figPath'], modelInfo['figName'])
+                        # # saveImg = saveFilePattern.format(modelType, mkName, 'MK', minDate, maxDate)
+                        # saveImg = saveFilePattern.format(modelType, mkName, key, minDate, maxDate)
+                        # os.makedirs(os.path.dirname(saveImg), exist_ok=True)
+                        # plt.savefig(saveImg, dpi=600, bbox_inches='tight', transparent=True)
+                        # log.info(f'[CHECK] saveImg : {saveImg}')
+                        # # plt.show()
+                        # plt.close()
 
         except Exception as e:
             log.error("Exception : {}".format(e))
