@@ -23,6 +23,8 @@ import matplotlib.pyplot as plt
 import numpy as np
 from matplotlib.ticker import ScalarFormatter
 import seaborn as sns
+from multiprocessing import Pool
+import multiprocessing as mp
 
 # =================================================
 # 사용자 매뉴얼
@@ -163,6 +165,83 @@ def initArgument(globalVar, inParams):
 
     return globalVar
 
+def subCalc(metaInfo, metaData, data, colNameList):
+
+    result = None
+
+    try:
+        procInfo = mp.current_process()
+        fnlData = pd.DataFrame()
+
+        # dateInfo = dateList[0]
+        dateList = sorted(set(data['Date']))
+        for dateInfo in dateList:
+            log.info(f'[CHECK] dateInfo : {dateInfo} / pid : {procInfo.pid}')
+
+            dataL1 = data.loc[
+                (data['Date'] == dateInfo)
+            ]
+
+            if len(dataL1) < 1: continue
+
+            # isYn == Y인 경우
+            metaDataL4 = pd.DataFrame()
+            if metaInfo['isYn'] == 'Y':
+                metaDataL1 = metaData[
+                    (metaData['code'] == metaInfo['code'])
+                    & (metaData['isYn'] == 'Y')
+                    ]
+
+                metaDataL2 = pd.DataFrame()
+                for j, metaInfoL1 in metaDataL1.iterrows():
+                    selData = dataL1.loc[
+                        (dataL1['Level'] == 'County')
+                        & (dataL1['State Postal Code'] == metaInfoL1['code'])
+                        & (dataL1['County Name'] == f'{metaInfoL1["county"]} County')
+                        ]
+                    metaDataL2 = pd.concat([metaDataL2, selData], ignore_index=True)
+
+                if len(metaDataL2) < 1: continue
+                statData = metaDataL2[colNameList].sum(skipna=True)
+                sumVal = statData[['Population Staying at Home', 'Population Not Staying at Home']].sum(skipna=True)
+                allCnt = metaInfo['allCnt']
+                weg = allCnt / sumVal
+                metaDataL4 = statData.to_frame().transpose() * weg
+
+            else:
+                # isYn == N인 경우
+                if pd.isna(metaInfo['county']):
+                    metaDataL3 = dataL1.loc[
+                        (dataL1['Level'] == 'County')
+                        & (dataL1['State Postal Code'] == metaInfo['code'])
+                        ]
+                else:
+                    metaDataL3 = dataL1.loc[
+                        (dataL1['Level'] == 'County')
+                        & (dataL1['State Postal Code'] == metaInfo['code'])
+                        & (dataL1['County Name'] == f'{metaInfo["county"]} County')
+                        ]
+
+                metaDataL4 = metaDataL3[colNameList].reset_index(drop=True)
+
+            metaDataL5 = pd.concat([metaInfo.to_frame().transpose().reset_index(drop=True), metaDataL4], axis=True)
+            metaDataL5['date'] = dateInfo
+
+            fnlData = pd.concat([fnlData, metaDataL5], ignore_index=True)
+
+        saveFile = '{}/{}/{}_{}_{}.csv'.format(globalVar['outPath'], serviceName, metaInfo['city'], metaInfo['code'], metaInfo['county'])
+        os.makedirs(os.path.dirname(saveFile), exist_ok=True)
+        fnlData.to_csv(saveFile, index=False)
+        log.info(f'[CHECK] saveFile : {saveFile}')
+
+    except Exception as e:
+        log.error("Exception : {}".format(e))
+        return result
+
+    finally:
+        log.info(f'[END] pid : {procInfo.pid}')
+
+
 # ================================================
 # 4. 부 프로그램
 # ================================================
@@ -235,6 +314,11 @@ class DtaProcess(object):
                 globalVar['figPath'] = '/DATA/FIG'
                 globalVar['updPath'] = '/DATA/CSV'
 
+            sysOpt = {
+                # 비동기 다중 프로세스 개수
+                'cpuCoreNum': 20
+            }
+
             # ********************************************************************
             # 메타 정보
             # ********************************************************************
@@ -252,73 +336,16 @@ class DtaProcess(object):
             # dataL1.columns
             colNameList = ['Population Staying at Home', 'Population Not Staying at Home', 'Number of Trips', 'Number of Trips <1', 'Number of Trips 1-3', 'Number of Trips 3-5', 'Number of Trips 5-10', 'Number of Trips 10-25', 'Number of Trips 25-50', 'Number of Trips 50-100', 'Number of Trips 100-250', 'Number of Trips 250-500', 'Number of Trips >=500']
 
-            fnlData = pd.DataFrame()
+            # **************************************************************************************************************
+            # 비동기 다중 프로세스 수행
+            # **************************************************************************************************************
+            # 비동기 다중 프로세스 개수
+            pool = Pool(sysOpt['cpuCoreNum'])
             for i, metaInfo in metaData.iterrows():
-                # metaInfo = metaData.iloc[0]
-                metaInfo = metaData.iloc[5]
-                # metaInfo = metaData.iloc[8]
                 log.info(f'[CHECK] metaInfo : {metaInfo}')
-
-                # dateInfo = dateList[0]
-                dateList = sorted(set(data['Date']))
-                for dateInfo in dateList:
-                    log.info(f'[CHECK] dateInfo : {dateInfo}')
-
-                    dataL1 = data.loc[
-                        (data['Date'] == dateInfo)
-                    ]
-
-                    if len(dataL1) < 1: continue
-
-                    # isYn == Y인 경우
-                    metaDataL4 = pd.DataFrame()
-                    if metaInfo['isYn'] == 'Y':
-                        metaDataL1 = metaData[
-                            (metaData['code'] == metaInfo['code'])
-                            & (metaData['isYn'] == 'Y')
-                            ]
-
-                        metaDataL2 = pd.DataFrame()
-                        for j, metaInfoL1 in metaDataL1.iterrows():
-                            selData = dataL1.loc[
-                                (dataL1['Level'] == 'County')
-                                & (dataL1['State Postal Code'] == metaInfoL1['code'])
-                                & (dataL1['County Name'] == f'{metaInfoL1["county"]} County')
-                            ]
-                            metaDataL2 = pd.concat([metaDataL2, selData], ignore_index=True)
-
-                        if len(metaDataL2) < 1: continue
-                        statData = metaDataL2[colNameList].sum(skipna=True)
-                        sumVal = statData[['Population Staying at Home', 'Population Not Staying at Home']].sum(skipna=True)
-                        allCnt = metaInfo['allCnt']
-                        weg = allCnt / sumVal
-                        metaDataL4 = statData.to_frame().transpose() * weg
-
-                    else:
-                        # isYn == N인 경우
-                        if pd.isna(metaInfo['county']):
-                            metaDataL3 = dataL1.loc[
-                                (dataL1['Level'] == 'County')
-                                & (dataL1['State Postal Code'] == metaInfo['code'])
-                                ]
-                        else:
-                            metaDataL3 = dataL1.loc[
-                                (dataL1['Level'] == 'County')
-                                & (dataL1['State Postal Code'] == metaInfo['code'])
-                                & (dataL1['County Name'] == f'{metaInfo["county"]} County')
-                                ]
-
-                        metaDataL4 = metaDataL3[colNameList].reset_index(drop=True)
-
-                    metaDataL5 = pd.concat([metaInfo.to_frame().transpose().reset_index(drop=True), metaDataL4], axis=True)
-                    metaDataL5['date'] = dateInfo
-
-                    fnlData = pd.concat([fnlData, metaDataL5], ignore_index=True)
-
-                saveFile = '{}/{}/{}_{}_{}.csv'.format(globalVar['outPath'], serviceName, metaInfo['city'], metaInfo['code'], metaInfo['county'])
-                os.makedirs(os.path.dirname(saveFile), exist_ok=True)
-                fnlData.to_csv(saveFile, index=False)
-                log.info(f'[CHECK] saveFile : {saveFile}')
+                pool.apply_async(subCalc, args=(metaInfo, metaData, data, colNameList))
+            pool.close()
+            pool.join()
 
         except Exception as e:
             log.error("Exception : {}".format(e))
