@@ -4,6 +4,18 @@ echo "[$(date +"%Y-%m-%d %H:%M:%S")] [START] Main Shell : $0"
 echo
 
 #========================================
+# DOC
+#========================================
+# 전처리 파일 업로드
+# /DATA/OUTPUT/LSH0454/전처리
+
+# 예측 파일 다운로드
+# /DATA/OUTPUT/LSH0454/예측
+
+# cd /SYSTEMS/PROG/PYTHON/PyCharm/src/talentPlatform/shell
+# nohup bash /SYSTEMS/PROG/PYTHON/PyCharm/src/talentPlatform/shell/RunShell-LSH0454.sh &
+
+#========================================
 # Set Env
 #========================================
 ulimit -s unlimited
@@ -18,9 +30,6 @@ RUN_NAME=TalentPlatform-LSH0454-Active-OpenAPI-Model.py
 PY_PATH=/SYSTEMS/anaconda3/envs/py36/bin/python3.6
 
 echo "[$(date +"%Y-%m-%d %H:%M:%S")] [CHECK] CTX_PATH : $CTX_PATH"
-
-# cd /SYSTEMS/PROG/PYTHON/PyCharm/src/talentPlatform/shell
-# nohup bash /SYSTEMS/PROG/PYTHON/PyCharm/src/talentPlatform/shell/RunShell-LSH0454.sh &
 
 #========================================
 # Argument Check
