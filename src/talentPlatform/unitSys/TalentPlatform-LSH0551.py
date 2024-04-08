@@ -192,7 +192,6 @@ def subCalc(metaInfo, metaData, data, colNameList):
             # isYn == Y인 경우
             metaDataL4 = pd.DataFrame()
             if metaInfo['isYn'] == 'Y':
-
                 metaDataL3 = dataL1.loc[
                     (dataL1['Level'] == 'County')
                     & (dataL1['State Postal Code'] == metaInfo['code'])
