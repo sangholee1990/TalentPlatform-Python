@@ -174,6 +174,7 @@ def subCalc(metaInfo, metaData, data, colNameList):
         fnlData = pd.DataFrame()
 
         # dateInfo = dateList[0]
+        # dateList = ["2019/01/01"]
         dateList = sorted(set(data['Date']))
         for dateInfo in dateList:
             log.info(f'[CHECK] dateInfo : {dateInfo} / pid : {procInfo.pid}')
@@ -182,27 +183,25 @@ def subCalc(metaInfo, metaData, data, colNameList):
                 (data['Date'] == dateInfo)
             ]
 
+            selMetaData = metaData.loc[
+                (metaData['code'] == metaInfo['code'])
+            ]
+
             if len(dataL1) < 1: continue
 
             # isYn == Y인 경우
             metaDataL4 = pd.DataFrame()
             if metaInfo['isYn'] == 'Y':
-                metaDataL1 = metaData[
-                    (metaData['code'] == metaInfo['code'])
-                    & (metaData['isYn'] == 'Y')
+
+                metaDataL3 = dataL1.loc[
+                    (dataL1['Level'] == 'County')
+                    & (dataL1['State Postal Code'] == metaInfo['code'])
+                    & (dataL1['County Name'].isin([f'{county} County' for county in selMetaData['county']]))
                     ]
 
-                metaDataL2 = pd.DataFrame()
-                for j, metaInfoL1 in metaDataL1.iterrows():
-                    selData = dataL1.loc[
-                        (dataL1['Level'] == 'County')
-                        & (dataL1['State Postal Code'] == metaInfoL1['code'])
-                        & (dataL1['County Name'] == f'{metaInfoL1["county"]} County')
-                        ]
-                    metaDataL2 = pd.concat([metaDataL2, selData], ignore_index=True)
+                if len(metaDataL3) < 1: continue
 
-                if len(metaDataL2) < 1: continue
-                statData = metaDataL2[colNameList].sum(skipna=True)
+                statData = metaDataL3[colNameList].sum(skipna=True)
                 sumVal = statData[['Population Staying at Home', 'Population Not Staying at Home']].sum(skipna=True)
                 allCnt = metaInfo['allCnt']
                 weg = allCnt / sumVal
@@ -210,7 +209,7 @@ def subCalc(metaInfo, metaData, data, colNameList):
 
             else:
                 # isYn == N인 경우
-                if pd.isna(metaInfo['county']):
+                if pd.isna(selMetaData['county']).any():
                     metaDataL3 = dataL1.loc[
                         (dataL1['Level'] == 'County')
                         & (dataL1['State Postal Code'] == metaInfo['code'])
@@ -219,17 +218,18 @@ def subCalc(metaInfo, metaData, data, colNameList):
                     metaDataL3 = dataL1.loc[
                         (dataL1['Level'] == 'County')
                         & (dataL1['State Postal Code'] == metaInfo['code'])
-                        & (dataL1['County Name'] == f'{metaInfo["county"]} County')
+                        & (dataL1['County Name'].isin([f'{county} County' for county in selMetaData['county']]))
                         ]
 
-                metaDataL4 = metaDataL3[colNameList].reset_index(drop=True)
+                if len(metaDataL3) < 1: continue
+                metaDataL4 = metaDataL3[colNameList].sum(skipna=True).to_frame().transpose()
 
             metaDataL5 = pd.concat([metaInfo.to_frame().transpose().reset_index(drop=True), metaDataL4], axis=True)
             metaDataL5['date'] = dateInfo
 
             fnlData = pd.concat([fnlData, metaDataL5], ignore_index=True)
 
-        saveFile = '{}/{}/{}_{}_{}.csv'.format(globalVar['outPath'], serviceName, metaInfo['city'], metaInfo['code'], metaInfo['county'])
+        saveFile = '{}/{}/{}_{}.csv'.format(globalVar['outPath'], serviceName, metaInfo['city'], metaInfo['code'])
         os.makedirs(os.path.dirname(saveFile), exist_ok=True)
         fnlData.to_csv(saveFile, index=False)
         log.info(f'[CHECK] saveFile : {saveFile}')
@@ -316,7 +316,8 @@ class DtaProcess(object):
 
             sysOpt = {
                 # 비동기 다중 프로세스 개수
-                'cpuCoreNum': 20
+                'cpuCoreNum': 40
+                # 'cpuCoreNum': 1
             }
 
             # ********************************************************************
@@ -341,9 +342,12 @@ class DtaProcess(object):
             # **************************************************************************************************************
             # 비동기 다중 프로세스 개수
             pool = Pool(sysOpt['cpuCoreNum'])
-            for i, metaInfo in metaData.iterrows():
+
+            metaDataL1 = metaData[['city', 'code', 'isYn', 'allCnt']].drop_duplicates().reset_index(drop=True)
+            for i, metaInfo in metaDataL1.iterrows():
                 log.info(f'[CHECK] metaInfo : {metaInfo}')
                 pool.apply_async(subCalc, args=(metaInfo, metaData, data, colNameList))
+                # subCalc(metaInfo, metaData, data, colNameList)
             pool.close()
             pool.join()
 
