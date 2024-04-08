@@ -189,7 +189,6 @@ def subCalc(metaInfo, metaData, data, colNameList):
             ]
             if len(selMetaData) < 1: continue
 
-
             # isYn == Y인 경우
             metaDataL4 = pd.DataFrame()
             if metaInfo['isYn'] == 'Y':
@@ -350,6 +349,7 @@ class DtaProcess(object):
             pool = Pool(sysOpt['cpuCoreNum'])
 
             metaDataL1 = metaData[['city', 'code', 'isYn', 'allCnt']].drop_duplicates().reset_index(drop=True)
+            metaDataL1 = metaDataL1.loc[metaDataL1['city'] == 'Minneapolis']
             for i, metaInfo in metaDataL1.iterrows():
                 log.info(f'[CHECK] metaInfo : {metaInfo}')
                 pool.apply_async(subCalc, args=(metaInfo, metaData, data, colNameList))
