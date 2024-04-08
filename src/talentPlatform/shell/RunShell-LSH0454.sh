@@ -69,14 +69,17 @@ echo "[$(date +"%Y-%m-%d %H:%M:%S")] [CHECK] CTX_PATH : $CTX_PATH"
 #${PY_PATH} ${RUN_PATH}/${RUN_NAME} --addrList "서울특별시 광진구"
 
 # 2024.04.07
-${PY_PATH} ${RUN_PATH}/${RUN_NAME} --addrList "서울특별시 중랑구"
+#${PY_PATH} ${RUN_PATH}/${RUN_NAME} --addrList "서울특별시 중랑구"
 ${PY_PATH} ${RUN_PATH}/${RUN_NAME} --addrList "서울특별시 노원구"
-${PY_PATH} ${RUN_PATH}/${RUN_NAME} --addrList "서울특별시 도봉구"
-${PY_PATH} ${RUN_PATH}/${RUN_NAME} --addrList "서울특별시 종로구"
-${PY_PATH} ${RUN_PATH}/${RUN_NAME} --addrList "서울특별시 관악구"
-${PY_PATH} ${RUN_PATH}/${RUN_NAME} --addrList "서울특별시 중구"
+#${PY_PATH} ${RUN_PATH}/${RUN_NAME} --addrList "서울특별시 도봉구"
+#${PY_PATH} ${RUN_PATH}/${RUN_NAME} --addrList "서울특별시 종로구"
+#${PY_PATH} ${RUN_PATH}/${RUN_NAME} --addrList "서울특별시 관악구"
+#${PY_PATH} ${RUN_PATH}/${RUN_NAME} --addrList "서울특별시 중구"
 ${PY_PATH} ${RUN_PATH}/${RUN_NAME} --addrList "서울특별시 동대문구"
 ${PY_PATH} ${RUN_PATH}/${RUN_NAME} --addrList "서울특별시 서대문구"
+${PY_PATH} ${RUN_PATH}/${RUN_NAME} --addrList "서울특별시 마포구"
+${PY_PATH} ${RUN_PATH}/${RUN_NAME} --addrList "서울특별시 금천구"
+${PY_PATH} ${RUN_PATH}/${RUN_NAME} --addrList "서울특별시 은평구"
 
 echo "[$(date +"%Y-%m-%d %H:%M:%S")] [END] Main Shell : $0"
 
