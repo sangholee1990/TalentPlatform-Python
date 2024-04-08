@@ -512,17 +512,22 @@ class DtaProcess(object):
                         # 매월 Mann Kendall 검정
                         # ******************************************************************************************************
                         # client = Client(n_workers=50, threads_per_worker=50)
-                        statData = varDataL2.groupby('time.season').mean('time')
-                        timeList = statData['season'].values
-                        for timeInfo in timeList:
-                            statDataL1 = statData.sel(season=timeInfo)
+                        # statData = varDataL2.groupby('time.season').mean('time')
+                        # statData = varDataL2.groupby('time.month').mean('time')
+                        # timeList = statData['season'].values
+                        # timeList = statData['month'].values
+                        # for timeInfo in range(1, 13):
+                        for timeInfo in range(3, 13):
+                            # statDataL1 = statData.sel(season=timeInfo)
+                            # statDataL1 = statData.sel(month=timeInfo)
+                            statDataL1 = varDataL2.sel(time=varDataL2['time'].dt.month.isin(timeInfo))
 
                             colName = 'slope'
                             mkData = xr.apply_ufunc(
                                 calcMannKendall,
                                 statDataL1,
                                 kwargs={'colName': colName},
-                                input_core_dims=[['season']],
+                                input_core_dims=[['time']],
                                 output_core_dims=[[]],
                                 vectorize=True,
                                 dask='parallelized',
@@ -536,15 +541,12 @@ class DtaProcess(object):
                             mkData.name = mkName
                             key = f'MK{analyInfo}'
 
-                        # MK 생산
-                        procFilePattern = '{}/{}'.format(modelInfo['procPath'], modelInfo['procName'])
-                        procFile = procFilePattern.format(modelType, mkName, key, minDate, maxDate)
-                        os.makedirs(os.path.dirname(procFile), exist_ok=True)
-                        mkData.to_netcdf(procFile)
-                        log.info(f'[CHECK] procFile : {procFile}')
-
-
-
+                            # MK 생산
+                            procFilePattern = '{}/{}'.format(modelInfo['procPath'], modelInfo['procName'])
+                            procFile = procFilePattern.format(modelType, mkName, key, minDate, maxDate)
+                            os.makedirs(os.path.dirname(procFile), exist_ok=True)
+                            mkData.to_netcdf(procFile)
+                            log.info(f'[CHECK] procFile : {procFile}')
 
                         # # 시각화
                         # fig, ax = plt.subplots(figsize=(10, 6), subplot_kw={'projection': ccrs.PlateCarree()})

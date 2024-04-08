@@ -414,8 +414,8 @@ class DtaProcess(object):
                 # plt.show()
 
                 # 단위 변환 (m/hour -> mm/day)
-                varData = mrgData['CP_GDS0_SFC_acc1h'] * 1000
-                # varData = mrgData['CP_GDS0_SFC_acc1h'] * 1000 * 24
+                # varData = mrgData['CP_GDS0_SFC_acc1h'] * 1000
+                varData = mrgData['CP_GDS0_SFC_acc1h'] * 1000 * 24
 
                 # 일누적 강수량
                 varDataL1 = varData.resample(time='1D').sum(skipna=True)

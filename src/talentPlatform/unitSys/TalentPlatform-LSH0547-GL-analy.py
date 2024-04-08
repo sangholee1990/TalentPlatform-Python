@@ -370,9 +370,6 @@ class DtaProcess(object):
                 if modelInfo is None: continue
 
                 mrgData = xr.open_dataset('/DATA/OUTPUT/LSH0547/REANALY-ECMWF-1M-GL_proc-mrg_19810101-20231101.nc', engine='pynio')
-                # 매월 일평균 수행
-                # 월평균 수행
-
                 for varIdx, varInfo in enumerate(modelInfo['varList']):
                     procInfo = modelInfo['procList'][varIdx]
                     log.info(f'[CHECK] varInfo : {varInfo} / procInfo : {procInfo}')
@@ -386,48 +383,63 @@ class DtaProcess(object):
                     else:
                         continue
 
-                    meanVal = np.nanmean(varDataL2)
-                    maxVal = np.nanmax(varDataL2)
-                    minVal = np.nanmin(varDataL2)
-                    log.info(f'[CHECK] timeInfo : {timeInfo} / meanVal : {meanVal} / maxVal : {maxVal} / minVal : {minVal}')
+                    # 아시아
+                    # varDataL2.isel(time = 5).plot()
+                    # plt.show()
+                    # varDataL2.sel(lat=90)
+                    # varDataL2.sel(lat=slice(10, 60))
+                    varDataL2.sel(lat=slice(10, 60))
 
-                    # statData = varDataL2.groupby('time.month').mean('time')
-                    statData = varDataL2.groupby('time.season').mean('time')
-                    timeList = statData['season'].values
+                    # varDataL2['lat'].values
+                    # lon=lonList, lat=latList
+
+                    # 한반도
+                    # varDataL2.sel(lon=slice('80', '180'), lat=slice('10', '60'))
+
+
+                    # 전체/월별 데이터 처리
+                    meanVal = np.nanmean(varDataL2)
+                    # maxVal = np.nanmax(varDataL2)
+                    # minVal = np.nanmin(varDataL2)
+                    # log.info(f'[CHECK] timeInfo : all / meanVal : {meanVal} / maxVal : {maxVal} / minVal : {minVal}')
+                    log.info(f'[CHECK] timeInfo : all / meanVal : {meanVal:.2f}')
+
+                    statData = varDataL2.groupby('time.month').mean('time')
+                    # statData = varDataL2.groupby('time.season').mean('time')
+                    # timeList = statData['season'].values
+                    timeList = statData['month'].values
                     for timeInfo in timeList:
-                        statDataL1 = statData.sel(season = timeInfo)
+                        # statDataL1 = statData.sel(season = timeInfo)
+                        statDataL1 = statData.sel(month = timeInfo)
 
                         meanVal = np.nanmean(statDataL1)
-                        maxVal = np.nanmax(statDataL1)
-                        minVal = np.nanmin(statDataL1)
+                        # maxVal = np.nanmax(statDataL1)
+                        # minVal = np.nanmin(statDataL1)
 
-                        log.info(f'[CHECK] timeInfo : all / meanVal : {meanVal} / maxVal : {maxVal} / minVal : {minVal}')
+                        # log.info(f'[CHECK] timeInfo : all / meanVal : {meanVal} / maxVal : {maxVal} / minVal : {minVal}')
+                        log.info(f'[CHECK] timeInfo : {timeInfo} / meanVal : {meanVal:.2f}')
 
                     for analyInfo in sysOpt['analyList']:
-                        log.info(f'[CHECK] analyInfo : {analyInfo}')
+                        # log.info(f'[CHECK] analyInfo : {analyInfo}')
                         analySrtDate, analyEndDate = analyInfo.split('-')
 
-                        slopeData = xr.open_dataset('/DATA/OUTPUT/LSH0547/REANALY-ECMWF-1M-GL_t2m-slope-MK1981-2010_19810101-20101201.nc', engine='pynio')
+                        inpFile = '/DATA/OUTPUT/LSH0547/REANALY-ECMWF-1M-GL_t2m-slope-MK{}-{}_*.nc'.format(analySrtDate, analyEndDate)
+                        fileList = sorted(glob.glob(inpFile))
+
+                        if fileList is None or len(fileList) < 1: continue
+
+                        fileInfo = fileList[0]
+
+                        # slopeData = xr.open_dataset('/DATA/OUTPUT/LSH0547/REANALY-ECMWF-1M-GL_t2m-slope-MK1981-2010_19810101-20101201.nc', engine='pynio')
+                        slopeData = xr.open_dataset(fileInfo, engine='pynio')
                         slopeDataL1 = slopeData['t2m-slope']
 
                         meanVal = np.nanmean(slopeDataL1)
-                        maxVal = np.nanmax(slopeDataL1)
-                        minVal = np.nanmin(slopeDataL1)
+                        # maxVal = np.nanmax(slopeDataL1)
+                        # minVal = np.nanmin(slopeDataL1)
 
-                        log.info(f'[CHECK] timeInfo : slope / meanVal : {meanVal} / maxVal : {maxVal} / minVal : {minVal}')
-
-                    # 통계 분석
-                    # timeList = varDataL2['time'].values
-                    # for timeInfo in timeList:
-                    #     selData = varDataL2.sel(time = timeInfo)
-                    #
-                    #     preDate = pd.to_datetime(timeInfo).strftime("%Y-%m")
-                    #
-                    #     meanVal = np.nanmean(selData)
-                    #     maxVal = np.nanmax(selData)
-                    #     minVal = np.nanmin(selData)
-                    #
-                    #     log.info(f'[CHECK] preDate : {preDate} / meanVal : {meanVal} / maxVal : {maxVal} / minVal : {minVal}')
+                        # log.info(f'[CHECK] timeInfo : slope / meanVal : {meanVal} / maxVal : {maxVal} / minVal : {minVal}')
+                        log.info(f'[CHECK] analyInfo : {analyInfo} / meanVal : {meanVal:.3f}')
 
                     # ******************************************************************************************************
                     # 관측소 시계열 검정
