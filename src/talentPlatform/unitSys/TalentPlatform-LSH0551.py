@@ -182,12 +182,13 @@ def subCalc(metaInfo, metaData, data, colNameList):
             dataL1 = data.loc[
                 (data['Date'] == dateInfo)
             ]
+            if len(dataL1) < 1: continue
 
             selMetaData = metaData.loc[
-                (metaData['code'] == metaInfo['code'])
+                (metaData['city'] == metaInfo['city'])
             ]
+            if len(selMetaData) < 1: continue
 
-            if len(dataL1) < 1: continue
 
             # isYn == Y인 경우
             metaDataL4 = pd.DataFrame()
@@ -213,6 +214,11 @@ def subCalc(metaInfo, metaData, data, colNameList):
                     metaDataL3 = dataL1.loc[
                         (dataL1['Level'] == 'County')
                         & (dataL1['State Postal Code'] == metaInfo['code'])
+                        ]
+                elif pd.isna(selMetaData['code']).any():
+                    metaDataL3 = dataL1.loc[
+                        (dataL1['Level'] == 'County')
+                        & (dataL1['County Name'].isin([f'{county} County' for county in selMetaData['county']]))
                         ]
                 else:
                     metaDataL3 = dataL1.loc[
@@ -347,7 +353,6 @@ class DtaProcess(object):
             for i, metaInfo in metaDataL1.iterrows():
                 log.info(f'[CHECK] metaInfo : {metaInfo}')
                 pool.apply_async(subCalc, args=(metaInfo, metaData, data, colNameList))
-                # subCalc(metaInfo, metaData, data, colNameList)
             pool.close()
             pool.join()
 
