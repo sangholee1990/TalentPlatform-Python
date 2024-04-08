@@ -14,6 +14,7 @@ echo
 
 # cd /SYSTEMS/PROG/PYTHON/PyCharm/src/talentPlatform/shell
 # nohup bash /SYSTEMS/PROG/PYTHON/PyCharm/src/talentPlatform/shell/RunShell-LSH0454.sh &
+# tail -f nohup.out
 
 #========================================
 # Set Env
