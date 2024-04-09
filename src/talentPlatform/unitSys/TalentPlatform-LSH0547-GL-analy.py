@@ -386,19 +386,19 @@ class DtaProcess(object):
                     # 아시아
                     # varDataL2.isel(time = 5).plot()
                     # plt.show()
-                    # varDataL2.sel(lat=90)
-                    # varDataL2.sel(lat=slice(10, 60))
-                    varDataL2.sel(lat=slice(10, 60))
-
-                    # varDataL2['lat'].values
-                    # lon=lonList, lat=latList
 
                     # 한반도
-                    # varDataL2.sel(lon=slice('80', '180'), lat=slice('10', '60'))
+                    lonList = [x for x in varDataL2['lon'].values if 80 <= x <= 180]
+                    latList = [x for x in varDataL2['lat'].values if 10 <= x <= 60]
+
+                    varDataL3 = varDataL2.sel(lat=latList, lon=lonList)
+
+                    # varDataL3.isel(time = 0).plot()
+                    # plt.show()
 
 
                     # 전체/월별 데이터 처리
-                    meanVal = np.nanmean(varDataL2)
+                    meanVal = np.nanmean(varDataL3)
                     # maxVal = np.nanmax(varDataL2)
                     # minVal = np.nanmin(varDataL2)
                     # log.info(f'[CHECK] timeInfo : all / meanVal : {meanVal} / maxVal : {maxVal} / minVal : {minVal}')

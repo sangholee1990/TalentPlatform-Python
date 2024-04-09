@@ -217,6 +217,10 @@ class DtaProcess(object):
     # ================================================
     # Python을 이용한 시간별 재분석 ERA5 모델 (Grib)로부터 통계 분석 그리고 MK 검정 (Mann-Kendall)
 
+    # cd /SYSTEMS/PROG/PYTHON/PyCharm/src/talentPlatform/unitSys
+    # nohup /SYSTEMS/anaconda3/envs/py38-test/bin/python3.8 TalentPlatform-LSH0547-GL-proc.py &
+    # tail -f nohup.out
+
     # ================================================================================================
     # 환경변수 설정
     # ================================================================================================
