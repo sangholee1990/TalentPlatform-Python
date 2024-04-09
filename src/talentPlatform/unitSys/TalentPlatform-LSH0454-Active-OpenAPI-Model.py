@@ -15,6 +15,7 @@ import h2o
 import matplotlib as mpl
 import matplotlib.dates as mdates
 import matplotlib.pyplot as plt
+import pandas as pd
 from darts import TimeSeries
 from darts.models import Prophet
 from h2o.automl import H2OAutoML
@@ -1104,6 +1105,7 @@ class DtaProcess(object):
                             log.error('Exception : {}'.format(e))
 
                         # 미래 갭투자
+                        tsForGapData = pd.DataFrame()
                         try:
                             # tsModel = AutoTS(forecast_length=sysOpt['tsModel']['forYear'], min_allowed_train_percent=1.0, frequency='infer', ensemble='all', model_list='superfast', transformer_list='superfast')
                             # tsModel = AutoTS(forecast_length=tsForPeriod, frequency='infer', ensemble='all', model_list='superfast', transformer_list='superfast')
@@ -1147,7 +1149,7 @@ class DtaProcess(object):
                         except Exception as e:
                             log.error('Exception : {}'.format(e))
 
-                        if len(tsForGapData) < 1: continue
+                        if (tsForGapData is None) or (len(tsForGapData) < 1): continue
 
                         tsForComData = (tsForBjPriceData
                                         .merge(tsForPriceData, on=['name', 'capacity', 'year', 'lat', 'lon', 'inhuga', 'conYear', 'date'])
