@@ -305,7 +305,9 @@ class DtaProcess(object):
                 # , 'modelList': ['REANALY-ECMWF-1M-GW']
 
                 # 장기 최초30년, 장기 최근30년, 단기 최근10년, 초단기 최근1년
-                , 'analyList': ['1981-2010', '1990-2020', '2010-2020', '2022-2022']
+                # , 'analyList': ['1981-2010', '1990-2020', '2010-2020', '2022-2022']
+                # , 'analyList': ['1981-2010', '1990-2020', '2010-2020']
+                , 'analyList': ['2010-2020']
 
                 , 'REANALY-ECMWF-1M-GL': {
                     # 'filePath': '/DATA/INPUT/LSH0547/gw_yearly/yearly/%Y'
@@ -520,8 +522,9 @@ class DtaProcess(object):
                         # statData = varDataL2.groupby('time.month').mean('time')
                         # timeList = statData['season'].values
                         # timeList = statData['month'].values
-                        # for timeInfo in range(1, 13):
-                        for timeInfo in range(3, 13):
+                        # for timeInfo in range(1, 2):
+                        # for timeInfo in range(2, 3):
+                        for timeInfo in range(1, 13):
                             # statDataL1 = statData.sel(season=timeInfo)
                             # statDataL1 = statData.sel(month=timeInfo)
                             statDataL1 = varDataL2.sel(time=varDataL2['time'].dt.month.isin(timeInfo))
