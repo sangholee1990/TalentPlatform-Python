@@ -782,7 +782,8 @@ class DtaProcess(object):
                 , 'latInv': 1
 
                 #, 'keyList' : ['GFDL-ESM4','INM-CM4-8','INM-CM5-0','IPSL-CM6A-LR','MIROC6','MPI-ESM1-2-HR','MPI-ESM1-2-LR','MRI-ESM2-0','NorESM2-LM','NorESM2-MM','TaiESM1']
-                , 'keyList': ['INM-CM5-0']
+                # , 'keyList': ['INM-CM5-0']
+                , 'keyList': ['MRI-ESM2-0']
                 #, 'keyList': ['MRI-ESM2-0','ACCESS-CM2','ACCESS-ESM1-5','BCC-CSM2-MR','CanESM5','CESM2-WACCM','CMCC-CM2-SR5','CMCC-ESM2','CNRM-CM6-1','CNRM-ESM2-1','EC-Earth3-Veg-LR']
             }
 
@@ -874,7 +875,6 @@ class DtaProcess(object):
 
                     # 필요없는 변수 삭제
                     selList = ['lat_bnds', 'lon_bnds', 'time_bnds']
-
                     for i, selInfo in enumerate(selList):
                         try:
                             modData = modData.drop([selInfo])
