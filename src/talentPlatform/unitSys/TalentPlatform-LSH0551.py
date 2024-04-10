@@ -228,7 +228,7 @@ def subCalc(metaInfo, metaData, data, colNameList):
                 if len(metaDataL3) < 1: continue
                 metaDataL4 = metaDataL3[colNameList].sum(skipna=True).to_frame().transpose()
 
-            metaDataL5 = pd.concat([metaInfo.to_frame().transpose().reset_index(drop=True), metaDataL4], axis=True)
+            metaDataL5 = pd.concat([metaInfo.to_frame().transpose().reset_index(drop=True), metaDataL4.round(0).astype(int)], axis=True)
             metaDataL5['date'] = dateInfo
 
             fnlData = pd.concat([fnlData, metaDataL5], ignore_index=True)
@@ -348,7 +348,7 @@ class DtaProcess(object):
             pool = Pool(sysOpt['cpuCoreNum'])
 
             metaDataL1 = metaData[['city', 'code', 'isYn', 'allCnt']].drop_duplicates().reset_index(drop=True)
-            metaDataL1 = metaDataL1.loc[metaDataL1['city'] == 'Minneapolis']
+            # metaDataL1 = metaDataL1.loc[metaDataL1['city'] == 'Minneapolis']
             for i, metaInfo in metaDataL1.iterrows():
                 log.info(f'[CHECK] metaInfo : {metaInfo}')
                 pool.apply_async(subCalc, args=(metaInfo, metaData, data, colNameList))
