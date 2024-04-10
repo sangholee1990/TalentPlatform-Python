@@ -24,6 +24,8 @@ from sklearn.preprocessing import StandardScaler
 from sqlalchemy.ext.declarative import declarative_base
 from xclim import sdba
 from xclim.sdba.adjustment import QuantileDeltaMapping
+import pandas as pd
+import xarray as xr
 
 # =================================================
 # 사용자 매뉴얼
@@ -234,10 +236,6 @@ def remove_leap_days_xarray(mod, obs_start_year=1980, obs_end_year=2014, sim_sta
 
     return mod_filtered
 
-
-import pandas as pd
-import xarray as xr
-
 def makeSbckProc(method, contDataL4, mrgDataProcessed, simDataL3Processed, keyInfo):
 
     result = None
@@ -251,7 +249,6 @@ def makeSbckProc(method, contDataL4, mrgDataProcessed, simDataL3Processed, keyIn
         # ***********************************************************************************
         # 학습 데이터 (ref 실측, hist 관측/학습) : 일 단위로 가중치 보정
         # ***********************************************************************************
-
         methodList = {
             # Cannon, A. J., Sobie, S. R., & Murdock, T. Q. (2015). Bias correction of GCM precipitation by quantile mapping: How well do methods preserve changes in quantiles and extremes? Journal of Climate, 28(17), 6938–6959. https://doi.org/10.1175/JCLI-D-14-00754.1
             'QDM': lambda: sdba.QuantileDeltaMapping.train(ref=mrgDataProcessed['rain'], hist=mrgDataProcessed['pr'], nquantiles=1000, group= 'time.dayofyear')
@@ -269,7 +266,6 @@ def makeSbckProc(method, contDataL4, mrgDataProcessed, simDataL3Processed, keyIn
             return result
 
         prd = methodList[method]()
-
 
         # ***********************************************************************************
         # 보정 결과
@@ -787,9 +783,7 @@ class DtaProcess(object):
 
                 #, 'keyList' : ['GFDL-ESM4','INM-CM4-8','INM-CM5-0','IPSL-CM6A-LR','MIROC6','MPI-ESM1-2-HR','MPI-ESM1-2-LR','MRI-ESM2-0','NorESM2-LM','NorESM2-MM','TaiESM1']
                 , 'keyList': ['INM-CM5-0']
-
                 #, 'keyList': ['MRI-ESM2-0','ACCESS-CM2','ACCESS-ESM1-5','BCC-CSM2-MR','CanESM5','CESM2-WACCM','CMCC-CM2-SR5','CMCC-ESM2','CNRM-CM6-1','CNRM-ESM2-1','EC-Earth3-Veg-LR']
-
             }
 
             # 날짜 설정
@@ -810,8 +804,8 @@ class DtaProcess(object):
             # inpFile = '{}/{}/{}'.format(globalVar['inpPath'], serviceName, 'TT4.csv')
             # inpFile = '{}/{}/{}'.format(globalVar['inpPath'], 'Historical', 'TT4.csv')
 
-            # inpFile = '{}/{}/{}'.format(globalVar['inpPath'], serviceName, 'TTL4.csv')
-            inpFile = '{}/{}/{}'.format(globalVar['inpPath'], 'Historical', 'TTL4.csv')
+            inpFile = '{}/{}/{}'.format(globalVar['inpPath'], serviceName, 'TTL4.csv')
+            # inpFile = '{}/{}/{}'.format(globalVar['inpPath'], 'Historical', 'TTL4.csv')
             fileList = glob.glob(inpFile)
             if fileList is None or len(fileList) < 1:
                 log.error('[ERROR] inpFile : {} / {}'.format(fileList, '입력 자료를 확인해주세요.'))
@@ -829,7 +823,6 @@ class DtaProcess(object):
             contDataL3 = contDataL2.to_xarray()
             contDataL4 = contDataL3.interp({'lon': lonList, 'lat': latList}, method='nearest')
 
-
             # contDataL3['contIdx'].plot()
             # contDataL4['contIdx'].plot()
             # plt.show()
@@ -838,8 +831,8 @@ class DtaProcess(object):
             # 강수량 데이터 전처리
             # ********************************************************************
             # 실측 데이터
-            # inpFile = '{}/{}/{}'.format(globalVar['inpPath'], serviceName, 'ERA5_1979_2020.nc')
-            inpFile = '{}/{}/{}'.format(globalVar['inpPath'], 'Historical', 'ERA5_1979_2020.nc')
+            inpFile = '{}/{}/{}'.format(globalVar['inpPath'], serviceName, 'ERA5_1979_2020.nc')
+            # inpFile = '{}/{}/{}'.format(globalVar['inpPath'], 'Historical', 'ERA5_1979_2020.nc')
             fileList = sorted(glob.glob(inpFile))
             obsData = xr.open_dataset(fileList[0]).sel(time=slice(sysOpt['srtDate'], sysOpt['endDate']))
 
@@ -856,7 +849,6 @@ class DtaProcess(object):
             normalized_time_index = time_index.normalize()
             obsDataL3['time'] = ('time', normalized_time_index)
 
-
             # obsDataL2.attrs
             # obsDataL2['rain'].attrs
 
@@ -865,8 +857,8 @@ class DtaProcess(object):
                 log.info(f"[CHECK] keyInfo : {keyInfo}")
 
                 # 관측/학습 데이터
-                # inpFile = '{}/{}/*{}*{}*.nc'.format(globalVar['inpPath'], serviceName, keyInfo, 'historical')
-                inpFile = '{}/{}/*{}*{}*.nc'.format(globalVar['inpPath'], 'Historical', keyInfo, 'historical')
+                inpFile = '{}/{}/*{}*{}*.nc'.format(globalVar['inpPath'], serviceName, keyInfo, 'historical')
+                # inpFile = '{}/{}/*{}*{}*.nc'.format(globalVar['inpPath'], 'Historical', keyInfo, 'historical')
                 fileList = sorted(glob.glob(inpFile))
 
                 # fileInfo = fileList[0]
@@ -907,8 +899,8 @@ class DtaProcess(object):
                 mrgData = xr.merge([obsDataL3, modDataL3C])
 
                 # 예측 데이터
-                # inpFile = '{}/{}/*{}*{}*.nc'.format(globalVar['inpPath'], serviceName, keyInfo, 'ssp126')
-                inpFile = '{}/{}/*{}*{}*.nc'.format(globalVar['inpPath'], 'Future', keyInfo, 'ssp126')
+                inpFile = '{}/{}/*{}*{}*.nc'.format(globalVar['inpPath'], serviceName, keyInfo, 'ssp126')
+                # inpFile = '{}/{}/*{}*{}*.nc'.format(globalVar['inpPath'], 'Future', keyInfo, 'ssp126')
                 fileList = sorted(glob.glob(inpFile))
 
                 # fileInfo = fileList[0]
@@ -964,8 +956,7 @@ class DtaProcess(object):
                 makeSbckProc(method='QDM', contDataL4=contDataL4, mrgDataProcessed=mrgDataProcessed, simDataL3Processed=simDataL3Processed, keyInfo=keyInfo)
                 makeSbckProc(method='EQM', contDataL4=contDataL4, mrgDataProcessed=mrgDataProcessed, simDataL3Processed=simDataL3Processed, keyInfo=keyInfo)
                 makeSbckProc(method='DQM', contDataL4=contDataL4, mrgDataProcessed=mrgDataProcessed, simDataL3Processed=simDataL3Processed, keyInfo=keyInfo)
-                makeSbckProc(method='Scaling', contDataL4=contDataL4, mrgDataProcessed=mrgDataProcessed,
-                             simDataL3=simDataL3Processed, keyInfo=keyInfo)
+                makeSbckProc(method='Scaling', contDataL4=contDataL4, mrgDataProcessed=mrgDataProcessed, simDataL3=simDataL3Processed, keyInfo=keyInfo)
 
         except Exception as e:
             log.error("Exception : {}".format(e))
