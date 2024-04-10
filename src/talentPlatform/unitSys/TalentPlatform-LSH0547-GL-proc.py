@@ -524,10 +524,10 @@ class DtaProcess(object):
                         # timeList = statData['month'].values
                         # for timeInfo in range(1, 2):
                         # for timeInfo in range(2, 3):
-                        for timeInfo in range(1, 13):
+                        for month in range(1, 13):
                             # statDataL1 = statData.sel(season=timeInfo)
                             # statDataL1 = statData.sel(month=timeInfo)
-                            statDataL1 = varDataL2.sel(time=varDataL2['time'].dt.month.isin(timeInfo))
+                            statDataL1 = varDataL2.sel(time=varDataL2['time'].dt.month.isin(month))
 
                             colName = 'slope'
                             mkData = xr.apply_ufunc(
@@ -544,7 +544,7 @@ class DtaProcess(object):
 
                             # client.close()
 
-                            mkName = f'{procInfo}-{colName}-{timeInfo}'
+                            mkName = f'{procInfo}-{colName}-{month}'
                             mkData.name = mkName
                             key = f'MK{analyInfo}'
 

@@ -203,8 +203,7 @@ def makePlot(data, saveImg):
     result = None
 
     try:
-
-        fig, ax = plt.subplots(figsize=(10, 6), subplot_kw={'projection': ccrs.PlateCarree()})
+        fig, ax = plt.subplots(figsize=(10, 5), subplot_kw={'projection': ccrs.PlateCarree()})
 
         ax.coastlines()
         gl = ax.gridlines(draw_labels=True)
@@ -344,7 +343,7 @@ class DtaProcess(object):
                 , 'modelList': ['REANALY-ECMWF-1M-GL']
                 # , 'modelList': ['REANALY-ECMWF-1M-GW']
 
-                # 장기 최초30년, 장기 최근30년, 단기 최근10년, 초단기 최근1년
+                # 최초30년, 최근30년, 최근10년, 초단기 최근1년
                 # , 'analyList': ['1981-2010', '1990-2020', '2010-2020', '2022-2022']
                 , 'analyList': ['1981-2010', '1990-2020', '2010-2020']
 
@@ -443,16 +442,16 @@ class DtaProcess(object):
                         # 평균 데이터
                         # ****************************************************
                         varDataL3 = varDataL2.sel(lat=latList, lon=lonList)
+                        varDataL4 = varDataL3.mean('time')
 
                         saveFilePattern = '{}/{}'.format(modelInfo['figPath'], modelInfo['figName'])
                         saveImg = saveFilePattern.format(modelType, procInfo, roiName, 'all', 'mean')
-                        result = makePlot(varDataL3, saveImg)
-                        log.info(f'[CHECK] result : {result}')
+                        # result = makePlot(varDataL4, saveImg)
+                        # log.info(f'[CHECK] result : {result}')
 
                         # varDataL3.isel(time = 0).plot()
                         # plt.show()
 
-                        # 전체/월별 데이터 처리
                         meanVal = np.nanmean(varDataL3)
                         # maxVal = np.nanmax(varDataL2)
                         # minVal = np.nanmin(varDataL2)
@@ -461,7 +460,7 @@ class DtaProcess(object):
 
                         meanDict = [{
                             'roiName': roiName
-                            , 'type': 'all'
+                            , 'type': 0
                             , 'meanVal': meanVal
                         }]
 
@@ -477,14 +476,12 @@ class DtaProcess(object):
 
                             saveFilePattern = '{}/{}'.format(modelInfo['figPath'], modelInfo['figName'])
                             saveImg = saveFilePattern.format(modelType, procInfo, roiName, month, 'mean')
-                            result = makePlot(statDataL1, saveImg)
-                            log.info(f'[CHECK] result : {result}')
+                            # result = makePlot(statDataL1, saveImg)
+                            # log.info(f'[CHECK] result : {result}')
 
                             # maxVal = np.nanmax(statDataL1)
                             # minVal = np.nanmin(statDataL1)
-
-                            # log.info(f'[CHECK] timeInfo : all / meanVal : {meanVal} / maxVal : {maxVal} / minVal : {minVal}')
-                            # log.info(f'[CHECK] timeInfo : {timeInfo} / meanVal : {meanVal:.2f}')
+                            meanVal = np.nanmean(statDataL1)
 
                             meanDict = [{
                                 'roiName': roiName
@@ -502,21 +499,33 @@ class DtaProcess(object):
                             analySrtDate, analyEndDate = analyInfo.split('-')
 
                             inpFile = '/DATA/OUTPUT/LSH0547/REANALY-ECMWF-1M-GL_t2m-slope-MK{}-{}_*.nc'.format(analySrtDate, analyEndDate)
-                            fileList = sorted(glob.glob(inpFile))
+                            fileList = sorted(glob.glob(inpFile), reverse=True)
 
                             if fileList is None or len(fileList) < 1: continue
                             slopeData = xr.open_dataset(fileList[0], engine='pynio')
                             slopeDataL1 = slopeData[f't2m-slope'].sel(lat=latList, lon=lonList)
 
-                            saveFilePattern = '{}/{}'.format(modelInfo['figPath'], modelInfo['figName'])
-                            saveImg = saveFilePattern.format(modelType, procInfo, roiName, 'all', 'slope')
-                            result = makePlot(slopeDataL1, saveImg)
-                            log.info(f'[CHECK] result : {result}')
+                            meanVal = np.nanmean(slopeDataL1)
 
+
+                            key = f'{analyInfo}-all'
+                            saveFilePattern = '{}/{}'.format(modelInfo['figPath'], modelInfo['figName'])
+                            saveImg = saveFilePattern.format(modelType, procInfo, roiName, key, 'slope')
+                            # result = makePlot(slopeDataL1, saveImg)
+                            # log.info(f'[CHECK] result : {result}')
+
+                            dict = [{
+                                'roiName': roiName
+                                , 'analyInfo': analyInfo
+                                , 'month': 0
+                                , 'meanVal': meanVal
+                            }]
+
+                            valData = pd.concat([valData, pd.DataFrame.from_dict(dict)], ignore_index=True)
 
                             for month in range(1, 13):
                                 inpFile = '/DATA/OUTPUT/LSH0547/REANALY-ECMWF-1M-GL_t2m-slope-{}-MK{}-{}_*.nc'.format(month, analySrtDate, analyEndDate)
-                                fileList = sorted(glob.glob(inpFile))
+                                fileList = sorted(glob.glob(inpFile), reverse=True)
 
                                 if fileList is None or len(fileList) < 1: continue
                                 slopeData = xr.open_dataset(fileList[0], engine='pynio')
@@ -524,10 +533,11 @@ class DtaProcess(object):
                                 # slopeDataL1.plot()
                                 # plt.show()
 
+                                key = f'{analyInfo}-{month}'
                                 saveFilePattern = '{}/{}'.format(modelInfo['figPath'], modelInfo['figName'])
-                                saveImg = saveFilePattern.format(modelType, procInfo, roiName, month, 'slope')
-                                result = makePlot(slopeDataL1, saveImg)
-                                log.info(f'[CHECK] result : {result}')
+                                saveImg = saveFilePattern.format(modelType, procInfo, roiName, key, 'slope')
+                                # result = makePlot(slopeDataL1, saveImg)
+                                # log.info(f'[CHECK] result : {result}')
 
                                 meanVal = np.nanmean(slopeDataL1)
                                 if np.isnan(meanVal): continue

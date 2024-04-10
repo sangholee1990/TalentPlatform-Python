@@ -205,6 +205,10 @@ class DtaProcess(object):
     # ================================================
     # Python을 이용한 시간별 재분석 ERA5 모델 (Grib)로부터 통계 분석 그리고 MK 검정 (Mann-Kendall)
 
+    # cd /SYSTEMS/PROG/PYTHON/PyCharm/src/talentPlatform/unitSys
+    # nohup /SYSTEMS/anaconda3/envs/py38-test/bin/python3.8 TalentPlatform-LSH0547-GW-proc.py &
+    # tail -f nohup.out
+
     # ================================================================================================
     # 환경변수 설정
     # ================================================================================================
@@ -484,8 +488,8 @@ class DtaProcess(object):
                         # ******************************************************************************************************
                         # 매월 Mann Kendall 검정
                         # ******************************************************************************************************
-                        for timeInfo in range(1, 13):
-                            statDataL1 = varDataL2.sel(time=varDataL2['time'].dt.month.isin(timeInfo))
+                        for month in range(1, 13):
+                            statDataL1 = varDataL2.sel(time=varDataL2['time'].dt.month.isin(month))
 
                             colName = 'slope'
                             mkData = xr.apply_ufunc(
@@ -500,7 +504,7 @@ class DtaProcess(object):
                                 dask_gufunc_kwargs={'allow_rechunk': True}
                             ).compute()
 
-                            mkName = f'{procInfo}-{colName}-{timeInfo}'
+                            mkName = f'{procInfo}-{colName}-{month}'
                             mkData.name = mkName
                             key = f'MK{analyInfo}'
 
@@ -510,35 +514,6 @@ class DtaProcess(object):
                             os.makedirs(os.path.dirname(procFile), exist_ok=True)
                             mkData.to_netcdf(procFile)
                             log.info(f'[CHECK] procFile : {procFile}')
-
-                        # # 시각화
-                        # fig, ax = plt.subplots(figsize=(10, 6), subplot_kw={'projection': ccrs.PlateCarree()})
-                        #
-                        # ax.coastlines()
-                        # gl = ax.gridlines(draw_labels=True)
-                        # gl.top_labels = False
-                        # gl.right_labels = False
-                        #
-                        # mkData.plot(ax=ax, transform=ccrs.PlateCarree())
-                        #
-                        # shpData.plot(ax=ax, edgecolor='k', facecolor='none')
-                        # for idx, row in shpData.iterrows():
-                        #     centroid = row.geometry.centroid
-                        #     ax.annotate(text=row['gu'], xy=(centroid.x, centroid.y), horizontalalignment='center', verticalalignment='center')
-                        #
-                        # minVal = np.nanmin(mkData)
-                        # maxVal = np.nanmax(mkData)
-                        # meanVal = np.nanmean(mkData)
-                        # plt.title(f'minVal = {minVal:.3f} / meanVal = {meanVal:.3f} / maxVal = {maxVal:.3f}')
-                        #
-                        # saveFilePattern = '{}/{}'.format(modelInfo['figPath'], modelInfo['figName'])
-                        # # saveImg = saveFilePattern.format(modelType, mkName, 'MK', minDate, maxDate)
-                        # saveImg = saveFilePattern.format(modelType, mkName, key, minDate, maxDate)
-                        # os.makedirs(os.path.dirname(saveImg), exist_ok=True)
-                        # plt.savefig(saveImg, dpi=600, bbox_inches='tight', transparent=True)
-                        # log.info(f'[CHECK] saveImg : {saveImg}')
-                        # # plt.show()
-                        # plt.close()
 
         except Exception as e:
             log.error("Exception : {}".format(e))
