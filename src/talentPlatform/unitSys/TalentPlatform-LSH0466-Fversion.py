@@ -238,12 +238,13 @@ def remove_leap_days_xarray(mod, obs_start_year=1980, obs_end_year=2014, sim_sta
 
 def makeSbckProc(method, contDataL4, mrgDataProcessed, simDataL3Processed, keyInfo):
 
+    log.info('[START] {}'.format("makeSbckProc"))
+
     result = None
 
     try:
 
         #dayofyear 추가
-
         mrgDataProcessed['dayofyear'] = mrgDataProcessed['time'].dt.dayofyear
 
         # ***********************************************************************************
@@ -680,6 +681,9 @@ def makeSbckProc(method, contDataL4, mrgDataProcessed, simDataL3Processed, keyIn
         log.error(f'Exception in makeSbckProc: {str(e)}')
         traceback.print_exc()
         return result
+    finally:
+        log.info('[END] {}'.format("makeSbckProc"))
+
 
 # ================================================
 # 4. 부 프로그램
