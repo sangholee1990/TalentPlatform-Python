@@ -28,7 +28,7 @@ import pandas as pd
 import xarray as xr
 from multiprocessing import Pool
 import multiprocessing as mp
-from distributed import Client
+from dask.distributed import Client, LocalCluster
 
 # =================================================
 # 사용자 매뉴얼
@@ -392,7 +392,9 @@ def makeSbckProc(method, contDataL4, mrgDataProcessed, simDataL3Processed, keyIn
                 , 'ERA': (('time', 'lat', 'lon'), (mrgDataProcessed['pr'].values).reshape(len(time1D), len(lat1D), len(lon1D)))
                 , method: (('time', 'lat', 'lon'), (corDataL1['scen'].transpose('time', 'lat', 'lon').values).reshape(len(time1D), len(lat1D), len(lon1D)))
                 # , 'isLand': (('time', 'lat', 'lon'), np.tile(contDataL4['isLand'].values[np.newaxis, :, :], (len(time1D), 1, 1)).reshape(len(time1D), len(lat1D), len(lon1D)))
-                , 'contIdx': (('time', 'lat', 'lon'), np.tile(contDataL4['contIdx'].values[np.newaxis, :, :], (len(time1D), 1, 1)).reshape(len(time1D), len(lat1D), len(lon1D)))
+                # , 'isLand': (('time', 'lat', 'lon'), np.tile(contDataL4['isLand'].values[np.newaxis, :, :], (1, 1, 1)).reshape(1, len(lat1D), len(lon1D)))
+                , 'contIdx': (('lat', 'lon'), (contDataL4['contIdx'].values).reshape(1, len(lat1D), len(lon1D)))
+                # , 'contIdx': (('lat', 'lon'), contDataL4['contIdx'].values)
             }
             , coords={
                 'time': time1D
@@ -800,7 +802,6 @@ class DtaProcess(object):
                 # 경도 최소/최대/간격
                 , 'lonMin': 0
                 , 'lonMax': 360
-                # , 'lonMax': 1
                 , 'lonInv': 1
 
                 # 위도 최소/최대/간격
@@ -823,7 +824,7 @@ class DtaProcess(object):
 
                 # 분산 처리
                 # Exception in makeSbckProc: Multiple chunks along the main adjustment dimension time is not supported.
-                , 'chunks': {'time': 10}
+                # , 'chunks': {'time': 1}
             }
 
 
@@ -846,15 +847,14 @@ class DtaProcess(object):
             # pool = Pool(sysOpt['cpuCoreNum'])
 
             # 분산 처리
-            # client = Client(n_workers=4, threads_per_worker=4, memory_limit="4GB")
-            client = Client()
+            client =  Client(processes = True, n_workers=1, threads_per_worker=4, memory_limit="4GB")
+
+            # cluster = LocalCluster(processes=True, n_workers=4,threads_per_worker=1)
+            # client = Client(cluster)
 
             # ********************************************************************
             # 대륙별 분류 전처리
             # ********************************************************************
-            # inpFile = '{}/{}/{}'.format(globalVar['inpPath'], serviceName, 'TT4.csv')
-            # inpFile = '{}/{}/{}'.format(globalVar['inpPath'], 'Historical', 'TT4.csv')
-
             inpFile = '{}/{}/{}'.format(globalVar['inpPath'], serviceName, 'TTL4.csv')
             # inpFile = '{}/{}/{}'.format(globalVar['inpPath'], 'Historical', 'TTL4.csv')
             fileList = glob.glob(inpFile)
