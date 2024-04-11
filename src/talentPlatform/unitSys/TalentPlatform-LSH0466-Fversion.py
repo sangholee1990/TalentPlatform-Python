@@ -26,6 +26,9 @@ from xclim import sdba
 from xclim.sdba.adjustment import QuantileDeltaMapping
 import pandas as pd
 import xarray as xr
+from multiprocessing import Pool
+import multiprocessing as mp
+from distributed import Client
 
 # =================================================
 # 사용자 매뉴얼
@@ -243,22 +246,37 @@ def makeSbckProc(method, contDataL4, mrgDataProcessed, simDataL3Processed, keyIn
     result = None
 
     try:
+        procInfo = mp.current_process()
+        log.info(f'[CHECK] method : {method} / pid : {procInfo.pid}')
 
-        #dayofyear 추가
+        # dayofyear 추가
         mrgDataProcessed['dayofyear'] = mrgDataProcessed['time'].dt.dayofyear
 
         # ***********************************************************************************
         # 학습 데이터 (ref 실측, hist 관측/학습) : 일 단위로 가중치 보정
         # ***********************************************************************************
+        # methodList = {
+        #     # Cannon, A. J., Sobie, S. R., & Murdock, T. Q. (2015). Bias correction of GCM precipitation by quantile mapping: How well do methods preserve changes in quantiles and extremes? Journal of Climate, 28(17), 6938–6959. https://doi.org/10.1175/JCLI-D-14-00754.1
+        #     'QDM': lambda: sdba.QuantileDeltaMapping.train(ref=mrgDataProcessed['rain'], hist=mrgDataProcessed['pr'], nquantiles=1000, group='time.dayofyear')
+        #
+        #     # Dequé, M. (2007). Frequency of precipitation and temperature extremes over France in an anthropogenic scenario: Model results and statistical correction according to observed values. Global and Planetary Change, 57(1–2), 16–26. https://doi.org/10.1016/j.gloplacha.2006.11.030
+        #     , 'EQM': lambda: sdba.EmpiricalQuantileMapping.train(ref=mrgDataProcessed['rain'], hist=mrgDataProcessed['pr'], nquantiles=1000, group='time.dayofyear')
+        #
+        #     # Cannon, A. J., Sobie, S. R., & Murdock, T. Q. (2015). Bias correction of GCM precipitation by quantile mapping: How well do methods preserve changes in quantiles and extremes? Journal of Climate, 28(17), 6938–6959. https://doi.org/10.1175/JCLI-D-14-00754.1
+        #     , 'DQM': lambda: sdba.DetrendedQuantileMapping.train(ref=mrgDataProcessed['rain'], hist=mrgDataProcessed['pr'], nquantiles=1000, group='time.dayofyear')
+        #     , 'Scaling': lambda: sdba.Scaling.train(ref=mrgDataProcessed['rain'], hist=mrgDataProcessed['pr'], group='time.dayofyear')
+        # }
+
+        # 2024.04.11 nquantiles 설정
         methodList = {
             # Cannon, A. J., Sobie, S. R., & Murdock, T. Q. (2015). Bias correction of GCM precipitation by quantile mapping: How well do methods preserve changes in quantiles and extremes? Journal of Climate, 28(17), 6938–6959. https://doi.org/10.1175/JCLI-D-14-00754.1
-            'QDM': lambda: sdba.QuantileDeltaMapping.train(ref=mrgDataProcessed['rain'], hist=mrgDataProcessed['pr'], nquantiles=1000, group= 'time.dayofyear')
+            'QDM': lambda: sdba.QuantileDeltaMapping.train(ref=mrgDataProcessed['rain'], hist=mrgDataProcessed['pr'], nquantiles=20, group='time.dayofyear')
 
             # Dequé, M. (2007). Frequency of precipitation and temperature extremes over France in an anthropogenic scenario: Model results and statistical correction according to observed values. Global and Planetary Change, 57(1–2), 16–26. https://doi.org/10.1016/j.gloplacha.2006.11.030
-            , 'EQM': lambda: sdba.EmpiricalQuantileMapping.train(ref=mrgDataProcessed['rain'], hist=mrgDataProcessed['pr'], nquantiles=1000, group='time.dayofyear')
+            , 'EQM': lambda: sdba.EmpiricalQuantileMapping.train(ref=mrgDataProcessed['rain'], hist=mrgDataProcessed['pr'], nquantiles=20, group='time.dayofyear')
 
             # Cannon, A. J., Sobie, S. R., & Murdock, T. Q. (2015). Bias correction of GCM precipitation by quantile mapping: How well do methods preserve changes in quantiles and extremes? Journal of Climate, 28(17), 6938–6959. https://doi.org/10.1175/JCLI-D-14-00754.1
-            , 'DQM': lambda: sdba.DetrendedQuantileMapping.train(ref=mrgDataProcessed['rain'], hist=mrgDataProcessed['pr'], nquantiles=1000, group='time.dayofyear')
+            , 'DQM': lambda: sdba.DetrendedQuantileMapping.train(ref=mrgDataProcessed['rain'], hist=mrgDataProcessed['pr'], nquantiles=20, group='time.dayofyear')
             , 'Scaling': lambda: sdba.Scaling.train(ref=mrgDataProcessed['rain'], hist=mrgDataProcessed['pr'], group='time.dayofyear')
         }
 
@@ -682,6 +700,7 @@ def makeSbckProc(method, contDataL4, mrgDataProcessed, simDataL3Processed, keyIn
         traceback.print_exc()
         return result
     finally:
+        log.info(f'[CHECK] method : {method} / pid : {procInfo.pid}')
         log.info('[END] {}'.format("makeSbckProc"))
 
 
@@ -772,12 +791,16 @@ class DtaProcess(object):
                 , 'endDate': '1982-12-31'
 
                 # 예측 시작/종료 시간
+                # , 'srtDate2': '2015-01-01'
+                # , 'endDate2': '2020-12-31'
                 , 'srtDate2': '2015-01-01'
-                , 'endDate2': '2020-12-31'
+                # , 'endDate2': '2015-12-31'
+                , 'endDate2': '2015-02-01'
 
                 # 경도 최소/최대/간격
                 , 'lonMin': 0
                 , 'lonMax': 360
+                # , 'lonMax': 1
                 , 'lonInv': 1
 
                 # 위도 최소/최대/간격
@@ -786,11 +809,27 @@ class DtaProcess(object):
                 , 'latInv': 1
 
                 #, 'keyList' : ['GFDL-ESM4','INM-CM4-8','INM-CM5-0','IPSL-CM6A-LR','MIROC6','MPI-ESM1-2-HR','MPI-ESM1-2-LR','MRI-ESM2-0','NorESM2-LM','NorESM2-MM','TaiESM1']
-                # , 'keyList': ['INM-CM5-0']
-                , 'keyList': ['MRI-ESM2-0']
+                # , 'keyList': ['MRI-ESM2-0', 'INM-CM5-0']
+                , 'keyList': ['INM-CM5-0']
+                # , 'keyList': ['MRI-ESM2-0']
                 #, 'keyList': ['MRI-ESM2-0','ACCESS-CM2','ACCESS-ESM1-5','BCC-CSM2-MR','CanESM5','CESM2-WACCM','CMCC-CM2-SR5','CMCC-ESM2','CNRM-CM6-1','CNRM-ESM2-1','EC-Earth3-Veg-LR']
+
+                # 메서드 목록
+                , 'methodList': ['QDM', 'EQM', 'DQM', 'Scaling']
+
+                # 비동기 다중 프로세스 개수
+                # , 'cpuCoreNum': 4
+                , 'cpuCoreDtlNum': 4
+
+                # 분산 처리
+                # Exception in makeSbckProc: Multiple chunks along the main adjustment dimension time is not supported.
+                , 'chunks': {'time': 10}
             }
 
+
+            # ********************************************************************
+            # 주요 설정
+            # ********************************************************************
             # 날짜 설정
             dtSrtDate = pd.to_datetime(sysOpt['srtDate'], format='%Y-%m-%d')
             dtEndDate = pd.to_datetime(sysOpt['endDate'], format='%Y-%m-%d')
@@ -802,6 +841,13 @@ class DtaProcess(object):
             latList = np.arange(sysOpt['latMin'], sysOpt['latMax'], sysOpt['latInv'])
             log.info(f'[CHECK] len(lonList) : {len(lonList)}')
             log.info(f'[CHECK] len(latList) : {len(latList)}')
+
+            # 비동기 다중 프로세스 개수
+            # pool = Pool(sysOpt['cpuCoreNum'])
+
+            # 분산 처리
+            # client = Client(n_workers=4, threads_per_worker=4, memory_limit="4GB")
+            client = Client()
 
             # ********************************************************************
             # 대륙별 분류 전처리
@@ -816,8 +862,7 @@ class DtaProcess(object):
                 log.error('[ERROR] inpFile : {} / {}'.format(fileList, '입력 자료를 확인해주세요.'))
                 raise Exception('[ERROR] inpFile : {} / {}'.format(fileList, '입력 자료를 확인해주세요.'))
 
-            contData = pd.read_csv(fileList[0]).rename(
-                columns={'type': 'contIdx', 'Latitude': 'lat', 'Longitude': 'lon'})
+            contData = pd.read_csv(fileList[0]).rename(columns={'type': 'contIdx', 'Latitude': 'lat', 'Longitude': 'lon'})
             # contDataL1 = contData[['lon', 'lat', 'isLand', 'contIdx']]
             contDataL1 = contData[['lon', 'lat', 'contIdx']]
 
@@ -840,6 +885,7 @@ class DtaProcess(object):
             # inpFile = '{}/{}/{}'.format(globalVar['inpPath'], 'Historical', 'ERA5_1979_2020.nc')
             fileList = sorted(glob.glob(inpFile))
             obsData = xr.open_dataset(fileList[0]).sel(time=slice(sysOpt['srtDate'], sysOpt['endDate']))
+            # obsData = xr.open_dataset(fileList[0], chunks=sysOpt['chunks']).sel(time=slice(sysOpt['srtDate'], sysOpt['endDate']))
 
             # 경도 변환 (-180~180 to 0~360)
             obsDataL1 = obsData
@@ -861,6 +907,8 @@ class DtaProcess(object):
             for keyInfo in keyList:
                 log.info(f"[CHECK] keyInfo : {keyInfo}")
 
+                # subProc
+
                 # 관측/학습 데이터
                 inpFile = '{}/{}/*{}*{}*.nc'.format(globalVar['inpPath'], serviceName, keyInfo, 'historical')
                 # inpFile = '{}/{}/*{}*{}*.nc'.format(globalVar['inpPath'], 'Historical', keyInfo, 'historical')
@@ -875,6 +923,7 @@ class DtaProcess(object):
                     # fileNameNoExt = os.path.basename(fileInfo).split('.')[0]
 
                     modData = xr.open_dataset(fileInfo).sel(time=slice(sysOpt['srtDate'], sysOpt['endDate']))
+                    # modData = xr.open_dataset(fileInfo, chunks=sysOpt['chunks']).sel(time=slice(sysOpt['srtDate'], sysOpt['endDate']))
                     if (len(modData['time']) < 1): continue
 
                     # 필요없는 변수 삭제
@@ -915,6 +964,7 @@ class DtaProcess(object):
                     # fileNameNoExt = os.path.basename(fileInfo).split('.')[0]
 
                     simData = xr.open_dataset(fileInfo).sel(time=slice(sysOpt['srtDate2'], sysOpt['endDate2']))
+                    # simData = xr.open_dataset(fileInfo, chunks=sysOpt['chunks']).sel(time=slice(sysOpt['srtDate2'], sysOpt['endDate2']))
                     if (len(simData['time']) < 1): continue
 
                     # 필요없는 변수 삭제
@@ -957,10 +1007,19 @@ class DtaProcess(object):
                 #mrgDataProcessed = fix_dayofyear(mrgDataProcessed)
                 #simDataL3Processed = fix_dayofyear(simDataL3Processed)
 
-                makeSbckProc(method='QDM', contDataL4=contDataL4, mrgDataProcessed=mrgDataProcessed, simDataL3Processed=simDataL3Processed, keyInfo=keyInfo)
-                makeSbckProc(method='EQM', contDataL4=contDataL4, mrgDataProcessed=mrgDataProcessed, simDataL3Processed=simDataL3Processed, keyInfo=keyInfo)
-                makeSbckProc(method='DQM', contDataL4=contDataL4, mrgDataProcessed=mrgDataProcessed, simDataL3Processed=simDataL3Processed, keyInfo=keyInfo)
-                makeSbckProc(method='Scaling', contDataL4=contDataL4, mrgDataProcessed=mrgDataProcessed, simDataL3=simDataL3Processed, keyInfo=keyInfo)
+                # makeSbckProc(method='QDM', contDataL4=contDataL4, mrgDataProcessed=mrgDataProcessed, simDataL3Processed=simDataL3Processed, keyInfo=keyInfo)
+                # makeSbckProc(method='EQM', contDataL4=contDataL4, mrgDataProcessed=mrgDataProcessed, simDataL3Processed=simDataL3Processed, keyInfo=keyInfo)
+                # makeSbckProc(method='DQM', contDataL4=contDataL4, mrgDataProcessed=mrgDataProcessed, simDataL3Processed=simDataL3Processed, keyInfo=keyInfo)
+                # makeSbckProc(method='Scaling', contDataL4=contDataL4, mrgDataProcessed=mrgDataProcessed, simDataL3=simDataL3Processed, keyInfo=keyInfo)
+
+                # 비동기 다중 프로세스 수행
+                poolDtl = Pool(sysOpt['cpuCoreDtlNum'])
+
+                for method in sysOpt['methodList']:
+                    log.info(f'[CHECK] method : {method}')
+                    poolDtl.apply_async(makeSbckProc, args=(method, contDataL4, mrgDataProcessed, simDataL3Processed, keyInfo))
+                poolDtl.close()
+                poolDtl.join()
 
         except Exception as e:
             log.error("Exception : {}".format(e))
