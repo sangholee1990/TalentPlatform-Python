@@ -847,7 +847,7 @@ class DtaProcess(object):
             # pool = Pool(sysOpt['cpuCoreNum'])
 
             # 분산 처리
-            client =  Client(processes = True, n_workers=1, threads_per_worker=4, memory_limit="4GB")
+            client = Client(processes = True, n_workers=1, threads_per_worker=4, memory_limit="4GB")
 
             # cluster = LocalCluster(processes=True, n_workers=4,threads_per_worker=1)
             # client = Client(cluster)
@@ -855,8 +855,8 @@ class DtaProcess(object):
             # ********************************************************************
             # 대륙별 분류 전처리
             # ********************************************************************
-            inpFile = '{}/{}/{}'.format(globalVar['inpPath'], serviceName, 'TTL4.csv')
-            # inpFile = '{}/{}/{}'.format(globalVar['inpPath'], 'Historical', 'TTL4.csv')
+            # inpFile = '{}/{}/{}'.format(globalVar['inpPath'], serviceName, 'TTL4.csv')
+            inpFile = '{}/{}/{}'.format(globalVar['inpPath'], 'Historical', 'TTL4.csv')
             fileList = glob.glob(inpFile)
             if fileList is None or len(fileList) < 1:
                 log.error('[ERROR] inpFile : {} / {}'.format(fileList, '입력 자료를 확인해주세요.'))
@@ -881,8 +881,8 @@ class DtaProcess(object):
             # 강수량 데이터 전처리
             # ********************************************************************
             # 실측 데이터
-            inpFile = '{}/{}/{}'.format(globalVar['inpPath'], serviceName, 'ERA5_1979_2020.nc')
-            # inpFile = '{}/{}/{}'.format(globalVar['inpPath'], 'Historical', 'ERA5_1979_2020.nc')
+            # inpFile = '{}/{}/{}'.format(globalVar['inpPath'], serviceName, 'ERA5_1979_2020.nc')
+            inpFile = '{}/{}/{}'.format(globalVar['inpPath'], 'Historical', 'ERA5_1979_2020.nc')
             fileList = sorted(glob.glob(inpFile))
             obsData = xr.open_dataset(fileList[0]).sel(time=slice(sysOpt['srtDate'], sysOpt['endDate']))
             # obsData = xr.open_dataset(fileList[0], chunks=sysOpt['chunks']).sel(time=slice(sysOpt['srtDate'], sysOpt['endDate']))
@@ -910,8 +910,8 @@ class DtaProcess(object):
                 # subProc
 
                 # 관측/학습 데이터
-                inpFile = '{}/{}/*{}*{}*.nc'.format(globalVar['inpPath'], serviceName, keyInfo, 'historical')
-                # inpFile = '{}/{}/*{}*{}*.nc'.format(globalVar['inpPath'], 'Historical', keyInfo, 'historical')
+                # inpFile = '{}/{}/*{}*{}*.nc'.format(globalVar['inpPath'], serviceName, keyInfo, 'historical')
+                inpFile = '{}/{}/*{}*{}*.nc'.format(globalVar['inpPath'], 'Historical', keyInfo, 'historical')
                 fileList = sorted(glob.glob(inpFile))
 
                 # fileInfo = fileList[0]
@@ -952,8 +952,8 @@ class DtaProcess(object):
                 mrgData = xr.merge([obsDataL3, modDataL3C])
 
                 # 예측 데이터
-                inpFile = '{}/{}/*{}*{}*.nc'.format(globalVar['inpPath'], serviceName, keyInfo, 'ssp126')
-                # inpFile = '{}/{}/*{}*{}*.nc'.format(globalVar['inpPath'], 'Future', keyInfo, 'ssp126')
+                # inpFile = '{}/{}/*{}*{}*.nc'.format(globalVar['inpPath'], serviceName, keyInfo, 'ssp126')
+                inpFile = '{}/{}/*{}*{}*.nc'.format(globalVar['inpPath'], 'Future', keyInfo, 'ssp126')
                 fileList = sorted(glob.glob(inpFile))
 
                 # fileInfo = fileList[0]
