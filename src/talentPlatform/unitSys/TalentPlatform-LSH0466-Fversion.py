@@ -277,6 +277,7 @@ def makeSbckProc(method, contDataL4, mrgDataProcessed, simDataL3Processed, keyIn
 
             # Cannon, A. J., Sobie, S. R., & Murdock, T. Q. (2015). Bias correction of GCM precipitation by quantile mapping: How well do methods preserve changes in quantiles and extremes? Journal of Climate, 28(17), 6938–6959. https://doi.org/10.1175/JCLI-D-14-00754.1
             , 'DQM': lambda: sdba.DetrendedQuantileMapping.train(ref=mrgDataProcessed['rain'], hist=mrgDataProcessed['pr'], nquantiles=20, group='time.dayofyear')
+
             , 'Scaling': lambda: sdba.Scaling.train(ref=mrgDataProcessed['rain'], hist=mrgDataProcessed['pr'], group='time.dayofyear')
         }
 
@@ -289,6 +290,7 @@ def makeSbckProc(method, contDataL4, mrgDataProcessed, simDataL3Processed, keyIn
         # ***********************************************************************************
         # 보정 결과
         # ***********************************************************************************
+        # prd.ds
         corData = prd.adjust(sim=mrgDataProcessed['pr'], interp="linear")
         # corData = prd.adjust(sim=mrgDataProcessed['pr'].drop_vars(['lat', 'lon']), interp="linear")
         corDataL1 = xr.merge([corData, contDataL4])
@@ -801,11 +803,13 @@ class DtaProcess(object):
 
                 # 경도 최소/최대/간격
                 , 'lonMin': 0
-                , 'lonMax': 360
+                , 'lonMax': 30
+                # , 'lonMax': 360
                 , 'lonInv': 1
 
                 # 위도 최소/최대/간격
-                , 'latMin': -90
+                # , 'latMin': -90
+                , 'latMin': 60
                 , 'latMax': 90
                 , 'latInv': 1
 
@@ -820,13 +824,14 @@ class DtaProcess(object):
 
                 # 비동기 다중 프로세스 개수
                 # , 'cpuCoreNum': 4
-                , 'cpuCoreDtlNum': 4
+                # , 'cpuCoreDtlNum': 4
+                , 'cpuCoreDtlNum': 1
 
                 # 분산 처리
                 # Exception in makeSbckProc: Multiple chunks along the main adjustment dimension time is not supported.
                 # , 'chunks': {'time': 1}
+                # , 'chunks': {'lat': 5, 'lon': 5, 'time': -1}
             }
-
 
             # ********************************************************************
             # 주요 설정
@@ -847,20 +852,18 @@ class DtaProcess(object):
             # pool = Pool(sysOpt['cpuCoreNum'])
 
             # 분산 처리
-            client = Client(processes = True, n_workers=1, threads_per_worker=4, memory_limit="4GB")
+            # client = Client(processes = True, n_workers=1, threads_per_worker=4, memory_limit="4GB")
+            # client = Client(cluster)
 
             # cluster = LocalCluster(processes=True, n_workers=4,threads_per_worker=1)
-            # client = Client(cluster)
 
             # ********************************************************************
             # 대륙별 분류 전처리
             # ********************************************************************
-            # inpFile = '{}/{}/{}'.format(globalVar['inpPath'], serviceName, 'TTL4.csv')
-            inpFile = '{}/{}/{}'.format(globalVar['inpPath'], 'Historical', 'TTL4.csv')
+            inpFile = '{}/{}/{}'.format(globalVar['inpPath'], serviceName, 'TTL4.csv')
+            # inpFile = '{}/{}/{}'.format(globalVar['inpPath'], 'Historical', 'TTL4.csv')
             fileList = glob.glob(inpFile)
-            if fileList is None or len(fileList) < 1:
-                log.error('[ERROR] inpFile : {} / {}'.format(fileList, '입력 자료를 확인해주세요.'))
-                raise Exception('[ERROR] inpFile : {} / {}'.format(fileList, '입력 자료를 확인해주세요.'))
+            if fileList is None or len(fileList) < 1: raise Exception('[ERROR] inpFile : {} / {}'.format(inpFile, '입력 자료를 확인해주세요.'))
 
             contData = pd.read_csv(fileList[0]).rename(columns={'type': 'contIdx', 'Latitude': 'lat', 'Longitude': 'lon'})
             # contDataL1 = contData[['lon', 'lat', 'isLand', 'contIdx']]
@@ -881,9 +884,11 @@ class DtaProcess(object):
             # 강수량 데이터 전처리
             # ********************************************************************
             # 실측 데이터
-            # inpFile = '{}/{}/{}'.format(globalVar['inpPath'], serviceName, 'ERA5_1979_2020.nc')
-            inpFile = '{}/{}/{}'.format(globalVar['inpPath'], 'Historical', 'ERA5_1979_2020.nc')
+            inpFile = '{}/{}/{}'.format(globalVar['inpPath'], serviceName, 'ERA5_1979_2020.nc')
+            # inpFile = '{}/{}/{}'.format(globalVar['inpPath'], 'Historical', 'ERA5_1979_2020.nc')
             fileList = sorted(glob.glob(inpFile))
+            if fileList is None or len(fileList) < 1: raise Exception('[ERROR] inpFile : {} / {}'.format(inpFile, '입력 자료를 확인해주세요.'))
+
             obsData = xr.open_dataset(fileList[0]).sel(time=slice(sysOpt['srtDate'], sysOpt['endDate']))
             # obsData = xr.open_dataset(fileList[0], chunks=sysOpt['chunks']).sel(time=slice(sysOpt['srtDate'], sysOpt['endDate']))
 
@@ -907,12 +912,11 @@ class DtaProcess(object):
             for keyInfo in keyList:
                 log.info(f"[CHECK] keyInfo : {keyInfo}")
 
-                # subProc
-
                 # 관측/학습 데이터
-                # inpFile = '{}/{}/*{}*{}*.nc'.format(globalVar['inpPath'], serviceName, keyInfo, 'historical')
-                inpFile = '{}/{}/*{}*{}*.nc'.format(globalVar['inpPath'], 'Historical', keyInfo, 'historical')
+                inpFile = '{}/{}/*{}*{}*.nc'.format(globalVar['inpPath'], serviceName, keyInfo, 'historical')
+                # inpFile = '{}/{}/*{}*{}*.nc'.format(globalVar['inpPath'], 'Historical', keyInfo, 'historical')
                 fileList = sorted(glob.glob(inpFile))
+                if fileList is None or len(fileList) < 1: raise Exception('[ERROR] inpFile : {} / {}'.format(inpFile, '입력 자료를 확인해주세요.'))
 
                 # fileInfo = fileList[0]
                 # fileInfo = fileList[1]
@@ -952,9 +956,10 @@ class DtaProcess(object):
                 mrgData = xr.merge([obsDataL3, modDataL3C])
 
                 # 예측 데이터
-                # inpFile = '{}/{}/*{}*{}*.nc'.format(globalVar['inpPath'], serviceName, keyInfo, 'ssp126')
-                inpFile = '{}/{}/*{}*{}*.nc'.format(globalVar['inpPath'], 'Future', keyInfo, 'ssp126')
+                inpFile = '{}/{}/*{}*{}*.nc'.format(globalVar['inpPath'], serviceName, keyInfo, 'ssp126')
+                # inpFile = '{}/{}/*{}*{}*.nc'.format(globalVar['inpPath'], 'Future', keyInfo, 'ssp126')
                 fileList = sorted(glob.glob(inpFile))
+                if fileList is None or len(fileList) < 1: raise Exception('[ERROR] inpFile : {} / {}'.format(inpFile, '입력 자료를 확인해주세요.'))
 
                 # fileInfo = fileList[0]
                 simDataL2 = xr.Dataset()
