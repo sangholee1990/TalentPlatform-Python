@@ -250,7 +250,7 @@ def makeSbckProc(method, contDataL4, mrgDataProcessed, simDataL3Processed, keyIn
         log.info(f'[CHECK] method : {method} / pid : {procInfo.pid}')
 
         # dayofyear 추가
-        mrgDataProcessed['dayofyear'] = mrgDataProcessed['time'].dt.dayofyear
+        # mrgDataProcessed['dayofyear'] = mrgDataProcessed['time'].dt.dayofyear
 
         # ***********************************************************************************
         # 학습 데이터 (ref 실측, hist 관측/학습) : 일 단위로 가중치 보정
@@ -290,11 +290,9 @@ def makeSbckProc(method, contDataL4, mrgDataProcessed, simDataL3Processed, keyIn
         # ***********************************************************************************
         # 보정 결과
         # ***********************************************************************************
-        # prd.ds
         corData = prd.adjust(sim=mrgDataProcessed['pr'], interp="linear")
         # corData = prd.adjust(sim=mrgDataProcessed['pr'].drop_vars(['lat', 'lon']), interp="linear")
         corDataL1 = xr.merge([corData, contDataL4])
-
 
         # 음수의 경우 0으로 대체
         corDataL1['scen'] = xr.where((corDataL1['scen'] < 0), 0.0, corDataL1['scen'])
@@ -393,9 +391,9 @@ def makeSbckProc(method, contDataL4, mrgDataProcessed, simDataL3Processed, keyIn
                 'OBS': (('time', 'lat', 'lon'), (mrgDataProcessed['rain'].values).reshape(len(time1D), len(lat1D), len(lon1D)))
                 , 'ERA': (('time', 'lat', 'lon'), (mrgDataProcessed['pr'].values).reshape(len(time1D), len(lat1D), len(lon1D)))
                 , method: (('time', 'lat', 'lon'), (corDataL1['scen'].transpose('time', 'lat', 'lon').values).reshape(len(time1D), len(lat1D), len(lon1D)))
-                # , 'isLand': (('time', 'lat', 'lon'), np.tile(contDataL4['isLand'].values[np.newaxis, :, :], (len(time1D), 1, 1)).reshape(len(time1D), len(lat1D), len(lon1D)))
+                , 'isLand': (('time', 'lat', 'lon'), np.tile(contDataL4['isLand'].values[np.newaxis, :, :], (len(time1D), 1, 1)).reshape(len(time1D), len(lat1D), len(lon1D)))
                 # , 'isLand': (('time', 'lat', 'lon'), np.tile(contDataL4['isLand'].values[np.newaxis, :, :], (1, 1, 1)).reshape(1, len(lat1D), len(lon1D)))
-                , 'contIdx': (('lat', 'lon'), (contDataL4['contIdx'].values).reshape(1, len(lat1D), len(lon1D)))
+                # , 'contIdx': (('lat', 'lon'), (contDataL4['contIdx'].values).reshape(1, len(lat1D), len(lon1D)))
                 # , 'contIdx': (('lat', 'lon'), contDataL4['contIdx'].values)
             }
             , coords={
@@ -824,8 +822,8 @@ class DtaProcess(object):
 
                 # 비동기 다중 프로세스 개수
                 # , 'cpuCoreNum': 4
-                # , 'cpuCoreDtlNum': 4
-                , 'cpuCoreDtlNum': 1
+                , 'cpuCoreDtlNum': 4
+                # , 'cpuCoreDtlNum': 1
 
                 # 분산 처리
                 # Exception in makeSbckProc: Multiple chunks along the main adjustment dimension time is not supported.
@@ -1017,9 +1015,11 @@ class DtaProcess(object):
                 # makeSbckProc(method='DQM', contDataL4=contDataL4, mrgDataProcessed=mrgDataProcessed, simDataL3Processed=simDataL3Processed, keyInfo=keyInfo)
                 # makeSbckProc(method='Scaling', contDataL4=contDataL4, mrgDataProcessed=mrgDataProcessed, simDataL3=simDataL3Processed, keyInfo=keyInfo)
 
+                # 윤년 제거
+                mrgDataProcessed = mrgDataProcessed.convert_calendar("noleap")
+
                 # 비동기 다중 프로세스 수행
                 poolDtl = Pool(sysOpt['cpuCoreDtlNum'])
-
                 for method in sysOpt['methodList']:
                     log.info(f'[CHECK] method : {method}')
                     poolDtl.apply_async(makeSbckProc, args=(method, contDataL4, mrgDataProcessed, simDataL3Processed, keyInfo))
