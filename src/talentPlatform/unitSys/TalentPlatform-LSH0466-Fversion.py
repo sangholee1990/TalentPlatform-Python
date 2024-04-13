@@ -391,8 +391,9 @@ def makeSbckProc(method, contDataL4, mrgDataProcessed, simDataL3Processed, keyIn
                 'OBS': (('time', 'lat', 'lon'), (mrgDataProcessed['rain'].values).reshape(len(time1D), len(lat1D), len(lon1D)))
                 , 'ERA': (('time', 'lat', 'lon'), (mrgDataProcessed['pr'].values).reshape(len(time1D), len(lat1D), len(lon1D)))
                 , method: (('time', 'lat', 'lon'), (corDataL1['scen'].transpose('time', 'lat', 'lon').values).reshape(len(time1D), len(lat1D), len(lon1D)))
-                , 'isLand': (('time', 'lat', 'lon'), np.tile(contDataL4['isLand'].values[np.newaxis, :, :], (len(time1D), 1, 1)).reshape(len(time1D), len(lat1D), len(lon1D)))
+                # , 'isLand': (('time', 'lat', 'lon'), np.tile(contDataL4['isLand'].values[np.newaxis, :, :], (len(time1D), 1, 1)).reshape(len(time1D), len(lat1D), len(lon1D)))
                 # , 'isLand': (('time', 'lat', 'lon'), np.tile(contDataL4['isLand'].values[np.newaxis, :, :], (1, 1, 1)).reshape(1, len(lat1D), len(lon1D)))
+                , 'contIdx': (('time', 'lat', 'lon'), np.tile(contDataL4['contIdx'].values[np.newaxis, :, :], (len(time1D), 1, 1)).reshape(len(time1D), len(lat1D), len(lon1D)))
                 # , 'contIdx': (('lat', 'lon'), (contDataL4['contIdx'].values).reshape(1, len(lat1D), len(lon1D)))
                 # , 'contIdx': (('lat', 'lon'), contDataL4['contIdx'].values)
             }
