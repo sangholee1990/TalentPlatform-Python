@@ -24,8 +24,9 @@ CTX_PATH=$(pwd)
 
 # 실행 파일 경로
 TMP_KEY=$(mktemp .tmp-XXXXXXXXXX)
-UPD_PATH=/DATA/INPUT/INDI2024/DATA/REANALY-ERA5
-#UPD_PATH=/data1/REANALY-ERA5
+#UPD_PATH=/DATA/INPUT/INDI2024/DATA/REANALY-ERA5
+UPD_PATH=/data1/REANALY-ERA5
+#UPD_PATH=/only-wrf-data0/REANALY-ERA5
 TMP_PATH=${UPD_PATH}/${TMP_KEY}
 
 PY38_PATH=/SYSTEMS/anaconda3/envs/py38
@@ -39,8 +40,9 @@ MULTI_PROC=2
 mkdir -p $UPD_PATH
 mkdir -p $TMP_PATH
 
-# 빈 폴더 삭제
-find ${UPD_PATH} -empty -type d -delete
+find ${UPD_PATH}/.tmp* -type f -mtime +1 -exec rm -rf {} \; 2>/dev/null
+find ${UPD_PATH}/.tmp* -empty -type d -mtime +1 -delete
+find ${UPD_PATH} -maxdepth 1 -empty -type d -delete
 
 echo "[$(date +"%Y-%m-%d %H:%M:%S")] [CHECK] CTX_PATH : $CTX_PATH"
 echo "[$(date +"%Y-%m-%d %H:%M:%S")] [CHECK] TMP_PATH : $TMP_PATH"
@@ -99,7 +101,7 @@ cat > ${TMP_PATH}/RunPython-get-reanalyEra5-pres.py << EOF
 
 import cdsapi
 
-c = cdsapi.Client(quiet = True, timeout=10)
+c = cdsapi.Client(quiet = True, timeout=9999)
 
 c.retrieve(
     'reanalysis-era5-pressure-levels',
@@ -124,7 +126,7 @@ c.retrieve(
         '${day}'
         ],
         'time': [
-        '${hour}:00'
+'00:00', '01:00', '02:00', '03:00', '04:00', '05:00', '06:00', '07:00', '08:00', '09:00', '10:00', '11:00', '12:00', '13:00', '14:00', '15:00', '16:00', '17:00', '18:00', '19:00', '20:00', '21:00', '22:00', '23:00'
         ],
         'area': [
             90, -180, -90, 180,
@@ -143,7 +145,6 @@ EOF
   ${PY38_BIN} ${TMP_PATH}/RunPython-get-reanalyEra5-pres.py &
   sleep 1s
   let cnt++
-
   if [ $cnt -ge ${MULTI_PROC} ]; then
     wait
 
@@ -163,6 +164,10 @@ EOF
           echo "[$(date +"%Y-%m-%d %H:%M:%S")] [CHECK] CMD : rm -f ${tmpFileInfo}"
       fi
     done
+
+    find ${UPD_PATH}/.tmp* -type f -mtime +1 -exec rm -rf {} \; 2>/dev/null
+    find ${UPD_PATH}/.tmp* -empty -type d -mtime +1 -delete
+    find ${UPD_PATH} -maxdepth 1 -empty -type d -delete
 
     cnt=0
   fi
