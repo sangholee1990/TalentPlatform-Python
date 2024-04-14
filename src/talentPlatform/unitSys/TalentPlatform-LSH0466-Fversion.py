@@ -382,27 +382,30 @@ def makeSbckProc(method, contDataL4, mrgDataProcessed, simDataL3Processed, keyIn
         # ***********************************************************************************
         # 과거 기간 보정 NetCDF 저장
         # ***********************************************************************************
-        lat1D = corDataL1['lat'].values
-        lon1D = corDataL1['lon'].values
-        time1D = corDataL1['time'].values
+        # lat1D = corDataL1['lat'].values
+        # lon1D = corDataL1['lon'].values
+        # time1D = corDataL1['time'].values
+        #
+        # corDataL2 = xr.Dataset(
+        #     {
+        #         'OBS': (('time', 'lat', 'lon'), (mrgDataProcessed['rain'].values).reshape(len(time1D), len(lat1D), len(lon1D)))
+        #         , 'ERA': (('time', 'lat', 'lon'), (mrgDataProcessed['pr'].values).reshape(len(time1D), len(lat1D), len(lon1D)))
+        #         , method: (('time', 'lat', 'lon'), (corDataL1['scen'].transpose('time', 'lat', 'lon').values).reshape(len(time1D), len(lat1D), len(lon1D)))
+        #         # , 'isLand': (('time', 'lat', 'lon'), np.tile(contDataL4['isLand'].values[np.newaxis, :, :], (len(time1D), 1, 1)).reshape(len(time1D), len(lat1D), len(lon1D)))
+        #         # , 'isLand': (('time', 'lat', 'lon'), np.tile(contDataL4['isLand'].values[np.newaxis, :, :], (1, 1, 1)).reshape(1, len(lat1D), len(lon1D)))
+        #         , 'contIdx': (('time', 'lat', 'lon'), np.tile(contDataL4['contIdx'].values[np.newaxis, :, :], (len(time1D), 1, 1)).reshape(len(time1D), len(lat1D), len(lon1D)))
+        #         # , 'contIdx': (('lat', 'lon'), (contDataL4['contIdx'].values).reshape(1, len(lat1D), len(lon1D)))
+        #         # , 'contIdx': (('lat', 'lon'), contDataL4['contIdx'].values)
+        #     }
+        #     , coords={
+        #         'time': time1D
+        #         , 'lat': lat1D
+        #         , 'lon': lon1D
+        #     }
+        # )
 
-        corDataL2 = xr.Dataset(
-            {
-                'OBS': (('time', 'lat', 'lon'), (mrgDataProcessed['rain'].values).reshape(len(time1D), len(lat1D), len(lon1D)))
-                , 'ERA': (('time', 'lat', 'lon'), (mrgDataProcessed['pr'].values).reshape(len(time1D), len(lat1D), len(lon1D)))
-                , method: (('time', 'lat', 'lon'), (corDataL1['scen'].transpose('time', 'lat', 'lon').values).reshape(len(time1D), len(lat1D), len(lon1D)))
-                # , 'isLand': (('time', 'lat', 'lon'), np.tile(contDataL4['isLand'].values[np.newaxis, :, :], (len(time1D), 1, 1)).reshape(len(time1D), len(lat1D), len(lon1D)))
-                # , 'isLand': (('time', 'lat', 'lon'), np.tile(contDataL4['isLand'].values[np.newaxis, :, :], (1, 1, 1)).reshape(1, len(lat1D), len(lon1D)))
-                , 'contIdx': (('time', 'lat', 'lon'), np.tile(contDataL4['contIdx'].values[np.newaxis, :, :], (len(time1D), 1, 1)).reshape(len(time1D), len(lat1D), len(lon1D)))
-                # , 'contIdx': (('lat', 'lon'), (contDataL4['contIdx'].values).reshape(1, len(lat1D), len(lon1D)))
-                # , 'contIdx': (('lat', 'lon'), contDataL4['contIdx'].values)
-            }
-            , coords={
-                'time': time1D
-                , 'lat': lat1D
-                , 'lon': lon1D
-            }
-        )
+        mrgDataProcL1 =  mrgDataProcessed.rename({'rain': 'OBS', 'pr': 'ERA'}).drop_vars (['contIdx'])
+        corDataL2 = xr.merge([corDataL1, mrgDataProcL1])
 
         # corDataL2['OBS'].isel(time = 10).plot()
         # corDataL2[method].isel(time = 10).plot()
@@ -420,6 +423,7 @@ def makeSbckProc(method, contDataL4, mrgDataProcessed, simDataL3Processed, keyIn
         varList = ['OBS', 'ERA', method]
         contIdxList = np.unique(corDataL2['contIdx'])
         corDataL3 = corDataL2.to_dataframe().reset_index(drop=False)
+        # corDataL3 = corDataL2.chunk({'time': 100, 'lat': 50, 'lon': 50}).to_dataframe().reset_index(drop=False)
         for varInfo in varList:
             selCol = ['time', 'lon', 'lat', varInfo]
             # corDataL4 = corDataL3[selCol].pivot(index=['time'], columns=['lon', 'lat'])
@@ -526,23 +530,26 @@ def makeSbckProc(method, contDataL4, mrgDataProcessed, simDataL3Processed, keyIn
         # ***********************************************************************************
         # 미래 기간 예측 NetCDF 저장
         # ***********************************************************************************
-        lat1D = simDataL3Processed['lat'].values
-        lon1D = simDataL3Processed['lon'].values
-        time1D = simDataL3Processed['time'].values
+        # lat1D = simDataL3Processed['lat'].values
+        # lon1D = simDataL3Processed['lon'].values
+        # time1D = simDataL3Processed['time'].values
 
-        mrgDataL1 = xr.Dataset(
-            {
-                'SIM': (('time', 'lat', 'lon'), (simDataL3Processed['pr'].values).reshape(len(time1D), len(lat1D), len(lon1D)))
-                , method: (('time', 'lat', 'lon'), (prdDataL1['scen'].transpose('time', 'lat', 'lon').values).reshape(len(time1D), len(lat1D), len(lon1D)))
-                # , 'isLand': (('time', 'lat', 'lon'), np.tile(contDataL4['isLand'].values[np.newaxis, :, :], (len(time1D), 1, 1)).reshape(len(time1D), len(lat1D), len(lon1D)))
-                , 'contIdx': (('time', 'lat', 'lon'), np.tile(contDataL4['contIdx'].values[np.newaxis, :, :], (len(time1D), 1, 1)).reshape(len(time1D), len(lat1D), len(lon1D)))
-            }
-            , coords={
-                'time': time1D
-                , 'lat': lat1D
-                , 'lon': lon1D
-            }
-        )
+        # mrgDataL1 = xr.Dataset(
+        #     {
+        #         'SIM': (('time', 'lat', 'lon'), (simDataL3Processed['pr'].values).reshape(len(time1D), len(lat1D), len(lon1D)))
+        #         , method: (('time', 'lat', 'lon'), (prdDataL1['scen'].transpose('time', 'lat', 'lon').values).reshape(len(time1D), len(lat1D), len(lon1D)))
+        #         # , 'isLand': (('time', 'lat', 'lon'), np.tile(contDataL4['isLand'].values[np.newaxis, :, :], (len(time1D), 1, 1)).reshape(len(time1D), len(lat1D), len(lon1D)))
+        #         , 'contIdx': (('time', 'lat', 'lon'), np.tile(contDataL4['contIdx'].values[np.newaxis, :, :], (len(time1D), 1, 1)).reshape(len(time1D), len(lat1D), len(lon1D)))
+        #     }
+        #     , coords={
+        #         'time': time1D
+        #         , 'lat': lat1D
+        #         , 'lon': lon1D
+        #     }
+        # )
+
+        mrgDataProcL1 =  simDataL3Processed.rename({'pr': 'SIM'}).drop_vars (['contIdx'])
+        mrgDataL1 = xr.merge([prdDataL1, mrgDataProcL1])
 
         # mrgDataL1['SIM'].isel(time = 10).plot()
         # mrgDataL1[method].isel(time = 10).plot()
@@ -823,13 +830,14 @@ class DtaProcess(object):
 
                 # 비동기 다중 프로세스 개수
                 # , 'cpuCoreNum': 4
-                , 'cpuCoreDtlNum': 4
+                # , 'cpuCoreDtlNum': 4
+                , 'cpuCoreDtlNum': 2
                 # , 'cpuCoreDtlNum': 1
 
                 # 분산 처리
                 # Exception in makeSbckProc: Multiple chunks along the main adjustment dimension time is not supported.
                 # , 'chunks': {'time': 1}
-                # , 'chunks': {'lat': 5, 'lon': 5, 'time': -1}
+                , 'chunks': {'lat': 5, 'lon': 5, 'time': -1}
             }
 
             # ********************************************************************
@@ -991,7 +999,8 @@ class DtaProcess(object):
 
                 simDataL3 = xr.merge([simDataL2['pr'], contDataL4])
                 normalized_time_index2 = pd.to_datetime(simDataL3.time.values)
-                simDataL3 = remove_leap_days_xarray(simDataL3)
+                # simDataL3 = remove_leap_days_xarray(simDataL3)
+                simDataL3 = simDataL3.convert_calendar("noleap")
 
                 # 윤년을 추가한 데이터셋 생성
                 #mrgDataProcessed = remove_feb29(mrgData.drop_vars(['contIdx','rain']))
