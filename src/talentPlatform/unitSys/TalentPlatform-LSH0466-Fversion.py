@@ -734,6 +734,8 @@ class DtaProcess(object):
     # conda activate py38
     # nohup python TalentPlatform-LSH0466.py &
 
+    # python TalentPlatform-LSH0466-Fversion.py --keyList "INM-CM5-0" --methodList "QDM"
+
     # ================================================================================================
     # 환경변수 설정
     # ================================================================================================
@@ -821,23 +823,25 @@ class DtaProcess(object):
 
                 #, 'keyList' : ['GFDL-ESM4','INM-CM4-8','INM-CM5-0','IPSL-CM6A-LR','MIROC6','MPI-ESM1-2-HR','MPI-ESM1-2-LR','MRI-ESM2-0','NorESM2-LM','NorESM2-MM','TaiESM1']
                 # , 'keyList': ['MRI-ESM2-0', 'INM-CM5-0']
-                , 'keyList': ['INM-CM5-0']
                 # , 'keyList': ['MRI-ESM2-0']
                 #, 'keyList': ['MRI-ESM2-0','ACCESS-CM2','ACCESS-ESM1-5','BCC-CSM2-MR','CanESM5','CESM2-WACCM','CMCC-CM2-SR5','CMCC-ESM2','CNRM-CM6-1','CNRM-ESM2-1','EC-Earth3-Veg-LR']
+                # , 'keyList': ['INM-CM5-0']
+                , 'keyList': [globalVar['keyList']]
 
                 # 메서드 목록
-                , 'methodList': ['QDM', 'EQM', 'DQM', 'Scaling']
+                # , 'methodList': ['QDM', 'EQM', 'DQM', 'Scaling']
+                , 'methodList': [globalVar['methodList']]
 
                 # 비동기 다중 프로세스 개수
                 # , 'cpuCoreNum': 4
                 # , 'cpuCoreDtlNum': 4
-                , 'cpuCoreDtlNum': 2
-                # , 'cpuCoreDtlNum': 1
+                # , 'cpuCoreDtlNum': 2
+                , 'cpuCoreDtlNum': 1
 
                 # 분산 처리
                 # Exception in makeSbckProc: Multiple chunks along the main adjustment dimension time is not supported.
                 # , 'chunks': {'time': 1}
-                , 'chunks': {'lat': 5, 'lon': 5, 'time': -1}
+                # , 'chunks': {'lat': 5, 'lon': 5, 'time': -1}
             }
 
             # ********************************************************************
@@ -1028,13 +1032,20 @@ class DtaProcess(object):
                 # 윤년 제거
                 mrgDataProcessed = mrgDataProcessed.convert_calendar("noleap")
 
-                # 비동기 다중 프로세스 수행
-                poolDtl = Pool(sysOpt['cpuCoreDtlNum'])
+                # 단일 다중 프로세스 수행
                 for method in sysOpt['methodList']:
-                    log.info(f'[CHECK] method : {method}')
-                    poolDtl.apply_async(makeSbckProc, args=(method, contDataL4, mrgDataProcessed, simDataL3Processed, keyInfo))
-                poolDtl.close()
-                poolDtl.join()
+                    log.info(f"[CHECK] method : {method}")
+                    result = makeSbckProc(method, contDataL4, mrgDataProcessed, simDataL3Processed, keyInfo)
+                    log.info(f"[CHECK] result : {result}")
+
+                # 비동기 다중 프로세스 수행
+                # poolDtl = Pool(sysOpt['cpuCoreDtlNum'])
+                # for method in sysOpt['methodList']:
+                #     if not method is sysOpt['method']: continue
+                #     log.info(f"[CHECK] method : {method}")
+                #     poolDtl.apply_async(makeSbckProc, args=(method, contDataL4, mrgDataProcessed, simDataL3Processed, keyInfo))
+                # poolDtl.close()
+                # poolDtl.join()
 
         except Exception as e:
             log.error("Exception : {}".format(e))
