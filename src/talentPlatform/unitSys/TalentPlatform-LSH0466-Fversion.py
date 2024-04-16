@@ -405,7 +405,11 @@ def makeSbckProc(method, contDataL4, mrgDataProcessed, simDataL3Processed, keyIn
         # )
 
         mrgDataProcL1 =  mrgDataProcessed.rename({'rain': 'OBS', 'pr': 'ERA'}).drop_vars (['contIdx'])
-        corDataL2 = xr.merge([corDataL1, mrgDataProcL1])
+        corDataL2 = xr.merge([corDataL1, mrgDataProcL1]).rename({'scen': method})
+
+        corDataL2['OBS'] = xr.where((corDataL2['OBS'] < 0.1), 0.0, corDataL2['OBS'])
+        corDataL2['ERA'] = xr.where((corDataL2['ERA'] < 0.1), 0.0, corDataL2['ERA'])
+        corDataL2[method] = xr.where((corDataL2[method] < 0.1), 0.0, corDataL2[method])
 
         # corDataL2['OBS'].isel(time = 10).plot()
         # corDataL2[method].isel(time = 10).plot()
@@ -549,7 +553,10 @@ def makeSbckProc(method, contDataL4, mrgDataProcessed, simDataL3Processed, keyIn
         # )
 
         mrgDataProcL1 =  simDataL3Processed.rename({'pr': 'SIM'}).drop_vars (['contIdx'])
-        mrgDataL1 = xr.merge([prdDataL1, mrgDataProcL1])
+        mrgDataL1 = xr.merge([prdDataL1, mrgDataProcL1]).rename({'scen': method})
+
+        mrgDataL1['SIM'] = xr.where((mrgDataL1['SIM'] < 0.1), 0.0, mrgDataL1['SIM'])
+        mrgDataL1[method] = xr.where((mrgDataL1[method] < 0.1), 0.0, mrgDataL1[method])
 
         # mrgDataL1['SIM'].isel(time = 10).plot()
         # mrgDataL1[method].isel(time = 10).plot()
