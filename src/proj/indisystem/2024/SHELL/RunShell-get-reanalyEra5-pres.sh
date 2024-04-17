@@ -86,7 +86,8 @@ while [ $(date -d "$incDate" +"%s") -le $(date -d "$endDate" +"%s") ]; do
   hour=$(date -d "${incDate}" +"%H")
   min=$(date -d "${incDate}" +"%M")
 
-  incDate=$(date -d "${incDate} 1 hour")
+#  incDate=$(date -d "${incDate} 1 hour")
+  incDate=$(date -d "${incDate} 1 days")
   echo "[$(date +"%Y-%m-%d %H:%M:%S")] [CHECK] dtYmdHm : $dtYmdHm / cnt : $cnt"
 
 #  updFilePath=${UPD_PATH}/${year}/${month}/${day}/${hour}
