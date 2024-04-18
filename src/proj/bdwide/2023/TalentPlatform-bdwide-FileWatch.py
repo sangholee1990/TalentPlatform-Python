@@ -216,7 +216,7 @@ def makeFileProc(fileInfo):
                 shutil.move(fileInfo, saveFile)
                 log.info(f'[CHECK] saveFile : {saveFile}')
             except OSError as e:
-                log.error(f'OSError : {e}')
+                log.error(f'OSError : {str(e)}')
 
         if re.search('json', fileExt, re.IGNORECASE):
             tmpPath = globalVar['tmpPath']
@@ -226,29 +226,31 @@ def makeFileProc(fileInfo):
             cmd = f"source /usr/local/anaconda3/etc/profile.d/conda.sh && conda activate py38 && {cmdProc}"
             log.info(f'[CHECK] cmd : {cmd}')
 
-            res = subprocess.run(cmd, shell=True, executable='/bin/bash')
-            if res.returncode != 0: log.info('[ERROR] cmd : {}'.format(cmd))
+            try:
+                subprocess.run(cmd, shell=True, check=True, executable='/bin/bash')
+            except subprocess.CalledProcessError as e:
+                raise ValueError(f'[ERROR] 실행 프로그램 오류')
 
             oldFile = "{}/{}".format(tmpPath, 'label_viz.png')
+
+            if not os.path.exists(oldFile):
+                raise ValueError(f'[ERROR] 파일 존재 검사')
+
+            if os.path.getsize(oldFile) < 1:
+                raise ValueError(f'[ERROR] 파일 용량 검사')
 
             saveFile = "{}/{}/{}.png".format(globalVar['newPath'], fileRegDate, fileNameNoExt)
             os.makedirs(os.path.dirname(saveFile), exist_ok=True)
 
-            # 파일 이동
             try:
+                # 파일 이동
                 shutil.move(oldFile, saveFile)
                 log.info(f'[CHECK] saveFile : {saveFile}')
-            except OSError as e:
-                log.error(f'OSError : {e}')
 
-            # 임시 폴더 삭제
-            try:
+                # 임시 폴더 삭제
                 shutil.rmtree(tmpPath)
-            except OSError as e:
-                pass
 
-            # 파일 삭제
-            try:
+                # 파일 삭제
                 if os.path.exists(saveFile):
                     os.remove(fileInfo)
             except OSError as e:
