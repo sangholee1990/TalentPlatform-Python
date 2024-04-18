@@ -193,7 +193,7 @@ def initArgument(globalVar, inParams):
 
     return globalVar
 
-@retry
+@retry(stop_max_attempt_number=10)
 def makeFileProc(fileInfo):
 
     # log.info(f'[START] makeFileProc')
@@ -216,7 +216,7 @@ def makeFileProc(fileInfo):
                 shutil.move(fileInfo, saveFile)
                 log.info(f'[CHECK] saveFile : {saveFile}')
             except OSError as e:
-                log.error(f'OSError : {str(e)}')
+                raise ValueError(f'[ERROR] 파일 관리 실패 : {str(e)}')
 
         if re.search('json', fileExt, re.IGNORECASE):
             tmpPath = globalVar['tmpPath']
@@ -229,14 +229,17 @@ def makeFileProc(fileInfo):
             try:
                 subprocess.run(cmd, shell=True, check=True, executable='/bin/bash')
             except subprocess.CalledProcessError as e:
-                raise ValueError(f'[ERROR] 실행 프로그램 오류')
+                log.error(f'[ERROR] 실행 프로그램 실패 : {str(e)}')
+                raise ValueError(f'[ERROR] 실행 프로그램 실패 : {str(e)}')
 
             oldFile = "{}/{}".format(tmpPath, 'label_viz.png')
 
             if not os.path.exists(oldFile):
+                log.error(f'[ERROR] 파일 존재 검사')
                 raise ValueError(f'[ERROR] 파일 존재 검사')
 
             if os.path.getsize(oldFile) < 1:
+                log.error(f'[ERROR] 파일 용량 검사')
                 raise ValueError(f'[ERROR] 파일 용량 검사')
 
             saveFile = "{}/{}/{}.png".format(globalVar['newPath'], fileRegDate, fileNameNoExt)
@@ -254,7 +257,8 @@ def makeFileProc(fileInfo):
                 if os.path.exists(saveFile):
                     os.remove(fileInfo)
             except OSError as e:
-                pass
+                log.error(f'[ERROR] 파일 관리 실패 : {str(e)}')
+                raise ValueError(f'[ERROR] 파일 관리 실패 : {str(e)}')
 
     except Exception as e:
         log.error(f'Exception : {e}')
@@ -271,7 +275,7 @@ class Handler(FileSystemEventHandler):
         if not re.search('closed', event.event_type, re.IGNORECASE): return
         if not os.path.exists(event.src_path): return
 
-        log.info(f'[CHECK] event : {event} / event_type : {event.event_type} / src_path : {event.src_path}')
+        # log.info(f'[CHECK] event : {event} / event_type : {event.event_type} / src_path : {event.src_path}')
 
         makeFileProc(event.src_path)
 
@@ -293,6 +297,7 @@ class DtaProcess(object):
     # conda activate py38
     # cd /SYSTEMS/PROG/PYTHON/PyCharm/src/proj/bdwide/2023
     # nohup python TalentPlatform-bdwide-FileWatch.py &
+    # tail -f nohup.out
 
     # 입력 자료
     # /DATA/LABEL/ORG/생성일
@@ -389,10 +394,10 @@ class DtaProcess(object):
             filePathList = set(os.path.dirname(os.path.dirname(fileInfo)) for fileInfo in mntrgFileList)
 
             # 기존 파일 처리
-            for mntrgFileInfo in mntrgFileList:
-                fileList = glob.glob(mntrgFileInfo)
-                for fileInfo in fileList:
-                    makeFileProc(fileInfo)
+            # for mntrgFileInfo in mntrgFileList:
+            #     fileList = glob.glob(mntrgFileInfo)
+            #     for fileInfo in fileList:
+            #         makeFileProc(fileInfo)
 
             # 신규 파일 감시
             observer = Observer()
