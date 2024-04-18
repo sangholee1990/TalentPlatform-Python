@@ -37,7 +37,7 @@ import PIL.Image
 
 from labelme.logger import logger
 from labelme import utils
-
+from retrying import retry
 
 # =================================================
 # 사용자 매뉴얼
@@ -193,7 +193,7 @@ def initArgument(globalVar, inParams):
 
     return globalVar
 
-
+@retry
 def makeFileProc(fileInfo):
 
     # log.info(f'[START] makeFileProc')
