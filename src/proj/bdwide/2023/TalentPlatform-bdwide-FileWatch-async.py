@@ -39,6 +39,7 @@ from labelme.logger import logger
 from labelme import utils
 from retrying import retry
 import asyncio
+from hachiko.hachiko import AIOWatchdog, AIOEventHandler
 
 # =================================================
 # 사용자 매뉴얼
@@ -195,7 +196,7 @@ def initArgument(globalVar, inParams):
     return globalVar
 
 @retry(stop_max_attempt_number=10)
-def makeFileProc(fileInfo):
+async def makeFileProc(fileInfo):
 
     # log.info(f'[START] makeFileProc')
 
@@ -268,11 +269,14 @@ def makeFileProc(fileInfo):
     # finally:
         # log.info(f'[END] makeFileProc')
 
-class Handler(FileSystemEventHandler):
+class Handler(AIOEventHandler):
     def __init__(self, patterns):
         self.patterns = patterns
 
-    def on_any_event(self, event):
+    async def on_closed(self, event):
+        print('Closed:', event.src_path)  # add your functionality here
+
+    async def on_any_event(self, event):
         if not any(fnmatch.fnmatch(event.src_path, pattern) for pattern in self.patterns): return
         if not re.search('closed', event.event_type, re.IGNORECASE): return
         if not os.path.exists(event.src_path): return
@@ -280,9 +284,23 @@ class Handler(FileSystemEventHandler):
         # log.info(f'[CHECK] event : {event} / event_type : {event.event_type} / src_path : {event.src_path}')
 
         try:
-            makeFileProc(event.src_path)
+            await makeFileProc(event.src_path)
         except Exception as e:
             log.error(f'Exception : {e}')
+
+async def monitor(mntrgFileList, filePathList):
+    eventHandler = Handler(mntrgFileList)
+    watchers = []
+    for filePathInfo in filePathList:
+        watchdog = AIOWatchdog(filePathInfo, event_handler=eventHandler, recursive=True)
+        watchdog.start()
+        watchers.append(watchdog)
+    try:
+        await asyncio.Future()
+    finally:
+        for watcher in watchers:
+            watcher.stop()
+
 
 # ================================================
 # 4. 부 프로그램
@@ -301,7 +319,7 @@ class DtaProcess(object):
     # 프로그램 시작
     # conda activate py38
     # cd /SYSTEMS/PROG/PYTHON/PyCharm/src/proj/bdwide/2023
-    # nohup python TalentPlatform-bdwide-FileWatch.py &
+    # nohup python TalentPlatform-bdwide-FileWatch-async.py &
     # tail -f nohup.out
 
     # 입력 자료
@@ -396,7 +414,9 @@ class DtaProcess(object):
             mntrgFileList = sysOpt['mntrgFileList']
             log.info(f'[CHECK] mntrgFileList : {mntrgFileList}')
 
+            # filePathList = set(os.path.dirname(os.path.dirname(fileInfo)) for fileInfo in mntrgFileList)
             filePathList = set(os.path.dirname(os.path.dirname(fileInfo)) for fileInfo in mntrgFileList)
+            log.info(f'[CHECK] filePathList : {filePathList}')
 
             # 기존 파일 처리
             # for mntrgFileInfo in mntrgFileList:
@@ -404,23 +424,29 @@ class DtaProcess(object):
             #     for fileInfo in fileList:
             #         makeFileProc(fileInfo)
 
-            # 신규 파일 감시
-            observer = Observer()
-            eventHandler = Handler(mntrgFileList)
 
-            for filePathInfo in filePathList:
-                observer.schedule(eventHandler, filePathInfo, recursive=True)
+            # 비동기 파일 감시
+            asyncio.run(monitor(mntrgFileList, filePathList))
+            # asyncio.get_event_loop().run_until_complete(monitor(mntrgFileList, filePathList))
 
-            observer.start()
 
-            try:
-                while True:
-                    time.sleep(1)
-            except KeyboardInterrupt as e:
-                log.error(f'KeyboardInterrupt : {e}')
-                observer.stop()
-
-            observer.join()
+            # 동기 파일 감시
+            # observer = Observer()
+            # eventHandler = Handler(mntrgFileList)
+            #
+            # for filePathInfo in filePathList:
+            #     observer.schedule(eventHandler, filePathInfo, recursive=True)
+            #
+            # observer.start()
+            #
+            # try:
+            #     while True:
+            #         time.sleep(1)
+            # except KeyboardInterrupt as e:
+            #     log.error(f'KeyboardInterrupt : {e}')
+            #     observer.stop()
+            #
+            # observer.join()
 
         except Exception as e:
             log.error("Exception : {}".format(e))
