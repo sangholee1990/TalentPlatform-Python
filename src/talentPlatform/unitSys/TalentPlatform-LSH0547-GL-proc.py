@@ -223,6 +223,18 @@ class DtaProcess(object):
     # nohup /SYSTEMS/anaconda3/envs/py38-test/bin/python3.8 TalentPlatform-LSH0547-GL-proc.py &
     # tail -f nohup.out
 
+    # nohup /SYSTEMS/anaconda3/envs/py38-test/bin/python3.8 TalentPlatform-LSH0547-GL-proc.py --analyList "1981-2010" --selIdx "0" &
+    # nohup /SYSTEMS/anaconda3/envs/py38-test/bin/python3.8 TalentPlatform-LSH0547-GL-proc.py --analyList "1981-2010" --selIdx "1" &
+    # nohup /SYSTEMS/anaconda3/envs/py38-test/bin/python3.8 TalentPlatform-LSH0547-GL-proc.py --analyList "1981-2010" --selIdx "2" &
+
+    # nohup /SYSTEMS/anaconda3/envs/py38-test/bin/python3.8 TalentPlatform-LSH0547-GL-proc.py --analyList "1990-2020" --selIdx "0" &
+    # nohup /SYSTEMS/anaconda3/envs/py38-test/bin/python3.8 TalentPlatform-LSH0547-GL-proc.py --analyList "1990-2020" --selIdx "1" &
+    # nohup /SYSTEMS/anaconda3/envs/py38-test/bin/python3.8 TalentPlatform-LSH0547-GL-proc.py --analyList "1990-2020" --selIdx "2" &
+
+    # nohup /SYSTEMS/anaconda3/envs/py38-test/bin/python3.8 TalentPlatform-LSH0547-GL-proc.py --analyList "2010-2020" --selIdx "0" &
+    # nohup /SYSTEMS/anaconda3/envs/py38-test/bin/python3.8 TalentPlatform-LSH0547-GL-proc.py --analyList "2010-2020" --selIdx "1" &
+    # nohup /SYSTEMS/anaconda3/envs/py38-test/bin/python3.8 TalentPlatform-LSH0547-GL-proc.py --analyList "2010-2020" --selIdx "2" &
+
     # ================================================================================================
     # 환경변수 설정
     # ================================================================================================
@@ -314,8 +326,11 @@ class DtaProcess(object):
 
                 # 장기 최초30년, 장기 최근30년, 단기 최근10년, 초단기 최근1년
                 # , 'analyList': ['1981-2010', '1990-2020', '2010-2020', '2022-2022']
-                , 'analyList': ['1981-2010', '1990-2020', '2010-2020']
+                # , 'analyList': ['1981-2010', '1990-2020', '2010-2020']
                 # , 'analyList': ['2010-2020']
+                , 'analyList': [globalVar['analyList']]
+
+                , 'selIdx': [globalVar['selIdx']]
 
                 , 'REANALY-ECMWF-1M-GL': {
                     # 'filePath': '/DATA/INPUT/LSH0547/gw_yearly/yearly/%Y'
@@ -439,7 +454,10 @@ class DtaProcess(object):
                     for varIdx, varInfo in enumerate(modelInfo['varList']):
                         if varIdx > 2: continue
                         procInfo = modelInfo['procList'][varIdx]
-                        log.info(f'[CHECK] varInfo : {varInfo} / procInfo : {procInfo}')
+
+                        selIdx = int(sysOpt['selIdx'][0])
+                        if not (selIdx == varIdx): continue
+                        log.info(f'[CHECK] varInfo : {varInfo} / procInfo : {procInfo} / selIdx : {selIdx}')
 
                         if re.search('t2m', procInfo, re.IGNORECASE):
                             varData = mrgDataL1[procInfo]
