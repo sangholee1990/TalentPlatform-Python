@@ -425,10 +425,11 @@ class DtaProcess(object):
                 # log.info(f'[CHECK] procFile : {procFile}')
 
                 # mrgData = xr.open_dataset('/DATA/OUTPUT/LSH0547/REANALY-ECMWF-1M-GL_proc-mrg_19811231-20231231.nc', engine='pynio')
-                mrgData = xr.open_dataset('/DATA/OUTPUT/LSH0547/REANALY-ECMWF-1M-GL_proc-mrg_19900101-20231101.nc', engine='pynio')
-                # mrgData.isel(time = 0)['t2m'].plot()
-                # plt.show()
-
+                # mrgData = xr.open_dataset('/DATA/OUTPUT/LSH0547/REANALY-ECMWF-1M-GL_proc-mrg_19900101-20231101.nc', engine='pynio')
+                mrgData = xr.open_dataset('/DATA/OUTPUT/LSH0547/REANALY-ECMWF-1M-GL_proc-mrg_19810101-20231101.nc', engine='pynio')
+                # # mrgData.isel(time = 0)['t2m'].plot()
+                # # plt.show()
+                #
                 for analyInfo in sysOpt['analyList']:
                     log.info(f'[CHECK] analyInfo : {analyInfo}')
                     analySrtDate, analyEndDate = analyInfo.split('-')

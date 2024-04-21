@@ -413,7 +413,8 @@ class DtaProcess(object):
 
                 # mrgData = xr.open_dataset('/DATA/OUTPUT/LSH0547/REANALY-ECMWF-1M-GW_proc-mrg_19810101-20221201.nc', engine='pynio')
                 # mrgData = xr.open_dataset('/DATA/OUTPUT/LSH0547/REANALY-ECMWF-1M-GW_proc-mrg_19811231-20221231.nc', engine='pynio')
-                mrgData = xr.open_dataset('/DATA/OUTPUT/LSH0547/REANALY-ECMWF-1M-GW_proc-mrg_19900101-20221201.nc', engine='pynio')
+                # mrgData = xr.open_dataset('/DATA/OUTPUT/LSH0547/REANALY-ECMWF-1M-GW_proc-mrg_19900101-20221201.nc', engine='pynio')
+                mrgData = xr.open_dataset('/DATA/OUTPUT/LSH0547/REANALY-ECMWF-1M-GW_proc-mrg_19810101-20221201.nc', engine='pynio')
 
                 # mrgData.isel(time = 0)['2T_GDS0_SFC'].plot()
                 # plt.show()
@@ -452,29 +453,29 @@ class DtaProcess(object):
                         # ******************************************************************************************************
                         # 전체 Mann Kendall 검정
                         # ******************************************************************************************************
-                        # colName = 'slope'
-                        # mkData = xr.apply_ufunc(
-                        #     calcMannKendall,
-                        #     varDataL2,
-                        #     kwargs={'colName': colName},
-                        #     input_core_dims=[['time']],
-                        #     output_core_dims=[[]],
-                        #     vectorize=True,
-                        #     dask='parallelized',
-                        #     output_dtypes=[np.float64],
-                        #     dask_gufunc_kwargs={'allow_rechunk': True}
-                        # ).compute()
-                        #
-                        # mkName = f'{procInfo}-{colName}'
-                        # mkData.name = mkName
-                        # key = f'MK{analyInfo}'
-                        #
-                        # # MK 생산
-                        # procFilePattern = '{}/{}'.format(modelInfo['procPath'], modelInfo['procName'])
-                        # procFile = procFilePattern.format(modelType, mkName, key, minDate, maxDate)
-                        # os.makedirs(os.path.dirname(procFile), exist_ok=True)
-                        # mkData.to_netcdf(procFile)
-                        # log.info(f'[CHECK] procFile : {procFile}')
+                        colName = 'slope'
+                        mkData = xr.apply_ufunc(
+                            calcMannKendall,
+                            varDataL2,
+                            kwargs={'colName': colName},
+                            input_core_dims=[['time']],
+                            output_core_dims=[[]],
+                            vectorize=True,
+                            dask='parallelized',
+                            output_dtypes=[np.float64],
+                            dask_gufunc_kwargs={'allow_rechunk': True}
+                        ).compute()
+
+                        mkName = f'{procInfo}-{colName}'
+                        mkData.name = mkName
+                        key = f'MK{analyInfo}'
+
+                        # MK 생산
+                        procFilePattern = '{}/{}'.format(modelInfo['procPath'], modelInfo['procName'])
+                        procFile = procFilePattern.format(modelType, mkName, key, minDate, maxDate)
+                        os.makedirs(os.path.dirname(procFile), exist_ok=True)
+                        mkData.to_netcdf(procFile)
+                        log.info(f'[CHECK] procFile : {procFile}')
 
                         # ******************************************************************************************************
                         # 4계절 Mann Kendall 검정
