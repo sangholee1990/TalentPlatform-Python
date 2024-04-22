@@ -94,7 +94,8 @@ while [ $(date -d "$incDate" +"%s") -le $(date -d "$endDate" +"%s") ]; do
   updFilePath=${UPD_PATH}/${year}/${month}/${day}
   mkdir -p ${updFilePath}
 
-  updFileName=reanaly-era5-pres_${year}${month}${day}${hour}${min}.nc
+#  updFileName=reanaly-era5-pres_${year}${month}${day}${hour}${min}.nc
+  updFileName=reanaly-era5-pres_${year}${month}${day}${hour}${min}.grib
   urlFileInfo=${TMP_PATH}/${year}/${month}/${day}/${updFileName}
   mkdir -p ${urlFileInfo%/*}
 
@@ -108,7 +109,8 @@ c.retrieve(
     'reanalysis-era5-pressure-levels',
     {
         'product_type': 'reanalysis',
-        'format': 'netcdf',
+#        'format': 'netcdf',
+        'format': 'grib',
         'variable': [
 #           'u_component_of_wind', 'v_component_of_wind',
             'all',
@@ -138,7 +140,6 @@ EOF
 
 # API키 인증
 cat > $HOME/.cdsapirc << EOF
-url: https://cds.climate.copernicus.eu/api/v2
 EOF
 
 #  ${PY38_BIN} ${TMP_PATH}/RunPython-get-reanalyEra5-pres.py
@@ -149,7 +150,8 @@ EOF
   if [ $cnt -ge ${MULTI_PROC} ]; then
     wait
 
-    fileList=$(find ${TMP_PATH} -type f -name "*.nc" 2>/dev/null | sort -u)
+#    fileList=$(find ${TMP_PATH} -type f -name "*.nc" 2>/dev/null | sort -u)
+    fileList=$(find ${TMP_PATH} -type f -name "*.grib" 2>/dev/null | sort -u)
     if [ ${#fileList} -le 0 ]; then continue; fi
     for fileInfo in $fileList; do
       tmpFileInfo=${fileInfo}
