@@ -205,7 +205,8 @@ def makePlot(data, saveImg, opt=None):
     result = None
 
     try:
-        fig, ax = plt.subplots(figsize=(10, 5), subplot_kw={'projection': ccrs.PlateCarree()})
+        # fig, ax = plt.subplots(figsize=(10, 5), subplot_kw={'projection': ccrs.PlateCarree()})
+        fig, ax = plt.subplots(figsize=(10, 4), subplot_kw={'projection': ccrs.PlateCarree()})
 
         ax.coastlines()
         gl = ax.gridlines(draw_labels=True)
@@ -455,8 +456,7 @@ class DtaProcess(object):
 
                         roi = sysOpt['roi'][roiName]
 
-                        if re.search('as', roiName, re.IGNORECASE):
-                            # shp 영역 내 자료 추출
+                        if re.search('ko', roiName, re.IGNORECASE):
                             roiData = varDataL2.rio.write_crs("epsg:4326")
                             roiDataL1 = roiData.rio.set_spatial_dims(x_dim='lon', y_dim='lat', inplace=True)
                             roiDataL2 = roiDataL1.rio.clip(shpData.geometry, shpData.crs, from_disk=True)
@@ -479,8 +479,8 @@ class DtaProcess(object):
                         log.info(f'[CHECK] result : {result}')
 
                         # varDataL3.isel(time = 0).plot()
+                        # varDataL4.plot()
                         # plt.show()
-
 
                         # log.info(f'[CHECK] timeInfo : all / meanVal : {meanVal} / maxVal : {maxVal} / minVal : {minVal}')
                         # log.info(f'[CHECK] timeInfo : all / meanVal : {meanVal:.2f}')
@@ -554,30 +554,69 @@ class DtaProcess(object):
                             analySrtDate, analyEndDate = analyInfo.split('-')
 
                             inpFile = '/DATA/OUTPUT/LSH0547/REANALY-ECMWF-1M-GL_{}-slope-MK{}-{}_*.nc'.format(procInfo, analySrtDate, analyEndDate)
-                            fileList = sorted(glob.glob(inpFile), reverse=True)
+                            # fileList = sorted(glob.glob(inpFile), reverse=True)
+                            fileList = sorted(glob.glob(inpFile), reverse=False)
 
                             if fileList is None or len(fileList) < 1: continue
                             slopeData = xr.open_dataset(fileList[0], engine='pynio')
-                            slopeDataL1 = slopeData[f't2m-slope'].sel(lat=latList, lon=lonList)
 
-                            meanVal = np.nanmean(slopeDataL1)
-                            maxVal = np.nanmax(slopeDataL1)
-                            minVal = np.nanmin(slopeDataL1)
+                            if re.search('ko', roiName, re.IGNORECASE):
+                                slopeDataL1 = slopeData[f'{procInfo}-slope'].rio.write_crs("epsg:4326")
+                                slopeDataL2 = slopeDataL1.rio.set_spatial_dims(x_dim='lon', y_dim='lat', inplace=True)
+                                slopeDataL3 = slopeDataL2.rio.clip(shpData.geometry, shpData.crs, from_disk=True)
+                            else:
+                                slopeDataL3 = slopeData[f'{procInfo}-slope'].sel(lat=latList, lon=lonList)
+
+                            meanVal = np.nanmean(slopeDataL3)
+                            maxVal = np.nanmax(slopeDataL3)
+                            minVal = np.nanmin(slopeDataL3)
 
                             key = f'{analyInfo}-all'
                             saveFilePattern = '{}/{}'.format(modelInfo['figPath'], modelInfo['figName'])
                             saveImg = saveFilePattern.format(modelType, procInfo, roiName, key, 'slope')
-                            result = makePlot(slopeDataL1, saveImg, opt={'vmin': minVal, 'vmax': maxVal})
+                            result = makePlot(slopeDataL3, saveImg, opt={'vmin': minVal, 'vmax': maxVal})
                             log.info(f'[CHECK] result : {result}')
 
                             dict = [{
                                 'roiName': roiName
                                 , 'analyInfo': analyInfo
-                                , 'month': 0
+                                , 'season': 'ALL'
                                 , 'meanVal': meanVal
                             }]
 
                             valData = pd.concat([valData, pd.DataFrame.from_dict(dict)], ignore_index=True)
+
+                            for season, monthList in sysOpt['seasonList'].items():
+                                inpFile = '/DATA/OUTPUT/LSH0547/REANALY-ECMWF-1M-GL_{}-slope-{}-MK{}-{}_*.nc'.format(procInfo, season, analySrtDate, analyEndDate)
+                                # fileList = sorted(glob.glob(inpFile), reverse=True)
+                                fileList = sorted(glob.glob(inpFile), reverse=False)
+
+                                if fileList is None or len(fileList) < 1: continue
+                                slopeData = xr.open_dataset(fileList[0], engine='pynio')
+                                slopeDataL1 = slopeData[f'{procInfo}-slope-{season}'].sel(lat=latList, lon=lonList)
+                                # slopeDataL1.plot()
+                                # plt.show()
+
+                                key = f'{analyInfo}-{season}'
+                                saveFilePattern = '{}/{}'.format(modelInfo['figPath'], modelInfo['figName'])
+                                saveImg = saveFilePattern.format(modelType, procInfo, roiName, key, 'slope')
+                                result = makePlot(slopeDataL1, saveImg)
+                                log.info(f'[CHECK] result : {result}')
+
+                                meanVal = np.nanmean(slopeDataL1)
+                                if np.isnan(meanVal): continue
+
+                                # log.info(f'[CHECK] analyInfo : {analyInfo} / month : {month} / meanVal : {meanVal:.3f}')
+
+                                dict = [{
+                                    'roiName': roiName
+                                    , 'analyInfo': analyInfo
+                                    , 'season': season
+                                    , 'meanVal': meanVal
+                                }]
+
+                                valData = pd.concat([valData, pd.DataFrame.from_dict(dict)], ignore_index=True)
+
 
                             # 월별 분석
                             # for month in range(1, 13):
