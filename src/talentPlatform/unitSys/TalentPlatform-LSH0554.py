@@ -234,16 +234,13 @@ class DtaProcess(object):
                 globalVar['updPath'] = '/DATA/CSV'
 
             sysOpt = {
-                # 비동기 다중 프로세스 개수
-                'cpuCoreNum': 40
-                # 'cpuCoreNum': 1
             }
 
             # ********************************************************************
-            # 메타 정보
+            # 국가 입력 데이터
             # ********************************************************************
-            keyInfo = '2030_2_SSP2'
-            keyYear, keyIdx, keyVer = keyInfo.split('_')
+            # keyInfo = '2030_2_SSP2'
+            # keyYear, keyIdx, keyVer = keyInfo.split('_')
 
             # inpFile = '{}/{}/{}'.format(globalVar['inpPath'], serviceName, '/DATA/INPUT/LSH0554/india/India_InputData/*')
 
@@ -256,50 +253,199 @@ class DtaProcess(object):
             for fileInfo in fileList:
                 log.info(f'[CHECK] fileInfo : {fileInfo}')
 
+                fileName = os.path.basename(fileInfo)
+                fileNameSepList = re.split(r'[_\.]', fileName)
+                if fileNameSepList is None or len(fileNameSepList) < 1: continue
+
+                keyType = None
+                try:
+                    keyType = fileNameSepList[len(fileNameSepList) - 2]
+                except Exception:
+                    pass
+
                 keyInfo = fileInfo.split('/')[7]
+                if keyInfo is None: continue
+
                 if re.search('nopolicy', keyInfo, re.IGNORECASE): continue
 
+                keyInfoSepList = keyInfo.split('_')
+                if keyInfoSepList is None or len(keyInfoSepList) < 1: continue
 
-                keyInfoSplit = keyInfo.split('_')
+                keyYear = None
+                keyIdx = None
+                keyVer = None
 
-                len(keyInfoSplit)
+                try:
+                    keyYear = keyInfoSepList[0]
+                except Exception:
+                    pass
 
-                keyYear, keyIdx, keyVer = keyInfoSplit
+                try:
+                    keyIdx = keyInfoSepList[1]
+                except Exception:
+                    pass
+
+                try:
+                    keyVer = keyInfoSepList[2]
+                except Exception:
+                    pass
 
                 data = pd.read_csv(fileInfo)
                 data['keyYear'] = keyYear
                 data['keyIdx'] = keyIdx
                 data['keyVer'] = keyVer
+                data['keyType'] = keyType
+                data['fileName'] = fileName
 
                 dataL1 = pd.concat([dataL1, pd.DataFrame.from_dict(data)], ignore_index=True)
 
+            # dataL1
 
 
             # metaData = pd.read_excel(fileList[0], engine='openpyxl')
 
             # ********************************************************************
-            # 파일 읽기
+            # 기준 엑셀파일 읽기
             # ********************************************************************
-            inpFile = '{}/{}/{}'.format(globalVar['inpPath'], serviceName, 'Trips_by_Distance_20240405.csv')
+            inpFilePatrn = f'/india/*/*/*.xlsx'
+            inpFile = '{}/{}/{}'.format(globalVar['inpPath'], serviceName, inpFilePatrn)
             fileList = sorted(glob.glob(inpFile))
-            data = pd.read_csv(fileList[0])
+
+            fileInfo = fileList[0]
+            log.info(f'[CHECK] fileInfo : {fileInfo}')
+
+            # data = pd.read(fileInfo)
+
+            selData = pd.read_excel(fileInfo, sheet_name='En_ppl', engine='openpyxl', skiprows=2)
+            selDataL1 = selData.loc[(selData['year'] == 1990) & (selData['Act_abb'] == 'Sum')]
+
+
+            from openpyxl import load_workbook
+
+            # 엑셀 파일 로드
+            wb = load_workbook(fileInfo, data_only=True)
+            # ws = wb.active  # 활성 시트 사용
+            ws = wb['En_ppl']
+
+            # ws.columns
+            #
+            # selDataL1.columns
+            # Index(['year', 'Act_abb', 'PP_EX_OTH', 'PP_EX_S', 'PP_EX_L', 'PP_NEW',
+            #        'PP_NEW_L', 'PP_MOD', 'PP_MOD_CCS', 'PP_IGCC', 'PP_IGCC_CCS', 'PP_ENG',
+            #        'PP_TOTAL'],
+            #       dtype='object')
+
+            # ['year',
+            #  'Act_abb',
+            #  'PP_EX_OTH',
+            #  'PP_EX_S',
+            #  'PP_EX_L',
+            #  'PP_NEW',
+            #  'PP_NEW_L',
+            #  'PP_MOD',
+            #  'PP_MOD_CCS',
+            #  'PP_IGCC',
+            #  'PP_IGCC_CCS',
+            #  'PP_ENG',
+            #  'PP_TOTAL']
+
+
+            # colNameList = [cell.value for cell in ws[3]]
+            # colNameList = [cell.value for cell in ws[3] if cell.value is not None]
+            columns = {cell.value: cell.column_letter for cell in ws[3]}
+
+            # ws.rows
+            # target_row = 99999999999999  # 예를 들어, 5번째 행에서 데이터를 추출
+            rowIdx =  selDataL1.index[0] + 4  # 예를 들어, 5번째 행에서 데이터를 추출
+
+            # selDataL1
+
+            for colName, colCell in columns.items():
+                if re.search('year', colName, re.IGNORECASE): continue
+                if re.search('Act_abb', colName, re.IGNORECASE): continue
+                if re.search('None', colName, re.IGNORECASE): continue
+
+                selVal = selDataL1.get(colName)
+                if selVal is None: continue
+
+                selVal2 = selVal.values[0]
+
+                log.info(f'[CHECK] colName : {colName} / colCell : {colCell}')
+
+                colVal = ws[f'{columns[colName]}{rowIdx}'].value
+
+                log.info(f'[CHECK] colVal : {colVal} / selVal2 : {selVal2}')
+                # ws[f'{columns[colName]}{rowIdx}'].value = selVal.values[0]
+
+
+
+            # cells_to_update = ['B3', 'B4', 'B5']
+            # new_values = ['값1', '값2', '값3']
+
+            #
+            # for cell, value in zip(cells_to_update, new_values):
+            #     ws[f'{columns["year"]}{row}'] = value
+
+
+
+            # # 변경 사항 저장
+            # wb.save('updated_example.xlsx')
+
+            # ws.column_dimensions.max_outline
+
+            #
+            # # 특정 셀에 접근하여 값 수정하기
+            # # 예를 들어, B2 셀의 값을 '새로운 값'으로 설정
+            # ws['B2'] = '새로운 값'
+            #
+            # # 다른 셀들도 유사한 방식으로 수정 가능
+            # # 예를 들어, B3, B4, B5 셀을 일괄적으로 수정
+            # cells_to_update = ['B3', 'B4', 'B5']
+            # new_values = ['값1', '값2', '값3']
+            #
+            # for cell, value in zip(cells_to_update, new_values):
+            #     ws[cell] = value
+
+
+
+            # # 엑셀 파일 로드
+            # wb = load_workbook('example.xlsx')
+            # ws = wb.active  # 활성 시트 사용
+            #
+            # # 특정 셀에 접근하여 값 수정하기
+            # # 예를 들어, B2 셀의 값을 '새로운 값'으로 설정
+            # ws['B2'] = '새로운 값'
+            #
+            # # 다른 셀들도 유사한 방식으로 수정 가능
+            # # 예를 들어, B3, B4, B5 셀을 일괄적으로 수정
+            # cells_to_update = ['B3', 'B4', 'B5']
+            # new_values = ['값1', '값2', '값3']
+            #
+            # for cell, value in zip(cells_to_update, new_values):
+            #     ws[cell] = value
+
+            # 변경 사항 저장
+            # wb.save('updated_example.xlsx')
+
+
+
 
             # dataL1.columns
-            colNameList = ['Population Staying at Home', 'Population Not Staying at Home', 'Number of Trips', 'Number of Trips <1', 'Number of Trips 1-3', 'Number of Trips 3-5', 'Number of Trips 5-10', 'Number of Trips 10-25', 'Number of Trips 25-50', 'Number of Trips 50-100', 'Number of Trips 100-250', 'Number of Trips 250-500', 'Number of Trips >=500']
+            # colNameList = ['Population Staying at Home', 'Population Not Staying at Home', 'Number of Trips', 'Number of Trips <1', 'Number of Trips 1-3', 'Number of Trips 3-5', 'Number of Trips 5-10', 'Number of Trips 10-25', 'Number of Trips 25-50', 'Number of Trips 50-100', 'Number of Trips 100-250', 'Number of Trips 250-500', 'Number of Trips >=500']
 
             # **************************************************************************************************************
             # 비동기 다중 프로세스 수행
-            # **************************************************************************************************************
-            # 비동기 다중 프로세스 개수
-            pool = Pool(sysOpt['cpuCoreNum'])
-
-            metaDataL1 = metaData[['city', 'code', 'isYn', 'allCnt']].drop_duplicates().reset_index(drop=True)
-            # metaDataL1 = metaDataL1.loc[metaDataL1['city'] == 'Minneapolis']
-            for i, metaInfo in metaDataL1.iterrows():
-                log.info(f'[CHECK] metaInfo : {metaInfo}')
-                pool.apply_async(subCalc, args=(metaInfo, metaData, data, colNameList))
-            pool.close()
-            pool.join()
+            # # **************************************************************************************************************
+            # # 비동기 다중 프로세스 개수
+            # pool = Pool(sysOpt['cpuCoreNum'])
+            #
+            # metaDataL1 = metaData[['city', 'code', 'isYn', 'allCnt']].drop_duplicates().reset_index(drop=True)
+            # # metaDataL1 = metaDataL1.loc[metaDataL1['city'] == 'Minneapolis']
+            # for i, metaInfo in metaDataL1.iterrows():
+            #     log.info(f'[CHECK] metaInfo : {metaInfo}')
+            #     pool.apply_async(subCalc, args=(metaInfo, metaData, data, colNameList))
+            # pool.close()
+            # pool.join()
 
         except Exception as e:
             log.error("Exception : {}".format(e))
