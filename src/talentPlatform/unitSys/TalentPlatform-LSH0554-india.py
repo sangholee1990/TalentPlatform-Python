@@ -325,7 +325,7 @@ class DtaProcess(object):
                             sKeyIdxInfo = '' if keyIdxInfo == 'None' else keyIdxInfo
                             sKeyVerInfo = '' if keyVerInfo == 'None' else keyVerInfo
 
-                            inpFilePatrn = f'/india/*/*{keyYearInfo}*{sKeyIdxInfo}*{sKeyVerInfo}__*_{keyTypeInfo}_*.xlsx'
+                            inpFilePatrn = f'/india/*/*{keyYearInfo}*{sKeyIdxInfo}*{sKeyVerInfo}*_{keyTypeInfo}_*.xlsx'
                             inpFile = '{}/{}/{}'.format(globalVar['inpPath'], serviceName, inpFilePatrn)
                             fileList = sorted(glob.glob(inpFile))
 
