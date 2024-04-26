@@ -375,7 +375,7 @@ class DtaProcess(object):
                 colVal = ws[f'{columns[colName]}{rowIdx}'].value
 
                 log.info(f'[CHECK] colVal : {colVal} / selVal2 : {selVal2}')
-                # ws[f'{columns[colName]}{rowIdx}'].value = selVal.values[0]
+                ws[f'{columns[colName]}{rowIdx}'].value = selVal2
 
 
 
@@ -386,10 +386,12 @@ class DtaProcess(object):
             # for cell, value in zip(cells_to_update, new_values):
             #     ws[f'{columns["year"]}{row}'] = value
 
+            saveFile = '{}/{}/{}.xlsx'.format(globalVar['outPath'], serviceName, 'test')
+            os.makedirs(os.path.dirname(saveFile), exist_ok=True)
+            wb.save(saveFile)
+            log.info('[CHECK] saveFile : {}'.format(saveFile))
 
 
-            # # 변경 사항 저장
-            # wb.save('updated_example.xlsx')
 
             # ws.column_dimensions.max_outline
 
