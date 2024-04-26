@@ -242,9 +242,40 @@ class DtaProcess(object):
             # ********************************************************************
             # 메타 정보
             # ********************************************************************
-            inpFile = '{}/{}/{}'.format(globalVar['inpPath'], serviceName, 'Match.xlsx')
+            keyInfo = '2030_2_SSP2'
+            keyYear, keyIdx, keyVer = keyInfo.split('_')
+
+            # inpFile = '{}/{}/{}'.format(globalVar['inpPath'], serviceName, '/DATA/INPUT/LSH0554/india/India_InputData/*')
+
+            # inpFilePatrn = f'/DATA/INPUT/LSH0554/india/India_InputData/{keyYear}_{keyIdx}_{keyVer}/*{keyYear}_{keyVer}_{keyIdx}*.csv'
+            inpFilePatrn = f'/india/India_InputData/*/*.csv'
+            inpFile = '{}/{}/{}'.format(globalVar['inpPath'], serviceName, inpFilePatrn)
             fileList = sorted(glob.glob(inpFile))
-            metaData = pd.read_excel(fileList[0], engine='openpyxl')
+
+            dataL1 = pd.DataFrame()
+            for fileInfo in fileList:
+                log.info(f'[CHECK] fileInfo : {fileInfo}')
+
+                keyInfo = fileInfo.split('/')[7]
+                if re.search('nopolicy', keyInfo, re.IGNORECASE): continue
+
+
+                keyInfoSplit = keyInfo.split('_')
+
+                len(keyInfoSplit)
+
+                keyYear, keyIdx, keyVer = keyInfoSplit
+
+                data = pd.read_csv(fileInfo)
+                data['keyYear'] = keyYear
+                data['keyIdx'] = keyIdx
+                data['keyVer'] = keyVer
+
+                dataL1 = pd.concat([dataL1, pd.DataFrame.from_dict(data)], ignore_index=True)
+
+
+
+            # metaData = pd.read_excel(fileList[0], engine='openpyxl')
 
             # ********************************************************************
             # 파일 읽기
