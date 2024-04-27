@@ -437,12 +437,37 @@ def makeSbckProc(method, contDataL4, mrgDataProcessed, simDataL3Processed, keyIn
         # ***********************************************************************************
         varList = ['OBS', 'ERA', method]
         contIdxList = np.unique(corDataL2['contIdx'])
-        corDataL3 = corDataL2.to_dataframe().reset_index(drop=False)
+        # corDataL3 = corDataL2.to_dataframe().reset_index(drop=False)
+
         for varInfo in varList:
             selCol = ['time', 'lon', 'lat', varInfo]
+
+            # 대륙별로 엑셀 저장
+            # contIdx = contIdxList[0]
+            for contIdx in contIdxList:
+                if pd.isna(contIdx): continue
+
+                corDataL5 = corDataL2[selCol].where(corDataL2['contIdx'] == contIdx).to_dataframe().reset_index(drop=False)
+                if len(corDataL5) < 0: continue
+
+                sheetName = str(int(contIdx))
+
+                corDataL6 = corDataL5.dropna().pivot(index=['time'], columns=['lon', 'lat'])
+
+                saveCsvFile = '{}/{}/{}-{}_{}-{}_{}.csv'.format(globalVar['outPath'], keyInfo, 'PAST-MBC', varInfo, method, sheetName, keyInfo)
+                os.makedirs(os.path.dirname(saveCsvFile), exist_ok=True)
+
+                csvData = corDataL6.reset_index(drop=False)
+                # csvData.columns = [col[0] if pd.isna(col[1]) else col[1] for col in csvData.columns]
+                csvData.to_csv(saveCsvFile, index=False)
+                log.info(f'[CHECK] saveCsvFile : {saveCsvFile}')
+
+
+
+
             # corDataL4 = corDataL3[selCol].pivot(index=['time'], columns=['lon', 'lat'])
             # corDataL4 = corDataL3[selCol].pivot(index=['lon', 'lat'], columns=['time'])
-            corDataL4 = corDataL3[selCol].dropna().pivot(index=['lon', 'lat'], columns=['time'])
+            # corDataL4 = corDataL3[selCol].dropna().pivot(index=['lon', 'lat'], columns=['time'])
             # corDataL4 = corDataL3[selCol].dropna().pivot(index=['time'], columns=['lon', 'lat'])
 
             # 엑셀 저장
@@ -460,37 +485,37 @@ def makeSbckProc(method, contDataL4, mrgDataProcessed, simDataL3Processed, keyIn
             #csvData.columns = [col[0] if pd.isna(col[1]) else col[1] for col in csvData.columns]
             #csvData.to_csv(saveCsvFile, index=False)
             #log.info(f'[CHECK] saveCsvFile : {saveCsvFile}')
-
-            # 대륙별로 엑셀 저장
-            for contIdx in contIdxList:
-                if pd.isna(contIdx): continue
-
-                corDataL5 = corDataL3.loc[corDataL3['contIdx'] == contIdx].reset_index(drop=True)
-                if len(corDataL5) < 0: continue
-
-                sheetName = str(int(contIdx))
-
-                # corDataL6 = corDataL5[selCol].pivot(index=['lon', 'lat'], columns=['time'])
-                # corDataL6 = corDataL5[selCol].dropna().pivot(index=['lon', 'lat'], columns=['time'])
-                corDataL6 = corDataL5[selCol].dropna().pivot(index=['time'], columns=['lon', 'lat'])
-
-                # 엑셀 저장
-                #saveXlsxFile = '{}/{}/{}-{}_{}-{}_{}.xlsx'.format(globalVar['outPath'], keyInfo, 'PAST-MBC', varInfo, method, sheetName, keyInfo)
-                #os.makedirs(os.path.dirname(saveXlsxFile), exist_ok=True)
-
-                # corDataL6.to_excel(writer, sheet_name=str(int(contIdx)), index=True)
-                # corDataL6.to_excel(writer, sheet_name=sheetName, index=True)
-                #with pd.ExcelWriter(saveXlsxFile, engine='xlsxwriter', options={'use_zip64': True}) as writer2:
-                    #corDataL6.to_excel(writer2, sheet_name=sheetName, index=True)
-                    #log.info(f'[CHECK] saveXlsxFile : {saveXlsxFile}')
-
-                saveCsvFile = '{}/{}/{}-{}_{}-{}_{}.csv'.format(globalVar['outPath'], keyInfo, 'PAST-MBC', varInfo, method, sheetName, keyInfo)
-                os.makedirs(os.path.dirname(saveCsvFile), exist_ok=True)
-
-                csvData = corDataL6.reset_index(drop=False)
-                # csvData.columns = [col[0] if pd.isna(col[1]) else col[1] for col in csvData.columns]
-                csvData.to_csv(saveCsvFile, index=False)
-                log.info(f'[CHECK] saveCsvFile : {saveCsvFile}')
+            #
+            # # 대륙별로 엑셀 저장
+            # for contIdx in contIdxList:
+            #     if pd.isna(contIdx): continue
+            #
+            #     corDataL5 = corDataL3.loc[corDataL3['contIdx'] == contIdx].reset_index(drop=True)
+            #     if len(corDataL5) < 0: continue
+            #
+            #     sheetName = str(int(contIdx))
+            #
+            #     # corDataL6 = corDataL5[selCol].pivot(index=['lon', 'lat'], columns=['time'])
+            #     # corDataL6 = corDataL5[selCol].dropna().pivot(index=['lon', 'lat'], columns=['time'])
+            #     corDataL6 = corDataL5[selCol].dropna().pivot(index=['time'], columns=['lon', 'lat'])
+            #
+            #     # 엑셀 저장
+            #     #saveXlsxFile = '{}/{}/{}-{}_{}-{}_{}.xlsx'.format(globalVar['outPath'], keyInfo, 'PAST-MBC', varInfo, method, sheetName, keyInfo)
+            #     #os.makedirs(os.path.dirname(saveXlsxFile), exist_ok=True)
+            #
+            #     # corDataL6.to_excel(writer, sheet_name=str(int(contIdx)), index=True)
+            #     # corDataL6.to_excel(writer, sheet_name=sheetName, index=True)
+            #     #with pd.ExcelWriter(saveXlsxFile, engine='xlsxwriter', options={'use_zip64': True}) as writer2:
+            #         #corDataL6.to_excel(writer2, sheet_name=sheetName, index=True)
+            #         #log.info(f'[CHECK] saveXlsxFile : {saveXlsxFile}')
+            #
+            #     saveCsvFile = '{}/{}/{}-{}_{}-{}_{}.csv'.format(globalVar['outPath'], keyInfo, 'PAST-MBC', varInfo, method, sheetName, keyInfo)
+            #     os.makedirs(os.path.dirname(saveCsvFile), exist_ok=True)
+            #
+            #     csvData = corDataL6.reset_index(drop=False)
+            #     # csvData.columns = [col[0] if pd.isna(col[1]) else col[1] for col in csvData.columns]
+            #     csvData.to_csv(saveCsvFile, index=False)
+            #     log.info(f'[CHECK] saveCsvFile : {saveCsvFile}')
 
 
             # corDataL4.to_excel(saveXlsxFile, index=True)
@@ -583,12 +608,12 @@ def makeSbckProc(method, contDataL4, mrgDataProcessed, simDataL3Processed, keyIn
         # ***********************************************************************************
         varList = ['SIM', method]
         contIdxList = np.unique(mrgDataL1['contIdx'])
-        mrgDataL2 = mrgDataL1.to_dataframe().reset_index(drop=False)
+        # mrgDataL2 = mrgDataL1.to_dataframe().reset_index(drop=False)
         for varInfo in varList:
             selCol = ['time', 'lon', 'lat', varInfo]
             # mrgDataL3 = mrgDataL2[selCol].pivot(index=['time'], columns=['lon', 'lat'])
             # mrgDataL3 = mrgDataL2[selCol].pivot(index=['lon', 'lat'], columns=['time'])
-            mrgDataL3 = mrgDataL2[selCol].dropna().pivot(index=['lon', 'lat'], columns=['time'])
+            # mrgDataL3 = mrgDataL2[selCol].dropna().pivot(index=['lon', 'lat'], columns=['time'])
 
             # 엑셀 저장
             #saveXlsxFile = '{}/{}/{}-{}_{}_{}.xlsx'.format(globalVar['outPath'], keyInfo, 'FUTURE-MBC', varInfo, method, keyInfo)
@@ -610,14 +635,16 @@ def makeSbckProc(method, contDataL4, mrgDataProcessed, simDataL3Processed, keyIn
             for contIdx in contIdxList:
                 if np.isnan(contIdx): continue
 
-                mrgDataL5 = mrgDataL2.loc[mrgDataL2['contIdx'] == contIdx].reset_index(drop=True)
+                # mrgDataL5 = mrgDataL2.loc[mrgDataL2['contIdx'] == contIdx].reset_index(drop=True)
+                mrgDataL5 = mrgDataL1[selCol].where(corDataL2['contIdx'] == contIdx).to_dataframe().reset_index(drop=False)
+
                 if len(mrgDataL5) < 0: continue
 
                 sheetName = str(int(contIdx))
 
                 # mrgDataL6 = mrgDataL5[selCol].pivot(index=['lon', 'lat'], columns=['time'])
                 # mrgDataL6 = mrgDataL5[selCol].dropna().pivot(index=['lon', 'lat'], columns=['time'])
-                mrgDataL6 = mrgDataL5[selCol].dropna().pivot(index=['time'], columns=['lon', 'lat'])
+                mrgDataL6 = mrgDataL5.dropna().pivot(index=['time'], columns=['lon', 'lat'])
 
                 # 엑셀 저장
                 # mrgDataL6.to_excel(writer, sheet_name=sheetName, index=True)
@@ -821,26 +848,28 @@ class DtaProcess(object):
             sysOpt = {
                 # 학습 시작/종료 시간
                 'srtDate': '1980-01-01'
-                #, 'endDate': '1982-12-31'
+                # , 'endDate': '1982-12-31'
                  , 'endDate': '2014-12-31'
 
                 # 예측 시작/종료 시간
                 # , 'srtDate2': '2015-01-01'
                 # , 'endDate2': '2020-12-31'
                 , 'srtDate2': '2015-01-01'
-                #, 'endDate2': '2019-12-31'
+                # , 'endDate2': '2019-12-31'
                 , 'endDate2': '2100-12-31'
                 #
                 # 경도 최소/최대/간격
                 , 'lonMin': 0
                 , 'lonMax': 360
-                #, 'lonMax': 2
+                # , 'lonMin': 130
+                # , 'lonMax': 140
                 , 'lonInv': 1
 
                 # 위도 최소/최대/간격
                 , 'latMin': -90
-                #, 'latMax': -88
                 , 'latMax': 90
+                # , 'latMin': 30
+                # , 'latMax': 40
                 , 'latInv': 1
 
                 #, 'keyList' : ['GFDL-ESM4','INM-CM4-8','INM-CM5-0','IPSL-CM6A-LR','MIROC6','MPI-ESM1-2-HR','MPI-ESM1-2-LR','MRI-ESM2-0','NorESM2-LM','NorESM2-MM','TaiESM1']
@@ -848,12 +877,12 @@ class DtaProcess(object):
                 # , 'keyList': ['INM-CM5-0']
                 # , 'keyList': ['MRI-ESM2-0']
                 #, 'keyList': ['MRI-ESM2-0','ACCESS-CM2','ACCESS-ESM1-5','BCC-CSM2-MR','CanESM5','CESM2-WACCM','CMCC-CM2-SR5','CMCC-ESM2','CNRM-CM6-1','CNRM-ESM2-1','EC-Earth3-Veg-LR']
-                #, 'keyList': ['MRI-ESM2-0']
+                # , 'keyList': ['MRI-ESM2-0']
                 , 'keyList': [globalVar['keyList']]
 
                 # 메서드 목록
                 # , 'methodList': ['QDM', 'EQM', 'DQM']
-                #, 'methodList': ['DQM']
+                # , 'methodList': ['DQM']
                 , 'methodList': [globalVar['methodList']]
 
                 # 비동기 다중 프로세스 개수
@@ -896,8 +925,7 @@ class DtaProcess(object):
             # inpFile = '{}/{}/{}'.format(globalVar['inpPath'], serviceName, 'TTL4.csv')
             inpFile = '{}/{}/{}'.format(globalVar['inpPath'], 'Historical', 'TTL4.csv')
             fileList = glob.glob(inpFile)
-            if fileList is None or len(fileList) < 1: raise Exception(
-                '[ERROR] inpFile : {} / {}'.format(inpFile, '입력 자료를 확인해주세요.'))
+            if fileList is None or len(fileList) < 1: raise Exception('[ERROR] inpFile : {} / {}'.format(inpFile, '입력 자료를 확인해주세요.'))
 
             contData = pd.read_csv(fileList[0]).rename(
                 columns={'type': 'contIdx', 'Latitude': 'lat', 'Longitude': 'lon'})
@@ -922,8 +950,7 @@ class DtaProcess(object):
             # inpFile = '{}/{}/{}'.format(globalVar['inpPath'], serviceName, 'ERA5_1979_2020.nc')
             inpFile = '{}/{}/{}'.format(globalVar['inpPath'], 'Historical', 'ERA5_1979_2020.nc')
             fileList = sorted(glob.glob(inpFile))
-            if fileList is None or len(fileList) < 1: raise Exception(
-                '[ERROR] inpFile : {} / {}'.format(inpFile, '입력 자료를 확인해주세요.'))
+            if fileList is None or len(fileList) < 1: raise Exception('[ERROR] inpFile : {} / {}'.format(inpFile, '입력 자료를 확인해주세요.'))
 
             obsData = xr.open_dataset(fileList[0]).sel(time=slice(sysOpt['srtDate'], sysOpt['endDate']))
             # obsData = xr.open_dataset(fileList[0], chunks=sysOpt['chunks']).sel(time=slice(sysOpt['srtDate'], sysOpt['endDate']))
@@ -937,14 +964,28 @@ class DtaProcess(object):
             # obsDataL3 = xr.merge([obsDataL2['rain'], contDataL4])
             obsDataL3 = remove_leap_days_xarray(obsDataL1)
             attrs = {"units": "mm d-1"}
-            hist_t = xr.cftime_range("1980-01-01", "2014-12-31", freq="D", calendar="noleap")
+            # hist_t = xr.cftime_range("1980-01-01", "2014-12-31", freq="D", calendar="noleap")
+            hist_t = xr.cftime_range("1980-01-01", "1982-12-31", freq="D", calendar="noleap")
             time_indexc = pd.Index([pd.Timestamp(date.isoformat()) for date in hist_t])
-            lonList1 = np.arange(0, 360, 1)
-            latList1 = np.arange(-90, 90, 1)
+            # lonList1 = np.arange(0, 360, 1)
+            # latList1 = np.arange(-90, 90, 1)
 
-            obsDataL3 = xr.DataArray(obsDataL3['rain'], dims=("time", "lat", "lon"),
+            # lonList1 = np.arange(130, 140, 1)
+            # latList1 = np.arange(30, 40, 1)
+            lonList1 = np.arange(sysOpt['lonMin'], sysOpt['lonMax'], sysOpt['lonInv'])
+            latList1 = np.arange(sysOpt['latMin'], sysOpt['latMax'], sysOpt['latInv'])
+
+            # lonList1 = np.arange(sysOpt['lonMin'], sysOpt['lonMax'], sysOpt['lonInv'])
+            # latList1 = np.arange(sysOpt['latMin'], sysOpt['latMax'], sysOpt['latInv'])
+
+            # obsDataL3 = xr.DataArray(obsDataL3['rain'], dims=("time", "lat", "lon"),
+            #                          coords={'time': time_indexc, "lat": latList1, "lon": lonList1},
+            #                          attrs=attrs).transpose("time", "lat", "lon").to_dataset(name="rain")
+
+            obsDataL3 = xr.DataArray(obsDataL3['rain'].interp(lon = lonList1, lat = latList1), dims=("time", "lat", "lon"),
                                      coords={'time': time_indexc, "lat": latList1, "lon": lonList1},
                                      attrs=attrs).transpose("time", "lat", "lon").to_dataset(name="rain")
+
 
             modDataL3CU_time_index = pd.DatetimeIndex(obsDataL3['time'].values)
             modDataL3CU_normalized_time = modDataL3CU_time_index.normalize()
@@ -962,8 +1003,7 @@ class DtaProcess(object):
                 # inpFile = '{}/{}/*{}*{}*.nc'.format(globalVar['inpPath'], serviceName, keyInfo, 'historical')
                 inpFile = '{}/{}/*{}*{}*.nc'.format(globalVar['inpPath'], 'Historical', keyInfo, 'historical')
                 fileList = sorted(glob.glob(inpFile))
-                if fileList is None or len(fileList) < 1: raise Exception(
-                    '[ERROR] inpFile : {} / {}'.format(inpFile, '입력 자료를 확인해주세요.'))
+                if fileList is None or len(fileList) < 1: raise Exception('[ERROR] inpFile : {} / {}'.format(inpFile, '입력 자료를 확인해주세요.'))
 
                 # fileInfo = fileList[0]
                 # fileInfo = fileList[1]
@@ -1009,8 +1049,7 @@ class DtaProcess(object):
                 # inpFile = '{}/{}/*{}*{}*.nc'.format(globalVar['inpPath'], serviceName, keyInfo, 'ssp126')
                 inpFile = '{}/{}/*{}*{}*.nc'.format(globalVar['inpPath'], 'Future', keyInfo, 'ssp126')
                 fileList = sorted(glob.glob(inpFile))
-                if fileList is None or len(fileList) < 1: raise Exception(
-                    '[ERROR] inpFile : {} / {}'.format(inpFile, '입력 자료를 확인해주세요.'))
+                if fileList is None or len(fileList) < 1: raise Exception('[ERROR] inpFile : {} / {}'.format(inpFile, '입력 자료를 확인해주세요.'))
 
                 # fileInfo = fileList[0]
                 simDataL2 = xr.Dataset()
@@ -1071,8 +1110,7 @@ class DtaProcess(object):
 
                 # 윤년이 추가된 데이터셋에 'contIdx' 다시 결합
                 mrgDataProcessed = xr.merge([mrgDataProcessed, mrgData['contIdx']]).transpose('lat', 'lon', 'time')
-                simDataL3Processed = xr.merge([simDataL3Processed, simDataL3['contIdx']]).transpose('lat', 'lon',
-                                                                                                    'time')
+                simDataL3Processed = xr.merge([simDataL3Processed, simDataL3['contIdx']]).transpose('lat', 'lon','time')
                 #simDataL3Processed['time'] = simDataL3Processed['time'].dt.floor('D')
                 simDataL3Processed['time'] = ('time', normalized_time_index2)
                 # mrgDataProcessed = fix_dayofyear(mrgDataProcessed)
