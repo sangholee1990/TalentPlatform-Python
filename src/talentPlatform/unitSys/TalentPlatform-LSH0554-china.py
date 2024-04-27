@@ -339,8 +339,16 @@ class DtaProcess(object):
 
                                 # 엑셀 파일 읽기
                                 wb = load_workbook(fileInfo, data_only=True)
-                                ws = wb['En_ppl']
 
+                                # Main 시트
+                                wsMain = wb['Main']
+                                eleList = [keyYearInfo, sKeyIdxInfo, sKeyVerInfo]
+                                eleExtList = [element for element in eleList if element != '']
+                                eleExtMrg = '_'.join(eleExtList)
+                                wsMain[f'B7'].value = f'ChinaPower{eleExtMrg}'
+
+                                # En_ppl 시트
+                                ws = wb['En_ppl']
                                 wbData = pd.read_excel(fileInfo, sheet_name='En_ppl', engine='openpyxl', skiprows=2)
                                 colNameItem = {cell.value: cell.column_letter for cell in ws[3]}
 
