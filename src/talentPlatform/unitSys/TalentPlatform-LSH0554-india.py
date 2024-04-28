@@ -351,7 +351,8 @@ class DtaProcess(object):
                                 colNameItem = {cell.value: cell.column_letter for cell in ws[3]}
 
                                 for idx, item in dataL2.iterrows():
-                                    engType = item['EnergyType']
+                                    # engType = item['EnergyType']
+                                    engType = item.get('EnergyType')
                                     if pd.isna(engType): continue
                                     wbDataL1 = wbData.loc[(wbData['year'] == int(keyYearInfo)) & (wbData['Act_abb'] == engType)]
                                     rowIdx = wbDataL1.index[0] + 4
