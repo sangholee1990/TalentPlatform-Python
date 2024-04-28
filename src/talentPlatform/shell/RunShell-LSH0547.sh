@@ -10,6 +10,8 @@ echo
 # nohup bash /SYSTEMS/PROG/PYTHON/PyCharm/src/talentPlatform/shell/RunShell-LSH0547.sh &
 # tail -f nohup.out
 
+# ps -ef | grep python3 | grep LSH0547 | awk '{print $2}' | xargs kill -9
+
 #========================================
 # Set Env
 #========================================

@@ -223,7 +223,6 @@ class DtaProcess(object):
     # nohup /SYSTEMS/anaconda3/envs/py38-test/bin/python3.8 TalentPlatform-LSH0547-GW-proc.py --analyList "2010-2020" --selIdx "1" &
     # nohup /SYSTEMS/anaconda3/envs/py38-test/bin/python3.8 TalentPlatform-LSH0547-GW-proc.py --analyList "2010-2020" --selIdx "2" &
 
-
     # ================================================================================================
     # 환경변수 설정
     # ================================================================================================
@@ -314,11 +313,9 @@ class DtaProcess(object):
                 , 'modelList': ['REANALY-ECMWF-1M-GW']
 
                 # 장기 최초30년, 장기 최근30년, 단기 최근10년, 초단기 최근1년
-                # , 'analyList': ['1981-2010', '1990-2020', '2010-2020', '2022-2022']
                 # , 'analyList': ['1981-2010', '1990-2020', '2010-2020']
                 , 'analyList': [globalVar['analyList']]
 
-                # , 'selIdx': [0]
                 # , 'selIdx': [1]
                 , 'selIdx': [globalVar['selIdx']]
 
@@ -428,7 +425,6 @@ class DtaProcess(object):
                 # mrgData.to_netcdf(procFile)
                 # log.info(f'[CHECK] procFile : {procFile}')
 
-                # mrgData = xr.open_dataset('/DATA/OUTPUT/LSH0547/REANALY-ECMWF-1M-GW_proc-mrg_19810101-20221201.nc', engine='pynio')
                 # mrgData = xr.open_dataset('/DATA/OUTPUT/LSH0547/REANALY-ECMWF-1M-GW_proc-mrg_19811231-20221231.nc', engine='pynio')
                 # mrgData = xr.open_dataset('/DATA/OUTPUT/LSH0547/REANALY-ECMWF-1M-GW_proc-mrg_19900101-20221201.nc', engine='pynio')
                 mrgData = xr.open_dataset('/DATA/OUTPUT/LSH0547/REANALY-ECMWF-1M-GW_proc-mrg_19810101-20221201.nc', engine='pynio')

@@ -226,11 +226,11 @@ class DtaProcess(object):
     # nohup /SYSTEMS/anaconda3/envs/py38-test/bin/python3.8 TalentPlatform-LSH0547-GL-proc.py --analyList "1981-2010" --selIdx "0" &
     # nohup /SYSTEMS/anaconda3/envs/py38-test/bin/python3.8 TalentPlatform-LSH0547-GL-proc.py --analyList "1981-2010" --selIdx "1" &
     # nohup /SYSTEMS/anaconda3/envs/py38-test/bin/python3.8 TalentPlatform-LSH0547-GL-proc.py --analyList "1981-2010" --selIdx "2" &
-
+    #
     # nohup /SYSTEMS/anaconda3/envs/py38-test/bin/python3.8 TalentPlatform-LSH0547-GL-proc.py --analyList "1990-2020" --selIdx "0" &
     # nohup /SYSTEMS/anaconda3/envs/py38-test/bin/python3.8 TalentPlatform-LSH0547-GL-proc.py --analyList "1990-2020" --selIdx "1" &
     # nohup /SYSTEMS/anaconda3/envs/py38-test/bin/python3.8 TalentPlatform-LSH0547-GL-proc.py --analyList "1990-2020" --selIdx "2" &
-
+    #
     # nohup /SYSTEMS/anaconda3/envs/py38-test/bin/python3.8 TalentPlatform-LSH0547-GL-proc.py --analyList "2010-2020" --selIdx "0" &
     # nohup /SYSTEMS/anaconda3/envs/py38-test/bin/python3.8 TalentPlatform-LSH0547-GL-proc.py --analyList "2010-2020" --selIdx "1" &
     # nohup /SYSTEMS/anaconda3/envs/py38-test/bin/python3.8 TalentPlatform-LSH0547-GL-proc.py --analyList "2010-2020" --selIdx "2" &
@@ -325,9 +325,7 @@ class DtaProcess(object):
                 , 'modelList': ['REANALY-ECMWF-1M-GL']
 
                 # 장기 최초30년, 장기 최근30년, 단기 최근10년, 초단기 최근1년
-                # , 'analyList': ['1981-2010', '1990-2020', '2010-2020', '2022-2022']
                 # , 'analyList': ['1981-2010', '1990-2020', '2010-2020']
-                # , 'analyList': ['2010-2020']
                 , 'analyList': [globalVar['analyList']]
 
                 , 'selIdx': [globalVar['selIdx']]
@@ -362,7 +360,7 @@ class DtaProcess(object):
                 modelInfo = sysOpt.get(modelType)
                 if modelInfo is None: continue
 
-                # # 시작일/종료일에 따른 데이터 병합
+                # 시작일/종료일에 따른 데이터 병합
                 # mrgData = xr.Dataset()
                 # for dtDateInfo in dtDateList:
                 #     log.info(f'[CHECK] dtDateInfo : {dtDateInfo}')
@@ -442,9 +440,10 @@ class DtaProcess(object):
                 # mrgData = xr.open_dataset('/DATA/OUTPUT/LSH0547/REANALY-ECMWF-1M-GL_proc-mrg_19811231-20231231.nc', engine='pynio')
                 # mrgData = xr.open_dataset('/DATA/OUTPUT/LSH0547/REANALY-ECMWF-1M-GL_proc-mrg_19900101-20231101.nc', engine='pynio')
                 mrgData = xr.open_dataset('/DATA/OUTPUT/LSH0547/REANALY-ECMWF-1M-GL_proc-mrg_19810101-20231101.nc', engine='pynio')
-                # # mrgData.isel(time = 0)['t2m'].plot()
-                # # plt.show()
-                #
+
+                # mrgData.isel(time = 0)['t2m'].plot()
+                # plt.show()
+
                 for analyInfo in sysOpt['analyList']:
                     log.info(f'[CHECK] analyInfo : {analyInfo}')
                     analySrtDate, analyEndDate = analyInfo.split('-')
@@ -539,9 +538,9 @@ class DtaProcess(object):
                             log.info(f'[CHECK] procFile : {procFile}')
 
 
-                        # # ******************************************************************************************************
-                        # # 매월 Mann Kendall 검정
-                        # # ******************************************************************************************************
+                        # ******************************************************************************************************
+                        # 매월 Mann Kendall 검정
+                        # ******************************************************************************************************
                         # for month in range(1, 13):
                         #     # statDataL1 = statData.sel(season=timeInfo)
                         #     # statDataL1 = statData.sel(month=timeInfo)
