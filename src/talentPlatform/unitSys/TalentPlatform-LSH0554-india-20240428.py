@@ -373,9 +373,12 @@ class DtaProcess(object):
                                         ws[f'{colNameItem[colName]}{rowIdx}'].value = selVal
                                         # log.info(f'[CHECK] engType : {engType} / colName : {colName} / colVal : {colVal} / selVal : {selVal}')
 
-                                fileName = os.path.basename(fileInfo)
+                                # fileName = os.path.basename(fileInfo)
+                                srtIdx = fileInfo.index('India_Gains')
+                                fileName = fileInfo[srtIdx:]
 
-                                saveFile = '{}/{}/{}/{}_{}'.format(globalVar['outPath'], serviceName, 'india-20240428', 'NEW', fileName)
+                                # saveFile = '{}/{}/{}/{}_{}'.format(globalVar['outPath'], serviceName, 'india-20240428', 'NEW', fileName)
+                                saveFile = '{}/{}/{}/{}'.format(globalVar['outPath'], serviceName, 'india-20240428', fileName)
                                 os.makedirs(os.path.dirname(saveFile), exist_ok=True)
                                 wb.save(saveFile)
                                 log.info('[CHECK] saveFile : {}'.format(saveFile))
