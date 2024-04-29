@@ -582,6 +582,7 @@ class DtaProcess(object):
                                 , 'analyInfo': analyInfo
                                 , 'season': 'ALL'
                                 , 'meanVal': meanVal
+                                , 'meanVal10': meanVal * 12 * 10
                             }]
 
                             valData = pd.concat([valData, pd.DataFrame.from_dict(dict)], ignore_index=True)
@@ -613,6 +614,7 @@ class DtaProcess(object):
                                     , 'analyInfo': analyInfo
                                     , 'season': season
                                     , 'meanVal': meanVal
+                                    , 'meanVal10': meanVal * 10
                                 }]
 
                                 valData = pd.concat([valData, pd.DataFrame.from_dict(dict)], ignore_index=True)
@@ -650,13 +652,13 @@ class DtaProcess(object):
                             #     valData = pd.concat([valData, pd.DataFrame.from_dict(dict)], ignore_index=True)
 
                     # valDataL1 = valData.pivot(index=['roiName', 'month'], columns='analyInfo', values='meanVal').reset_index(drop=False)
-                    valDataL1 = valData.pivot(index=['roiName', 'season'], columns='analyInfo', values='meanVal').reset_index(drop=False)
+                    valDataL1 = valData.pivot(index=['roiName', 'season'], columns='analyInfo', values=['meanVal', 'meanVal10']).reset_index(drop=False)
                     # valDataL1['col'] = valDataL1['1981-2010'] - valDataL1['1990-2020']
                     # valDataL1['col2'] = valDataL1['1981-2010'] - valDataL1['2010-2020']
                     # valDataL1['col3'] = valDataL1['1990-2020'] - valDataL1['2010-2020']
-                    valDataL1['col'] = valDataL1['1990-2020'] - valDataL1['1981-2010']
-                    valDataL1['col2'] = valDataL1['2010-2020'] - valDataL1['1981-2010']
-                    valDataL1['col3'] = valDataL1['2010-2020'] - valDataL1['1990-2020']
+                    # valDataL1['col'] = valDataL1['1990-2020'] - valDataL1['1981-2010']
+                    # valDataL1['col2'] = valDataL1['2010-2020'] - valDataL1['1981-2010']
+                    # valDataL1['col3'] = valDataL1['2010-2020'] - valDataL1['1990-2020']
 
                     # 엑셀 저장
                     saveXlsxFile = '{}/{}/{}-{}.xlsx'.format(globalVar['outPath'], serviceName, modelType, procInfo)

@@ -358,8 +358,8 @@ class DtaProcess(object):
                     # 'filePath': '/DATA/INPUT/LSH0547/era5_monthly_gwangju/%Y'
                     'filePath': '/DATA/INPUT/LSH0547/gwangju_monthly_new/monthly/%Y'
                     , 'fileName': 'era5_merged_monthly_mean.grib'
-                    , 'varList': ['2T_GDS0_SFC', '2T_GDS0_SFC', 'PRES_GDS0_SFC', 'PRES_GDS0_SFC', 'PRES_GDS0_SFC']
-                    , 'procList': ['cd', 'hd', 'id', 'su', 'tr']
+                    , 'varList': ['CP_GDS0_SFC', 'TP_GDS0_SFC', 'SD_GDS0_SFC']
+                    , 'procList': ['cp', 'tp', 'sd']
 
                     # 가공 파일 정보
                     , 'procPath': '/DATA/OUTPUT/LSH0547'
@@ -406,13 +406,13 @@ class DtaProcess(object):
             # ===================================================================================
             # POS 파일 읽기
             # # ===================================================================================
-            csvFile = '{}/{}'.format(sysOpt['POS']['filePath'], sysOpt['POS']['fileName'])
-            # csvData = pd.read_csv(csvFile, encoding='EUC-KR')
-            csvData = pd.read_csv(csvFile, encoding='UTF-8')
-
-            # csvData['time'] = pd.to_datetime(csvData['년월'].str.strip())
-            csvData['time'] = pd.to_datetime(csvData['연도'], format='%Y')
-            csvData['kma-org'] = csvData['연합계'].astype(float)
+            # csvFile = '{}/{}'.format(sysOpt['POS']['filePath'], sysOpt['POS']['fileName'])
+            # # csvData = pd.read_csv(csvFile, encoding='EUC-KR')
+            # csvData = pd.read_csv(csvFile, encoding='UTF-8')
+            #
+            # # csvData['time'] = pd.to_datetime(csvData['년월'].str.strip())
+            # csvData['time'] = pd.to_datetime(csvData['연도'], format='%Y')
+            # csvData['kma-org'] = csvData['연합계'].astype(float)
 
             # ===================================================================================
             # 가공 파일 생산
@@ -424,7 +424,8 @@ class DtaProcess(object):
                 if modelInfo is None: continue
 
                 # mrgData = xr.open_dataset('/DATA/OUTPUT/LSH0547/REANALY-ECMWF-1M-GW_proc-mrg_19810101-20221201.nc', engine='pynio')
-                mrgData = xr.open_dataset('/DATA/OUTPUT/LSH0547/REANALY-ECMWF-1M-GW-IDX_proc-mrg_19811231-20221231.nc', engine='pynio')
+                # mrgData = xr.open_dataset('/DATA/OUTPUT/LSH0547/REANALY-ECMWF-1M-GW-IDX_proc-mrg_19811231-20221231.nc', engine='pynio')
+                mrgData = xr.open_dataset('/DATA/OUTPUT/LSH0547/REANALY-ECMWF-1M-GW-IDX2_proc-mrg_19811231-20231231.nc', engine='pynio')
 
                 # shp 영역 내 자료 추출
                 roiData = mrgData.rio.write_crs("epsg:4326")
@@ -453,57 +454,57 @@ class DtaProcess(object):
                     # mrgDataL1.isel(time = 0).plot()
                     # plt.show()
 
-                    timeList = mrgData['time'].values
-                    minDate = pd.to_datetime(timeList).min().strftime("%Y%m%d")
-                    maxDate = pd.to_datetime(timeList).max().strftime("%Y%m%d")
-                    for i, posInfo in pd.DataFrame(sysOpt['posData']).iterrows():
-                        if not re.search('hd', procInfo, re.IGNORECASE): continue
-
-                        posName = f"{posInfo['GU']}-{posInfo['NAME']}"
-
-                        saveFilePattern = '{}/{}'.format(modelInfo['figPath'], modelInfo['figName'])
-                        saveImg = saveFilePattern.format(modelType, procInfo, 'org', posName, f'{minDate}-{maxDate}')
-                        os.makedirs(os.path.dirname(saveImg), exist_ok=True)
-
-                        mrgDataL3['time'] = pd.to_datetime(mrgDataL3['time'].dt.strftime('%Y'))
-
-                        # posData = mrgDataL3.interp({'lon': posInfo['LON'], 'lat': posInfo['LAT']}, method='linear')
-                        posData = mrgDataL3[procInfo].interp({'lon': posInfo['LON'], 'lat': posInfo['LAT']}, method='nearest')
-                        posData.plot(marker='o')
-                        plt.savefig(saveImg, dpi=600, bbox_inches='tight', transparent=True)
-                        log.info(f'[CHECK] saveImg : {saveImg}')
-                        plt.show()
-                        plt.close()
-
-                        # 5년 이동평균
-                        saveFilePattern = '{}/{}'.format(modelInfo['figPath'], modelInfo['figName'])
-                        saveImg = saveFilePattern.format(modelType, procInfo, 'mov', posName, f'{minDate}-{maxDate}')
-                        os.makedirs(os.path.dirname(saveImg), exist_ok=True)
-
-                        movData = posData.rolling(time=5, center=True).mean()
-                        movData.plot(marker='o')
-                        plt.title(posName)
-                        plt.savefig(saveImg, dpi=600, bbox_inches='tight', transparent=True)
-                        log.info(f'[CHECK] saveImg : {saveImg}')
-                        plt.show()
-                        plt.close()
-
-                        # posDataL1 = posData.to_dataframe().reset_index(drop=False).rename({'2T_GDS0_SFC': 'ecmwf-org'}, axis='columns')
-                        # movDataL1 = movData.to_dataframe().reset_index(drop=False).rename({'2T_GDS0_SFC': 'ecmwf-mov'}, axis='columns')
-                        posDataL1 = posData.to_dataframe().reset_index(drop=False).rename({procInfo: 'ecmwf-org'}, axis='columns')
-                        movDataL1 = movData.to_dataframe().reset_index(drop=False).rename({procInfo: 'ecmwf-mov'}, axis='columns')
-
-                        # posDataL2 = pd.merge(left=posDataL1, right=movDataL1, how='left', left_on=['time', 'lon', 'lat'], right_on=['time', 'lon', 'lat'])
-                        # posDataL2 = posDataL1.merge(movDataL1, how='left', on=['time', 'lon', 'lat'])
-                        posDataL2 = (posDataL1.merge(movDataL1, how='left', on = ['time', 'lon', 'lat'])
-                                     .merge(csvData, how='left', on=['time']))
-
-                        # 엑셀 저장
-                        saveXlsxFile = '{}/{}/{}-{}-{}-{}.xlsx'.format(globalVar['outPath'], serviceName, modelType, procInfo, 'pos', posName)
-                        os.makedirs(os.path.dirname(saveXlsxFile), exist_ok=True)
-                        with pd.ExcelWriter(saveXlsxFile, engine='xlsxwriter', options={'use_zip64': True}) as writer:
-                            posDataL2.to_excel(writer, sheet_name='meanData', index=True)
-                        log.info(f'[CHECK] saveXlsxFile : {saveXlsxFile}')
+                    # timeList = mrgData['time'].values
+                    # minDate = pd.to_datetime(timeList).min().strftime("%Y%m%d")
+                    # maxDate = pd.to_datetime(timeList).max().strftime("%Y%m%d")
+                    # for i, posInfo in pd.DataFrame(sysOpt['posData']).iterrows():
+                    #     # if not re.search('hd', procInfo, re.IGNORECASE): continue
+                    #
+                    #     posName = f"{posInfo['GU']}-{posInfo['NAME']}"
+                    #
+                    #     saveFilePattern = '{}/{}'.format(modelInfo['figPath'], modelInfo['figName'])
+                    #     saveImg = saveFilePattern.format(modelType, procInfo, 'org', posName, f'{minDate}-{maxDate}')
+                    #     os.makedirs(os.path.dirname(saveImg), exist_ok=True)
+                    #
+                    #     mrgDataL3['time'] = pd.to_datetime(mrgDataL3['time'].dt.strftime('%Y'))
+                    #
+                    #     # posData = mrgDataL3.interp({'lon': posInfo['LON'], 'lat': posInfo['LAT']}, method='linear')
+                    #     posData = mrgDataL3[procInfo].interp({'lon': posInfo['LON'], 'lat': posInfo['LAT']}, method='nearest')
+                    #     posData.plot(marker='o')
+                    #     plt.savefig(saveImg, dpi=600, bbox_inches='tight', transparent=True)
+                    #     log.info(f'[CHECK] saveImg : {saveImg}')
+                    #     plt.show()
+                    #     plt.close()
+                    #
+                    #     # 5년 이동평균
+                    #     saveFilePattern = '{}/{}'.format(modelInfo['figPath'], modelInfo['figName'])
+                    #     saveImg = saveFilePattern.format(modelType, procInfo, 'mov', posName, f'{minDate}-{maxDate}')
+                    #     os.makedirs(os.path.dirname(saveImg), exist_ok=True)
+                    #
+                    #     movData = posData.rolling(time=5, center=True).mean()
+                    #     movData.plot(marker='o')
+                    #     plt.title(posName)
+                    #     plt.savefig(saveImg, dpi=600, bbox_inches='tight', transparent=True)
+                    #     log.info(f'[CHECK] saveImg : {saveImg}')
+                    #     plt.show()
+                    #     plt.close()
+                    #
+                    #     # posDataL1 = posData.to_dataframe().reset_index(drop=False).rename({'2T_GDS0_SFC': 'ecmwf-org'}, axis='columns')
+                    #     # movDataL1 = movData.to_dataframe().reset_index(drop=False).rename({'2T_GDS0_SFC': 'ecmwf-mov'}, axis='columns')
+                    #     posDataL1 = posData.to_dataframe().reset_index(drop=False).rename({procInfo: 'ecmwf-org'}, axis='columns')
+                    #     movDataL1 = movData.to_dataframe().reset_index(drop=False).rename({procInfo: 'ecmwf-mov'}, axis='columns')
+                    #
+                    #     # posDataL2 = pd.merge(left=posDataL1, right=movDataL1, how='left', left_on=['time', 'lon', 'lat'], right_on=['time', 'lon', 'lat'])
+                    #     # posDataL2 = posDataL1.merge(movDataL1, how='left', on=['time', 'lon', 'lat'])
+                    #     posDataL2 = (posDataL1.merge(movDataL1, how='left', on = ['time', 'lon', 'lat'])
+                    #                  .merge(csvData, how='left', on=['time']))
+                    #
+                    #     # 엑셀 저장
+                    #     saveXlsxFile = '{}/{}/{}-{}-{}-{}.xlsx'.format(globalVar['outPath'], serviceName, modelType, procInfo, 'pos', posName)
+                    #     os.makedirs(os.path.dirname(saveXlsxFile), exist_ok=True)
+                    #     with pd.ExcelWriter(saveXlsxFile, engine='xlsxwriter', options={'use_zip64': True}) as writer:
+                    #         posDataL2.to_excel(writer, sheet_name='meanData', index=True)
+                    #     log.info(f'[CHECK] saveXlsxFile : {saveXlsxFile}')
 
 
                     for roiName in sysOpt['roi']:
@@ -548,7 +549,7 @@ class DtaProcess(object):
                         meanData = pd.concat([meanData, pd.DataFrame.from_dict(meanDict)], ignore_index=True)
 
                         for analyInfo in sysOpt['analyList']:
-                            if re.search('1981-2020', analyInfo, re.IGNORECASE): continue
+                            # if re.search('1981-2020', analyInfo, re.IGNORECASE): continue
 
                             log.info(f'[CHECK] analyInfo : {analyInfo}')
                             analySrtDate, analyEndDate = analyInfo.split('-')
@@ -617,6 +618,7 @@ class DtaProcess(object):
                                 , 'analyInfo': analyInfo
                                 , 'procInfo': procInfo
                                 , 'meanVal': meanVal
+                                , 'meanVal10': meanVal * 10
                             }]
 
                             valData = pd.concat([valData, pd.DataFrame.from_dict(dict)], ignore_index=True)

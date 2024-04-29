@@ -548,7 +548,7 @@ class DtaProcess(object):
                         meanData = pd.concat([meanData, pd.DataFrame.from_dict(meanDict)], ignore_index=True)
 
                         for analyInfo in sysOpt['analyList']:
-                            if re.search('1981-2020', analyInfo, re.IGNORECASE): continue
+                            # if re.search('1981-2020', analyInfo, re.IGNORECASE): continue
 
                             log.info(f'[CHECK] analyInfo : {analyInfo}')
                             analySrtDate, analyEndDate = analyInfo.split('-')
@@ -617,6 +617,7 @@ class DtaProcess(object):
                                 , 'analyInfo': analyInfo
                                 , 'procInfo': procInfo
                                 , 'meanVal': meanVal
+                                , 'meanVal10': meanVal * 10
                             }]
 
                             valData = pd.concat([valData, pd.DataFrame.from_dict(dict)], ignore_index=True)

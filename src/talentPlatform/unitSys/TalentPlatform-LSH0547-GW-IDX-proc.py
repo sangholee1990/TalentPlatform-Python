@@ -306,8 +306,8 @@ class DtaProcess(object):
                 # 수행 목록
                 , 'modelList': ['REANALY-ECMWF-1M-GW-IDX']
 
-                # , 'analyList': ['1981-1990', '1991-2000', '2001-2010', '2011-2020']
-                , 'analyList': ['1981-2020']
+                , 'analyList': ['1981-1990', '1991-2000', '2001-2010', '2011-2020']
+                # , 'analyList': ['1981-2020']
 
                 , 'REANALY-ECMWF-1M-GW-IDX': {
                     'filePath': '/DATA/INPUT/LSH0547/gwangju_index/%Y'
@@ -338,76 +338,77 @@ class DtaProcess(object):
                 modelInfo = sysOpt.get(modelType)
                 if modelInfo is None: continue
 
-            #     # 시작일/종료일에 따른 데이터 병합
-            #     mrgData = xr.Dataset()
-            #     for dtDateInfo in dtDateList:
-            #         log.info(f'[CHECK] dtDateInfo : {dtDateInfo}')
-            #
-            #         for varIdx, varInfo in enumerate(modelInfo['varList']):
-            #             procInfo = modelInfo['procList'][varIdx]
-            #
-            #             inpFilePattern = '{}/{}'.format(modelInfo['filePath'], modelInfo['fileName'])
-            #             inpFile = dtDateInfo.strftime(inpFilePattern).format(procInfo)
-            #             fileList = sorted(glob.glob(inpFile))
-            #
-            #             if fileList is None or len(fileList) < 1:
-            #                 # log.error(f'inpFile : {inpFile} / 입력 자료를 확인해주세요')
-            #                 continue
-            #
-            #             try:
-            #                 fileInfo = fileList[0]
-            #                 data = xr.open_dataset(fileInfo, engine='pynio')
-            #                 log.info(f'[CHECK] fileInfo : {fileInfo}')
-            #
-            #                 dataL1 = data
-            #
-            #                 # 동적 NetCDF 생산
-            #                 if dataL1.get('g0_lon_1') is None:
-            #                     lon1D = dataL1['g0_lon_2'].values
-            #                     lat1D = dataL1['g0_lat_1'].values
-            #                 else:
-            #                     lon1D = dataL1['g0_lon_1'].values
-            #                     lat1D = dataL1['g0_lat_0'].values
-            #
-            #                 time1D = dtDateInfo
-            #
-            #                 dataL2 = xr.Dataset(
-            #                     coords={
-            #                         'time': pd.date_range(time1D, periods=1)
-            #                         , 'lat': lat1D
-            #                         , 'lon': lon1D
-            #                     }
-            #                 )
-            #
-            #                 try:
-            #                     dataL2[procInfo] = (('time', 'lat', 'lon'), (dataL1[varInfo].values).reshape(1, len(lat1D), len(lon1D)))
-            #                 except Exception as e:
-            #                     pass
-            #
-            #                 # 변수 삭제
-            #                 selList = ['expver']
-            #                 for selInfo in selList:
-            #                     try:
-            #                         dataL2 = dataL2.isel(expver=1).drop_vars([selInfo])
-            #                     except Exception as e:
-            #                         pass
-            #
-            #                 mrgData = xr.merge([mrgData, dataL2])
-            #
-            #             except Exception as e:
-            #                 pass
-            #
-            #     if len(mrgData) < 1: continue
-            #
-            #     timeList = mrgData['time'].values
-            #     minDate = pd.to_datetime(timeList).min().strftime("%Y%m%d")
-            #     maxDate = pd.to_datetime(timeList).max().strftime("%Y%m%d")
-            #
-            #     procFilePattern = '{}/{}'.format(modelInfo['procPath'], modelInfo['procName'])
-            #     procFile = procFilePattern.format(modelType, 'proc', 'mrg', minDate, maxDate)
-            #     os.makedirs(os.path.dirname(procFile), exist_ok=True)
-            #     mrgData.to_netcdf(procFile)
-            #     log.info(f'[CHECK] procFile : {procFile}')
+                # # 시작일/종료일에 따른 데이터 병합
+                # mrgData = xr.Dataset()
+                # for dtDateInfo in dtDateList:
+                #     log.info(f'[CHECK] dtDateInfo : {dtDateInfo}')
+                #
+                #     for varIdx, varInfo in enumerate(modelInfo['varList']):
+                #         procInfo = modelInfo['procList'][varIdx]
+                #
+                #         inpFilePattern = '{}/{}'.format(modelInfo['filePath'], modelInfo['fileName'])
+                #         inpFile = dtDateInfo.strftime(inpFilePattern).format(procInfo)
+                #         fileList = sorted(glob.glob(inpFile))
+                #
+                #         if fileList is None or len(fileList) < 1:
+                #             # log.error(f'inpFile : {inpFile} / 입력 자료를 확인해주세요')
+                #             continue
+                #
+                #         try:
+                #             fileInfo = fileList[0]
+                #             data = xr.open_dataset(fileInfo, engine='pynio')
+                #             log.info(f'[CHECK] fileInfo : {fileInfo}')
+                #
+                #             dataL1 = data
+                #
+                #             # 동적 NetCDF 생산
+                #             if dataL1.get('g0_lon_1') is None:
+                #                 lon1D = dataL1['g0_lon_2'].values
+                #                 lat1D = dataL1['g0_lat_1'].values
+                #             else:
+                #                 lon1D = dataL1['g0_lon_1'].values
+                #                 lat1D = dataL1['g0_lat_0'].values
+                #
+                #             time1D = dtDateInfo
+                #
+                #             dataL2 = xr.Dataset(
+                #                 coords={
+                #                     'time': pd.date_range(time1D, periods=1)
+                #                     , 'lat': lat1D
+                #                     , 'lon': lon1D
+                #                 }
+                #             )
+                #
+                #             try:
+                #                 dataL2[procInfo] = (('time', 'lat', 'lon'), (dataL1[varInfo].values).reshape(1, len(lat1D), len(lon1D)))
+                #             except Exception as e:
+                #                 pass
+                #
+                #             # 변수 삭제
+                #             selList = ['expver']
+                #             for selInfo in selList:
+                #                 try:
+                #                     dataL2 = dataL2.isel(expver=1).drop_vars([selInfo])
+                #                 except Exception as e:
+                #                     pass
+                #
+                #             mrgData = xr.merge([mrgData, dataL2])
+                #
+                #         except Exception as e:
+                #             pass
+                #
+                # if len(mrgData) < 1: continue
+                #
+                # timeList = mrgData['time'].values
+                # minDate = pd.to_datetime(timeList).min().strftime("%Y%m%d")
+                # maxDate = pd.to_datetime(timeList).max().strftime("%Y%m%d")
+                #
+                # procFilePattern = '{}/{}'.format(modelInfo['procPath'], modelInfo['procName'])
+                # procFile = procFilePattern.format(modelType, 'proc', 'mrg', minDate, maxDate)
+                # os.makedirs(os.path.dirname(procFile), exist_ok=True)
+                # mrgData.to_netcdf(procFile)
+                # log.info(f'[CHECK] procFile : {procFile}')
+
 
                 mrgData = xr.open_dataset('/DATA/OUTPUT/LSH0547/REANALY-ECMWF-1M-GW-IDX_proc-mrg_19811231-20221231.nc', engine='pynio')
 
