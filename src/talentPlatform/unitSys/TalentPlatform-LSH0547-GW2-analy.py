@@ -355,13 +355,13 @@ class DtaProcess(object):
                 }
 
                 # 수행 목록
-                , 'modelList': ['REANALY-ECMWF-1M-GW-cptp']
+                , 'modelList': ['REANALY-ECMWF-1M-GW2']
 
                 # 최초30년, 최근30년, 최근10년, 초단기 최근1년
                 # , 'analyList': ['1981-2010', '1990-2020', '2010-2020', '2022-2022']
                 , 'analyList': ['1981-2010', '1990-2020', '2010-2020']
 
-                , 'REANALY-ECMWF-1M-GW-cptp': {
+                , 'REANALY-ECMWF-1M-GW2': {
                     # 'filePath': '/DATA/INPUT/LSH0547/era5_monthly_gwangju/%Y'
                     'filePath': '/DATA/INPUT/LSH0547/gwangju_monthly_new/monthly/%Y'
                     , 'fileName': 'era5_merged_monthly_mean.grib'
@@ -436,7 +436,7 @@ class DtaProcess(object):
                 # mrgData = xr.open_dataset('/DATA/OUTPUT/LSH0547/REANALY-ECMWF-1M-GW_proc-mrg_19810101-20221201.nc', engine='pynio')
                 # mrgData = xr.open_dataset('/DATA/OUTPUT/LSH0547/REANALY-ECMWF-1M-GW_proc-mrg_19811231-20221231.nc', engine='pynio')
                 # mrgData = xr.open_dataset('/DATA/OUTPUT/LSH0547/REANALY-ECMWF-1M-GW_proc-mrg_19810101-20221201.nc', engine='pynio')
-                mrgData = xr.open_dataset('/DATA/OUTPUT/LSH0547/REANALY-ECMWF-1M-GW-IDX2_proc-mrg_19811231-20231231.nc', engine='pynio')
+                mrgData = xr.open_dataset('/DATA/OUTPUT/LSH0547/REANALY-ECMWF-1M-GW2_proc-mrg_19810101-20231101.nc', engine='pynio')
 
                 # shp 영역 내 자료 추출
                 roiData = mrgData.rio.write_crs("epsg:4326")
@@ -449,8 +449,8 @@ class DtaProcess(object):
                     log.info(f'[CHECK] varInfo : {varInfo} / procInfo : {procInfo}')
 
                     if re.search('t2m', procInfo, re.IGNORECASE):
-                        varData = mrgData[procInfo]
-                        # varData = roiDataL2[procInfo]
+                        # varData = mrgData[procInfo]
+                        varData = roiDataL2[procInfo]
                         varDataL1 = varData.where(varData > 0)
                         varDataL2 = varDataL1 - 273.15
                     elif re.search('skt', procInfo, re.IGNORECASE):
@@ -609,9 +609,8 @@ class DtaProcess(object):
                             log.info(f'[CHECK] analyInfo : {analyInfo}')
                             analySrtDate, analyEndDate = analyInfo.split('-')
 
-                            # inpFile = '/DATA/OUTPUT/LSH0547/REANALY-ECMWF-1M-GW_{}-slope-MK{}-{}_*.nc'.format(procInfo, analySrtDate, analyEndDate)
-                            # inpFile = '/DATA/OUTPUT/LSH0547/REANALY-ECMWF-1M-GW_{}-slope-MK{}-{}_*.nc'.format(procInfo, analySrtDate, analyEndDate)
-                            inpFile = '/DATA/OUTPUT/LSH0547/REANALY-ECMWF-1M-GW-IDX2_{}-slope-MK{}-{}_*.nc'.format(procInfo, analySrtDate, analyEndDate)
+                            inpFile = '/DATA/OUTPUT/LSH0547/REANALY-ECMWF-1M-GW2_{}-slope-MK{}-{}_*.nc'.format(procInfo, analySrtDate, analyEndDate)
+
                             # fileList = sorted(glob.glob(inpFile), reverse=True)
                             fileList = sorted(glob.glob(inpFile), reverse=False)
 
@@ -649,8 +648,7 @@ class DtaProcess(object):
                                 log.info(f'[CHECK] season : {season} / monthList : {monthList}')
 
 
-                                # inpFile = '/DATA/OUTPUT/LSH0547/REANALY-ECMWF-1M-GW_{}-slope-{}-MK{}-{}_*.nc'.format(procInfo, season, analySrtDate, analyEndDate)
-                                inpFile = '/DATA/OUTPUT/LSH0547/REANALY-ECMWF-1M-GW-IDX2_{}-slope-MK{}-{}_*.nc'.format(procInfo, analySrtDate, analyEndDate)
+                                inpFile = '/DATA/OUTPUT/LSH0547/REANALY-ECMWF-1M-GW2_{}-slope-{}-MK{}-{}_*.nc'.format(procInfo, season, analySrtDate, analyEndDate)
                                 # fileList = sorted(glob.glob(inpFile), reverse=True)
                                 fileList = sorted(glob.glob(inpFile), reverse=False)
 

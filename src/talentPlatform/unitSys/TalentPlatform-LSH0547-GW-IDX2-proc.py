@@ -306,16 +306,18 @@ class DtaProcess(object):
                 # 수행 목록
                 , 'modelList': ['REANALY-ECMWF-1M-GW-IDX2']
 
-                , 'analyList': ['1981-1990', '1991-2000', '2001-2010', '2011-2020']
-                # , 'analyList': ['1981-2020']
+                # , 'analyList': ['1981-1990', '1991-2000', '2001-2010', '2011-2020', '1981-2020']
+                , 'analyList': ['1981-2020']
 
                 , 'REANALY-ECMWF-1M-GW-IDX2': {
                     'filePath': '/DATA/INPUT/LSH0547/*/%Y'
                     , 'fileName': 'era5_merged_monthly_mean_{}.grib'
                     # , 'varList': ['CP_GDS0_SFC', 'TP_GDS0_SFC']
                     # , 'procList': ['cp', 'tp']
-                    , 'varList': ['CP_GDS0_SFC', 'TP_GDS0_SFC', 'SD_GDS0_SFC']
-                    , 'procList': ['cp', 'tp', 'sd']
+                    # , 'varList': ['CP_GDS0_SFC', 'SD_GDS0_SFC']
+                    # , 'procList': ['cp', 'sd']
+                    , 'varList': ['SD_GDS0_SFC']
+                    , 'procList': ['sd']
 
                     # 가공 파일 정보
                     , 'procPath': '/DATA/OUTPUT/LSH0547'

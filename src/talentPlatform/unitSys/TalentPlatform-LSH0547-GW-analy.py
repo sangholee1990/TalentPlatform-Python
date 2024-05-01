@@ -445,8 +445,8 @@ class DtaProcess(object):
                     log.info(f'[CHECK] varInfo : {varInfo} / procInfo : {procInfo}')
 
                     if re.search('t2m', procInfo, re.IGNORECASE):
-                        varData = mrgData[procInfo]
-                        # varData = roiDataL2[procInfo]
+                        # varData = mrgData[procInfo]
+                        varData = roiDataL2[procInfo]
                         varDataL1 = varData.where(varData > 0)
                         varDataL2 = varDataL1 - 273.15
                     elif re.search('skt', procInfo, re.IGNORECASE):
@@ -517,9 +517,6 @@ class DtaProcess(object):
                     #     with pd.ExcelWriter(saveXlsxFile, engine='xlsxwriter', options={'use_zip64': True}) as writer:
                     #         posDataL2.to_excel(writer, sheet_name='meanData', index=True)
                     #     log.info(f'[CHECK] saveXlsxFile : {saveXlsxFile}')
-
-
-                    # sys.exit(1)
 
                     meanData = pd.DataFrame()
                     valData = pd.DataFrame()

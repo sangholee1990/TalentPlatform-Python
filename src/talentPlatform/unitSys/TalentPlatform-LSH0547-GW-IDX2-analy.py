@@ -358,8 +358,8 @@ class DtaProcess(object):
                     # 'filePath': '/DATA/INPUT/LSH0547/era5_monthly_gwangju/%Y'
                     'filePath': '/DATA/INPUT/LSH0547/gwangju_monthly_new/monthly/%Y'
                     , 'fileName': 'era5_merged_monthly_mean.grib'
-                    , 'varList': ['CP_GDS0_SFC', 'TP_GDS0_SFC', 'SD_GDS0_SFC']
-                    , 'procList': ['cp', 'tp', 'sd']
+                    , 'varList': ['SD_GDS0_SFC']
+                    , 'procList': ['sd']
 
                     # 가공 파일 정보
                     , 'procPath': '/DATA/OUTPUT/LSH0547'
