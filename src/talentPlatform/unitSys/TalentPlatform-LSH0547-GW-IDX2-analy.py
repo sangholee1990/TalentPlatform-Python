@@ -350,11 +350,11 @@ class DtaProcess(object):
                 ]
 
                 # 수행 목록
-                , 'modelList': ['REANALY-ECMWF-1M-GW-IDX']
+                , 'modelList': ['REANALY-ECMWF-1M-GW-IDX2']
 
                 , 'analyList': ['1981-2020', '1981-1990', '1991-2000', '2001-2010', '2011-2020']
 
-                , 'REANALY-ECMWF-1M-GW-IDX': {
+                , 'REANALY-ECMWF-1M-GW-IDX2': {
                     # 'filePath': '/DATA/INPUT/LSH0547/era5_monthly_gwangju/%Y'
                     'filePath': '/DATA/INPUT/LSH0547/gwangju_monthly_new/monthly/%Y'
                     , 'fileName': 'era5_merged_monthly_mean.grib'
@@ -586,7 +586,8 @@ class DtaProcess(object):
                             log.info(f'[CHECK] analyInfo : {analyInfo}')
                             analySrtDate, analyEndDate = analyInfo.split('-')
 
-                            inpFile = '/DATA/OUTPUT/LSH0547/REANALY-ECMWF-1M-GW-IDX_{}-slope-MK{}-{}_*.nc'.format(procInfo, analySrtDate, analyEndDate)
+                            # inpFile = '/DATA/OUTPUT/LSH0547/REANALY-ECMWF-1M-GW-IDX_{}-slope-MK{}-{}_*.nc'.format(procInfo, analySrtDate, analyEndDate)
+                            inpFile = '/DATA/OUTPUT/LSH0547/REANALY-ECMWF-1M-GW-IDX2_{}-slope-MK{}-{}_*.nc'.format(procInfo, analySrtDate, analyEndDate)
                             fileList = sorted(glob.glob(inpFile), reverse=True)
 
                             if fileList is None or len(fileList) < 1: continue

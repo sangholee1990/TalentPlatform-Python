@@ -38,6 +38,9 @@ import geopandas as gpd
 import cartopy.feature as cfeature
 from dask.distributed import Client
 
+import metpy.calc as mpcalc
+from metpy.units import units
+
 # =================================================
 # 사용자 매뉴얼
 # =================================================
@@ -246,7 +249,7 @@ def makePlot(data, saveImg, shpData, opt=None):
         return result
 
     # finally:
-        # log.info('[END] {}'.format('makePlot'))
+    #     log.info('[END] {}'.format('makePlot'))
 
 # ================================================
 # 4. 부 프로그램
@@ -331,6 +334,19 @@ class DtaProcess(object):
                     , 'gw': {'minLon': 126.638, 'maxLon': 127.023, 'minLat': 35.0069, 'maxLat': 35.3217}
                 }
 
+                # 관측 지점
+                , 'posData': [
+                    # {"GU": "광산구", "NAME": "광산 관측지점", "ENGNAME": "AWS GwangSan", "ENGSHORTNAME": "St. GwangSan", "LAT": 35.12886, "LON": 126.74525, "INFO": "AWS", "MARK": "\u23F3"}
+                    # , {"GU": "북구", "NAME": "과학기술원", "ENGNAME": "AWS Gwangju Institute of Science and Technology", "ENGSHORTNAME": "St. GIST", "LAT": 35.23026, "LON": 126.84076, "INFO": "AWS", "MARK": "\u23F3"}
+                    # , {"GU": "서구", "NAME": "풍암 관측지점", "ENGNAME": "AWS PungArm", "ENGSHORTNAME": "St. PungArm", "LAT": 35.13159, "LON": 126.88132, "INFO": "AWS", "MARK": "\u23F3"}
+                    # , {"GU": "동구", "NAME": "조선대 관측지점", "ENGNAME": "AWS Chosun University", "ENGSHORTNAME": "St. Chosun", "LAT": 35.13684, "LON": 126.92875, "INFO": "AWS", "MARK": "\u23F3"}
+                    # , {"GU": "동구", "NAME": "무등산 관측지점", "ENGNAME": "AWS Mudeung Mountain", "ENGSHORTNAME": "St. M.T Mudeung", "LAT": 35.11437, "LON": 126.99743, "INFO": "AWS", "MARK": "\u23F3"}
+                    # , {"GU": "남구", "NAME": "광주 남구 관측지점", "ENGNAME": "AWS Nam-gu", "ENGSHORTNAME": "St. Nam-gu", "LAT": 35.100807, "LON": 126.8985, "INFO": "AWS", "MARK": "\u23F3"}
+                    # , {"GU": "북구", "NAME": "광주지방기상청", "ENGNAME": "GwangJuKMA", "ENGSHORTNAME": "GMA", "LAT": 35.17344444, "LON": 126.8914639, "INFO": "LOCATE", "MARK": "\u23F3"}
+
+                    {"GU": "북구", "NAME": "광주지방기상청", "ENGNAME": "GwangJuKMA", "ENGSHORTNAME": "GMA", "LAT": 35.17344444, "LON": 126.8914639, "INFO": "LOCATE", "MARK": "\u23F3"}
+                ]
+
                 , 'seasonList': {
                     'MAM': [3, 4, 5]
                     , 'JJA': [6, 7, 8]
@@ -338,28 +354,24 @@ class DtaProcess(object):
                     , 'DJF': [12, 1, 2]
                 }
 
-                # 관측 지점
-                , 'posData': [
-                    {"GU": "광산구", "NAME": "광산 관측지점", "ENGNAME": "AWS GwangSan", "ENGSHORTNAME": "St. GwangSan", "LAT": 35.12886, "LON": 126.74525, "INFO": "AWS", "MARK": "\u23F3"}
-                    , {"GU": "북구", "NAME": "과학기술원", "ENGNAME": "AWS Gwangju Institute of Science and Technology", "ENGSHORTNAME": "St. GIST", "LAT": 35.23026, "LON": 126.84076, "INFO": "AWS", "MARK": "\u23F3"}
-                    , {"GU": "서구", "NAME": "풍암 관측지점", "ENGNAME": "AWS PungArm", "ENGSHORTNAME": "St. PungArm", "LAT": 35.13159, "LON": 126.88132, "INFO": "AWS", "MARK": "\u23F3"}
-                    , {"GU": "동구", "NAME": "조선대 관측지점", "ENGNAME": "AWS Chosun University", "ENGSHORTNAME": "St. Chosun", "LAT": 35.13684, "LON": 126.92875, "INFO": "AWS", "MARK": "\u23F3"}
-                    , {"GU": "동구", "NAME": "무등산 관측지점", "ENGNAME": "AWS Mudeung Mountain", "ENGSHORTNAME": "St. M.T Mudeung", "LAT": 35.11437, "LON": 126.99743, "INFO": "AWS", "MARK": "\u23F3"}
-                    , {"GU": "남구", "NAME": "광주 남구 관측지점", "ENGNAME": "AWS Nam-gu", "ENGSHORTNAME": "St. Nam-gu", "LAT": 35.100807, "LON": 126.8985, "INFO": "AWS", "MARK": "\u23F3"}
-                    , {"GU": "북구", "NAME": "광주지방기상청", "ENGNAME": "GwangJuKMA", "ENGSHORTNAME": "GMA", "LAT": 35.17344444, "LON": 126.8914639, "INFO": "LOCATE", "MARK": "\u23F3"}
-                ]
-
                 # 수행 목록
-                , 'modelList': ['REANALY-ECMWF-1M-GW-IDX']
+                , 'modelList': ['REANALY-ECMWF-1M-GW-cptp']
 
-                , 'analyList': ['1981-2020', '1981-1990', '1991-2000', '2001-2010', '2011-2020']
+                # 최초30년, 최근30년, 최근10년, 초단기 최근1년
+                # , 'analyList': ['1981-2010', '1990-2020', '2010-2020', '2022-2022']
+                , 'analyList': ['1981-2010', '1990-2020', '2010-2020']
 
-                , 'REANALY-ECMWF-1M-GW-IDX': {
+                , 'REANALY-ECMWF-1M-GW-cptp': {
                     # 'filePath': '/DATA/INPUT/LSH0547/era5_monthly_gwangju/%Y'
                     'filePath': '/DATA/INPUT/LSH0547/gwangju_monthly_new/monthly/%Y'
                     , 'fileName': 'era5_merged_monthly_mean.grib'
-                    , 'varList': ['2T_GDS0_SFC', '2T_GDS0_SFC', 'PRES_GDS0_SFC', 'PRES_GDS0_SFC', 'PRES_GDS0_SFC']
-                    , 'procList': ['cd', 'hd', 'id', 'su', 'tr']
+
+                    # , 'varList': ['2T_GDS0_SFC', 'SKT_GDS0_SFC', '10U_GDS0_SFC', '10V_GDS0_SFC']
+                    # , 'procList': ['t2m', 'skt', 'u', 'v']
+                    # , 'varList': ['SKT_GDS0_SFC', '10U_GDS0_SFC', '10V_GDS0_SFC']
+                    # , 'procList': ['skt', 'u', 'v']
+                    , 'varList': ['CP_GDS0_SFC', 'TP_GDS0_SFC']
+                    , 'procList': ['cp', 'tp']
 
                     # 가공 파일 정보
                     , 'procPath': '/DATA/OUTPUT/LSH0547'
@@ -371,7 +383,7 @@ class DtaProcess(object):
 
                 , 'POS': {
                     'filePath': '/DATA/INPUT/LSH0547/POS'
-                    , 'fileName': 'STCS_폭염일수_20240417212144.csv'
+                    , 'fileName': 'ta_20240410221900.csv'
                 }
                 , 'SHP-GW': {
                     'filePath': '/DATA/INPUT/LSH0547/shp'
@@ -405,14 +417,12 @@ class DtaProcess(object):
 
             # ===================================================================================
             # POS 파일 읽기
-            # # ===================================================================================
-            csvFile = '{}/{}'.format(sysOpt['POS']['filePath'], sysOpt['POS']['fileName'])
+            # ===================================================================================
+            # csvFile = '{}/{}'.format(sysOpt['POS']['filePath'], sysOpt['POS']['fileName'])
             # csvData = pd.read_csv(csvFile, encoding='EUC-KR')
-            csvData = pd.read_csv(csvFile, encoding='UTF-8')
-
+            #
             # csvData['time'] = pd.to_datetime(csvData['년월'].str.strip())
-            csvData['time'] = pd.to_datetime(csvData['연도'], format='%Y')
-            csvData['kma-org'] = csvData['연합계'].astype(float)
+            # csvData['kma-org'] = csvData['평균기온'].astype(float)
 
             # ===================================================================================
             # 가공 파일 생산
@@ -424,88 +434,103 @@ class DtaProcess(object):
                 if modelInfo is None: continue
 
                 # mrgData = xr.open_dataset('/DATA/OUTPUT/LSH0547/REANALY-ECMWF-1M-GW_proc-mrg_19810101-20221201.nc', engine='pynio')
-                mrgData = xr.open_dataset('/DATA/OUTPUT/LSH0547/REANALY-ECMWF-1M-GW-IDX_proc-mrg_19811231-20221231.nc', engine='pynio')
+                # mrgData = xr.open_dataset('/DATA/OUTPUT/LSH0547/REANALY-ECMWF-1M-GW_proc-mrg_19811231-20221231.nc', engine='pynio')
+                # mrgData = xr.open_dataset('/DATA/OUTPUT/LSH0547/REANALY-ECMWF-1M-GW_proc-mrg_19810101-20221201.nc', engine='pynio')
+                mrgData = xr.open_dataset('/DATA/OUTPUT/LSH0547/REANALY-ECMWF-1M-GW-IDX2_proc-mrg_19811231-20231231.nc', engine='pynio')
 
                 # shp 영역 내 자료 추출
                 roiData = mrgData.rio.write_crs("epsg:4326")
                 roiDataL1 = roiData.rio.set_spatial_dims(x_dim='lon', y_dim='lat', inplace=True)
                 roiDataL2 = roiDataL1.rio.clip(shpData.geometry, shpData.crs, from_disk=True)
 
-                # roiDataL2.isel(time = 0)['cd'].plot()
-                # plt.show()
-
-                # roiDataL2.isel(time=1)['id'].plot()
-                # plt.show()
-
-                meanData = pd.DataFrame()
-                valData = pd.DataFrame()
                 for varIdx, varInfo in enumerate(modelInfo['varList']):
+                    # if varIdx > 2: continue
                     procInfo = modelInfo['procList'][varIdx]
                     log.info(f'[CHECK] varInfo : {varInfo} / procInfo : {procInfo}')
+
+                    if re.search('t2m', procInfo, re.IGNORECASE):
+                        varData = mrgData[procInfo]
+                        # varData = roiDataL2[procInfo]
+                        varDataL1 = varData.where(varData > 0)
+                        varDataL2 = varDataL1 - 273.15
+                    elif re.search('skt', procInfo, re.IGNORECASE):
+                        # varData = mrgData[procInfo]
+                        varData = roiDataL2[procInfo]
+                        varDataL1 = varData.where(varData > 0)
+                        varDataL2 = varDataL1 - 273.15
+                    elif re.search('u', procInfo, re.IGNORECASE):
+                        # varData = mpcalc.wind_speed(mrgData['u'] * units('m/s'), mrgData['v'] * units('m/s'))
+                        varData = mpcalc.wind_speed(roiDataL2['u'] * units('m/s'), roiDataL2['v'] * units('m/s'))
+                        # varDataL1 = varData.where(varData > 0)
+                        varDataL1 = varData
+                        varDataL2 = varDataL1
+                    elif re.search('cp|tp', procInfo, re.IGNORECASE):
+                        varData = roiDataL2[procInfo]
+                        varDataL1 = varData.where(varData > 0)
+                        varDataL2 = varDataL1
+                    else:
+                        continue
 
                     # ******************************************************************************************************
                     # 관측소 시계열 검정
                     # ******************************************************************************************************
-                    mrgDataL1 = mrgData
-                    mrgDataL2 = mrgDataL1
-                    mrgDataL3 = mrgDataL2
+                    # mrgDataL1 = mrgData[procInfo]
+                    # mrgDataL2 = mrgDataL1.where(mrgDataL1 > 0)
+                    # mrgDataL3 = mrgDataL2 - 273.15
 
                     # mrgDataL1.isel(time = 0).plot()
                     # plt.show()
 
-                    timeList = mrgData['time'].values
-                    minDate = pd.to_datetime(timeList).min().strftime("%Y%m%d")
-                    maxDate = pd.to_datetime(timeList).max().strftime("%Y%m%d")
-                    for i, posInfo in pd.DataFrame(sysOpt['posData']).iterrows():
-                        if not re.search('hd', procInfo, re.IGNORECASE): continue
-
-                        posName = f"{posInfo['GU']}-{posInfo['NAME']}"
-
-                        saveFilePattern = '{}/{}'.format(modelInfo['figPath'], modelInfo['figName'])
-                        saveImg = saveFilePattern.format(modelType, procInfo, 'org', posName, f'{minDate}-{maxDate}')
-                        os.makedirs(os.path.dirname(saveImg), exist_ok=True)
-
-                        mrgDataL3['time'] = pd.to_datetime(mrgDataL3['time'].dt.strftime('%Y'))
-
-                        # posData = mrgDataL3.interp({'lon': posInfo['LON'], 'lat': posInfo['LAT']}, method='linear')
-                        posData = mrgDataL3[procInfo].interp({'lon': posInfo['LON'], 'lat': posInfo['LAT']}, method='nearest')
-                        posData.plot(marker='o')
-                        plt.savefig(saveImg, dpi=600, bbox_inches='tight', transparent=True)
-                        log.info(f'[CHECK] saveImg : {saveImg}')
-                        # plt.show()
-                        plt.close()
-
-                        # 5년 이동평균
-                        saveFilePattern = '{}/{}'.format(modelInfo['figPath'], modelInfo['figName'])
-                        saveImg = saveFilePattern.format(modelType, procInfo, 'mov', posName, f'{minDate}-{maxDate}')
-                        os.makedirs(os.path.dirname(saveImg), exist_ok=True)
-
-                        movData = posData.rolling(time=5, center=True).mean()
-                        movData.plot(marker='o')
-                        plt.title(posName)
-                        plt.savefig(saveImg, dpi=600, bbox_inches='tight', transparent=True)
-                        log.info(f'[CHECK] saveImg : {saveImg}')
-                        # plt.show()
-                        plt.close()
-
-                        # posDataL1 = posData.to_dataframe().reset_index(drop=False).rename({'2T_GDS0_SFC': 'ecmwf-org'}, axis='columns')
-                        # movDataL1 = movData.to_dataframe().reset_index(drop=False).rename({'2T_GDS0_SFC': 'ecmwf-mov'}, axis='columns')
-                        posDataL1 = posData.to_dataframe().reset_index(drop=False).rename({procInfo: 'ecmwf-org'}, axis='columns')
-                        movDataL1 = movData.to_dataframe().reset_index(drop=False).rename({procInfo: 'ecmwf-mov'}, axis='columns')
-
-                        # posDataL2 = pd.merge(left=posDataL1, right=movDataL1, how='left', left_on=['time', 'lon', 'lat'], right_on=['time', 'lon', 'lat'])
-                        # posDataL2 = posDataL1.merge(movDataL1, how='left', on=['time', 'lon', 'lat'])
-                        posDataL2 = (posDataL1.merge(movDataL1, how='left', on = ['time', 'lon', 'lat'])
-                                     .merge(csvData, how='left', on=['time']))
-
-                        # 엑셀 저장
-                        saveXlsxFile = '{}/{}/{}-{}-{}-{}.xlsx'.format(globalVar['outPath'], serviceName, modelType, procInfo, 'pos', posName)
-                        os.makedirs(os.path.dirname(saveXlsxFile), exist_ok=True)
-                        with pd.ExcelWriter(saveXlsxFile, engine='xlsxwriter', options={'use_zip64': True}) as writer:
-                            posDataL2.to_excel(writer, sheet_name='meanData', index=True)
-                        log.info(f'[CHECK] saveXlsxFile : {saveXlsxFile}')
+                    # timeList = mrgData['time'].values
+                    # minDate = pd.to_datetime(timeList).min().strftime("%Y%m%d")
+                    # maxDate = pd.to_datetime(timeList).max().strftime("%Y%m%d")
+                    # for i, posInfo in pd.DataFrame(sysOpt['posData']).iterrows():
+                    #     posName = f"{posInfo['GU']}-{posInfo['NAME']}"
+                    #
+                    #     saveFilePattern = '{}/{}'.format(modelInfo['figPath'], modelInfo['figName'])
+                    #     saveImg = saveFilePattern.format(modelType, procInfo, 'org', posName, f'{minDate}-{maxDate}')
+                    #     os.makedirs(os.path.dirname(saveImg), exist_ok=True)
+                    #
+                    #     # posData = mrgDataL3.interp({'lon': posInfo['LON'], 'lat': posInfo['LAT']}, method='linear')
+                    #     # posData = mrgDataL3.interp({'lon': posInfo['LON'], 'lat': posInfo['LAT']}, method='nearest')
+                    #     posData = varDataL2.interp({'lon': posInfo['LON'], 'lat': posInfo['LAT']}, method='nearest')
+                    #     posData.plot(marker='o')
+                    #     plt.savefig(saveImg, dpi=600, bbox_inches='tight', transparent=True)
+                    #     log.info(f'[CHECK] saveImg : {saveImg}')
+                    #     plt.show()
+                    #     plt.close()
+                    #
+                    #     # 5년 이동평균
+                    #     saveFilePattern = '{}/{}'.format(modelInfo['figPath'], modelInfo['figName'])
+                    #     saveImg = saveFilePattern.format(modelType, procInfo, 'mov', posName, f'{minDate}-{maxDate}')
+                    #     os.makedirs(os.path.dirname(saveImg), exist_ok=True)
+                    #
+                    #     movData = posData.rolling(time=5, center=True).mean()
+                    #     movData.plot(marker='o')
+                    #     plt.savefig(saveImg, dpi=600, bbox_inches='tight', transparent=True)
+                    #     log.info(f'[CHECK] saveImg : {saveImg}')
+                    #     plt.show()
+                    #     plt.close()
+                    #
+                    #     posDataL1 = posData.to_dataframe().reset_index(drop=False).rename({procInfo: 'ecmwf-org'}, axis='columns')
+                    #     movDataL1 = movData.to_dataframe().reset_index(drop=False).rename({procInfo: 'ecmwf-mov'}, axis='columns')
+                    #
+                    #     posDataL2 = pd.merge(left=posDataL1, right=movDataL1, how='left', left_on=['time', 'lon', 'lat'], right_on=['time', 'lon', 'lat'])
+                    #     # posDataL2 = (posDataL1.merge(movDataL1, how='left', on = ['time', 'lon', 'lat'])
+                    #     #              .merge(csvData, how='left', on=['time']))
+                    #
+                    #     # 엑셀 저장
+                    #     saveXlsxFile = '{}/{}/{}-{}-{}.xlsx'.format(globalVar['outPath'], serviceName, modelType, procInfo, 'pos')
+                    #     os.makedirs(os.path.dirname(saveXlsxFile), exist_ok=True)
+                    #     with pd.ExcelWriter(saveXlsxFile, engine='xlsxwriter', options={'use_zip64': True}) as writer:
+                    #         posDataL2.to_excel(writer, sheet_name='meanData', index=True)
+                    #     log.info(f'[CHECK] saveXlsxFile : {saveXlsxFile}')
 
 
+                    # sys.exit(1)
+
+                    meanData = pd.DataFrame()
+                    valData = pd.DataFrame()
                     for roiName in sysOpt['roi']:
                         if not re.search('gw', roiName, re.IGNORECASE): continue
                         log.info(f'[CHECK] roiName : {roiName}')
@@ -519,61 +544,60 @@ class DtaProcess(object):
                         # 평균 데이터
                         # ****************************************************
                         # varDataL3 = varDataL2.sel(lat=latList, lon=lonList)
-                        # varDataL3 = roiDataL2[procInfo]
-                        varDataL3 = roiDataL2.get(procInfo)
-                        if varDataL3 is None: continue
-
+                        varDataL3 = varDataL2
                         varDataL4 = varDataL3.mean('time')
-                        # varDataL3.isel(time = 0).plot()
+
+                        # varDataL4.plot()
                         # plt.show()
 
                         meanVal = np.nanmean(varDataL4)
                         maxVal = np.nanmax(varDataL4)
                         minVal = np.nanmin(varDataL4)
-                        # log.info(f'[CHECK] timeInfo : all / meanVal : {meanVal} / maxVal : {maxVal} / minVal : {minVal}')
-                        # log.info(f'[CHECK] timeInfo : all / meanVal : {meanVal:.2f}')
 
                         saveFilePattern = '{}/{}'.format(modelInfo['figPath'], modelInfo['figName'])
                         saveImg = saveFilePattern.format(modelType, procInfo, roiName, 'all', 'mean')
                         result = makePlot(varDataL4, saveImg, shpData, opt={'vmin': minVal, 'vmax': maxVal})
                         log.info(f'[CHECK] result : {result}')
 
+                        # varDataL3.isel(time = 0).plot()
+                        # plt.show()
+
+                        # log.info(f'[CHECK] timeInfo : all / meanVal : {meanVal} / maxVal : {maxVal} / minVal : {minVal}')
+                        # log.info(f'[CHECK] timeInfo : all / meanVal : {meanVal:.2f}')
+
                         meanDict = [{
                             'roiName': roiName
-                            , 'type': 0
-                            , 'procInfo': procInfo
+                            , 'season': 'ALL'
                             , 'meanVal': meanVal
                         }]
 
                         meanData = pd.concat([meanData, pd.DataFrame.from_dict(meanDict)], ignore_index=True)
 
-                        for analyInfo in sysOpt['analyList']:
-                            # if re.search('1981-2020', analyInfo, re.IGNORECASE): continue
-
-                            log.info(f'[CHECK] analyInfo : {analyInfo}')
-                            analySrtDate, analyEndDate = analyInfo.split('-')
-
-                            varDataL4 = varDataL3.sel(time=slice(analySrtDate, analyEndDate)).mean('time')
+                        # statData = varDataL3.groupby('time.month').mean('time')
+                        # statData = varDataL2.groupby('time.season').mean('time')
+                        # timeList = statData['season'].values
+                        # monthList = statData['month'].values
+                        # for month in monthList:
+                        for season, monthList in sysOpt['seasonList'].items():
+                            log.info(f'[CHECK] season : {season} / monthList : {monthList}')
+                            # statDataL1 = statData.sel(season = timeInfo)
+                            # statDataL1 = statData.sel(month=month)
+                            statDataL1 = varDataL3.sel(time=varDataL3['time'].dt.month.isin(monthList)).mean('time')
 
                             saveFilePattern = '{}/{}'.format(modelInfo['figPath'], modelInfo['figName'])
-                            saveImg = saveFilePattern.format(modelType, procInfo, roiName, analyInfo, 'mean')
-                            result = makePlot(varDataL4, saveImg, shpData, opt={'vmin': minVal, 'vmax': maxVal})
+                            saveImg = saveFilePattern.format(modelType, procInfo, roiName, season, 'mean')
+                            result = makePlot(statDataL1, saveImg, shpData, opt={'vmin': minVal, 'vmax': maxVal})
                             log.info(f'[CHECK] result : {result}')
 
-                            # varDataL3.isel(time = 0).plot()
-                            # plt.show()
-
-                            meanVal = np.nanmean(varDataL4)
-                            # maxVal = np.nanmax(varDataL2)
-                            # minVal = np.nanmin(varDataL2)
-                            # log.info(f'[CHECK] timeInfo : all / meanVal : {meanVal} / maxVal : {maxVal} / minVal : {minVal}')
-                            # log.info(f'[CHECK] timeInfo : all / meanVal : {meanVal:.2f}')
+                            # maxVal = np.nanmax(statDataL1)
+                            # minVal = np.nanmin(statDataL1)
+                            meanVal = np.nanmean(statDataL1)
 
                             meanDict = [{
                                 'roiName': roiName
-                                , 'type': analyInfo
-                                , 'procInfo': procInfo
+                                , 'season': season
                                 , 'meanVal': meanVal
+                                , 'meanVal10': meanVal * 10
                             }]
 
                             meanData = pd.concat([meanData, pd.DataFrame.from_dict(meanDict)], ignore_index=True)
@@ -585,8 +609,11 @@ class DtaProcess(object):
                             log.info(f'[CHECK] analyInfo : {analyInfo}')
                             analySrtDate, analyEndDate = analyInfo.split('-')
 
-                            inpFile = '/DATA/OUTPUT/LSH0547/REANALY-ECMWF-1M-GW-IDX_{}-slope-MK{}-{}_*.nc'.format(procInfo, analySrtDate, analyEndDate)
-                            fileList = sorted(glob.glob(inpFile), reverse=True)
+                            # inpFile = '/DATA/OUTPUT/LSH0547/REANALY-ECMWF-1M-GW_{}-slope-MK{}-{}_*.nc'.format(procInfo, analySrtDate, analyEndDate)
+                            # inpFile = '/DATA/OUTPUT/LSH0547/REANALY-ECMWF-1M-GW_{}-slope-MK{}-{}_*.nc'.format(procInfo, analySrtDate, analyEndDate)
+                            inpFile = '/DATA/OUTPUT/LSH0547/REANALY-ECMWF-1M-GW-IDX2_{}-slope-MK{}-{}_*.nc'.format(procInfo, analySrtDate, analyEndDate)
+                            # fileList = sorted(glob.glob(inpFile), reverse=True)
+                            fileList = sorted(glob.glob(inpFile), reverse=False)
 
                             if fileList is None or len(fileList) < 1: continue
                             slopeData = xr.open_dataset(fileList[0], engine='pynio')
@@ -599,36 +626,81 @@ class DtaProcess(object):
                             # slopeDataL1 = slopeData[f't2m-slope'].sel(lat=latList, lon=lonList)
                             slopeDataL4 = slopeDataL3[f'{procInfo}-slope']
 
-                            # if re.search('1981-2020', analyInfo, re.IGNORECASE):
-                            #     vmin = np.nanmin(slopeDataL4)
-                            #     vmax = np.nanmax(slopeDataL4)
-
                             meanVal = np.nanmean(slopeDataL4)
 
                             key = f'{analyInfo}-all'
                             saveFilePattern = '{}/{}'.format(modelInfo['figPath'], modelInfo['figName'])
                             saveImg = saveFilePattern.format(modelType, procInfo, roiName, key, 'slope')
-                            # result = makePlot(slopeDataL4, saveImg, shpData, opt={'vmin': vmin, 'vmax': vmax})
                             result = makePlot(slopeDataL4, saveImg, shpData, None)
                             log.info(f'[CHECK] result : {result}')
 
                             dict = [{
                                 'roiName': roiName
                                 , 'analyInfo': analyInfo
-                                , 'procInfo': procInfo
+                                , 'season': 'ALL'
                                 , 'meanVal': meanVal
-                                , 'meanVal10': meanVal * 10
+                                , 'meanVal10': meanVal * 10 * 12
                             }]
 
                             valData = pd.concat([valData, pd.DataFrame.from_dict(dict)], ignore_index=True)
 
-                # 엑셀 저장
-                saveXlsxFile = '{}/{}/{}-{}.xlsx'.format(globalVar['outPath'], serviceName, modelType, 'all')
-                os.makedirs(os.path.dirname(saveXlsxFile), exist_ok=True)
-                with pd.ExcelWriter(saveXlsxFile, engine='xlsxwriter', options={'use_zip64': True}) as writer:
-                    meanData.to_excel(writer, sheet_name='meanData', index=True)
-                    valData.to_excel(writer, sheet_name='valData', index=True)
-                log.info(f'[CHECK] saveXlsxFile : {saveXlsxFile}')
+                            # for month in range(1, 13):
+                            for season, monthList in sysOpt['seasonList'].items():
+                                log.info(f'[CHECK] season : {season} / monthList : {monthList}')
+
+
+                                # inpFile = '/DATA/OUTPUT/LSH0547/REANALY-ECMWF-1M-GW_{}-slope-{}-MK{}-{}_*.nc'.format(procInfo, season, analySrtDate, analyEndDate)
+                                inpFile = '/DATA/OUTPUT/LSH0547/REANALY-ECMWF-1M-GW-IDX2_{}-slope-MK{}-{}_*.nc'.format(procInfo, analySrtDate, analyEndDate)
+                                # fileList = sorted(glob.glob(inpFile), reverse=True)
+                                fileList = sorted(glob.glob(inpFile), reverse=False)
+
+                                if fileList is None or len(fileList) < 1: continue
+                                slopeData = xr.open_dataset(fileList[0], engine='pynio')
+
+                                # shp 영역 내 자료 추출
+                                slopeDataL1 = slopeData.rio.write_crs("epsg:4326")
+                                slopeDataL2 = slopeDataL1.rio.set_spatial_dims(x_dim='lon', y_dim='lat', inplace=True)
+                                slopeDataL3 = slopeDataL2.rio.clip(shpData.geometry, shpData.crs, from_disk=True)
+
+                                # slopeDataL1 = slopeData[f't2m-slope-{month}'].sel(lat=latList, lon=lonList)
+                                slopeDataL4 = slopeDataL3[f'{procInfo}-slope-{season}']
+
+                                key = f'{analyInfo}-{season}'
+                                saveFilePattern = '{}/{}'.format(modelInfo['figPath'], modelInfo['figName'])
+                                saveImg = saveFilePattern.format(modelType, procInfo, roiName, key, 'slope')
+                                result = makePlot(slopeDataL4, saveImg, shpData, None)
+                                log.info(f'[CHECK] result : {result}')
+
+                                meanVal = np.nanmean(slopeDataL4)
+                                if np.isnan(meanVal): continue
+
+                                # log.info(f'[CHECK] analyInfo : {analyInfo} / month : {month} / meanVal : {meanVal:.3f}')
+
+                                dict = [{
+                                    'roiName': roiName
+                                    , 'analyInfo': analyInfo
+                                    , 'season': season
+                                    , 'meanVal': meanVal
+                                    , 'meanVal10': meanVal * 10
+                                }]
+
+                                valData = pd.concat([valData, pd.DataFrame.from_dict(dict)], ignore_index=True)
+
+                    valDataL1 = valData.pivot(index=['roiName', 'season'], columns='analyInfo', values=['meanVal', 'meanVal10']).reset_index(drop=False)
+                    # valDataL1['col'] = valDataL1['1981-2010'] - valDataL1['1990-2020']
+                    # valDataL1['col2'] = valDataL1['1981-2010'] - valDataL1['2010-2020']
+                    # valDataL1['col3'] = valDataL1['1990-2020'] - valDataL1['2010-2020']
+                    # valDataL1['col'] = valDataL1['1990-2020'] - valDataL1['1981-2010']
+                    # valDataL1['col2'] = valDataL1['2010-2020'] - valDataL1['1981-2010']
+                    # valDataL1['col3'] = valDataL1['2010-2020'] - valDataL1['1990-2020']
+
+                    # 엑셀 저장
+                    saveXlsxFile = '{}/{}/{}-{}.xlsx'.format(globalVar['outPath'], serviceName, modelType, procInfo)
+                    os.makedirs(os.path.dirname(saveXlsxFile), exist_ok=True)
+                    with pd.ExcelWriter(saveXlsxFile, engine='xlsxwriter', options={'use_zip64': True}) as writer:
+                        meanData.to_excel(writer, sheet_name='meanData', index=True)
+                        valDataL1.to_excel(writer, sheet_name='valDataL1', index=True)
+                    log.info(f'[CHECK] saveXlsxFile : {saveXlsxFile}')
 
         except Exception as e:
             log.error("Exception : {}".format(e))

@@ -1,4 +1,3 @@
-
 # -*- coding: utf-8 -*-
 import argparse
 import glob
@@ -198,18 +197,6 @@ def calcMannKendall(data, colName):
     except Exception:
         return np.nan
 
-
-def calcMaxContDay(isMask):
-    arr = isMask.astype(int)
-    sumCum = np.where(arr, arr.cumsum(axis=0), 0)
-
-    diff = np.diff(sumCum, axis=0, prepend=0)
-    sumCumData = diff * arr
-
-    result = sumCumData.max(axis=0) - sumCumData.min(axis=0)
-
-    return result
-
 # ================================================
 # 4. 부 프로그램
 # ================================================
@@ -221,8 +208,17 @@ class DtaProcess(object):
     # Python을 이용한 시간별 재분석 ERA5 모델 (Grib)로부터 통계 분석 그리고 MK 검정 (Mann-Kendall)
 
     # cd /SYSTEMS/PROG/PYTHON/PyCharm/src/talentPlatform/unitSys
-    # nohup /SYSTEMS/anaconda3/envs/py38-test/bin/python3.8 TalentPlatform-LSH0547-GL-proc.py &
+    # nohup /SYSTEMS/anaconda3/envs/py38-test/bin/python3.8 TalentPlatform-LSH0547-GW-proc.py &
     # tail -f nohup.out
+
+    # nohup /SYSTEMS/anaconda3/envs/py38-test/bin/python3.8 TalentPlatform-LSH0547-GW-cptp-proc.py --analyList "1981-2010" --selIdx "0" &
+    # nohup /SYSTEMS/anaconda3/envs/py38-test/bin/python3.8 TTalentPlatform-LSH0547-GW-cptp-proc.py --analyList "1981-2010" --selIdx "1" &
+
+    # nohup /SYSTEMS/anaconda3/envs/py38-test/bin/python3.8 TalentPlatform-LSH0547-GW-cptp-proc.py --analyList "1990-2020" --selIdx "0" &
+    # nohup /SYSTEMS/anaconda3/envs/py38-test/bin/python3.8 TalentPlatform-LSH0547-GW-cptp-proc.py --analyList "1990-2020" --selIdx "1" &
+
+    # nohup /SYSTEMS/anaconda3/envs/py38-test/bin/python3.8 TalentPlatform-LSH0547-GW-cptp-proc.py --analyList "2010-2020" --selIdx "0" &
+    # nohup /SYSTEMS/anaconda3/envs/py38-test/bin/python3.8 TalentPlatform-LSH0547-GW-cptp-proc.py --analyList "2010-2020" --selIdx "1" &
 
     # ================================================================================================
     # 환경변수 설정
@@ -303,19 +299,29 @@ class DtaProcess(object):
                     , {"GU": "북구", "NAME": "광주지방기상청", "ENGNAME": "GwangJuKMA", "ENGSHORTNAME": "GMA", "LAT": 35.17344444, "LON": 126.8914639, "INFO": "LOCATE", "MARK": "\u23F3"}
                 ]
 
+                , 'seasonList': {
+                    'MAM': [3, 4, 5]
+                    , 'JJA': [6, 7, 8]
+                    , 'SON': [9, 10, 11]
+                    , 'DJF': [12, 1, 2]
+                }
+
                 # 수행 목록
-                , 'modelList': ['REANALY-ECMWF-1M-GW-IDX2']
+                , 'modelList': ['REANALY-ECMWF-1M-GW2']
 
-                , 'analyList': ['1981-1990', '1991-2000', '2001-2010', '2011-2020']
-                # , 'analyList': ['1981-2020']
+                # 장기 최초30년, 장기 최근30년, 단기 최근10년, 초단기 최근1년
+                # , 'analyList': ['1981-2010', '1990-2020', '2010-2020']
+                , 'analyList': [globalVar['analyList']]
 
-                , 'REANALY-ECMWF-1M-GW-IDX2': {
+                # , 'selIdx': [1]
+                , 'selIdx': [globalVar['selIdx']]
+
+                , 'REANALY-ECMWF-1M-GW2': {
+                    # 'filePath': '/DATA/INPUT/LSH0547/era5_monthly_gwangju/%Y'
                     'filePath': '/DATA/INPUT/LSH0547/*/%Y'
                     , 'fileName': 'era5_merged_monthly_mean_{}.grib'
-                    # , 'varList': ['CP_GDS0_SFC', 'TP_GDS0_SFC']
-                    # , 'procList': ['cp', 'tp']
-                    , 'varList': ['CP_GDS0_SFC', 'TP_GDS0_SFC', 'SD_GDS0_SFC']
-                    , 'procList': ['cp', 'tp', 'sd']
+                    , 'varList': ['CP_GDS0_SFC', 'TP_GDS0_SFC']
+                    , 'procList': ['cp', 'tp']
 
                     # 가공 파일 정보
                     , 'procPath': '/DATA/OUTPUT/LSH0547'
@@ -361,9 +367,19 @@ class DtaProcess(object):
                 #             data = xr.open_dataset(fileInfo, engine='pynio')
                 #             log.info(f'[CHECK] fileInfo : {fileInfo}')
                 #
+                #             # data['CP_GDS0_SFC']
+                #
                 #             # 단위 변환 (m/hour -> mm/day)
-                #             # dataL1 = data.sum(dim = ['initial_time0_hours'])
-                #             dataL1 = data.mean(dim = ['initial_time0_hours']) * 1000 * 24
+                #             # 단위 변환 (m -> mm)
+                #             dataL1 = data.copy()
+                #             dataL1[varInfo] = dataL1[varInfo] * 1000
+                #
+                #             # data['initial_time0_hours'].values
+                #             # data.isel(initial_time0_hours = 0)['CP_GDS0_SFC'].plot()
+                #             # dataL1.isel(initial_time0_hours = 0)['CP_GDS0_SFC'].plot()
+                #             # data.isel(initial_time0_hours = 5)['CP_GDS0_SFC'].plot()
+                #             # dataL1.isel(initial_time0_hours = 12)['CP_GDS0_SFC'].plot()
+                #             # plt.show()
                 #
                 #             # 동적 NetCDF 생산
                 #             if dataL1.get('g0_lon_1') is None:
@@ -373,22 +389,20 @@ class DtaProcess(object):
                 #                 lon1D = dataL1['g0_lon_1'].values
                 #                 lat1D = dataL1['g0_lat_0'].values
                 #
-                #             time1D = dtDateInfo
+                #             # time1D = dtDateInfo
+                #             time1D = pd.to_datetime(pd.to_datetime(dataL1['initial_time0_hours'].values).strftime('%Y-%m'))
                 #
                 #             dataL2 = xr.Dataset(
                 #                 coords={
-                #                     'time': pd.date_range(time1D, periods=1)
+                #                     # 'time': pd.date_range(time1D, periods=1)
+                #                     'time': pd.to_datetime(time1D)
                 #                     , 'lat': lat1D
                 #                     , 'lon': lon1D
                 #                 }
                 #             )
                 #
                 #             try:
-                #                 dataL2[procInfo] = (('time', 'lat', 'lon'), (dataL1[varInfo].values).reshape(1, len(lat1D), len(lon1D)))
-                #
-                #                 if re.search('cp', procInfo, re.IGNORECASE):
-                #                     meanData = data.mean(dim=['initial_time0_hours'])
-                #                     dataL2['sd'] = (('time', 'lat', 'lon'), (meanData['SD_GDS0_SFC'].values).reshape(1, len(lat1D), len(lon1D)))
+                #                 dataL2[procInfo] = (('time', 'lat', 'lon'), (dataL1[varInfo].values).reshape(len(time1D), len(lat1D), len(lon1D)))
                 #             except Exception as e:
                 #                 pass
                 #
@@ -407,9 +421,8 @@ class DtaProcess(object):
                 #
                 # if len(mrgData) < 1: continue
                 #
-                # # mrgData['cp'].isel(time = 0).plot()
-                # # mrgData['tp'].isel(time = 0).plot()
-                # # mrgData['sd'].isel(time = 0).plot()
+                #
+                # # mrgData['tp'].isel(time = 3).plot()
                 # # plt.show()
                 #
                 # timeList = mrgData['time'].values
@@ -422,12 +435,14 @@ class DtaProcess(object):
                 # mrgData.to_netcdf(procFile)
                 # log.info(f'[CHECK] procFile : {procFile}')
 
-                # mrgData = xr.open_dataset('/DATA/OUTPUT/LSH0547/REANALY-ECMWF-1M-GW-IDX_proc-mrg_19811231-20221231.nc', engine='pynio')
-                mrgData = xr.open_dataset('/DATA/OUTPUT/LSH0547/REANALY-ECMWF-1M-GW-IDX2_proc-mrg_19811231-20231231.nc', engine='pynio')
-
-                # mrgData.isel(time = 0)['cd'].plot()
-                # plt.show()
-
+                # # mrgData = xr.open_dataset('/DATA/OUTPUT/LSH0547/REANALY-ECMWF-1M-GW_proc-mrg_19811231-20221231.nc', engine='pynio')
+                # # mrgData = xr.open_dataset('/DATA/OUTPUT/LSH0547/REANALY-ECMWF-1M-GW_proc-mrg_19900101-20221201.nc', engine='pynio')
+                # # mrgData = xr.open_dataset('/DATA/OUTPUT/LSH0547/REANALY-ECMWF-1M-GW_proc-mrg_19810101-20221201.nc', engine='pynio')
+                mrgData = xr.open_dataset('/DATA/OUTPUT/LSH0547/REANALY-ECMWF-1M-GW2_proc-mrg_19810101-20231101.nc', engine='pynio')
+                #
+                # # mrgData.isel(time = 0)['2T_GDS0_SFC'].plot()
+                # # plt.show()
+                #
                 for analyInfo in sysOpt['analyList']:
                     log.info(f'[CHECK] analyInfo : {analyInfo}')
                     analySrtDate, analyEndDate = analyInfo.split('-')
@@ -436,11 +451,31 @@ class DtaProcess(object):
 
                     for varIdx, varInfo in enumerate(modelInfo['varList']):
                         procInfo = modelInfo['procList'][varIdx]
-                        log.info(f'[CHECK] varInfo : {varInfo} / procInfo : {procInfo}')
+                        # log.info(f'[CHECK] varInfo : {varInfo} / procInfo : {procInfo}')
 
-                        varData = mrgDataL1[procInfo]
-                        varDataL1 = varData
-                        varDataL2 = varDataL1
+                        selIdx = int(sysOpt['selIdx'][0])
+                        if not (selIdx == varIdx): continue
+                        log.info(f'[CHECK] varInfo : {varInfo} / procInfo : {procInfo} / selIdx : {selIdx}')
+
+                        if re.search('t2m', procInfo, re.IGNORECASE):
+                            varData = mrgDataL1[procInfo]
+                            varDataL1 = varData.where(varData > 0)
+                            varDataL2 = varDataL1 - 273.15
+                        elif re.search('skt', procInfo, re.IGNORECASE):
+                            varData = mrgDataL1[procInfo]
+                            varDataL1 = varData.where(varData > 0)
+                            varDataL2 = varDataL1 - 273.15
+                        elif re.search('u', procInfo, re.IGNORECASE):
+                            varData = mpcalc.wind_speed(mrgDataL1['u'] * units('m/s'), mrgDataL1['v'] * units('m/s'))
+                            # varDataL1 = varData.where(varData > 0)
+                            varDataL1 = varData
+                            varDataL2 = varDataL1
+                        elif re.search('cp|tp', procInfo, re.IGNORECASE):
+                            varData = mrgDataL1[procInfo]
+                            varDataL1 = varData.where(varData > 0)
+                            varDataL2 = varDataL1
+                        else:
+                            continue
 
                         timeList = varDataL2['time'].values
                         minDate = pd.to_datetime(timeList).min().strftime("%Y%m%d")
@@ -472,6 +507,68 @@ class DtaProcess(object):
                         os.makedirs(os.path.dirname(procFile), exist_ok=True)
                         mkData.to_netcdf(procFile)
                         log.info(f'[CHECK] procFile : {procFile}')
+
+                        # ******************************************************************************************************
+                        # 4계절 Mann Kendall 검정
+                        # ******************************************************************************************************
+                        for season, monthList in sysOpt['seasonList'].items():
+                            log.info(f'[CHECK] season : {season} / monthList : {monthList}')
+
+                            statDataL1 = varDataL2.sel(time=varDataL2['time'].dt.month.isin(monthList))
+
+                            colName = 'slope'
+                            mkData = xr.apply_ufunc(
+                                calcMannKendall,
+                                statDataL1,
+                                kwargs={'colName': colName},
+                                input_core_dims=[['time']],
+                                output_core_dims=[[]],
+                                vectorize=True,
+                                dask='parallelized',
+                                output_dtypes=[np.float64],
+                                dask_gufunc_kwargs={'allow_rechunk': True}
+                            ).compute()
+
+                            mkName = f'{procInfo}-{colName}-{season}'
+                            mkData.name = mkName
+                            key = f'MK{analyInfo}'
+
+                            # MK 생산
+                            procFilePattern = '{}/{}'.format(modelInfo['procPath'], modelInfo['procName'])
+                            procFile = procFilePattern.format(modelType, mkName, key, minDate, maxDate)
+                            os.makedirs(os.path.dirname(procFile), exist_ok=True)
+                            mkData.to_netcdf(procFile)
+                            log.info(f'[CHECK] procFile : {procFile}')
+
+                        # ******************************************************************************************************
+                        # 매월 Mann Kendall 검정
+                        # ******************************************************************************************************
+                        # for month in range(1, 13):
+                        #     statDataL1 = varDataL2.sel(time=varDataL2['time'].dt.month.isin(month))
+                        #
+                        #     colName = 'slope'
+                        #     mkData = xr.apply_ufunc(
+                        #         calcMannKendall,
+                        #         statDataL1,
+                        #         kwargs={'colName': colName},
+                        #         input_core_dims=[['time']],
+                        #         output_core_dims=[[]],
+                        #         vectorize=True,
+                        #         dask='parallelized',
+                        #         output_dtypes=[np.float64],
+                        #         dask_gufunc_kwargs={'allow_rechunk': True}
+                        #     ).compute()
+                        #
+                        #     mkName = f'{procInfo}-{colName}-{month}'
+                        #     mkData.name = mkName
+                        #     key = f'MK{analyInfo}'
+                        #
+                        #     # MK 생산
+                        #     procFilePattern = '{}/{}'.format(modelInfo['procPath'], modelInfo['procName'])
+                        #     procFile = procFilePattern.format(modelType, mkName, key, minDate, maxDate)
+                        #     os.makedirs(os.path.dirname(procFile), exist_ok=True)
+                        #     mkData.to_netcdf(procFile)
+                        #     log.info(f'[CHECK] procFile : {procFile}')
 
         except Exception as e:
             log.error("Exception : {}".format(e))
