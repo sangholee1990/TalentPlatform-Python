@@ -896,7 +896,7 @@ class DtaProcess(object):
 
                 # 2024.05.02 대륙 정보
                 # , 'contIdx': 200
-                , 'contIdx': globalVar['cont']
+                , 'contIdx': globalVar['contIdx']
 
                 # 비동기 다중 프로세스 개수
                 , 'cpuCoreNum': 32
@@ -949,7 +949,8 @@ class DtaProcess(object):
 
             # 2024.05.02 대륙 정보
             # contDataL1 = contDataL1[contDataL1['contIdx'] == 200]
-            contDataL1 = contDataL1[contDataL1['contIdx'] == sysOpt['contIdx']].reset_index(drop=False)
+            # contDataL1 = contDataL1[contDataL1['contIdx'] == sysOpt['contIdx']].reset_index(drop=False)
+            contDataL1 = contDataL1[contDataL1['contIdx'] == int(sysOpt['contIdx'])].reset_index(drop=False)
 
             # 경도 변환 (-180~180 to 0~360)
             # contDataL1['lon'] = np.where(contDataL1['lon'] < 0, (contDataL1['lon']) % 360, contDataL1['lon'])
