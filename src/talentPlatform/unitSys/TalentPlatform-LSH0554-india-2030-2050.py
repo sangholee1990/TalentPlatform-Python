@@ -236,147 +236,200 @@ class DtaProcess(object):
                 globalVar['updPath'] = '/DATA/CSV'
 
             sysOpt = {
+                'metaList': {
+                    '2030_1.5_SSP1'
+                    , '2030_1.5_SSP2'
+                    , '2030_2_SSP1'
+                    , '2030_2_SSP2'
+                    , '2030_SSP1_nopolicy'
+                    , '2030_SSP2_nopolicy'
+                    , '2050_1.5_SSP1'
+                    , '2050_1.5_SSP2'
+                    , '2050_2_SSP1'
+                    , '2050_2_SSP2'
+                    # , '2050_SSP1_nopolicy'
+                    # , '2050_SSP2_nopolicy'
+                }
             }
+
+            # ********************************************************************
+            # 테스트
+            # ********************************************************************
+            # metaInfo = '2015_TPL_input2015'
+            # metaInfo = '2019_TPL_input2015'
+            # for metaInfo in sysOpt['metaList']:
+            #     log.info(f'[CHECK] metaInfo : {metaInfo}')
+            #
+            #     inpFilePatrn = f'china-20240428/**/ChinaPower{metaInfo}/**/*.xlsx'
+            #     inpFile = '{}/{}/{}'.format(globalVar['inpPath'], serviceName, inpFilePatrn)
+            #     fileList = sorted(glob.glob(inpFile, recursive=True))
+            #
+            #     dataL1 = pd.DataFrame()
+            #     for fileInfo in fileList:
+            #         fileName = os.path.basename(fileInfo)
+            #         fileNameSepList = re.split(r'[厂_\.]', fileName)
+            #         if fileNameSepList is None or len(fileNameSepList) < 1: continue
+            #
+            #         keyType = 'None'
+            #         try:
+            #             keyType = fileNameSepList[5]
+            #         except Exception:
+            #             pass
+            #
+            #         dict = {
+            #             'keyType': [keyType]
+            #             , 'keyTypeAbbr': [keyType[:4].upper()]
+            #             , 'fileName': [fileName]
+            #         }
+            #
+            #         dataL1 = pd.concat([dataL1, pd.DataFrame.from_dict(dict)], ignore_index=True)
 
             # ********************************************************************
             # 국가 입력 데이터
             # ********************************************************************
-            inpFilePatrn = f'/india/India_InputData/*/*.csv'
-            inpFile = '{}/{}/{}'.format(globalVar['inpPath'], serviceName, inpFilePatrn)
-            fileList = sorted(glob.glob(inpFile))
+            # metaInfo = '2030_SSP1_nopolicy'
+            for metaInfo in sysOpt['metaList']:
+                log.info(f'[CHECK] metaInfo : {metaInfo}')
 
-            dataL1 = pd.DataFrame()
-            for fileInfo in fileList:
-                # log.info(f'[CHECK] fileInfo : {fileInfo}')
+                inpFilePatrn = f'india-20240502/**/{metaInfo}/**/*.csv'
+                inpFile = '{}/{}/{}'.format(globalVar['inpPath'], serviceName, inpFilePatrn)
+                fileList = sorted(glob.glob(inpFile, recursive=True))
 
-                fileName = os.path.basename(fileInfo)
-                fileNameSepList = re.split(r'[_\.]', fileName)
-                if fileNameSepList is None or len(fileNameSepList) < 1: continue
+                # fileInfo = fileList[0]
+                dataL1 = pd.DataFrame()
+                for fileInfo in fileList:
+                    if re.match(r'.*/~\$.*', fileInfo): continue
+                    log.info(f'[CHECK] fileInfo : {fileInfo}')
 
-                keyType = 'None'
-                try:
-                    keyType = fileNameSepList[len(fileNameSepList) - 2]
-                except Exception:
-                    pass
+                    fileName = os.path.basename(fileInfo)
+                    fileNameSepList = re.split(r'[厂_\.]', fileName)
+                    if fileNameSepList is None or len(fileNameSepList) < 1: continue
 
-                keyInfo = fileInfo.split('/')[7]
-                if keyInfo is None: continue
+                    keyType = 'None'
+                    try:
+                        keyType = fileNameSepList[len(fileNameSepList) - 2]
+                    except Exception:
+                        pass
 
-                if re.search('nopolicy', keyInfo, re.IGNORECASE): continue
+                    filePathSepList = re.split(r'[/]', fileInfo)
 
-                keyInfoSepList = keyInfo.split('_')
-                if keyInfoSepList is None or len(keyInfoSepList) < 1: continue
+                    # keyInfo = fileInfo.split('/')[7]
+                    keyInfo = filePathSepList[6]
+                    if keyInfo is None: continue
 
-                keyYear = 'None'
-                keyIdx = 'None'
-                keyVer = 'None'
+                    # if re.search('nopolicy', keyInfo, re.IGNORECASE): continue
 
-                try:
-                    keyYear = keyInfoSepList[0]
-                except Exception:
-                    pass
+                    keyInfoSepList = re.split(r'[厂_]', keyInfo)
+                    if keyInfoSepList is None or len(keyInfoSepList) < 1: continue
 
-                try:
-                    keyIdx = keyInfoSepList[1]
-                except Exception:
-                    pass
+                    keyYear = 'None'
+                    keyIdx = 'None'
+                    keyVer = 'None'
 
-                try:
-                    keyVer = keyInfoSepList[2]
-                except Exception:
-                    pass
+                    try:
+                        keyYear = keyInfoSepList[0]
+                    except Exception:
+                        pass
 
-                data = pd.read_csv(fileInfo)
-                data['keyYear'] = keyYear
-                data['keyIdx'] = keyIdx
-                data['keyVer'] = keyVer
-                data['keyType'] = keyType
-                data['fileName'] = fileName
+                    try:
+                        keyIdx = keyInfoSepList[1]
+                    except Exception:
+                        pass
 
-                dataL1 = pd.concat([dataL1, pd.DataFrame.from_dict(data)], ignore_index=True)
+                    try:
+                        keyVer = keyInfoSepList[2]
+                    except Exception:
+                        pass
 
-            # dataL1['key'] = dataL1[['keyYear', 'keyIdx', 'keyVer', 'keyType']].apply(lambda row: '_'.join(str(x) for x in row if x is not None), axis=1)
+                    data = pd.read_csv(fileInfo)
+                    data['keyYear'] = keyYear
+                    data['keyIdx'] = keyIdx
+                    data['keyVer'] = keyVer
+                    # data['keyType'] = sysOpt['keyTypeMat'][keyType.lower()]
+                    data['keyType'] = keyType
+                    data['fileName'] = fileName
 
-            keyYearList = sorted(set(dataL1['keyYear']))
-            keyIdxList = sorted(set(dataL1['keyIdx']))
-            keyVerList = sorted(set(dataL1['keyVer']))
-            keyTypeList = sorted(set(dataL1['keyType']))
+                    dataL1 = pd.concat([dataL1, pd.DataFrame.from_dict(data)], ignore_index=True)
 
-            # keyInfo = '2030_2_SSP2'
-            # keyTypeInfo = 'EHIM'
-            for keyYearInfo in keyYearList:
-                for keyIdxInfo in keyIdxList:
-                    for keyVerInfo in keyVerList:
-                        for keyTypeInfo in keyTypeList:
+                # dataL1['key'] = dataL1[['keyYear', 'keyIdx', 'keyVer', 'keyType']].apply(lambda row: '_'.join(str(x) for x in row if x is not None), axis=1)
 
-                            # if keyYearInfo == 'None': continue
-                            # if not keyIdxInfo == 'None': continue
-                            # if not keyVerInfo == 'None': continue
-                            # if keyTypeInfo == 'None': continue
+                keyYearList = sorted(set(dataL1['keyYear']))
+                keyTypeList = sorted(set(dataL1['keyType']))
 
-                            log.info(f'[CHECK] keyYearInfo : {keyYearInfo} / keyYearInfo : {keyIdxInfo} / keyVerInfo : {keyVerInfo} / keyTypeInfo : {keyTypeInfo}')
+                for keyYearInfo in keyYearList:
+                    for keyTypeInfo in keyTypeList:
 
-                            dataL2 = dataL1.loc[(dataL1['keyYear'] == keyYearInfo) & (dataL1['keyIdx'] == keyIdxInfo) & (dataL1['keyVer'] == keyVerInfo) & (dataL1['keyType'] == keyTypeInfo)]
-                            if dataL2 is None or len(dataL2) < 1: continue
+                        # keyYearInfo = '2030'
+                        # keyTypeInfo = 'ANPR'
 
-                            # ********************************************************************
-                            # 기준 엑셀파일 읽기
-                            # ********************************************************************
-                            sKeyIdxInfo = '' if keyIdxInfo == 'None' else keyIdxInfo
-                            sKeyVerInfo = '' if keyVerInfo == 'None' else keyVerInfo
+                        log.info(f'[CHECK] keyYearInfo : {keyYearInfo} / keyTypeInfo : {keyTypeInfo}')
 
-                            inpFilePatrn = f'/india/*/*{keyYearInfo}*{sKeyIdxInfo}*{sKeyVerInfo}*_{keyTypeInfo}_*.xlsx'
-                            inpFile = '{}/{}/{}'.format(globalVar['inpPath'], serviceName, inpFilePatrn)
-                            fileList = sorted(glob.glob(inpFile))
+                        dataL2 = dataL1.loc[(dataL1['keyYear'] == keyYearInfo) & (dataL1['keyType'] == keyTypeInfo)]
+                        if dataL2 is None or len(dataL2) < 1: continue
 
-                            if len(fileList) < 1: continue
+                        # ********************************************************************
+                        # 기준 엑셀파일 읽기
+                        # ********************************************************************
+                        inpFilePatrn = f'india/IndiaPower{metaInfo}_*/*{keyYearInfo}*_{keyTypeInfo}_*.xlsx'
+                        inpFile = '{}/{}/{}'.format(globalVar['inpPath'], serviceName, inpFilePatrn)
+                        fileList = sorted(glob.glob(inpFile, recursive=True))
+                        if len(fileList) < 1: continue
 
-                            # fileInfo = fileList[0]
-                            for fileInfo in fileList:
-                                log.info(f'[CHECK] fileInfo : {fileInfo}')
+                        # fileInfo = fileList[0]
+                        for fileInfo in fileList:
+                            if re.match(r'.*/~\$.*', fileInfo): continue
+                            log.info(f'[CHECK] fileInfo : {fileInfo}')
 
-                                # 엑셀 파일 읽기
-                                wb = load_workbook(fileInfo, data_only=True)
+                            # 엑셀 파일 읽기
+                            wb = load_workbook(fileInfo, data_only=True)
 
-                                # Main 시트
-                                wsMain = wb['Main']
-                                eleList = [keyYearInfo, sKeyIdxInfo, sKeyVerInfo]
-                                eleExtList = [element for element in eleList if element != '']
-                                eleExtMrg = '_'.join(eleExtList)
-                                wsMain[f'B7'].value = f'IndiaPower{eleExtMrg}'
+                            # Main 시트
+                            wsMain = wb['Main']
+                            # eleList = [keyYearInfo, sKeyIdxInfo, sKeyVerInfo]
+                            eleList = [metaInfo]
+                            eleExtList = [element for element in eleList if element != '']
+                            eleExtMrg = '_'.join(eleExtList)
+                            wsMain[f'B7'].value = f'IndiaPower{eleExtMrg}'
 
-                                # En_ppl 시트
-                                ws = wb['En_ppl']
-                                wbData = pd.read_excel(fileInfo, sheet_name='En_ppl', engine='openpyxl', skiprows=2)
-                                colNameItem = {cell.value: cell.column_letter for cell in ws[3]}
+                            # En_ppl 시트
+                            ws = wb['En_ppl']
+                            wbData = pd.read_excel(fileInfo, sheet_name='En_ppl', engine='openpyxl', skiprows=2)
+                            colNameItem = {cell.value: cell.column_letter for cell in ws[3]}
 
-                                for idx, item in dataL2.iterrows():
-                                    # engType = item['EnergyType']
-                                    engType = item.get('EnergyType')
-                                    if pd.isna(engType): continue
-                                    wbDataL1 = wbData.loc[(wbData['year'] == int(keyYearInfo)) & (wbData['Act_abb'] == engType)]
-                                    rowIdx = wbDataL1.index[0] + 4
+                            # keyGrpYearInfo = '2015' if re.search('2015|2016|2017|2018|2019', keyYearInfo) else '2020' if re.search('2020', keyYear) else 'None'
+                            keyGrpYearInfo = keyYearInfo
 
-                                    for colName, colCell in colNameItem.items():
-                                        if colName is None: continue
-                                        if re.search('year', colName, re.IGNORECASE): continue
-                                        if re.search('Act_abb', colName, re.IGNORECASE): continue
-                                        if re.search('None', colName, re.IGNORECASE): continue
+                            # engType = 'HC3'
+                            for idx, item in dataL2.iterrows():
+                                # engType = item['EnergyType']
+                                engType = item.get('EnergyType')
+                                if pd.isna(engType): continue
+                                wbDataL1 = wbData.loc[(wbData['year'] == int(keyGrpYearInfo)) & (wbData['Act_abb'] == engType)]
+                                if wbDataL1.size < 1: continue
+                                rowIdx = wbDataL1.index[0] + 4
 
-                                        colVal = ws[f'{colNameItem[colName]}{rowIdx}'].value
+                                for colName, colCell in colNameItem.items():
+                                    if colName is None: continue
+                                    if re.search('year', colName, re.IGNORECASE): continue
+                                    if re.search('Act_abb', colName, re.IGNORECASE): continue
+                                    if re.search('None', colName, re.IGNORECASE): continue
 
-                                        selVal = item.get(colName)
-                                        if selVal is None: continue
+                                    colVal = ws[f'{colNameItem[colName]}{rowIdx}'].value
 
-                                        ws[f'{colNameItem[colName]}{rowIdx}'].value = selVal
-                                        # log.info(f'[CHECK] engType : {engType} / colName : {colName} / colVal : {colVal} / selVal : {selVal}')
+                                    selVal = item.get(colName)
+                                    if selVal is None: continue
 
-                                fileName = os.path.basename(fileInfo)
+                                    ws[f'{colNameItem[colName]}{rowIdx}'].value = selVal
+                                    # log.info(f'[CHECK] engType : {engType} / colName : {colName} / colVal : {colVal} / selVal : {selVal}')
 
-                                saveFile = '{}/{}/{}/{}_{}'.format(globalVar['outPath'], serviceName, 'india', 'NEW', fileName)
-                                os.makedirs(os.path.dirname(saveFile), exist_ok=True)
-                                wb.save(saveFile)
-                                log.info('[CHECK] saveFile : {}'.format(saveFile))
+                            # fileName = os.path.basename(fileInfo)
+                            srtIdx = fileInfo.index('IndiaPower')
+                            fileName = fileInfo[srtIdx:]
+
+                            saveFile = '{}/{}/{}/{}'.format(globalVar['outPath'], serviceName, 'india-20240504', fileName)
+                            os.makedirs(os.path.dirname(saveFile), exist_ok=True)
+                            wb.save(saveFile)
+                            log.info('[CHECK] saveFile : {}'.format(saveFile))
 
         except Exception as e:
             log.error("Exception : {}".format(e))
