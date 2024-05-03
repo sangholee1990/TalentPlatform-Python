@@ -192,9 +192,7 @@ def colctFile():
         #       fi
         #     done
 
-
-
-        url = 'https://cds.climate.copernicus.eu/api/v2'
+        url = ''
         key = ''
 
         c = cdsapi.Client(quiet=True, url=url, key=key)
