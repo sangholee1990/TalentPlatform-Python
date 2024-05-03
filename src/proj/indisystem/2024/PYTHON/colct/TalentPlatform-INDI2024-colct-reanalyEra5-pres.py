@@ -175,57 +175,68 @@ def initArgument(globalVar, inParams):
 @retry(stop_max_attempt_number=10)
 def colctFile():
     try:
-        log.info('start')
-        print('start')
-        # raise ValueError('[ERROR] inpFile : {} / {}'.format('asdasdasd', '입력 자료를 확인해주세요.'))
+        # url: https://cds.climate.copernicus.eu/api/v2
+        # key: 38372:e61b5517-d919-47b6-93bf-f9a01ee4246f
 
-        raise Exception("Broken sauce, everything is hosed!!!111one")
+        #       tmpFileInfo=${fileInfo}
+        #       updFileInfo=${fileInfo/${TMP_KEY}/}
+        #
+        #       # 임시/업로드 파일 여부, 다운로드 용량 여부
+        #       if [ $? -eq 0 ] && [ -e $tmpFileInfo ] && ([ ! -e ${updFileInfo} ] || [ $(stat -c %s ${tmpFileInfo}) -gt $(stat -c %s ${updFileInfo}) ]); then
+        #           mkdir -p ${updFileInfo%/*}
+        #           mv -f ${tmpFileInfo} ${updFileInfo}
+        #           echo "[$(date +"%Y-%m-%d %H:%M:%S")] [CHECK] CMD : mv -f ${tmpFileInfo} ${updFileInfo}"
+        #       else
+        #           rm -f ${tmpFileInfo}
+        #           echo "[$(date +"%Y-%m-%d %H:%M:%S")] [CHECK] CMD : rm -f ${tmpFileInfo}"
+        #       fi
+        #     done
 
-        log.info('end')
+
+
+        url = 'https://cds.climate.copernicus.eu/api/v2'
+        key = ''
+
+        c = cdsapi.Client(quiet=True, url=url, key=key)
+        c.retrieve(
+            'reanalysis-era5-pressure-levels',
+            {
+                'product_type': 'reanalysis',
+                'format': 'netcdf',
+                'variable': [
+                    'u_component_of_wind', 'v_component_of_wind',
+                    # 'all',
+                ],
+                'pressure_level': [
+                    # 'all'
+                    '1000'
+                ],
+                'year': [
+                    '2024'
+                ],
+                'month': [
+                    '04'
+                ],
+                'day': [
+                    '01'
+                ],
+                'time': [
+                    # '00:00', '01:00', '02:00', '03:00', '04:00', '05:00', '06:00', '07:00', '08:00', '09:00', '10:00',
+                    # '11:00', '12:00', '13:00', '14:00', '15:00', '16:00', '17:00', '18:00', '19:00', '20:00', '21:00',
+                    # '22:00', '23:00'
+                    
+                    '00:00'
+                ],
+                'area': [
+                    # 90, -180, -90, 180,
+                    30, 120, 31, 121,
+                ],
+            },
+            'down.grib')
+
     except Exception as e:
         log.error("Exception : {}".format(e))
         raise e
-
-# @retry(stop_max_attempt_number=2)
-# def do_something_unreliable():
-#     import random
-#
-#     if random.randint(0, 10) > 1:
-#         print('error')
-#         raise IOError("Broken sauce, everything is hosed!!!111one")
-#     else:
-#         print('succ')
-#         return "Awesome sauce!"
-
-# c = cdsapi.Client(quiet=True)
-# c.retrieve(
-#     'reanalysis-era5-single-levels',
-#     {
-#         'product_type': 'reanalysis',
-#         'format': 'netcdf',
-#         'variable': [
-#             #           'u_component_of_wind', 'v_component_of_wind',
-#             'all',
-#         ],
-#         'year': [
-#             '${year}'
-#         ],
-#         'month': [
-#             '${month}'
-#         ],
-#         'day': [
-#             '${day}'
-#         ],
-#         'time': [
-#             '00:00', '01:00', '02:00', '03:00', '04:00', '05:00', '06:00', '07:00', '08:00', '09:00', '10:00',
-#             '11:00', '12:00', '13:00', '14:00', '15:00', '16:00', '17:00', '18:00', '19:00', '20:00', '21:00',
-#             '22:00', '23:00'
-#         ],
-#         'area': [
-#             90, -180, -90, 180,
-#         ],
-#     },
-#     '${urlFileInfo}')
 
 # ================================================
 # 4. 부 프로그램
