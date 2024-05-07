@@ -177,6 +177,11 @@ class DtaProcess(object):
     # ================================================
     # Python을 이용한 국가 입력 데이터를 기준으로 기준 엑셀파일 현행화
 
+    # zip -r china-20240506-2030-2050.zip china-20240506/
+    # zip -r india-20240506-2030-2050.zip india-20240506/
+    # zip -r india-20240505-2015.zip india-20240505/
+    # zip -r india-20240505-2015-2020.zip india-20240505/
+
     # ================================================================================================
     # 환경변수 설정
     # ================================================================================================
@@ -401,12 +406,12 @@ class DtaProcess(object):
                             wbData = pd.read_excel(fileInfo, sheet_name='En_ppl', engine='openpyxl', skiprows=2)
                             colNameItem = {cell.value: cell.column_letter for cell in ws[3]}
 
-                            # keyGrpYearInfo = '2015' if re.search('2015|2016|2017|2018|2019', keyYearInfo) else '2020' if re.search('2020', keyYear) else 'None'
-                            keyGrpYearInfo = '2015' if re.search('2015|2016|2017|2018|2019|2020', keyYearInfo) else 'None'
+                            keyGrpYearInfo = '2015' if re.search('2015|2016|2017|2018|2019', keyYearInfo) else '2020' if re.search('2020', keyYear) else 'None'
+                            # keyGrpYearInfo = '2015' if re.search('2015|2016|2017|2018|2019|2020', keyYearInfo) else 'None'
 
                             for idx, item in dataL2.iterrows():
                                 # engType = item['EnergyType']
-                                engType = item.get('EnergyType')
+                                engType = item.get('Act_abb')
                                 if pd.isna(engType): continue
                                 wbDataL1 = wbData.loc[(wbData['year'] == int(keyGrpYearInfo)) & (wbData['Act_abb'] == engType)]
                                 if wbDataL1.size < 1: continue
@@ -423,14 +428,16 @@ class DtaProcess(object):
                                     selVal = item.get(colName)
                                     if selVal is None: continue
 
+                                    if colVal == selVal: continue
+
                                     ws[f'{colNameItem[colName]}{rowIdx}'].value = selVal
-                                    # log.info(f'[CHECK] engType : {engType} / colName : {colName} / colVal : {colVal} / selVal : {selVal}')
+                                    log.info(f'[CHECK] engType : {engType} / colName : {colName} / colVal : {colVal} / selVal : {selVal}')
 
                             # fileName = os.path.basename(fileInfo)
                             srtIdx = fileInfo.index('India_Gains')
                             fileName = fileInfo[srtIdx:]
 
-                            saveFile = '{}/{}/{}/{}'.format(globalVar['outPath'], serviceName, 'india-20240502', fileName)
+                            saveFile = '{}/{}/{}/{}'.format(globalVar['outPath'], serviceName, 'india-20240505', fileName)
                             os.makedirs(os.path.dirname(saveFile), exist_ok=True)
                             wb.save(saveFile)
                             log.info('[CHECK] saveFile : {}'.format(saveFile))

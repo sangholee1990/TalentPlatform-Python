@@ -457,6 +457,8 @@ class DtaProcess(object):
                                     selVal = item.get(colName)
                                     if selVal is None: continue
 
+                                    if colVal == selVal: continue
+
                                     ws[f'{colNameItem[colName]}{rowIdx}'].value = selVal
                                     # log.info(f'[CHECK] engType : {engType} / colName : {colName} / colVal : {colVal} / selVal : {selVal}')
 

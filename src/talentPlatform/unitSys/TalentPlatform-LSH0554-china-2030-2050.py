@@ -237,10 +237,30 @@ class DtaProcess(object):
 
             sysOpt = {
                 'metaList': {
-                    '2030_SSP1_nopolicy'
-                    , '2030_SSP2_nopolicy'
-                    , '2050_SSP1_nopolicy'
-                    , '2050_SSP2_nopolicy'
+                    "2015_TPL_input2015",
+                    "2015_input2015",
+                    "2016_TPL_input2015",
+                    "2016_input2015",
+                    "2017_TPL_input2015",
+                    "2017_input2015",
+                    "2018_TPL_input2015",
+                    "2018_input2015",
+                    "2019_TPL_input2015",
+                    "2019_input2015",
+                    "2020_TPL_input2015",
+                    "2020_input2015",
+                    "2030_1.5_SSP1",
+                    "2030_1.5_SSP2",
+                    "2030_2_SSP1",
+                    "2030_2_SSP2",
+                    "2030_SSP1_nopolicy",
+                    "2030_SSP2_nopolicy",
+                    "2050_1.5_SSP1",
+                    "2050_1.5_SSP2",
+                    "2050_2_SSP1",
+                    "2050_2_SSP2",
+                    "2050_SSP1_nopolicy",
+                    "2050_SSP2_nopolicy"
                 }
                 , 'keyTypeMat': {
                     'anhui': 'ANHU',
@@ -316,6 +336,9 @@ class DtaProcess(object):
             for metaInfo in sysOpt['metaList']:
                 log.info(f'[CHECK] metaInfo : {metaInfo}')
 
+
+                # inpFilePatrn = f'china-20240502/**/{metaInfo}/**/*.csv'
+                # inpFilePatrn = f'china/**/{metaInfo}/**/*.csv'
                 inpFilePatrn = f'china-20240502/**/{metaInfo}/**/*.csv'
                 inpFile = '{}/{}/{}'.format(globalVar['inpPath'], serviceName, inpFilePatrn)
                 fileList = sorted(glob.glob(inpFile, recursive=True))
@@ -394,7 +417,8 @@ class DtaProcess(object):
                         # ********************************************************************
                         # 기준 엑셀파일 읽기
                         # ********************************************************************
-                        inpFilePatrn = f'China/ChinaPower{metaInfo}_*/**/*{keyYearInfo}*_{keyTypeInfo}_*.xlsx'
+                        # inpFilePatrn = f'China/ChinaPower{metaInfo}_*/**/*{keyYearInfo}*_{keyTypeInfo}_*.xlsx'
+                        inpFilePatrn = f'china-20240505/**/*_{keyTypeInfo}_*.xlsx'
                         inpFile = '{}/{}/{}'.format(globalVar['inpPath'], serviceName, inpFilePatrn)
                         fileList = sorted(glob.glob(inpFile, recursive=True))
                         if len(fileList) < 1: continue
@@ -443,15 +467,20 @@ class DtaProcess(object):
                                     selVal = item.get(colName)
                                     if selVal is None: continue
 
+                                    if colVal == selVal: continue
+
                                     ws[f'{colNameItem[colName]}{rowIdx}'].value = selVal
                                     # log.info(f'[CHECK] engType : {engType} / colName : {colName} / colVal : {colVal} / selVal : {selVal}')
 
                             # fileName = os.path.basename(fileInfo)
-                            srtIdx = fileInfo.index('ChinaPower')
+                            # srtIdx = fileInfo.index('ChinaPower')
+                            srtIdx = fileInfo.index('actPathEneMob')
                             fileName = fileInfo[srtIdx:]
 
                             # saveFile = '{}/{}/{}/{}_{}'.format(globalVar['outPath'], serviceName, 'china-20240428', 'NEW', fileName)
-                            saveFile = '{}/{}/{}/{}'.format(globalVar['outPath'], serviceName, 'china-20240504', fileName)
+                            # saveFile = '{}/{}/{}/{}'.format(globalVar['outPath'], serviceName, 'china-20240504', fileName)
+                            # saveFile = '{}/{}/{}/{}'.format(globalVar['outPath'], serviceName, 'china-20240505', fileName)
+                            saveFile = '{}/{}/{}/{}/{}'.format(globalVar['outPath'], serviceName, 'china-20240506', metaInfo, fileName)
                             os.makedirs(os.path.dirname(saveFile), exist_ok=True)
                             wb.save(saveFile)
                             log.info('[CHECK] saveFile : {}'.format(saveFile))
