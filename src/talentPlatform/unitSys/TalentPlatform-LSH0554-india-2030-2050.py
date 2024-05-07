@@ -407,7 +407,9 @@ class DtaProcess(object):
                             log.info(f'[CHECK] fileInfo : {fileInfo}')
 
                             # 엑셀 파일 읽기
-                            wb = load_workbook(fileInfo, data_only=True)
+                            # data_only=True 수식 결과 가져오기
+                            # data_only=False 수식 자체 가져오기
+                            wb = load_workbook(fileInfo, data_only=False)
 
                             # Main 시트
                             wsMain = wb['Main']
@@ -452,7 +454,7 @@ class DtaProcess(object):
 
                                     if colVal == selVal: continue
 
-                                    # ws[f'{colNameItem[colName]}{rowIdx}'].value = selVal
+                                    ws[f'{colNameItem[colName]}{rowIdx}'].value = selVal
                                     log.info(f'[CHECK] engType : {engType} / colName : {colName} / colVal : {colVal} / selVal : {selVal}')
 
                             # fileName = os.path.basename(fileInfo)
