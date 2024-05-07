@@ -440,15 +440,20 @@ class DtaProcess(object):
                                     if re.search('Act_abb', colName, re.IGNORECASE): continue
                                     if re.search('None', colName, re.IGNORECASE): continue
 
-                                    colVal = ws[f'{colNameItem[colName]}{rowIdx}'].value
+                                    # 셀 배경 채우기
+                                    cell = ws[f'{colNameItem[colName]}{rowIdx}']
+                                    cellFill = cell.fill.start_color.index
+                                    colVal = cell.value
+                                    if cellFill == '00000000':
+                                        colVal = 0.0
 
                                     selVal = item.get(colName)
                                     if selVal is None: continue
 
                                     if colVal == selVal: continue
 
-                                    ws[f'{colNameItem[colName]}{rowIdx}'].value = selVal
-                                    # log.info(f'[CHECK] engType : {engType} / colName : {colName} / colVal : {colVal} / selVal : {selVal}')
+                                    # ws[f'{colNameItem[colName]}{rowIdx}'].value = selVal
+                                    log.info(f'[CHECK] engType : {engType} / colName : {colName} / colVal : {colVal} / selVal : {selVal}')
 
                             # fileName = os.path.basename(fileInfo)
                             # srtIdx = fileInfo.index('IndiaPower')
