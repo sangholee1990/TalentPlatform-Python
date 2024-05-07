@@ -112,12 +112,15 @@ c.retrieve(
 #        'format': 'netcdf',
         'format': 'grib',
         'variable': [
-#           'u_component_of_wind', 'v_component_of_wind',
-            'all',
+#            'all',
+            '10m_u_component_of_wind','10m_v_component_of_wind','2m_dewpoint_temperature','2m_temperature','land_sea_mask','mean_sea_level_pressure',
+            'sea_ice_cover','sea_surface_temperature','skin_temperature','snow_depth','soil_temperature_level_1','soil_temperature_level_2',
+            'soil_temperature_level_3','soil_temperature_level_4','surface_pressure','volumetric_soil_water_layer_1','volumetric_soil_water_layer_2','volumetric_soil_water_layer_3','volumetric_soil_water_layer_4'
         ],
         'pressure_level': [
-#            '950', '1000',
-            'all',
+#            'all',
+            '1','2','3','5','7','10','20','30','50','70','100','125','150','175','200','225','250','300','350','400','450',
+            '500','550','600','650','700','750','775','800','825','850','875','900','925','950','975','1000'
         ],
         'year': [
         '${year}'
@@ -132,7 +135,8 @@ c.retrieve(
 '00:00', '01:00', '02:00', '03:00', '04:00', '05:00', '06:00', '07:00', '08:00', '09:00', '10:00', '11:00', '12:00', '13:00', '14:00', '15:00', '16:00', '17:00', '18:00', '19:00', '20:00', '21:00', '22:00', '23:00'
         ],
         'area': [
-            90, -180, -90, 180,
+#            90, -180, -90, 180,
+            60, 80, 15, 150
         ],
     },
     '${urlFileInfo}')
