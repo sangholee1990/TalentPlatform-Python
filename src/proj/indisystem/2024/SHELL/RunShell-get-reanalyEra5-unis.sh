@@ -60,6 +60,7 @@ if [ "$#" -ne 2 ]; then
 #   echo 'Example) bash '$0' "2023-08-28" "2023-08-30"'
 #   echo 'Example) bash '$0' "2024-01-01 00:00" "2024-01-01 00:00"'
    echo 'Example) bash '$0' "2024-01-01 00:00" "2024-01-02 00:00"'
+   echo 'Example) bash '$0' "2023-11-01 00:00" "2024-01-01 00:00"'
    echo
 
    exit
@@ -95,11 +96,12 @@ while [ $(date -d "$incDate" +"%s") -le $(date -d "$endDate" +"%s") ]; do
   mkdir -p ${updFilePath}
 
 #  updFileName=reanaly-era5-unis_${year}${month}${day}${hour}${min}.nc
-  updFileName=reanaly-era5-unis_${year}${month}${day}${hour}${min}.grib
+#  updFileName=reanaly-era5-unis_${year}${month}${day}${hour}${min}.grib
+  updFileName=reanaly-era5-unis_${year}${month}${day}.grib
   urlFileInfo=${TMP_PATH}/${year}/${month}/${day}/${updFileName}
   mkdir -p ${urlFileInfo%/*}
 
-cat > ${TMP_PATH}/RunPython-get-reanalyEra5-unis.py << EOF
+cat > ${TMP_PATH}/RunPython-test-reanalyEra5-unis.py << EOF
 import cdsapi
 
 c = cdsapi.Client(quiet = True, timeout=9999)
@@ -139,6 +141,7 @@ EOF
 # API키 인증
 cat > $HOME/.cdsapirc << EOF
 url: https://cds.climate.copernicus.eu/api/v2
+key: 38372:e61b5517-d919-47b6-93bf-f9a01ee4246f
 EOF
 
 #  ${PY38_BIN} ${TMP_PATH}/RunPython-get-reanalyEra5-unis.py

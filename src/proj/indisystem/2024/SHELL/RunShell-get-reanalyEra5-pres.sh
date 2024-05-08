@@ -9,6 +9,11 @@ echo
 # 0 */12 * * * bash /home/guest_user1/SYSTEMS/KIER/PROG/SHELL/RunShell-get-gfsncep2.sh "$(date -d "2 days ago" +\%Y-\%m-\%d\ 00:00)" "$(date +\%Y-\%m-\%d\ 00:00)"
 # https://cds.climate.copernicus.eu/cdsapp#!/dataset/reanalysis-era5-pressure-levels?tab=form
 # ps -ef | grep python3 | grep RunPython-get-reanalyEra5-pres.py | awk '{print $2}' | xargs kill -9
+# ps -ef | grep "RunShell-get-reanalyEra5-pres.sh" | awk '{print $2}' | xargs kill -9
+
+# ps -ef | grep python3 | grep RunPython-test-reanalyEra5-pres.py | awk '{print $2}' | xargs kill -9
+# ps -ef | grep "RunShell-test-reanalyEra5-pres.sh" | awk '{print $2}' | xargs kill -9
+# ps -ef | grep ".tmp-OFnlXH9scd" | awk '{print $2}' | xargs kill -9
 
 #========================================
 # Init Config
@@ -59,6 +64,8 @@ if [ "$#" -ne 2 ]; then
 #   echo 'Example) bash '$0' "2023-08-28" "2023-08-30"'
 #   echo 'Example) bash '$0' "2024-01-01 00:00" "2024-01-01 00:00"'
    echo 'Example) bash '$0' "2024-01-01 00:00" "2024-01-02 00:00"'
+   echo 'Example) bash '$0' "2023-11-01 00:00" "2024-01-01 00:00"'
+
    echo
 
    exit
@@ -95,11 +102,13 @@ while [ $(date -d "$incDate" +"%s") -le $(date -d "$endDate" +"%s") ]; do
   mkdir -p ${updFilePath}
 
 #  updFileName=reanaly-era5-pres_${year}${month}${day}${hour}${min}.nc
-  updFileName=reanaly-era5-pres_${year}${month}${day}${hour}${min}.grib
+#  updFileName=reanaly-era5-pres_${year}${month}${day}${hour}${min}.grib
+  updFileName=reanaly-era5-pres_${year}${month}${day}.grib
   urlFileInfo=${TMP_PATH}/${year}/${month}/${day}/${updFileName}
   mkdir -p ${urlFileInfo%/*}
 
-cat > ${TMP_PATH}/RunPython-get-reanalyEra5-pres.py << EOF
+# w_component_of_wind -> vertical_velocity
+cat > ${TMP_PATH}/RunPython-test-reanalyEra5-pres.py << EOF
 
 import cdsapi
 
@@ -113,9 +122,7 @@ c.retrieve(
         'format': 'grib',
         'variable': [
 #            'all',
-            '10m_u_component_of_wind','10m_v_component_of_wind','2m_dewpoint_temperature','2m_temperature','land_sea_mask','mean_sea_level_pressure',
-            'sea_ice_cover','sea_surface_temperature','skin_temperature','snow_depth','soil_temperature_level_1','soil_temperature_level_2',
-            'soil_temperature_level_3','soil_temperature_level_4','surface_pressure','volumetric_soil_water_layer_1','volumetric_soil_water_layer_2','volumetric_soil_water_layer_3','volumetric_soil_water_layer_4'
+            'geopotential','relative_humidity','specific_humidity','temperature','u_component_of_wind','v_component_of_wind','vertical_velocity'
         ],
         'pressure_level': [
 #            'all',
@@ -132,7 +139,8 @@ c.retrieve(
         '${day}'
         ],
         'time': [
-'00:00', '01:00', '02:00', '03:00', '04:00', '05:00', '06:00', '07:00', '08:00', '09:00', '10:00', '11:00', '12:00', '13:00', '14:00', '15:00', '16:00', '17:00', '18:00', '19:00', '20:00', '21:00', '22:00', '23:00'
+'00:00', '01:00', '02:00', '03:00', '04:00', '05:00', '06:00', '07:00', '08:00', '09:00', '10:00', '11:00', '12:00',
+'13:00', '14:00', '15:00', '16:00', '17:00', '18:00', '19:00', '20:00', '21:00', '22:00', '23:00'
         ],
         'area': [
 #            90, -180, -90, 180,
@@ -144,6 +152,7 @@ EOF
 
 # API키 인증
 cat > $HOME/.cdsapirc << EOF
+url: https://cds.climate.copernicus.eu/api/v2
 EOF
 
 #  ${PY38_BIN} ${TMP_PATH}/RunPython-get-reanalyEra5-pres.py
