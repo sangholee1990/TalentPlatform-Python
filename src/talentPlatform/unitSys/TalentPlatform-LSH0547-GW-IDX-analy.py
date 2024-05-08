@@ -348,10 +348,8 @@ class DtaProcess(object):
                     , {"GU": "남구", "NAME": "광주 남구 관측지점", "ENGNAME": "AWS Nam-gu", "ENGSHORTNAME": "St. Nam-gu", "LAT": 35.100807, "LON": 126.8985, "INFO": "AWS", "MARK": "\u23F3"}
                     , {"GU": "북구", "NAME": "광주지방기상청", "ENGNAME": "GwangJuKMA", "ENGSHORTNAME": "GMA", "LAT": 35.17344444, "LON": 126.8914639, "INFO": "LOCATE", "MARK": "\u23F3"}
                 ]
-
                 # 수행 목록
                 , 'modelList': ['REANALY-ECMWF-1M-GW-IDX']
-
                 , 'analyList': ['1981-2020', '1981-1990', '1991-2000', '2001-2010', '2011-2020']
 
                 , 'REANALY-ECMWF-1M-GW-IDX': {
@@ -368,7 +366,6 @@ class DtaProcess(object):
                     , 'figPath': '/DATA/FIG/LSH0547'
                     , 'figName': '{}_{}-{}_{}-{}.png'
                 }
-
                 , 'POS': {
                     'filePath': '/DATA/INPUT/LSH0547/POS'
                     , 'fileName': 'STCS_폭염일수_20240417212144.csv'

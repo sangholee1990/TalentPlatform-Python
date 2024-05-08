@@ -334,14 +334,12 @@ class DtaProcess(object):
                     , 'ko': {'minLon': 123, 'maxLon': 133, 'minLat': 31, 'maxLat': 44}
                     , 'gw': {'minLon': 126.638, 'maxLon': 127.023, 'minLat': 35.0069, 'maxLat': 35.3217}
                 }
-
                 , 'seasonList': {
                     'MAM': [3, 4, 5]
                     , 'JJA': [6, 7, 8]
                     , 'SON': [9, 10, 11]
                     , 'DJF': [12, 1, 2]
                 }
-
                 # 관측 지점
                 , 'posData': [
                     {"GU": "광산구", "NAME": "광산 관측지점", "ENGNAME": "AWS GwangSan", "ENGSHORTNAME": "St. GwangSan", "LAT": 35.12886, "LON": 126.74525, "INFO": "AWS", "MARK": "\u23F3"}
@@ -357,7 +355,6 @@ class DtaProcess(object):
                 , 'modelList': ['REANALY-ECMWF-1M-GL']
 
                 # 최초30년, 최근30년, 최근10년, 초단기 최근1년
-                # , 'analyList': ['1981-2010', '1990-2020', '2010-2020', '2022-2022']
                 , 'analyList': ['1981-2010', '1990-2020', '2010-2020']
 
                 , 'REANALY-ECMWF-1M-GL': {
