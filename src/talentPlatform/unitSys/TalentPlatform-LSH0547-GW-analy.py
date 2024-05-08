@@ -390,6 +390,29 @@ class DtaProcess(object):
                     'filePath': '/DATA/INPUT/LSH0547/shp'
                     , 'fileName': '002_gwj_gu_dong_5179.shp'
                 }
+
+                , 'slopeOpt': {
+                    't2m': {
+                        'gl': {'vmin': 0.00, 'vmax': 0.04}
+                        , 'as': {'vmin': 0.00, 'vmax': 0.025}
+                        , 'ko': {'vmin': -0.004, 'vmax': 0.02}
+                        , 'gw': {'vmin': 0.00, 'vmax': 0.011}
+                    }
+                    , 'skt': {
+                        'ko': {'vmin': 0.000, 'vmax': 0.005}
+                        , 'gw': {'vmin': 0.00, 'vmax': 0.012}
+                    }
+                    , 'u': {
+                        'ko': {'vmin': 0.0025, 'vmax': 0.0015}
+                        , 'gw': {'vmin': -0.0012, 'vmax': 0.0004}
+                    }
+                    , 'cp': {
+                        'gw': {'vmin': -0.0008, 'vmax': 0.006}
+                    }
+                    , 'tp': {
+                        'gw': {'vmin': -0.0008, 'vmax': 0.006}
+                    }
+                }
             }
 
             # 시작일/종료일 설정
@@ -542,14 +565,11 @@ class DtaProcess(object):
 
                         saveFilePattern = '{}/{}'.format(modelInfo['figPath'], modelInfo['figName'])
                         saveImg = saveFilePattern.format(modelType, procInfo, roiName, 'all', 'mean')
-                        result = makePlot(varDataL4, saveImg, shpData, opt={'vmin': minVal, 'vmax': maxVal})
-                        log.info(f'[CHECK] result : {result}')
+                        # result = makePlot(varDataL4, saveImg, shpData, opt={'vmin': minVal, 'vmax': maxVal})
+                        # log.info(f'[CHECK] result : {result}')
 
                         # varDataL3.isel(time = 0).plot()
                         # plt.show()
-
-                        # log.info(f'[CHECK] timeInfo : all / meanVal : {meanVal} / maxVal : {maxVal} / minVal : {minVal}')
-                        # log.info(f'[CHECK] timeInfo : all / meanVal : {meanVal:.2f}')
 
                         meanDict = [{
                             'roiName': roiName
@@ -572,8 +592,8 @@ class DtaProcess(object):
 
                             saveFilePattern = '{}/{}'.format(modelInfo['figPath'], modelInfo['figName'])
                             saveImg = saveFilePattern.format(modelType, procInfo, roiName, season, 'mean')
-                            result = makePlot(statDataL1, saveImg, shpData, opt={'vmin': minVal, 'vmax': maxVal})
-                            log.info(f'[CHECK] result : {result}')
+                            # result = makePlot(statDataL1, saveImg, shpData, opt={'vmin': minVal, 'vmax': maxVal})
+                            # log.info(f'[CHECK] result : {result}')
 
                             # maxVal = np.nanmax(statDataL1)
                             # minVal = np.nanmin(statDataL1)
@@ -612,10 +632,14 @@ class DtaProcess(object):
 
                             meanVal = np.nanmean(slopeDataL4)
 
+
                             key = f'{analyInfo}-all'
                             saveFilePattern = '{}/{}'.format(modelInfo['figPath'], modelInfo['figName'])
                             saveImg = saveFilePattern.format(modelType, procInfo, roiName, key, 'slope')
-                            result = makePlot(slopeDataL4, saveImg, shpData, None)
+                            # result = makePlot(slopeDataL4, saveImg, shpData, None)
+
+                            slopeOpt = sysOpt['slopeOpt'].get(procInfo).get(roiName)
+                            result = makePlot(slopeDataL4, saveImg, shpData, opt=slopeOpt)
                             log.info(f'[CHECK] result : {result}')
 
                             dict = [{
@@ -650,8 +674,8 @@ class DtaProcess(object):
                                 key = f'{analyInfo}-{season}'
                                 saveFilePattern = '{}/{}'.format(modelInfo['figPath'], modelInfo['figName'])
                                 saveImg = saveFilePattern.format(modelType, procInfo, roiName, key, 'slope')
-                                result = makePlot(slopeDataL4, saveImg, shpData, None)
-                                log.info(f'[CHECK] result : {result}')
+                                # result = makePlot(slopeDataL4, saveImg, shpData, None)
+                                # log.info(f'[CHECK] result : {result}')
 
                                 meanVal = np.nanmean(slopeDataL4)
                                 if np.isnan(meanVal): continue
@@ -677,12 +701,12 @@ class DtaProcess(object):
                     # valDataL1['col3'] = valDataL1['2010-2020'] - valDataL1['1990-2020']
 
                     # 엑셀 저장
-                    saveXlsxFile = '{}/{}/{}-{}.xlsx'.format(globalVar['outPath'], serviceName, modelType, procInfo)
-                    os.makedirs(os.path.dirname(saveXlsxFile), exist_ok=True)
-                    with pd.ExcelWriter(saveXlsxFile, engine='xlsxwriter', options={'use_zip64': True}) as writer:
-                        meanData.to_excel(writer, sheet_name='meanData', index=True)
-                        valDataL1.to_excel(writer, sheet_name='valDataL1', index=True)
-                    log.info(f'[CHECK] saveXlsxFile : {saveXlsxFile}')
+                    # saveXlsxFile = '{}/{}/{}-{}.xlsx'.format(globalVar['outPath'], serviceName, modelType, procInfo)
+                    # os.makedirs(os.path.dirname(saveXlsxFile), exist_ok=True)
+                    # with pd.ExcelWriter(saveXlsxFile, engine='xlsxwriter', options={'use_zip64': True}) as writer:
+                    #     meanData.to_excel(writer, sheet_name='meanData', index=True)
+                    #     valDataL1.to_excel(writer, sheet_name='valDataL1', index=True)
+                    # log.info(f'[CHECK] saveXlsxFile : {saveXlsxFile}')
 
         except Exception as e:
             log.error("Exception : {}".format(e))

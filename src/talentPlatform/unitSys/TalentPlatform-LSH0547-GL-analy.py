@@ -381,6 +381,28 @@ class DtaProcess(object):
                     'filePath': '/DATA/INPUT/LSH0547/gadm41_PRK_shp'
                     , 'fileName': 'gadm41_PRK_0.shp'
                 }
+                , 'slopeOpt': {
+                    't2m': {
+                        'gl': {'vmin': 0.00, 'vmax': 0.04}
+                        , 'as': {'vmin': 0.00, 'vmax': 0.025}
+                        , 'ko': {'vmin': -0.004, 'vmax': 0.02}
+                        , 'gw': {'vmin': 0.00, 'vmax': 0.011}
+                    }
+                    , 'skt': {
+                        'ko': {'vmin': 0.000, 'vmax': 0.005}
+                        , 'gw': {'vmin': 0.00, 'vmax': 0.012}
+                    }
+                    , 'u': {
+                        'ko': {'vmin': 0.0025, 'vmax': 0.0015}
+                        , 'gw': {'vmin': -0.0012, 'vmax': 0.0004}
+                    }
+                    , 'cp': {
+                        'gw': {'vmin': -0.0008, 'vmax': 0.006}
+                    }
+                    , 'tp': {
+                        'gw': {'vmin': -0.0008, 'vmax': 0.006}
+                    }
+                }
             }
 
             # 시작일/종료일 설정
@@ -441,9 +463,6 @@ class DtaProcess(object):
                         varDataL2 = varDataL1
                     else:
                         continue
-
-                    # varDataL2.isel(time = 0).plot()
-                    # plt.show()
 
                     # roiDataL2.isel(time = 0).plot()
                     # plt.show()
@@ -574,7 +593,10 @@ class DtaProcess(object):
                             key = f'{analyInfo}-all'
                             saveFilePattern = '{}/{}'.format(modelInfo['figPath'], modelInfo['figName'])
                             saveImg = saveFilePattern.format(modelType, procInfo, roiName, key, 'slope')
-                            result = makePlot(slopeDataL3, saveImg, opt={'vmin': minVal, 'vmax': maxVal})
+
+                            slopeOpt = sysOpt['slopeOpt'].get(procInfo).get(roiName)
+                            # result = makePlot(slopeDataL3, saveImg, opt={'vmin': minVal, 'vmax': maxVal})
+                            result = makePlot(slopeDataL3, saveImg, opt=slopeOpt)
                             log.info(f'[CHECK] result : {result}')
 
                             dict = [{

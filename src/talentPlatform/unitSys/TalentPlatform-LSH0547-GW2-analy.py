@@ -393,6 +393,28 @@ class DtaProcess(object):
                     'filePath': '/DATA/INPUT/LSH0547/shp'
                     , 'fileName': '002_gwj_gu_dong_5179.shp'
                 }
+                , 'slopeOpt': {
+                    't2m': {
+                        'gl': {'vmin': 0.00, 'vmax': 0.04}
+                        , 'as': {'vmin': 0.00, 'vmax': 0.025}
+                        , 'ko': {'vmin': -0.004, 'vmax': 0.02}
+                        , 'gw': {'vmin': 0.00, 'vmax': 0.011}
+                    }
+                    , 'skt': {
+                        'ko': {'vmin': 0.000, 'vmax': 0.005}
+                        , 'gw': {'vmin': 0.00, 'vmax': 0.012}
+                    }
+                    , 'u': {
+                        'ko': {'vmin': 0.0025, 'vmax': 0.0015}
+                        , 'gw': {'vmin': -0.0012, 'vmax': 0.0004}
+                    }
+                    , 'cp': {
+                        'gw': {'vmin': -0.0008, 'vmax': 0.006}
+                    }
+                    , 'tp': {
+                        'gw': {'vmin': -0.0008, 'vmax': 0.006}
+                    }
+                }
             }
 
             # 시작일/종료일 설정
@@ -630,7 +652,10 @@ class DtaProcess(object):
                             key = f'{analyInfo}-all'
                             saveFilePattern = '{}/{}'.format(modelInfo['figPath'], modelInfo['figName'])
                             saveImg = saveFilePattern.format(modelType, procInfo, roiName, key, 'slope')
-                            result = makePlot(slopeDataL4, saveImg, shpData, None)
+
+                            slopeOpt = sysOpt['slopeOpt'].get(procInfo).get(roiName)
+                            # result = makePlot(slopeDataL4, saveImg, shpData, None)
+                            result = makePlot(slopeDataL4, saveImg, shpData, opt=slopeOpt)
                             log.info(f'[CHECK] result : {result}')
 
                             dict = [{
