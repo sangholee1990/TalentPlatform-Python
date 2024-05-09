@@ -177,6 +177,16 @@ class DtaProcess(object):
     # ================================================
     # Python을 이용한 국가 입력 데이터를 기준으로 기준 엑셀파일 현행화
 
+    # cd /DATA/OUTPUT/LSH0554
+
+    # zip -r india-2030-2050.zip india-2030-2050/
+    # zip -r india-2015-2020.zip india-2015-2020/
+    # zip -r india-2015-2015.zip india-2015-2015/
+
+    # zip -r china-2030-2050.zip china-2030-2050/
+    # zip -r china-2015-2020.zip china-2015-2020/
+    # zip -r china-2015-2015.zip china-2015-2015/
+
     # ================================================================================================
     # 환경변수 설정
     # ================================================================================================
@@ -247,6 +257,7 @@ class DtaProcess(object):
                     , '2018_TPL_input2015'
                     , '2019_input2015'
                     , '2019_TPL_input2015'
+                    , '2020_input2015'
                     , '2020_TPL_input2015'
                 }
                 , 'keyTypeMat': {
@@ -324,7 +335,8 @@ class DtaProcess(object):
             for metaInfo in sysOpt['metaList']:
                 log.info(f'[CHECK] metaInfo : {metaInfo}')
 
-                inpFilePatrn = f'china-20240502/**/{metaInfo}/**/*.csv'
+                # inpFilePatrn = f'china-20240502/**/{metaInfo}/**/*.csv'
+                inpFilePatrn = f'china-20240509/**/{metaInfo}/**/*.csv'
                 inpFile = '{}/{}/{}'.format(globalVar['inpPath'], serviceName, inpFilePatrn)
                 fileList = sorted(glob.glob(inpFile, recursive=True))
 
@@ -388,15 +400,8 @@ class DtaProcess(object):
                 keyYearList = sorted(set(dataL1['keyYear']))
                 keyTypeList = sorted(set(dataL1['keyType']))
 
-                # keyInfo = '2030_2_SSP2'
-                # keyTypeInfo = 'EHIM'
                 for keyYearInfo in keyYearList:
                     for keyTypeInfo in keyTypeList:
-
-                        # if keyYearInfo == 'None': continue
-                        # if not keyIdxInfo == 'None': continue
-                        # if not keyVerInfo == 'None': continue
-                        # if keyTypeInfo == 'None': continue
 
                         # keyYearInfo = '2019'
                         # keyTypeInfo = 'ANHU'
@@ -409,7 +414,7 @@ class DtaProcess(object):
                         # ********************************************************************
                         # 기준 엑셀파일 읽기
                         # ********************************************************************
-                        inpFilePatrn = f'china-20240428/**/ChinaPower{metaInfo}/**/*{keyYearInfo}*_{keyTypeInfo}_*.xlsx'
+                        inpFilePatrn = f'china-20240509/**/*_{keyTypeInfo}_*.xlsx'
                         inpFile = '{}/{}/{}'.format(globalVar['inpPath'], serviceName, inpFilePatrn)
                         fileList = sorted(glob.glob(inpFile, recursive=True))
                         if len(fileList) < 1: continue
@@ -420,7 +425,9 @@ class DtaProcess(object):
                             log.info(f'[CHECK] fileInfo : {fileInfo}')
 
                             # 엑셀 파일 읽기
-                            wb = load_workbook(fileInfo, data_only=True)
+                            # data_only=True 수식 제거
+                            # data_only=False 수식 유지
+                            wb = load_workbook(fileInfo, data_only=False)
 
                             # Main 시트
                             wsMain = wb['Main']
@@ -452,22 +459,31 @@ class DtaProcess(object):
                                     if re.search('Act_abb', colName, re.IGNORECASE): continue
                                     if re.search('None', colName, re.IGNORECASE): continue
 
-                                    colVal = ws[f'{colNameItem[colName]}{rowIdx}'].value
+                                    # 셀 배경 채우기
+                                    cell = ws[f'{colNameItem[colName]}{rowIdx}']
+                                    cellFill = cell.fill.start_color.index
 
+                                    if cellFill != '00000000': continue
+                                    cell.value = 0.0
+
+                                    colVal = cell.value
                                     selVal = item.get(colName)
                                     if selVal is None: continue
-
                                     if colVal == selVal: continue
 
-                                    ws[f'{colNameItem[colName]}{rowIdx}'].value = selVal
-                                    # log.info(f'[CHECK] engType : {engType} / colName : {colName} / colVal : {colVal} / selVal : {selVal}')
+                                    cell.value = selVal
+                                    # log.info(f'[CHECK] engType : {engType} / colName : {colName} / colVal : {colVal} / selVal : {selVal} / cell.value : {cell.value}')
 
                             # fileName = os.path.basename(fileInfo)
-                            srtIdx = fileInfo.index('China-Gains')
-                            fileName = fileInfo[srtIdx:]
+                            # srtIdx = fileInfo.index('China-Gains')
+                            srtIdx = fileInfo.index('actPathEneMob')
+                            # fileName = fileInfo[srtIdx:]
+                            metaInfo2 = re.sub(r'\.', '', metaInfo)
+                            metaInfo3 = f'ChinaPower{metaInfo2}'
+                            fileName = fileInfo[srtIdx:].replace('ChinaPower2015', metaInfo3)
 
-                            # saveFile = '{}/{}/{}/{}_{}'.format(globalVar['outPath'], serviceName, 'china-20240428', 'NEW', fileName)
-                            saveFile = '{}/{}/{}/{}'.format(globalVar['outPath'], serviceName, 'china-20240502', fileName)
+                            # saveFile = '{}/{}/{}/{}/{}'.format(globalVar['outPath'], serviceName, 'china-2015-2020',metaInfo, fileName)
+                            saveFile = '{}/{}/{}/{}/{}'.format(globalVar['outPath'], serviceName, 'china-2015-2015', metaInfo, fileName)
                             os.makedirs(os.path.dirname(saveFile), exist_ok=True)
                             wb.save(saveFile)
                             log.info('[CHECK] saveFile : {}'.format(saveFile))
