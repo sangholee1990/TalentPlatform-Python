@@ -443,7 +443,8 @@ class DtaProcess(object):
             # Data request for Rayleigh wind measurements
             # check if parameter list is not empty
             if len(parameter_rayleigh) > 0:
-                request = AeolusRequest()
+                # request = AeolusRequest()
+                request = AeolusRequest(url='https://aeolus.services/ows', token='hAAFUwbvPvnzzgGTxaU3ttAfufVKyp9-')
 
                 request.set_collection(DATA_PRODUCT)
 
@@ -467,7 +468,8 @@ class DtaProcess(object):
             # Data request for Mie wind measurements
             # check if parameter list is not empty
             if len(parameter_mie) > 0:
-                request = AeolusRequest()
+                # request = AeolusRequest()
+                request = AeolusRequest(url='https://aeolus.services/ows', token='hAAFUwbvPvnzzgGTxaU3ttAfufVKyp9-')
 
                 request.set_collection(DATA_PRODUCT)
 
