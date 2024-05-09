@@ -178,10 +178,10 @@ class DtaProcess(object):
     # Python을 이용한 국가 입력 데이터를 기준으로 기준 엑셀파일 현행화
 
     # cd /DATA/OUTPUT/LSH0554
-    # zip -r india-2030-2050.zip india-2030-2050/.
-    # zip -r india-2015-2020.zip india-2015-2020/.
-    # zip -r china-2030-2050.zip china-2030-2050/.
-    # zip -r india-2015-2015.zip india-2015-2015/.
+    # zip -r india-2030-2050.zip india-2030-2050/
+    # zip -r india-2015-2020.zip india-2015-2020/
+    # zip -r china-2030-2050.zip china-2030-2050/
+    # zip -r india-2015-2015.zip india-2015-2015/
 
     # ================================================================================================
     # 환경변수 설정
@@ -412,8 +412,8 @@ class DtaProcess(object):
                             wbData = pd.read_excel(fileInfo, sheet_name='En_ppl', engine='openpyxl', skiprows=2)
                             colNameItem = {cell.value: cell.column_letter for cell in ws[3]}
 
-                            # keyGrpYearInfo = '2015' if re.search('2015|2016|2017|2018|2019', keyYearInfo) else '2020' if re.search('2020', keyYear) else 'None'
-                            keyGrpYearInfo = '2015' if re.search('2015|2016|2017|2018|2019|2020', keyYearInfo) else 'None'
+                            keyGrpYearInfo = '2015' if re.search('2015|2016|2017|2018|2019', keyYearInfo) else '2020' if re.search('2020', keyYear) else 'None'
+                            # keyGrpYearInfo = '2015' if re.search('2015|2016|2017|2018|2019|2020', keyYearInfo) else 'None'
 
                             for idx, item in dataL2.iterrows():
                                 # engType = item['EnergyType']
@@ -442,15 +442,18 @@ class DtaProcess(object):
                                     if colVal == selVal: continue
 
                                     cell.value = selVal
-                                    log.info(f'[CHECK] engType : {engType} / colName : {colName} / colVal : {colVal} / selVal : {selVal} / cell.value : {cell.value}')
+                                    # log.info(f'[CHECK] engType : {engType} / colName : {colName} / colVal : {colVal} / selVal : {selVal} / cell.value : {cell.value}')
 
                             # fileName = os.path.basename(fileInfo)
                             srtIdx = fileInfo.index('actPathEneMob')
-                            fileName = fileInfo[srtIdx:]
+                            # fileName = fileInfo[srtIdx:]
+                            metaInfo2 = re.sub(r'\.', '', metaInfo)
+                            metaInfo3 = f'IndiaPower{metaInfo2}'
+                            fileName = fileInfo[srtIdx:].replace('IndiaPower2015', metaInfo3)
 
                             # saveFile = '{}/{}/{}/{}'.format(globalVar['outPath'], serviceName, 'india-20240509', fileName)
-                            # saveFile = '{}/{}/{}/{}/{}'.format(globalVar['outPath'], serviceName, 'india-2015-2020', metaInfo, fileName)
-                            saveFile = '{}/{}/{}/{}/{}'.format(globalVar['outPath'], serviceName, 'india-2015-2015', metaInfo, fileName)
+                            saveFile = '{}/{}/{}/{}/{}'.format(globalVar['outPath'], serviceName, 'india-2015-2020', metaInfo, fileName)
+                            # saveFile = '{}/{}/{}/{}/{}'.format(globalVar['outPath'], serviceName, 'india-2015-2015', metaInfo, fileName)
                             os.makedirs(os.path.dirname(saveFile), exist_ok=True)
                             wb.save(saveFile)
                             log.info('[CHECK] saveFile : {}'.format(saveFile))

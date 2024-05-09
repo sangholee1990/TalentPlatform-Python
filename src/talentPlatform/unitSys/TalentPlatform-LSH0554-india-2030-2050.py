@@ -178,10 +178,12 @@ class DtaProcess(object):
     # Python을 이용한 국가 입력 데이터를 기준으로 기준 엑셀파일 현행화
 
     # cd /DATA/OUTPUT/LSH0554
-    # zip -r india-2030-2050.zip india-2030-2050/.
-    # zip -r india-2015-2020.zip india-2015-2020/.
-    # zip -r china-2030-2050.zip china-2030-2050/.
-    # zip -r india-2015-2015.zip india-2015-2015/.
+    # zip -r india-2030-2050.zip india-2030-2050/
+    # zip -r india-2015-2020.zip india-2015-2020/
+    # zip -r china-2030-2050.zip china-2030-2050/
+    # zip -r india-2015-2015.zip india-2015-2015/
+
+    # ps -ef | grep LSH0554 | awk '{print $2}' | xargs kill -9
 
     # ================================================================================================
     # 환경변수 설정
@@ -437,12 +439,16 @@ class DtaProcess(object):
                                     if colVal == selVal: continue
 
                                     cell.value = selVal
-                                    log.info(f'[CHECK] engType : {engType} / colName : {colName} / colVal : {colVal} / selVal : {selVal} / cell.value : {cell.value}')
+                                    # log.info(f'[CHECK] engType : {engType} / colName : {colName} / colVal : {colVal} / selVal : {selVal} / cell.value : {cell.value}')
 
                             # fileName = os.path.basename(fileInfo)
                             # srtIdx = fileInfo.index('IndiaPower')
                             srtIdx = fileInfo.index('actPathEneMob')
-                            fileName = fileInfo[srtIdx:]
+                            # fileName = fileInfo[srtIdx:]
+
+                            metaInfo2 = re.sub(r'\.', '', metaInfo)
+                            metaInfo3 = f'IndiaPower{metaInfo2}'
+                            fileName = fileInfo[srtIdx:].replace('IndiaPower2015', metaInfo3)
 
                             # saveFile = '{}/{}/{}/{}'.format(globalVar['outPath'], serviceName, 'india-20240506', fileName)
                             saveFile = '{}/{}/{}/{}/{}'.format(globalVar['outPath'], serviceName, 'india-2030-2050', metaInfo, fileName)
