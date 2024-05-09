@@ -177,10 +177,10 @@ class DtaProcess(object):
     # ================================================
     # Python을 이용한 국가 입력 데이터를 기준으로 기준 엑셀파일 현행화
 
-    # zip -r china-20240506-2030-2050.zip china-20240506/
-    # zip -r india-20240506-2030-2050.zip india-20240506/
-    # zip -r india-20240505-2015.zip india-20240505/
-    # zip -r india-20240505-2015-2020.zip india-20240505/
+    # zip -r india-2030-2050.zip india-2030-2050/.
+    # zip -r india-2015-2020.zip india-2015-2020/.
+    # zip -r china-2030-2050.zip china-2030-2050/.
+    # zip -r india-2015-2015.zip india-2015-2015/.
 
     # ================================================================================================
     # 환경변수 설정
@@ -242,17 +242,18 @@ class DtaProcess(object):
 
             sysOpt = {
                 'metaList': {
-                    '2015_input2015'
-                    , '2015_TPL_input2015'
-                    , '2016_input2015'
-                    , '2016_TPL_input2015'
-                    , '2017_input2015'
-                    , '2017_TPL_input2015'
-                    , '2018_input2015'
-                    , '2018_TPL_input2015'
-                    , '2019_input2015'
-                    , '2019_TPL_input2015'
-                    , '2020_TPL_input2015'
+                    "2015_TPL_input2015",
+                    "2015_input2015",
+                    "2016_TPL_input2015",
+                    "2016_input2015",
+                    "2017_TPL_input2015",
+                    "2017_input2015",
+                    "2018_TPL_input2015",
+                    "2018_input2015",
+                    "2019_TPL_input2015",
+                    "2019_input2015",
+                    "2020_TPL_input2015",
+                    "2020_input2015",
                 }
             }
 
@@ -296,7 +297,8 @@ class DtaProcess(object):
             for metaInfo in sysOpt['metaList']:
                 log.info(f'[CHECK] metaInfo : {metaInfo}')
 
-                inpFilePatrn = f'india-20240502/**/{metaInfo}/**/*.csv'
+                # inpFilePatrn = f'india-20240509/**/{metaInfo}/**/*.csv'
+                inpFilePatrn = f'india-20240509/**/{metaInfo}/**/*.csv'
                 inpFile = '{}/{}/{}'.format(globalVar['inpPath'], serviceName, inpFilePatrn)
                 fileList = sorted(glob.glob(inpFile, recursive=True))
 
@@ -380,7 +382,8 @@ class DtaProcess(object):
                         # ********************************************************************
                         # 기준 엑셀파일 읽기
                         # ********************************************************************
-                        inpFilePatrn = f'india-20240428/**/IndiaPower{metaInfo}/**/*{keyYearInfo}*_{keyTypeInfo}_*.xlsx'
+                        # inpFilePatrn = f'india-20240509/**/IndiaPower{metaInfo}/**/*{keyYearInfo}*_{keyTypeInfo}_*.xlsx'
+                        inpFilePatrn = f'india-20240509/**/*_{keyTypeInfo}_*.xlsx'
                         inpFile = '{}/{}/{}'.format(globalVar['inpPath'], serviceName, inpFilePatrn)
                         fileList = sorted(glob.glob(inpFile, recursive=True))
                         if len(fileList) < 1: continue
@@ -391,7 +394,9 @@ class DtaProcess(object):
                             log.info(f'[CHECK] fileInfo : {fileInfo}')
 
                             # 엑셀 파일 읽기
-                            wb = load_workbook(fileInfo, data_only=True)
+                            # data_only=True 수식 제거
+                            # data_only=False 수식 유지
+                            wb = load_workbook(fileInfo, data_only=False)
 
                             # Main 시트
                             wsMain = wb['Main']
@@ -406,8 +411,8 @@ class DtaProcess(object):
                             wbData = pd.read_excel(fileInfo, sheet_name='En_ppl', engine='openpyxl', skiprows=2)
                             colNameItem = {cell.value: cell.column_letter for cell in ws[3]}
 
-                            keyGrpYearInfo = '2015' if re.search('2015|2016|2017|2018|2019', keyYearInfo) else '2020' if re.search('2020', keyYear) else 'None'
-                            # keyGrpYearInfo = '2015' if re.search('2015|2016|2017|2018|2019|2020', keyYearInfo) else 'None'
+                            # keyGrpYearInfo = '2015' if re.search('2015|2016|2017|2018|2019', keyYearInfo) else '2020' if re.search('2020', keyYear) else 'None'
+                            keyGrpYearInfo = '2015' if re.search('2015|2016|2017|2018|2019|2020', keyYearInfo) else 'None'
 
                             for idx, item in dataL2.iterrows():
                                 # engType = item['EnergyType']
@@ -423,21 +428,28 @@ class DtaProcess(object):
                                     if re.search('Act_abb', colName, re.IGNORECASE): continue
                                     if re.search('None', colName, re.IGNORECASE): continue
 
-                                    colVal = ws[f'{colNameItem[colName]}{rowIdx}'].value
+                                    # 셀 배경 채우기
+                                    cell = ws[f'{colNameItem[colName]}{rowIdx}']
+                                    cellFill = cell.fill.start_color.index
 
+                                    if cellFill != '00000000': continue
+                                    cell.value = 0.0
+
+                                    colVal = cell.value
                                     selVal = item.get(colName)
                                     if selVal is None: continue
-
                                     if colVal == selVal: continue
 
-                                    ws[f'{colNameItem[colName]}{rowIdx}'].value = selVal
-                                    log.info(f'[CHECK] engType : {engType} / colName : {colName} / colVal : {colVal} / selVal : {selVal}')
+                                    cell.value = selVal
+                                    log.info(f'[CHECK] engType : {engType} / colName : {colName} / colVal : {colVal} / selVal : {selVal} / cell.value : {cell.value}')
 
                             # fileName = os.path.basename(fileInfo)
-                            srtIdx = fileInfo.index('India_Gains')
+                            srtIdx = fileInfo.index('actPathEneMob')
                             fileName = fileInfo[srtIdx:]
 
-                            saveFile = '{}/{}/{}/{}'.format(globalVar['outPath'], serviceName, 'india-20240505', fileName)
+                            # saveFile = '{}/{}/{}/{}'.format(globalVar['outPath'], serviceName, 'india-20240509', fileName)
+                            # saveFile = '{}/{}/{}/{}/{}'.format(globalVar['outPath'], serviceName, 'india-2015-2020', metaInfo, fileName)
+                            saveFile = '{}/{}/{}/{}/{}'.format(globalVar['outPath'], serviceName, 'india-2015-2015', metaInfo, fileName)
                             os.makedirs(os.path.dirname(saveFile), exist_ok=True)
                             wb.save(saveFile)
                             log.info('[CHECK] saveFile : {}'.format(saveFile))

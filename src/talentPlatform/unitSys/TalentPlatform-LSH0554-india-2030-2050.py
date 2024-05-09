@@ -237,30 +237,6 @@ class DtaProcess(object):
 
             sysOpt = {
                 'metaList': {
-                    "2015_TPL_input2015",
-                    "2015_input2015",
-                    "2016_TPL_input2015",
-                    "2016_input2015",
-                    "2017_TPL_input2015",
-                    "2017_input2015",
-                    "2018_TPL_input2015",
-                    "2018_input2015",
-                    "2019_TPL_input2015",
-                    "2019_input2015",
-                    "2020_TPL_input2015",
-                    "2020_input2015",
-                    "2015_TPL_input2015",
-                    "2015_input2015",
-                    "2016_TPL_input2015",
-                    "2016_input2015",
-                    "2017_TPL_input2015",
-                    "2017_input2015",
-                    "2018_TPL_input2015",
-                    "2018_input2015",
-                    "2019_TPL_input2015",
-                    "2019_input2015",
-                    "2020_TPL_input2015",
-                    "2020_input2015",
                     "2030_1.5_SSP1",
                     "2030_1.5_SSP2",
                     "2030_2_SSP1",
@@ -316,7 +292,7 @@ class DtaProcess(object):
                 log.info(f'[CHECK] metaInfo : {metaInfo}')
 
                 # inpFilePatrn = f'india-20240502/**/{metaInfo}/**/*.csv'
-                inpFilePatrn = f'india-20240502/**/{metaInfo}/**/*.csv'
+                inpFilePatrn = f'india-20240509/**/{metaInfo}/**/*.csv'
                 inpFile = '{}/{}/{}'.format(globalVar['inpPath'], serviceName, inpFilePatrn)
                 fileList = sorted(glob.glob(inpFile, recursive=True))
 
@@ -384,7 +360,7 @@ class DtaProcess(object):
                 for keyYearInfo in keyYearList:
                     for keyTypeInfo in keyTypeList:
 
-                        # keyYearInfo = '2030'
+                        # keyYearInfo = '2050'
                         # keyTypeInfo = 'ANPR'
 
                         log.info(f'[CHECK] keyYearInfo : {keyYearInfo} / keyTypeInfo : {keyTypeInfo}')
@@ -396,7 +372,7 @@ class DtaProcess(object):
                         # 기준 엑셀파일 읽기
                         # ********************************************************************
                         # inpFilePatrn = f'india/IndiaPower{metaInfo}_*/*{keyYearInfo}*_{keyTypeInfo}_*.xlsx'
-                        inpFilePatrn = f'india-20240505/**/*_{keyTypeInfo}_*.xlsx'
+                        inpFilePatrn = f'india-20240509/**/*_{keyTypeInfo}_*.xlsx'
                         inpFile = '{}/{}/{}'.format(globalVar['inpPath'], serviceName, inpFilePatrn)
                         fileList = sorted(glob.glob(inpFile, recursive=True))
                         if len(fileList) < 1: continue
@@ -427,7 +403,7 @@ class DtaProcess(object):
                             # keyGrpYearInfo = '2015' if re.search('2015|2016|2017|2018|2019', keyYearInfo) else '2020' if re.search('2020', keyYear) else 'None'
                             keyGrpYearInfo = keyYearInfo
 
-                            # engType = 'HC3'
+                            # engType = 'HC2'
                             for idx, item in dataL2.iterrows():
                                 # engType = item['EnergyType']
                                 engType = item.get('EnergyType')
@@ -445,17 +421,17 @@ class DtaProcess(object):
                                     # 셀 배경 채우기
                                     cell = ws[f'{colNameItem[colName]}{rowIdx}']
                                     cellFill = cell.fill.start_color.index
-                                    colVal = cell.value
-                                    if cellFill == '00000000':
-                                        colVal = 0.0
 
+                                    if cellFill != '00000000': continue
+                                    cell.value = 0.0
+
+                                    colVal = cell.value
                                     selVal = item.get(colName)
                                     if selVal is None: continue
-
                                     if colVal == selVal: continue
 
-                                    ws[f'{colNameItem[colName]}{rowIdx}'].value = selVal
-                                    log.info(f'[CHECK] engType : {engType} / colName : {colName} / colVal : {colVal} / selVal : {selVal}')
+                                    cell.value = selVal
+                                    log.info(f'[CHECK] engType : {engType} / colName : {colName} / colVal : {colVal} / selVal : {selVal} / cell.value : {cell.value}')
 
                             # fileName = os.path.basename(fileInfo)
                             # srtIdx = fileInfo.index('IndiaPower')
@@ -463,7 +439,7 @@ class DtaProcess(object):
                             fileName = fileInfo[srtIdx:]
 
                             # saveFile = '{}/{}/{}/{}'.format(globalVar['outPath'], serviceName, 'india-20240506', fileName)
-                            saveFile = '{}/{}/{}/{}/{}'.format(globalVar['outPath'], serviceName, 'india-20240506', metaInfo, fileName)
+                            saveFile = '{}/{}/{}/{}/{}'.format(globalVar['outPath'], serviceName, 'india-2030-2050', metaInfo, fileName)
                             os.makedirs(os.path.dirname(saveFile), exist_ok=True)
                             wb.save(saveFile)
                             log.info(f'[CHECK] saveFile : {saveFile}')

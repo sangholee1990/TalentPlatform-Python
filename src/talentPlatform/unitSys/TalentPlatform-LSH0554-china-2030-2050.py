@@ -237,18 +237,6 @@ class DtaProcess(object):
 
             sysOpt = {
                 'metaList': {
-                    "2015_TPL_input2015",
-                    "2015_input2015",
-                    "2016_TPL_input2015",
-                    "2016_input2015",
-                    "2017_TPL_input2015",
-                    "2017_input2015",
-                    "2018_TPL_input2015",
-                    "2018_input2015",
-                    "2019_TPL_input2015",
-                    "2019_input2015",
-                    "2020_TPL_input2015",
-                    "2020_input2015",
                     "2030_1.5_SSP1",
                     "2030_1.5_SSP2",
                     "2030_2_SSP1",
@@ -336,10 +324,10 @@ class DtaProcess(object):
             for metaInfo in sysOpt['metaList']:
                 log.info(f'[CHECK] metaInfo : {metaInfo}')
 
-
                 # inpFilePatrn = f'china-20240502/**/{metaInfo}/**/*.csv'
                 # inpFilePatrn = f'china/**/{metaInfo}/**/*.csv'
-                inpFilePatrn = f'china-20240502/**/{metaInfo}/**/*.csv'
+                # inpFilePatrn = f'china-20240502/**/{metaInfo}/**/*.csv'
+                inpFilePatrn = f'china-20240509/**/{metaInfo}/**/*.csv'
                 inpFile = '{}/{}/{}'.format(globalVar['inpPath'], serviceName, inpFilePatrn)
                 fileList = sorted(glob.glob(inpFile, recursive=True))
 
@@ -418,7 +406,7 @@ class DtaProcess(object):
                         # 기준 엑셀파일 읽기
                         # ********************************************************************
                         # inpFilePatrn = f'China/ChinaPower{metaInfo}_*/**/*{keyYearInfo}*_{keyTypeInfo}_*.xlsx'
-                        inpFilePatrn = f'china-20240505/**/*_{keyTypeInfo}_*.xlsx'
+                        inpFilePatrn = f'china-20240509/**/*_{keyTypeInfo}_*.xlsx'
                         inpFile = '{}/{}/{}'.format(globalVar['inpPath'], serviceName, inpFilePatrn)
                         fileList = sorted(glob.glob(inpFile, recursive=True))
                         if len(fileList) < 1: continue
@@ -429,7 +417,9 @@ class DtaProcess(object):
                             log.info(f'[CHECK] fileInfo : {fileInfo}')
 
                             # 엑셀 파일 읽기
-                            wb = load_workbook(fileInfo, data_only=True)
+                            # data_only=True 수식 제거
+                            # data_only=False 수식 유지
+                            wb = load_workbook(fileInfo, data_only=False)
 
                             # Main 시트
                             wsMain = wb['Main']
@@ -462,15 +452,21 @@ class DtaProcess(object):
                                     if re.search('Act_abb', colName, re.IGNORECASE): continue
                                     if re.search('None', colName, re.IGNORECASE): continue
 
-                                    colVal = ws[f'{colNameItem[colName]}{rowIdx}'].value
+                                    # 셀 배경 채우기
+                                    cell = ws[f'{colNameItem[colName]}{rowIdx}']
+                                    cellFill = cell.fill.start_color.index
 
+                                    if cellFill != '00000000': continue
+                                    cell.value = 0.0
+
+                                    colVal = cell.value
                                     selVal = item.get(colName)
                                     if selVal is None: continue
-
                                     if colVal == selVal: continue
 
-                                    ws[f'{colNameItem[colName]}{rowIdx}'].value = selVal
-                                    # log.info(f'[CHECK] engType : {engType} / colName : {colName} / colVal : {colVal} / selVal : {selVal}')
+                                    cell.value = selVal
+                                    log.info(
+                                        f'[CHECK] engType : {engType} / colName : {colName} / colVal : {colVal} / selVal : {selVal} / cell.value : {cell.value}')
 
                             # fileName = os.path.basename(fileInfo)
                             # srtIdx = fileInfo.index('ChinaPower')
@@ -480,7 +476,8 @@ class DtaProcess(object):
                             # saveFile = '{}/{}/{}/{}_{}'.format(globalVar['outPath'], serviceName, 'china-20240428', 'NEW', fileName)
                             # saveFile = '{}/{}/{}/{}'.format(globalVar['outPath'], serviceName, 'china-20240504', fileName)
                             # saveFile = '{}/{}/{}/{}'.format(globalVar['outPath'], serviceName, 'china-20240505', fileName)
-                            saveFile = '{}/{}/{}/{}/{}'.format(globalVar['outPath'], serviceName, 'china-20240506', metaInfo, fileName)
+                            # saveFile = '{}/{}/{}/{}/{}'.format(globalVar['outPath'], serviceName, 'china-20240506', metaInfo, fileName)
+                            saveFile = '{}/{}/{}/{}/{}'.format(globalVar['outPath'], serviceName, 'china-2030-2050', metaInfo, fileName)
                             os.makedirs(os.path.dirname(saveFile), exist_ok=True)
                             wb.save(saveFile)
                             log.info('[CHECK] saveFile : {}'.format(saveFile))
