@@ -407,8 +407,8 @@ class DtaProcess(object):
                             log.info(f'[CHECK] fileInfo : {fileInfo}')
 
                             # 엑셀 파일 읽기
-                            # data_only=True 수식 결과 가져오기
-                            # data_only=False 수식 자체 가져오기
+                            # data_only=True 수식 제거
+                            # data_only=False 수식 유지
                             wb = load_workbook(fileInfo, data_only=False)
 
                             # Main 시트
@@ -466,7 +466,7 @@ class DtaProcess(object):
                             saveFile = '{}/{}/{}/{}/{}'.format(globalVar['outPath'], serviceName, 'india-20240506', metaInfo, fileName)
                             os.makedirs(os.path.dirname(saveFile), exist_ok=True)
                             wb.save(saveFile)
-                            log.info('[CHECK] saveFile : {}'.format(saveFile))
+                            log.info(f'[CHECK] saveFile : {saveFile}')
 
         except Exception as e:
             log.error("Exception : {}".format(e))
