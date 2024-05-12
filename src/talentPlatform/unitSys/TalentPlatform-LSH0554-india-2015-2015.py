@@ -259,8 +259,10 @@ class DtaProcess(object):
                     "2018_input2015",
                     "2019_TPL_input2015",
                     "2019_input2015",
-                    "2020_TPL_input2020",
-                    "2020_input2020",
+                    # "2020_TPL_input2020",
+                    # "2020_input2020",
+                    "2020_TPL_input2015",
+                    "2020_input2015",
                 }
             }
 
@@ -422,8 +424,8 @@ class DtaProcess(object):
                                     if cellFill != '00000000': continue
                                     cell.value = 0.0
 
-                            keyGrpYearInfo = '2015' if re.search('2015|2016|2017|2018|2019', keyYearInfo) else '2020' if re.search('2020', keyYear) else 'None'
-                            # keyGrpYearInfo = '2015' if re.search('2015|2016|2017|2018|2019|2020', keyYearInfo) else 'None'
+                            # keyGrpYearInfo = '2015' if re.search('2015|2016|2017|2018|2019', keyYearInfo) else '2020' if re.search('2020', keyYear) else 'None'
+                            keyGrpYearInfo = '2015' if re.search('2015|2016|2017|2018|2019|2020', keyYearInfo) else 'None'
 
                             for idx, item in dataL2.iterrows():
                                 # engType = item['EnergyType']
@@ -474,8 +476,8 @@ class DtaProcess(object):
                             # wsMain[f'B7'].value = f'IndiaPower{eleExtMrg}'
                             wsMain[f'B7'].value = metaInfo3
 
-                            saveFile = '{}/{}/{}/{}/{}'.format(globalVar['outPath'], serviceName, 'india-2015-2020', metaInfo3, fileName)
-                            # saveFile = '{}/{}/{}/{}/{}'.format(globalVar['outPath'], serviceName, 'india-2015-2015', metaInfo3, fileName)
+                            # saveFile = '{}/{}/{}/{}/{}'.format(globalVar['outPath'], serviceName, 'india-2015-2020', metaInfo3, fileName)
+                            saveFile = '{}/{}/{}/{}/{}'.format(globalVar['outPath'], serviceName, 'india-2015-2015', metaInfo3, fileName)
                             os.makedirs(os.path.dirname(saveFile), exist_ok=True)
                             wb.save(saveFile)
                             log.info('[CHECK] saveFile : {}'.format(saveFile))
