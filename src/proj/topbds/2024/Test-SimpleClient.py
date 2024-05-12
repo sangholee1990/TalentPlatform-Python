@@ -14,14 +14,7 @@ import cv2
 from PIL import Image
 import json
 import requests
-
-# =======================================================================================
-# Functions
-
 import gzip, pickle
-
-# ==================================================================================================
-# Functions
 
 def save_model(obj, filename):
     file = gzip.GzipFile(filename, 'wb')
@@ -31,7 +24,6 @@ def load_model(filename):
     file = gzip.GzipFile(filename, 'rb')
     obj = pickle.load(file)
     return obj
-
 
 def recommends_cf(payload):
     try:
