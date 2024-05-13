@@ -51,30 +51,41 @@ echo "[$(date +"%Y-%m-%d %H:%M:%S")] [CHECK] CTX_PATH : $CTX_PATH"
 # Run Shell
 #========================================
 # GW
-${PY_PATH} ${RUN_PATH}/TalentPlatform-LSH0547-GW-proc.py --analyList "1981-2010" --selIdx "0" &
-${PY_PATH} ${RUN_PATH}/TalentPlatform-LSH0547-GW-proc.py --analyList "1981-2010" --selIdx "1" &
-${PY_PATH} ${RUN_PATH}/TalentPlatform-LSH0547-GW-proc.py --analyList "1981-2010" --selIdx "2" &
+#${PY_PATH} ${RUN_PATH}/TalentPlatform-LSH0547-GW-proc.py --analyList "1981-2010" --selIdx "0" &
+#${PY_PATH} ${RUN_PATH}/TalentPlatform-LSH0547-GW-proc.py --analyList "1981-2010" --selIdx "1" &
+#${PY_PATH} ${RUN_PATH}/TalentPlatform-LSH0547-GW-proc.py --analyList "1981-2010" --selIdx "2" &
+#
+#${PY_PATH} ${RUN_PATH}/TalentPlatform-LSH0547-GW-proc.py --analyList "1990-2020" --selIdx "0" &
+#${PY_PATH} ${RUN_PATH}/TalentPlatform-LSH0547-GW-proc.py --analyList "1990-2020" --selIdx "1" &
+#${PY_PATH} ${RUN_PATH}/TalentPlatform-LSH0547-GW-proc.py --analyList "1990-2020" --selIdx "2" &
+#
+#${PY_PATH} ${RUN_PATH}/TalentPlatform-LSH0547-GW-proc.py --analyList "2010-2020" --selIdx "0" &
+#${PY_PATH} ${RUN_PATH}/TalentPlatform-LSH0547-GW-proc.py --analyList "2010-2020" --selIdx "1" &
+#${PY_PATH} ${RUN_PATH}/TalentPlatform-LSH0547-GW-proc.py --analyList "2010-2020" --selIdx "2" &
 
-${PY_PATH} ${RUN_PATH}/TalentPlatform-LSH0547-GW-proc.py --analyList "1990-2020" --selIdx "0" &
-${PY_PATH} ${RUN_PATH}/TalentPlatform-LSH0547-GW-proc.py --analyList "1990-2020" --selIdx "1" &
-${PY_PATH} ${RUN_PATH}/TalentPlatform-LSH0547-GW-proc.py --analyList "1990-2020" --selIdx "2" &
+${PY_PATH} ${RUN_PATH}/TalentPlatform-LSH0547-GW2-proc.py --analyList "1981-2010" --selIdx "0" &
+${PY_PATH} ${RUN_PATH}/TalentPlatform-LSH0547-GW2-proc.py --analyList "1981-2010" --selIdx "1" &
 
-${PY_PATH} ${RUN_PATH}/TalentPlatform-LSH0547-GW-proc.py --analyList "2010-2020" --selIdx "0" &
-${PY_PATH} ${RUN_PATH}/TalentPlatform-LSH0547-GW-proc.py --analyList "2010-2020" --selIdx "1" &
-${PY_PATH} ${RUN_PATH}/TalentPlatform-LSH0547-GW-proc.py --analyList "2010-2020" --selIdx "2" &
+${PY_PATH} ${RUN_PATH}/TalentPlatform-LSH0547-GW2-proc.py --analyList "1990-2020" --selIdx "0" &
+${PY_PATH} ${RUN_PATH}/TalentPlatform-LSH0547-GW2-proc.py --analyList "1990-2020" --selIdx "1" &
+
+${PY_PATH} ${RUN_PATH}/TalentPlatform-LSH0547-GW2-proc.py --analyList "2010-2020" --selIdx "0" &
+${PY_PATH} ${RUN_PATH}/TalentPlatform-LSH0547-GW2-proc.py --analyList "2010-2020" --selIdx "1" &
 
 # GL
-${PY_PATH} ${RUN_PATH}/TalentPlatform-LSH0547-GL-proc.py --analyList "1981-2010" --selIdx "0" &
-${PY_PATH} ${RUN_PATH}/TalentPlatform-LSH0547-GL-proc.py --analyList "1981-2010" --selIdx "1" &
-${PY_PATH} ${RUN_PATH}/TalentPlatform-LSH0547-GL-proc.py --analyList "1981-2010" --selIdx "2" &
+#${PY_PATH} ${RUN_PATH}/TalentPlatform-LSH0547-GL-proc.py --analyList "1981-2010" --selIdx "0" &
+#${PY_PATH} ${RUN_PATH}/TalentPlatform-LSH0547-GL-proc.py --analyList "1981-2010" --selIdx "1" &
+#${PY_PATH} ${RUN_PATH}/TalentPlatform-LSH0547-GL-proc.py --analyList "1981-2010" --selIdx "2" &
+#
+#${PY_PATH} ${RUN_PATH}/TalentPlatform-LSH0547-GL-proc.py --analyList "1990-2020" --selIdx "0" &
+#${PY_PATH} ${RUN_PATH}/TalentPlatform-LSH0547-GL-proc.py --analyList "1990-2020" --selIdx "1" &
+#${PY_PATH} ${RUN_PATH}/TalentPlatform-LSH0547-GL-proc.py --analyList "1990-2020" --selIdx "2" &
+#
+#${PY_PATH} ${RUN_PATH}/TalentPlatform-LSH0547-GL-proc.py --analyList "2010-2020" --selIdx "0" &
+#${PY_PATH} ${RUN_PATH}/TalentPlatform-LSH0547-GL-proc.py --analyList "2010-2020" --selIdx "1" &
+#${PY_PATH} ${RUN_PATH}/TalentPlatform-LSH0547-GL-proc.py --analyList "2010-2020" --selIdx "2" &
 
-${PY_PATH} ${RUN_PATH}/TalentPlatform-LSH0547-GL-proc.py --analyList "1990-2020" --selIdx "0" &
-${PY_PATH} ${RUN_PATH}/TalentPlatform-LSH0547-GL-proc.py --analyList "1990-2020" --selIdx "1" &
-${PY_PATH} ${RUN_PATH}/TalentPlatform-LSH0547-GL-proc.py --analyList "1990-2020" --selIdx "2" &
 
-${PY_PATH} ${RUN_PATH}/TalentPlatform-LSH0547-GL-proc.py --analyList "2010-2020" --selIdx "0" &
-${PY_PATH} ${RUN_PATH}/TalentPlatform-LSH0547-GL-proc.py --analyList "2010-2020" --selIdx "1" &
-${PY_PATH} ${RUN_PATH}/TalentPlatform-LSH0547-GL-proc.py --analyList "2010-2020" --selIdx "2" &
 
 echo "[$(date +"%Y-%m-%d %H:%M:%S")] [END] Main Shell : $0"
 

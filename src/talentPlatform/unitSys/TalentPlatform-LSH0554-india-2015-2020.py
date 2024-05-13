@@ -187,6 +187,8 @@ class DtaProcess(object):
     # zip -r china-2015-2020.zip china-2015-2020/
     # zip -r china-2015-2015.zip china-2015-2015/
 
+    # ps -ef | grep LSH0554 | awk '{print $2}' | xargs kill -9
+
     # ================================================================================================
     # 환경변수 설정
     # ================================================================================================
@@ -257,8 +259,8 @@ class DtaProcess(object):
                     "2018_input2015",
                     "2019_TPL_input2015",
                     "2019_input2015",
-                    "2020_TPL_input2015",
-                    "2020_input2015",
+                    "2020_TPL_input2020",
+                    "2020_input2020",
                 }
             }
 
@@ -403,18 +405,22 @@ class DtaProcess(object):
                             # data_only=False 수식 유지
                             wb = load_workbook(fileInfo, data_only=False)
 
-                            # Main 시트
-                            wsMain = wb['Main']
-                            # eleList = [keyYearInfo, sKeyIdxInfo, sKeyVerInfo]
-                            eleList = [metaInfo]
-                            eleExtList = [element for element in eleList if element != '']
-                            eleExtMrg = '_'.join(eleExtList)
-                            wsMain[f'B7'].value = f'IndiaPower{eleExtMrg}'
-
                             # En_ppl 시트
                             ws = wb['En_ppl']
                             wbData = pd.read_excel(fileInfo, sheet_name='En_ppl', engine='openpyxl', skiprows=2)
                             colNameItem = {cell.value: cell.column_letter for cell in ws[3]}
+
+                            # 초기화
+                            for idx, item in wbData.iterrows():
+                                for colName, colCell in colNameItem.items():
+                                    if colName is None: continue
+                                    if re.search('year', colName, re.IGNORECASE): continue
+                                    if re.search('Act_abb', colName, re.IGNORECASE): continue
+                                    if re.search('None', colName, re.IGNORECASE): continue
+                                    cell = ws[f'{colNameItem[colName]}{idx + 4}']
+                                    cellFill = cell.fill.start_color.index
+                                    if cellFill != '00000000': continue
+                                    cell.value = 0.0
 
                             keyGrpYearInfo = '2015' if re.search('2015|2016|2017|2018|2019', keyYearInfo) else '2020' if re.search('2020', keyYear) else 'None'
                             # keyGrpYearInfo = '2015' if re.search('2015|2016|2017|2018|2019|2020', keyYearInfo) else 'None'
@@ -438,7 +444,7 @@ class DtaProcess(object):
                                     cellFill = cell.fill.start_color.index
 
                                     if cellFill != '00000000': continue
-                                    cell.value = 0.0
+                                    # cell.value = 0.0
 
                                     colVal = cell.value
                                     selVal = item.get(colName)
@@ -451,13 +457,25 @@ class DtaProcess(object):
                             # fileName = os.path.basename(fileInfo)
                             srtIdx = fileInfo.index('actPathEneMob')
                             # fileName = fileInfo[srtIdx:]
+
+                            if metaInfo == '2015_TPL_input2015': metaInfo = '2015_TPL'
+                            if metaInfo == '2015_input2015': metaInfo = '2015'
+
                             metaInfo2 = re.sub(r'\.', '', metaInfo)
                             metaInfo3 = f'IndiaPower{metaInfo2}'
                             fileName = fileInfo[srtIdx:].replace('IndiaPower2015', metaInfo3)
 
-                            # saveFile = '{}/{}/{}/{}'.format(globalVar['outPath'], serviceName, 'india-20240509', fileName)
-                            saveFile = '{}/{}/{}/{}/{}'.format(globalVar['outPath'], serviceName, 'india-2015-2020', metaInfo, fileName)
-                            # saveFile = '{}/{}/{}/{}/{}'.format(globalVar['outPath'], serviceName, 'india-2015-2015', metaInfo, fileName)
+                            # Main 시트
+                            wsMain = wb['Main']
+                            # eleList = [keyYearInfo, sKeyIdxInfo, sKeyVerInfo]
+                            # eleList = [metaInfo]
+                            # eleExtList = [element for element in eleList if element != '']
+                            # eleExtMrg = '_'.join(eleExtList)
+                            # wsMain[f'B7'].value = f'IndiaPower{eleExtMrg}'
+                            wsMain[f'B7'].value = metaInfo3
+
+                            saveFile = '{}/{}/{}/{}/{}'.format(globalVar['outPath'], serviceName, 'india-2015-2020', metaInfo3, fileName)
+                            # saveFile = '{}/{}/{}/{}/{}'.format(globalVar['outPath'], serviceName, 'india-2015-2015', metaInfo3, fileName)
                             os.makedirs(os.path.dirname(saveFile), exist_ok=True)
                             wb.save(saveFile)
                             log.info('[CHECK] saveFile : {}'.format(saveFile))
