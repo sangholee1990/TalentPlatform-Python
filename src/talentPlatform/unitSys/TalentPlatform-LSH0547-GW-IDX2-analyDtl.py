@@ -608,10 +608,6 @@ class DtaProcess(object):
                                 # slopeDataL1 = slopeData[f't2m-slope'].sel(lat=latList, lon=lonList)
                                 slopeDataL4 = slopeDataL3[f'{procInfo}-slope']
 
-                                # if re.search('1981-2020', analyInfo, re.IGNORECASE):
-                                #     vmin = np.nanmin(slopeDataL4)
-                                #     vmax = np.nanmax(slopeDataL4)
-
                                 meanVal = np.nanmean(slopeDataL4)
 
                                 key = f'{analyInfo}-all'

@@ -306,8 +306,8 @@ class DtaProcess(object):
                 # 수행 목록
                 , 'modelList': ['REANALY-ECMWF-1M-GW-IDX']
 
-                , 'analyList': ['1981-1990', '1991-2000', '2001-2010', '2011-2020']
-                # , 'analyList': ['1981-2020']
+                # , 'analyList': ['1981-2020', '1981-1990', '1991-2000', '2001-2010', '2011-2020']
+                , 'analyList': ['1981-2020']
 
                 , 'REANALY-ECMWF-1M-GW-IDX': {
                     'filePath': '/DATA/INPUT/LSH0547/gwangju_index/%Y'
