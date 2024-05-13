@@ -19,13 +19,15 @@ import pandas as pd
 import pytz
 import xarray as xr
 from pandas.tseries.offsets import Hour
-from psutil.tests import retry
 import yaml
 from multiprocessing import Pool
 import multiprocessing as mp
-import cdsapi
 import avl
 import harp
+from matplotlib.collections import PolyCollection
+import matplotlib.cm as cm
+import matplotlib.colors as colors
+from netCDF4 import Dataset, num2date
 
 # =================================================
 # 사용자 매뉴얼
@@ -167,20 +169,24 @@ def initArgument(globalVar, inParams):
 
     return globalVar
 
-def plot_parameter_2D(
-    parameter="wind_result_wind_velocity",
-    channel="rayleigh",
-    obs_type="clear",
-    QC_filter=True,
-    error_estimate_threshold=800,
-    start_bin=0,
-    end_bin=-1,
-):
+def format_date(x, pos=None):
+    dt_obj = num2date(x, units="s since 2000-01-01", only_use_cftime_datetimes=False)
+    return dt_obj.strftime("%H:%M:%S")
 
-    if channel == "rayleigh":
-        ds = ds_rayleigh
-    elif channel == "mie":
-        ds = ds_mie
+def plot_parameter_2D(
+        parameter="wind_result_wind_velocity",
+        channel="rayleigh",
+        obs_type="clear",
+        QC_filter=True,
+        error_estimate_threshold=800,
+        start_bin=0,
+        end_bin=-1,
+        ds=None
+):
+    # if channel == "rayleigh":
+    #     ds = ds_rayleigh
+    # elif channel == "mie":
+    #     ds = ds_mie
 
     # define necessary parameters for plotting
     X0 = ds[channel + "_wind_result_start_time"].values
@@ -257,10 +263,6 @@ def plot_parameter_2D(
     ax.set_title("{} - {} \n {} wind results".format(channel.title(), parameter, len(Z)))
     ax.grid()
     ax.legend()
-
-    def format_date(x, pos=None):
-        dt_obj = num2date(x, units="s since 2000-01-01", only_use_cftime_datetimes=False)
-        return dt_obj.strftime("%H:%M:%S")
 
     ax.xaxis.set_major_formatter(format_date)
     ax.autoscale()
@@ -363,7 +365,6 @@ class DtaProcess(object):
 
 
             # https://aeolus.services 플랫폼
-
             # https://aeolus.services/ows
             # hAAFUwbvPvnzzgGTxaU3ttAfufVKyp9-
 
@@ -444,7 +445,7 @@ class DtaProcess(object):
             # check if parameter list is not empty
             if len(parameter_rayleigh) > 0:
                 # request = AeolusRequest()
-                request = AeolusRequest(url='https://aeolus.services/ows', token='hAAFUwbvPvnzzgGTxaU3ttAfufVKyp9-')
+                request = AeolusRequest(url='https://aeolus.services/ows')
 
                 request.set_collection(DATA_PRODUCT)
 
@@ -469,7 +470,7 @@ class DtaProcess(object):
             # check if parameter list is not empty
             if len(parameter_mie) > 0:
                 # request = AeolusRequest()
-                request = AeolusRequest(url='https://aeolus.services/ows', token='hAAFUwbvPvnzzgGTxaU3ttAfufVKyp9-')
+                request = AeolusRequest(url='https://aeolus.services/ows')
 
                 request.set_collection(DATA_PRODUCT)
 
@@ -490,17 +491,36 @@ class DtaProcess(object):
 
             # Save data as xarray data sets
             # check if variable is assigned
-            if "data_rayleigh" in globals():
-                ds_rayleigh = data_rayleigh.as_xarray()
-            if "data_mie" in globals():
-                ds_mie = data_mie.as_xarray()
-            #
+            # if "data_rayleigh" in globals():
+            #     ds_rayleigh = data_rayleigh.as_xarray()
+            # if "data_mie" in globals():
+            #     ds_mie = data_mie.as_xarray()
+
+            ds_rayleigh = data_rayleigh.as_xarray()
+            ds_mie = data_mie.as_xarray()
+
             # ds_rayleigh['rayleigh_wind_result_wind_velocity'].plot()
             # plt.show()
-            #
+
             # ds_mie['mie_wind_result_wind_velocity'].plot()
             # plt.show()
 
+            dtSrtDate = pd.to_datetime(measurement_start)
+            dtEndDate = pd.to_datetime(measurement_stop)
+
+            srtDate = dtSrtDate.strftime('%Y%m%d%H%M')
+            endDate = dtEndDate.strftime('%Y%m%d%H%M')
+
+            procFile = '{}/{}/{}_{}_{}.nc'.format(globalVar['outPath'], serviceName, 'AE_OPER_ALD_U_N_2B_rayleigh_wind-velocity', srtDate, endDate)
+            os.makedirs(os.path.dirname(procFile), exist_ok=True)
+            data_rayleigh.to_file(procFile, overwrite=True)
+            log.info(f'[CHECK] procFile : {procFile}')
+
+            procFile = '{}/{}/{}_{}_{}.nc'.format(globalVar['outPath'], serviceName, 'AE_OPER_ALD_U_N_2B_mie_wind-velocity', srtDate, endDate)
+            os.makedirs(os.path.dirname(procFile), exist_ok=True)
+            # ds_mie['mie_wind_result_wind_velocity'].to_netcdf(procFile)
+            data_mie.to_file(procFile, overwrite=True)
+            log.info(f'[CHECK] procFile : {procFile}')
 
             plot_parameter_2D(
                 parameter="wind_result_wind_velocity",
@@ -510,8 +530,16 @@ class DtaProcess(object):
                 error_estimate_threshold=800,
                 start_bin=0,
                 end_bin=-1,
+                ds=ds_rayleigh
             )
+
+            saveImg = '{}/{}/{}_{}_{}.png'.format(globalVar['figPath'], serviceName, 'AE_OPER_ALD_U_N_2B_rayleigh_wind-velocity', srtDate, endDate)
+            os.makedirs(os.path.dirname(saveImg), exist_ok=True)
+            plt.savefig(saveImg, dpi=600, bbox_inches='tight', transparent=False)
+            # plt.tight_layout()
             plt.show()
+            plt.close()
+            log.info(f'[CHECK] saveImg : {saveImg}')
 
             plot_parameter_2D(
                 parameter="wind_result_wind_velocity",
@@ -521,8 +549,16 @@ class DtaProcess(object):
                 error_estimate_threshold=500,
                 start_bin=0,
                 end_bin=-1,
+                ds=ds_mie
             )
+
+            saveImg = '{}/{}/{}_{}_{}.png'.format(globalVar['figPath'], serviceName, 'AE_OPER_ALD_U_N_2B_mie_wind-velocity', srtDate, endDate)
+            os.makedirs(os.path.dirname(saveImg), exist_ok=True)
+            plt.savefig(saveImg, dpi=600, bbox_inches='tight', transparent=False)
+            # plt.tight_layout()
             plt.show()
+            plt.close()
+            log.info(f'[CHECK] saveImg : {saveImg}')
 
             # 시작-종료 맵 시각화
             fig, ax = plt.subplots(
@@ -567,34 +603,14 @@ class DtaProcess(object):
                 axis.legend()
                 axis.set_title(obs_type.title())
             fig.suptitle("Aeolus orbit \n from {} to {} \n".format(measurement_start, measurement_stop))
+
+            saveImg = '{}/{}/{}_{}_{}.png'.format(globalVar['figPath'], serviceName, 'AE_OPER_ALD_U_N_2B_orbit', srtDate, endDate)
+            os.makedirs(os.path.dirname(saveImg), exist_ok=True)
+            plt.savefig(saveImg, dpi=600, bbox_inches='tight', transparent=False)
+            # plt.tight_layout()
             plt.show()
-
-
-
-
-
-            # DBL 사용법
-            # import avl
-            # import harp
-            #
-            #
-            # file_in = "/DATA/INPUT/INDI2024/DATA/COLCT/AE_OPER_ALD_U_N_2B_20230502T015558_20230502T040608_0001.DBL"
-            # # file_in = "/DATA/INPUT/INDI2024/DATA/COLCT/AE_OPER_ALD_U_N_2C_20230430T012058_20230430T034020_0001.DBL"
-            #
-            # operations = ";".join([
-            #     "latitude>35;latitude<68",
-            #     "longitude>0;longitude<20"
-            #     # "hlos_wind_velocity_validity>0",
-            #     # "keep(datetime_start,datetime_stop,latitude,longitude,hlos_wind_velocity, altitude_bounds)",
-            #     # "derive(hlos_wind_velocity [m/s])",
-            #     # "derive(altitude_bounds [km])"
-            # ])
-            #
-            # # result = avl.download(file_in)
-            # # windproduct = harp.import_product(file_in, operations)
-            # windproduct = harp.import_product(file_in)
-            # print(windproduct)
-
+            plt.close()
+            log.info(f'[CHECK] saveImg : {saveImg}')
 
         except Exception as e:
             log.error(f"Exception : {e}")
