@@ -27,6 +27,8 @@ from multiprocessing import Pool
 import multiprocessing as mp
 
 from openpyxl import load_workbook
+from openpyxl.styles import Font
+from copy import copy
 
 # =================================================
 # 사용자 매뉴얼
@@ -445,6 +447,8 @@ class DtaProcess(object):
                                     if re.search('year', colName, re.IGNORECASE): continue
                                     if re.search('Act_abb', colName, re.IGNORECASE): continue
                                     if re.search('None', colName, re.IGNORECASE): continue
+                                    if re.search('PP_TOTAL', colName, re.IGNORECASE): continue
+
                                     cell = ws[f'{colNameItem[colName]}{idx + 4}']
                                     cellFill = cell.fill.start_color.index
                                     if cellFill != '00000000': continue
@@ -466,6 +470,7 @@ class DtaProcess(object):
                                     if re.search('year', colName, re.IGNORECASE): continue
                                     if re.search('Act_abb', colName, re.IGNORECASE): continue
                                     if re.search('None', colName, re.IGNORECASE): continue
+                                    if re.search('PP_TOTAL', colName, re.IGNORECASE): continue
 
                                     # 셀 배경 채우기
                                     cell = ws[f'{colNameItem[colName]}{rowIdx}']
@@ -487,8 +492,8 @@ class DtaProcess(object):
                             srtIdx = fileInfo.index('actPathEneMob')
                             # fileName = fileInfo[srtIdx:]
 
-                            if metaInfo == '2015_TPL_input2015': metaInfo = '2015_TPL'
-                            if metaInfo == '2015_input2015': metaInfo = '2015'
+                            # if metaInfo == '2015_TPL_input2015': metaInfo = '2015_TPL'
+                            # if metaInfo == '2015_input2015': metaInfo = '2015'
 
                             metaInfo2 = re.sub(r'\.', '', metaInfo)
                             metaInfo3 = f'ChinaPower{metaInfo2}'
@@ -502,6 +507,13 @@ class DtaProcess(object):
                             # eleExtMrg = '_'.join(eleExtList)
                             # wsMain[f'B7'].value = f'ChinaPower{eleExtMrg}'
                             wsMain[f'B7'].value = metaInfo3
+
+                            # 기울림체 삭제
+                            wsMain[f'B3'].value = metaInfo3
+                            orgFont = wsMain[f'B3'].font
+                            newFont = copy(orgFont)
+                            newFont.italic = False
+                            wsMain[f'B3'].font = newFont
 
                             # saveFile = '{}/{}/{}/{}/{}'.format(globalVar['outPath'], serviceName, 'china-2015-2020',metaInfo3, fileName)
                             saveFile = '{}/{}/{}/{}/{}'.format(globalVar['outPath'], serviceName, 'china-2015-2015', metaInfo3, fileName)

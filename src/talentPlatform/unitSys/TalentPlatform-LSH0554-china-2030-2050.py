@@ -27,6 +27,8 @@ from multiprocessing import Pool
 import multiprocessing as mp
 
 from openpyxl import load_workbook
+from openpyxl.styles import Font
+from copy import copy
 
 # =================================================
 # 사용자 매뉴얼
@@ -445,6 +447,8 @@ class DtaProcess(object):
                                     if re.search('year', colName, re.IGNORECASE): continue
                                     if re.search('Act_abb', colName, re.IGNORECASE): continue
                                     if re.search('None', colName, re.IGNORECASE): continue
+                                    if re.search('PP_TOTAL', colName, re.IGNORECASE): continue
+
                                     cell = ws[f'{colNameItem[colName]}{idx + 4}']
                                     cellFill = cell.fill.start_color.index
                                     if cellFill != '00000000': continue
@@ -467,6 +471,7 @@ class DtaProcess(object):
                                     if re.search('year', colName, re.IGNORECASE): continue
                                     if re.search('Act_abb', colName, re.IGNORECASE): continue
                                     if re.search('None', colName, re.IGNORECASE): continue
+                                    if re.search('PP_TOTAL', colName, re.IGNORECASE): continue
 
                                     # 셀 배경 채우기
                                     cell = ws[f'{colNameItem[colName]}{rowIdx}']
@@ -499,6 +504,13 @@ class DtaProcess(object):
                             # eleExtMrg = '_'.join(eleExtList)
                             # wsMain[f'B7'].value = f'ChinaPower{eleExtMrg}'
                             wsMain[f'B7'].value = metaInfo3
+
+                            # 기울림체 삭제
+                            wsMain[f'B3'].value = metaInfo3
+                            orgFont = wsMain[f'B3'].font
+                            newFont = copy(orgFont)
+                            newFont.italic = False
+                            wsMain[f'B3'].font = newFont
 
                             saveFile = '{}/{}/{}/{}/{}'.format(globalVar['outPath'], serviceName, 'china-2030-2050', metaInfo3, fileName)
                             os.makedirs(os.path.dirname(saveFile), exist_ok=True)
