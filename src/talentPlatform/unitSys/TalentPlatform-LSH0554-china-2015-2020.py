@@ -490,8 +490,8 @@ class DtaProcess(object):
                             srtIdx = fileInfo.index('actPathEneMob')
                             # fileName = fileInfo[srtIdx:]
 
-                            if metaInfo == '2015_TPL_input2015': metaInfo = '2015_TPL'
-                            if metaInfo == '2015_input2015': metaInfo = '2015'
+                            # if metaInfo == '2015_TPL_input2015': metaInfo = '2015_TPL'
+                            # if metaInfo == '2015_input2015': metaInfo = '2015'
 
                             metaInfo2 = re.sub(r'\.', '', metaInfo)
                             metaInfo3 = f'ChinaPower{metaInfo2}'
