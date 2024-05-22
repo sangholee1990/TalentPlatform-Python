@@ -19,11 +19,11 @@ import pandas as pd
 import pytz
 import xarray as xr
 from pandas.tseries.offsets import Hour
-from psutil.tests import retry
-from sqlalchemy import MetaData, Table
-from sqlalchemy import create_engine, text
-from sqlalchemy.dialects.postgresql import insert
-from sqlalchemy.orm import sessionmaker
+# from psutil.tests import retry
+# from sqlalchemy import MetaData, Table
+# from sqlalchemy import create_engine, text
+# from sqlalchemy.dialects.postgresql import insert
+# from sqlalchemy.orm import sessionmaker
 import yaml
 from multiprocessing import Pool
 import multiprocessing as mp
@@ -300,12 +300,46 @@ class DtaProcess(object):
 
             # 옵션 설정
             sysOpt = {
-                # 시작일, 종료일, 시간 간격
+                # 시작일, 종료일, 시간 간격 (연 1y, 월 1h, 일 1d, 시간 1h)
                 'srtDate': '2024-01-01'
                 , 'endDate': '2024-01-02'
-                , 'invDate': 1
+                , 'invDate': '1h'
 
-                , 'modelList': ['KIER-LDAPS', 'KIER-RDAPS']
+                # 수행 목록
+                , 'modelList': ['REANALY-ERA5-25K-UNIS']
+
+                , 'REANALY-ERA5-25K-UNIS': {
+                    'name': 'reanalysis-era5-pressure-levels'
+                    , 'request': {
+                        'product_type': 'reanalysis',
+                        'format': 'netcdf',
+                        'variable': [
+                            'u_component_of_wind', 'v_component_of_wind',
+                            # 'all',
+                        ],
+                        'pressure_level': [
+                            # 'all'
+                            '1000'
+                        ],
+                        'year': [
+                            '2024'
+                        ],
+                        'month': [
+                            '04'
+                        ],
+                        'day': [
+                            '01'
+                        ],
+                        'time': [
+                            '00:00'
+                        ],
+                        'area': [
+                            # 90, -180, -90, 180,
+                            30, 120, 31, 121,
+                        ],
+                    }
+                    , 'target': '/DATA/INPUT/INDI2024/DATA/REANALY-ERA5/%Y/%m/%d/reanaly-era5-pres_%Y%m%d%H%M.grib'
+                }
 
                 # 비동기 다중 프로세스 개수
                 , 'cpuCoreNum': 5
@@ -314,6 +348,13 @@ class DtaProcess(object):
             # **************************************************************************************************************
             # 비동기 다중 프로세스 수행
             # **************************************************************************************************************
+            # 시작일/종료일 설정
+            dtSrtDate = pd.to_datetime(sysOpt['srtDate'], format='%Y-%m-%d')
+            dtEndDate = pd.to_datetime(sysOpt['endDate'], format='%Y-%m-%d')
+            dtDateList = pd.date_range(start=dtSrtDate, end=dtEndDate, freq=sysOpt['invDate'])
+
+
+
             colctFile()
 
             # do_something_unreliable()
