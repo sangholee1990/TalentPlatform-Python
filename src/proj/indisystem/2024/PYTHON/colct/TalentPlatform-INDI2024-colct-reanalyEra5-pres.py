@@ -175,9 +175,6 @@ def initArgument(globalVar, inParams):
 @retry(stop_max_attempt_number=10)
 def colctFile():
     try:
-        # url: https://cds.climate.copernicus.eu/api/v2
-        # key: 38372:e61b5517-d919-47b6-93bf-f9a01ee4246f
-
         #       tmpFileInfo=${fileInfo}
         #       updFileInfo=${fileInfo/${TMP_KEY}/}
         #
@@ -195,7 +192,7 @@ def colctFile():
         url = ''
         key = ''
 
-        c = cdsapi.Client(quiet=True, url=url, key=key)
+        c = cdsapi.Client(timeout=9999999, quiet=True, debug=True, url=url, key=key)
         c.retrieve(
             'reanalysis-era5-pressure-levels',
             {
@@ -219,10 +216,6 @@ def colctFile():
                     '01'
                 ],
                 'time': [
-                    # '00:00', '01:00', '02:00', '03:00', '04:00', '05:00', '06:00', '07:00', '08:00', '09:00', '10:00',
-                    # '11:00', '12:00', '13:00', '14:00', '15:00', '16:00', '17:00', '18:00', '19:00', '20:00', '21:00',
-                    # '22:00', '23:00'
-                    
                     '00:00'
                 ],
                 'area': [
