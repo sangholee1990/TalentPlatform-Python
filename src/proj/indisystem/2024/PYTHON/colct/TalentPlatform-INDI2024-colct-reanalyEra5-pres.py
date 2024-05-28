@@ -29,6 +29,7 @@ from multiprocessing import Pool
 import multiprocessing as mp
 from retrying import retry
 import cdsapi
+import shutil
 
 # =================================================
 # 사용자 매뉴얼
@@ -173,62 +174,45 @@ def initArgument(globalVar, inParams):
 
 
 @retry(stop_max_attempt_number=10)
-def colctFile():
+def subColct(modelInfo, dtDateInfo):
     try:
-        #       tmpFileInfo=${fileInfo}
-        #       updFileInfo=${fileInfo/${TMP_KEY}/}
-        #
-        #       # 임시/업로드 파일 여부, 다운로드 용량 여부
-        #       if [ $? -eq 0 ] && [ -e $tmpFileInfo ] && ([ ! -e ${updFileInfo} ] || [ $(stat -c %s ${tmpFileInfo}) -gt $(stat -c %s ${updFileInfo}) ]); then
-        #           mkdir -p ${updFileInfo%/*}
-        #           mv -f ${tmpFileInfo} ${updFileInfo}
-        #           echo "[$(date +"%Y-%m-%d %H:%M:%S")] [CHECK] CMD : mv -f ${tmpFileInfo} ${updFileInfo}"
-        #       else
-        #           rm -f ${tmpFileInfo}
-        #           echo "[$(date +"%Y-%m-%d %H:%M:%S")] [CHECK] CMD : rm -f ${tmpFileInfo}"
-        #       fi
-        #     done
+        procInfo = mp.current_process()
 
-        url = ''
-        key = ''
+        for key in ['year', 'month', 'day', 'time']:
+            modelInfo['request'][key] = [dtDateInfo.strftime(fmt) for fmt in modelInfo['request'][key]]
 
-        c = cdsapi.Client(timeout=9999999, quiet=True, debug=True, url=url, key=key)
-        c.retrieve(
-            'reanalysis-era5-pressure-levels',
-            {
-                'product_type': 'reanalysis',
-                'format': 'netcdf',
-                'variable': [
-                    'u_component_of_wind', 'v_component_of_wind',
-                    # 'all',
-                ],
-                'pressure_level': [
-                    # 'all'
-                    '1000'
-                ],
-                'year': [
-                    '2024'
-                ],
-                'month': [
-                    '04'
-                ],
-                'day': [
-                    '01'
-                ],
-                'time': [
-                    '00:00'
-                ],
-                'area': [
-                    # 90, -180, -90, 180,
-                    30, 120, 31, 121,
-                ],
-            },
-            'down.grib')
+        modelInfo['target'] = dtDateInfo.strftime(modelInfo['target'])
+        modelInfo['tmp'] = dtDateInfo.strftime(modelInfo['tmp'])
+
+        # 파일 검사
+        fileList = sorted(glob.glob(modelInfo['target']))
+        if len(fileList) > 0: return
+
+        log.info(f'[START] subColct : {dtDateInfo} / pid : {procInfo.pid}')
+
+        # c = cdsapi.Client(timeout=9999999, quiet=True, debug=True, url=modelInfo['url'], key=modelInfo['key'])
+        c = cdsapi.Client(quiet=False, debug=False, url=modelInfo['url'], key=modelInfo['key'])
+        # c = cdsapi.Client(timeout=9999999, quiet=False, debug=True, url=modelInfo['url'], key=modelInfo['key'])
+        c.retrieve(name=modelInfo['name'], request=modelInfo['request'], target=modelInfo['tmp'])
+
+        tmpFileInfo = modelInfo['tmp']
+        updFileInfo = modelInfo['target']
+
+        if os.path.exists(tmpFileInfo):
+            # if not os.path.exists(updFileInfo) or os.path.getsize(tmpFileInfo) > os.path.getsize(updFileInfo):
+            if not os.path.exists(updFileInfo) or os.path.getsize(tmpFileInfo) > 0:
+                os.makedirs(os.path.dirname(updFileInfo), exist_ok=True)
+                shutil.move(tmpFileInfo, updFileInfo)
+                log.info(f'[CHECK] CMD : mv -f {tmpFileInfo} {updFileInfo}')
+            else:
+                os.remove(tmpFileInfo)
+                log.info(f'[CHECK] CMD : rm -f {tmpFileInfo}')
+
+        log.info(f'[END] subColct : {dtDateInfo} / pid : {procInfo.pid}')
 
     except Exception as e:
         log.error("Exception : {}".format(e))
         raise e
-
 # ================================================
 # 4. 부 프로그램
 # ================================================
@@ -306,9 +290,9 @@ class DtaProcess(object):
                 , 'invDate': '1h'
 
                 # 수행 목록
-                , 'modelList': ['REANALY-ERA5-25K-UNIS']
+                , 'modelList': ['REANALY-ERA5-25K-PRES']
 
-                , 'REANALY-ERA5-25K-UNIS': {
+                , 'REANALY-ERA5-25K-PRES': {
                     'name': 'reanalysis-era5-pressure-levels'
                     , 'request': {
                         'product_type': 'reanalysis',
@@ -322,27 +306,31 @@ class DtaProcess(object):
                             '1000'
                         ],
                         'year': [
-                            '2024'
+                            '%Y'
                         ],
                         'month': [
-                            '04'
+                            '%m'
                         ],
                         'day': [
-                            '01'
+                            '%d'
                         ],
                         'time': [
-                            '00:00'
+                            '%H:%M'
                         ],
                         'area': [
                             # 90, -180, -90, 180,
                             30, 120, 31, 121,
                         ],
                     }
+                    , 'tmp': '/DATA/INPUT/INDI2024/DATA/REANALY-ERA5/%Y/%m/%d/.reanaly-era5-pres_%Y%m%d%H%M.grib'
                     , 'target': '/DATA/INPUT/INDI2024/DATA/REANALY-ERA5/%Y/%m/%d/reanaly-era5-pres_%Y%m%d%H%M.grib'
+                    , 'url': ''
+                    , 'key': ''
                 }
 
                 # 비동기 다중 프로세스 개수
-                , 'cpuCoreNum': 5
+                , 'cpuCoreNum': 2
+                # , 'cpuCoreNum': 5
             }
 
             # **************************************************************************************************************
@@ -353,22 +341,20 @@ class DtaProcess(object):
             dtEndDate = pd.to_datetime(sysOpt['endDate'], format='%Y-%m-%d')
             dtDateList = pd.date_range(start=dtSrtDate, end=dtEndDate, freq=sysOpt['invDate'])
 
-
-
-            colctFile()
-
-            # do_something_unreliable()
-
             # 비동기 다중 프로세스 개수
-            # pool = Pool(sysOpt['cpuCoreNum'])
+            pool = Pool(sysOpt['cpuCoreNum'])
 
-            # metaDataL1 = metaData[['city', 'code', 'isYn', 'allCnt']].drop_duplicates().reset_index(drop=True)
-            # metaDataL1 = metaDataL1.loc[metaDataL1['city'] == 'Minneapolis']
-            # for i, metaInfo in metaDataL1.iterrows():
-            #     log.info(f'[CHECK] metaInfo : {metaInfo}')
-            #     # pool.apply_async(subCalc, args=(metaInfo, metaData, data, colNameList))
-            # pool.close()
-            # pool.join()
+            for modelType in sysOpt['modelList']:
+                log.info(f'[CHECK] modelType : {modelType}')
+
+                modelInfo = sysOpt.get(modelType)
+                if modelInfo is None: continue
+                for dtDateInfo in dtDateList:
+                    log.info(f'[CHECK] dtDateInfo : {dtDateInfo}')
+                    pool.apply_async(subColct, args=(modelInfo, dtDateInfo))
+
+            pool.close()
+            pool.join()
 
         except Exception as e:
             log.error(f"Exception : {e}")
