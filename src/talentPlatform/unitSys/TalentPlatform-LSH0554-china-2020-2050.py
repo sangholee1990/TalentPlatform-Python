@@ -244,7 +244,7 @@ class DtaProcess(object):
                 globalVar['updPath'] = '/DATA/CSV'
 
             sysOpt = {
-                'metaList': {
+                'metaList': [
                     "2020_TPL_input2015",
                     "2020_input2015",
                     "2030_1.5_SSP1",
@@ -259,7 +259,7 @@ class DtaProcess(object):
                     "2050_2_SSP2",
                     "2050_SSP1_nopolicy",
                     "2050_SSP2_nopolicy"
-                }
+                ]
                 , 'keyTypeMat': {
                     'anhui': 'ANHU',
                     'beijing': 'BEIJ',
@@ -331,7 +331,9 @@ class DtaProcess(object):
             # 국가 입력 데이터
             # ********************************************************************
             # metaInfo = '2030_SSP1_nopolicy'
+            # for metaInfo in sysOpt['metaList']:
             for metaInfo in sysOpt['metaList']:
+
                 log.info(f'[CHECK] metaInfo : {metaInfo}')
 
                 # inpFilePatrn = f'china-20240502/**/{metaInfo}/**/*.csv'
@@ -452,7 +454,8 @@ class DtaProcess(object):
                                     cell.value = 0.0
 
                             # keyGrpYearInfo = '2015' if re.search('2015|2016|2017|2018|2019', keyYearInfo) else '2020' if re.search('2020', keyYear) else 'None'
-                            keyGrpYearInfo = keyYearInfo
+                            # keyGrpYearInfo = keyYearInfo
+                            keyGrpYearInfo = '2015' if re.search('2020', keyYearInfo) else keyYearInfo
 
                             # engType = 'HC3'
                             for idx, item in dataL2.iterrows():
