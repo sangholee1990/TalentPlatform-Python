@@ -239,8 +239,6 @@ class DtaProcess(object):
     # nohup /home/hanul/anaconda3/envs/py38/bin/python3 TalentPlatform-INDI2024-colct-reanalyEra5.py --modelList REANALY-ERA5-25K-UNIS --cpuCoreNum 5 --srtDate 2022-06-01 --endDate 2023-01-01 --key 38372:e61b5517-d919-47b6-93bf-f9a01ee4246f &
     # nohup /home/hanul/anaconda3/envs/py38/bin/python3 TalentPlatform-INDI2024-colct-reanalyEra5.py --modelList REANALY-ERA5-25K-PRES --cpuCoreNum 5 --srtDate 2023-01-01 --endDate 2023-06-01 --key 307569:99d328b8-16ca-4bbe-a2c6-fb348c5c4219 &
     # nohup /home/hanul/anaconda3/envs/py38/bin/python3 TalentPlatform-INDI2024-colct-reanalyEra5.py --modelList REANALY-ERA5-25K-UNIS --cpuCoreNum 5 --srtDate 2023-01-01 --endDate 2023-06-01 --key 307569:99d328b8-16ca-4bbe-a2c6-fb348c5c4219 &
-    # nohup /home/hanul/anaconda3/envs/py38/bin/python3 TalentPlatform-INDI2024-colct-reanalyEra5.py --modelList REANALY-ERA5-25K-PRES --cpuCoreNum 5 --srtDate 2023-01-01 --endDate 2023-06-01 --key 307569:99d328b8-16ca-4bbe-a2c6-fb348c5c4219 &
-    # nohup /home/hanul/anaconda3/envs/py38/bin/python3 TalentPlatform-INDI2024-colct-reanalyEra5.py --modelList REANALY-ERA5-25K-PRES --cpuCoreNum 5 --srtDate 2023-06-01 --endDate 2024-01-01 --key 314000:5f2ea8cc-f1c3-4626-8d3c-4c573c28135d &
     # nohup /home/hanul/anaconda3/envs/py38/bin/python3 TalentPlatform-INDI2024-colct-reanalyEra5.py --modelList REANALY-ERA5-25K-PRES --cpuCoreNum 5 --srtDate 2023-06-01 --endDate 2024-01-01 --key 314000:5f2ea8cc-f1c3-4626-8d3c-4c573c28135d &
     # nohup /home/hanul/anaconda3/envs/py38/bin/python3 TalentPlatform-INDI2024-colct-reanalyEra5.py --modelList REANALY-ERA5-25K-UNIS --cpuCoreNum 5 --srtDate 2023-06-01 --endDate 2024-01-01 --key 314000:5f2ea8cc-f1c3-4626-8d3c-4c573c28135d &
     # nohup /home/hanul/anaconda3/envs/py38/bin/python3 TalentPlatform-INDI2024-colct-reanalyEra5.py --modelList REANALY-ERA5-25K-PRES --cpuCoreNum 5 --srtDate 2023-10-01 --endDate 2024-01-01 --key 313999:09d74faf-b856-40fc-8047-46d669fb56eb &
@@ -250,6 +248,8 @@ class DtaProcess(object):
 
     # ps -ef | grep "TalentPlatform-INDI2024-colct-reanalyEra5.py" | awk '{print $2}' | xargs kill -9
     # ps -ef | grep "TalentPlatform-INDI2024-colct-reanalyEra5.py" | grep "REANALY-ERA5-25K-UNIS" | grep "2023-01-01" | awk '{print $2}' | xargs kill -9
+    # ps -ef | grep "RunShell-get-gfsncep2.sh" | awk '{print $2}' | xargs kill -9
+    # ps -ef | egrep "RunShell|Repro" | awk '{print $2}' | xargs kill -9
 
     # ================================================================================================
     # 환경변수 설정
