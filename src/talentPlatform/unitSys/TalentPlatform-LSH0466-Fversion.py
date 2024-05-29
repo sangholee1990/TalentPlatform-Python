@@ -22,7 +22,7 @@ import xarray as xr
 from sklearn.linear_model import LassoLarsIC
 from sklearn.pipeline import make_pipeline
 from sklearn.preprocessing import StandardScaler
-from sqlalchemy.ext.declarative import declarative_base
+# from sqlalchemy.ext.declarative import declarative_base
 from xclim import sdba
 from xclim.sdba.adjustment import QuantileDeltaMapping
 import pandas as pd
@@ -56,8 +56,7 @@ plt.rc('axes', unicode_minus=False)
 # 그래프에서 마이너스 글꼴 깨지는 문제에 대한 대처
 mpl.rcParams['axes.unicode_minus'] = False
 
-Base = declarative_base()
-
+# Base = declarative_base()
 
 # =================================================
 # 2. 유틸리티 함수
@@ -949,28 +948,28 @@ class DtaProcess(object):
             sysOpt = {
                 # 학습 시작/종료 시간
                 'srtDate': '1980-01-01'
-                , 'endDate': '1982-12-31'
-                # , 'endDate': '2014-12-31'
+                # , 'endDate': '1982-12-31'
+                , 'endDate': '2014-12-31'
 
                 # 예측 시작/종료 시간
                 # , 'srtDate2': '2015-01-01'
                 # , 'endDate2': '2020-12-31'
                 , 'srtDate2': '2015-01-01'
-                , 'endDate2': '2019-12-31'
-                # , 'endDate2': '2100-12-31'
+                # , 'endDate2': '2019-12-31'
+                , 'endDate2': '2100-12-31'
                 #
                 # 경도 최소/최대/간격
                 , 'lonMin': 0
-                # , 'lonMax': 360
-                , 'lonMin': 130
-                , 'lonMax': 140
+                , 'lonMax': 360
+                # , 'lonMin': 130
+                # , 'lonMax': 140
                 , 'lonInv': 1
 
                 # 위도 최소/최대/간격
-                # , 'latMin': -90
-                # , 'latMax': 90
-                , 'latMin': 30
-                , 'latMax': 40
+                , 'latMin': -90
+                , 'latMax': 90
+                # , 'latMin': 30
+                # , 'latMax': 40
                 , 'latInv': 1
 
                 # , 'keyList' : ['GFDL-ESM4','INM-CM4-8','INM-CM5-0','IPSL-CM6A-LR','MIROC6','MPI-ESM1-2-HR','MPI-ESM1-2-LR','MRI-ESM2-0','NorESM2-LM','NorESM2-MM','TaiESM1']
@@ -990,14 +989,14 @@ class DtaProcess(object):
                 # , 'methodList': [globalVar['methodList']]
 
                 # 2024.05.02 대륙 정보
-                , 'contIdx': 200
-                # , 'contIdx': globalVar['contIdx']
+                # , 'contIdx': 200
+                , 'contIdx': globalVar['contIdx']
 
                 # 비동기 다중 프로세스 개수
-                # , 'cpuCoreNum': 32
-                # , 'cpuCoreDtlNum': 32
-                , 'cpuCoreNum': 1
-                , 'cpuCoreDtlNum': 1
+                , 'cpuCoreNum': 32
+                , 'cpuCoreDtlNum': 32
+                # , 'cpuCoreNum': 1
+                # , 'cpuCoreDtlNum': 1
 
                 # 분산 처리
                 # Exception in makeSbckProc: Multiple chunks along the main adjustment dimension time is not supported.
@@ -1031,8 +1030,8 @@ class DtaProcess(object):
             # ********************************************************************
             # 대륙별 분류 전처리
             # ********************************************************************
-            inpFile = '{}/{}/{}'.format(globalVar['inpPath'], serviceName, 'TTL4.csv')
-            # inpFile = '{}/{}/{}'.format(globalVar['inpPath'], 'Historical', 'TTL4.csv')
+            # inpFile = '{}/{}/{}'.format(globalVar['inpPath'], serviceName, 'TTL4.csv')
+            inpFile = '{}/{}/{}'.format(globalVar['inpPath'], 'Historical', 'TTL4.csv')
             fileList = glob.glob(inpFile)
             if fileList is None or len(fileList) < 1: raise Exception(
                 '[ERROR] inpFile : {} / {}'.format(inpFile, '입력 자료를 확인해주세요.'))
@@ -1063,8 +1062,8 @@ class DtaProcess(object):
             # 강수량 데이터 전처리
             # ********************************************************************
             # 실측 데이터
-            inpFile = '{}/{}/{}'.format(globalVar['inpPath'], serviceName, 'ERA5_1979_2020.nc')
-            # inpFile = '{}/{}/{}'.format(globalVar['inpPath'], 'Historical', 'ERA5_1979_2020.nc')
+            # inpFile = '{}/{}/{}'.format(globalVar['inpPath'], serviceName, 'ERA5_1979_2020.nc')
+            inpFile = '{}/{}/{}'.format(globalVar['inpPath'], 'Historical', 'ERA5_1979_2020.nc')
             fileList = sorted(glob.glob(inpFile))
             if fileList is None or len(fileList) < 1: raise Exception(
                 '[ERROR] inpFile : {} / {}'.format(inpFile, '입력 자료를 확인해주세요.'))
@@ -1118,8 +1117,8 @@ class DtaProcess(object):
                 log.info(f"[CHECK] keyInfo : {keyInfo}")
 
                 # 관측/학습 데이터
-                inpFile = '{}/{}/*{}*{}*.nc'.format(globalVar['inpPath'], serviceName, keyInfo, 'historical')
-                # inpFile = '{}/{}/*{}*{}*.nc'.format(globalVar['inpPath'], 'Historical', keyInfo, 'historical')
+                # inpFile = '{}/{}/*{}*{}*.nc'.format(globalVar['inpPath'], serviceName, keyInfo, 'historical')
+                inpFile = '{}/{}/*{}*{}*.nc'.format(globalVar['inpPath'], 'Historical', keyInfo, 'historical')
                 fileList = sorted(glob.glob(inpFile))
                 if fileList is None or len(fileList) < 1: raise Exception(
                     '[ERROR] inpFile : {} / {}'.format(inpFile, '입력 자료를 확인해주세요.'))
@@ -1165,8 +1164,8 @@ class DtaProcess(object):
                 mrgData = xr.merge([obsDataL3, modDataL3])
 
                 # 예측 데이터
-                inpFile = '{}/{}/*{}*{}*.nc'.format(globalVar['inpPath'], serviceName, keyInfo, 'ssp126')
-                # inpFile = '{}/{}/*{}*{}*.nc'.format(globalVar['inpPath'], 'Future', keyInfo, 'ssp126')
+                # inpFile = '{}/{}/*{}*{}*.nc'.format(globalVar['inpPath'], serviceName, keyInfo, 'ssp126')
+                inpFile = '{}/{}/*{}*{}*.nc'.format(globalVar['inpPath'], 'Future', keyInfo, 'ssp126')
                 fileList = sorted(glob.glob(inpFile))
                 if fileList is None or len(fileList) < 1: raise Exception(
                     '[ERROR] inpFile : {} / {}'.format(inpFile, '입력 자료를 확인해주세요.'))
@@ -1228,8 +1227,7 @@ class DtaProcess(object):
 
                 # 윤년이 추가된 데이터셋에 'contIdx' 다시 결합
                 mrgDataProcessed = xr.merge([mrgDataProcessed, mrgData['contIdx']]).transpose('lat', 'lon', 'time')
-                simDataL3Processed = xr.merge([simDataL3Processed, simDataL3['contIdx']]).transpose('lat', 'lon',
-                                                                                                    'time')
+                simDataL3Processed = xr.merge([simDataL3Processed, simDataL3['contIdx']]).transpose('lat', 'lon', 'time')
 
                 # simDataL3Processed['time'] = simDataL3Processed['time'].dt.floor('D')
                 simDataL3Processed['time'] = ('time', normalized_time_index2)
