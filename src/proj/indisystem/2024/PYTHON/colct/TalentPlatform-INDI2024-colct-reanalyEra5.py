@@ -19,11 +19,6 @@ import pandas as pd
 import pytz
 import xarray as xr
 from pandas.tseries.offsets import Hour
-# from psutil.tests import retry
-# from sqlalchemy import MetaData, Table
-# from sqlalchemy import create_engine, text
-# from sqlalchemy.dialects.postgresql import insert
-# from sqlalchemy.orm import sessionmaker
 import yaml
 from multiprocessing import Pool
 import multiprocessing as mp
@@ -72,7 +67,7 @@ def initLog(env=None, contextPath=None, prjName=None):
     if prjName is None: prjName = 'test'
 
     saveLogFile = "{}/{}_{}_{}_{}_{}_{}.log".format(
-        contextPath if env in 'local' else os.path.join(contextPath, 'resources', 'log', prjName)
+        os.path.join(contextPath, 'log') if env in 'local' else os.path.join(contextPath, 'resources', 'log', prjName)
         , platform.system()
         , platform.machine()
         , platform.architecture()[0]
@@ -123,7 +118,7 @@ def initGlobalVar(env=None, contextPath=None, prjName=None):
         'prjName': prjName
         , 'sysOs': platform.system()
         , 'contextPath': contextPath
-        , 'resPath': contextPath if env in 'local' else os.path.join(contextPath, 'resources')
+        # , 'resPath': contextPath if env in 'local' else os.path.join(contextPath, 'resources')
         # , 'cfgPath': contextPath if env in 'local' else os.path.join(contextPath, 'resources', 'config')
         # , 'inpPath': contextPath if env in 'local' else os.path.join(contextPath, 'resources', 'input', prjName)
         # , 'figPath': contextPath if env in 'local' else os.path.join(contextPath, 'resources', 'fig', prjName)
@@ -172,7 +167,6 @@ def initArgument(globalVar, inParams):
     return globalVar
 
 
-
 @retry(stop_max_attempt_number=10)
 def subColct(modelInfo, dtDateInfo):
     try:
@@ -190,9 +184,9 @@ def subColct(modelInfo, dtDateInfo):
 
         log.info(f'[START] subColct : {dtDateInfo} / pid : {procInfo.pid}')
 
-        # c = cdsapi.Client(timeout=9999999, quiet=True, debug=True, url=modelInfo['url'], key=modelInfo['key'])
-        c = cdsapi.Client(quiet=False, debug=False, url=modelInfo['url'], key=modelInfo['key'])
-        # c = cdsapi.Client(timeout=9999999, quiet=False, debug=True, url=modelInfo['url'], key=modelInfo['key'])
+        # c = cdsapi.Client(timeout=9999999, quiet=True, debug=True, url=modelInfo['api']['url'], key=modelInfo['api']['key'])
+        # c = cdsapi.Client(timeout=9999999, quiet=False, debug=True, url=modelInfo['api']['url'], key=modelInfo['api']['key'])
+        c = cdsapi.Client(timeout=9999999, quiet=False, debug=False, url=modelInfo['api']['url'], key=modelInfo['api']['key'])
         c.retrieve(name=modelInfo['name'], request=modelInfo['request'], target=modelInfo['tmp'])
 
         tmpFileInfo = modelInfo['tmp']
@@ -213,6 +207,7 @@ def subColct(modelInfo, dtDateInfo):
     except Exception as e:
         log.error("Exception : {}".format(e))
         raise e
+
 # ================================================
 # 4. 부 프로그램
 # ================================================
@@ -221,7 +216,7 @@ class DtaProcess(object):
     # ================================================
     # 요구사항
     # ================================================
-    # Python을 이용한 포스트SQL 연동 테스트
+    # Python을 ECMWF 재분석자료 수집
 
     # ================================================================================================
     # 환경변수 설정
@@ -284,26 +279,80 @@ class DtaProcess(object):
 
             # 옵션 설정
             sysOpt = {
-                # 시작일, 종료일, 시간 간격 (연 1y, 월 1h, 일 1d, 시간 1h)
-                'srtDate': '2024-01-01'
-                , 'endDate': '2024-01-02'
-                , 'invDate': '1h'
-
                 # 수행 목록
-                , 'modelList': ['REANALY-ERA5-25K-PRES']
+                # 'modelList': ['REANALY-ERA5-25K-UNIS']
+                # 'modelList': ['REANALY-ERA5-25K-PRES']
+                'modelList': [globalVar['modelList']]
 
-                , 'REANALY-ERA5-25K-PRES': {
-                    'name': 'reanalysis-era5-pressure-levels'
+                # 비동기 다중 프로세스 개수
+                # , 'cpuCoreNum': '1'
+                , 'cpuCoreNum': globalVar['cpuCoreNum']
+
+                , 'REANALY-ERA5-25K-UNIS': {
+
+                    # 시작일, 종료일, 시간 간격 (연 1y, 월 1h, 일 1d, 시간 1h)
+                    # 'srtDate': '2024-01-01'
+                    # , 'endDate': '2024-01-02'
+                    'srtDate': globalVar['srtDate']
+                    , 'endDate': globalVar['endDate']
+                    , 'invDate': '1d'
+                    , 'api': {
+                        'url': 'https://cds.climate.copernicus.eu/api/v2'
+                        # , 'key': ''
+                        , 'key': globalVar['key']
+                    }
+
+                    , 'name': 'reanalysis-era5-single-levels'
                     , 'request': {
                         'product_type': 'reanalysis',
-                        'format': 'netcdf',
+                        'format': 'grib',
                         'variable': [
-                            'u_component_of_wind', 'v_component_of_wind',
-                            # 'all',
+                            '10m_u_component_of_wind','10m_v_component_of_wind','2m_dewpoint_temperature','2m_temperature','land_sea_mask','mean_sea_level_pressure','sea_ice_cover','sea_surface_temperature','skin_temperature','snow_depth','soil_temperature_level_1','soil_temperature_level_2','soil_temperature_level_3','soil_temperature_level_4','surface_pressure','volumetric_soil_water_layer_1','volumetric_soil_water_layer_2','volumetric_soil_water_layer_3','volumetric_soil_water_layer_4'
+                        ],
+                        'year': [
+                            '%Y'
+                        ],
+                        'month': [
+                            '%m'
+                        ],
+                        'day': [
+                            '%d'
+                        ],
+                        'time': [
+                            '00:00', '01:00', '02:00', '03:00', '04:00', '05:00', '06:00', '07:00', '08:00', '09:00', '10:00', '11:00', '12:00', '13:00', '14:00', '15:00', '16:00', '17:00', '18:00', '19:00', '20:00', '21:00', '22:00', '23:00'
+                        ],
+                        'area': [
+                            90, -180, -90, 180,
+                            # 30, 120, 31, 121
+                        ],
+                    }
+                    # , 'tmp': '/DATA/INPUT/INDI2024/DATA/REANALY-ERA5/%Y/%m/%d/.reanaly-era5-unis_%Y%m%d%H%M.grib'
+                    # , 'target': '/DATA/INPUT/INDI2024/DATA/REANALY-ERA5/%Y/%m/%d/reanaly-era5-unis_%Y%m%d%H%M.grib'
+                    , 'tmp': '/only-wrf-data0/REANALY-ERA5/%Y/%m/%d/.reanaly-era5-unis_%Y%m%d%H%M.grib'
+                    , 'target': '/only-wrf-data0/REANALY-ERA5/%Y/%m/%d/reanaly-era5-unis_%Y%m%d%H%M.grib'
+                }
+
+                , 'REANALY-ERA5-25K-PRES': {
+                    # 'srtDate': '2024-01-01'
+                    # , 'endDate': '2024-01-02'
+                    'srtDate': globalVar['srtDate']
+                    , 'endDate': globalVar['endDate']
+                    , 'invDate': '1h'
+                    , 'api': {
+                        'url': 'https://cds.climate.copernicus.eu/api/v2'
+                        # , 'key': ''
+                        , 'key': globalVar['key']
+                    }
+
+                    , 'name': 'reanalysis-era5-pressure-levels'
+                    , 'request': {
+                        'product_type': 'reanalysis',
+                        'format': 'grib',
+                        'variable': [
+                            'geopotential','relative_humidity','specific_humidity','temperature','u_component_of_wind','v_component_of_wind','vertical_velocity'
                         ],
                         'pressure_level': [
-                            # 'all'
-                            '1000'
+                            '1','2','3','5','7','10','20','30','50','70','100','125','150','175','200','225','250','300','350','400','450','500','550','600','650','700','750','775','800','825','850','875','900','925','950','975','1000'
                         ],
                         'year': [
                             '%Y'
@@ -316,39 +365,37 @@ class DtaProcess(object):
                         ],
                         'time': [
                             '%H:%M'
+                            # '00:00', '01:00', '02:00', '03:00', '04:00', '05:00', '06:00', '07:00', '08:00', '09:00', '10:00', '11:00', '12:00', '13:00', '14:00', '15:00', '16:00', '17:00', '18:00', '19:00', '20:00', '21:00', '22:00', '23:00'
                         ],
                         'area': [
-                            # 90, -180, -90, 180,
-                            30, 120, 31, 121,
+                            90, -180, -90, 180
+                            # 30, 120, 31, 121
                         ],
                     }
-                    , 'tmp': '/DATA/INPUT/INDI2024/DATA/REANALY-ERA5/%Y/%m/%d/.reanaly-era5-pres_%Y%m%d%H%M.grib'
-                    , 'target': '/DATA/INPUT/INDI2024/DATA/REANALY-ERA5/%Y/%m/%d/reanaly-era5-pres_%Y%m%d%H%M.grib'
-                    , 'url': ''
-                    , 'key': ''
+                    # , 'tmp': '/DATA/INPUT/INDI2024/DATA/REANALY-ERA5/%Y/%m/%d/.reanaly-era5-pres_%Y%m%d%H%M.grib'
+                    # , 'target': '/DATA/INPUT/INDI2024/DATA/REANALY-ERA5/%Y/%m/%d/reanaly-era5-pres_%Y%m%d%H%M.grib'
+                    , 'tmp': '/only-wrf-data0/REANALY-ERA5/%Y/%m/%d/.reanaly-era5-pres_%Y%m%d%H%M.grib'
+                    , 'target': '/only-wrf-data0/REANALY-ERA5/%Y/%m/%d/reanaly-era5-pres_%Y%m%d%H%M.grib'
                 }
-
-                # 비동기 다중 프로세스 개수
-                , 'cpuCoreNum': 2
-                # , 'cpuCoreNum': 5
             }
 
             # **************************************************************************************************************
             # 비동기 다중 프로세스 수행
             # **************************************************************************************************************
-            # 시작일/종료일 설정
-            dtSrtDate = pd.to_datetime(sysOpt['srtDate'], format='%Y-%m-%d')
-            dtEndDate = pd.to_datetime(sysOpt['endDate'], format='%Y-%m-%d')
-            dtDateList = pd.date_range(start=dtSrtDate, end=dtEndDate, freq=sysOpt['invDate'])
-
             # 비동기 다중 프로세스 개수
-            pool = Pool(sysOpt['cpuCoreNum'])
+            pool = Pool(int(sysOpt['cpuCoreNum']))
 
             for modelType in sysOpt['modelList']:
                 log.info(f'[CHECK] modelType : {modelType}')
 
                 modelInfo = sysOpt.get(modelType)
                 if modelInfo is None: continue
+
+                # 시작일/종료일 설정
+                dtSrtDate = pd.to_datetime(modelInfo['srtDate'], format='%Y-%m-%d')
+                dtEndDate = pd.to_datetime(modelInfo['endDate'], format='%Y-%m-%d')
+                dtDateList = pd.date_range(start=dtSrtDate, end=dtEndDate, freq=modelInfo['invDate'])
+                
                 for dtDateInfo in dtDateList:
                     log.info(f'[CHECK] dtDateInfo : {dtDateInfo}')
                     pool.apply_async(subColct, args=(modelInfo, dtDateInfo))
