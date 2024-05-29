@@ -234,11 +234,9 @@ def add_leap_day_mrg(modDataL3, var_name='pr'):
 
     return full_time_ds.sortby('time')
 
-
 def filter_data_by_cont(data, cont_data):
     filtered_data = data.where(cont_data['contIdx'] == 200, drop=True)
     return filtered_data
-
 
 def remove_leap_days_xarray(mod, obs_start_year=1980, obs_end_year=2014, sim_start_year=2015, sim_end_year=2100):
     def is_leap_year(year):
@@ -255,8 +253,6 @@ def remove_leap_days_xarray(mod, obs_start_year=1980, obs_end_year=2014, sim_sta
 
     return mod_filtered
 
-def debug_data(data, name):
-    log.info(f"{name} - min: {np.nanmin(data)}, max: {np.nanmax(data)}, mean: {np.nanmean(data)}, dtype: {data.dtype}")
 
 def makeSbckProc(method, contDataL4, mrgDataProcessed, simDataL3Processed, keyInfo):
     log.info('[START] {}'.format("makeSbckProc"))
@@ -277,16 +273,18 @@ def makeSbckProc(method, contDataL4, mrgDataProcessed, simDataL3Processed, keyIn
         # ***********************************************************************************
         methodList = {
             # Cannon, A. J., Sobie, S. R., & Murdock, T. Q. (2015). Bias correction of GCM precipitation by quantile mapping: How well do methods preserve changes in quantiles and extremes? Journal of Climate, 28(17), 6938–6959. https://doi.org/10.1175/JCLI-D-14-00754.1
-            # 'QDM': lambda: sdba.QuantileDeltaMapping.train(ref=mrgDataProcessed['rain'], hist=mrgDataProcessed['pr'], nquantiles=200, group='time.dayofyear', kind='*')
-            'QDM': lambda: sdba.QuantileDeltaMapping.train(ref=mrgDataProcessed['rain'], hist=mrgDataProcessed['pr'], nquantiles=50, group='time.dayofyear', kind='*')
+            'QDM': lambda: sdba.QuantileDeltaMapping.train(ref=mrgDataProcessed['rain'], hist=mrgDataProcessed['pr'],
+                                                           nquantiles=200, group='time.dayofyear', kind='*')
 
             # Dequé, M. (2007). Frequency of precipitation and temperature extremes over France in an anthropogenic scenario: Model results and statistical correction according to observed values. Global and Planetary Change, 57(1–2), 16–26. https://doi.org/10.1016/j.gloplacha.2006.11.030
-            # , 'EQM': lambda: sdba.EmpiricalQuantileMapping.train(ref=mrgDataProcessed['rain'], hist=mrgDataProcessed['pr'], nquantiles=200, group='time.dayofyear', kind='*')
-            , 'EQM': lambda: sdba.EmpiricalQuantileMapping.train(ref=mrgDataProcessed['rain'], hist=mrgDataProcessed['pr'], nquantiles=50, group='time.dayofyear', kind='*')
+            , 'EQM': lambda: sdba.EmpiricalQuantileMapping.train(ref=mrgDataProcessed['rain'],
+                                                                 hist=mrgDataProcessed['pr'], nquantiles=200,
+                                                                 group='time.dayofyear', kind='*')
 
             # Cannon, A. J., Sobie, S. R., & Murdock, T. Q. (2015). Bias correction of GCM precipitation by quantile mapping: How well do methods preserve changes in quantiles and extremes? Journal of Climate, 28(17), 6938–6959. https://doi.org/10.1175/JCLI-D-14-00754.1
-            # , 'DQM': lambda: sdba.DetrendedQuantileMapping.train(ref=mrgDataProcessed['rain'], hist=mrgDataProcessed['pr'], nquantiles=200, group='time.dayofyear', kind='*')
-            , 'DQM': lambda: sdba.DetrendedQuantileMapping.train(ref=mrgDataProcessed['rain'], hist=mrgDataProcessed['pr'], nquantiles=50, group='time.dayofyear', kind='*')
+            , 'DQM': lambda: sdba.DetrendedQuantileMapping.train(ref=mrgDataProcessed['rain'],
+                                                                 hist=mrgDataProcessed['pr'], nquantiles=200,
+                                                                 group='time.dayofyear', kind='*')
             # , 'Scaling': lambda: sdba.Scaling.train(ref=mrgDataProcessed['rain'], hist=mrgDataProcessed['pr'],
             #                                         group='time.dayofyear', kind='*')
         }
@@ -308,106 +306,15 @@ def makeSbckProc(method, contDataL4, mrgDataProcessed, simDataL3Processed, keyIn
             log.error("주어진 학습 모형 (QDM, EQM, DQM, Scaling)을 선택해주세요.")
             return result
 
-        prd = methodList[method]()
         # prd = methodList['QDM']()
         # dd = (prd).convert_calendar('noleap')
 
-        # ***********************************************************************************
-        # 2024.05.30 Assume mrgDataProcessed is already defined
-        # ***********************************************************************************
-        lat_size = len(mrgDataProcessed['lat'])
-        lon_size = len(mrgDataProcessed['lon'])
-        time_size = len(mrgDataProcessed['time'])
-
-        # Initialize the array to store corrected data
-        corrected_data = np.empty((lat_size, lon_size, time_size))
-        corrected_data[:] = np.nan  # Initialize with NaN
-
-        # Initialize NaN counter
-        nan_count = 0
-
-        for i in range(lat_size):
-            for j in range(lon_size):
-                # 각 격자의 참조 데이터와 히스토리 데이터를 선택
-                ref_data = mrgDataProcessed['rain'].isel(lat=i, lon=j)
-                hist_data = mrgDataProcessed['pr'].isel(lat=i, lon=j)
-                # NaN 값 확인
-                if np.isnan(ref_data).any() or np.isnan(hist_data).any():
-                    log.info(f"NaN found in input data at lat {i}, lon {j}. Skipping this cell.")
-                    continue
-                # 로그 변환 적용 (0을 피하기 위해 작은 값을 추가)
-                ref_data_log = np.log1p(ref_data + 1e-6)
-                hist_data_log = np.log1p(hist_data + 1e-6)
-                # 단위 정보 추가
-                ref_data_log.attrs['units'] = 'mm/day'
-                hist_data_log.attrs['units'] = 'mm/day'
-                # 데이터 범위 및 유형 디버그 출력
-                log.info(f"Cell at lat {i}, lon {j}")
-                debug_data(ref_data, "Reference data")
-                debug_data(hist_data, "Historical data")
-                debug_data(ref_data_log, "Reference data (log)")
-                debug_data(hist_data_log, "Historical data (log)")
-
-                # 선택한 보정 방법 사용
-                method_name = 'QDM'  # 'EQM' 또는 'DQM'으로 변경 가능
-                bias_correction = methodList[method_name](ref_data_log, hist_data_log)
-
-                # 보정 수행
-                try:
-                    corrected = bias_correction.adjust(sim=hist_data_log, extrapolation="constant", interp="linear")
-                    # 로그 변환 역변환
-                    corrected_exp = np.expm1(corrected) - 1e-6
-                    # NaN 값을 0으로 대체
-                    corrected_exp = np.nan_to_num(corrected_exp, nan=0.0)
-                    # 극단적인 값 클리핑
-                    corrected_exp = np.clip(corrected_exp, 0, np.nanmax(ref_data))
-                    # 보정된 데이터 디버그 출력
-                    debug_data(corrected, "Corrected data (log)")
-                    debug_data(corrected_exp, "Corrected data (exp)")
-                    # NaN 값 개수 카운트
-                    current_nan_count = np.isnan(corrected_exp).sum()
-                    nan_count += current_nan_count
-                    log.info(f"NaN count for cell at lat {i}, lon {j}: {current_nan_count}")
-                    # 보정된 결과를 배열에 저장
-                    if corrected.size == time_size:
-                        corrected_data[i, j, :] = corrected_exp
-                    else:
-                        log.info(f"Skipping cell at lat {i}, lon {j} due to shape mismatch: corrected size {corrected.size}, expected size {time_size}")
-                except Exception as e:
-                    log.info(f"Error processing cell at lat {i}, lon {j}: {e}")
-                    continue
-
-        # 결과를 Xarray DataArray로 변환
-        # corrected_da = xr.DataArray(corrected_data, coords=[mrgDataProcessed['lat'], mrgDataProcessed['lon'], mrgDataProcessed['time']], dims=['lat', 'lon', 'time'])
-        corData = xr.DataArray(corrected_data, coords=[mrgDataProcessed['lat'], mrgDataProcessed['lon'], mrgDataProcessed['time']], dims=['lat', 'lon', 'time'])
-
-        # 디버깅을 위한 결과 출력
-        log.info(corData)
-        # NaN 값 개수 출력
-        log.info(f"Total NaN count in corrected data: {nan_count}")
-        # corrected_da의 최대값 계산
-        max_value = corData.max().values
-        log.info(f"The maximum value in the corrected data array is: {max_value}")
-        # corrected_da의 최소값 계산
-        min_value = corData.min().values
-        log.info(f"The minimum value in the corrected data array is: {min_value}")
-        # Xarray DataArray를 Pandas DataFrame으로 변환
-        df_corrected = corData.to_dataframe(name='corrected_data').reset_index()
-
-        # Pandas DataFrame을 CSV 파일로 저장
-        # csv_file_path = '/mnt/data/corrected_data.csv'
-        # df_corrected.to_csv(csv_file_path, index=False)
-        # log.info(f"Data saved to {csv_file_path}")
-
-        saveFile = '{}/{}/{}_{}_{}.csv'.format(globalVar['outPath'], keyInfo, 'corrected_data', method, keyInfo)
-        os.makedirs(os.path.dirname(saveFile), exist_ok=True)
-        df_corrected.to_csv(saveFile, index=False)
-        log.info(f'[CHECK] saveFile : {saveFile}')
+        prd = methodList[method]()
 
         # ***********************************************************************************
         # 보정 결과
         # ***********************************************************************************
-        # corData = prd.adjust(sim=mrgDataProcessed['pr'], extrapolation="constant", interp="linear")
+        corData = prd.adjust(sim=mrgDataProcessed['pr'], extrapolation="constant", interp="linear")
         # corData = prd.adjust(sim=mrgDataProcessed['pr'].drop_vars(['lat', 'lon']), interp="linear")
         corDataL1 = xr.merge([corData, contDataL4])
 
@@ -949,55 +856,52 @@ class DtaProcess(object):
             sysOpt = {
                 # 학습 시작/종료 시간
                 'srtDate': '1980-01-01'
-                , 'endDate': '1982-12-31'
-                # , 'endDate': '2014-12-31'
+                # , 'endDate': '1982-12-31'
+                , 'endDate': '2014-12-31'
 
                 # 예측 시작/종료 시간
                 # , 'srtDate2': '2015-01-01'
                 # , 'endDate2': '2020-12-31'
                 , 'srtDate2': '2015-01-01'
-                , 'endDate2': '2019-12-31'
-                # , 'endDate2': '2100-12-31'
+                # , 'endDate2': '2019-12-31'
+                , 'endDate2': '2100-12-31'
                 #
                 # 경도 최소/최대/간격
                 , 'lonMin': 0
-                # , 'lonMax': 360
-                , 'lonMin': 130
-                , 'lonMax': 140
+                , 'lonMax': 360
+                # , 'lonMin': 130
+                # , 'lonMax': 140
                 , 'lonInv': 1
 
                 # 위도 최소/최대/간격
-                # , 'latMin': -90
-                # , 'latMax': 90
-                , 'latMin': 30
-                , 'latMax': 40
+                , 'latMin': -90
+                , 'latMax': 90
+                # , 'latMin': 30
+                # , 'latMax': 40
                 , 'latInv': 1
 
                 # , 'keyList' : ['GFDL-ESM4','INM-CM4-8','INM-CM5-0','IPSL-CM6A-LR','MIROC6','MPI-ESM1-2-HR','MPI-ESM1-2-LR','MRI-ESM2-0','NorESM2-LM','NorESM2-MM','TaiESM1']
                 # , 'keyList': ['MRI-ESM2-0', 'INM-CM5-0']
                 # , 'keyList': ['INM-CM5-0']
                 # , 'keyList': ['MRI-ESM2-0']
-                , 'keyList': ['ACCESS-CM2', 'ACCESS-ESM1-5', 'BCC-CSM2-MR', 'CanESM5', 'CESM2-WACCM', 'CMCC-CM2-SR5',
-                              'CMCC-ESM2', 'CNRM-CM6-1', 'CNRM-ESM2-1', 'EC-Earth3-Veg-LR', 'GFDL-ESM4', 'INM-CM4-8',
-                              'INM-CM5-0', 'IPSL-CM6A-LR', 'MIROC6', 'MPI-ESM1-2-HR', 'MPI-ESM1-2-LR', 'MRI-ESM2-0',
-                              'NorESM2-LM', 'NorESM2-MM', 'TaiESM1']
-                # , 'keyList': ['MRI-ESM2-0']
-                # , 'keyList': [globalVar['keyList']]
+                 , 'keyList': ['ACCESS-CM2','ACCESS-ESM1-5','BCC-CSM2-MR','CanESM5','CESM2-WACCM','CMCC-CM2-SR5','CMCC-ESM2','CNRM-CM6-1','CNRM-ESM2-1','EC-Earth3-Veg-LR','GFDL-ESM4','INM-CM4-8','INM-CM5-0','IPSL-CM6A-LR','MIROC6','MPI-ESM1-2-HR','MPI-ESM1-2-LR','MRI-ESM2-0','NorESM2-LM','NorESM2-MM','TaiESM1']
+                #, 'keyList': ['MRI-ESM2-0']
+                #, 'keyList': [globalVar['keyList']]
 
                 # 메서드 목록
-                , 'methodList': ['QDM', 'EQM', 'DQM']
-                # , 'methodList': ['DQM']
-                # , 'methodList': [globalVar['methodList']]
+                 , 'methodList': ['QDM', 'EQM', 'DQM']
+                #, 'methodList': ['DQM']
+                #, 'methodList': [globalVar['methodList']]
+
 
                 # 2024.05.02 대륙 정보
-                , 'contIdx': 200
-                # , 'contIdx': globalVar['contIdx']
+                # , 'contIdx': 200
+                , 'contIdx': globalVar['contIdx']
 
                 # 비동기 다중 프로세스 개수
-                # , 'cpuCoreNum': 32
+                , 'cpuCoreNum': 32
                 # , 'cpuCoreDtlNum': 32
-                , 'cpuCoreNum': 1
-                , 'cpuCoreDtlNum': 1
+                , 'cpuCoreDtlNum': 32
 
                 # 분산 처리
                 # Exception in makeSbckProc: Multiple chunks along the main adjustment dimension time is not supported.
@@ -1053,7 +957,7 @@ class DtaProcess(object):
 
             contDataL2 = contDataL1.set_index(['lat', 'lon'])
             contDataL4 = contDataL2.to_xarray()
-            # contDataL4 = contDataL3.interp({'lon': lonList, 'lat': latList}, method='nearest')
+            #contDataL4 = contDataL3.interp({'lon': lonList, 'lat': latList}, method='nearest')
 
             # contDataL3['contIdx'].plot()
             # contDataL4['contIdx'].plot()
@@ -1063,8 +967,8 @@ class DtaProcess(object):
             # 강수량 데이터 전처리
             # ********************************************************************
             # 실측 데이터
-            inpFile = '{}/{}/{}'.format(globalVar['inpPath'], serviceName, 'ERA5_1979_2020.nc')
-            # inpFile = '{}/{}/{}'.format(globalVar['inpPath'], 'Historical', 'ERA5_1979_2020.nc')
+            # inpFile = '{}/{}/{}'.format(globalVar['inpPath'], serviceName, 'ERA5_1979_2020.nc')
+            inpFile = '{}/{}/{}'.format(globalVar['inpPath'], 'Historical', 'ERA5_1979_2020.nc')
             fileList = sorted(glob.glob(inpFile))
             if fileList is None or len(fileList) < 1: raise Exception(
                 '[ERROR] inpFile : {} / {}'.format(inpFile, '입력 자료를 확인해주세요.'))
@@ -1089,11 +993,11 @@ class DtaProcess(object):
 
             # lonList1 = np.arange(130, 140, 1)
             # latList1 = np.arange(30, 40, 1)
-            # lonList1 = np.arange(sysOpt['lonMin'], sysOpt['lonMax'], sysOpt['lonInv'])
-            # latList1 = np.arange(sysOpt['latMin'], sysOpt['latMax'], sysOpt['latInv'])
+            #lonList1 = np.arange(sysOpt['lonMin'], sysOpt['lonMax'], sysOpt['lonInv'])
+            #latList1 = np.arange(sysOpt['latMin'], sysOpt['latMax'], sysOpt['latInv'])
             lonList1 = contDataL4.lon.values
             latList1 = contDataL4.lat.values
-            obsDataL3 = remove_leap_days_xarray(obsData.sel(lat=latList1, lon=lonList1))
+            obsDataL3 =remove_leap_days_xarray(obsData.sel(lat=latList1, lon=lonList1))
             # lonList1 = np.arange(sysOpt['lonMin'], sysOpt['lonMax'], sysOpt['lonInv'])
             # latList1 = np.arange(sysOpt['latMin'], sysOpt['latMax'], sysOpt['latInv'])
 
@@ -1118,8 +1022,8 @@ class DtaProcess(object):
                 log.info(f"[CHECK] keyInfo : {keyInfo}")
 
                 # 관측/학습 데이터
-                inpFile = '{}/{}/*{}*{}*.nc'.format(globalVar['inpPath'], serviceName, keyInfo, 'historical')
-                # inpFile = '{}/{}/*{}*{}*.nc'.format(globalVar['inpPath'], 'Historical', keyInfo, 'historical')
+                # inpFile = '{}/{}/*{}*{}*.nc'.format(globalVar['inpPath'], serviceName, keyInfo, 'historical')
+                inpFile = '{}/{}/*{}*{}*.nc'.format(globalVar['inpPath'], 'Historical', keyInfo, 'historical')
                 fileList = sorted(glob.glob(inpFile))
                 if fileList is None or len(fileList) < 1: raise Exception(
                     '[ERROR] inpFile : {} / {}'.format(inpFile, '입력 자료를 확인해주세요.'))
@@ -1165,8 +1069,8 @@ class DtaProcess(object):
                 mrgData = xr.merge([obsDataL3, modDataL3])
 
                 # 예측 데이터
-                inpFile = '{}/{}/*{}*{}*.nc'.format(globalVar['inpPath'], serviceName, keyInfo, 'ssp126')
-                # inpFile = '{}/{}/*{}*{}*.nc'.format(globalVar['inpPath'], 'Future', keyInfo, 'ssp126')
+                # inpFile = '{}/{}/*{}*{}*.nc'.format(globalVar['inpPath'], serviceName, keyInfo, 'ssp126')
+                inpFile = '{}/{}/*{}*{}*.nc'.format(globalVar['inpPath'], 'Future', keyInfo, 'ssp126')
                 fileList = sorted(glob.glob(inpFile))
                 if fileList is None or len(fileList) < 1: raise Exception(
                     '[ERROR] inpFile : {} / {}'.format(inpFile, '입력 자료를 확인해주세요.'))
@@ -1228,8 +1132,7 @@ class DtaProcess(object):
 
                 # 윤년이 추가된 데이터셋에 'contIdx' 다시 결합
                 mrgDataProcessed = xr.merge([mrgDataProcessed, mrgData['contIdx']]).transpose('lat', 'lon', 'time')
-                simDataL3Processed = xr.merge([simDataL3Processed, simDataL3['contIdx']]).transpose('lat', 'lon',
-                                                                                                    'time')
+                simDataL3Processed = xr.merge([simDataL3Processed, simDataL3['contIdx']]).transpose('lat', 'lon', 'time')
 
                 # simDataL3Processed['time'] = simDataL3Processed['time'].dt.floor('D')
                 simDataL3Processed['time'] = ('time', normalized_time_index2)
