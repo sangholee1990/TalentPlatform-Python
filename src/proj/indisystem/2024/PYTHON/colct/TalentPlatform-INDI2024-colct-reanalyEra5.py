@@ -56,7 +56,6 @@ tzKst = pytz.timezone('Asia/Seoul')
 tzUtc = pytz.timezone('UTC')
 dtKst = timedelta(hours=9)
 
-
 # =================================================
 # 2. 유틸리티 함수
 # =================================================
@@ -184,18 +183,23 @@ def subColct(modelInfo, dtDateInfo):
 
         log.info(f'[START] subColct : {dtDateInfo} / pid : {procInfo.pid}')
 
+        tmpFileInfo = modelInfo['tmp']
+        updFileInfo = modelInfo['target']
+        os.makedirs(os.path.dirname(tmpFileInfo), exist_ok=True)
+        os.makedirs(os.path.dirname(updFileInfo), exist_ok=True)
+
+        if os.path.exists(tmpFileInfo):
+            os.remove(tmpFileInfo)
+
         # c = cdsapi.Client(timeout=9999999, quiet=True, debug=True, url=modelInfo['api']['url'], key=modelInfo['api']['key'])
         # c = cdsapi.Client(timeout=9999999, quiet=False, debug=True, url=modelInfo['api']['url'], key=modelInfo['api']['key'])
         c = cdsapi.Client(timeout=9999999, quiet=False, debug=False, url=modelInfo['api']['url'], key=modelInfo['api']['key'])
         c.retrieve(name=modelInfo['name'], request=modelInfo['request'], target=modelInfo['tmp'])
 
-        tmpFileInfo = modelInfo['tmp']
-        updFileInfo = modelInfo['target']
-
         if os.path.exists(tmpFileInfo):
             # if not os.path.exists(updFileInfo) or os.path.getsize(tmpFileInfo) > os.path.getsize(updFileInfo):
-            if not os.path.exists(updFileInfo) or os.path.getsize(tmpFileInfo) > 0:
-                os.makedirs(os.path.dirname(updFileInfo), exist_ok=True)
+            # if not os.path.exists(updFileInfo) or os.path.getsize(tmpFileInfo) > 0:
+            if os.path.getsize(tmpFileInfo) > 0:
                 shutil.move(tmpFileInfo, updFileInfo)
                 log.info(f'[CHECK] CMD : mv -f {tmpFileInfo} {updFileInfo}')
             else:
@@ -217,6 +221,35 @@ class DtaProcess(object):
     # 요구사항
     # ================================================
     # Python을 ECMWF 재분석자료 수집
+
+    # , 'key': '307569:99d328b8-16ca-4bbe-a2c6-fb348c5c4219'
+    # , 'key': '292516:2df989f2-40aa-454f-9b83-daf3517aa2f9'
+    # , 'key': '38372:e61b5517-d919-47b6-93bf-f9a01ee4246f'
+    # , 'key': '314000:5f2ea8cc-f1c3-4626-8d3c-4c573c28135d'
+    # , 'key': '313996:a9827fcb-bc34-4b1a-816c-8b6ab0915fb2'
+    # , 'key': '313999:09d74faf-b856-40fc-8047-46d669fb56eb'
+
+    # python TalentPlatform-INDI2024-colct-reanalyEra5.py --modelList "REANALY-ERA5-25K-UNIS" --cpuCoreNum "1" --srtDate "2024-01-01" --endDate "2024-01-02" --key "313996:a9827fcb-bc34-4b1a-816c-8b6ab0915fb2"
+    # python TalentPlatform-INDI2024-colct-reanalyEra5.py --modelList "REANALY-ERA5-25K-PRES" --cpuCoreNum "1" --srtDate "2024-01-01" --endDate "2024-01-02" --key "313996:a9827fcb-bc34-4b1a-816c-8b6ab0915fb2"
+
+    # cd /home/hanul/SYSTEMS/KIER/PROG/PYTHON/colct
+    # nohup /home/hanul/anaconda3/envs/py38/bin/python3 TalentPlatform-INDI2024-colct-reanalyEra5.py --modelList REANALY-ERA5-25K-PRES --cpuCoreNum 5 --srtDate 2022-01-01 --endDate 2022-06-01 --key 292516:2df989f2-40aa-454f-9b83-daf3517aa2f9 &
+    # nohup /home/hanul/anaconda3/envs/py38/bin/python3 TalentPlatform-INDI2024-colct-reanalyEra5.py --modelList REANALY-ERA5-25K-UNIS --cpuCoreNum 5 --srtDate 2022-01-01 --endDate 2022-06-01 --key 292516:2df989f2-40aa-454f-9b83-daf3517aa2f9 &
+    # nohup /home/hanul/anaconda3/envs/py38/bin/python3 TalentPlatform-INDI2024-colct-reanalyEra5.py --modelList REANALY-ERA5-25K-PRES --cpuCoreNum 5 --srtDate 2022-06-01 --endDate 2023-01-01 --key 38372:e61b5517-d919-47b6-93bf-f9a01ee4246f &
+    # nohup /home/hanul/anaconda3/envs/py38/bin/python3 TalentPlatform-INDI2024-colct-reanalyEra5.py --modelList REANALY-ERA5-25K-UNIS --cpuCoreNum 5 --srtDate 2022-06-01 --endDate 2023-01-01 --key 38372:e61b5517-d919-47b6-93bf-f9a01ee4246f &
+    # nohup /home/hanul/anaconda3/envs/py38/bin/python3 TalentPlatform-INDI2024-colct-reanalyEra5.py --modelList REANALY-ERA5-25K-PRES --cpuCoreNum 5 --srtDate 2023-01-01 --endDate 2023-06-01 --key 307569:99d328b8-16ca-4bbe-a2c6-fb348c5c4219 &
+    # nohup /home/hanul/anaconda3/envs/py38/bin/python3 TalentPlatform-INDI2024-colct-reanalyEra5.py --modelList REANALY-ERA5-25K-UNIS --cpuCoreNum 5 --srtDate 2023-01-01 --endDate 2023-06-01 --key 307569:99d328b8-16ca-4bbe-a2c6-fb348c5c4219 &
+    # nohup /home/hanul/anaconda3/envs/py38/bin/python3 TalentPlatform-INDI2024-colct-reanalyEra5.py --modelList REANALY-ERA5-25K-PRES --cpuCoreNum 5 --srtDate 2023-01-01 --endDate 2023-06-01 --key 307569:99d328b8-16ca-4bbe-a2c6-fb348c5c4219 &
+    # nohup /home/hanul/anaconda3/envs/py38/bin/python3 TalentPlatform-INDI2024-colct-reanalyEra5.py --modelList REANALY-ERA5-25K-PRES --cpuCoreNum 5 --srtDate 2023-06-01 --endDate 2024-01-01 --key 314000:5f2ea8cc-f1c3-4626-8d3c-4c573c28135d &
+    # nohup /home/hanul/anaconda3/envs/py38/bin/python3 TalentPlatform-INDI2024-colct-reanalyEra5.py --modelList REANALY-ERA5-25K-PRES --cpuCoreNum 5 --srtDate 2023-06-01 --endDate 2024-01-01 --key 314000:5f2ea8cc-f1c3-4626-8d3c-4c573c28135d &
+    # nohup /home/hanul/anaconda3/envs/py38/bin/python3 TalentPlatform-INDI2024-colct-reanalyEra5.py --modelList REANALY-ERA5-25K-UNIS --cpuCoreNum 5 --srtDate 2023-06-01 --endDate 2024-01-01 --key 314000:5f2ea8cc-f1c3-4626-8d3c-4c573c28135d &
+    # nohup /home/hanul/anaconda3/envs/py38/bin/python3 TalentPlatform-INDI2024-colct-reanalyEra5.py --modelList REANALY-ERA5-25K-PRES --cpuCoreNum 5 --srtDate 2023-10-01 --endDate 2024-01-01 --key 313999:09d74faf-b856-40fc-8047-46d669fb56eb &
+    # nohup /home/hanul/anaconda3/envs/py38/bin/python3 TalentPlatform-INDI2024-colct-reanalyEra5.py --modelList REANALY-ERA5-25K-UNIS --cpuCoreNum 5 --srtDate 2023-10-01 --endDate 2024-01-01 --key 313999:09d74faf-b856-40fc-8047-46d669fb56eb &
+    # nohup /home/hanul/anaconda3/envs/py38/bin/python3 TalentPlatform-INDI2024-colct-reanalyEra5.py --modelList REANALY-ERA5-25K-PRES --cpuCoreNum 5 --srtDate 2024-01-01 --endDate 2024-06-01 --key 313996:a9827fcb-bc34-4b1a-816c-8b6ab0915fb2 &
+    # nohup /home/hanul/anaconda3/envs/py38/bin/python3 TalentPlatform-INDI2024-colct-reanalyEra5.py --modelList REANALY-ERA5-25K-UNIS --cpuCoreNum 5 --srtDate 2024-01-01 --endDate 2024-06-01 --key 313996:a9827fcb-bc34-4b1a-816c-8b6ab0915fb2 &
+
+    # ps -ef | grep "TalentPlatform-INDI2024-colct-reanalyEra5.py" | awk '{print $2}' | xargs kill -9
+    # ps -ef | grep "TalentPlatform-INDI2024-colct-reanalyEra5.py" | grep "REANALY-ERA5-25K-UNIS" | grep "2023-01-01" | awk '{print $2}' | xargs kill -9
 
     # ================================================================================================
     # 환경변수 설정
@@ -326,10 +359,10 @@ class DtaProcess(object):
                             # 30, 120, 31, 121
                         ],
                     }
-                    # , 'tmp': '/DATA/INPUT/INDI2024/DATA/REANALY-ERA5/%Y/%m/%d/.reanaly-era5-unis_%Y%m%d%H%M.grib'
-                    # , 'target': '/DATA/INPUT/INDI2024/DATA/REANALY-ERA5/%Y/%m/%d/reanaly-era5-unis_%Y%m%d%H%M.grib'
-                    , 'tmp': '/only-wrf-data0/REANALY-ERA5/%Y/%m/%d/.reanaly-era5-unis_%Y%m%d%H%M.grib'
-                    , 'target': '/only-wrf-data0/REANALY-ERA5/%Y/%m/%d/reanaly-era5-unis_%Y%m%d%H%M.grib'
+                    # , 'tmp': '/DATA/INPUT/INDI2024/DATA/REANALY-ERA5/%Y/%m/%d/.reanaly-era5-unis_%Y%m%d.grib'
+                    # , 'target': '/DATA/INPUT/INDI2024/DATA/REANALY-ERA5/%Y/%m/%d/reanaly-era5-unis_%Y%m%d.grib'
+                    , 'tmp': '/data1/REANALY-ERA5/%Y/%m/%d/.reanaly-era5-unis_%Y%m%d.grib'
+                    , 'target': '/data1/REANALY-ERA5/%Y/%m/%d/reanaly-era5-unis_%Y%m%d.grib'
                 }
 
                 , 'REANALY-ERA5-25K-PRES': {
@@ -374,8 +407,8 @@ class DtaProcess(object):
                     }
                     # , 'tmp': '/DATA/INPUT/INDI2024/DATA/REANALY-ERA5/%Y/%m/%d/.reanaly-era5-pres_%Y%m%d%H%M.grib'
                     # , 'target': '/DATA/INPUT/INDI2024/DATA/REANALY-ERA5/%Y/%m/%d/reanaly-era5-pres_%Y%m%d%H%M.grib'
-                    , 'tmp': '/only-wrf-data0/REANALY-ERA5/%Y/%m/%d/.reanaly-era5-pres_%Y%m%d%H%M.grib'
-                    , 'target': '/only-wrf-data0/REANALY-ERA5/%Y/%m/%d/reanaly-era5-pres_%Y%m%d%H%M.grib'
+                    , 'tmp': '/data1/REANALY-ERA5/%Y/%m/%d/.reanaly-era5-pres_%Y%m%d%H%M.grib'
+                    , 'target': '/data1/REANALY-ERA5/%Y/%m/%d/reanaly-era5-pres_%Y%m%d%H%M.grib'
                 }
             }
 
