@@ -209,7 +209,6 @@ def subColct(modelInfo, dtDateInfo, ftime):
 
     except Exception as e:
         log.error(f'Exception : {str(e)}')
-        log.error("Exception : {}".format(e))
         raise e
     finally:
         if os.path.exists(tmpFileInfo):
@@ -225,14 +224,14 @@ class DtaProcess(object):
     # ================================================
     # Python을 이용한 GFS 예보모델 수집
 
-    # python TalentPlatform-INDI2024-colct-reanalyEra5.py --modelList "REANALY-ERA5-25K-UNIS" --cpuCoreNum "1" --srtDate "2024-01-01" --endDate "2024-01-02" --key "313996:a9827fcb-bc34-4b1a-816c-8b6ab0915fb2"
-    # python TalentPlatform-INDI2024-colct-reanalyEra5.py --modelList "REANALY-ERA5-25K-PRES" --cpuCoreNum "1" --srtDate "2024-01-01" --endDate "2024-01-02" --key "313996:a9827fcb-bc34-4b1a-816c-8b6ab0915fb2"
+    # cd /SYSTEMS/PROG/PYTHON/IDE/src/proj/indisystem/2024/PYTHON/colct
+    # nohup /usr/local/anaconda3/envs/py38/bin/python3 TalentPlatform-INDI2024-colct-gfs.py --modelList "GFS" --cpuCoreNum "5" --srtDate "2024-05-21" --endDate "2024-05-25" &
+    # nohup /usr/local/anaconda3/envs/py38/bin/python3 TalentPlatform-INDI2024-colct-gfs.py --modelList "GFS" --cpuCoreNum "5" --srtDate "2024-05-26" --endDate "2024-05-30" &
 
     # cd /home/hanul/SYSTEMS/KIER/PROG/PYTHON/colct
-    # nohup /home/hanul/anaconda3/envs/py38/bin/python3 TalentPlatform-INDI2024-colct-reanalyEra5.py --modelList REANALY-ERA5-25K-PRES --cpuCoreNum 5 --srtDate 2022-01-01 --endDate 2022-06-01 --key 292516:2df989f2-40aa-454f-9b83-daf3517aa2f9 &
+    # nohup /home/hanul/anaconda3/envs/py38/bin/python3 TalentPlatform-INDI2024-colct-gfs.py --modelList "GFS" --cpuCoreNum "10" --srtDate "2024-05-21" --endDate "2024-05-30" &
 
     # ps -ef | grep "TalentPlatform-INDI2024-colct-gfs" | awk '{print $2}' | xargs kill -9
-    # ps -ef | egrep "RunShell|Repro" | awk '{print $2}' | xargs kill -9
 
     # ================================================================================================
     # 환경변수 설정
@@ -296,19 +295,19 @@ class DtaProcess(object):
             # 옵션 설정
             sysOpt = {
                 # 수행 목록
-                'modelList': ['GFS']
-                # 'modelList': [globalVar['modelList']]
+                # 'modelList': ['GFS']
+                'modelList': [globalVar['modelList']]
 
                 # 비동기 다중 프로세스 개수
-                , 'cpuCoreNum': '5'
-                # , 'cpuCoreNum': globalVar['cpuCoreNum']
+                # , 'cpuCoreNum': '5'
+                , 'cpuCoreNum': globalVar['cpuCoreNum']
 
                 , 'GFS': {
                     # 시작일, 종료일, 시간 간격 (연 1y, 월 1h, 일 1d, 시간 1h)
-                    'srtDate': '2024-05-21'
-                    , 'endDate': '2024-05-23'
-                    # 'srtDate': globalVar['srtDate']
-                    # , 'endDate': globalVar['endDate']
+                    # 'srtDate': '2024-05-21'
+                    # , 'endDate': '2024-05-23'
+                    'srtDate': globalVar['srtDate']
+                    , 'endDate': globalVar['endDate']
                     , 'invDate': '6h'
                     , 'request': 'https://nomads.ncep.noaa.gov/pub/data/nccf/com/gfs/prod/gfs.%Y%m%d/%H/atmos/gfs.t%Hz.pgrb2.0p25.f{}'
                     , 'tmp': '/DATA/INPUT/INDI2024/DATA/GFS/%Y/%m/%d/.gfs.t%Hz.pgrb2.0p25.f{}.gb2'
