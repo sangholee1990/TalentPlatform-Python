@@ -10,6 +10,7 @@ import traceback
 import warnings
 from datetime import datetime
 from datetime import timedelta
+from urllib.request import Request, urlopen
 from urllib.parse import quote_plus
 
 import matplotlib as mpl
@@ -229,7 +230,8 @@ class DtaProcess(object):
     # nohup /usr/local/anaconda3/envs/py38/bin/python3 TalentPlatform-INDI2024-colct-gfs.py --modelList "GFS" --cpuCoreNum "5" --srtDate "2024-05-26" --endDate "2024-05-30" &
 
     # cd /home/hanul/SYSTEMS/KIER/PROG/PYTHON/colct
-    # nohup /home/hanul/anaconda3/envs/py38/bin/python3 TalentPlatform-INDI2024-colct-gfs.py --modelList "GFS" --cpuCoreNum "10" --srtDate "2024-05-21" --endDate "2024-05-30" &
+    # nohup /home/hanul/anaconda3/envs/py38/bin/python3 TalentPlatform-INDI2024-colct-gfs.py --modelList "GFS" --cpuCoreNum "5" --srtDate "2024-05-21" --endDate "2024-05-25" &
+    # nohup /home/hanul/anaconda3/envs/py38/bin/python3 TalentPlatform-INDI2024-colct-gfs.py --modelList "GFS" --cpuCoreNum "5" --srtDate "2024-05-26" --endDate "2024-05-30" &
 
     # ps -ef | grep "TalentPlatform-INDI2024-colct-gfs" | awk '{print $2}' | xargs kill -9
 
@@ -310,10 +312,10 @@ class DtaProcess(object):
                     , 'endDate': globalVar['endDate']
                     , 'invDate': '6h'
                     , 'request': 'https://nomads.ncep.noaa.gov/pub/data/nccf/com/gfs/prod/gfs.%Y%m%d/%H/atmos/gfs.t%Hz.pgrb2.0p25.f{}'
-                    , 'tmp': '/DATA/INPUT/INDI2024/DATA/GFS/%Y/%m/%d/.gfs.t%Hz.pgrb2.0p25.f{}.gb2'
-                    , 'target': '/DATA/INPUT/INDI2024/DATA/GFS/%Y/%m/%d/gfs.t%Hz.pgrb2.0p25.f{}.gb2'
-                    # , 'tmp': '/data1/GFS/%Y/%m/%d/.gfs.t%Hz.pgrb2.0p25.f{}.gb2'
-                    # , 'target': '/data1/GFS/%Y/%m/%d/gfs.t%Hz.pgrb2.0p25.f{}.gb2'
+                    , 'tmp': '/DATA/INPUT/INDI2024/DATA/GFS/%Y/%m/%d/%H/.gfs.t%Hz.pgrb2.0p25.f{}.gb2'
+                    , 'target': '/DATA/INPUT/INDI2024/DATA/GFS/%Y/%m/%d/%H/gfs.t%Hz.pgrb2.0p25.f{}.gb2'
+                    # , 'tmp': '/data1/GFS/%Y/%m/%d/%H/.gfs.t%Hz.pgrb2.0p25.f{}.gb2'
+                    # , 'target': '/data1/GFS/%Y/%m/%d/%H/gfs.t%Hz.pgrb2.0p25.f{}.gb2'
                 }
             }
 
