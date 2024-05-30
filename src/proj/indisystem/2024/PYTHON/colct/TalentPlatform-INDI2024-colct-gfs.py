@@ -23,8 +23,8 @@ import yaml
 from multiprocessing import Pool
 import multiprocessing as mp
 from retrying import retry
-import cdsapi
 import shutil
+import urllib
 
 # =================================================
 # 사용자 매뉴얼
@@ -167,38 +167,37 @@ def initArgument(globalVar, inParams):
 
 
 @retry(stop_max_attempt_number=10)
-def subColct(modelInfo, dtDateInfo):
+def subColct(modelInfo, dtDateInfo, ftime):
     try:
         procInfo = mp.current_process()
 
-        for key in ['year', 'month', 'day', 'time']:
-            modelInfo['request'][key] = [dtDateInfo.strftime(fmt) for fmt in modelInfo['request'][key]]
-
-        modelInfo['target'] = dtDateInfo.strftime(modelInfo['target'])
-        modelInfo['tmp'] = dtDateInfo.strftime(modelInfo['tmp'])
+        modelInfo['request'] = dtDateInfo.strftime(modelInfo['request']).format(ftime)
+        modelInfo['target'] = dtDateInfo.strftime(modelInfo['target']).format(ftime)
+        modelInfo['tmp'] = dtDateInfo.strftime(modelInfo['tmp']).format(ftime)
 
         # 파일 검사
         fileList = sorted(glob.glob(modelInfo['target']))
         if len(fileList) > 0: return
 
-        log.info(f'[START] subColct : {dtDateInfo} / pid : {procInfo.pid}')
+        log.info(f'[START] subColct / dtDateInfo : {dtDateInfo} / ftime : {ftime} / pid : {procInfo.pid}')
 
         tmpFileInfo = modelInfo['tmp']
         updFileInfo = modelInfo['target']
         os.makedirs(os.path.dirname(tmpFileInfo), exist_ok=True)
         os.makedirs(os.path.dirname(updFileInfo), exist_ok=True)
 
-        if os.path.exists(tmpFileInfo):
-            os.remove(tmpFileInfo)
+        res = urllib.request.urlopen(modelInfo['request'])
 
-        # c = cdsapi.Client(timeout=9999999, quiet=True, debug=True, url=modelInfo['api']['url'], key=modelInfo['api']['key'])
-        # c = cdsapi.Client(timeout=9999999, quiet=False, debug=True, url=modelInfo['api']['url'], key=modelInfo['api']['key'])
-        c = cdsapi.Client(timeout=9999999, quiet=False, debug=False, url=modelInfo['api']['url'], key=modelInfo['api']['key'])
-        c.retrieve(name=modelInfo['name'], request=modelInfo['request'], target=modelInfo['tmp'])
+        resCode = res.getcode()
+        if resCode != 200: return
+
+        resSize = int(res.headers['content-length'])
+        if resSize < 0: return
+
+        with open(tmpFileInfo, mode="wb") as f:
+            f.write(res.read())
 
         if os.path.exists(tmpFileInfo):
-            # if not os.path.exists(updFileInfo) or os.path.getsize(tmpFileInfo) > os.path.getsize(updFileInfo):
-            # if not os.path.exists(updFileInfo) or os.path.getsize(tmpFileInfo) > 0:
             if os.path.getsize(tmpFileInfo) > 0:
                 shutil.move(tmpFileInfo, updFileInfo)
                 log.info(f'[CHECK] CMD : mv -f {tmpFileInfo} {updFileInfo}')
@@ -206,11 +205,15 @@ def subColct(modelInfo, dtDateInfo):
                 os.remove(tmpFileInfo)
                 log.info(f'[CHECK] CMD : rm -f {tmpFileInfo}')
 
-        log.info(f'[END] subColct : {dtDateInfo} / pid : {procInfo.pid}')
+        log.info(f'[END] subColct / dtDateInfo : {dtDateInfo} / ftime : {ftime} / pid : {procInfo.pid}')
 
     except Exception as e:
+        log.error(f'Exception : {str(e)}')
         log.error("Exception : {}".format(e))
         raise e
+    finally:
+        if os.path.exists(tmpFileInfo):
+            os.remove(tmpFileInfo)
 
 # ================================================
 # 4. 부 프로그램
@@ -220,35 +223,15 @@ class DtaProcess(object):
     # ================================================
     # 요구사항
     # ================================================
-    # Python을 이용한 ECMWF 재분석자료 수집
-
-    # , 'key': '307569:99d328b8-16ca-4bbe-a2c6-fb348c5c4219'
-    # , 'key': '292516:2df989f2-40aa-454f-9b83-daf3517aa2f9'
-    # , 'key': '38372:e61b5517-d919-47b6-93bf-f9a01ee4246f'
-    # , 'key': '314000:5f2ea8cc-f1c3-4626-8d3c-4c573c28135d'
-    # , 'key': '313996:a9827fcb-bc34-4b1a-816c-8b6ab0915fb2'
-    # , 'key': '313999:09d74faf-b856-40fc-8047-46d669fb56eb'
+    # Python을 이용한 GFS 예보모델 수집
 
     # python TalentPlatform-INDI2024-colct-reanalyEra5.py --modelList "REANALY-ERA5-25K-UNIS" --cpuCoreNum "1" --srtDate "2024-01-01" --endDate "2024-01-02" --key "313996:a9827fcb-bc34-4b1a-816c-8b6ab0915fb2"
     # python TalentPlatform-INDI2024-colct-reanalyEra5.py --modelList "REANALY-ERA5-25K-PRES" --cpuCoreNum "1" --srtDate "2024-01-01" --endDate "2024-01-02" --key "313996:a9827fcb-bc34-4b1a-816c-8b6ab0915fb2"
 
     # cd /home/hanul/SYSTEMS/KIER/PROG/PYTHON/colct
     # nohup /home/hanul/anaconda3/envs/py38/bin/python3 TalentPlatform-INDI2024-colct-reanalyEra5.py --modelList REANALY-ERA5-25K-PRES --cpuCoreNum 5 --srtDate 2022-01-01 --endDate 2022-06-01 --key 292516:2df989f2-40aa-454f-9b83-daf3517aa2f9 &
-    # nohup /home/hanul/anaconda3/envs/py38/bin/python3 TalentPlatform-INDI2024-colct-reanalyEra5.py --modelList REANALY-ERA5-25K-UNIS --cpuCoreNum 5 --srtDate 2022-01-01 --endDate 2022-06-01 --key 292516:2df989f2-40aa-454f-9b83-daf3517aa2f9 &
-    # nohup /home/hanul/anaconda3/envs/py38/bin/python3 TalentPlatform-INDI2024-colct-reanalyEra5.py --modelList REANALY-ERA5-25K-PRES --cpuCoreNum 5 --srtDate 2022-06-01 --endDate 2023-01-01 --key 38372:e61b5517-d919-47b6-93bf-f9a01ee4246f &
-    # nohup /home/hanul/anaconda3/envs/py38/bin/python3 TalentPlatform-INDI2024-colct-reanalyEra5.py --modelList REANALY-ERA5-25K-UNIS --cpuCoreNum 5 --srtDate 2022-06-01 --endDate 2023-01-01 --key 38372:e61b5517-d919-47b6-93bf-f9a01ee4246f &
-    # nohup /home/hanul/anaconda3/envs/py38/bin/python3 TalentPlatform-INDI2024-colct-reanalyEra5.py --modelList REANALY-ERA5-25K-PRES --cpuCoreNum 5 --srtDate 2023-01-01 --endDate 2023-06-01 --key 307569:99d328b8-16ca-4bbe-a2c6-fb348c5c4219 &
-    # nohup /home/hanul/anaconda3/envs/py38/bin/python3 TalentPlatform-INDI2024-colct-reanalyEra5.py --modelList REANALY-ERA5-25K-UNIS --cpuCoreNum 5 --srtDate 2023-01-01 --endDate 2023-06-01 --key 307569:99d328b8-16ca-4bbe-a2c6-fb348c5c4219 &
-    # nohup /home/hanul/anaconda3/envs/py38/bin/python3 TalentPlatform-INDI2024-colct-reanalyEra5.py --modelList REANALY-ERA5-25K-PRES --cpuCoreNum 5 --srtDate 2023-06-01 --endDate 2024-01-01 --key 314000:5f2ea8cc-f1c3-4626-8d3c-4c573c28135d &
-    # nohup /home/hanul/anaconda3/envs/py38/bin/python3 TalentPlatform-INDI2024-colct-reanalyEra5.py --modelList REANALY-ERA5-25K-UNIS --cpuCoreNum 5 --srtDate 2023-06-01 --endDate 2024-01-01 --key 314000:5f2ea8cc-f1c3-4626-8d3c-4c573c28135d &
-    # nohup /home/hanul/anaconda3/envs/py38/bin/python3 TalentPlatform-INDI2024-colct-reanalyEra5.py --modelList REANALY-ERA5-25K-PRES --cpuCoreNum 5 --srtDate 2023-10-01 --endDate 2024-01-01 --key 313999:09d74faf-b856-40fc-8047-46d669fb56eb &
-    # nohup /home/hanul/anaconda3/envs/py38/bin/python3 TalentPlatform-INDI2024-colct-reanalyEra5.py --modelList REANALY-ERA5-25K-UNIS --cpuCoreNum 5 --srtDate 2023-10-01 --endDate 2024-01-01 --key 313999:09d74faf-b856-40fc-8047-46d669fb56eb &
-    # nohup /home/hanul/anaconda3/envs/py38/bin/python3 TalentPlatform-INDI2024-colct-reanalyEra5.py --modelList REANALY-ERA5-25K-PRES --cpuCoreNum 5 --srtDate 2024-01-01 --endDate 2024-06-01 --key 313996:a9827fcb-bc34-4b1a-816c-8b6ab0915fb2 &
-    # nohup /home/hanul/anaconda3/envs/py38/bin/python3 TalentPlatform-INDI2024-colct-reanalyEra5.py --modelList REANALY-ERA5-25K-UNIS --cpuCoreNum 5 --srtDate 2024-01-01 --endDate 2024-06-01 --key 313996:a9827fcb-bc34-4b1a-816c-8b6ab0915fb2 &
 
-    # ps -ef | grep "TalentPlatform-INDI2024-colct-reanalyEra5.py" | awk '{print $2}' | xargs kill -9
-    # ps -ef | grep "TalentPlatform-INDI2024-colct-reanalyEra5.py" | grep "REANALY-ERA5-25K-UNIS" | grep "2023-01-01" | awk '{print $2}' | xargs kill -9
-    # ps -ef | grep "RunShell-get-gfsncep2.sh" | awk '{print $2}' | xargs kill -9
+    # ps -ef | grep "TalentPlatform-INDI2024-colct-gfs" | awk '{print $2}' | xargs kill -9
     # ps -ef | egrep "RunShell|Repro" | awk '{print $2}' | xargs kill -9
 
     # ================================================================================================
@@ -313,102 +296,25 @@ class DtaProcess(object):
             # 옵션 설정
             sysOpt = {
                 # 수행 목록
-                # 'modelList': ['REANALY-ERA5-25K-UNIS']
-                # 'modelList': ['REANALY-ERA5-25K-PRES']
-                'modelList': [globalVar['modelList']]
+                'modelList': ['GFS']
+                # 'modelList': [globalVar['modelList']]
 
                 # 비동기 다중 프로세스 개수
-                # , 'cpuCoreNum': '1'
-                , 'cpuCoreNum': globalVar['cpuCoreNum']
+                , 'cpuCoreNum': '5'
+                # , 'cpuCoreNum': globalVar['cpuCoreNum']
 
-                , 'REANALY-ERA5-25K-UNIS': {
-
+                , 'GFS': {
                     # 시작일, 종료일, 시간 간격 (연 1y, 월 1h, 일 1d, 시간 1h)
-                    # 'srtDate': '2024-01-01'
-                    # , 'endDate': '2024-01-02'
-                    'srtDate': globalVar['srtDate']
-                    , 'endDate': globalVar['endDate']
-                    , 'invDate': '1d'
-                    , 'api': {
-                        'url': 'https://cds.climate.copernicus.eu/api/v2'
-                        # , 'key': ''
-                        , 'key': globalVar['key']
-                    }
-
-                    , 'name': 'reanalysis-era5-single-levels'
-                    , 'request': {
-                        'product_type': 'reanalysis',
-                        'format': 'grib',
-                        'variable': [
-                            '10m_u_component_of_wind','10m_v_component_of_wind','2m_dewpoint_temperature','2m_temperature','land_sea_mask','mean_sea_level_pressure','sea_ice_cover','sea_surface_temperature','skin_temperature','snow_depth','soil_temperature_level_1','soil_temperature_level_2','soil_temperature_level_3','soil_temperature_level_4','surface_pressure','volumetric_soil_water_layer_1','volumetric_soil_water_layer_2','volumetric_soil_water_layer_3','volumetric_soil_water_layer_4'
-                        ],
-                        'year': [
-                            '%Y'
-                        ],
-                        'month': [
-                            '%m'
-                        ],
-                        'day': [
-                            '%d'
-                        ],
-                        'time': [
-                            '00:00', '01:00', '02:00', '03:00', '04:00', '05:00', '06:00', '07:00', '08:00', '09:00', '10:00', '11:00', '12:00', '13:00', '14:00', '15:00', '16:00', '17:00', '18:00', '19:00', '20:00', '21:00', '22:00', '23:00'
-                        ],
-                        'area': [
-                            90, -180, -90, 180,
-                            # 30, 120, 31, 121
-                        ],
-                    }
-                    # , 'tmp': '/DATA/INPUT/INDI2024/DATA/REANALY-ERA5/%Y/%m/%d/.reanaly-era5-unis_%Y%m%d.grib'
-                    # , 'target': '/DATA/INPUT/INDI2024/DATA/REANALY-ERA5/%Y/%m/%d/reanaly-era5-unis_%Y%m%d.grib'
-                    , 'tmp': '/data1/REANALY-ERA5/%Y/%m/%d/.reanaly-era5-unis_%Y%m%d.grib'
-                    , 'target': '/data1/REANALY-ERA5/%Y/%m/%d/reanaly-era5-unis_%Y%m%d.grib'
-                }
-
-                , 'REANALY-ERA5-25K-PRES': {
-                    # 'srtDate': '2024-01-01'
-                    # , 'endDate': '2024-01-02'
-                    'srtDate': globalVar['srtDate']
-                    , 'endDate': globalVar['endDate']
-                    , 'invDate': '1h'
-                    , 'api': {
-                        'url': 'https://cds.climate.copernicus.eu/api/v2'
-                        # , 'key': ''
-                        , 'key': globalVar['key']
-                    }
-
-                    , 'name': 'reanalysis-era5-pressure-levels'
-                    , 'request': {
-                        'product_type': 'reanalysis',
-                        'format': 'grib',
-                        'variable': [
-                            'geopotential','relative_humidity','specific_humidity','temperature','u_component_of_wind','v_component_of_wind','vertical_velocity'
-                        ],
-                        'pressure_level': [
-                            '1','2','3','5','7','10','20','30','50','70','100','125','150','175','200','225','250','300','350','400','450','500','550','600','650','700','750','775','800','825','850','875','900','925','950','975','1000'
-                        ],
-                        'year': [
-                            '%Y'
-                        ],
-                        'month': [
-                            '%m'
-                        ],
-                        'day': [
-                            '%d'
-                        ],
-                        'time': [
-                            '%H:%M'
-                            # '00:00', '01:00', '02:00', '03:00', '04:00', '05:00', '06:00', '07:00', '08:00', '09:00', '10:00', '11:00', '12:00', '13:00', '14:00', '15:00', '16:00', '17:00', '18:00', '19:00', '20:00', '21:00', '22:00', '23:00'
-                        ],
-                        'area': [
-                            90, -180, -90, 180
-                            # 30, 120, 31, 121
-                        ],
-                    }
-                    # , 'tmp': '/DATA/INPUT/INDI2024/DATA/REANALY-ERA5/%Y/%m/%d/.reanaly-era5-pres_%Y%m%d%H%M.grib'
-                    # , 'target': '/DATA/INPUT/INDI2024/DATA/REANALY-ERA5/%Y/%m/%d/reanaly-era5-pres_%Y%m%d%H%M.grib'
-                    , 'tmp': '/data1/REANALY-ERA5/%Y/%m/%d/.reanaly-era5-pres_%Y%m%d%H%M.grib'
-                    , 'target': '/data1/REANALY-ERA5/%Y/%m/%d/reanaly-era5-pres_%Y%m%d%H%M.grib'
+                    'srtDate': '2024-05-21'
+                    , 'endDate': '2024-05-23'
+                    # 'srtDate': globalVar['srtDate']
+                    # , 'endDate': globalVar['endDate']
+                    , 'invDate': '6h'
+                    , 'request': 'https://nomads.ncep.noaa.gov/pub/data/nccf/com/gfs/prod/gfs.%Y%m%d/%H/atmos/gfs.t%Hz.pgrb2.0p25.f{}'
+                    , 'tmp': '/DATA/INPUT/INDI2024/DATA/GFS/%Y/%m/%d/.gfs.t%Hz.pgrb2.0p25.f{}.gb2'
+                    , 'target': '/DATA/INPUT/INDI2024/DATA/GFS/%Y/%m/%d/gfs.t%Hz.pgrb2.0p25.f{}.gb2'
+                    # , 'tmp': '/data1/GFS/%Y/%m/%d/.gfs.t%Hz.pgrb2.0p25.f{}.gb2'
+                    # , 'target': '/data1/GFS/%Y/%m/%d/gfs.t%Hz.pgrb2.0p25.f{}.gb2'
                 }
             }
 
@@ -428,10 +334,12 @@ class DtaProcess(object):
                 dtSrtDate = pd.to_datetime(modelInfo['srtDate'], format='%Y-%m-%d')
                 dtEndDate = pd.to_datetime(modelInfo['endDate'], format='%Y-%m-%d')
                 dtDateList = pd.date_range(start=dtSrtDate, end=dtEndDate, freq=modelInfo['invDate'])
-                
+
                 for dtDateInfo in dtDateList:
-                    log.info(f'[CHECK] dtDateInfo : {dtDateInfo}')
-                    pool.apply_async(subColct, args=(modelInfo, dtDateInfo))
+                    for time in range(0, 88):
+                        ftime = f'{time:03}'
+                        log.info(f'[CHECK] dtDateInfo : {dtDateInfo} / ftime : {ftime}')
+                        pool.apply_async(subColct, args=(modelInfo, dtDateInfo, ftime))
 
             pool.close()
             pool.join()
