@@ -233,21 +233,24 @@ class DtaProcess(object):
     # python TalentPlatform-INDI2024-colct-reanalyEra5.py --modelList "REANALY-ERA5-25K-PRES" --cpuCoreNum "1" --srtDate "2024-01-01" --endDate "2024-01-02" --key "313996:a9827fcb-bc34-4b1a-816c-8b6ab0915fb2"
 
     # cd /home/hanul/SYSTEMS/KIER/PROG/PYTHON/colct
-    # nohup /home/hanul/anaconda3/envs/py38/bin/python3 TalentPlatform-INDI2024-colct-reanalyEra5.py --modelList REANALY-ERA5-25K-PRES --cpuCoreNum 5 --srtDate 2022-01-01 --endDate 2022-06-01 --key 292516:2df989f2-40aa-454f-9b83-daf3517aa2f9 &
     # nohup /home/hanul/anaconda3/envs/py38/bin/python3 TalentPlatform-INDI2024-colct-reanalyEra5.py --modelList REANALY-ERA5-25K-UNIS --cpuCoreNum 5 --srtDate 2022-01-01 --endDate 2022-06-01 --key 292516:2df989f2-40aa-454f-9b83-daf3517aa2f9 &
-    # nohup /home/hanul/anaconda3/envs/py38/bin/python3 TalentPlatform-INDI2024-colct-reanalyEra5.py --modelList REANALY-ERA5-25K-PRES --cpuCoreNum 5 --srtDate 2022-06-01 --endDate 2023-01-01 --key 38372:e61b5517-d919-47b6-93bf-f9a01ee4246f &
     # nohup /home/hanul/anaconda3/envs/py38/bin/python3 TalentPlatform-INDI2024-colct-reanalyEra5.py --modelList REANALY-ERA5-25K-UNIS --cpuCoreNum 5 --srtDate 2022-06-01 --endDate 2023-01-01 --key 38372:e61b5517-d919-47b6-93bf-f9a01ee4246f &
-    # nohup /home/hanul/anaconda3/envs/py38/bin/python3 TalentPlatform-INDI2024-colct-reanalyEra5.py --modelList REANALY-ERA5-25K-PRES --cpuCoreNum 5 --srtDate 2023-01-01 --endDate 2023-06-01 --key 307569:99d328b8-16ca-4bbe-a2c6-fb348c5c4219 &
     # nohup /home/hanul/anaconda3/envs/py38/bin/python3 TalentPlatform-INDI2024-colct-reanalyEra5.py --modelList REANALY-ERA5-25K-UNIS --cpuCoreNum 5 --srtDate 2023-01-01 --endDate 2023-06-01 --key 307569:99d328b8-16ca-4bbe-a2c6-fb348c5c4219 &
-    # nohup /home/hanul/anaconda3/envs/py38/bin/python3 TalentPlatform-INDI2024-colct-reanalyEra5.py --modelList REANALY-ERA5-25K-PRES --cpuCoreNum 5 --srtDate 2023-06-01 --endDate 2024-01-01 --key 314000:5f2ea8cc-f1c3-4626-8d3c-4c573c28135d &
     # nohup /home/hanul/anaconda3/envs/py38/bin/python3 TalentPlatform-INDI2024-colct-reanalyEra5.py --modelList REANALY-ERA5-25K-UNIS --cpuCoreNum 5 --srtDate 2023-06-01 --endDate 2024-01-01 --key 314000:5f2ea8cc-f1c3-4626-8d3c-4c573c28135d &
-    # nohup /home/hanul/anaconda3/envs/py38/bin/python3 TalentPlatform-INDI2024-colct-reanalyEra5.py --modelList REANALY-ERA5-25K-PRES --cpuCoreNum 5 --srtDate 2023-10-01 --endDate 2024-01-01 --key 313999:09d74faf-b856-40fc-8047-46d669fb56eb &
     # nohup /home/hanul/anaconda3/envs/py38/bin/python3 TalentPlatform-INDI2024-colct-reanalyEra5.py --modelList REANALY-ERA5-25K-UNIS --cpuCoreNum 5 --srtDate 2023-10-01 --endDate 2024-01-01 --key 313999:09d74faf-b856-40fc-8047-46d669fb56eb &
-    # nohup /home/hanul/anaconda3/envs/py38/bin/python3 TalentPlatform-INDI2024-colct-reanalyEra5.py --modelList REANALY-ERA5-25K-PRES --cpuCoreNum 5 --srtDate 2024-01-01 --endDate 2024-06-01 --key 313996:a9827fcb-bc34-4b1a-816c-8b6ab0915fb2 &
     # nohup /home/hanul/anaconda3/envs/py38/bin/python3 TalentPlatform-INDI2024-colct-reanalyEra5.py --modelList REANALY-ERA5-25K-UNIS --cpuCoreNum 5 --srtDate 2024-01-01 --endDate 2024-06-01 --key 313996:a9827fcb-bc34-4b1a-816c-8b6ab0915fb2 &
+
+    # nohup /home/hanul/anaconda3/envs/py38/bin/python3 TalentPlatform-INDI2024-colct-reanalyEra5.py --modelList REANALY-ERA5-25K-PRES --cpuCoreNum 5 --srtDate 2022-01-01 --endDate 2022-06-01 --key 292516:2df989f2-40aa-454f-9b83-daf3517aa2f9 &
+    # nohup /home/hanul/anaconda3/envs/py38/bin/python3 TalentPlatform-INDI2024-colct-reanalyEra5.py --modelList REANALY-ERA5-25K-PRES --cpuCoreNum 5 --srtDate 2022-06-01 --endDate 2023-01-01 --key 38372:e61b5517-d919-47b6-93bf-f9a01ee4246f &
+    # nohup /home/hanul/anaconda3/envs/py38/bin/python3 TalentPlatform-INDI2024-colct-reanalyEra5.py --modelList REANALY-ERA5-25K-PRES --cpuCoreNum 5 --srtDate 2023-01-01 --endDate 2023-06-01 --key 307569:99d328b8-16ca-4bbe-a2c6-fb348c5c4219 &
+    # nohup /home/hanul/anaconda3/envs/py38/bin/python3 TalentPlatform-INDI2024-colct-reanalyEra5.py --modelList REANALY-ERA5-25K-PRES --cpuCoreNum 5 --srtDate 2023-06-01 --endDate 2024-01-01 --key 314000:5f2ea8cc-f1c3-4626-8d3c-4c573c28135d &
+    # nohup /home/hanul/anaconda3/envs/py38/bin/python3 TalentPlatform-INDI2024-colct-reanalyEra5.py --modelList REANALY-ERA5-25K-PRES --cpuCoreNum 5 --srtDate 2023-10-01 --endDate 2024-01-01 --key 313999:09d74faf-b856-40fc-8047-46d669fb56eb &
+    # nohup /home/hanul/anaconda3/envs/py38/bin/python3 TalentPlatform-INDI2024-colct-reanalyEra5.py --modelList REANALY-ERA5-25K-PRES --cpuCoreNum 5 --srtDate 2024-01-01 --endDate 2024-06-01 --key 313996:a9827fcb-bc34-4b1a-816c-8b6ab0915fb2 &
+
 
     # ps -ef | grep "TalentPlatform-INDI2024-colct-reanalyEra5.py" | awk '{print $2}' | xargs kill -9
     # ps -ef | grep "TalentPlatform-INDI2024-colct-reanalyEra5.py" | grep "REANALY-ERA5-25K-UNIS" | grep "2023-01-01" | awk '{print $2}' | xargs kill -9
+    # ps -ef | grep "TalentPlatform-INDI2024-colct-reanalyEra5.py" | grep "REANALY-ERA5-25K-UNIS" | awk '{print $2}' | xargs kill -9
     # ps -ef | grep "RunShell-get-gfsncep2.sh" | awk '{print $2}' | xargs kill -9
     # ps -ef | egrep "RunShell|Repro" | awk '{print $2}' | xargs kill -9
 
@@ -328,7 +331,8 @@ class DtaProcess(object):
                     # , 'endDate': '2024-01-02'
                     'srtDate': globalVar['srtDate']
                     , 'endDate': globalVar['endDate']
-                    , 'invDate': '1d'
+                    # , 'invDate': '1d'
+                    , 'invDate': '1h'
                     , 'api': {
                         'url': 'https://cds.climate.copernicus.eu/api/v2'
                         # , 'key': ''
@@ -352,7 +356,8 @@ class DtaProcess(object):
                             '%d'
                         ],
                         'time': [
-                            '00:00', '01:00', '02:00', '03:00', '04:00', '05:00', '06:00', '07:00', '08:00', '09:00', '10:00', '11:00', '12:00', '13:00', '14:00', '15:00', '16:00', '17:00', '18:00', '19:00', '20:00', '21:00', '22:00', '23:00'
+                            # '00:00', '01:00', '02:00', '03:00', '04:00', '05:00', '06:00', '07:00', '08:00', '09:00', '10:00', '11:00', '12:00', '13:00', '14:00', '15:00', '16:00', '17:00', '18:00', '19:00', '20:00', '21:00', '22:00', '23:00'
+                             '%H:%M'
                         ],
                         'area': [
                             90, -180, -90, 180,
@@ -361,8 +366,12 @@ class DtaProcess(object):
                     }
                     # , 'tmp': '/DATA/INPUT/INDI2024/DATA/REANALY-ERA5/%Y/%m/%d/.reanaly-era5-unis_%Y%m%d.grib'
                     # , 'target': '/DATA/INPUT/INDI2024/DATA/REANALY-ERA5/%Y/%m/%d/reanaly-era5-unis_%Y%m%d.grib'
-                    , 'tmp': '/data1/REANALY-ERA5/%Y/%m/%d/.reanaly-era5-unis_%Y%m%d.grib'
-                    , 'target': '/data1/REANALY-ERA5/%Y/%m/%d/reanaly-era5-unis_%Y%m%d.grib'
+                    # , 'tmp': '/data1/REANALY-ERA5/%Y/%m/%d/.reanaly-era5-unis_%Y%m%d.grib'
+                    # , 'target': '/data1/REANALY-ERA5/%Y/%m/%d/reanaly-era5-unis_%Y%m%d.grib'
+                    # , 'tmp': '/DATA/INPUT/INDI2024/DATA/REANALY-ERA5/%Y/%m/%d/.reanaly-era5-unis_%Y%m%d%H%M.grib'
+                    # , 'target': '/DATA/INPUT/INDI2024/DATA/REANALY-ERA5/%Y/%m/%d/reanaly-era5-unis_%Y%m%d%H%M.grib'
+                    , 'tmp': '/data1/REANALY-ERA5/%Y/%m/%d/.reanaly-era5-unis_%Y%m%d%H%M.grib'
+                    , 'target': '/data1/REANALY-ERA5/%Y/%m/%d/reanaly-era5-unis_%Y%m%d%H%M.grib'
                 }
 
                 , 'REANALY-ERA5-25K-PRES': {
