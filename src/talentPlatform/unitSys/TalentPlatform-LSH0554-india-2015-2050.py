@@ -446,7 +446,9 @@ class DtaProcess(object):
 
                             for idx, item in dataL2.iterrows():
                                 # engType = item['EnergyType']
-                                engType = item.get('Act_abb')
+                                # engType = item['Act_abb']
+                                engType = item.get('EnergyType') or item.get('Act_abb')
+
                                 if pd.isna(engType): continue
                                 wbDataL1 = wbData.loc[(wbData['year'] == int(keyGrpYearInfo)) & (wbData['Act_abb'] == engType)]
                                 if wbDataL1.size < 1: continue
