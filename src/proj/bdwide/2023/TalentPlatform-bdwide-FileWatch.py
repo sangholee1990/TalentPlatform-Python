@@ -197,8 +197,6 @@ def initArgument(globalVar, inParams):
 @retry(stop_max_attempt_number=10)
 def makeFileProc(fileInfo):
 
-    # log.info(f'[START] makeFileProc')
-
     try:
         if not os.path.exists(fileInfo): return
         log.info(f'[CHECK] fileInfo : {fileInfo}')
@@ -262,11 +260,8 @@ def makeFileProc(fileInfo):
                 raise ValueError(f'[ERROR] 파일 관리 실패 : {str(e)}')
 
     except Exception as e:
-        log.error(f'Exception : {e}')
+        log.error(f'Exception : {str(e)}')
         raise e
-
-    # finally:
-        # log.info(f'[END] makeFileProc')
 
 class Handler(FileSystemEventHandler):
     def __init__(self, patterns):
@@ -282,7 +277,7 @@ class Handler(FileSystemEventHandler):
         try:
             makeFileProc(event.src_path)
         except Exception as e:
-            log.error(f'Exception : {e}')
+            log.error(f'Exception : {str(e)}')
 
 # ================================================
 # 4. 부 프로그램
