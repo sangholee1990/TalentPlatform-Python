@@ -209,8 +209,11 @@ def subColct(modelInfo, dtDateInfo):
         log.info(f'[END] subColct : {dtDateInfo} / pid : {procInfo.pid}')
 
     except Exception as e:
-        log.error("Exception : {}".format(e))
+        log.error(f'Exception : {str(e)}')
         raise e
+    finally:
+        if os.path.exists(tmpFileInfo):
+            os.remove(tmpFileInfo)
 
 # ================================================
 # 4. 부 프로그램
