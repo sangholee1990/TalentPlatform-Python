@@ -259,8 +259,8 @@ class DtaProcess(object):
                 globalVar['updPath'] = '/DATA/CSV'
 
             sysOpt = {
-                'sheetName' : '워드클라우드'
-                , 'metaData' : {
+                'sheetName': '인프라'
+                , 'metaData': {
                     "충남": "충청남도",
                     "충북": "충청북도",
                     "서울": "서울특별시",
@@ -284,10 +284,16 @@ class DtaProcess(object):
             # *********************************************************************************
             # 코드 정보 읽기
             # *********************************************************************************
-            colNameList = ['검색어', '키워드', '개수']
-            colCodeList = ['search', 'keyword', 'cnt']
-
-            renameDict = {colName: colCode for colName, colCode in zip(colNameList, colCodeList)}
+            # colNameList = ['아파트(도로명)', '면적', '건축연도', '연도', '날짜', '위도', '경도', '인허가', '건축년도', '매매가', '전세가',
+            #                '예측 딥러닝 매매가', '예측 딥러닝 전세가', '예측 머신러닝 매매가', '예측 머신러닝 전세가', '실측 갭투자',
+            #                '예측 머신러닝 갭투자', '예측 딥러닝 갭투자', '실측 수익금', '예측 딥러닝 수익금', '예측 머신러닝 수익금',
+            #                '실측 수익률', '예측 딥러닝 수익률', '예측 머신러닝 수익률']
+            #
+            # colCodeList = ['name', 'capacity', 'construction_year', 'year', 'date', 'lat', 'lon', 'inhuga', 'conYear', 'realPrice', 'realBjprice',
+            #                'realPriceDL', 'realBjPriceDL', 'realPriceML', 'realBjPriceML', 'gapReal', 'gapML', 'gapDL',
+            #                'gapDiffReal', 'gapDiffDL', 'gapDiffML', 'gapPctReal', 'gapPctDL', 'gapPctML']
+            #
+            # renameDict = {colName: colCode for colName, colCode in zip(colNameList, colCodeList)}
 
             # *********************************************************************************
             # 파일 읽기
@@ -303,20 +309,22 @@ class DtaProcess(object):
 
                 fileName = os.path.basename(fileInfo)
                 fileNameNoExt = fileName.split('.')[0]
-
                 data = pd.read_excel(fileInfo, sheet_name=sysOpt['sheetName'], engine='openpyxl')
+
+
+                data['aptGeo'] = data["apt_y"].astype('str') + ", " + data["apt_x"].astype('str')
+                data['subGeo'] = data["p_y"].astype('str') + ", " + data["p_x"].astype('str')
 
                 pattern = r"\[([^\]]+)\] \[([^\]]+) ([^\]]+)\]"
                 match = re.search(pattern, fileNameNoExt)
                 if not match: continue
+                data['sgg'] = sysOpt['metaData'][match.group(2)] + " " + match.group(3)
 
-                data['sgg'] = sysOpt['metaData'][match.group(2)] + " " +  match.group(3)
-
-                dataL1 = data.rename(columns=renameDict, inplace=False)
+                dataL1 = data.drop(columns=['위치', '좌표'])
                 dataL2 = pd.concat([dataL2, dataL1], axis=0)
 
             # CSV 생성
-            saveFile = '{}/{}/{}_{}.csv'.format(globalVar['outPath'], serviceName, datetime.now().strftime("%Y%m%d"), 'TB_KEYWORD')
+            saveFile = '{}/{}/{}_{}.csv'.format(globalVar['outPath'], serviceName, datetime.now().strftime("%Y%m%d"), 'TB_INFRA')
             os.makedirs(os.path.dirname(saveFile), exist_ok=True)
             dataL2.to_csv(saveFile, index=False)
             log.info(f'[CHECK] saveFile : {saveFile}')
