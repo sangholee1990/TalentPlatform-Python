@@ -277,9 +277,7 @@ class DtaProcess(object):
             # *********************************************************************************
             # 파일 읽기
             # *********************************************************************************
-            # inpFile = '{}/{}/{}'.format(globalVar['inpPath'], serviceName, '*데이터 분석.xlsx')
-            # inpFile = '{}/{}/{}'.format(globalVar['inpPath'], serviceName, 'NEW 수익률 테이블_서울특별시*.xlsx')
-            inpFile = '{}/{}/{}'.format(globalVar['inpPath'], serviceName, 'NEW 수익률 테이블_*.xlsx')
+            inpFile = '{}/{}/{}'.format(globalVar['inpPath'], serviceName, '예측/NEW 수익률 테이블_*.xlsx')
             fileList = sorted(glob.glob(inpFile), reverse=True)
             if fileList is None or len(fileList) < 1:
                 log.error(f'[ERROR] inpFile : {inpFile} / 입력 자료를 확인해주세요.')
