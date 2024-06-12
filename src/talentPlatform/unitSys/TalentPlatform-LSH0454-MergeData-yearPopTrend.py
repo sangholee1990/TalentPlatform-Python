@@ -285,15 +285,15 @@ class DtaProcess(object):
             # *********************************************************************************
             # 코드 정보 읽기
             # *********************************************************************************
-            colNameList = ['세대수', '단지명', 'sgg']
-            colCodeList = ['numHouse', 'comName', 'sgg']
+            colNameList = ['시점', '데이터', 'sgg']
+            colCodeList = ['year', 'cnt', 'sgg']
 
             renameDict = {colName: colCode for colName, colCode in zip(colNameList, colCodeList)}
 
             # *********************************************************************************
             # 파일 읽기
             # *********************************************************************************
-            inpFile = '{}/{}/{}'.format(globalVar['inpPath'], serviceName, '대단지 순위_전체_*.xlsx')
+            inpFile = '{}/{}/{}'.format(globalVar['inpPath'], serviceName, '연별 인구변화 추이_전체_*.csv')
             fileList = sorted(glob.glob(inpFile), reverse=True)
             if fileList is None or len(fileList) < 1:
                 log.error(f'[ERROR] inpFile : {inpFile} / 입력 자료를 확인해주세요.')
@@ -305,14 +305,16 @@ class DtaProcess(object):
                 fileName = os.path.basename(fileInfo)
                 fileNameNoExt = fileName.split('.')[0]
 
-                data = pd.read_excel(fileInfo, skiprows=1, engine='openpyxl')
-                data['sgg'] = data['시도'] + " " + data['시군구']
+                # data = pd.read_excel(fileInfo, skiprows=1, engine='openpyxl')
+                data = pd.read_csv(fileInfo, encoding='EUC-KR')
+                data = data[(data['행정구역(시군구)별(1)'] != '전국') & (data['행정구역(시군구)별(2)'] != '소계')].reset_index()
+                data['sgg'] = data['행정구역(시군구)별(1)'] + " " + data['행정구역(시군구)별(2)']
 
                 dataL1 = data[colNameList].rename(columns=renameDict, inplace=False)
                 dataL2 = pd.concat([dataL2, dataL1], axis=0)
 
             # CSV 생성
-            saveFile = '{}/{}/{}_{}.csv'.format(globalVar['outPath'], serviceName, datetime.now().strftime("%Y%m%d"), 'TB_LARGE-COM-RANK')
+            saveFile = '{}/{}/{}_{}.csv'.format(globalVar['outPath'], serviceName, datetime.now().strftime("%Y%m%d"), 'TB_YEAR-POP-TREND')
             os.makedirs(os.path.dirname(saveFile), exist_ok=True)
             dataL2.to_csv(saveFile, index=False)
             log.info(f'[CHECK] saveFile : {saveFile}')
