@@ -312,8 +312,8 @@ class DtaProcess(object):
 
                 dataL1 = data[colNameList].rename(columns=renameDict, inplace=False)
                 dataL2 = data.drop(columns=["index", "항목", "행정구역(동읍면)별(1)", "행정구역(동읍면)별(2)", "행정구역(동읍면)별(3)", "5세별(1)", "sgg"])
+                dataL2.columns = ['v' + col.replace('.', '') for col in dataL2.columns]
                 dataL3 = pd.concat([dataL1, dataL2], axis=1)
-
                 dataL4 = pd.concat([dataL4, dataL3], axis=0)
 
             # CSV 생성
