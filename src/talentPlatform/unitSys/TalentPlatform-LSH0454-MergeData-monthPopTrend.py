@@ -285,7 +285,7 @@ class DtaProcess(object):
             # *********************************************************************************
             # 코드 정보 읽기
             # *********************************************************************************
-            colNameList = ['행정구역(동읍면)별(1)', '행정구역(동읍면)별(2)', 'sgg']
+            colNameList = ['행정구역(동읍면)별(2)', '행정구역(동읍면)별(3)', 'sgg']
             colCodeList = ['sigungu', 'dong', 'sgg']
 
             renameDict = {colName: colCode for colName, colCode in zip(colNameList, colCodeList)}
@@ -311,9 +311,13 @@ class DtaProcess(object):
                 data['sgg'] = data['행정구역(동읍면)별(1)'] + " " + data['행정구역(동읍면)별(2)']
 
                 dataL1 = data[colNameList].rename(columns=renameDict, inplace=False)
+
                 dataL2 = data.drop(columns=["index", "항목", "행정구역(동읍면)별(1)", "행정구역(동읍면)별(2)", "행정구역(동읍면)별(3)", "5세별(1)", "sgg"])
                 dataL2.columns = ['v' + col.replace('.', '') for col in dataL2.columns]
+                dataL2 = dataL2.apply(pd.to_numeric, errors='coerce')
+
                 dataL3 = pd.concat([dataL1, dataL2], axis=1)
+
                 dataL4 = pd.concat([dataL4, dataL3], axis=0)
 
             # CSV 생성
