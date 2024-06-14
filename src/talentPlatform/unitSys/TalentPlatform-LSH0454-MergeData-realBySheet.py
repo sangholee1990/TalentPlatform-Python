@@ -213,7 +213,7 @@ class DtaProcess(object):
     # env = 'oper'  # 운영 : 리눅스 환경, 작업환경 (사용자 환경 시 contextPath) 설정
 
     if (platform.system() == 'Windows'):
-        contextPath = os.getcwd() if env in 'local' else 'C:/SYSTEMS/PROG/PYTHON/TalentPlatform-Python'
+        contextPath = os.getcwd() if env in 'local' else 'E:/04. TalentPlatform/Github/TalentPlatform-Python'
     else:
         contextPath = os.getcwd() if env in 'local' else '/SYSTEMS/PROG/PYTHON/PyCharm'
 
@@ -252,10 +252,7 @@ class DtaProcess(object):
 
         try:
             if platform.system() == 'Windows':
-                globalVar['inpPath'] = '/DATA/INPUT'
-                globalVar['outPath'] = '/DATA/OUTPUT'
-                globalVar['figPath'] = '/DATA/FIG'
-                globalVar['updPath'] = '/DATA/CSV'
+                pass
             else:
                 globalVar['inpPath'] = '/DATA/INPUT'
                 globalVar['outPath'] = '/DATA/OUTPUT'
@@ -302,7 +299,7 @@ class DtaProcess(object):
             # *********************************************************************************
             # 파일 읽기
             # *********************************************************************************
-            inpFile = '{}/{}/{}'.format(globalVar['inpPath'], serviceName, '전처리/*/아파트 실거래_*_*.csv')
+            inpFile = '{}/{}/{}'.format(globalVar['inpPath'], serviceName, '가공/*데이터 분석.xlsx')
             fileList = sorted(glob.glob(inpFile), reverse=True)
             if fileList is None or len(fileList) < 1:
                 log.error(f'[ERROR] inpFile : {inpFile} / 입력 자료를 확인해주세요.')
@@ -313,12 +310,8 @@ class DtaProcess(object):
 
                 fileName = os.path.basename(fileInfo)
                 fileNameNoExt = fileName.split('.')[0]
-                ssg = fileNameNoExt.split('_')[1]
 
-                # data = pd.read_excel(fileInfo, sheet_name=sysOpt['sheetName'], engine='openpyxl')
-                data = pd.read_csv(fileInfo, encoding='EUC-KR')
-
-                data['거래 금액'] = data['거래금액'] * 100000000
+                data = pd.read_excel(fileInfo, sheet_name=sysOpt['sheetName'], engine='openpyxl')
 
                 data["평수"] = data["전용면적(㎡)"].apply(getFloorArea)
                 data["거래가 분류"] = data["거래 금액(억원)"].apply(getAmountType)
