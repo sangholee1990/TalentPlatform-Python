@@ -15,6 +15,7 @@ from metpy.calc import relative_humidity_from_dewpoint
 from metpy.units import units
 import os
 
+
 class Application:
 
     def __init__(self, inFile, modelName, modelKey, config):

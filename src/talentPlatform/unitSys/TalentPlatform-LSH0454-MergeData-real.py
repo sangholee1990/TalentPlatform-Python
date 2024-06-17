@@ -288,14 +288,22 @@ class DtaProcess(object):
             # *********************************************************************************
             # 코드 정보 읽기
             # *********************************************************************************
-            colNameList = ['시군구', '번지', '부번', '단지명', '아파트', '전용면적(㎡)', '평수', '계약년월', '계약일', '계약날짜', '거래 금액',
-                           '거래 금액(억원)', '거래가 분류', '층', '건축년도', '건축일',
-                           '도로명', '거래유형', '중개사소재지', '주소', 'latitude',
-                           'longitude', 'date', '구', '동', '연', '월']
+            #colNameList = ['시군구', '번지', '부번', '단지명', '아파트', '전용면적', '평수', '계약년월', '계약일', '계약날짜', '거래 금액',
+            #               '거래 금액(억원)', '거래가 분류', '층', '건축년도', '건축일',
+            #               '도로명', '거래유형', '중개사소재지', '주소', 'latitude',
+            #               'longitude', 'date', '구', '동', '연', '월']
 
-            colCodeList = ['sigungu', 'lotNum', 'subNum', 'comName', 'apt', 'capacity', 'area', 'ctaYearMonth', 'ctaDay',
-                           'ctaDate', 'amount', 'amountConv', 'amountType', 'floor', 'conYear', 'conDate', 'roadName', 'transMethod',
-                           'broLoc', 'addr', 'lat', 'lon', 'date', 'gu', 'dong', 'year', 'month']
+            #colCodeList = ['sigungu', 'lotNum', 'subNum', 'comName', 'apt', 'capacity', 'area', 'ctaYearMonth', 'ctaDay',
+            #               'ctaDate', 'amount', 'amountConv', 'amountType', 'floor', 'conYear', 'conDate', 'roadName', 'transMethod',
+            #               'broLoc', 'addr', 'lat', 'lon', 'date', 'gu', 'dong', 'year', 'month']
+            
+            colNameList = ['apt', '전용면적', '평수', '계약날짜', '거래 금액',
+                           '거래 금액(억원)', '거래가 분류', '층', '건축날짜',
+                           '거래유형', '중개사소재지', '주소', '계약날짜', '법정동', 'geo']
+
+            colCodeList = ['apt', 'capacity', 'area', 'ctaYearMonth', 'ctaDay',
+                           'ctaDate', 'amount', 'amountConv', 'amountType', 'floor', 'conYear', 'conDate', 'transMethod',
+                           'broLoc', 'addr', 'date', 'dong', 'geo']
 
             renameDict = {colName: colCode for colName, colCode in zip(colNameList, colCodeList)}
 
@@ -316,24 +324,35 @@ class DtaProcess(object):
                 ssg = fileNameNoExt.split('_')[1]
 
                 # data = pd.read_excel(fileInfo, sheet_name=sysOpt['sheetName'], engine='openpyxl')
-                data = pd.read_csv(fileInfo, encoding='EUC-KR')
-
-                data['거래 금액'] = data['거래금액'] * 100000000
-
-                data["평수"] = data["전용면적(㎡)"].apply(getFloorArea)
+            
+                try:
+                    data = pd.read_csv(fileInfo, encoding='EUC-KR')                    
+                except UnicodeDecodeError:
+                    data = pd.read_csv(fileInfo, encoding='UTF-8')
+                
+                data['거래 금액'] = pd.to_numeric(data['거래금액'].str.replace(',', ''), errors='coerce') * 10000
+                data['apt'] = data['아파트'] + '(' + data['도로명'] + ')'
+                data['거래 금액(억원)'] = data['거래 금액'] / 100000000
+                data['계약날짜'] = pd.to_datetime(data['dtYearMonth'].astype(str) + data['일'].apply(lambda x: f'{x:02d}').astype(str), format='%Y%m%d')
+                data['건축날짜'] = pd.to_datetime(data['건축년도'].astype(str), format='%Y')
+                data['주소'] = data['addrInfo'].astype(str) + ' ' + data['도로명'].astype(str) + ' ' + data['도로명건물본번호코드'].astype(str) + ' ' + data['아파트'].astype(str)
+                data["평수"] = pd.to_numeric(data["전용면적"], errors='coerce').apply(getFloorArea)
                 data["거래가 분류"] = data["거래 금액(억원)"].apply(getAmountType)
-                data['geo'] = data["latitude"].astype('str') + ", " + data["longitude"].astype('str')
+                data['sgg'] = data['addrInfo']
+                
+                if 'lat' in data.columns and 'lon' in data.columns:
+                    data['geo'] = data["lat"].astype('str') + ", " + data["lon"].astype('str')
+                else:
+                    data['geo'] = data["latitude"].astype('str') + ", " + data["longitude"].astype('str')
+                
 
-                splitData = data['주소'].str.split(" ")
-                data['sgg'] = splitData.str[0] + " " + splitData.str[1]
-
-                dataL1 = data.rename(columns=renameDict, inplace=False)
+                dataL1 = data[colNameList].rename(columns=renameDict, inplace=False)
                 dataL2 = pd.concat([dataL2, dataL1], axis=0)
 
             # CSV 생성
             saveFile = '{}/{}/{}_{}.csv'.format(globalVar['outPath'], serviceName, datetime.now().strftime("%Y%m%d"), 'TB_REAL')
             os.makedirs(os.path.dirname(saveFile), exist_ok=True)
-            dataL2.to_csv(saveFile, index=False)
+            # dataL2.to_csv(saveFile, index=False)
             log.info(f'[CHECK] saveFile : {saveFile}')
 
         except Exception as e:
