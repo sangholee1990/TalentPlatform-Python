@@ -297,13 +297,13 @@ class DtaProcess(object):
             #               'ctaDate', 'amount', 'amountConv', 'amountType', 'floor', 'conYear', 'conDate', 'roadName', 'transMethod',
             #               'broLoc', 'addr', 'lat', 'lon', 'date', 'gu', 'dong', 'year', 'month']
             
-            colNameList = ['apt', '전용면적', '평수', '계약날짜', '거래 금액',
+            colNameList = ['apt', '전용면적', '평수', '거래 금액',
                            '거래 금액(억원)', '거래가 분류', '층', '건축날짜',
-                           '거래유형', '중개사소재지', '주소', '계약날짜', '법정동', 'geo']
+                           '거래유형', '중개사소재지', '주소', '계약날짜', '법정동', 'geo', 'sgg', '건축연도', '계약연도']
 
-            colCodeList = ['apt', 'capacity', 'area', 'ctaYearMonth', 'ctaDay',
-                           'ctaDate', 'amount', 'amountConv', 'amountType', 'floor', 'conYear', 'conDate', 'transMethod',
-                           'broLoc', 'addr', 'date', 'dong', 'geo']
+            colCodeList = ['apt', 'capacity', 'area', 'amount'
+                           , 'amountConv', 'amountType', 'floor', 'conDate'
+                           , 'transMethod', 'broLoc', 'addr', 'date', 'dong', 'geo', 'sgg', 'conYear', 'year']
 
             renameDict = {colName: colCode for colName, colCode in zip(colNameList, colCodeList)}
 
@@ -339,6 +339,8 @@ class DtaProcess(object):
                 data["평수"] = pd.to_numeric(data["전용면적"], errors='coerce').apply(getFloorArea)
                 data["거래가 분류"] = data["거래 금액(억원)"].apply(getAmountType)
                 data['sgg'] = data['addrInfo']
+                data['계약연도'] = data['계약날짜'].dt.strftime('%Y').astype(int)
+                data['건축연도'] = data['건축날짜'].dt.strftime('%Y').astype(int)
                 
                 if 'lat' in data.columns and 'lon' in data.columns:
                     data['geo'] = data["lat"].astype('str') + ", " + data["lon"].astype('str')
@@ -352,7 +354,7 @@ class DtaProcess(object):
             # CSV 생성
             saveFile = '{}/{}/{}_{}.csv'.format(globalVar['outPath'], serviceName, datetime.now().strftime("%Y%m%d"), 'TB_REAL')
             os.makedirs(os.path.dirname(saveFile), exist_ok=True)
-            # dataL2.to_csv(saveFile, index=False)
+            dataL2.to_csv(saveFile, index=False)
             log.info(f'[CHECK] saveFile : {saveFile}')
 
         except Exception as e:
