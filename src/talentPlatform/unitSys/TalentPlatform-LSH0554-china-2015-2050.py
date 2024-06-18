@@ -438,7 +438,10 @@ class DtaProcess(object):
                         # inpFilePatrn = f'China/ChinaPower{metaInfo}_*/**/*{keyYearInfo}*_{keyTypeInfo}_*.xlsx'
                         # inpFilePatrn = f'china-20240619/**/*_{keyTypeInfo}_*.xlsx'
                         # inpFilePatrn = f'china-20240619/*/ChinaPower{metaInfo}/*_{keyTypeInfo}_*.xlsx'
-                        inpFilePatrn = f'china-20240619/*/ChinaPower2015/*_{keyTypeInfo}_*.xlsx'
+                        metaInfo2 = re.sub(r'\.', '', metaInfo)
+                        metaInfo3 = f'ChinaPower{metaInfo2}'
+                        
+                        inpFilePatrn = f'china-20240619/*/{metaInfo3}/*_{keyTypeInfo}_*.xlsx'
                         inpFile = '{}/{}/{}'.format(globalVar['inpPath'], serviceName, inpFilePatrn)
                         fileList = sorted(glob.glob(inpFile, recursive=True))
                         if len(fileList) < 1: continue
@@ -520,8 +523,7 @@ class DtaProcess(object):
                             # srtIdx = fileInfo.index('ChinaPower')
                             srtIdx = fileInfo.index('actPathEneMob')
                             # fileName = fileInfo[srtIdx:]
-                            metaInfo2 = re.sub(r'\.', '', metaInfo)
-                            metaInfo3 = f'ChinaPower{metaInfo2}'
+                          
                             fileName = fileInfo[srtIdx:].replace('ChinaPower2015', metaInfo3)
 
                             # Main 시트
