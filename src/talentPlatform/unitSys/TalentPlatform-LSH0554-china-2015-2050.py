@@ -440,7 +440,6 @@ class DtaProcess(object):
                         # inpFilePatrn = f'china-20240619/*/ChinaPower{metaInfo}/*_{keyTypeInfo}_*.xlsx'
                         metaInfo2 = re.sub(r'\.', '', metaInfo)
                         metaInfo3 = f'ChinaPower{metaInfo2}'
-                        
                         inpFilePatrn = f'china-20240619/*/{metaInfo3}/*_{keyTypeInfo}_*.xlsx'
                         inpFile = '{}/{}/{}'.format(globalVar['inpPath'], serviceName, inpFilePatrn)
                         fileList = sorted(glob.glob(inpFile, recursive=True))
