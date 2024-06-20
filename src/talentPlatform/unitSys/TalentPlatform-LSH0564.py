@@ -228,20 +228,43 @@ class DtaProcess(object):
 
             sysOpt = {
                 'metaList': [
+                    # *********************************************************
+                    # china-2020-2050
+                    # *********************************************************
+                    # "ChinaPower2020_input2015",
+                    # "ChinaPower2020_TPL_input2015",
+                    # "ChinaPower2030_2_SSP1",
+                    # "ChinaPower2030_2_SSP2",
+                    # "ChinaPower2030_15_SSP1",
+                    # "ChinaPower2030_15_SSP2",
+                    # "ChinaPower2030_SSP1_nopolicy",
+                    # "ChinaPower2030_SSP2_nopolicy",
+                    # "ChinaPower2050_2_SSP1",
+                    # "ChinaPower2050_2_SSP2",
+                    # "ChinaPower2050_15_SSP1",
+                    # "ChinaPower2050_15_SSP2",
+                    # "ChinaPower2050_SSP1_nopolicy",
+                    # "ChinaPower2050_SSP2_nopolicy",
+                    
+                    # *********************************************************
+                    # china-2015-2020
+                    # *********************************************************
+                    "ChinaPower2015",
+                    "ChinaPower2015_TPL_input2015",
+                    "ChinaPower2016_input2015",
+                    "ChinaPower2016_TPL_input2015",
+                    "ChinaPower2017_input2015",
+                    "ChinaPower2017_TPL_input2015",
+                    "ChinaPower2018_input2015",
+                    "ChinaPower2018_TPL_input2015",
+                    "ChinaPower2019_input2015",
+                    "ChinaPower2019_TPL_input2015",
+                    "ChinaPower2020_control",
+                    "ChinaPower2020_control_input2020",
                     "ChinaPower2020_input2015",
                     "ChinaPower2020_TPL_input2015",
-                    "ChinaPower2030_2_SSP1",
-                    "ChinaPower2030_2_SSP2",
-                    "ChinaPower2030_15_SSP1",
-                    "ChinaPower2030_15_SSP2",
-                    "ChinaPower2030_SSP1_nopolicy",
-                    "ChinaPower2030_SSP2_nopolicy",
-                    "ChinaPower2050_2_SSP1",
-                    "ChinaPower2050_2_SSP2",
-                    "ChinaPower2050_15_SSP1",
-                    "ChinaPower2050_15_SSP2",
-                    "ChinaPower2050_SSP1_nopolicy",
-                    "ChinaPower2050_SSP2_nopolicy",
+                    "ChinaPower2020_TPL_input2020",
+                    
                 ]
                 , 'keyMatList': {
                     'SHND': 'SHAN',
@@ -260,7 +283,8 @@ class DtaProcess(object):
             for metaInfo in sysOpt['metaList']:
                 log.info(f'[CHECK] metaInfo : {metaInfo}')
     
-                inpFilePatrn = f'china-2020-2050/{metaInfo}/*.xlsx'
+                # inpFilePatrn = f'china-2020-2050/{metaInfo}/*.xlsx'
+                inpFilePatrn = f'china-2015-2020/{metaInfo}/*.xlsx'
                 inpFile = '{}/{}/{}'.format(globalVar['inpPath'], serviceName, inpFilePatrn)
                 fileList = sorted(glob.glob(inpFile, recursive=True))
                 if len(fileList) < 1: continue
@@ -287,7 +311,8 @@ class DtaProcess(object):
                             wsMain[f'B5'].value = f'CHIN_{replace}'
                             break
                     
-                    saveFile = '{}/{}/{}/{}/{}'.format(globalVar['outPath'], serviceName, 'china-2020-2050', metaInfo, newFileName)
+                    # saveFile = '{}/{}/{}/{}/{}'.format(globalVar['outPath'], serviceName, 'china-2020-2050', metaInfo, newFileName)
+                    saveFile = '{}/{}/{}/{}/{}'.format(globalVar['outPath'], serviceName, 'china-2015-2020', metaInfo, newFileName)
                     os.makedirs(os.path.dirname(saveFile), exist_ok=True)
                     wb.save(saveFile)
                     log.info(f'[CHECK] saveFile : {saveFile}')
