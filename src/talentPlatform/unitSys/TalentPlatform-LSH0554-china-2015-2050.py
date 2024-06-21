@@ -251,32 +251,35 @@ class DtaProcess(object):
 
             sysOpt = {
                 'metaList': [
-                    "2015",
-                    "2015_TPL_input2015",
-                    "2016_input2015",
-                    "2016_TPL_input2015",
-                    "2017_input2015",
-                    "2017_TPL_input2015",
-                    "2018_input2015",
-                    "2018_TPL_input2015",
-                    "2019_input2015",
-                    "2019_ThermalPlusLowCarbon",
-                    "2020_input2015",
                     "2020_input2020",
-                    "2020_TPL_input2015",
                     "2020_TPL_input2020",
-                    "2030_1.5_SSP1",
-                    "2030_1.5_SSP2",
-                    "2030_2_SSP1",
-                    "2030_2_SSP2",
-                    "2030_SSP1_nopolicy",
-                    "2030_SSP2_nopolicy",
-                    "2050_1.5_SSP1",
-                    "2050_1.5_SSP2",
-                    "2050_2_SSP1",
-                    "2050_2_SSP2",
-                    "2050_SSP1_nopolicy",
-                    "2050_SSP2_nopolicy"
+
+                    # "2015",
+                    # "2015_TPL_input2015",
+                    # "2016_input2015",
+                    # "2016_TPL_input2015",
+                    # "2017_input2015",
+                    # "2017_TPL_input2015",
+                    # "2018_input2015",
+                    # "2018_TPL_input2015",
+                    # "2019_input2015",
+                    # "2019_ThermalPlusLowCarbon",
+                    # "2020_input2015",
+                    # "2020_input2020",
+                    # "2020_TPL_input2015",
+                    # "2020_TPL_input2020",
+                    # "2030_1.5_SSP1",
+                    # "2030_1.5_SSP2",
+                    # "2030_2_SSP1",
+                    # "2030_2_SSP2",
+                    # "2030_SSP1_nopolicy",
+                    # "2030_SSP2_nopolicy",
+                    # "2050_1.5_SSP1",
+                    # "2050_1.5_SSP2",
+                    # "2050_2_SSP1",
+                    # "2050_2_SSP2",
+                    # "2050_SSP1_nopolicy",
+                    # "2050_SSP2_nopolicy"
                 ]
                 , 'keyTypeMat': {
                     'anhui': 'ANHU',
@@ -315,38 +318,6 @@ class DtaProcess(object):
             }
 
             # ********************************************************************
-            # 테스트
-            # ********************************************************************
-            # metaInfo = '2015_TPL_input2015'
-            # metaInfo = '2019_TPL_input2015'
-            # for metaInfo in sysOpt['metaList']:
-            #     log.info(f'[CHECK] metaInfo : {metaInfo}')
-            #
-            #     inpFilePatrn = f'china-20240428/**/ChinaPower{metaInfo}/**/*.xlsx'
-            #     inpFile = '{}/{}/{}'.format(globalVar['inpPath'], serviceName, inpFilePatrn)
-            #     fileList = sorted(glob.glob(inpFile, recursive=True))
-            #
-            #     dataL1 = pd.DataFrame()
-            #     for fileInfo in fileList:
-            #         fileName = os.path.basename(fileInfo)
-            #         fileNameSepList = re.split(r'[厂_\.]', fileName)
-            #         if fileNameSepList is None or len(fileNameSepList) < 1: continue
-            #
-            #         keyType = 'None'
-            #         try:
-            #             keyType = fileNameSepList[5]
-            #         except Exception:
-            #             pass
-            #
-            #         dict = {
-            #             'keyType': [keyType]
-            #             , 'keyTypeAbbr': [keyType[:4].upper()]
-            #             , 'fileName': [fileName]
-            #         }
-            #
-            #         dataL1 = pd.concat([dataL1, pd.DataFrame.from_dict(dict)], ignore_index=True)
-
-            # ********************************************************************
             # 국가 입력 데이터
             # ********************************************************************
             # metaInfo = '2030_SSP1_nopolicy'
@@ -356,7 +327,7 @@ class DtaProcess(object):
                 # inpFilePatrn = f'china-20240502/**/{metaInfo}/**/*.csv'
                 # inpFilePatrn = f'china/**/{metaInfo}/**/*.csv'
                 # inpFilePatrn = f'china-20240502/**/{metaInfo}/**/*.csv'
-                inpFilePatrn = f'china-20240619/*/{metaInfo}/*.csv'
+                inpFilePatrn = f'china-20240622/**/{metaInfo}/*.csv'
                 inpFile = '{}/{}/{}'.format(globalVar['inpPath'], serviceName, inpFilePatrn)
                 fileList = sorted(glob.glob(inpFile, recursive=True))
 
@@ -438,9 +409,8 @@ class DtaProcess(object):
                         # inpFilePatrn = f'China/ChinaPower{metaInfo}_*/**/*{keyYearInfo}*_{keyTypeInfo}_*.xlsx'
                         # inpFilePatrn = f'china-20240619/**/*_{keyTypeInfo}_*.xlsx'
                         # inpFilePatrn = f'china-20240619/*/ChinaPower{metaInfo}/*_{keyTypeInfo}_*.xlsx'
-                        metaInfo2 = re.sub(r'\.', '', metaInfo)
-                        metaInfo3 = f'ChinaPower{metaInfo2}'
-                        inpFilePatrn = f'china-20240619/*/{metaInfo3}/*_{keyTypeInfo}_*.xlsx'
+                        # inpFilePatrn = f'china-20240619/*/{metaInfo3}/*_{keyTypeInfo}_*.xlsx'
+                        inpFilePatrn = f'china-template/**/*_{keyTypeInfo}_*.xlsx'
                         inpFile = '{}/{}/{}'.format(globalVar['inpPath'], serviceName, inpFilePatrn)
                         fileList = sorted(glob.glob(inpFile, recursive=True))
                         if len(fileList) < 1: continue
@@ -487,12 +457,11 @@ class DtaProcess(object):
 
                             # engType = 'HC3'
                             for idx, item in dataL2.iterrows():
-                                # engType = item['EnergyType']
-                                # engType = item.get('EnergyType')
                                 engType = item.get('EnergyType') or item.get('Act_abb')
                                 
                                 if pd.isna(engType): continue
                                 wbDataL1 = wbData.loc[(wbData['year'] == int(keyGrpYearInfo)) & (wbData['Act_abb'] == engType)]
+
                                 if wbDataL1.size < 1: continue
                                 rowIdx = wbDataL1.index[0] + 4
 
@@ -508,7 +477,6 @@ class DtaProcess(object):
                                     cellFill = cell.fill.start_color.index
 
                                     if cellFill != '00000000': continue
-                                    # cell.value = 0.0
 
                                     colVal = cell.value
                                     selVal = item.get(colName)
@@ -522,16 +490,14 @@ class DtaProcess(object):
                             # srtIdx = fileInfo.index('ChinaPower')
                             srtIdx = fileInfo.index('actPathEneMob')
                             # fileName = fileInfo[srtIdx:]
-                          
+
+                            metaInfo2 = re.sub(r'\.', '', metaInfo)
+                            metaInfo3 = f'ChinaPower{metaInfo2}'
                             fileName = fileInfo[srtIdx:].replace('ChinaPower2015', metaInfo3)
 
                             # Main 시트
                             wsMain = wb['Main']
-                            # eleList = [keyYearInfo, sKeyIdxInfo, sKeyVerInfo]
-                            # eleList = [metaInfo]
-                            # eleExtList = [element for element in eleList if element != '']
-                            # eleExtMrg = '_'.join(eleExtList)
-                            # wsMain[f'B7'].value = f'ChinaPower{eleExtMrg}'
+                            wsMain[f'B5'].value = f'CHIN_{keyTypeInfo}'
                             wsMain[f'B7'].value = metaInfo3
 
                             # 기울림체 삭제
@@ -541,7 +507,7 @@ class DtaProcess(object):
                             newFont.italic = False
                             wsMain[f'B3'].font = newFont
 
-                            saveFile = '{}/{}/{}/{}/{}'.format(globalVar['outPath'], serviceName, 'china-2015-2050', metaInfo3, fileName)
+                            saveFile = '{}/{}/{}/{}/{}'.format(globalVar['outPath'], serviceName, 'china-20240622', metaInfo3, fileName)
                             os.makedirs(os.path.dirname(saveFile), exist_ok=True)
                             wb.save(saveFile)
                             log.info('[CHECK] saveFile : {}'.format(saveFile))
