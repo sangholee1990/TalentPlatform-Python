@@ -1,4 +1,4 @@
-TalentPlatform-LSH0554-china-2030-2050.py# -*- coding: utf-8 -*-
+# -*- coding: utf-8 -*-
 import argparse
 import glob
 import logging
@@ -279,16 +279,16 @@ class DtaProcess(object):
                     'henan': 'HENA',
                     'hubei': 'HUBE',
                     'hunan': 'HUNA',
-                    'innermongolia': 'JILI',
+                    'innermongolia': 'NEMO',
                     'jiangsu': 'JINU',
                     'jiangxi': 'JINX',
-                    'jilin': 'LIAO',
-                    'liaoning': 'NEMO',
+                    'jilin': 'JILI',
+                    'liaoning': 'LIAO',
                     'ningxia': 'NINX',
                     'qinghai': 'QING',
                     'shaanxi': 'SHAA',
-                    'shandong': 'SHAN',
-                    'shanghai': 'SHND',
+                    'shandong': 'SHND',
+                    'shanghai': 'SHAN',
                     'shanxi': 'SHNX',
                     'sichuan': 'SICH',
                     'tianjin': 'TIAN',
