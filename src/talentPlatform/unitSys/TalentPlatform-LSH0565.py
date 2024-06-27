@@ -180,7 +180,7 @@ class DtaProcess(object):
     if (platform.system() == 'Windows'):
         contextPath = os.getcwd() if env in 'local' else 'C:/SYSTEMS/PROG/PYTHON/TalentPlatform-Python'
     else:
-        contextPath = os.getcwd() if env in 'local' else '/SYSTEMS/PROG/PYTHON/PyCharm'
+        contextPath = os.getcwd() if env in 'local' else '/SYSTEMS/PROG/PYTHON/IDE'
 
     prjName = 'test'
     serviceName = 'LSH0565'
