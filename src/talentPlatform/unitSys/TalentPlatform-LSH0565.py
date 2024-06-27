@@ -13,11 +13,28 @@ import matplotlib as mpl
 import matplotlib.pyplot as plt
 import re
 import shutil
-
 from openpyxl import load_workbook
 from openpyxl.styles import Font
 from copy import copy
 import pandas as pd
+import pvlib
+from pvlib import location
+from pvlib import irradiance
+import pytz
+from datetime import timedelta
+import optuna.integration.lightgbm as lgb
+import optuna
+import os
+import pickle
+from lightgbm import plot_importance
+import h2o
+from h2o.automl import H2OAutoML
+from flaml import AutoML
+
+try:
+    from pycaret.regression import *
+except Exception as e:
+    print(f'Exception : {str(e)}')
 
 # =================================================
 # 사용자 매뉴얼
@@ -158,6 +175,313 @@ def initArgument(globalVar, inParams):
 
     return globalVar
 
+# 주말이면 1, 평일이면 0 반환
+def isWeekend(date):
+    days = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun']
+    day = date.weekday()
+    if days[day] in ['Sat', 'Sun']:
+        return 1
+    else:
+        return 0
+
+# 봄 여부
+def isSpring(date):
+    month = date.month
+    if month in [3, 4, 5]:
+        return 1
+    else:
+        return 0
+
+# 여름 여부
+def isSummer(date):
+    month = date.month
+    if month in [6, 7, 8]:
+        return 1
+    else:
+        return 0
+
+# 가을 여부
+def isFall(date):
+    month = date.month
+    if month in [9, 10, 11]:
+        return 1
+    else:
+        return 0
+
+# 겨울 여부
+def isWinter(date):
+    month = date.month
+    if month in [12, 1, 2]:
+        return 1
+    else:
+        return 0
+
+
+# 머신러닝 예측
+def makeFlamlModel(subOpt=None, xCol=None, yCol=None, trainData=None, testData=None):
+    log.info('[START] {}'.format('makeFlamlModel'))
+    log.info('[CHECK] subOpt : {}'.format(subOpt))
+
+    result = None
+
+    try:
+        saveModel = '{}/{}/{}-{}-{}-{}-{}-{}.model'.format(globalVar['outPath'], subOpt['modelKey'], serviceName, subOpt['srvId'], 'final', 'flaml', 'for', '*')
+        saveModelList = sorted(glob.glob(saveModel), reverse=True)
+        xyCol = xCol.copy()
+        xyCol.append(yCol)
+
+        trainDataL1 = trainData[xyCol]
+        trainDataL2 = trainDataL1.dropna()
+
+        testDataL1 = testData[xyCol]
+        testDataL2 = testDataL1.dropna()
+
+        # 학습 모델이 없을 경우
+        if (subOpt['isOverWrite']) or (len(saveModelList) < 1):
+
+            # 7:3에 대한 학습/테스트 분류
+            # trainData, validData = train_test_split(dataL1, test_size=0.3)
+
+            # 전체 학습 데이터
+            # trainData = dataL1
+
+            # flModel = MultiOutputRegressor(
+            #     AutoML(
+            #         task="regression"
+            #         , metric='rmse'
+            #         , time_budget=60
+            #     )
+            # )
+
+            ray.init(num_cpus=12, ignore_reinit_error=True)
+
+            flModel = AutoML(
+                task="regression"
+                , metric='rmse'
+                # , time_budget=600
+                # , early_stop = True
+                , ensemble = False
+                # , ensemble = True
+                , seed = 123
+                , time_budget=60
+            )
+
+            # 각 모형에 따른 자동 머신러닝
+            flModel.fit(X_train=trainData[xCol], y_train=trainData[yCol], n_jobs=12)
+            # flModel.fit(X_train=trainData[xCol], y_train=trainData[yCol], n_jobs=4, n_concurrent_trials=4)
+            # flModel.fit(X_train=trainData[xCol], y_train=trainData[yCol], n_jobs=4)
+            # flModel.fit(X_train=trainDataL2[xCol], y_train=trainDataL2[yCol], X_test=testDataL2[xCol], y_test=testDataL2[yCol])
+            # flModel.fit(X_train=trainDataL2[xCol], y_train=trainDataL2[yCol])
+
+            # 학습 모형 저장
+            saveModel = '{}/{}/{}-{}-{}-{}-{}-{}.model'.format(globalVar['outPath'], subOpt['modelKey'], serviceName, subOpt['srvId'], 'final', 'flaml', 'for', datetime.datetime.now().strftime('%Y%m%d'))
+            log.info('[CHECK] saveModel : {}'.format(saveModel))
+            os.makedirs(os.path.dirname(saveModel), exist_ok=True)
+
+            with open(saveModel, 'wb') as f:
+                pickle.dump(flModel, f, pickle.HIGHEST_PROTOCOL)
+
+        else:
+            saveModel = saveModelList[0]
+            log.info('[CHECK] saveModel : {}'.format(saveModel))
+
+            with open(saveModel, 'rb') as f:
+                flModel = pickle.load(f)
+
+        result = {
+            'msg': 'succ'
+            , 'mlModel': flModel
+            , 'saveModel': saveModel
+            , 'isExist': os.path.exists(saveModel)
+        }
+
+        return result
+
+    except Exception as e:
+        log.error('Exception : {}'.format(e))
+        return result
+
+    finally:
+        # try, catch 구문이 종료되기 전에 무조건 실행
+        log.info('[END] {}'.format('makeFlamlModel'))
+
+# 딥러닝 예측
+def makeDlModel(subOpt=None, xCol=None, yCol=None, inpData=None):
+    log.info('[START] {}'.format('makeDlModel'))
+    log.info('[CHECK] subOpt : {}'.format(subOpt))
+
+    result = None
+
+    try:
+
+        saveModel = '{}/{}/{}-{}-{}-{}-{}-{}.model'.format(globalVar['modelPath'], subOpt['modelKey'], serviceName,
+                                                           subOpt['srvId'], 'final', 'h2o', 'for', '*')
+        saveModelList = sorted(glob.glob(saveModel), reverse=True)
+        xyCol = xCol.copy()
+        xyCol.append(yCol)
+        data = inpData[xyCol]
+        dataL1 = data.dropna()
+
+        # h2o.shutdown(prompt=False)
+
+        if (not subOpt['isInit']):
+            h2o.init()
+            h2o.no_progress()
+            subOpt['isInit'] = True
+
+        # 학습 모델이 없을 경우
+        if (subOpt['isOverWrite']) or (len(saveModelList) < 1):
+
+            # 7:3에 대한 학습/테스트 분류
+            # trainData, validData = train_test_split(dataL1, test_size=0.3)
+
+            # dlModel = H2OAutoML(max_models=30, max_runtime_secs=99999, balance_classes=True, seed=123)
+            dlModel = H2OAutoML(max_models=20, max_runtime_secs=99999, balance_classes=True, seed=123)
+
+            # dlModel.train(x=xCol, y=yCol, training_frame=h2o.H2OFrame(trainData), validation_frame=h2o.H2OFrame(validData))
+            # dlModel.train(x=xCol, y=yCol, training_frame=h2o.H2OFrame(dataL1), validation_frame=h2o.H2OFrame(dataL1))
+            dlModel.train(x=xCol, y=yCol, training_frame=h2o.H2OFrame(dataL1), validation_frame=h2o.H2OFrame(dataL1))
+
+            fnlModel = dlModel.get_best_model()
+            # fnlModel = dlModel.leader
+
+            # 학습 모델 저장
+            saveModel = '{}/{}/{}-{}-{}-{}-{}-{}.model'.format(globalVar['modelPath'], subOpt['modelKey'], serviceName,
+                                                               subOpt['srvId'], 'final', 'h2o', 'for',
+                                                               datetime.datetime.now().strftime('%Y%m%d'))
+            log.info('[CHECK] saveModel : {}'.format(saveModel))
+            os.makedirs(os.path.dirname(saveModel), exist_ok=True)
+
+            # h2o.save_model(model=fnlModel, path=os.path.dirname(saveModel), filename=os.path.basename(saveModel), force=True)
+            fnlModel.save_mojo(path=os.path.dirname(saveModel), filename=os.path.basename(saveModel), force=True)
+        else:
+            saveModel = saveModelList[0]
+            log.info('[CHECK] saveModel : {}'.format(saveModel))
+            fnlModel = h2o.import_mojo(saveModel)
+
+        result = {
+            'msg': 'succ'
+            , 'dlModel': fnlModel
+            , 'saveModel': saveModel
+            , 'isExist': os.path.exists(saveModel)
+        }
+
+        return result
+
+    except Exception as e:
+        log.error('Exception : {}'.format(e))
+        return result
+
+    finally:
+        # try, catch 구문이 종료되기 전에 무조건 실행
+        log.info('[END] {}'.format('makeDlModel'))
+
+
+# 머신러닝 예측
+def makeMlModel(subOpt=None, xCol=None, yCol=None, inpData=None):
+    log.info('[START] {}'.format('makeMlModel'))
+    log.info('[CHECK] subOpt : {}'.format(subOpt))
+
+    result = None
+
+    try:
+        saveModel = '{}/{}/{}-{}-{}-{}-{}-{}.model.pkl'.format(globalVar['outPath'], subOpt['modelKey'], serviceName,
+                                                               subOpt['srvId'], 'final', 'pycaret', 'for', '*')
+        saveModelList = sorted(glob.glob(saveModel), reverse=True)
+        xyCol = xCol.copy()
+        xyCol.append(yCol)
+        data = inpData[xyCol]
+        dataL1 = data.dropna()
+
+        # 학습 모델이 없을 경우
+        if (subOpt['isOverWrite']) or (len(saveModelList) < 1):
+
+            # 7:3에 대한 학습/테스트 분류
+            # trainData, validData = train_test_split(data, test_size=0.3)
+            # trainData = inpData
+
+            # from pycaret.regression import *
+            # from pycaret.regression import setup
+            # from pycaret.regression import compare_models
+
+            # from sklearn.impute import SimpleImputer
+
+            dataL1['is_weekday'] = dataL1['is_weekday'].astype('category')
+            dataL1['is_spring'] = dataL1['is_spring'].astype('category')
+            dataL1['is_summer'] = dataL1['is_summer'].astype('category')
+            dataL1['is_fall'] = dataL1['is_fall'].astype('category')
+            dataL1['is_winter'] = dataL1['is_winter'].astype('category')
+
+            # dataL2 = dataL1[['CA_TOT', 'SG_PWRER_USE_AM']]
+
+            pyModel = setup(
+                data=dataL1
+                , session_id=123
+                , silent=True
+                , target=yCol
+                # 2022.11.02
+                # , normalize=True
+            )
+
+            # pyModel = setup(
+            #     data=dataL1
+            #     , session_id=123
+            #     , silent=True
+            #     , target=yCol
+            #     , remove_outliers= True
+            #     , remove_multicollinearity = True
+            #     , ignore_low_variance = True
+            #     , normalize=True
+            #     , transformation= True
+            #     , transform_target = True
+            #     , combine_rare_levels = True
+            # )
+
+            # 각 모형에 따른 자동 머신러닝
+            # modelList = compare_models(sort='RMSE', n_select=3)
+            # modelList = compare_models(sort='RMSE', n_select=2)
+            modelList = compare_models(sort='RMSE')
+
+            # 앙상블 모형
+            # blendModel = blend_models(estimator_list=modelList, fold=10)
+
+            # 앙상블 파라미터 튜닝
+            # tuneModel = tune_model(blendModel, fold=10, choose_better=True)
+
+            # 학습 모형
+            fnlModel = finalize_model(modelList)
+
+            # 학습 모형 저장
+            saveModel = '{}/{}/{}-{}-{}-{}-{}-{}.model'.format(globalVar['outPath'], subOpt['modelKey'], serviceName,
+                                                               subOpt['srvId'], 'final', 'pycaret', 'for',
+                                                               datetime.datetime.now().strftime('%Y%m%d'))
+            log.info('[CHECK] saveModel : {}'.format(saveModel))
+            os.makedirs(os.path.dirname(saveModel), exist_ok=True)
+            save_model(fnlModel, saveModel)
+
+        else:
+            saveModel = saveModelList[0]
+            log.info('[CHECK] saveModel : {}'.format(saveModel))
+            fnlModel = load_model(os.path.splitext(saveModel)[0])
+
+        result = {
+            'msg': 'succ'
+            , 'mlModel': fnlModel
+            , 'saveModel': saveModel
+            , 'isExist': os.path.exists(saveModel)
+        }
+
+        return result
+
+    except Exception as e:
+        log.error('Exception : {}'.format(e))
+        return result
+
+    finally:
+        # try, catch 구문이 종료되기 전에 무조건 실행
+        log.info('[END] {}'.format('makeMlModel'))
+
+
 # ================================================
 # 4. 부 프로그램
 # ================================================
@@ -227,10 +551,52 @@ class DtaProcess(object):
                 globalVar['updPath'] = '/DATA/CSV'
 
             sysOpt = {
+                # 시작/종료 시간
+                # 'srtDate': globalVar['srtDate']
+                # , 'endDate': globalVar['endDate']
+                # , 'stnId': globalVar['stnId']
+                'srtDate': '2019-01-01'
+                , 'endDate': '2022-05-22'
+                , 'stnId': '1'
+
+                #  딥러닝
+                , 'dlModel': {
+                    # 초기화
+                    'isInit': False
+
+                    # 모형 업데이트 여부
+                    , 'isOverWrite': True
+                    # , 'isOverWrite': False
+
+                    # 모형 버전 (날짜)
+                    , 'modelVer': '*'
+                }
+
+                #  머신러닝
+                , 'mlModel': {
+                    # 모델 업데이트 여부
+                    'isOverWrite': True
+                    # 'isOverWrite': False
+
+                    # 모형 버전 (날짜)
+                    , 'modelVer': '*'
+                }
             }
 
             # ********************************************************************
-            # 국가 입력 데이터
+            # 설정 정보
+            # ********************************************************************
+            # tzKst = pytz.timezone('Asia/Seoul')
+            # tzUtc = pytz.timezone('UTC')
+            dtKst = timedelta(hours=9)
+
+            # ASOS/AWS 융합 관측소
+            inpAllStnFile = '{}/{}'.format(globalVar['cfgPath'], 'stnInfo/ALL_STN_INFO.csv')
+            allStnData = pd.read_csv(inpAllStnFile)
+            allStnDataL1 = allStnData[['STN', 'LON', 'LAT']]
+
+            # ********************************************************************
+            # 훈련 데이터
             # ********************************************************************
             inpFile = '{}/{}/{}'.format(globalVar['inpPath'], serviceName, 'electric_train.csv')
             fileList = sorted(glob.glob(inpFile, recursive=True))
@@ -239,7 +605,63 @@ class DtaProcess(object):
                 raise Exception('[ERROR] inpFile : {} / {}'.format(fileList, '입력 자료를 확인해주세요.'))
 
             trainData = pd.read_csv(fileList[0])
+            trainDataL1 = trainData.drop(columns=['Unnamed: 0'])
+            trainDataL1.columns = trainDataL1.columns.str.replace('electric_train.', '')
 
+            # Index(['num', 'tm', 'hh24', 'n', 'stn', 'sum_qctr', 'sum_load', 'n_mean_load',
+            #        'nph_ta', 'nph_hm', 'nph_ws_10m', 'nph_rn_60m', 'nph_ta_chi', 'weekday',
+            #        'week_name', 'elec'],
+            #       dtype='object')
+            # trainDataL1.columns
+
+            trainDataL4 = pd.DataFrame()
+            for i, posInfo in allStnDataL1.iterrows():
+                posStn = int(posInfo['STN'])
+                posLat = posInfo['LAT']
+                posLon = posInfo['LON']
+
+                trainDataL2 = trainDataL1.loc[
+                    (trainDataL1['stn'] == posStn)
+                    ]
+
+                if len(trainDataL2) < 1: continue
+
+                log.info(f'[CHECK] posStn : {posStn} / posLat : {posLat} / posLon : {posLon}')
+
+                # trainDataL3 = pd.merge(left=trainDataL2, right=allStnDataL1, how='left', left_on='stn', right_on='STN')
+                trainDataL3 = trainDataL2
+                trainDataL3['DATE_TIME_KST'] = pd.to_datetime(trainDataL3['tm'])
+                trainDataL3['DATE_TIME'] = pd.to_datetime(trainDataL3['DATE_TIME_KST'] - dtKst)
+
+                solPosInfo = pvlib.solarposition.get_solarposition(time=pd.to_datetime(trainDataL3['DATE_TIME'].values), latitude=posLat, longitude=posLon, altitude=None, pressure=None, temperature=trainDataL3['nph_ta'].values, method='nrel_numpy')
+                trainDataL3['SZA'] = solPosInfo['apparent_zenith'].values
+                trainDataL3['AZA'] = solPosInfo['azimuth'].values
+                trainDataL3['ET'] = solPosInfo['equation_of_time'].values
+
+                # pvlib.location.Location.get_clearsky()
+                site = location.Location(latitude=posLat, longitude=posLon, tz='Asia/Seoul')
+                clearInsInfo = site.get_clearsky(pd.to_datetime(trainDataL3['DATE_TIME'].values))
+                trainDataL3['GHI_CLR'] = clearInsInfo['ghi'].values
+                trainDataL3['DNI_CLR'] = clearInsInfo['dni'].values
+                trainDataL3['DHI_CLR'] = clearInsInfo['dhi'].values
+
+                # 혼탁도
+                turbidity = pvlib.clearsky.lookup_linke_turbidity(time=pd.to_datetime(trainDataL3['DATE_TIME'].values), latitude=posLat, longitude=posLon, interp_turbidity=True)
+                trainDataL3['TURB'] = turbidity.values
+
+                # trainDataL3['IS_WEEK'] = trainDataL3['DATE_TIME_KST'].map(isWeekend).astype('category')
+                # trainDataL3['IS_SPR'] = trainDataL3['DATE_TIME_KST'].map(isSpring).astype('category')
+                # trainDataL3['IS_SUM'] = trainDataL3['DATE_TIME_KST'].map(isSummer).astype('category')
+                # trainDataL3['IS_FAIL'] = trainDataL3['DATE_TIME_KST'].map(isFall).astype('category')
+                # trainDataL3['IS_WIN'] = trainDataL3['DATE_TIME_KST'].map(isWinter).astype('category')
+                trainDataL3['LAT'] = posLat
+                trainDataL3['LON'] = posLon
+
+                trainDataL4 = pd.concat([trainDataL4, trainDataL3], axis=0)
+
+            # ********************************************************************
+            # 예측 데이터
+            # ********************************************************************
             inpFile = '{}/{}/{}'.format(globalVar['inpPath'], serviceName, 'electric_test.csv')
             fileList = sorted(glob.glob(inpFile, recursive=True))
             if fileList is None or len(fileList) < 1:
@@ -247,45 +669,193 @@ class DtaProcess(object):
                 raise Exception('[ERROR] inpFile : {} / {}'.format(fileList, '입력 자료를 확인해주세요.'))
 
             testData = pd.read_csv(fileList[0])
+            testDataL1 = testData.drop(columns=['Unnamed: 0'])
+            testDataL1.columns = testDataL1.columns.str.replace('electric_test.', '')
+
+            # 2024.06.28 num=2385 부적격
+            testDataL1 = testDataL1.loc[(testDataL1['num'] != 2385)]
+            # Index(['num', 'tm', 'hh24', 'stn', 'nph_ta', 'nph_hm', 'nph_ws_10m',
+            #        'nph_rn_60m', 'nph_ta_chi', 'weekday', 'week_name'],
+            #       dtype='object')
+
+            prdData = pd.DataFrame()
+            for i, posInfo in allStnDataL1.iterrows():
+                posStn = int(posInfo['STN'])
+                posLat = posInfo['LAT']
+                posLon = posInfo['LON']
+
+                testDataL2 = testDataL1.loc[
+                    (testDataL1['stn'] == posStn)
+                    ]
+
+                if len(testDataL2) < 1: continue
+
+                log.info(f'[CHECK] posStn : {posStn} / posLat : {posLat} / posLon : {posLon}')
+
+                # trainDataL3 = pd.merge(left=trainDataL2, right=allStnDataL1, how='left', left_on='stn', right_on='STN')
+                testDataL3 = testDataL2
+                testDataL3['DATE_TIME_KST'] = pd.to_datetime(testDataL3['tm'])
+                testDataL3['DATE_TIME'] = pd.to_datetime(testDataL3['DATE_TIME_KST'] - dtKst)
+
+                solPosInfo = pvlib.solarposition.get_solarposition(time=pd.to_datetime(testDataL3['DATE_TIME'].values), latitude=posLat, longitude=posLon, altitude=None, pressure=None, temperature=testDataL3['nph_ta'].values, method='nrel_numpy')
+                testDataL3['SZA'] = solPosInfo['apparent_zenith'].values
+                testDataL3['AZA'] = solPosInfo['azimuth'].values
+                testDataL3['ET'] = solPosInfo['equation_of_time'].values
+
+                site = location.Location(latitude=posLat, longitude=posLon, tz='Asia/Seoul')
+                clearInsInfo = site.get_clearsky(pd.to_datetime(testDataL3['DATE_TIME'].values))
+                testDataL3['GHI_CLR'] = clearInsInfo['ghi'].values
+                testDataL3['DNI_CLR'] = clearInsInfo['dni'].values
+                testDataL3['DHI_CLR'] = clearInsInfo['dhi'].values
+
+                # 혼탁도
+                turbidity = pvlib.clearsky.lookup_linke_turbidity(time=pd.to_datetime(testDataL3['DATE_TIME'].values), latitude=posLat, longitude=posLon, interp_turbidity=True)
+                testDataL3['TURB'] = turbidity.values
+
+                testDataL3['IS_WEEK'] = testDataL3['DATE_TIME_KST'].map(isWeekend).astype('category')
+                testDataL3['IS_SPR'] = testDataL3['DATE_TIME_KST'].map(isSpring).astype('category')
+                testDataL3['IS_SUM'] = testDataL3['DATE_TIME_KST'].map(isSummer).astype('category')
+                testDataL3['IS_FAIL'] = testDataL3['DATE_TIME_KST'].map(isFall).astype('category')
+                testDataL3['IS_WIN'] = testDataL3['DATE_TIME_KST'].map(isWinter).astype('category')
+                testDataL3['LAT'] = posLat
+                testDataL3['LON'] = posLon
+
+                prdData = pd.concat([prdData, testDataL3], axis=0)
+
+            # 377
+            # sorted(set(testDataL1['stn']))
+            # sorted(set(testDataL4['stn']))
+
+            # ********************************************************************
+            # 수동 모델링
+            # ********************************************************************
+            trainDataL4['DATE_KST'] = trainDataL4['DATE_TIME_KST'].dt.date
+            trainDataL5 = trainDataL4.drop(columns=['tm', 'hh24', 'DATE_TIME_KST', 'DATE_TIME'])
+            trainDataL6 = trainDataL5.groupby(['DATE_KST', 'LAT', 'LON']).mean().reset_index()
+
+            trainDataL6['IS_WEEK'] = trainDataL6['DATE_KST'].map(isWeekend).astype('category')
+            trainDataL6['IS_SPR'] = trainDataL6['DATE_KST'].map(isSpring).astype('category')
+            trainDataL6['IS_SUM'] = trainDataL6['DATE_KST'].map(isSummer).astype('category')
+            trainDataL6['IS_FAIL'] = trainDataL6['DATE_KST'].map(isFall).astype('category')
+            trainDataL6['IS_WIN'] = trainDataL6['DATE_KST'].map(isWinter).astype('category')
+
+            xCol = ['nph_ta', 'nph_hm', 'nph_ws_10m', 'nph_rn_60m', 'nph_ta_chi', 'weekday', 'week_name', 'SZA', 'AZA', 'ET', 'GHI_CLR', 'DNI_CLR', 'DHI_CLR', 'TURB', 'IS_WEEK', 'IS_SPR', 'IS_SUM', 'IS_FAIL', 'IS_WIN', 'LAT', 'LON']
+            yCol = 'elec'
+
+            # sorted(set(trainDataL1['stn']))
+            # sorted(set(trainDataL4['stn']))
+            lgbTrainData = lgb.Dataset(trainDataL6[xCol], trainDataL6[yCol])
+            lgbTestData = lgb.Dataset(trainDataL6[xCol], trainDataL6[yCol], reference=lgbTrainData)
+
+            params = {
+                'objective': 'regression'
+                , 'metric': 'rmse'
+                , 'verbosity': -1
+                , 'n_jobs': -1
+            }
+
+            model = lgb.train(params=params, train_set=lgbTrainData, num_boost_round=10000, early_stopping_rounds=100,
+                              valid_sets=[lgbTrainData, lgbTestData], verbose_eval=False)
 
 
-                # for fileInfo in fileList:
-                #     if re.match(r'.*/~\$.*', fileInfo): continue
-                #
-                #     log.info(f'[CHECK] fileInfo : {fileInfo}')
-                #
-                #     fileName = os.path.basename(fileInfo)
-                #     newFileName = fileName
-                #
-                #     # 엑셀 파일 읽기
-                #     wb = load_workbook(fileInfo, data_only=False)
-                #
-                #     # Main 시트
-                #     wsMain = wb['Main']
-                #
-                #     for keyword, replace in sysOpt['keyMatList'].items():
-                #         log.info(f'[CHECK] keyword : {keyword} / replace : {replace}')
-                #         newFileName = newFileName.replace(f'_{keyword}_',  f'_{replace}_')
-                #
-                #         if not fileName is newFileName:
-                #             wsMain[f'B5'].value = f'CHIN_{replace}'
-                #             break
-                #
-                #     # saveFile = '{}/{}/{}/{}/{}'.format(globalVar['outPath'], serviceName, 'china-2020-2050', metaInfo, newFileName)
-                #     saveFile = '{}/{}/{}/{}/{}'.format(globalVar['outPath'], serviceName, 'china-2015-2020', metaInfo, newFileName)
-                #     os.makedirs(os.path.dirname(saveFile), exist_ok=True)
-                #     wb.save(saveFile)
-                #     log.info(f'[CHECK] saveFile : {saveFile}')
-                    
-                    # try:
-                    #     saveFile = '{}/{}/{}/{}/{}'.format(globalVar['outPath'], serviceName, 'china-2020-2050', metaInfo, newFileName)
-                    #     os.makedirs(os.path.dirname(saveFile), exist_ok=True)
-                        
-                    #     shutil.copyfile(fileInfo, saveFile)
-                    #     log.info(f'[CHECK] saveFile : {saveFile}')
-                    # except Exception as e:
-                    #         log.error(f'Exception : {str(e)}')
-                    
+            saveModel = '{}/{}/{}.model'.format(globalVar['outPath'], serviceName, 'AI-FOR-20240628')
+            os.makedirs(os.path.dirname(saveModel), exist_ok=True)
+            pickle.dump(model, open(saveModel, 'wb'))
+            log.info(f'[CHECK] saveFile : {saveModel}')
+
+            model = pickle.load(open(saveModel, 'rb'))
+            prdData['elec'] = model.predict(data=prdData[xCol])
+
+            # ********************************************************************
+            # 자동 모델링
+            # ********************************************************************
+            xCol = ['nph_ta', 'nph_hm', 'nph_ws_10m', 'nph_rn_60m', 'nph_ta_chi', 'weekday', 'week_name', 'SZA', 'AZA', 'ET', 'GHI_CLR', 'DNI_CLR', 'DHI_CLR', 'TURB', 'IS_WEEK', 'IS_SPR', 'IS_SUM', 'IS_FAIL', 'IS_WIN', 'LAT', 'LON']
+            yCol = 'elec'
+
+            trainData = trainDataL4.reset_index(drop=True)
+            testData = trainDataL4.reset_index(drop=True)
+
+            sysOpt['mlModel'].update(
+                {
+                    'srvId': CNSMR_NO
+                    , 'modelKey': 'AI-FOR-20221101'
+                    # , 'isOverWrite': False
+                    , 'isOverWrite': True
+                }
+            )
+
+            # pycaret 머신러닝 불러오기
+            # resPycaret = makeMlModel(sysOpt['mlModel'], xCol, yCol, trainData)
+            # log.info('[CHECK] resPycaret : {}'.format(resPycaret))
+            #
+            # pycaretModel = resPycaret['mlModel']
+            # prdData['pycaret'] = pycaretModel.predict(prdData)
+
+            # flaml 머신러닝 불러오기
+            # resFlaml = makeFlamlModel(sysOpt['mlModel'], xCol, yCol, trainData)
+            resFlaml = makeFlamlModel(sysOpt['mlModel'], xCol, yCol, trainData, testData)
+            log.info('[CHECK] resFlaml : {}'.format(resFlaml))
+
+            # 머신러닝 예측
+            flamlModel = resFlaml['mlModel']
+            prdData['flaml'] = flamlModel.predict(prdData)
+
+            # ********************************************************************
+            # 모델 영향도
+            # ********************************************************************
+            mainTitle = 'AI-FOR-20240628'
+            saveImg = '{}/{}/{}.png'.format(globalVar['figPath'], serviceName, mainTitle)
+            os.makedirs(os.path.dirname(saveImg), exist_ok=True)
+            plot_importance(model)
+            plt.title(mainTitle)
+            plt.tight_layout()
+            plt.savefig(saveImg, dpi=600, bbox_inches='tight')
+            plt.show()
+            plt.close()
+            log.info(f'[CHECK] saveImg : {saveImg}')
+
+            # ********************************************************************
+            # 검증비교 시계열
+            # ********************************************************************
+            mainTitle = '[48시간 단기] [{0:s}-{1:s}]'.format(prdData['SRV'].iloc[0], CNSMR_NO)
+            saveImg = '{}/{}/{}.png'.format(globalVar['figPath'], serviceName, mainTitle)
+            os.makedirs(os.path.dirname(saveImg), exist_ok=True)
+            log.info('[CHECK] saveImg : {}'.format(saveImg))
+
+            plt.plot(prdData['DATE_TIME_KST'], prdData['SG_PWRER_USE_AM'], marker='o', label='실측')
+            # plt.plot(prdData['MESURE_DATE_TM'], prdData['prd'], label='예측 (RMSE : {:.2f}, {:.2f}%)'.format(
+            #     mean_squared_error(prdData['SG_PWRER_USE_AM'], prdData['prd'], squared=False)
+            #     , (mean_squared_error(prdData['SG_PWRER_USE_AM'], prdData['prd'], squared=False) / np.nanmean(prdData['SG_PWRER_USE_AM'])) * 100.0)
+            #     )
+            # plt.plot(prdData['DATE_TIME_KST'], prdData['flaml'], label='예측 (RMSE : {:.2f}, {:.2f}%)'.format(
+            #     mean_squared_error(prdData['SG_PWRER_USE_AM'], prdData['flaml'], squared=False)
+            #     , (mean_squared_error(prdData['SG_PWRER_USE_AM'], prdData['flaml'], squared=False) / np.nanmean(
+            #         prdData['SG_PWRER_USE_AM'])) * 100.0)
+            #          )
+            # plt.plot(prdData['DATE_TIME_KST'], prdData['ML3'], label='예측2 (RMSE : {:.2f}, {:.2f}%)'.format(
+            #     mean_squared_error(prdData['SG_PWRER_USE_AM'], prdData['ML3'], squared=False)
+            #     , (mean_squared_error(prdData['SG_PWRER_USE_AM'], prdData['ML3'], squared=False) / np.nanmean(
+            #         prdData['SG_PWRER_USE_AM'])) * 100.0)
+            #          )
+            # plt.plot(prdData['MESURE_DATE_TM'], prdData['ML4'], label='예측4 (RMSE : {:.2f}, {:.2f}%)'.format(
+            #     mean_squared_error(prdData['SG_PWRER_USE_AM'], prdData['ML4'], squared=False)
+            #     , (mean_squared_error(prdData['SG_PWRER_USE_AM'], prdData['ML4'], squared=False) / np.nanmean(prdData['SG_PWRER_USE_AM'])) * 100.0)
+            #     )
+            # plt.plot(prdData['MESURE_DATE_TM'], prdData['lazy'], label='예측 (lazy) : {:.3f}'.format(round(np.sqrt(mean_squared_error(prdData['SG_PWRER_USE_AM'], prdData['flaml'])), 2)))
+            # plt.plot(prdData['MESURE_DATE_TM'], prdData['pycaret'], label='예측 (pycaret) : {:.3f}'.format(round(np.sqrt(mean_squared_error(prdData['SG_PWRER_USE_AM'], prdData['pycaret'])), 2)))
+
+            # plt.gca().xaxis.set_major_formatter(mdates.DateFormatter('%Y.%m.%d %H'))
+            # plt.gca().xaxis.set_major_locator(mdates.HourLocator(interval=3))
+            # plt.gcf().autofmt_xdate()
+            # # plt.xticks(rotation=45, ha='right')
+            # plt.xticks(rotation=45)
+            # plt.title(mainTitle)
+            # plt.legend()
+            # plt.tight_layout()
+            # plt.savefig(saveImg, dpi=600, bbox_inches='tight', transparent=True)
+            # # plt.show()
+            # plt.close()
+
 
         except Exception as e:
             log.error("Exception : {}".format(e))
