@@ -176,8 +176,8 @@ class DtaProcess(object):
     # ================================================================================================
     global env, contextPath, prjName, serviceName, log, globalVar
 
-    # env = 'local'  # 로컬 : 원도우 환경, 작업환경 (현재 소스 코드 환경 시 .) 설정
-    env = 'dev'      # 개발 : 원도우 환경, 작업환경 (사용자 환경 시 contextPath) 설정
+    env = 'local'  # 로컬 : 원도우 환경, 작업환경 (현재 소스 코드 환경 시 .) 설정
+    # env = 'dev'      # 개발 : 원도우 환경, 작업환경 (사용자 환경 시 contextPath) 설정
     # env = 'oper'  # 운영 : 리눅스 환경, 작업환경 (사용자 환경 시 contextPath) 설정
 
     if (platform.system() == 'Windows'):
@@ -225,14 +225,46 @@ class DtaProcess(object):
                 # 옵션 설정
                 sysOpt = {
                     # 시작/종료 시간
-                    'srtDate': '2001-10-01'
-                    , 'endDate': '2023-01-01'
+                    'srtDate': '2014-01-01'
+                    , 'endDate': datetime.now().strftime("%Y-%m-%d")
+                    #, 'endDate': '2023-07-01'
+
+                    # 공공데이터포털 API
+                    ,
+                    #'apiKey': 'bf9fH0KLgr65zXKT5D/dcgUBIj1znJKnUPrzDVZEe6g4gquylOjmt65R5cjivLPfOKXWcRcAWU0SN7KKXBGDKA==' #상호
+                    #'apiKey': 'OZt4/yRFmIB75XnywK0mWWLivk+ZwkwIpNj1pB9uQT2uACBh53WLeGNOuiE0PvQ6iM7C7/GlU3+GDSbmGZUtyw==' #주형
+                    #'apiKey': 'OZt4%2FyRFmIB75XnywK0mWWLivk%2BZwkwIpNj1pB9uQT2uACBh53WLeGNOuiE0PvQ6iM7C7%2FGlU3%2BGDSbmGZUtyw%3D%3D' #?
+                    'apiKey': 'LO%2FPM7UaWcr9d2ypUzQzjYK3KyEoRZtKIKuvrDfhg51mXlk2eFriN%2FWCZV249GrQorog5Fv12iOUeWx9nhwDWA%3D%3D'
+
+                    # 건축 인허가
+                    , 'apiUrl': 'https://apis.data.go.kr/1613000/ArchPmsService_v2/getApBasisOulnInfo'
+                    # 아파트 실거래
+                    ,
+                    'apiUrl2': 'http://openapi.molit.go.kr/OpenAPI_ToolInstallPackage/service/rest/RTMSOBJSvc/getRTMSDataSvcAptTradeDev'
+                    #  아파트 전월세
+                    ,
+                    'apiUrl3': 'http://openapi.molit.go.kr:8081/OpenAPI_ToolInstallPackage/service/rest/RTMSOBJSvc/getRTMSDataSvcAptRent'
+
+                    # 검색 목록
+                    #, 'addrList': ['서울특별시 강북구', '서울특별시 송파구', '서울특별시 강남구', '서울특별시 양천구', '서울특별시 서초구']
+                    #, 'addrList': ['서울특별시 강남구', '서울특별시 서초구', '서울특별시 송파구', '서울특별시 양천구', '서울특별시 용산구']
+                    #, 'addrList': ['서울특별시 강서구', '서울특별시 구로구', '서울특별시 동작구', '서울특별시 영등포구']
+                    , 'addrList': ['서울특별시 금천구']
+
+                    # 네이버 API 정보
+                    # , 'naverId': 'q6rz1sjycu'
+                    # , 'naverPw': 'KYof7RAjdDffoyEyQPFzb0mUiiPc3DKy2qxvaaZf'
+                    # , 'naverApi': 'https://naveropenapi.apigw.ntruss.com/map-geocode/v2/geocode'
+
+                    # 구글 API 정보
+                    #, 'googleApiKey': 'AIzaSyCkYokUFIcH5OYDaYU0IrFLX89wX1o7-qc'    # 상호
+                    , 'googleApiKey': 'AIzaSyBq4ZkoyoXaD0pt9TYwdfNctrAwyO1DDuk'     # 유민
                 }
             else:
                 # 옵션 설정
                 sysOpt = {
                     # 시작/종료 시간
-                    'srtDate': '2000-01-01'
+                    'srtDate': '2010-01-01'
                     , 'endDate': datetime.now().strftime("%Y-%m-%d")
 
                     # 공공데이터포털 API
@@ -287,242 +319,250 @@ class DtaProcess(object):
             # *********************************************************************************
             # [자료 수집] 오픈API를 이용하여 건축 인허가
             # *********************************************************************************
-            # # 요청 API
-            # apiUrl = sysOpt['apiUrl']
-            #
-            # # cfgInfo = json.load(open(globalVar['sysCfg'], 'r'))
-            #
-            # # dataApiUrl = cfgInfo['dataApi']
-            # # dataApiKey = cfgInfo['dataApi']['key']
-            # apiKey = sysOpt['apiKey']
-            #
-            # for ii, addrInfo in enumerate(sysOpt['addrList']):
-            #     log.info(f'[CHECK] addrInfo : {addrInfo}')
-            #
-            #     # admDataL1 = admData[admData['법정동명'].str.contains('서울')]
-            #     admDataL1 = admData[admData['법정동명'].str.contains(addrInfo)]
-            #     if (len(admDataL1) < 1): continue
-            #
-            #     # 시군구 목록
-            #     sigunguCdList = set(admDataL1['sigunguCd'])
-            #
-            #     # 법정동 목록
-            #     bjdongCdList = set(admDataL1['bjdongCd'])
-            #
-            #     # 페이지 설정
-            #     pageList = np.arange(0, 9999, 1)
-            #
-            #     # sigunguCdInfo = 11710
-            #     # bjdongCdInfo = 11000
-            #     # pageInfo = 1
-            #
-            #     dataL1 = pd.DataFrame()
-            #     for i, sigunguCdInfo in enumerate(sigunguCdList):
-            #         for j, bjdongCdInfo in enumerate(bjdongCdList):
-            #             log.info(f'[CHECK] sigunguCdInfo / bjdongCdInfo : {sigunguCdInfo} / {bjdongCdInfo}')
-            #
-            #             for k, pageInfo in enumerate(pageList):
-            #                 # log.info(f'[CHECK] pageInfo : {pageInfo}')
-            #
-            #                 try:
-            #                     reqUrl = f'{apiUrl}?serviceKey={apiKey}&sigunguCd={sigunguCdInfo}&bjdongCd={bjdongCdInfo}&numOfRows=100&pageNo=1'
-            #
-            #                     res = urllib.request.urlopen(reqUrl)
-            #                     resCode = res.getcode()
-            #                     if resCode != 200: continue
-            #
-            #                     # json 읽기
-            #                     # resData = json.loads(res.read().decode('utf-8'))
-            #
-            #                     # xml to json 읽기
-            #                     resData = xmltodict.parse(res.read().decode('utf-8'))
-            #                     resultCode = resData['response']['header']['resultCode']
-            #                     if (resultCode != '00'): continue
-            #
-            #                     resBody = resData['response']['body']
-            #                     totalCnt = int(resBody['totalCount'])
-            #                     if (totalCnt < 1): break
-            #
-            #                     itemList = resBody['items']['item']
-            #                     if (len(itemList) < 1): break
-            #
-            #                     data = pd.DataFrame.from_dict(itemList)
-            #                     data['addrInfo'] = addrInfo
-            #                     data['sigunguCdInfo'] = sigunguCdInfo
-            #                     data['bjdongCdInfo'] = bjdongCdInfo
-            #                     data['pageInfo'] = pageInfo
-            #
-            #                     dataL1 = pd.concat([dataL1, data], ignore_index=False)
-            #
-            #                     if (totalCnt < (pageInfo * 100)): break
-            #
-            #                 except Exception as e:
-            #                     log.error("Exception : {}".format(e))
-            #
-            #     # 자료 저장
-            #     saveFile = '{}/{}/{}/{}/{}_{}_{}.csv'.format(globalVar['outPath'], serviceName, '건축 인허가', addrInfo, '건축 인허가', addrInfo, len(dataL1))
-            #     os.makedirs(os.path.dirname(saveFile), exist_ok=True)
-            #     if (len(dataL1) > 0):
-            #         dataL1.to_csv(saveFile, index=False)
-            #         log.info(f'[CHECK] saveFile : {saveFile}')
+
+            # 요청 API
+
+            #cfgInfo = json.load(open(globalVar['sysCfg'], 'r'))
+
+            #dataApiUrl = cfgInfo['dataApi']
+            #dataApiKey = cfgInfo['dataApi']['key']
+
+            apiUrl = sysOpt['apiUrl']
+            apiKey = sysOpt['apiKey']
+
+            for ii, addrInfo in enumerate(sysOpt['addrList']):
+                log.info(f'[CHECK] addrInfo : {addrInfo}')
+
+                # admDataL1 = admData[admData['법정동명'].str.contains('서울')]
+                admDataL1 = admData[admData['법정동명'].str.contains(addrInfo)]
+                if (len(admDataL1) < 1): continue
+
+                # 시군구 목록
+                sigunguCdList = set(admDataL1['sigunguCd'])
+
+                # 법정동 목록
+                bjdongCdList = set(admDataL1['bjdongCd'])
+
+                # 페이지 설정
+                pageList = np.arange(0, 9999, 1)
+
+                # sigunguCdInfo = 11710
+                # bjdongCdInfo = 11000
+                # pageInfo = 1
+
+                dataL1 = pd.DataFrame()
+                for i, sigunguCdInfo in enumerate(sigunguCdList):
+                    for j, bjdongCdInfo in enumerate(bjdongCdList):
+                        log.info(f'[CHECK] sigunguCdInfo / bjdongCdInfo : {sigunguCdInfo} / {bjdongCdInfo}')
+
+                        for k, pageInfo in enumerate(pageList):
+                            # log.info(f'[CHECK] pageInfo : {pageInfo}')
+
+                            try:
+                                reqUrl = f'{apiUrl}?serviceKey={apiKey}&sigunguCd={sigunguCdInfo}&bjdongCd={bjdongCdInfo}&numOfRows=999&pageNo=1'
+
+                                res = urllib.request.urlopen(reqUrl)
+                                resCode = res.getcode()
+                                if resCode != 200: continue
+
+                                # json 읽기
+                                # resData = json.loads(res.read().decode('utf-8'))
+
+                                # xml to json 읽기
+                                resData = xmltodict.parse(res.read().decode('utf-8'))
+                                resultCode = resData['response']['header']['resultCode']
+                                if (resultCode != '00'): continue
+
+                                resBody = resData['response']['body']
+                                totalCnt = int(resBody['totalCount'])
+                                if (totalCnt < 1): break
+
+                                itemList = resBody['items']['item']
+                                if (len(itemList) < 1): break
+
+                                data = pd.DataFrame.from_dict(itemList)
+                                data['addrInfo'] = addrInfo
+                                data['sigunguCdInfo'] = sigunguCdInfo
+                                data['bjdongCdInfo'] = bjdongCdInfo
+                                data['pageInfo'] = pageInfo
+
+                                dataL1 = pd.concat([dataL1, data], ignore_index=False)
+
+                                if (totalCnt < (pageInfo * 100)): break
+
+                            except Exception as e:
+                                log.error("Exception : {}".format(e))
+                                log.error("break loop")
+                                break
+
+                # 자료 저장
+                saveFile = '{}/{}/{}/{}/{}_{}_{}.csv'.format(globalVar['outPath'], serviceName, '건축 인허가', addrInfo, '건축 인허가', addrInfo, len(dataL1))
+                os.makedirs(os.path.dirname(saveFile), exist_ok=True)
+                if (len(dataL1) > 0):
+                    dataL1.to_csv(saveFile, index=False)
+                    log.info(f'[CHECK] saveFile : {saveFile}')
 
             # *********************************************************************************
             # [자료 수집] 오픈API를 이용하여 아파트매매 실거래
             # # *********************************************************************************
+
             # 요청 API
-            # apiUrl = sysOpt['apiUrl2']
-            # apiKey = sysOpt['apiKey']
-            #
-            # # addrInfo = sysOpt['addrList'][0]
-            # for ii, addrInfo in enumerate(sysOpt['addrList']):
-            #     log.info(f'[CHECK] addrInfo : {addrInfo}')
-            #
-            #     # admDataL1 = admData[admData['법정동명'].str.contains('서울')]
-            #     admDataL1 = admData[admData['법정동명'].str.contains(addrInfo)]
-            #     if (len(admDataL1) < 1): continue
-            #
-            #     # 시군구 목록
-            #     sigunguCdList = set(admDataL1['sigunguCd'])
-            #
-            #     # 페이지 설정
-            #     pageList = np.arange(0, 9999, 1)
-            #
-            #     for i, sigunguCdInfo in enumerate(sigunguCdList):
-            #         log.info(f'[CHECK] sigunguCdInfo : {sigunguCdInfo}')
-            #
-            #         for j, dtMonthInfo in enumerate(dtMonthList):
-            #             # log.info(f'[CHECK] dtMonthInfo : {dtMonthInfo}')
-            #
-            #             dtYearMonth = dtMonthInfo.strftime('%Y%m')
-            #
-            #             saveFile = '{}/{}/{}/{}/{}_{}_{}.csv'.format(globalVar['outPath'], serviceName, '아파트 실거래', addrInfo, '아파트 실거래', addrInfo, dtYearMonth)
-            #             os.makedirs(os.path.dirname(saveFile), exist_ok=True)
-            #
-            #             dataL1 = pd.DataFrame()
-            #
-            #             fileChkList = glob.glob(saveFile)
-            #             # if (len(fileChkList) > 0): continue
-            #
-            #             for k, pageInfo in enumerate(pageList):
-            #
-            #                 try:
-            #                     reqUrl = f'{apiUrl}?serviceKey={apiKey}&pageNo=1&numOfRows=100&LAWD_CD={sigunguCdInfo}&DEAL_YMD={dtYearMonth}'
-            #
-            #                     res = urllib.request.urlopen(reqUrl)
-            #                     resCode = res.getcode()
-            #                     if resCode != 200: continue
-            #
-            #                     # json 읽기
-            #                     # resData = json.loads(res.read().decode('utf-8'))
-            #
-            #                     # xml to json 읽기
-            #                     resData = xmltodict.parse(res.read().decode('utf-8'))
-            #                     resultCode = resData['response']['header']['resultCode']
-            #                     if (resultCode != '00'): continue
-            #
-            #                     resBody = resData['response']['body']
-            #                     totalCnt = int(resBody['totalCount'])
-            #                     if (totalCnt < 1): break
-            #
-            #
-            #                     itemList = resBody['items']['item']
-            #                     if (len(itemList) < 1): break
-            #
-            #                     data = pd.DataFrame.from_dict(itemList)
-            #                     data['addrInfo'] = addrInfo
-            #                     data['sigunguCdInfo'] = sigunguCdInfo
-            #                     data['dtYearMonth'] = dtYearMonth
-            #                     data['pageInfo'] = pageInfo
-            #
-            #                     dataL1 = pd.concat([dataL1, data], ignore_index=False)
-            #
-            #                     if (totalCnt < (pageInfo * 100)): break
-            #
-            #                 except Exception as e:
-            #                     log.error("Exception : {}".format(e))
-            #
-            #             # 자료 저장
-            #             if (len(dataL1) > 0):
-            #                 data.to_csv(saveFile, index=False)
-            #                 log.info(f'[CHECK] saveFile : {saveFile}')
+            apiUrl = sysOpt['apiUrl2']
+            apiKey = sysOpt['apiKey']
+
+            addrInfo = sysOpt['addrList'][0]
+            for ii, addrInfo in enumerate(sysOpt['addrList']):
+                log.info(f'[CHECK] addrInfo : {addrInfo}')
+
+                # admDataL1 = admData[admData['법정동명'].str.contains('서울')]
+                admDataL1 = admData[admData['법정동명'].str.contains(addrInfo)]
+                if (len(admDataL1) < 1): continue
+
+                # 시군구 목록
+                sigunguCdList = set(admDataL1['sigunguCd'])
+
+                # 페이지 설정
+                pageList = np.arange(0, 9999, 1)
+
+                for i, sigunguCdInfo in enumerate(sigunguCdList):
+                    log.info(f'[CHECK] sigunguCdInfo : {sigunguCdInfo}')
+
+                    for j, dtMonthInfo in enumerate(dtMonthList):
+                        # log.info(f'[CHECK] dtMonthInfo : {dtMonthInfo}')
+
+                        dtYearMonth = dtMonthInfo.strftime('%Y%m')
+
+                        saveFile = '{}/{}/{}/{}/{}_{}_{}.csv'.format(globalVar['outPath'], serviceName, '아파트 실거래', addrInfo, '아파트 실거래', addrInfo, dtYearMonth)
+                        os.makedirs(os.path.dirname(saveFile), exist_ok=True)
+
+                        dataL1 = pd.DataFrame()
+
+                        fileChkList = glob.glob(saveFile)
+                        # if (len(fileChkList) > 0): continue
+
+                        for k, pageInfo in enumerate(pageList):
+
+                            try:
+                                reqUrl = f'{apiUrl}?serviceKey={apiKey}&pageNo=1&numOfRows=999&LAWD_CD={sigunguCdInfo}&DEAL_YMD={dtYearMonth}'
+
+                                res = urllib.request.urlopen(reqUrl)
+                                resCode = res.getcode()
+                                if resCode != 200: continue
+
+                                # json 읽기
+                                # resData = json.loads(res.read().decode('utf-8'))
+
+                                # xml to json 읽기
+                                resData = xmltodict.parse(res.read().decode('utf-8'))
+                                resultCode = resData['response']['header']['resultCode']
+                                if (resultCode != '00'): continue
+
+                                resBody = resData['response']['body']
+                                totalCnt = int(resBody['totalCount'])
+                                if (totalCnt < 1): break
+
+
+                                itemList = resBody['items']['item']
+                                if (len(itemList) < 1): break
+
+                                data = pd.DataFrame.from_dict(itemList)
+                                data['addrInfo'] = addrInfo
+                                data['sigunguCdInfo'] = sigunguCdInfo
+                                data['dtYearMonth'] = dtYearMonth
+                                data['pageInfo'] = pageInfo
+
+                                dataL1 = pd.concat([dataL1, data], ignore_index=False)
+
+                                if (totalCnt < (pageInfo * 100)): break
+
+                            except Exception as e:
+                                log.error("Exception : {}".format(e))
+                                break
+
+                        # 자료 저장
+                        if (len(dataL1) > 0):
+                            data.to_csv(saveFile, index=False)
+                            log.info(f'[CHECK] saveFile : {saveFile}')
 
             # *********************************************************************************
             # [자료 수집] 오픈API를 이용하여 아파트 전월세
             # *********************************************************************************
+
             # 요청 API
-            # apiKey = sysOpt['apiKey']
-            # apiUrl = sysOpt['apiUrl3']
-            #
-            # addrInfo = sysOpt['addrList'][0]
-            # for ii, addrInfo in enumerate(sysOpt['addrList']):
-            #     log.info(f'[CHECK] addrInfo : {addrInfo}')
-            #
-            #     # admDataL1 = admData[admData['법정동명'].str.contains('서울')]
-            #     admDataL1 = admData[admData['법정동명'].str.contains(addrInfo)]
-            #     if (len(admDataL1) < 1): continue
-            #
-            #     # 시군구 목록
-            #     sigunguCdList = set(admDataL1['sigunguCd'])
-            #
-            #     # 페이지 설정
-            #     pageList = np.arange(0, 9999, 1)
-            #
-            #     for i, sigunguCdInfo in enumerate(sigunguCdList):
-            #         log.info(f'[CHECK] sigunguCdInfo : {sigunguCdInfo}')
-            #
-            #         for j, dtMonthInfo in enumerate(dtMonthList):
-            #             # log.info(f'[CHECK] dtMonthInfo : {dtMonthInfo}')
-            #
-            #             dtYearMonth = dtMonthInfo.strftime('%Y%m')
-            #
-            #             saveFile = '{}/{}/{}/{}/{}_{}_{}.csv'.format(globalVar['outPath'], serviceName, '아파트 전월세', addrInfo, '아파트 전월세', addrInfo, dtYearMonth)
-            #             os.makedirs(os.path.dirname(saveFile), exist_ok=True)
-            #
-            #             fileChkList = glob.glob(saveFile)
-            #             if (len(fileChkList) > 0): continue
-            #
-            #             dataL1 = pd.DataFrame()
-            #
-            #             for k, pageInfo in enumerate(pageList):
-            #
-            #                 try:
-            #                     reqUrl = f'{apiUrl}?serviceKey={apiKey}&pageNo=1&numOfRows=100&LAWD_CD={sigunguCdInfo}&DEAL_YMD={dtYearMonth}'
-            #                     res = urllib.request.urlopen(reqUrl)
-            #                     resCode = res.getcode()
-            #                     if resCode != 200: continue
-            #
-            #                     # json 읽기
-            #                     # resData = json.loads(res.read().decode('utf-8'))
-            #
-            #                     # xml to json 읽기
-            #                     resData = xmltodict.parse(res.read().decode('utf-8'))
-            #                     resultCode = resData['response']['header']['resultCode']
-            #                     if (resultCode != '00'): continue
-            #
-            #                     resBody = resData['response']['body']
-            #                     totalCnt = int(resBody['totalCount'])
-            #                     if (totalCnt < 1): break
-            #
-            #                     itemList = resBody['items']['item']
-            #                     if (len(itemList) < 1): break
-            #
-            #                     data = pd.DataFrame.from_dict(itemList)
-            #                     data['addrInfo'] = addrInfo
-            #                     data['sigunguCdInfo'] = sigunguCdInfo
-            #                     data['dtYearMonth'] = dtYearMonth
-            #                     data['pageInfo'] = pageInfo
-            #
-            #                     dataL1 = pd.concat([dataL1, data], ignore_index=False)
-            #
-            #                     if (totalCnt < (pageInfo * 100)): break
-            #
-            #                 except Exception as e:
-            #                     log.error("Exception : {}".format(e))
-            #
-            #             # 자료 저장
-            #             if (len(dataL1) > 0):
-            #                 data.to_csv(saveFile, index=False)
-            #                 log.info(f'[CHECK] saveFile : {saveFile}')
+
+            apiKey = sysOpt['apiKey']
+            apiUrl = sysOpt['apiUrl3']
+
+            addrInfo = sysOpt['addrList'][0]
+            for ii, addrInfo in enumerate(sysOpt['addrList']):
+                log.info(f'[CHECK] addrInfo : {addrInfo}')
+
+                # admDataL1 = admData[admData['법정동명'].str.contains('서울')]
+                admDataL1 = admData[admData['법정동명'].str.contains(addrInfo)]
+                if (len(admDataL1) < 1): continue
+
+                # 시군구 목록
+                sigunguCdList = set(admDataL1['sigunguCd'])
+
+                # 페이지 설정
+                pageList = np.arange(0, 9999, 1)
+
+                for i, sigunguCdInfo in enumerate(sigunguCdList):
+                    log.info(f'[CHECK] sigunguCdInfo : {sigunguCdInfo}')
+
+                    for j, dtMonthInfo in enumerate(dtMonthList):
+                        # log.info(f'[CHECK] dtMonthInfo : {dtMonthInfo}')
+
+                        dtYearMonth = dtMonthInfo.strftime('%Y%m')
+
+                        saveFile = '{}/{}/{}/{}/{}_{}_{}.csv'.format(globalVar['outPath'], serviceName, '아파트 전월세', addrInfo, '아파트 전월세', addrInfo, dtYearMonth)
+                        os.makedirs(os.path.dirname(saveFile), exist_ok=True)
+
+                        fileChkList = glob.glob(saveFile)
+                        if (len(fileChkList) > 0): continue
+
+                        dataL1 = pd.DataFrame()
+
+                        for k, pageInfo in enumerate(pageList):
+
+                            try:
+                                reqUrl = f'{apiUrl}?serviceKey={apiKey}&pageNo=1&numOfRows=999&LAWD_CD={sigunguCdInfo}&DEAL_YMD={dtYearMonth}'
+                                res = urllib.request.urlopen(reqUrl)
+                                resCode = res.getcode()
+                                if resCode != 200: continue
+
+                                # json 읽기
+                                # resData = json.loads(res.read().decode('utf-8'))
+
+                                # xml to json 읽기
+                                resData = xmltodict.parse(res.read().decode('utf-8'))
+                                resultCode = resData['response']['header']['resultCode']
+                                if (resultCode != '00'): continue
+
+                                resBody = resData['response']['body']
+                                totalCnt = int(resBody['totalCount'])
+                                if (totalCnt < 1): break
+
+                                itemList = resBody['items']['item']
+                                if (len(itemList) < 1): break
+
+                                data = pd.DataFrame.from_dict(itemList)
+                                data['addrInfo'] = addrInfo
+                                data['sigunguCdInfo'] = sigunguCdInfo
+                                data['dtYearMonth'] = dtYearMonth
+                                data['pageInfo'] = pageInfo
+
+                                dataL1 = pd.concat([dataL1, data], ignore_index=False)
+
+                                if (totalCnt < (pageInfo * 100)): break
+
+                            except Exception as e:
+                                log.error("Exception : {}".format(e))
+
+                        # 자료 저장
+                        if (len(dataL1) > 0):
+                            data.to_csv(saveFile, index=False)
+                            log.info(f'[CHECK] saveFile : {saveFile}')
 
             # *********************************************************************************
             # 서울특별시 부동산 중개업소
@@ -570,9 +610,9 @@ class DtaProcess(object):
             # *********************************************************************************
             # [자료 전처리] 아파트 실거래
             # *********************************************************************************
-            # inpFile = '{}/{}/{}'.format(globalVar['inpPath'], serviceName, '????1101*.xlsx')
-            # inpFile = '{}/{}/{}'.format(globalVar['inpPath'], serviceName, '????1101*.xlsx')
-            addrInfo = sysOpt['addrList'][4]
+            #inpFile = '{}/{}/{}'.format(globalVar['inpPath'], serviceName, '????1101*.xlsx')
+            #inpFile = '{}/{}/{}'.format(globalVar['inpPath'], serviceName, '????1101*.xlsx')
+            addrInfo = sysOpt['addrList'][0]
             for ii, addrInfo in enumerate(sysOpt['addrList']):
                 log.info(f'[CHECK] addrInfo : {addrInfo}')
 
@@ -591,7 +631,8 @@ class DtaProcess(object):
 
                 # posData = posData.reset_index()
                 # posData['주소'] = addrInfo + ' ' + posData['도로명'] + ' ' + posData['단지명']
-                posData['addrDtlInfo'] = posData['addrInfo'] + ' ' + posData['법정동'] + ' ' + posData['아파트'] + ' ' + posData['지번']
+                #posData['addrDtlInfo'] = posData['addrInfo'] + ' ' + posData['법정동'] + ' ' + posData['아파트'] + ' ' + posData['지번'].astype('string')
+                posData['addrDtlInfo'] = posData['addrInfo'] + ' ' + posData['법정동'] + ' ' + posData['지번'].astype('string') + ' ' + posData['아파트']
 
                 # addrList = posData['주소'].unique()
                 addDtlrList = set(posData['addrDtlInfo'])
@@ -615,7 +656,7 @@ class DtaProcess(object):
                     except Exception as e:
                         log.error("Exception : {}".format(e))
 
-
+                # 기존 네이버 주석처리
                 # for i, addrInfo in enumerate(addrList):
                 #     log.info(f'[CHECK] addrInfo : {addrInfo}')
                 #
@@ -654,7 +695,7 @@ class DtaProcess(object):
 
                 saveFile = '{}/{}/{}/{}/{}_{}_{}.csv'.format(globalVar['outPath'], serviceName, '전처리', addrInfo, '아파트 실거래', addrInfo, datetime.now().strftime('%Y%m%d'))
                 os.makedirs(os.path.dirname(saveFile), exist_ok=True)
-                posDataL2.to_csv(saveFile, index_label=False)
+                posDataL2.to_csv(saveFile, index_label=False, index=False)
                 log.info('[CHECK] saveFile : {}'.format(saveFile))
 
             # *********************************************************************************
@@ -680,7 +721,8 @@ class DtaProcess(object):
 
                 # posData = posData.reset_index()
                 # posData['주소'] = '서울특별시 강북구' + ' ' + posData['도로명'] + ' ' + posData['단지명']
-                posData['addrDtlInfo'] = posData['addrInfo'] + ' ' + posData['법정동'] + ' ' + posData['아파트'] + ' ' + posData['지번']
+                # posData['addrDtlInfo'] = posData['addrInfo'] + ' ' + posData['법정동'] + ' ' + posData['아파트'] + ' ' + posData['지번']
+                posData['addrDtlInfo'] = posData['addrInfo'] + ' ' + posData['법정동'] + ' ' + posData['지번'].astype('string') + ' ' + posData['아파트']
 
                 # addrList = posData['주소'].unique()
                 addrDtlList = set(posData['addrDtlInfo'])
@@ -742,7 +784,7 @@ class DtaProcess(object):
 
                 saveFile = '{}/{}/{}/{}/{}_{}_{}.csv'.format(globalVar['outPath'], serviceName, '전처리', addrInfo, '아파트 전월세', addrInfo, datetime.now().strftime('%Y%m%d'))
                 os.makedirs(os.path.dirname(saveFile), exist_ok=True)
-                posDataL2.to_csv(saveFile, index_label=False)
+                posDataL2.to_csv(saveFile, index_label=False, index=False)
                 log.info('[CHECK] saveFile : {}'.format(saveFile))
 
             # *********************************************************************************
@@ -787,14 +829,13 @@ class DtaProcess(object):
 
                 saveFile = '{}/{}/{}/{}/{}_{}_{}.csv'.format(globalVar['outPath'], serviceName, '전처리', addrInfo, '건축 인허가', addrInfo, datetime.now().strftime('%Y%m%d'))
                 os.makedirs(os.path.dirname(saveFile), exist_ok=True)
-                posDataL2.to_csv(saveFile, index_label=False)
+                posDataL2.to_csv(saveFile, index_label=False, index=False)
                 log.info('[CHECK] saveFile : {}'.format(saveFile))
 
 
             # *********************************************************************************
             # [자료 가공] 건축 인허가 및 아파트 실거래 간의 공간 일치
             # *********************************************************************************
-            # addrInfo = sysOpt['addrList'][0]
             addrInfo = sysOpt['addrList'][0]
             for ii, addrInfo in enumerate(sysOpt['addrList']):
                 log.info(f'[CHECK] addrInfo : {addrInfo}')
@@ -837,7 +878,7 @@ class DtaProcess(object):
 
                 saveFile = '{}/{}/{}/{}/{}_{}_{}.csv'.format(globalVar['outPath'], serviceName, '전처리', addrInfo, '건축 인허가-아파트 실거래', addrInfo, datetime.now().strftime('%Y%m%d'))
                 os.makedirs(os.path.dirname(saveFile), exist_ok=True)
-                aptPriceDataL1.to_csv(saveFile, index_label=False)
+                aptPriceDataL1.to_csv(saveFile, index_label=False, index=False)
                 log.info('[CHECK] saveFile : {}'.format(saveFile))
 
             # *********************************************************************************
@@ -885,7 +926,7 @@ class DtaProcess(object):
 
                 saveFile = '{}/{}/{}/{}/{}_{}_{}.csv'.format(globalVar['outPath'], serviceName, '전처리', addrInfo, '건축 인허가-아파트 전월세', addrInfo, datetime.now().strftime('%Y%m%d'))
                 os.makedirs(os.path.dirname(saveFile), exist_ok=True)
-                aptPriceDataL1.to_csv(saveFile, index_label=False)
+                aptPriceDataL1.to_csv(saveFile, index_label=False, index=False)
                 log.info(f'[CHECK] saveFile : {saveFile}')
 
         except Exception as e:
