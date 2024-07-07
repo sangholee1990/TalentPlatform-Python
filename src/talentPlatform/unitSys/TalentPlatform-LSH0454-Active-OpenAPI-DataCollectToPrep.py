@@ -235,10 +235,9 @@ class DtaProcess(object):
                 # 시작/종료 시간
                 'srtDate': '2014-01-01'
                 , 'endDate': datetime.now().strftime("%Y-%m-%d")
-                #, 'endDate': '2023-07-01'
 
                 # 공공데이터포털 API
-                , 'apiKey': ''
+                # , 'apiKey': ''
 
                 # 건축 인허가
                 , 'apiUrl': 'https://apis.data.go.kr/1613000/ArchPmsService_v2/getApBasisOulnInfo'
@@ -253,18 +252,19 @@ class DtaProcess(object):
                 #, 'addrList': ['서울특별시 강북구', '서울특별시 송파구', '서울특별시 강남구', '서울특별시 양천구', '서울특별시 서초구']
                 #, 'addrList': ['서울특별시 강남구', '서울특별시 서초구', '서울특별시 송파구', '서울특별시 양천구', '서울특별시 용산구']
                 #, 'addrList': ['서울특별시 강서구', '서울특별시 구로구', '서울특별시 동작구', '서울특별시 영등포구']
-                , 'addrList': ['서울특별시 금천구']
+                # , 'addrList': ['서울특별시 금천구']
+                , 'addrList': [globalVar['addrList']]
 
                 # 구글 API 정보
-                , 'googleApiKey': ''
+                # , 'googleApiKey': ''
             }
 
             dtSrtDate = pd.to_datetime(sysOpt['srtDate'], format='%Y-%m-%d')
             dtEndDate = pd.to_datetime(sysOpt['endDate'], format='%Y-%m-%d')
             dtMonthList = pd.date_range(start=dtSrtDate, end=dtEndDate, freq='1M')
-            # # dt6HourList = pd.date_range(start=dtSrtDate, end=dtEndDate, freq=Hour(6))
-            # # dtDayList = pd.date_range(start=dtSrtDate, end=dtEndDate, freq=Day(1))
-            #             # # dt3HourList = pd.date_range(start=dtSrtDate, end=dtEndDate, freq=Hour(3))
+            # dt6HourList = pd.date_range(start=dtSrtDate, end=dtEndDate, freq=Hour(6))
+            # dtDayList = pd.date_range(start=dtSrtDate, end=dtEndDate, freq=Day(1))
+            # dt3HourList = pd.date_range(start=dtSrtDate, end=dtEndDate, freq=Hour(3))
 
             # 구글 API 설정
             gmap = googlemaps.Client(key=sysOpt['googleApiKey'])
@@ -351,8 +351,6 @@ class DtaProcess(object):
 
                             except Exception as e:
                                 log.error("Exception : {}".format(e))
-                                # log.error("break loop")
-                                # break
 
                 # 자료 저장
                 saveFile = '{}/{}/{}/{}/{}_{}_{}.csv'.format(globalVar['outPath'], serviceName, '건축 인허가', addrInfo, '건축 인허가', addrInfo, len(dataL1))
@@ -587,7 +585,7 @@ class DtaProcess(object):
 
                 # posData = posData.reset_index()
                 # posData['주소'] = addrInfo + ' ' + posData['도로명'] + ' ' + posData['단지명']
-                #posData['addrDtlInfo'] = posData['addrInfo'] + ' ' + posData['법정동'] + ' ' + posData['아파트'] + ' ' + posData['지번'].astype('string')
+                # posData['addrDtlInfo'] = posData['addrInfo'] + ' ' + posData['법정동'] + ' ' + posData['아파트'] + ' ' + posData['지번'].astype('string')
                 posData['addrDtlInfo'] = posData['addrInfo'] + ' ' + posData['법정동'] + ' ' + posData['지번'].astype('string') + ' ' + posData['아파트']
 
                 # addrList = posData['주소'].unique()

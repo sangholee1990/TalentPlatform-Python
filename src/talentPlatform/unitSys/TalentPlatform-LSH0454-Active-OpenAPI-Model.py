@@ -9,6 +9,7 @@ import platform
 import sys
 import traceback
 from datetime import datetime
+from dateutil.relativedelta import relativedelta
 
 import h2o
 # import googlemaps
@@ -560,6 +561,9 @@ class DtaProcess(object):
     # cd /SYSTEMS/PROG/PYTHON/PyCharm/src/talentPlatform/unitSys
     # nohup /SYSTEMS/anaconda3/envs/py36/bin/python3.6 TalentPlatform-LSH0454-Active-OpenAPI-Model.py --addrList "서울특별시 성동구, 서울특별시 광진구" &
 
+    # cd /SYSTEMS/PROG/PYTHON/IDE/src/talentPlatform/unitSys
+    # nohup /SYSTEMS/LIB/anaconda3/envs/py36/bin/python TalentPlatform-LSH0454-Active-OpenAPI-Model.py --addrList "서울특별시 성동구" &
+
     # ================================================================================================
     # 환경변수 설정
     # ================================================================================================
@@ -639,7 +643,8 @@ class DtaProcess(object):
                 #  시계열
                 , 'tsModel': {
                     # 미래 예측 연도
-                    'forYear': 2027
+                    # 'forYear': 2027
+                    'forYear': int((datetime.now() + relativedelta(years=3)).strftime('%Y'))
 
                     # 아파트 설정
                     , 'aptList': [] # 전체 아파트 검색
@@ -652,8 +657,8 @@ class DtaProcess(object):
                 # , 'addrList': ['서울특별시 용산구']
                 # , 'addrList': ['서울특별시 양천구']
                 # , 'addrList': ['경기도 과천시']
-                # , 'addrList': ['경기도 의정부시']
-                , 'addrList': [globalVar['addrList']]
+                , 'addrList': ['경기도 의정부시']
+                # , 'addrList': [globalVar['addrList']]
             }
 
             # *********************************************************************************
