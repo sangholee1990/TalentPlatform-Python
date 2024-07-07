@@ -571,7 +571,8 @@ class DtaProcess(object):
     if (platform.system() == 'Windows'):
         contextPath = os.getcwd() if env in 'local' else 'E:/04. TalentPlatform/Github/TalentPlatform-Python'
     else:
-        contextPath = os.getcwd() if env in 'local' else '/SYSTEMS/PROG/PYTHON/PyCharm'
+        # contextPath = os.getcwd() if env in 'local' else '/SYSTEMS/PROG/PYTHON/PyCharm'
+        contextPath = os.getcwd() if env in 'local' else '/SYSTEMS/PROG/PYTHON/IDE'
 
     prjName = 'test'
     serviceName = 'LSH0454'
@@ -615,6 +616,7 @@ class DtaProcess(object):
                 globalVar['figPath'] = '/DATA/FIG'
                 globalVar['updPath'] = '/DATA/CSV'
 
+            # 옵션 설정
             sysOpt = {
                 #  딥러닝
                 'dlModel': {
