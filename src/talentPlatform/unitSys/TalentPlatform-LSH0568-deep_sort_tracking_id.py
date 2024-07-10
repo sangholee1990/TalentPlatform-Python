@@ -378,8 +378,6 @@ def sendSlackMsg(title, message):
     headers = {'Content-Type': "application/json", 'Content-Length': byteLen}
 
     slackUrlList = [
-        "https://hooks.slack.com/services/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"
-        , "https://hooks.slack.com/services/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"
     ]
 
     for slackUrl in slackUrlList:
