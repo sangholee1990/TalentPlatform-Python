@@ -163,7 +163,8 @@ def draw_boxes(img, bbox, names, object_id, identities=None, offset=(0, 0)):
         idList.append(id)
         cnt += 1
     cv2.putText(img, f'Persons : {cnt}', (int(width * 0.85), int(height * 0.05)), cv2.FONT_HERSHEY_DUPLEX, 0.8, (255,0,0), 2)
-    sendSlackMsg(title=f"[{datetime.now().strftime('%Y-%m-%d %H:%M:%S')}] 북한군 탐지 {cnt}명", message=f"[북한군 식별번호] {', '.join(map(str, idList))}")
+    if cnt > 1:
+        sendSlackMsg(title=f"[{datetime.now().strftime('%Y-%m-%d %H:%M:%S')}] 북한군 탐지 {cnt}명", message=f"[북한군 식별번호] {', '.join(map(str, idList))}")
     # print(f'Persons : {cnt} / {len(np.unique(labelList))}')
 
     return img
@@ -378,6 +379,8 @@ def sendSlackMsg(title, message):
     headers = {'Content-Type': "application/json", 'Content-Length': byteLen}
 
     slackUrlList = [
+        # "https://hooks.slack.com/services/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"
+        # , "https://hooks.slack.com/services/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"
     ]
 
     for slackUrl in slackUrlList:
@@ -385,7 +388,8 @@ def sendSlackMsg(title, message):
             response = requests.post(slackUrl, data=json.dumps(slackMsg), headers=headers)
             response.raise_for_status()
         except requests.exceptions.RequestException as e:
-            print(f"Exception : {str(e)}")
+            pass
+            # print(f"Exception : {str(e)}")
 
 
 if __name__ == '__main__':
