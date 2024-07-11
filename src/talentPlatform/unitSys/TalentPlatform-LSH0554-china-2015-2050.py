@@ -188,6 +188,8 @@ class DtaProcess(object):
     # zip -r china-2030-2050.zip china-2030-2050/
     # zip -r china-2015-2020.zip china-2015-2020/
     # zip -r china-2015-2015.zip china-2015-2015/
+    
+    # zip -r china-2015-2050.zip china-20240712/
 
     # ps -ef | grep LSH0554 | awk '{print $2}' | xargs kill -9
 
