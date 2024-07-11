@@ -248,9 +248,17 @@ class DtaProcess(object):
                     "2015",
                     "2016_input2015",
                     "2017_input2015",
+                    "2018_input2015",
                     "2019_input2015",
                     "2020_input2020",
                     "2020_input2015",
+                    "2015_TPL_input2015",
+                    "2016_TPL_input2015",
+                    "2017_TPL_input2015",
+                    "2018_TPL_input2015",
+                    "2019_TPL_input2015",
+                    "2020_TPL_input2015",
+                    "2020_TPL_input2020",
                     "2030_1.5_SSP1",
                     "2030_1.5_SSP2",
                     "2030_2_SSP1",
@@ -263,15 +271,6 @@ class DtaProcess(object):
                     "2050_2_SSP2",
                     "2050_SSP1_nopolicy",
                     "2050_SSP2_nopolicy",
-                    "2015_TPL_input2015",
-                    "2016_TPL_input2015",
-                    "2017_TPL_input2015",
-                    "2018_TPL_input2015",
-                    "2019_TPL_input2015",
-                    "2020_TPL_input2015",
-                    "2020_TPL_input2020",
-                    "2018_input2015",
-                    "2018_TPL_input2015"
                 ]
             }
 
@@ -317,7 +316,8 @@ class DtaProcess(object):
 
                 # inpFilePatrn = f'india-20240509/**/{metaInfo}/**/*.csv'
                 # inpFilePatrn = f'india-20240509/**/{metaInfo}/**/*.csv'
-                inpFilePatrn = f'india-20240604/**/{metaInfo}/**/*.csv'
+                # inpFilePatrn = f'india-20240604/**/{metaInfo}/**/*.csv'
+                inpFilePatrn = f'india-20240712/**/{metaInfo}/**/*.csv'
                 inpFile = '{}/{}/{}'.format(globalVar['inpPath'], serviceName, inpFilePatrn)
                 fileList = sorted(glob.glob(inpFile, recursive=True))
 
@@ -337,38 +337,40 @@ class DtaProcess(object):
                     except Exception:
                         pass
 
-                    filePathSepList = re.split(r'[/]', fileInfo)
-                    keyInfo = filePathSepList[6]
-                    if keyInfo is None: continue
+                    # filePathSepList = re.split(r'[/]', fileInfo)
+                    # keyInfo = filePathSepList[6]
+                    # if keyInfo is None: continue
 
                     # if re.search('nopolicy', keyInfo, re.IGNORECASE): continue
 
-                    keyInfoSepList = re.split(r'[厂_]', keyInfo)
-                    if keyInfoSepList is None or len(keyInfoSepList) < 1: continue
+                    # keyInfoSepList = re.split(r'[厂_]', keyInfo)
+                    # if keyInfoSepList is None or len(keyInfoSepList) < 1: continue
+
+                    metaInfoSepList = re.split(r'_', metaInfo)
 
                     keyYear = 'None'
-                    keyIdx = 'None'
-                    keyVer = 'None'
+                    # keyIdx = 'None'
+                    # keyVer = 'None'
 
                     try:
-                        keyYear = keyInfoSepList[0]
+                        keyYear = metaInfoSepList[0]
                     except Exception:
                         pass
 
-                    try:
-                        keyIdx = keyInfoSepList[1]
-                    except Exception:
-                        pass
+                    # try:
+                    #     keyIdx = keyInfoSepList[1]
+                    # except Exception:
+                    #     pass
 
-                    try:
-                        keyVer = keyInfoSepList[2]
-                    except Exception:
-                        pass
+                    # try:
+                    #     keyVer = keyInfoSepList[2]
+                    # except Exception:
+                    #     pass
 
                     data = pd.read_csv(fileInfo)
                     data['keyYear'] = keyYear
-                    data['keyIdx'] = keyIdx
-                    data['keyVer'] = keyVer
+                    # data['keyIdx'] = keyIdx
+                    # data['keyVer'] = keyVer
                     # data['keyType'] = sysOpt['keyTypeMat'][keyType.lower()]
                     data['keyType'] = keyType
                     data['fileName'] = fileName
@@ -377,23 +379,17 @@ class DtaProcess(object):
 
                 # dataL1['key'] = dataL1[['keyYear', 'keyIdx', 'keyVer', 'keyType']].apply(lambda row: '_'.join(str(x) for x in row if x is not None), axis=1)
 
+                if len(dataL1) < 1: continue
+
                 keyYearList = sorted(set(dataL1['keyYear']))
                 keyTypeList = sorted(set(dataL1['keyType']))
-
-                # keyInfo = '2030_2_SSP2'
-                # keyTypeInfo = 'EHIM'
                 for keyYearInfo in keyYearList:
                     for keyTypeInfo in keyTypeList:
 
-                        # if keyYearInfo == 'None': continue
-                        # if not keyIdxInfo == 'None': continue
-                        # if not keyVerInfo == 'None': continue
-                        # if keyTypeInfo == 'None': continue
+                        # keyInfo = '2030_2_SSP2'
+                        # keyTypeInfo = 'EHIM'
 
-                        # keyYearInfo = '2019'
-                        # keyTypeInfo = 'ANPR'
-
-                        log.info(f'[CHECK] keyYearInfo : {keyYearInfo} / keyTypeInfo : {keyTypeInfo}')
+                        log.info(f'[CHECK] metaInfo : {metaInfo} / keyYearInfo : {keyYearInfo} / keyTypeInfo : {keyTypeInfo}')
 
                         dataL2 = dataL1.loc[(dataL1['keyYear'] == keyYearInfo) & (dataL1['keyType'] == keyTypeInfo)]
                         if dataL2 is None or len(dataL2) < 1: continue
@@ -402,7 +398,9 @@ class DtaProcess(object):
                         # 기준 엑셀파일 읽기
                         # ********************************************************************
                         # inpFilePatrn = f'india-20240509/**/IndiaPower{metaInfo}/**/*{keyYearInfo}*_{keyTypeInfo}_*.xlsx'
-                        inpFilePatrn = f'india-20240509/**/*_{keyTypeInfo}_*.xlsx'
+                        # inpFilePatrn = f'india-20240509/**/*_{keyTypeInfo}_*.xlsx'
+                        inpFilePatrn = f'india-template-20240712/**/*_{keyTypeInfo}_*.xlsx'
+                        # inpFilePatrn = f'template-20240712/**/*_{keyTypeInfo}_*.xlsx'
                         inpFile = '{}/{}/{}'.format(globalVar['inpPath'], serviceName, inpFilePatrn)
                         fileList = sorted(glob.glob(inpFile, recursive=True))
                         if len(fileList) < 1: continue
@@ -445,8 +443,6 @@ class DtaProcess(object):
                             log.info(f'[CHECK] keyGrpYearInfo : {keyGrpYearInfo}')
 
                             for idx, item in dataL2.iterrows():
-                                # engType = item['EnergyType']
-                                # engType = item['Act_abb']
                                 engType = item.get('EnergyType') or item.get('Act_abb')
 
                                 if pd.isna(engType): continue
@@ -466,7 +462,6 @@ class DtaProcess(object):
                                     cellFill = cell.fill.start_color.index
 
                                     if cellFill != '00000000': continue
-                                    # cell.value = 0.0
 
                                     colVal = cell.value
                                     selVal = item.get(colName)
@@ -480,20 +475,13 @@ class DtaProcess(object):
                             srtIdx = fileInfo.index('actPathEneMob')
                             # fileName = fileInfo[srtIdx:]
 
-                            # if metaInfo == '2015_TPL_input2015': metaInfo = '2015_TPL'
-                            # if metaInfo == '2015_input2015': metaInfo = '2015'
-
                             metaInfo2 = re.sub(r'\.', '', metaInfo)
                             metaInfo3 = f'IndiaPower{metaInfo2}'
                             fileName = fileInfo[srtIdx:].replace('IndiaPower2015', metaInfo3)
 
                             # Main 시트
                             wsMain = wb['Main']
-                            # eleList = [keyYearInfo, sKeyIdxInfo, sKeyVerInfo]
-                            # eleList = [metaInfo]
-                            # eleExtList = [element for element in eleList if element != '']
-                            # eleExtMrg = '_'.join(eleExtList)
-                            # wsMain[f'B7'].value = f'IndiaPower{eleExtMrg}'
+                            wsMain[f'B5'].value = f'INDI_{keyTypeInfo}'
                             wsMain[f'B7'].value = metaInfo3
 
                             # 기울림체 삭제
@@ -503,9 +491,7 @@ class DtaProcess(object):
                             newFont.italic = False
                             wsMain[f'B3'].font = newFont
 
-                            # saveFile = '{}/{}/{}/{}/{}'.format(globalVar['outPath'], serviceName, 'india-2015-2020', metaInfo3, fileName)
-                            # saveFile = '{}/{}/{}/{}/{}'.format(globalVar['outPath'], serviceName, 'india-2015-2015', metaInfo3, fileName)
-                            saveFile = '{}/{}/{}/{}/{}'.format(globalVar['outPath'], serviceName, 'india-20240604', metaInfo3, fileName)
+                            saveFile = '{}/{}/{}/{}/{}'.format(globalVar['outPath'], serviceName, 'india-20240712', metaInfo3, fileName)
                             os.makedirs(os.path.dirname(saveFile), exist_ok=True)
                             wb.save(saveFile)
                             log.info('[CHECK] saveFile : {}'.format(saveFile))
