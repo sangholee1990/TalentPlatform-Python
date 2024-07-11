@@ -182,6 +182,7 @@ class DtaProcess(object):
     # cd /DATA/OUTPUT/LSH0554
 
     # zip -r india-2015-2050.zip india-20240604/
+    # zip -r india-2015-2050.zip india-20240712/
 
     # ps -ef | grep LSH0554 | awk '{print $2}' | xargs kill -9
 
