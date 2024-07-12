@@ -115,7 +115,7 @@ def initGlobalVar(env=None, contextPath=None, prjName=None):
         , 'movPath': contextPath if env in 'local' else os.path.join(contextPath, 'resources', 'movie', prjName)
         , 'logPath': contextPath if env in 'local' else os.path.join(contextPath, 'resources', 'log', prjName)
         , 'mapPath': contextPath if env in 'local' else os.path.join(contextPath, 'resources', 'mapInfo')
-        , 'sysPath': contextPath if env in 'local' else os.path.join(contextPath, 'resources', 'config', 'system.cfg')
+        , 'sysCfg': contextPath if env in 'local' else os.path.join(contextPath, 'resources', 'config', 'system.json')
         , 'seleniumPath': contextPath if env in 'local' else os.path.join(contextPath, 'resources', 'config', 'selenium')
         , 'fontPath': contextPath if env in 'local' else os.path.join(contextPath, 'resources', 'config', 'fontInfo')
     }
@@ -125,7 +125,6 @@ def initGlobalVar(env=None, contextPath=None, prjName=None):
 
 #  초기 전달인자 설정
 def initArgument(globalVar, inParams):
-
     # 원도우 또는 맥 환경
     if globalVar['sysOs'] in 'Windows' or globalVar['sysOs'] in 'Darwin':
         inParInfo = inParams
@@ -145,11 +144,11 @@ def initArgument(globalVar, inParams):
         fontName = font_manager.FontProperties(fname=fontList[0]).get_name()
         plt.rcParams['font.family'] = fontName
 
-    log.info("[CHECK] inParInfo : {}".format(inParInfo))
+    log.info(f"[CHECK] inParInfo : {inParInfo}")
 
+    # 전역 변수에 할당
     for key, val in inParInfo.items():
         if val is None: continue
-        # 전역 변수에 할당
         globalVar[key] = val
 
     # 전역 변수
@@ -159,10 +158,7 @@ def initArgument(globalVar, inParams):
 
         globalVar[key] = val.replace('\\', '/')
 
-        log.info("[CHECK] {} : {}".format(key, val))
-
-        # self 변수에 할당
-        # setattr(self, key, val)
+        log.info(f"[CHECK] {key} : {val}")
 
     return globalVar
 
@@ -188,7 +184,7 @@ class DtaProcess(object):
     if (platform.system() == 'Windows'):
         contextPath = os.getcwd() if env in 'local' else 'E:/04. TalentPlatform/Github/TalentPlatform-Python'
     else:
-        contextPath = os.getcwd() if env in 'local' else '/SYSTEMS/PROG/PYTHON/PyCharm'
+        contextPath = os.getcwd() if env in 'local' else '/SYSTEMS/PROG/PYTHON/IDE'
 
     prjName = 'test'
     serviceName = 'LSH0365'
@@ -204,7 +200,7 @@ class DtaProcess(object):
     # ================================================================================================
     def __init__(self, inParams):
 
-        log.info("[START] __init__ : {}".format("init"))
+        log.info('[START] {}'.format("init"))
 
         try:
             # 초기 전달인자 설정 (파이썬 실행 시)
@@ -212,10 +208,10 @@ class DtaProcess(object):
             initArgument(globalVar, inParams)
 
         except Exception as e:
-            log.error("Exception : {}".format(e))
+            log.error(f"Exception : {str(e)}")
             raise e
         finally:
-            log.info("[END] __init__ : {}".format("init"))
+            log.info('[END] {}'.format("init"))
 
     # ================================================================================================
     # 4.4. 비즈니스 로직 수행
@@ -227,32 +223,24 @@ class DtaProcess(object):
         try:
 
             if (platform.system() == 'Windows'):
-
-                # 옵션 설정
-                sysOpt = {
-                    # 시작/종료 시간
-                    'srtDate': '1990-01-01'
-                    , 'endDate': '2022-01-01'
-                }
-
+                pass
             else:
-
-                # 옵션 설정
-                sysOpt = {
-                    # 시작/종료 시간
-                    'srtDate': '2019-01-01'
-                    , 'endDate': '2023-01-01'
-                }
-
                 globalVar['inpPath'] = '/DATA/INPUT'
                 globalVar['outPath'] = '/DATA/OUTPUT'
                 globalVar['figPath'] = '/DATA/FIG'
+
+            # 옵션 설정
+            sysOpt = {
+                # 시작/종료 시간
+                'srtDate': '2019-01-01'
+                , 'endDate': '2023-01-01'
+            }
 
             inpFile = '{}/{}/{}'.format(globalVar['inpPath'], serviceName, 'HN_M.csv')
             fileList = sorted(glob.glob(inpFile))
 
         except Exception as e:
-            log.error("Exception : {}".format(e))
+            log.error(f"Exception : {str(e)}")
             raise e
         finally:
             log.info('[END] {}'.format("exec"))
