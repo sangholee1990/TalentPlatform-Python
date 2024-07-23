@@ -252,17 +252,6 @@ class DtaProcess(object):
                 """
                 # open dataset
                 ds = xr.open_dataset(nc_file)
-                ds = ds.isel(time = 0)
-
-                import geemap
-                data = geemap.read_netcdf(nc_file)
-                data
-
-                # tif = "wind_global.tif"
-                tif = "/HDD/DATA/INPUT/INDI2024/air.mon.mean.tif"
-                geemap.netcdf_to_tif(nc_file, tif, variables=["air"], shift_lon=True)
-
-
 
                 # "reprojecting" by making new coordinate arrays following the equidistant cylindrical projection
                 step_lon = 360 / ds[lon_variable].size
