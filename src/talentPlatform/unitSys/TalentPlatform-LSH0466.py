@@ -624,8 +624,8 @@ class DtaProcess(object):
     # ================================================================================================
     global env, contextPath, prjName, serviceName, log, globalVar
 
-    env = 'local'  # 로컬 : 원도우 환경, 작업환경 (현재 소스 코드 환경 시 .) 설정
-    # env = 'dev'  # 개발 : 원도우 환경, 작업환경 (사용자 환경 시 contextPath) 설정
+    # env = 'local'  # 로컬 : 원도우 환경, 작업환경 (현재 소스 코드 환경 시 .) 설정
+    env = 'dev'  # 개발 : 원도우 환경, 작업환경 (사용자 환경 시 contextPath) 설정
     # env = 'oper'  # 운영 : 리눅스 환경, 작업환경 (사용자 환경 시 contextPath) 설정
 
     if (platform.system() == 'Windows'):
@@ -670,26 +670,14 @@ class DtaProcess(object):
         try:
 
             if (platform.system() == 'Windows'):
-<<<<<<< Updated upstream
                 globalVar['inpPath'] = 'E:/Global bias/Regridding'
                 globalVar['outPath'] = 'E:/Global bias/Regridding/OUTPUT'
                 globalVar['figPath'] = 'E:/Global bias/Regridding/FIG'
 
-=======
-                # globalVar['inpPath'] = '/DATA/INPUT'
-                globalVar['inpPath'] = 'E:/Global bias/Regridding'
-                globalVar['outPath'] = 'E:/Global bias/Regridding/OUTPUT'
-                globalVar['figPath'] = 'E:/Global bias/Regridding/FIG'
-                # globalVar['updPath'] = 'E:/Global bias/Regridding/CSV'
->>>>>>> Stashed changes
             else:
                 globalVar['inpPath'] = '/DATA/INPUT'
                 globalVar['outPath'] = '/DATA/OUTPUT'
                 globalVar['figPath'] = '/DATA/FIG'
-<<<<<<< Updated upstream
-=======
-                # globalVar['updPath'] = '/DATA/CSV'
->>>>>>> Stashed changes
 
             # 옵션 설정
             sysOpt = {
@@ -730,14 +718,10 @@ class DtaProcess(object):
             # 대륙별 분류 전처리
             # ********************************************************************
             # inpFile = '{}/{}/{}'.format(globalVar['inpPath'], serviceName, 'TT4.csv')
-<<<<<<< Updated upstream
             # inpFile = '{}/{}/{}'.format(globalVar['inpPath'], 'Historical', 'TT4.csv')
 
             inpFile = '{}/{}/{}'.format(globalVar['inpPath'], serviceName, 'TTL4.csv')
             # inpFile = '{}/{}/{}'.format(globalVar['inpPath'], 'Historical', 'TTL4.csv')
-=======
-            inpFile = '{}/Historical/{}'.format(globalVar['inpPath'], 'TT4.csv')
->>>>>>> Stashed changes
             fileList = glob.glob(inpFile)
             if fileList is None or len(fileList) < 1:
                 log.error('[ERROR] inpFile : {} / {}'.format(fileList, '입력 자료를 확인해주세요.'))
@@ -762,13 +746,8 @@ class DtaProcess(object):
             # 강수량 데이터 전처리
             # ********************************************************************
             # 실측 데이터
-<<<<<<< Updated upstream
             inpFile = '{}/{}/{}'.format(globalVar['inpPath'], serviceName, 'ERA5_1979_2020.nc')
             # inpFile = '{}/{}/{}'.format(globalVar['inpPath'], 'Historical', 'ERA5_1979_2020.nc')
-=======
-            # inpFile = '{}/{}/{}'.format(globalVar['inpPath'], serviceName, 'ERA5_1979_2020.nc')
-            inpFile = '{}/Historical/{}'.format(globalVar['inpPath'], 'ERA5_1979_2020.nc')
->>>>>>> Stashed changes
             fileList = sorted(glob.glob(inpFile))
             obsData = xr.open_dataset(fileList[0]).sel(time=slice(sysOpt['srtDate'], sysOpt['endDate']))
 
@@ -788,13 +767,8 @@ class DtaProcess(object):
                 log.info(f"[CHECK] keyInfo : {keyInfo}")
 
                 # 관측/학습 데이터
-<<<<<<< Updated upstream
                 inpFile = '{}/{}/*{}*{}*.nc'.format(globalVar['inpPath'], serviceName, keyInfo, 'historical')
                 # inpFile = '{}/{}/*{}*{}*.nc'.format(globalVar['inpPath'], 'Historical', keyInfo, 'historical')
-=======
-                # inpFile = '{}/{}/*{}*{}*.nc'.format(globalVar['inpPath'], serviceName, keyInfo, 'historical')
-                inpFile = '{}/Historical/*{}*{}*.nc'.format(globalVar['inpPath'], keyInfo, 'historical')
->>>>>>> Stashed changes
                 fileList = sorted(glob.glob(inpFile))
 
                 # fileInfo = fileList[0]
@@ -832,14 +806,8 @@ class DtaProcess(object):
                 mrgData = xr.merge([obsDataL3, modDataL3])
 
                 # 예측 데이터
-<<<<<<< Updated upstream
                 inpFile = '{}/{}/*{}*{}*.nc'.format(globalVar['inpPath'], serviceName, keyInfo, 'ssp126')
                 # inpFile = '{}/{}/*{}*{}*.nc'.format(globalVar['inpPath'], 'Future', keyInfo, 'ssp126')
-=======
-                # inpFile = '{}/{}/{}'.format(globalVar['inpPath'], serviceName, 'pr_day_MRI-ESM2-0_ssp126_*.nc')
-                # inpFile = '{}/{}/*{}*{}*.nc'.format(globalVar['inpPath'], serviceName, keyInfo, 'ssp126')
-                inpFile = '{}/Future/*{}*{}*.nc'.format(globalVar['inpPath'], keyInfo, 'ssp126')
->>>>>>> Stashed changes
                 fileList = sorted(glob.glob(inpFile))
 
                 # fileInfo = fileList[0]

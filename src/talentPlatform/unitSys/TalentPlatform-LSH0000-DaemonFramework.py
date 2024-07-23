@@ -140,9 +140,9 @@ def initArgument(globalVar, inParams):
         inParInfo = vars(parser.parse_args())
 
         # 글꼴 설정
-        fontList = glob.glob('{}/{}'.format(globalVar['fontPath'], '*.ttf'))
-        fontName = font_manager.FontProperties(fname=fontList[0]).get_name()
-        plt.rcParams['font.family'] = fontName
+        # fontList = glob.glob('{}/{}'.format(globalVar['fontPath'], '*.ttf'))
+        # fontName = font_manager.FontProperties(fname=fontList[0]).get_name()
+        # plt.rcParams['font.family'] = fontName
 
     log.info(f"[CHECK] inParInfo : {inParInfo}")
 

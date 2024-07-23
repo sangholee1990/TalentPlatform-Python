@@ -183,6 +183,7 @@ class DtaProcess(object):
 
     # zip -r india-2015-2050.zip india-20240604/
     # zip -r india-2015-2050.zip india-20240712/
+    # zip -r india-2015-2050.zip india-20240724/
 
     # ps -ef | grep LSH0554 | awk '{print $2}' | xargs kill -9
 
@@ -247,18 +248,18 @@ class DtaProcess(object):
             sysOpt = {
                 'metaList': [
                     "2015",
-                    "2016_input2015",
-                    "2017_input2015",
-                    "2018_input2015",
-                    "2019_input2015",
-                    "2020_input2020",
-                    "2020_input2015",
                     "2015_TPL_input2015",
+                    "2016_input2015",
                     "2016_TPL_input2015",
+                    "2017_input2015",
                     "2017_TPL_input2015",
+                    "2018_input2015",
                     "2018_TPL_input2015",
+                    "2019_input2015",
                     "2019_TPL_input2015",
+                    "2020_input2015",
                     "2020_TPL_input2015",
+                    "2020_input2020",
                     "2020_TPL_input2020",
                     "2030_1.5_SSP1",
                     "2030_1.5_SSP2",
@@ -318,7 +319,8 @@ class DtaProcess(object):
                 # inpFilePatrn = f'india-20240509/**/{metaInfo}/**/*.csv'
                 # inpFilePatrn = f'india-20240509/**/{metaInfo}/**/*.csv'
                 # inpFilePatrn = f'india-20240604/**/{metaInfo}/**/*.csv'
-                inpFilePatrn = f'india-20240712/**/{metaInfo}/**/*.csv'
+                # inpFilePatrn = f'india-20240712/**/{metaInfo}/**/*.csv'
+                inpFilePatrn = f'india-20240724/**/{metaInfo}/**/*.csv'
                 inpFile = '{}/{}/{}'.format(globalVar['inpPath'], serviceName, inpFilePatrn)
                 fileList = sorted(glob.glob(inpFile, recursive=True))
 
@@ -400,7 +402,8 @@ class DtaProcess(object):
                         # ********************************************************************
                         # inpFilePatrn = f'india-20240509/**/IndiaPower{metaInfo}/**/*{keyYearInfo}*_{keyTypeInfo}_*.xlsx'
                         # inpFilePatrn = f'india-20240509/**/*_{keyTypeInfo}_*.xlsx'
-                        inpFilePatrn = f'india-template-20240712/**/*_{keyTypeInfo}_*.xlsx'
+                        # inpFilePatrn = f'india-template-20240712/**/*_{keyTypeInfo}_*.xlsx'
+                        inpFilePatrn = f'india-template-20240724/**/*_{keyTypeInfo}_*.xlsx'
                         # inpFilePatrn = f'template-20240712/**/*_{keyTypeInfo}_*.xlsx'
                         inpFile = '{}/{}/{}'.format(globalVar['inpPath'], serviceName, inpFilePatrn)
                         fileList = sorted(glob.glob(inpFile, recursive=True))
@@ -492,7 +495,8 @@ class DtaProcess(object):
                             newFont.italic = False
                             wsMain[f'B3'].font = newFont
 
-                            saveFile = '{}/{}/{}/{}/{}'.format(globalVar['outPath'], serviceName, 'india-20240712', metaInfo3, fileName)
+                            # saveFile = '{}/{}/{}/{}/{}'.format(globalVar['outPath'], serviceName, 'india-20240712', metaInfo3, fileName)
+                            saveFile = '{}/{}/{}/{}/{}'.format(globalVar['outPath'], serviceName, 'india-20240724', metaInfo3, fileName)
                             os.makedirs(os.path.dirname(saveFile), exist_ok=True)
                             wb.save(saveFile)
                             log.info('[CHECK] saveFile : {}'.format(saveFile))
