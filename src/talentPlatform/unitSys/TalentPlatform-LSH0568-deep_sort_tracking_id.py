@@ -24,9 +24,25 @@ import json
 import sys
 import requests
 from datetime import datetime
+import sys
+import requests
+from datetime import datetime
+import json
+from twilio.rest import Client
 
 palette = (2 ** 11 - 1, 2 ** 15 - 1, 2 ** 20 - 1)
 data_deque = {}
+
+cfgList = {
+    'twilo': [
+        {'sid': None, 'token': None, 'fromPhoneNumber': None, 'toPhoneNumber': None}
+    ]
+    , 'slack': [
+        {'url': None}
+    ]
+    , 'id': set()
+    , 'isInit': False
+}
 
 
 ##########################################################################################
@@ -162,9 +178,33 @@ def draw_boxes(img, bbox, names, object_id, identities=None, offset=(0, 0)):
 
         idList.append(id)
         cnt += 1
+
+        # 2024.07.14
+        if id in cfgList['id']: continue
+
+        sendSlackMsg(
+            title=f"[{datetime.now().strftime('%m-%d %H:%M:%S')}] 북한군 {id}번 최초 탐지"
+            , message=None
+            , cfgList=cfgList['slack']
+        )
+
+        sendTwilioMsg(
+            title=f"[{datetime.now().strftime('%m-%d %H:%M:%S')}] 북한군 {id}번 최초 탐지"
+            , message=None
+            , cfgList=cfgList['twilo']
+        )
+
+        cfgList['id'].add(id)
+
     cv2.putText(img, f'Persons : {cnt}', (int(width * 0.85), int(height * 0.05)), cv2.FONT_HERSHEY_DUPLEX, 0.8, (255,0,0), 2)
-    if cnt > 1:
-        sendSlackMsg(title=f"[{datetime.now().strftime('%Y-%m-%d %H:%M:%S')}] 북한군 탐지 {cnt}명", message=f"[북한군 식별번호] {', '.join(map(str, idList))}")
+
+    # if cnt > 1:
+    #     sendSlackMsg(
+    #         title=f"[{datetime.now().strftime('%Y-%m-%d %H:%M:%S')}] 북한군 탐지 {cnt}명"
+    #         , message=f"[북한군 식별번호] {', '.join(map(str, idList))}"
+    #         , cfgList=cfgList['slack']
+    #     )
+
     # print(f'Persons : {cnt} / {len(np.unique(labelList))}')
 
     return img
@@ -357,7 +397,8 @@ def detect(save_img=False):
 
     print(f'Done. ({time.time() - t0:.3f}s)')
 
-def sendSlackMsg(title, message):
+def sendSlackMsg(title, message, cfgList):
+
     slackMsg = {
         "username": "경고 봇",
         "icon_emoji": ":warning:",
@@ -378,19 +419,32 @@ def sendSlackMsg(title, message):
     byteLen = str(sys.getsizeof(slackMsg))
     headers = {'Content-Type': "application/json", 'Content-Length': byteLen}
 
-    slackUrlList = [
-        # "https://hooks.slack.com/services/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"
-        # , "https://hooks.slack.com/services/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"
-    ]
-
-    for slackUrl in slackUrlList:
+    for cfgInfo in cfgList:
         try:
-            response = requests.post(slackUrl, data=json.dumps(slackMsg), headers=headers)
+            response = requests.post(cfgInfo['url'], data=json.dumps(slackMsg), headers=headers)
             response.raise_for_status()
         except requests.exceptions.RequestException as e:
-            pass
-            # print(f"Exception : {str(e)}")
+            print(f"Exception : {str(e)}")
+            # pass
 
+def sendTwilioMsg(title, message, cfgList):
+
+    # msgBody = f"{title}\n{message}"
+    msgBody = f"{title}"
+
+    for cfgInfo in cfgList:
+
+        client = Client(cfgInfo['sid'], cfgInfo['token'])
+
+        try:
+            client.messages.create(
+                body=msgBody,
+                from_=cfgInfo['fromPhoneNumber'],
+                to=cfgInfo['toPhoneNumber']
+            )
+        except Exception as e:
+            print(f"Exception : {str(e)}")
+            # pass
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()

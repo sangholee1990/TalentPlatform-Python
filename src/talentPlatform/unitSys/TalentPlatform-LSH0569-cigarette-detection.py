@@ -38,8 +38,21 @@ import json
 import sys
 import requests
 from datetime import datetime
+from twilio.rest import Client
 
 print(ROOT)
+
+cfgList = {
+    'twilo': [
+        {'sid': None, 'token': None, 'fromPhoneNumber': None, 'toPhoneNumber': None}
+    ]
+    , 'slack': [
+        {'url': None}
+    ]
+    , 'id': set()
+    , 'isInit': False
+}
+
 @torch.no_grad()
 def run(weights=ROOT / 'custom_yolo5x.pt',  # model.pt path(s)
         source=ROOT,  # file/dir/URL/glob, 0 for webcam
@@ -141,7 +154,11 @@ def run(weights=ROOT / 'custom_yolo5x.pt',  # model.pt path(s)
             name_file = p.name
             temp_split = name_file.split(".")
             new_name_split = "".join(temp_split[:-1])
+
+            # 2024.07.14
             new_file_name = ".".join([new_name_split + "_out", temp_split[-1]])
+            new_file_name = new_file_name.replace('_out.', f"_out-{conf_thres}.")
+
             save_path = save_dir + '/' + new_file_name# im.jpg
             txt_path = (save_dir + '/' + 'labels' + '/' + p.stem) + ('' if dataset.mode == 'image' else f'_{frame}')  # im.txt
             s += '%gx%g ' % im.shape[2:]  # print string
@@ -158,9 +175,28 @@ def run(weights=ROOT / 'custom_yolo5x.pt',  # model.pt path(s)
                     s += f"{n} {names[int(c)]}{'s' * (n > 1)}, "  # add to string
 
                 # 2024.07.11
-                # print(f"n : {n}")
-                if n > 1:
-                    sendSlackMsg(title=f"[{datetime.now().strftime('%Y-%m-%d %H:%M:%S')}] 담배 탐지 {n}명", message=None)
+                # if n > 1:
+                #     sendSlackMsg(
+                #         title=f"[{datetime.now().strftime('%Y-%m-%d %H:%M:%S')}] 담배 탐지 {n}명"
+                #         , message=None
+                #         , cfgList=cfgList['slack']
+                #     )
+
+                # 2024.07.14
+                if n > 0 and cfgList['isInit'] == False:
+                    sendSlackMsg(
+                        title=f"[{datetime.now().strftime('%m-%d %H:%M:%S')}] 흡연 모니터링 최초 탐지"
+                        , message=None
+                        , cfgList=cfgList['slack']
+                    )
+
+                    sendTwilioMsg(
+                        title=f"[{datetime.now().strftime('%m-%d %H:%M:%S')}] 흡연 모니터링 최초 탐지"
+                        , message=None
+                        , cfgList=cfgList['twilo']
+                    )
+
+                    cfgList['isInit'] = True
 
                 # Write results
                 for *xyxy, conf, cls in reversed(det):
@@ -204,7 +240,9 @@ def run(weights=ROOT / 'custom_yolo5x.pt',  # model.pt path(s)
                             h = int(vid_cap.get(cv2.CAP_PROP_FRAME_HEIGHT))
                         else:  # stream
                             fps, w, h = 30, im0.shape[1], im0.shape[0]
+                            # 2024.07.14
                             save_path += '_out.mp4'
+                            # save_path += f"_out-{conf_thres}.mp4"
                         vid_writer[i] = cv2.VideoWriter(save_path, cv2.VideoWriter_fourcc(*'mp4v'), fps, (w, h))
                     vid_writer[i].write(im0)
 
@@ -250,8 +288,8 @@ def parse_opt():
     print_args(FILE.stem, opt)
     return opt
 
+def sendSlackMsg(title, message, cfgList):
 
-def sendSlackMsg(title, message):
     slackMsg = {
         "username": "경고 봇",
         "icon_emoji": ":warning:",
@@ -272,18 +310,32 @@ def sendSlackMsg(title, message):
     byteLen = str(sys.getsizeof(slackMsg))
     headers = {'Content-Type': "application/json", 'Content-Length': byteLen}
 
-    slackUrlList = [
-        # "https://hooks.slack.com/services/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"
-        # , "https://hooks.slack.com/services/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"
-    ]
-
-    for slackUrl in slackUrlList:
+    for cfgInfo in cfgList:
         try:
-            response = requests.post(slackUrl, data=json.dumps(slackMsg), headers=headers)
+            response = requests.post(cfgInfo['url'], data=json.dumps(slackMsg), headers=headers)
             response.raise_for_status()
         except requests.exceptions.RequestException as e:
-            pass
-            # print(f"Exception : {str(e)}")
+            print(f"Exception : {str(e)}")
+            # pass
+
+def sendTwilioMsg(title, message, cfgList):
+
+    # msgBody = f"{title}\n{message}"
+    msgBody = f"{title}"
+
+    for cfgInfo in cfgList:
+
+        client = Client(cfgInfo['sid'], cfgInfo['token'])
+
+        try:
+            client.messages.create(
+                body=msgBody,
+                from_=cfgInfo['fromPhoneNumber'],
+                to=cfgInfo['toPhoneNumber']
+            )
+        except Exception as e:
+            print(f"Exception : {str(e)}")
+            # pass
 
 def main(opt):
     check_requirements(exclude=('tensorboard', 'thop'))
