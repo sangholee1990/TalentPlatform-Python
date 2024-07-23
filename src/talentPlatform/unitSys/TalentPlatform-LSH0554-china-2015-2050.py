@@ -190,6 +190,7 @@ class DtaProcess(object):
     # zip -r china-2015-2015.zip china-2015-2015/
     
     # zip -r china-2015-2050.zip china-20240712/
+    # zip -r china-2015-2050.zip china-20240714/
 
     # ps -ef | grep LSH0554 | awk '{print $2}' | xargs kill -9
 
@@ -253,35 +254,35 @@ class DtaProcess(object):
 
             sysOpt = {
                 'metaList': [
-                    # "2020_input2020",
+                    "2020_input2020",
                     # "2020_TPL_input2020",
 
-                    "2015",
-                    "2015_TPL_input2015",
-                    "2016_input2015",
-                    "2016_TPL_input2015",
-                    "2017_input2015",
-                    "2017_TPL_input2015",
-                    "2018_input2015",
-                    "2018_TPL_input2015",
-                    "2019_input2015",
-                    "2019_ThermalPlusLowCarbon",
-                    "2020_input2015",
-                    "2020_input2020",
-                    "2020_TPL_input2015",
-                    "2020_TPL_input2020",
-                    "2030_1.5_SSP1",
-                    "2030_1.5_SSP2",
-                    "2030_2_SSP1",
-                    "2030_2_SSP2",
-                    "2030_SSP1_nopolicy",
-                    "2030_SSP2_nopolicy",
-                    "2050_1.5_SSP1",
-                    "2050_1.5_SSP2",
-                    "2050_2_SSP1",
-                    "2050_2_SSP2",
-                    "2050_SSP1_nopolicy",
-                    "2050_SSP2_nopolicy"
+                    # "2015",
+                    # "2015_TPL_input2015",
+                    # "2016_input2015",
+                    # "2016_TPL_input2015",
+                    # "2017_input2015",
+                    # "2017_TPL_input2015",
+                    # "2018_input2015",
+                    # "2018_TPL_input2015",
+                    # "2019_input2015",
+                    # "2019_ThermalPlusLowCarbon",
+                    # "2020_input2015",
+                    # "2020_input2020",
+                    # "2020_TPL_input2015",
+                    # "2020_TPL_input2020",
+                    # "2030_1.5_SSP1",
+                    # "2030_1.5_SSP2",
+                    # "2030_2_SSP1",
+                    # "2030_2_SSP2",
+                    # "2030_SSP1_nopolicy",
+                    # "2030_SSP2_nopolicy",
+                    # "2050_1.5_SSP1",
+                    # "2050_1.5_SSP2",
+                    # "2050_2_SSP1",
+                    # "2050_2_SSP2",
+                    # "2050_SSP1_nopolicy",
+                    # "2050_SSP2_nopolicy"
                 ]
                 , 'keyTypeMat': {
                     'anhui': 'ANHU',
@@ -513,7 +514,22 @@ class DtaProcess(object):
                             newFont.italic = False
                             wsMain[f'B3'].font = newFont
 
-                            saveFile = '{}/{}/{}/{}/{}'.format(globalVar['outPath'], serviceName, 'china-20240712', metaInfo3, fileName)
+                            # 2024.07.14
+                            owner = 'actPathEneMob_2050'
+                            user = 'luchenxicc'
+                            sheetFill = 'UPLOAD'
+
+                            wsMain[f'B4'].value = f"{owner}"
+                            wsMain[f'B6'].value = f"{user}"
+
+                            for sheetRowIdx in range(11, 23):
+                                wsMain[f"B{sheetRowIdx}"].value = f"{sheetFill}"
+
+                            fileName = fileName.replace('__schoepp__', f"__{user}__")
+                            fileName = fileName.replace('_WEO2018_NPS_CLE_CH4b__', f"_{metaInfo3}__")
+
+                            # saveFile = '{}/{}/{}/{}/{}'.format(globalVar['outPath'], serviceName, 'china-20240712', metaInfo3, fileName)
+                            saveFile = '{}/{}/{}/{}/{}'.format(globalVar['outPath'], serviceName, 'china-20240714', metaInfo3, fileName)
                             os.makedirs(os.path.dirname(saveFile), exist_ok=True)
                             wb.save(saveFile)
                             log.info('[CHECK] saveFile : {}'.format(saveFile))
