@@ -195,20 +195,15 @@ parser.add_argument(
     action='store')
 
 args = parser.parse_args()
-# if args.input_dir:
-#     input_files = Path(args.input_dir).glob('*.nc')
-#     for input_file in input_files:
-#         netcdf2geojson(args.config_file,
-#                        input_file,
-#                        args.output_dir,
-#                        args.max_records)
-# else:
-#     netcdf2geojson(args.config_file,
-#                    args.input_file,
-#                    args.output_dir,
-#                    args.max_records)
-
-netcdf2geojson('sample_air.cfg',
-                   './air.mon.mean.nc',
-                   '/output',
+if args.input_dir:
+    input_files = Path(args.input_dir).glob('*.nc')
+    for input_file in input_files:
+        netcdf2geojson(args.config_file,
+                       input_file,
+                       args.output_dir,
+                       args.max_records)
+else:
+    netcdf2geojson(args.config_file,
+                   args.input_file,
+                   args.output_dir,
                    args.max_records)
