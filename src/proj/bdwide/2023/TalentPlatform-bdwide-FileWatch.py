@@ -222,7 +222,8 @@ def makeFileProc(fileInfo):
             os.makedirs(tmpPath, exist_ok=True)
 
             cmdProc = f"labelme_export_json '{fileInfo}' -o '{tmpPath}'"
-            cmd = f"source /usr/local/anaconda3/etc/profile.d/conda.sh && conda activate py38 && {cmdProc}"
+            # cmd = f"source /usr/local/anaconda3/etc/profile.d/conda.sh && conda activate py38 && {cmdProc}"
+            cmd = f"source /HDD/SYSTEMS/LIB/anaconda3/etc/profile.d/conda.sh && conda activate py38 && {cmdProc}"
             log.info(f'[CHECK] cmd : {cmd}')
 
             try:
@@ -296,6 +297,7 @@ class DtaProcess(object):
     # 프로그램 시작
     # conda activate py38
     # cd /SYSTEMS/PROG/PYTHON/PyCharm/src/proj/bdwide/2023
+    # cd /SYSTEMS/PROG/PYTHON/IDE/src/proj/bdwide/2023
     # nohup python TalentPlatform-bdwide-FileWatch.py &
     # tail -f nohup.out
 
@@ -374,9 +376,12 @@ class DtaProcess(object):
                 globalVar['outPath'] = '/DATA/OUTPUT'
                 globalVar['figPath'] = '/DATA/FIG'
 
-                globalVar['orgPath'] = '/DATA/LABEL/ORG'
-                globalVar['oldPath'] = '/DATA/LABEL/OLD'
-                globalVar['newPath'] = '/DATA/LABEL/NEW'
+                # globalVar['orgPath'] = '/DATA/LABEL/ORG'
+                # globalVar['oldPath'] = '/DATA/LABEL/OLD'
+                # globalVar['newPath'] = '/DATA/LABEL/NEW'
+                globalVar['orgPath'] = '/DATA/LABEL/LABEL/ORG'
+                globalVar['oldPath'] = '/DATA/LABEL/LABEL/OLD'
+                globalVar['newPath'] = '/DATA/LABEL/LABEL/NEW'
                 globalVar['tmpPath'] = tempfile.TemporaryDirectory().name
 
             # 옵션 설정
