@@ -216,14 +216,12 @@ parser.add_argument(
 
 args = parser.parse_args()
 
-# -c sample_air.cfg -i ./air.mon.mean.nc -o /HDD/SYSTEMS/PROG/PYTHON/IDE/src/proj/indisystem/2024/PYTHON/netcdf_to_geojson_vectors/.
-
 # 작업 경로 설정
 ctxPath = os.getcwd()
 print(f"[CHECK] ctxPath : {ctxPath}")
 
-args.config_file = f"{ctxPath}/sample_air.cfg"
 args.input_file = f"{ctxPath}/air.mon.mean.nc"
+args.config_file = f"{ctxPath}/sample_air.cfg"
 args.output_dir = f"{ctxPath}/"
 
 if args.input_dir:
