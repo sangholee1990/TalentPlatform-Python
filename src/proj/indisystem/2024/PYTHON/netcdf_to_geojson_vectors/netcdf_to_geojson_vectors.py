@@ -25,7 +25,8 @@ import geopandas
 import numpy as np
 import xarray as xr
 from pathlib import Path
-
+import matplotlib.pyplot as plt
+import rioxarray
 
 def netcdf2geojson(config_file, input_file, output_dir, max_records=None):
     """Converts NetCDF file to GeoJSON based on config"""
@@ -34,12 +35,36 @@ def netcdf2geojson(config_file, input_file, output_dir, max_records=None):
     # Make sure output path exists
     if os.path.exists(output_dir) is False:
         os.makedirs(output_dir)
+
     output_file = Path(output_dir).joinpath(Path(input_file).stem + '.json')
     print(f'Reading {input_file}')
 
+
     # Read dataset and remove nan values
-    local_dataset = xr.open_dataset(input_file)
+    # local_dataset = xr.open_dataset(input_file)
+    # local_dataset = xr.open_dataset(input_file).isel(time = slice(0, 10))
+    # local_dataset = xr.open_dataset(input_file).isel(time = 0)
+    # local_dataset = xr.open_dataset(input_file).isel(time = 0).sel(lon = slice(120, 130), lat = slice(30, 40))
+    # local_dataset = xr.open_dataset(input_file).isel(time = 0).interp(lon = np.arange(120, 130, 0.5), lat = np.arange(30, 40, 0.5))
+    local_dataset = xr.open_dataset(input_file).isel(time = 0)
+
+    # local_dataset['air'].plot()
+    # plt.show()
+
+    ncFile = Path(output_dir).joinpath(Path(input_file).stem + '_new.nc')
+    xr.open_dataset(input_file).isel(time=0).to_netcdf(ncFile)
+
+    tifFile = Path(output_dir).joinpath(Path(input_file).stem + '_new.tif')
+    tifData = local_dataset.rio.set_spatial_dims(x_dim='lon', y_dim='lat')
+    tifDataL1 = tifData.rio.write_crs("epsg:4326")
+    tifDataL1.rio.to_raster(tifFile)
+
+    # rds = rioxarray.open_rasterio(input_file).isel(time = 0).isel(
+
+    # local_dataset = xr.open_dataset(input_file, chunks={'time': 10, 'lat': 50, 'lon': 50})
     df = local_dataset.to_dataframe()
+    # df = local_dataset.to_dask_dataframe()
+
     df = df.dropna(how='any', axis=0).reset_index()
 
     # Limit records (generally for testing)
@@ -190,6 +215,15 @@ parser.add_argument(
     action='store')
 
 args = parser.parse_args()
+
+# 작업 경로 설정
+ctxPath = os.getcwd()
+print(f"[CHECK] ctxPath : {ctxPath}")
+
+args.input_file = f"{ctxPath}/air.mon.mean.nc"
+args.config_file = f"{ctxPath}/sample_air.cfg"
+args.output_dir = f"{ctxPath}/"
+
 if args.input_dir:
     input_files = Path(args.input_dir).glob('*.nc')
     for input_file in input_files:
