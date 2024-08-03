@@ -244,21 +244,34 @@ class DtaProcess(object):
             inpFile = '{}/{}/{}'.format(globalVar['inpPath'], serviceName, 'SERVICE1_PROP_DATA.csv')
             fileList = sorted(glob.glob(inpFile))
             propData = pd.read_csv(fileList[0]).reset_index(drop=True)
-            # propDataL1 = propData.groupby(['YEAR', 'MONTH', 'DAY', 'STATE_ABBR', 'PRD_AMT', 'PRD_CNT']).mean().reset_index()
-            propDataL1 = propData.groupby(['YEAR', 'MONTH', 'DAY', 'STATE_ABBR', 'PRD_AMT']).mean().reset_index()
 
-            mrgData = pd.merge(left=propDataL1, right=inpDataL1, how='left', left_on=['YEAR', 'MONTH', 'DAY', 'STATE_ABBR', 'PRD_AMT', 'PRD_CNT'], right_on=['YEAR', 'MONTH', 'DAY', 'STATE_ABBR', 'PRD_AMT', 'PRD_CNT'])
+            # mrgColList = ['YEAR', 'MONTH', 'DAY', 'STATE_ABBR', 'PRD_AMT']
+            mrgColList = ['YEAR', 'MONTH', 'DAY', 'STATE_ABBR', 'PRD_AMT', 'PRD_CNT']
+            propDataL1 = propData.groupby(mrgColList).mean().reset_index()
+
+            mrgData = pd.merge(left=propDataL1, right=inpDataL1, how='left', left_on=mrgColList, right_on=mrgColList)
             # mrgDataL1 = mrgData.drop_na()
 
             prdCodeList = set(mrgData['PRD_CODE'])
             # stateAbbrList = set(mrgData['STATE_ABBR'])
 
+            # len(prdCodeList)
             mrgDataL1 =  mrgData.loc[(mrgData['PRD_CODE'] == 'B089GNWBT4')]
 
+            # mrgData.columns
+            # mrgDataL1.columns
+            # NO, DATE_DECI, RES_CNT, REG_DATE, MOD_DATE
+            mrgDataL2 = mrgDataL1[['YEAR', 'MONTH', 'DAY', 'PRD_AMT', 'PRD_CNT', 'INF_POP_CNT', 'MAX_TEMP', 'MIN_TEMP', 'UN_IDX', 'HEAT_IDX', 'CLD_COVER', 'HUM', 'TEMP', 'VIS', 'WIN_DIR', 'WIN_SPD', 'PRD_CODE']]
 
+            mrgColList = ['YEAR', 'MONTH', 'DAY', 'PRD_CODE', 'PRD_AMT']
+            sumPropData = mrgDataL2.groupby(mrgColList).mean().drop(['PRD_CNT'], axis=1).reset_index()
+            meanPropData = mrgDataL2.groupby(mrgColList).sum()['PRD_CNT'].reset_index()
+            mrgDataL3 = pd.merge(left=sumPropData, right=meanPropData, how='left', left_on=mrgColList, right_on=mrgColList)
 
-            tsForPeriod = 2
-            log.info(f'[CHECK] tsForPeriod : {tsForPeriod}')
+            # DATE_DECI
+
+            # tsForPeriod = 2
+            # log.info(f'[CHECK] tsForPeriod : {tsForPeriod}')
 
             # tsModel = AutoTS(forecast_length=sysOpt['tsModel']['forYear'], min_allowed_train_percent=1.0, frequency='infer', ensemble='all', model_list='superfast', transformer_list='superfast')
             # tsModel = AutoTS(forecast_length=tsForPeriod, frequency='infer', ensemble='all', model_list='superfast', transformer_list='superfast')
@@ -268,10 +281,10 @@ class DtaProcess(object):
             # tsDlFor['date'] = tsDlFor.index
             # tsDlFor.reset_index(drop=True, inplace=True)
 
-            # from prophet import Prophet
-            # # from neuralprophet import NeuralProphet  # NeuralProphet
-            #
-            # tsDlModel = Prophet(n_changepoints=2)
+            from prophet import Prophet
+            from neuralprophet import NeuralProphet
+
+            tsDlModel = Prophet(n_changepoints=2)
             # tsDlModel.fit(TimeSeries.from_dataframe(dataL2, time_col='date', value_cols='gapDL'))
             # tsDlFor = tsDlModel.predict(tsForPeriod).pd_dataframe().rename(columns={'0': 'gapDL'})
             # tsDlFor['date'] = tsDlFor.index
@@ -283,6 +296,48 @@ class DtaProcess(object):
             #
             # # plot the dataset
             # data.plot()
+
+            # conda install conda-forge::fbprophet
+
+            # conda install conda-forge::prophet
+
+            from neuralprophet import NeuralProphet
+            import pandas as pd
+
+            df = pd.read_csv('toiletpaper_daily_sales.csv')
+
+            m = NeuralProphet()
+
+            metrics = m.fit(df, freq="D")
+
+            forecast = m.predict(df)
+
+
+
+            import pandas as pd
+            from prophet import Prophet
+            # from fbprophet import Prophet
+
+            df = pd.read_csv(
+                'https://raw.githubusercontent.com/facebook/prophet/main/examples/example_wp_log_peyton_manning.csv')
+            df.head()
+
+            m = Prophet()
+            m.fit(df)
+
+            future = m.make_future_dataframe(periods=365)
+            future.tail()
+            forecast = m.predict(future)
+
+            # from pycaret.datasets import get_data
+            # data = get_data('airline')
+
+            # data.plot()
+            # plt.show()
+
+            from pycaret.time_series import *
+            s = setup(data, fh=1, session_id=123)
+
 
 
         except Exception as e:
