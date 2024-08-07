@@ -18,6 +18,7 @@ import pandas as pd
 from matplotlib import font_manager, rc
 
 import seaborn as sns
+import pickle
 
 # =================================================
 # 사용자 매뉴얼
@@ -236,6 +237,17 @@ class DtaProcess(object):
                 , 'endDate': '2023-01-01'
             }
 
+            inpFile = '{}/{}/{}'.format(globalVar['inpPath'], serviceName, 'SERVICE1_INPUT1_DATA.csv')
+            fileList = sorted(glob.glob(inpFile))
+            prdData = pd.read_csv(fileList[0]).reset_index(drop=True)
+            prdColList = ['YEAR', 'MONTH', 'DAY', 'STATE_ABBR', 'INF_POP_CNT', 'MAX_TEMP', 'MIN_TEMP', 'UN_IDX', 'HEAT_IDX', 'CLD_COVER', 'HUM', 'TEMP', 'VIS', 'WIN_DIR', 'WIN_SPD']
+            prdDataL1 = prdData[prdColList].groupby(['YEAR', 'MONTH', 'DAY', 'STATE_ABBR']).mean().reset_index()
+
+            prdDataL1['DATE'] = pd.to_datetime(prdDataL1[['YEAR', 'MONTH', 'DAY']])
+            prdDataL2 = prdDataL1[prdDataL1['DATE'] > '2020-07-01'].reset_index(drop=True)
+            # prdDataL2 = prdDataL1.loc[prdDataL1['YEAR'].isin([2020, 2021])]
+
+
             inpFile = '{}/{}/{}'.format(globalVar['inpPath'], serviceName, 'SERVICE1_INPUT2_DATA.csv')
             fileList = sorted(glob.glob(inpFile))
             inpData = pd.read_csv(fileList[0]).reset_index(drop=True)
@@ -246,99 +258,147 @@ class DtaProcess(object):
             propData = pd.read_csv(fileList[0]).reset_index(drop=True)
 
             # mrgColList = ['YEAR', 'MONTH', 'DAY', 'STATE_ABBR', 'PRD_AMT']
-            mrgColList = ['YEAR', 'MONTH', 'DAY', 'STATE_ABBR', 'PRD_AMT', 'PRD_CNT']
-            propDataL1 = propData.groupby(mrgColList).mean().reset_index()
+            mrgColList = ['YEAR', 'MONTH', 'DAY', 'STATE_ABBR', 'PRD_CNT']
+            propDataL1 = propData.drop(['STATE_NAME', 'REG_DATE', 'MOD_DATE'], axis=1).groupby(mrgColList).mean().reset_index()
 
             mrgData = pd.merge(left=propDataL1, right=inpDataL1, how='left', left_on=mrgColList, right_on=mrgColList)
             # mrgDataL1 = mrgData.drop_na()
 
-            prdCodeList = set(mrgData['PRD_CODE'])
+            # prdCodeList = set(mrgData['PRD_CODE'])
             # stateAbbrList = set(mrgData['STATE_ABBR'])
 
             # len(prdCodeList)
-            mrgDataL1 =  mrgData.loc[(mrgData['PRD_CODE'] == 'B089GNWBT4')]
+            # mrgDataL1 =  mrgData.loc[(mrgData['PRD_CODE'] == 'B089GNWBT4')]
+            mrgDataL1 =  mrgData
 
             # mrgData.columns
             # mrgDataL1.columns
             # NO, DATE_DECI, RES_CNT, REG_DATE, MOD_DATE
-            mrgDataL2 = mrgDataL1[['YEAR', 'MONTH', 'DAY', 'PRD_AMT', 'PRD_CNT', 'INF_POP_CNT', 'MAX_TEMP', 'MIN_TEMP', 'UN_IDX', 'HEAT_IDX', 'CLD_COVER', 'HUM', 'TEMP', 'VIS', 'WIN_DIR', 'WIN_SPD', 'PRD_CODE']]
+            # mrgDataL2 = mrgDataL1[['YEAR', 'MONTH', 'DAY', 'PRD_CNT', 'INF_POP_CNT', 'MAX_TEMP', 'MIN_TEMP', 'UN_IDX', 'HEAT_IDX', 'CLD_COVER', 'HUM', 'TEMP', 'VIS', 'WIN_DIR', 'WIN_SPD', 'PRD_CODE']]
+            mrgDataL2 = mrgDataL1[['YEAR', 'MONTH', 'DAY', 'PRD_CNT', 'STATE_ABBR', 'INF_POP_CNT', 'MAX_TEMP', 'MIN_TEMP', 'UN_IDX', 'HEAT_IDX', 'CLD_COVER', 'HUM', 'TEMP', 'VIS', 'WIN_DIR', 'WIN_SPD', 'PRD_CODE']]
 
-            mrgColList = ['YEAR', 'MONTH', 'DAY', 'PRD_CODE', 'PRD_AMT']
+            # mrgColList = ['YEAR', 'MONTH', 'DAY', 'PRD_CODE']
+            mrgColList = ['YEAR', 'MONTH', 'DAY', 'PRD_CODE', 'STATE_ABBR']
             sumPropData = mrgDataL2.groupby(mrgColList).mean().drop(['PRD_CNT'], axis=1).reset_index()
             meanPropData = mrgDataL2.groupby(mrgColList).sum()['PRD_CNT'].reset_index()
+
             mrgDataL3 = pd.merge(left=sumPropData, right=meanPropData, how='left', left_on=mrgColList, right_on=mrgColList)
+            mrgDataL3['PRD_CODE'] = mrgDataL3['PRD_CODE'].astype('category')
+            mrgDataL3['STATE_ABBR'] = mrgDataL3['STATE_ABBR'].astype('category')
 
-            # DATE_DECI
+            # len(set(mrgData['STATE_ABBR']))
+            # mrgDataL3.columns
 
-            # tsForPeriod = 2
-            # log.info(f'[CHECK] tsForPeriod : {tsForPeriod}')
+            mrgDataL4 = mrgDataL3
+            mrgDataL4['DATE'] = pd.to_datetime(mrgDataL4[['YEAR', 'MONTH', 'DAY']])
+            import optuna.integration.lightgbm as lgb
 
-            # tsModel = AutoTS(forecast_length=sysOpt['tsModel']['forYear'], min_allowed_train_percent=1.0, frequency='infer', ensemble='all', model_list='superfast', transformer_list='superfast')
-            # tsModel = AutoTS(forecast_length=tsForPeriod, frequency='infer', ensemble='all', model_list='superfast', transformer_list='superfast')
+            # xCol = ['PRD_CODE', 'PRD_AMT', 'INF_POP_CNT', 'MAX_TEMP', 'MIN_TEMP', 'UN_IDX', 'HEAT_IDX', 'CLD_COVER', 'HUM', 'TEMP', 'VIS', 'WIN_DIR', 'WIN_SPD']
+            # xCol = ['PRD_CODE', 'INF_POP_CNT', 'MAX_TEMP', 'MIN_TEMP', 'UN_IDX', 'HEAT_IDX', 'CLD_COVER', 'HUM', 'TEMP', 'VIS', 'WIN_DIR', 'WIN_SPD']
+            xCol = ['PRD_CODE', 'STATE_ABBR', 'INF_POP_CNT', 'MAX_TEMP', 'MIN_TEMP', 'UN_IDX', 'HEAT_IDX', 'CLD_COVER', 'HUM', 'TEMP', 'VIS', 'WIN_DIR', 'WIN_SPD']
+            yCol = 'PRD_CNT'
 
-            # tsDlModel = tsModel.fit(dataL2, date_col='date', value_col='gapDL', id_col=None)
-            # tsDlFor = tsDlModel.predict().forecast
-            # tsDlFor['date'] = tsDlFor.index
-            # tsDlFor.reset_index(drop=True, inplace=True)
+            # sorted(set(trainDataL1['stn']))
+            # sorted(set(trainDataL4['stn']))
+            lgbTrainData = lgb.Dataset(mrgDataL4[xCol], mrgDataL4[yCol])
+            lgbTestData = lgb.Dataset(mrgDataL4[xCol], mrgDataL4[yCol], reference=lgbTrainData)
 
-            from prophet import Prophet
-            from neuralprophet import NeuralProphet
+            params = {
+                'objective': 'regression'
+                , 'metric': 'rmse'
+                , 'verbosity': -1
+                , 'n_jobs': -1
+            }
 
-            tsDlModel = Prophet(n_changepoints=2)
-            # tsDlModel.fit(TimeSeries.from_dataframe(dataL2, time_col='date', value_cols='gapDL'))
-            # tsDlFor = tsDlModel.predict(tsForPeriod).pd_dataframe().rename(columns={'0': 'gapDL'})
-            # tsDlFor['date'] = tsDlFor.index
-            # tsDlFor.reset_index(drop=True, inplace=True)
+            # lgbModel = lgb.train(params=params, train_set=lgbTrainData, num_boost_round=10000, valid_sets=[lgbTrainData, lgbTestData])
 
-            # from pycaret.time_series import TSForecastingExperiment
-            # from pycaret.datasets import get_data
-            # data = get_data('airquality')
-            #
-            # # plot the dataset
-            # data.plot()
+            saveModel = '{}/{}/{}.model'.format(globalVar['outPath'], serviceName, 'lgbModel-20240808')
+            os.makedirs(os.path.dirname(saveModel), exist_ok=True)
+            # pickle.dump(lgbModel, open(saveModel, 'wb'))
+            log.info(f'[CHECK] saveFile : {saveModel}')
 
-            # conda install conda-forge::fbprophet
+            lgbModel = pickle.load(open(saveModel, 'rb'))
+            mrgDataL4['RES_VAL'] = lgbModel.predict(data=mrgDataL4[xCol])
+            mrgDataL4['RES_CNT'] = mrgDataL4['RES_VAL'].apply(lambda x: round(x)).astype(int)
 
-            # conda install conda-forge::prophet
+            # 변수 중요도 저장
+            try:
+                mainTitle = '{}'.format('lgb-importance')
+                saveImg = '{}/{}/{}.png'.format(globalVar['figPath'], serviceName, mainTitle)
+                os.makedirs(os.path.dirname(saveImg), exist_ok=True)
+                lgb.plot_importance(lgbModel)
+                plt.title(mainTitle)
+                plt.tight_layout()
+                plt.savefig(saveImg, dpi=600, bbox_inches='tight')
+                plt.show()
+                plt.close()
+            except Exception as e:
+                log.error('Exception : {}'.format(e))
 
-            from neuralprophet import NeuralProphet
-            import pandas as pd
+            from sklearn.metrics import mean_squared_error
+            import matplotlib.dates as mdates
+            # import matplotlib as mpl
+            # import matplotlib.pyplot as plt
 
-            df = pd.read_csv('toiletpaper_daily_sales.csv')
-
-            m = NeuralProphet()
-
-            metrics = m.fit(df, freq="D")
-
-            forecast = m.predict(df)
-
-
-
-            import pandas as pd
-            from prophet import Prophet
-            # from fbprophet import Prophet
-
-            df = pd.read_csv(
-                'https://raw.githubusercontent.com/facebook/prophet/main/examples/example_wp_log_peyton_manning.csv')
-            df.head()
-
-            m = Prophet()
-            m.fit(df)
-
-            future = m.make_future_dataframe(periods=365)
-            future.tail()
-            forecast = m.predict(future)
-
-            # from pycaret.datasets import get_data
-            # data = get_data('airline')
-
-            # data.plot()
-            # plt.show()
-
-            from pycaret.time_series import *
-            s = setup(data, fh=1, session_id=123)
+            plt.plot(mrgDataL4['DATE'], mrgDataL4[yCol], marker='o', label='실측')
+            plt.plot(mrgDataL4['DATE'], mrgDataL4['RES_CNT'], label='예측 (RMSE : {:.2f}, {:.2f}%)'.format(
+                mean_squared_error(mrgDataL4[yCol], mrgDataL4['RES_CNT'], squared=False)
+                , (mean_squared_error(mrgDataL4[yCol], mrgDataL4['RES_CNT'], squared=False) / np.nanmean(mrgDataL4[yCol])) * 100.0)
+                )
+            # plt.gca().xaxis.set_major_formatter(mdates.DateFormatter('%Y.%m.%d %H'))
+            # plt.gca().xaxis.set_major_formatter(mdates.DateFormatter('%Y.%m.%d %H'))
+            # plt.gca().xaxis.set_major_locator(mdates.HourLocator(interval=3))
+            # plt.gcf().autofmt_xdate()
+            # plt.xticks(rotation=45, ha='right')
+            plt.xticks(rotation=45)
+            plt.title(mainTitle)
+            plt.legend()
+            plt.tight_layout()
+            # plt.savefig(saveImg, dpi=600, bbox_inches='tight', transparent=True)
+            plt.show()
+            plt.close()
 
 
+
+            # mrgDataL3
+            prdDataL4 = pd.DataFrame()
+            prdCodeList = set(mrgDataL4['PRD_CODE'])
+            for prdCode in prdCodeList:
+                log.info(f'[CHECK] prdCode : {prdCode}')
+
+                mrgDataL5 =  mrgDataL4.loc[(mrgDataL4['PRD_CODE'] == prdCode)].reset_index(drop=True)
+                if len(mrgDataL5) < 1: continue
+
+                prdDataL2['PRD_CODE'] = prdCode
+                prdDataL2['PRD_CODE'] = prdDataL2['PRD_CODE'].astype('category')
+                prdDataL2['STATE_ABBR'] = prdDataL2['STATE_ABBR'].astype('category')
+                prdDataL2['RES_VAL'] = lgbModel.predict(data=prdDataL2[xCol])
+                prdDataL2['RES_CNT'] = prdDataL2['RES_VAL'].apply(lambda x: round(x)).astype(int)
+
+                # prdDataL2 = pd.merge(left=prdDataL1, right=mrgDataL5[['YEAR', 'MONTH', 'DAY', 'PRD_CODE', 'PRD_CNT']], how='left', on=['YEAR', 'MONTH', 'DAY', 'PRD_CODE'])
+                prdDataL3 = pd.merge(left=prdDataL2, right=mrgDataL5[['YEAR', 'MONTH', 'DAY', 'PRD_CODE', 'STATE_ABBR', 'PRD_CNT']], how='left', on=['YEAR', 'MONTH', 'DAY', 'PRD_CODE', 'STATE_ABBR'])
+                prdDataL4 = pd.concat([prdDataL4, prdDataL3], axis=0)
+
+            prdDataL5 = prdDataL4.reset_index(drop=True)
+
+            # 중복 개수
+            prdDataL5.duplicated(keep = False).sum()
+            prdDataL6 = prdDataL5.dropna().reset_index(drop=True)
+
+            mean_squared_error(prdDataL6[yCol], prdDataL6['RES_CNT'], squared=False)
+            prdDataL5[[yCol,'RES_CNT']].corr()
+
+            prdDataL5['NO'] = prdDataL5.index + 1
+            prdDataL5['REG_DATE'] = '2024-08-08'
+            prdDataL5['MOD_DATE'] = '2024-08-08'
+
+            # prdDataL5.columns
+            prdDataL6 = prdDataL5[['NO', 'YEAR', 'MONTH', 'DAY', 'PRD_CODE', 'PRD_CNT', 'STATE_ABBR', 'INF_POP_CNT', 'MAX_TEMP', 'MIN_TEMP', 'UN_IDX', 'HEAT_IDX', 'CLD_COVER', 'HUM', 'TEMP', 'VIS', 'WIN_DIR', 'WIN_SPD', 'RES_VAL', 'RES_CNT', 'REG_DATE', 'MOD_DATE']]
+
+            saveFile = '{}/{}/{}'.format(globalVar['outPath'], serviceName, 'SERVICE1_RESULT_DATA.csv')
+            os.makedirs(os.path.dirname(saveFile), exist_ok=True)
+            prdDataL6.to_csv(saveFile, index=False)
+            log.info(f'[CHECK] saveFile : {saveFile}')
 
         except Exception as e:
             log.error(f"Exception : {str(e)}")
