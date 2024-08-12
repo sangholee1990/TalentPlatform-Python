@@ -251,7 +251,7 @@ class DtaProcess(object):
     # Python을 이용한 위성측정기반 바람 산출물 수집
 
     # cd /home/hanul/SYSTEMS/KIER/PROG/PYTHON/colct
-    # nohup /home/hanul/anaconda3/envs/py38/bin/python3 TalentPlatform-INDI2024-colct-remssSMAP.py --modelList SAT-SMAP --cpuCoreNum 5 --srtDate 2024-08-01 --endDate 2024-08-15 &
+    # nohup /home/hanul/anaconda3/envs/py38/bin/python3 TalentPlatform-INDI2024-colct-remssAMSR2.py --modelList SAT-AMSR2 --cpuCoreNum 5 --srtDate 2024-08-01 --endDate 2024-08-15 &
 
     # ps -ef | grep "TalentPlatform-INDI2024-colct-remssSMAP.py" | awk '{print $2}' | xargs kill -9
     # ps -ef | grep "RunShell-get-gfsncep2.sh" | awk '{print $2}' | xargs kill -9
@@ -320,11 +320,27 @@ class DtaProcess(object):
             sysOpt = {
                 # 수행 목록
                 # 'modelList': [globalVar['modelList']]
-                'modelList': ['SAT-SMAP']
+                'modelList': ['SAT-AMSR2', 'SAT-SMAP', 'SAT-SSMI']
 
                 # 비동기 다중 프로세스 개수
                 , 'cpuCoreNum': '5'
                 # , 'cpuCoreNum': globalVar['cpuCoreNum']
+
+                , 'SAT-AMSR2': {
+                    # 시작일, 종료일, 시간 간격 (연 1y, 월 1h, 일 1d, 시간 1h)
+                    'srtDate': '2024-08-01'
+                    , 'endDate': '2024-08-15'
+                    # 'srtDate': globalVar['srtDate']
+                    # , 'endDate': globalVar['endDate']
+                    , 'invDate': '1d'
+                    , 'request': {
+                        'url': 'https://data.remss.com'
+                        , 'filePath': '/amsr2/ocean/L3/v08.2/daily/%Y'
+                        , 'fileNamePattern': 'RSS_AMSR2_ocean_L3_daily_(\d{4})-(\d{2})-(\d{2})_v(\d+\.\d+)\.nc'
+                    }
+                    , 'tmp': '/HDD/DATA/data1/SAT/AMSR2/%Y/%m/.{}'
+                    , 'target': '/HDD/DATA/data1/SAT/AMSR2/%Y/%m/{}'
+                }
 
                 , 'SAT-SMAP': {
                     # 시작일, 종료일, 시간 간격 (연 1y, 월 1h, 일 1d, 시간 1h)
@@ -338,10 +354,28 @@ class DtaProcess(object):
                         , 'filePath': '/smap/wind/L3/v01.0/daily/NRT/%Y'
                         , 'fileNamePattern': 'RSS_smap_wind_daily_(\d{4})_(\d{2})_(\d{2})_NRT_v(\d+\.\d+)\.nc'
                     }
-                    , 'tmp': '/HDD/DATA/data1/SAT-SMAP/%Y/%m/.{}'
-                    , 'target': '/HDD/DATA/data1/SAT-SMAP/%Y/%m/{}'
+                    , 'tmp': '/HDD/DATA/data1/SAT/SMAP/%Y/%m/.{}'
+                    , 'target': '/HDD/DATA/data1/SAT/SMAP/%Y/%m/{}'
+                }
+
+                , 'SAT-SSMI': {
+                    # 시작일, 종료일, 시간 간격 (연 1y, 월 1h, 일 1d, 시간 1h)
+                    'srtDate': '2024-08-01'
+                    , 'endDate': '2024-08-15'
+                    # 'srtDate': globalVar['srtDate']
+                    # , 'endDate': globalVar['endDate']
+                    , 'invDate': '1d'
+                    , 'request': {
+                        'url': 'https://data.remss.com'
+                        , 'filePath': '/ssmi/f18/bmaps_v08/y%Y/m%m'
+                        , 'fileNamePattern': 'f18_(\d{4})(\d{2})(\d{2})v(\d+)\.gz'
+                    }
+                    , 'tmp': '/HDD/DATA/data1/SAT/SSMI/%Y/%m/.{}'
+                    , 'target': '/HDD/DATA/data1/SAT/SSMI/%Y/%m/{}'
                 }
             }
+
+
 
             # **************************************************************************************************************
             # 비동기 다중 프로세스 수행
