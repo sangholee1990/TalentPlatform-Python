@@ -319,12 +319,28 @@ class DtaProcess(object):
             # 옵션 설정
             sysOpt = {
                 # 수행 목록
-                # 'modelList': [globalVar['modelList']]
                 'modelList': ['SAT-AMSR2', 'SAT-SMAP', 'SAT-SSMI']
+                # 'modelList': [globalVar['modelList']]
 
                 # 비동기 다중 프로세스 개수
                 , 'cpuCoreNum': '5'
                 # , 'cpuCoreNum': globalVar['cpuCoreNum']
+
+                , 'SAT-SSMI': {
+                    # 시작일, 종료일, 시간 간격 (연 1y, 월 1h, 일 1d, 시간 1h)
+                    'srtDate': '2024-08-01'
+                    , 'endDate': '2024-08-15'
+                    # 'srtDate': globalVar['srtDate']
+                    # , 'endDate': globalVar['endDate']
+                    , 'invDate': '1d'
+                    , 'request': {
+                        'url': 'https://data.remss.com'
+                        , 'filePath': '/ssmi/f18/bmaps_v08/y%Y/m%m'
+                        , 'fileNamePattern': 'f18_(\d{4})(\d{2})(\d{2})v(\d+)\.gz'
+                    }
+                    , 'tmp': '/HDD/DATA/data1/SAT/SSMI/%Y/%m/.{}'
+                    , 'target': '/HDD/DATA/data1/SAT/SSMI/%Y/%m/{}'
+                }
 
                 , 'SAT-AMSR2': {
                     # 시작일, 종료일, 시간 간격 (연 1y, 월 1h, 일 1d, 시간 1h)
@@ -356,22 +372,6 @@ class DtaProcess(object):
                     }
                     , 'tmp': '/HDD/DATA/data1/SAT/SMAP/%Y/%m/.{}'
                     , 'target': '/HDD/DATA/data1/SAT/SMAP/%Y/%m/{}'
-                }
-
-                , 'SAT-SSMI': {
-                    # 시작일, 종료일, 시간 간격 (연 1y, 월 1h, 일 1d, 시간 1h)
-                    'srtDate': '2024-08-01'
-                    , 'endDate': '2024-08-15'
-                    # 'srtDate': globalVar['srtDate']
-                    # , 'endDate': globalVar['endDate']
-                    , 'invDate': '1d'
-                    , 'request': {
-                        'url': 'https://data.remss.com'
-                        , 'filePath': '/ssmi/f18/bmaps_v08/y%Y/m%m'
-                        , 'fileNamePattern': 'f18_(\d{4})(\d{2})(\d{2})v(\d+)\.gz'
-                    }
-                    , 'tmp': '/HDD/DATA/data1/SAT/SSMI/%Y/%m/.{}'
-                    , 'target': '/HDD/DATA/data1/SAT/SSMI/%Y/%m/{}'
                 }
             }
 
