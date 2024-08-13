@@ -22,8 +22,8 @@ from pandas.tseries.offsets import Hour
 import yaml
 from multiprocessing import Pool
 import multiprocessing as mp
-import avl
-import harp
+# import avl
+# import harp
 from matplotlib.collections import PolyCollection
 import matplotlib.cm as cm
 import matplotlib.colors as colors
@@ -341,9 +341,9 @@ class DtaProcess(object):
             # 옵션 설정
             sysOpt = {
                 # 시작일, 종료일, 시간 간격
-                'srtDate': '2024-01-01'
-                , 'endDate': '2024-01-02'
-                , 'invDate': 1
+                'srtDate': '2020-10-20'
+                , 'endDate': '2020-10-21'
+                , 'invDate': '1h'
 
                 # , 'modelList': ['KIER-LDAPS', 'KIER-RDAPS']
 
@@ -363,13 +363,11 @@ class DtaProcess(object):
             import matplotlib.colors as colors
             import cartopy.crs as ccrs
 
-
             # https://aeolus.services 플랫폼
             # https://aeolus.services/ows
             # hAAFUwbvPvnzzgGTxaU3ttAfufVKyp9-
 
             # Set up connection with server
-            request = AeolusRequest(url='https://aeolus.services/ows', token='hAAFUwbvPvnzzgGTxaU3ttAfufVKyp9-')
             # Set collection to use
             # request.set_collection('ALD_U_N_2B')
             #
@@ -390,227 +388,343 @@ class DtaProcess(object):
             # Aeolus product
             DATA_PRODUCT = "ALD_U_N_2B"
 
-            # measurement period in yyyy-mm-ddTHH:MM:SS
-            measurement_start = "2020-10-20T00:00:00Z"
-            measurement_stop = "2020-10-20T02:00:00Z"
+            # 시작일/종료일 설정
+            dtSrtDate = pd.to_datetime(sysOpt['srtDate'], format='%Y-%m-%d')
+            dtEndDate = pd.to_datetime(sysOpt['endDate'], format='%Y-%m-%d')
+            dtDateList = pd.date_range(start=dtSrtDate, end=dtEndDate, freq=sysOpt['invDate'])
 
-            # Product parameters to retrieve
-            # uncomment parameters of interest
+            for i, dtDateInfo in enumerate(dtDateList):
+                if (i + 1) == len(dtDateList): continue
 
-            # Rayleigh wind fields
-            parameter_rayleigh = [
-                "wind_result_start_time",
-                "wind_result_stop_time",
-                "wind_result_COG_time",
-                "wind_result_bottom_altitude",
-                "wind_result_top_altitude",
-                "wind_result_range_bin_number",
-                "wind_result_start_latitude",
-                "wind_result_start_longitude",
-                "wind_result_stop_latitude",
-                "wind_result_stop_longitude",
-                "wind_result_COG_latitude",
-                "wind_result_COG_longitude",
-                "wind_result_HLOS_error",
-                "wind_result_wind_velocity",
-                "wind_result_observation_type",
-                "wind_result_validity_flag",
-                "wind_result_alt_of_DEM_intersection",
-            ]
-            parameter_rayleigh = ["rayleigh_" + param for param in parameter_rayleigh]
+                measurement_start = dtDateList[i].tz_localize('UTC').strftime('%Y-%m-%dT%H:%M:%SZ')
+                measurement_stop = dtDateList[i + 1].tz_localize('UTC').strftime('%Y-%m-%dT%H:%M:%SZ')
+                print(measurement_start, measurement_stop)
 
-            # Mie wind fields
-            parameter_mie = [
-                "wind_result_start_time",
-                "wind_result_stop_time",
-                "wind_result_COG_time",
-                "wind_result_bottom_altitude",
-                "wind_result_top_altitude",
-                "wind_result_range_bin_number",
-                "wind_result_start_latitude",
-                "wind_result_start_longitude",
-                "wind_result_stop_latitude",
-                "wind_result_stop_longitude",
-                "wind_result_COG_latitude",
-                "wind_result_COG_longitude",
-                "wind_result_HLOS_error",
-                "wind_result_wind_velocity",
-                "wind_result_observation_type",
-                "wind_result_validity_flag",
-                "wind_result_alt_of_DEM_intersection",
-            ]
-            parameter_mie = ["mie_" + param for param in parameter_mie]
+                # measurement period in yyyy-mm-ddTHH:MM:SS
+                # measurement_start = "2020-10-20T00:00:00Z"
+                # measurement_stop = "2020-10-21T00:00:00Z"
+                # measurement_start = "2024-06-01T00:00:00Z"
+                # measurement_stop = "2024-06-02T00:00:00Z"
 
-            # Data request for Rayleigh wind measurements
-            # check if parameter list is not empty
-            if len(parameter_rayleigh) > 0:
-                # request = AeolusRequest()
-                request = AeolusRequest(url='https://aeolus.services/ows')
+                # Product parameters to retrieve
+                # uncomment parameters of interest
 
-                request.set_collection(DATA_PRODUCT)
+                # Rayleigh wind fields
+                parameter_rayleigh = [
+                    "wind_result_start_time",
+                    "wind_result_stop_time",
+                    "wind_result_COG_time",
+                    "wind_result_bottom_altitude",
+                    "wind_result_top_altitude",
+                    "wind_result_range_bin_number",
+                    "wind_result_start_latitude",
+                    "wind_result_start_longitude",
+                    "wind_result_stop_latitude",
+                    "wind_result_stop_longitude",
+                    "wind_result_COG_latitude",
+                    "wind_result_COG_longitude",
+                    "wind_result_HLOS_error",
+                    "wind_result_wind_velocity",
+                    "wind_result_observation_type",
+                    "wind_result_validity_flag",
+                    "wind_result_alt_of_DEM_intersection",
+                ]
+                parameter_rayleigh = ["rayleigh_" + param for param in parameter_rayleigh]
 
-                # set wind fields
-                request.set_fields(
-                    rayleigh_wind_fields=parameter_rayleigh,
+                # Mie wind fields
+                parameter_mie = [
+                    "wind_result_start_time",
+                    "wind_result_stop_time",
+                    "wind_result_COG_time",
+                    "wind_result_bottom_altitude",
+                    "wind_result_top_altitude",
+                    "wind_result_range_bin_number",
+                    "wind_result_start_latitude",
+                    "wind_result_start_longitude",
+                    "wind_result_stop_latitude",
+                    "wind_result_stop_longitude",
+                    "wind_result_COG_latitude",
+                    "wind_result_COG_longitude",
+                    "wind_result_HLOS_error",
+                    "wind_result_wind_velocity",
+                    "wind_result_observation_type",
+                    "wind_result_validity_flag",
+                    "wind_result_alt_of_DEM_intersection",
+                ]
+                parameter_mie = ["mie_" + param for param in parameter_mie]
+
+                # Data request for Rayleigh wind measurements
+                # check if parameter list is not empty
+                if len(parameter_rayleigh) > 0:
+                    # request = AeolusRequest()
+                    request = AeolusRequest(url='https://aeolus.services/ows', token=None)
+                    
+                    request.set_collection(DATA_PRODUCT)
+
+                    # set wind fields
+                    request.set_fields(
+                        rayleigh_wind_fields=parameter_rayleigh,
+                    )
+
+                    # It is possible to apply a filter by different parameters of the product
+                    # Here, for example, a filter by geolocation is applied
+                    request.set_range_filter(parameter="rayleigh_wind_result_COG_latitude", minimum=0, maximum=90)
+                    request.set_range_filter(
+                        parameter="rayleigh_wind_result_COG_longitude", minimum=180, maximum=360
+                    )
+
+                    # set start and end time and request data
+                    data_rayleigh = request.get_between(
+                        start_time=measurement_start, end_time=measurement_stop, filetype="nc", asynchronous=True
+                    )
+
+                # Data request for Mie wind measurements
+                # check if parameter list is not empty
+                if len(parameter_mie) > 0:
+                    # request = AeolusRequest()
+                    request = AeolusRequest(url='https://aeolus.services/ows', token=None)
+
+                    request.set_collection(DATA_PRODUCT)
+
+                    # set measurement fields
+                    request.set_fields(
+                        mie_wind_fields=parameter_mie,
+                    )
+
+                    # It is possible to apply a filter by different parameters of the product
+                    # Here, for example, a filter by geolocation is applied
+                    request.set_range_filter(parameter="mie_wind_result_COG_latitude", minimum=0, maximum=90)
+                    request.set_range_filter(parameter="mie_wind_result_COG_longitude", minimum=180, maximum=360)
+
+                    # set start and end time and request data
+                    data_mie = request.get_between(
+                        start_time=measurement_start, end_time=measurement_stop, filetype="nc", asynchronous=True
+                    )
+
+                # Save data as xarray data sets
+                # check if variable is assigned
+                # if "data_rayleigh" in globals():
+                #     ds_rayleigh = data_rayleigh.as_xarray()
+                # if "data_mie" in globals():
+                #     ds_mie = data_mie.as_xarray()
+
+                ds_rayleigh = data_rayleigh.as_xarray()
+                ds_mie = data_mie.as_xarray()
+
+                # if len(ds_rayleigh) < 0: return
+
+                # ds_rayleigh['rayleigh_wind_result_wind_velocity'].plot()
+                # plt.show()
+
+                # ds_mie['mie_wind_result_wind_velocity'].plot()
+                # plt.show()
+
+                dtSrtDate = pd.to_datetime(measurement_start)
+                dtEndDate = pd.to_datetime(measurement_stop)
+
+                srtDate = dtSrtDate.strftime('%Y%m%d%H%M')
+                endDate = dtEndDate.strftime('%Y%m%d%H%M')
+
+                procFile = '{}/{}/{}_{}_{}.nc'.format(globalVar['outPath'], serviceName, 'AE_OPER_ALD_U_N_2B_rayleigh_wind-velocity', srtDate, endDate)
+                os.makedirs(os.path.dirname(procFile), exist_ok=True)
+                data_rayleigh.to_file(procFile, overwrite=True)
+                log.info(f'[CHECK] procFile : {procFile}')
+
+                procFile = '{}/{}/{}_{}_{}.nc'.format(globalVar['outPath'], serviceName, 'AE_OPER_ALD_U_N_2B_mie_wind-velocity', srtDate, endDate)
+                os.makedirs(os.path.dirname(procFile), exist_ok=True)
+                # ds_mie['mie_wind_result_wind_velocity'].to_netcdf(procFile)
+                data_mie.to_file(procFile, overwrite=True)
+                log.info(f'[CHECK] procFile : {procFile}')
+
+                plot_parameter_2D(
+                    parameter="wind_result_wind_velocity",
+                    channel="rayleigh",
+                    obs_type="clear",
+                    QC_filter=True,
+                    error_estimate_threshold=800,
+                    start_bin=0,
+
+                    end_bin=-1,
+                    ds=ds_rayleigh
                 )
 
-                # It is possible to apply a filter by different parameters of the product
-                # Here, for example, a filter by geolocation is applied
-                request.set_range_filter(parameter="rayleigh_wind_result_COG_latitude", minimum=0, maximum=90)
-                request.set_range_filter(
-                    parameter="rayleigh_wind_result_COG_longitude", minimum=180, maximum=360
+                saveImg = '{}/{}/{}_{}_{}.png'.format(globalVar['figPath'], serviceName, 'AE_OPER_ALD_U_N_2B_rayleigh_wind-velocity', srtDate, endDate)
+                os.makedirs(os.path.dirname(saveImg), exist_ok=True)
+                plt.savefig(saveImg, dpi=600, bbox_inches='tight', transparent=False)
+                # plt.tight_layout()
+                plt.show()
+                plt.close()
+                log.info(f'[CHECK] saveImg : {saveImg}')
+
+                plot_parameter_2D(
+                    parameter="wind_result_wind_velocity",
+                    channel="mie",
+                    obs_type="cloudy",
+                    QC_filter=True,
+                    error_estimate_threshold=500,
+                    start_bin=0,
+                    end_bin=-1,
+                    ds=ds_mie
                 )
 
-                # set start and end time and request data
-                data_rayleigh = request.get_between(
-                    start_time=measurement_start, end_time=measurement_stop, filetype="nc", asynchronous=True
-                )
+                saveImg = '{}/{}/{}_{}_{}.png'.format(globalVar['figPath'], serviceName, 'AE_OPER_ALD_U_N_2B_mie_wind-velocity', srtDate, endDate)
+                os.makedirs(os.path.dirname(saveImg), exist_ok=True)
+                plt.savefig(saveImg, dpi=600, bbox_inches='tight', transparent=False)
+                # plt.tight_layout()
+                plt.show()
+                plt.close()
+                log.info(f'[CHECK] saveImg : {saveImg}')
 
-            # Data request for Mie wind measurements
-            # check if parameter list is not empty
-            if len(parameter_mie) > 0:
-                # request = AeolusRequest()
-                request = AeolusRequest(url='https://aeolus.services/ows')
+                # 시작-종료 맵 시각화
+                # fig, ax = plt.subplots(2,1, figsize=(8, 8), subplot_kw={"projection": ccrs.PlateCarree()}, constrained_layout=True)
 
-                request.set_collection(DATA_PRODUCT)
+                # for ds, obs_type in zip([ds_rayleigh, ds_mie], ["rayleigh", "mie"]):
+                for ds, obs_type in zip([ds_rayleigh, ds_mie], ["rayleigh"]):
+                    fig, axis = plt.subplots(1, 1, figsize=(10, 6), subplot_kw={"projection": ccrs.PlateCarree()}, constrained_layout=True)
+                    axis.stock_img()
+                    axis.gridlines(draw_labels=True, linewidth=0.3, color="black", alpha=0.5, linestyle="-")
+                    axis.scatter(
+                        ds[obs_type + "_wind_result_COG_longitude"],
+                        ds[obs_type + "_wind_result_COG_latitude"],
+                        marker="o",
+                        c="k",
+                        s=3,
+                        label='wind result COG',
+                        transform=ccrs.Geodetic(),
+                    )
+                    axis.scatter(
+                        ds[obs_type + "_wind_result_COG_longitude"][0],
+                        ds[obs_type + "_wind_result_COG_latitude"][0],
+                        marker="o",
+                        c="g",
+                        edgecolor="g",
+                        s=40,
+                        label="start",
+                        transform=ccrs.Geodetic(),
+                    )
+                    axis.scatter(
+                        ds[obs_type + "_wind_result_COG_longitude"][-1],
+                        ds[obs_type + "_wind_result_COG_latitude"][-1],
+                        marker="o",
+                        c="r",
+                        edgecolor="r",
+                        s=40,
+                        label="stop",
+                        transform=ccrs.Geodetic(),
+                    )
+                    axis.legend()
+                    axis.set_title(obs_type.title())
 
-                # set measurement fields
-                request.set_fields(
-                    mie_wind_fields=parameter_mie,
-                )
+                    fig.suptitle("Aeolus orbit \n from {} to {} \n".format(measurement_start, measurement_stop))
 
-                # It is possible to apply a filter by different parameters of the product
-                # Here, for example, a filter by geolocation is applied
-                request.set_range_filter(parameter="mie_wind_result_COG_latitude", minimum=0, maximum=90)
-                request.set_range_filter(parameter="mie_wind_result_COG_longitude", minimum=180, maximum=360)
+                    saveImg = '{}/{}/{}_{}_{}_{}.png'.format(globalVar['figPath'], serviceName, 'AE_OPER_ALD_U_N_2B_orbit', obs_type, srtDate, endDate)
+                    os.makedirs(os.path.dirname(saveImg), exist_ok=True)
+                    plt.savefig(saveImg, dpi=600, bbox_inches='tight', transparent=False)
+                    # plt.tight_layout()
+                    plt.show()
+                    plt.close()
+                    log.info(f'[CHECK] saveImg : {saveImg}')
 
-                # set start and end time and request data
-                data_mie = request.get_between(
-                    start_time=measurement_start, end_time=measurement_stop, filetype="nc", asynchronous=True
-                )
+                    def makePlot(
+                            parameter="wind_result_wind_velocity",
+                            channel="rayleigh",
+                            obs_type="clear",
+                            QC_filter=True,
+                            error_estimate_threshold=800,
+                            start_bin=0,
+                            end_bin=-1,
+                            ds=None
+                    ):
 
-            # Save data as xarray data sets
-            # check if variable is assigned
-            # if "data_rayleigh" in globals():
-            #     ds_rayleigh = data_rayleigh.as_xarray()
-            # if "data_mie" in globals():
-            #     ds_mie = data_mie.as_xarray()
+                        # define necessary parameters for plotting
+                        X0 = ds[channel + "_wind_result_start_time"].values
+                        X1 = ds[channel + "_wind_result_stop_time"].values
 
-            ds_rayleigh = data_rayleigh.as_xarray()
-            ds_mie = data_mie.as_xarray()
+                        Y0 = ds[channel + "_wind_result_bottom_altitude"].values / 1000.0
+                        Y1 = ds[channel + "_wind_result_top_altitude"].values / 1000.0
+                        Z = ds[channel + "_" + parameter].values
 
-            # ds_rayleigh['rayleigh_wind_result_wind_velocity'].plot()
-            # plt.show()
+                        # create a mask out of different filters which can be applied to the different parameters
+                        mask = np.zeros(len(Z), dtype=bool)
 
-            # ds_mie['mie_wind_result_wind_velocity'].plot()
-            # plt.show()
+                        # mask dependent on start and end bin given as parameter to the plot function
+                        mask[0:start_bin] = True
+                        mask[end_bin:-1] = True
 
-            dtSrtDate = pd.to_datetime(measurement_start)
-            dtEndDate = pd.to_datetime(measurement_stop)
+                        # mask where validity flag is 0
+                        if QC_filter:
+                            mask = mask | (ds[channel + "_wind_result_validity_flag"] == 0)
 
-            srtDate = dtSrtDate.strftime('%Y%m%d%H%M')
-            endDate = dtEndDate.strftime('%Y%m%d%H%M')
+                        # mask dependent on observation type
+                        if obs_type == "cloudy":
+                            mask = mask | (ds[channel + "_wind_result_observation_type"] != 1)
+                        elif obs_type == "clear":
+                            mask = mask | (ds[channel + "_wind_result_observation_type"] != 2)
 
-            procFile = '{}/{}/{}_{}_{}.nc'.format(globalVar['outPath'], serviceName, 'AE_OPER_ALD_U_N_2B_rayleigh_wind-velocity', srtDate, endDate)
-            os.makedirs(os.path.dirname(procFile), exist_ok=True)
-            data_rayleigh.to_file(procFile, overwrite=True)
-            log.info(f'[CHECK] procFile : {procFile}')
+                        # mask where wind results have error estimates larger than a given threshold
+                        mask = mask | (ds[channel + "_wind_result_HLOS_error"] > error_estimate_threshold)
 
-            procFile = '{}/{}/{}_{}_{}.nc'.format(globalVar['outPath'], serviceName, 'AE_OPER_ALD_U_N_2B_mie_wind-velocity', srtDate, endDate)
-            os.makedirs(os.path.dirname(procFile), exist_ok=True)
-            # ds_mie['mie_wind_result_wind_velocity'].to_netcdf(procFile)
-            data_mie.to_file(procFile, overwrite=True)
-            log.info(f'[CHECK] procFile : {procFile}')
+                        # mask all necessary parameters for plotting
+                        # tilde before mask inverts the boolean mask array
+                        X0 = X0[~mask]
+                        X1 = X1[~mask]
+                        Y0 = Y0[~mask]
+                        Y1 = Y1[~mask]
+                        Z = Z[~mask]
 
-            plot_parameter_2D(
-                parameter="wind_result_wind_velocity",
-                channel="rayleigh",
-                obs_type="clear",
-                QC_filter=True,
-                error_estimate_threshold=800,
-                start_bin=0,
-                end_bin=-1,
-                ds=ds_rayleigh
-            )
+                        patches = []
+                        for x0, x1, y0, y1 in zip(X0, X1, Y0, Y1):
+                            patches.append(((x0, y0), (x0, y1), (x1, y1), (x1, y0)))
 
-            saveImg = '{}/{}/{}_{}_{}.png'.format(globalVar['figPath'], serviceName, 'AE_OPER_ALD_U_N_2B_rayleigh_wind-velocity', srtDate, endDate)
-            os.makedirs(os.path.dirname(saveImg), exist_ok=True)
-            plt.savefig(saveImg, dpi=600, bbox_inches='tight', transparent=False)
-            # plt.tight_layout()
-            plt.show()
-            plt.close()
-            log.info(f'[CHECK] saveImg : {saveImg}')
+                        # define min and max value for the colorbar
+                        if parameter == "wind_result_wind_velocity":
+                            Z_vmax = np.amax(np.abs(np.asarray([np.nanpercentile(Z, 2), np.nanpercentile(Z, 98)])))
+                            Z_vmin = -Z_vmax
+                        else:
+                            Z_vmax = np.nanpercentile(Z, 99)
+                            Z_vmin = np.nanpercentile(Z, 1)
 
-            plot_parameter_2D(
-                parameter="wind_result_wind_velocity",
-                channel="mie",
-                obs_type="cloudy",
-                QC_filter=True,
-                error_estimate_threshold=500,
-                start_bin=0,
-                end_bin=-1,
-                ds=ds_mie
-            )
+                        # fig, ax = plt.subplots(1, 1, figsize=(10, 6), constrained_layout=True)
+                        fig, (ax, ax2) = plt.subplots(2, 1, figsize=(10, 12), constrained_layout=True)
+                        # subplot_kw = {"projection": ccrs.PlateCarree() if ax3 else None
 
-            saveImg = '{}/{}/{}_{}_{}.png'.format(globalVar['figPath'], serviceName, 'AE_OPER_ALD_U_N_2B_mie_wind-velocity', srtDate, endDate)
-            os.makedirs(os.path.dirname(saveImg), exist_ok=True)
-            plt.savefig(saveImg, dpi=600, bbox_inches='tight', transparent=False)
-            # plt.tight_layout()
-            plt.show()
-            plt.close()
-            log.info(f'[CHECK] saveImg : {saveImg}')
+                        coll = PolyCollection(
+                            patches,
+                            array=Z,
+                            cmap=cm.RdBu_r,
+                            norm=colors.Normalize(
+                                vmin=Z_vmin,
+                                vmax=Z_vmax,
+                                clip=False,
+                            ),
+                        )
+                        ax.add_collection(coll)
 
-            # 시작-종료 맵 시각화
-            fig, ax = plt.subplots(
-                2,
-                1,
-                figsize=(8, 8),
-                subplot_kw={"projection": ccrs.PlateCarree()},
-                constrained_layout=True,
-            )
-            for axis, ds, obs_type in zip(ax, [ds_rayleigh, ds_mie], ["rayleigh", "mie"]):
-                axis.stock_img()
-                gl = axis.gridlines(draw_labels=True, linewidth=0.3, color="black", alpha=0.5, linestyle="-")
-                axis.scatter(
-                    ds[obs_type + "_wind_result_COG_longitude"],
-                    ds[obs_type + "_wind_result_COG_latitude"],
-                    marker="o",
-                    c="k",
-                    s=3,
-                    label='wind result COG',
-                    transform=ccrs.Geodetic(),
-                )
-                axis.scatter(
-                    ds[obs_type + "_wind_result_COG_longitude"][0],
-                    ds[obs_type + "_wind_result_COG_latitude"][0],
-                    marker="o",
-                    c="g",
-                    edgecolor="g",
-                    s=40,
-                    label="start",
-                    transform=ccrs.Geodetic(),
-                )
-                axis.scatter(
-                    ds[obs_type + "_wind_result_COG_longitude"][-1],
-                    ds[obs_type + "_wind_result_COG_latitude"][-1],
-                    marker="o",
-                    c="r",
-                    edgecolor="r",
-                    s=40,
-                    label="stop",
-                    transform=ccrs.Geodetic(),
-                )
-                axis.legend()
-                axis.set_title(obs_type.title())
-            fig.suptitle("Aeolus orbit \n from {} to {} \n".format(measurement_start, measurement_stop))
+                        ax.scatter(
+                            ds[channel + "_wind_result_COG_time"][~mask],
+                            ds[channel + "_wind_result_alt_of_DEM_intersection"][~mask] / 1000.0,
+                            marker='o',
+                            c='r',
+                            s=5,
+                            label='DEM altitude',
+                        )
+                        # ax.set_ylim(-1, 30)
+                        ax.set_xlabel("Date [UTC]")
+                        ax.set_ylabel("Altitude [km]")
+                        ax.set_title("{} - {} \n {} wind results".format(channel.title(), parameter, len(Z)))
+                        ax.grid()
+                        ax.legend()
 
-            saveImg = '{}/{}/{}_{}_{}.png'.format(globalVar['figPath'], serviceName, 'AE_OPER_ALD_U_N_2B_orbit', srtDate, endDate)
-            os.makedirs(os.path.dirname(saveImg), exist_ok=True)
-            plt.savefig(saveImg, dpi=600, bbox_inches='tight', transparent=False)
-            # plt.tight_layout()
-            plt.show()
-            plt.close()
-            log.info(f'[CHECK] saveImg : {saveImg}')
+                        ax.xaxis.set_major_formatter(format_date)
+                        ax.autoscale()
+                        fig.colorbar(coll, ax=ax, aspect=50, pad=0.01)
+                        fig.autofmt_xdate()
+
+
+
+
+
+
 
         except Exception as e:
             log.error(f"Exception : {e}")
