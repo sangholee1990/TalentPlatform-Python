@@ -370,60 +370,44 @@ class DtaProcess(object):
 
             # 옵션 설정
             sysOpt = {
+                # 시작일, 종료일, 시간 간격 (연 1y, 월 1h, 일 1d, 시간 1h)
+                'srtDate': '2024-07-20'
+                , 'endDate': '2024-07-21'
+                # 'srtDate': globalVar['srtDate']
+                # , 'endDate': globalVar['endDate']
+                , 'invDate': '1h'
+
                 # 수행 목록
-                'modelList': ['SAT-AMSR2', 'SAT-SMAP', 'SAT-SSMI']
+                , 'modelList': ['SAT-SSMIS', 'SAT-AMSR2', 'SAT-GMI', 'SAT-SMAP', 'SAT-METOPB', 'SAT-METOPC']
                 # 'modelList': [globalVar['modelList']]
 
                 # 비동기 다중 프로세스 개수
-                , 'cpuCoreNum': '5'
+                , 'cpuCoreNum': '6'
                 # , 'cpuCoreNum': globalVar['cpuCoreNum']
 
-                , 'SAT-SSMI': {
-                    # 시작일, 종료일, 시간 간격 (연 1y, 월 1h, 일 1d, 시간 1h)
-                    'srtDate': '2024-08-01'
-                    , 'endDate': '2024-08-15'
-                    # 'srtDate': globalVar['srtDate']
-                    # , 'endDate': globalVar['endDate']
-                    , 'invDate': '1d'
-                    , 'request': {
-                        'url': 'https://data.remss.com'
-                        , 'filePath': '/ssmi/f18/bmaps_v08/y%Y/m%m'
-                        , 'fileNamePattern': 'f18_(\d{4})(\d{2})(\d{2})v(\d+)\.gz'
-                    }
-                    , 'tmp': '/HDD/DATA/data1/SAT/SSMI/%Y/%m/.{}'
-                    , 'target': '/HDD/DATA/data1/SAT/SSMI/%Y/%m/{}'
+                , 'SAT-SSMIS': {
+                    'filePath': '/HDD/DATA/data1/SAT/SSMIS/%Y/%m'
+                    , 'fileName': 'f18_%Y%m%dv*.gz'
                 }
-
                 , 'SAT-AMSR2': {
-                    # 시작일, 종료일, 시간 간격 (연 1y, 월 1h, 일 1d, 시간 1h)
-                    'srtDate': '2024-08-01'
-                    , 'endDate': '2024-08-15'
-                    # 'srtDate': globalVar['srtDate']
-                    # , 'endDate': globalVar['endDate']
-                    , 'invDate': '1d'
-                    , 'request': {
-                        'url': 'https://data.remss.com'
-                        , 'filePath': '/amsr2/ocean/L3/v08.2/daily/%Y'
-                        , 'fileNamePattern': 'RSS_AMSR2_ocean_L3_daily_(\d{4})-(\d{2})-(\d{2})_v(\d+\.\d+)\.nc'
-                    }
-                    , 'tmp': '/HDD/DATA/data1/SAT/AMSR2/%Y/%m/.{}'
-                    , 'target': '/HDD/DATA/data1/SAT/AMSR2/%Y/%m/{}'
+                    'filePath': '/HDD/DATA/data1/SAT/AMSR2/%Y/%m'
+                    , 'fileName': 'RSS_AMSR2_ocean_L3_daily_%Y-%m-%d_v*.*.nc'
                 }
-
+                , 'SAT-GMI': {
+                    'filePath': '/HDD/DATA/data1/SAT/GMI/%Y/%m'
+                    , 'fileName': 'f35_%Y%m%dv*.*.gz'
+                }
                 , 'SAT-SMAP': {
-                    # 시작일, 종료일, 시간 간격 (연 1y, 월 1h, 일 1d, 시간 1h)
-                    'srtDate': '2024-08-01'
-                    , 'endDate': '2024-08-15'
-                    # 'srtDate': globalVar['srtDate']
-                    # , 'endDate': globalVar['endDate']
-                    , 'invDate': '1d'
-                    , 'request': {
-                        'url': 'https://data.remss.com'
-                        , 'filePath': '/smap/wind/L3/v01.0/daily/NRT/%Y'
-                        , 'fileNamePattern': 'RSS_smap_wind_daily_(\d{4})_(\d{2})_(\d{2})_NRT_v(\d+\.\d+)\.nc'
-                    }
-                    , 'tmp': '/HDD/DATA/data1/SAT/SMAP/%Y/%m/.{}'
-                    , 'target': '/HDD/DATA/data1/SAT/SMAP/%Y/%m/{}'
+                     'filePath': '/HDD/DATA/data1/SAT/SMAP/%Y/%m'
+                    , 'fileName': 'RSS_smap_wind_daily_%Y_%m_%d_NRT_v*.*.nc'
+                }
+                , 'SAT-METOPB': {
+                    'filePath': '/HDD/DATA/data1/SAT/METOPB/%Y/%m'
+                    , 'fileName': 'ascatb_%Y%m%d_v*.*.gz'
+                }
+                , 'SAT-METOPC': {
+                    'filePath': '/HDD/DATA/data1/SAT/METOPC/%Y/%m'
+                    , 'fileName': 'ascatc_%Y%m%d_v*.*.gz'
                 }
             }
 
