@@ -63,6 +63,7 @@ tzKst = pytz.timezone('Asia/Seoul')
 tzUtc = pytz.timezone('UTC')
 dtKst = timedelta(hours=9)
 
+
 # =================================================
 # 2. 유틸리티 함수
 # =================================================
@@ -183,10 +184,6 @@ def subColct(modelInfo, dtDateInfo):
         if not (res.status_code == 200): return
 
         soup = BeautifulSoup(res.text, 'html.parser')
-
-        dtSrtDate = pd.to_datetime(modelInfo['srtDate'], format='%Y-%m-%d')
-        dtEndDate = pd.to_datetime(modelInfo['endDate'], format='%Y-%m-%d')
-
         for link in soup.find_all('a'):
             fileInfo = link.get('href')
             fileName = link.text
@@ -195,12 +192,8 @@ def subColct(modelInfo, dtDateInfo):
             if match is None: continue
 
             dtPreDate = pd.to_datetime(f'{match.group(1)}-{match.group(2)}-{match.group(3)}', format='%Y-%m-%d')
-
-            isDateSync = (dtDateInfo == dtPreDate)
-            if not isDateSync: continue
-
-            isDateValid = (dtSrtDate <= dtPreDate <= dtEndDate)
-            if not isDateValid: continue
+            isDate = (dtDateInfo == dtPreDate)
+            if not isDate: continue
 
             tmpFileInfo = dtDateInfo.strftime(modelInfo['tmp']).format(fileName)
             updFileInfo = dtDateInfo.strftime(modelInfo['target']).format(fileName)
@@ -240,11 +233,11 @@ def subColct(modelInfo, dtDateInfo):
         if os.path.exists(tmpFileInfo):
             os.remove(tmpFileInfo)
 
+
 # ================================================
 # 4. 부 프로그램
 # ================================================
 class DtaProcess(object):
-
     # ================================================
     # 요구사항
     # ================================================
@@ -307,7 +300,6 @@ class DtaProcess(object):
         log.info(f"[START] exec")
 
         try:
-
             if platform.system() == 'Windows':
                 pass
             else:
@@ -318,38 +310,32 @@ class DtaProcess(object):
 
             # 옵션 설정
             sysOpt = {
+                # 시작일, 종료일, 시간 간격 (연 1y, 월 1h, 일 1d, 시간 1h)
+                'srtDate': '2024-07-20'
+                , 'endDate': '2024-07-21'
+                # 'srtDate': globalVar['srtDate']
+                # , 'endDate': globalVar['endDate']
+                , 'invDate': '1d'
+
                 # 수행 목록
-                'modelList': ['SAT-AMSR2', 'SAT-SMAP', 'SAT-SSMI']
+                , 'modelList': ['SAT-SSMIS', 'SAT-AMSR2', 'SAT-GMI', 'SAT-SMAP', 'SAT-METOPB', 'SAT-METOPC']
                 # 'modelList': [globalVar['modelList']]
 
                 # 비동기 다중 프로세스 개수
-                , 'cpuCoreNum': '5'
+                , 'cpuCoreNum': '6'
                 # , 'cpuCoreNum': globalVar['cpuCoreNum']
 
-                , 'SAT-SSMI': {
-                    # 시작일, 종료일, 시간 간격 (연 1y, 월 1h, 일 1d, 시간 1h)
-                    'srtDate': '2024-08-01'
-                    , 'endDate': '2024-08-15'
-                    # 'srtDate': globalVar['srtDate']
-                    # , 'endDate': globalVar['endDate']
-                    , 'invDate': '1d'
-                    , 'request': {
+                , 'SAT-SSMIS': {
+                    'request': {
                         'url': 'https://data.remss.com'
                         , 'filePath': '/ssmi/f18/bmaps_v08/y%Y/m%m'
                         , 'fileNamePattern': 'f18_(\d{4})(\d{2})(\d{2})v(\d+)\.gz'
                     }
-                    , 'tmp': '/HDD/DATA/data1/SAT/SSMI/%Y/%m/.{}'
-                    , 'target': '/HDD/DATA/data1/SAT/SSMI/%Y/%m/{}'
+                    , 'tmp': '/HDD/DATA/data1/SAT/SSMIS/%Y/%m/.{}'
+                    , 'target': '/HDD/DATA/data1/SAT/SSMIS/%Y/%m/{}'
                 }
-
                 , 'SAT-AMSR2': {
-                    # 시작일, 종료일, 시간 간격 (연 1y, 월 1h, 일 1d, 시간 1h)
-                    'srtDate': '2024-08-01'
-                    , 'endDate': '2024-08-15'
-                    # 'srtDate': globalVar['srtDate']
-                    # , 'endDate': globalVar['endDate']
-                    , 'invDate': '1d'
-                    , 'request': {
+                    'request': {
                         'url': 'https://data.remss.com'
                         , 'filePath': '/amsr2/ocean/L3/v08.2/daily/%Y'
                         , 'fileNamePattern': 'RSS_AMSR2_ocean_L3_daily_(\d{4})-(\d{2})-(\d{2})_v(\d+\.\d+)\.nc'
@@ -357,15 +343,17 @@ class DtaProcess(object):
                     , 'tmp': '/HDD/DATA/data1/SAT/AMSR2/%Y/%m/.{}'
                     , 'target': '/HDD/DATA/data1/SAT/AMSR2/%Y/%m/{}'
                 }
-
+                , 'SAT-GMI': {
+                    'request': {
+                        'url': 'https://data.remss.com'
+                        , 'filePath': '/gmi/bmaps_v08.2/y%Y/m%m'
+                        , 'fileNamePattern': 'f35_(\d{4})(\d{2})(\d{2})v(\d+\.\d+)\.gz'
+                    }
+                    , 'tmp': '/HDD/DATA/data1/SAT/GMI/%Y/%m/.{}'
+                    , 'target': '/HDD/DATA/data1/SAT/GMI/%Y/%m/{}'
+                }
                 , 'SAT-SMAP': {
-                    # 시작일, 종료일, 시간 간격 (연 1y, 월 1h, 일 1d, 시간 1h)
-                    'srtDate': '2024-08-01'
-                    , 'endDate': '2024-08-15'
-                    # 'srtDate': globalVar['srtDate']
-                    # , 'endDate': globalVar['endDate']
-                    , 'invDate': '1d'
-                    , 'request': {
+                    'request': {
                         'url': 'https://data.remss.com'
                         , 'filePath': '/smap/wind/L3/v01.0/daily/NRT/%Y'
                         , 'fileNamePattern': 'RSS_smap_wind_daily_(\d{4})_(\d{2})_(\d{2})_NRT_v(\d+\.\d+)\.nc'
@@ -373,29 +361,46 @@ class DtaProcess(object):
                     , 'tmp': '/HDD/DATA/data1/SAT/SMAP/%Y/%m/.{}'
                     , 'target': '/HDD/DATA/data1/SAT/SMAP/%Y/%m/{}'
                 }
+                , 'SAT-METOPB': {
+                    'request': {
+                        'url': 'https://data.remss.com'
+                        , 'filePath': '/ascat/metopb/bmaps_v02.1/y%Y/m%m'
+                        , 'fileNamePattern': 'ascatb_(\d{4})(\d{2})(\d{2})_v(\d+\.\d+)\.gz'
+                    }
+                    , 'tmp': '/HDD/DATA/data1/SAT/METOPB/%Y/%m/.{}'
+                    , 'target': '/HDD/DATA/data1/SAT/METOPB/%Y/%m/{}'
+                }
+                , 'SAT-METOPC': {
+                    'request': {
+                        'url': 'https://data.remss.com'
+                        , 'filePath': '/ascat/metopc/bmaps_v02.1/y%Y/m%m'
+                        , 'fileNamePattern': 'ascatc_(\d{4})(\d{2})(\d{2})_v(\d+\.\d+)\.gz'
+                    }
+                    , 'tmp': '/HDD/DATA/data1/SAT/METOPC/%Y/%m/.{}'
+                    , 'target': '/HDD/DATA/data1/SAT/METOPC/%Y/%m/{}'
+                }
             }
-
-
 
             # **************************************************************************************************************
             # 비동기 다중 프로세스 수행
             # **************************************************************************************************************
+            # 시작일/종료일 설정
+            dtSrtDate = pd.to_datetime(sysOpt['srtDate'], format='%Y-%m-%d')
+            dtEndDate = pd.to_datetime(sysOpt['endDate'], format='%Y-%m-%d')
+            dtDateList = pd.date_range(start=dtSrtDate, end=dtEndDate, freq=sysOpt['invDate'])
+
             # 비동기 다중 프로세스 개수
             pool = Pool(int(sysOpt['cpuCoreNum']))
 
-            for modelType in sysOpt['modelList']:
-                log.info(f'[CHECK] modelType : {modelType}')
+            for dtDateInfo in dtDateList:
+                log.info(f'[CHECK] dtDateInfo : {dtDateInfo}')
 
-                modelInfo = sysOpt.get(modelType)
-                if modelInfo is None: continue
+                for modelType in sysOpt['modelList']:
+                    # log.info(f'[CHECK] modelType : {modelType}')
 
-                # 시작일/종료일 설정
-                dtSrtDate = pd.to_datetime(modelInfo['srtDate'], format='%Y-%m-%d')
-                dtEndDate = pd.to_datetime(modelInfo['endDate'], format='%Y-%m-%d')
-                dtDateList = pd.date_range(start=dtSrtDate, end=dtEndDate, freq=modelInfo['invDate'])
+                    modelInfo = sysOpt.get(modelType)
+                    if modelInfo is None: continue
 
-                for dtDateInfo in dtDateList:
-                    log.info(f'[CHECK] dtDateInfo : {dtDateInfo}')
                     pool.apply_async(subColct, args=(modelInfo, dtDateInfo))
 
             pool.close()
