@@ -33,6 +33,10 @@ import re
 from datetime import datetime
 import subprocess
 
+from remss.ssmis.bytemaps import sys
+from remss.ssmis.bytemaps import Dataset
+from remss.ssmis.bytemaps import Verify
+
 # =================================================
 # 사용자 매뉴얼
 # =================================================
@@ -173,72 +177,120 @@ def initArgument(globalVar, inParams):
     return globalVar
 
 
-@retry(stop_max_attempt_number=10)
-def subColct(modelInfo, dtDateInfo):
-    try:
-        procInfo = mp.current_process()
+class SSMISdaily(Dataset):
+    """ Read daily SSMIS bytemaps. """
+    """
+    Public data:
+        filename = name of data file
+        missing = fill value used for missing data;
+                  if None, then fill with byte codes (251-255)
+        dimensions = dictionary of dimensions for each coordinate
+        variables = dictionary of data for each variable
+    """
 
-        reqUrl = dtDateInfo.strftime(f"{modelInfo['request']['url']}/{modelInfo['request']['filePath']}")
-        res = requests.get(reqUrl)
-        if not (res.status_code == 200): return
+    def __init__(self, filename, missing=None):
+        """
+        Required arguments:
+            filename = name of data file to be read (string)
 
-        soup = BeautifulSoup(res.text, 'html.parser')
+        Optional arguments:
+            missing = fill value for missing data,
+                      default is the value used in verify file
+        """
+        self.filename = filename
+        self.missing = missing
+        Dataset.__init__(self)
 
-        dtSrtDate = pd.to_datetime(modelInfo['srtDate'], format='%Y-%m-%d')
-        dtEndDate = pd.to_datetime(modelInfo['endDate'], format='%Y-%m-%d')
+    # Dataset:
 
-        for link in soup.find_all('a'):
-            fileInfo = link.get('href')
-            fileName = link.text
+    def _attributes(self):
+        return ['coordinates', 'long_name', 'units', 'valid_min', 'valid_max']
 
-            match = re.match(modelInfo['request']['fileNamePattern'], fileName)
-            if match is None: continue
+    def _coordinates(self):
+        return ('orbit_segment', 'variable', 'latitude', 'longitude')
 
-            dtPreDate = pd.to_datetime(f'{match.group(1)}-{match.group(2)}-{match.group(3)}', format='%Y-%m-%d')
+    def _shape(self):
+        return (2, 5, 720, 1440)
 
-            isDateSync = (dtDateInfo == dtPreDate)
-            if not isDateSync: continue
+    def _variables(self):
+        return ['time', 'wspd_mf', 'vapor', 'cloud', 'rain',
+                'longitude', 'latitude', 'land', 'ice', 'nodata']
 
-            isDateValid = (dtSrtDate <= dtPreDate <= dtEndDate)
-            if not isDateValid: continue
+        # _default_get():
 
-            tmpFileInfo = dtDateInfo.strftime(modelInfo['tmp']).format(fileName)
-            updFileInfo = dtDateInfo.strftime(modelInfo['target']).format(fileName)
+    def _get_index(self, var):
+        return {'time': 0,
+                'wspd_mf': 1,
+                'vapor': 2,
+                'cloud': 3,
+                'rain': 4,
+                }[var]
 
-            # 파일 검사
-            fileList = sorted(glob.glob(updFileInfo))
-            if len(fileList) > 0: return
+    def _get_scale(self, var):
+        return {'time': 0.1,
+                'wspd_mf': 0.2,
+                'vapor': 0.3,
+                'cloud': 0.01,
+                'rain': 0.1,
+                }[var]
 
-            os.makedirs(os.path.dirname(tmpFileInfo), exist_ok=True)
-            os.makedirs(os.path.dirname(updFileInfo), exist_ok=True)
+    def _get_offset(self, var):
+        return {'cloud': -0.05,
+                }[var]
 
-            if os.path.exists(tmpFileInfo):
-                os.remove(tmpFileInfo)
+    # _get_ attributes:
 
-            cmd = f"curl -s -C - {modelInfo['request']['url']}/{fileInfo} --retry 10 -o {tmpFileInfo}"
-            log.info(f'[CHECK] cmd : {cmd}')
+    def _get_long_name(self, var):
+        return {'time': 'Fractional Hour GMT',
+                'wspd_mf': '10m Surface Wind Speed',
+                'vapor': 'Columnar Water Vapor',
+                'cloud': 'Cloud Liquid Water',
+                'rain': 'Surface Rain Rate',
+                'longitude': 'Grid Cell Center Longitude',
+                'latitude': 'Grid Cell Center Latitude',
+                'land': 'Is this land?',
+                'ice': 'Is this ice?',
+                'nodata': 'Is there no data?',
+                }[var]
 
-            try:
-                subprocess.run(cmd, shell=True, check=True, executable='/bin/bash')
-            except subprocess.CalledProcessError as e:
-                raise ValueError(f'[ERROR] 실행 프로그램 실패 : {str(e)}')
+    def _get_units(self, var):
+        return {'time': 'Fractional Hour GMT',
+                'wspd_mf': 'm/s',
+                'vapor': 'mm',
+                'cloud': 'mm',
+                'rain': 'mm/hr',
+                'longitude': 'degrees east',
+                'latitude': 'degrees north',
+                'land': 'True or False',
+                'ice': 'True or False',
+                'nodata': 'True or False',
+                }[var]
 
-            if os.path.exists(tmpFileInfo):
-                if os.path.getsize(tmpFileInfo) > 0:
-                    shutil.move(tmpFileInfo, updFileInfo)
-                    log.info(f'[CHECK] CMD : mv -f {tmpFileInfo} {updFileInfo}')
-                else:
-                    os.remove(tmpFileInfo)
-                    log.info(f'[CHECK] CMD : rm -f {tmpFileInfo}')
+    def _get_valid_min(self, var):
+        return {'time': 0.0,
+                'wspd_mf': 0.0,
+                'vapor': 0.0,
+                'cloud': -0.05,
+                'rain': 0.0,
+                'longitude': 0.0,
+                'latitude': -90.0,
+                'land': False,
+                'ice': False,
+                'nodata': False,
+                }[var]
 
-            log.info(f'[END] subColct : {dtDateInfo} / pid : {procInfo.pid}')
-
-    except Exception as e:
-        log.error(f'Exception : {str(e)}')
-        raise e
-    finally:
-        if os.path.exists(tmpFileInfo):
-            os.remove(tmpFileInfo)
+    def _get_valid_max(self, var):
+        return {'time': 24.0,
+                'wspd_mf': 50.0,
+                'vapor': 75.0,
+                'cloud': 2.45,
+                'rain': 25.0,
+                'longitude': 360.0,
+                'latitude': 90.0,
+                'land': True,
+                'ice': True,
+                'nodata': True,
+                }[var]
 
 # ================================================
 # 4. 부 프로그램
@@ -382,28 +434,96 @@ class DtaProcess(object):
             # /HDD/DATA/data1/SAT/AMSR2/2024/03/RSS_AMSR2_ocean_L3_daily_2024-03-05_v08.2.nc
             # /HDD/DATA/data1/SAT/SMAP/2024/08/RSS_smap_wind_daily_2024_08_11_NRT_v01.0.nc
 
-            import xarray as xr
-            data = xr.open_dataset('/HDD/DATA/data1/SAT/AMSR2/2024/03/RSS_AMSR2_ocean_L3_daily_2024-03-05_v08.2.nc')
-
-            # data['wind_speed_AW'].sel({'pass': 2}).plot()
-            # plt.show()
-
-            meanData = data['wind_speed_AW'].mean(dim=['pass'])
-            meanData.plot()
-            plt.show()
-
-
-            data = xr.open_dataset('/HDD/DATA/data1/SAT/SMAP/2024/08/RSS_smap_wind_daily_2024_08_11_NRT_v01.0.nc')
-
-            # data['node'].values
+            # import xarray as xr
+            # data = xr.open_dataset('/HDD/DATA/data1/SAT/AMSR2/2024/03/RSS_AMSR2_ocean_L3_daily_2024-03-05_v08.2.nc')
             #
-            # data['wind'].sel({'node': 0}).plot()
-            # data['wind'].sel({'node': 1}).plot()
+            # # data['wind_speed_AW'].sel({'pass': 2}).plot()
+            # # plt.show()
+            #
+            # meanData = data['wind_speed_AW'].mean(dim=['pass'])
+            # meanData.plot()
+            # plt.show()
+            #
+            #
+            # data = xr.open_dataset('/HDD/DATA/data1/SAT/SMAP/2024/08/RSS_smap_wind_daily_2024_08_11_NRT_v01.0.nc')
+            #
+            # # data['node'].values
+            # #
+            # # data['wind'].sel({'node': 0}).plot()
+            # # data['wind'].sel({'node': 1}).plot()
+            # # plt.show()
+            #
+            # meanData = data['wind'].mean(dim=['node'])
+            # meanData.plot()
             # plt.show()
 
-            meanData = data['wind'].mean(dim=['node'])
+
+
+
+
+
+
+            ssmi = SSMISdaily('/HDD/DATA/TMP/f18_20240807v8.gz')
+
+            dim = ssmi.dimensions
+            for key, val in dim.items():
+                print(key, val)
+
+            var = ssmi.variables
+            # for key, val in var.items():
+            #     print(key, val.shape)
+
+            dataL2 = xr.Dataset(
+                coords={
+                    'orbit': np.arange(dim['orbit_segment'])
+                    , 'lat': var['latitude']
+                    , 'lon': var['longitude']
+                }
+            )
+
+            for key, val in var.items():
+                if re.search('longitude|latitude', key, re.IGNORECASE): continue
+
+                # Time:  7.10 = fractional hour GMT, NOT local time,  valid data range=0 to 24.0,  255 = land
+                # Wind: 255=land, 253=bad data,  251=no wind calculated, other data <=50.0 is 10-meter wind speed
+                # Water Vapor:  255=land, 253=bad data, other data <=75 is water vapor (mm)
+                # Cloud Liquid Water:  255=land,  253=bad data, other data <=2.5 is cloud (mm)
+                # Rain:  255=land, 253=bad data, other data <= 25 is rain (mm/hr)
+                if re.search('time', key, re.IGNORECASE):
+                    val2 = xr.where((0 <= val) & (val <= 24), val, np.nan)
+                elif re.search('wspd_mf', key, re.IGNORECASE):
+                    val2 = xr.where((val <= 50), val, np.nan)
+                elif re.search('vapor', key, re.IGNORECASE):
+                    val2 = xr.where((val <= 75), val, np.nan)
+                elif re.search('cloud', key, re.IGNORECASE):
+                    val2 = xr.where((val <= 2.5), val, np.nan)
+                elif re.search('rain', key, re.IGNORECASE):
+                    val2 = xr.where((val <= 25), val, np.nan)
+                else:
+                    val2 = val
+
+                try:
+                    dataL2[key] = (('orbit', 'lat', 'lon'), (val2))
+                except Exception as e:
+                    pass
+
+            # import matplotlib.pyplot as plt
+            # # dataL2['wspd_mf'].plot()
+            # dataL2['wspd_mf'].sel(orbit = 1).plot()
+            # plt.show()
+            # dataL2['wspd_mf'].sel(orbit = 0).plot()
+            # plt.show()
+
+            meanData = dataL2['wspd_mf'].mean(dim=['orbit'])
             meanData.plot()
             plt.show()
+
+            # d = xr.Dataset.from_dict(ssmi)
+            # d = xr.DataArray.from_dict(ssmi)
+            #
+            # d = xr.DataArray.from_dict(ssmi._get_variables())
+
+
 
             # meanData = data['wind_speed_AW'].mean(dim=['pass'])
             # meanData.plot()
