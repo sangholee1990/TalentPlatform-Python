@@ -1,0 +1,207 @@
+Verification file for Remote Sensing Systems' SSMIS binary data files  (version 7 data released August 2011).
+
+
+PLEASE read any README.txt files in this and the previous directories
+prior to using this file.
+
+The following data can be used to determine if your adapted processing
+routine is correctly reading the RSS SSMIS binary data file.
+
+To accurately compare these data, you need to download the respective file to check:
+
+Time              Directory                        File
+daily passes      F17/bmaps_v07\Y2009\M01        F17_20090120v7.gz
+3-day mean        F17/bmaps_v07\Y2009\M01        F17_20090120v7_d3d.gz
+weekly mean       F17/bmaps_v07\WEEKS            F17_20090124v7.gz
+monthly mean      F17/bmaps_v07\Y2009\M01        F17_200901v7.gz
+
+Each of these files contains F17 SSMIS data for:
+the day January 20th, 2009 (daily)
+the days January 19,20 and 21st, 2009 (3-day mean)
+January 18th (Sunday) to January 24th (Saturday), 2009 (weekly mean)
+or the month of January 2009 (monthly mean). 
+
+Once you have obtained the correct file, read it with your program and 
+write out the data for the following subset:
+
+Fortran, Matlab and other 1-based languages:
+Daily:  (170:175,274:278,1:5,1) from the full array sized (1440,720,5,2)
+Mean:   (170:175,274:278,1:4)   from the full array sized (1440,720,4)
+
+IDL, and other 0-based languages:
+Daily:  (169:174,273:277,0:4,0) from the full array sized (1440,720,5,2)
+Mean:   (169:174,273:277,0:3)   from the full array sized (1440,720,4)
+
+
+
+The binary file contains numbers 0 to 255
+0 - 250 are valid geophysical data.
+The remaining 5 numbers are coded: 
+251 = areas in which no data was processed
+252 = sea ice > 0%
+253 = bad data such as along coastline regions
+254 = regions of no observations
+255 = land
+
+
+These data are for a small section in the 
+Mozambique Channel just west of Madagascar. 
+LL 42.375,-21.625  to  UR 43.625,-20.625
+The array position is related to latitude and longitude by:
+  XLAT= 0.25*ILAT - 90.125
+  XLON= 0.25*ILON -  0.125
+
+All of the following data are listed with longitudinal values in columns
+and latitudinal values as rows.  Therefore, there are six columns and
+five rows per geophysical parameter.
+
+Values follow for Daily, 3-day, Weekly and Monthly maps in that order:
+
+
+
+
+************************Daily****************************************
+Time:  7.10 = fractional hour GMT, NOT local time,  valid data range=0 to 24.0,  255 = land
+       170        171        172        173        174        175     
+      2.40       2.40       2.40       2.40       2.40     255.00 274
+      2.40       2.40       2.40       2.40       2.40     255.00 275
+      2.40       2.40       2.40       2.40       2.40       2.40 276
+      2.40       2.40       2.40       2.40       2.40       2.40 277
+      2.40       2.40       2.40       2.40       2.40       2.40 278
+
+Wind: 255=land, 253=bad data,  251=no wind calculated, other data <=50.0 is 10-meter wind speed  
+    251.00     251.00     253.00     253.00     253.00     255.00
+    251.00     251.00     253.00     253.00     253.00     255.00
+    251.00     251.00     253.00     253.00     253.00     253.00
+    251.00     251.00     251.00     251.00     253.00     253.00
+    251.00     251.00     251.00     251.00     251.00     253.00
+
+Water Vapor:  255=land, 253=bad data, other data <=75 is water vapor (mm)
+    251.00     251.00     253.00     253.00     253.00     255.00
+    251.00     251.00     253.00     253.00     253.00     255.00
+    251.00      68.10     253.00     253.00     253.00     253.00
+    251.00      67.20      65.70      65.40     253.00     253.00
+    251.00     251.00      61.20      63.60      63.00     253.00
+
+Cloud Liquid Water:  255=land,  253=bad data, other data <=2.5 is cloud (mm)
+      1.41       1.35     253.00     253.00     253.00     255.00
+      1.36       1.26     253.00     253.00     253.00     255.00
+      1.47       1.22     253.00     253.00     253.00     253.00
+      1.58       1.35       1.10       0.93     253.00     253.00
+      1.65       1.55       0.82       0.72       0.93     253.00
+
+Rain:  255=land, 253=bad data, other data <= 25 is rain (mm/hr)
+      8.90       8.00     253.00     253.00     253.00     255.00
+      8.20       6.80     253.00     253.00     253.00     255.00
+      9.70       6.40     253.00     253.00     253.00     253.00
+     11.60       8.40       5.00       3.30     253.00     253.00
+     12.60      11.10       2.40       1.70       3.30     253.00
+
+
+
+
+********************** 3-day Means ******************************
+wind speed
+    251.00     251.00     253.00     253.00     253.00     255.00
+    251.00     251.00       9.00     253.00     253.00     255.00
+    251.00     251.00     251.00     251.00     253.00     253.00
+    251.00     251.00     251.00     251.00     253.00     253.00
+    251.00     251.00     251.00     251.00     251.00     253.00
+
+water vapor
+     60.30      61.50     253.00     253.00     253.00     255.00
+     61.20      62.10      62.40     253.00     253.00     255.00
+     62.10      64.50      60.60      60.60     253.00     253.00
+     62.40      63.30      62.40      63.90     253.00     253.00
+     62.70      62.40      61.20      62.70      61.80     253.00
+
+cloud
+      1.09       1.04     253.00     253.00     253.00     255.00
+      1.13       1.03       0.77     253.00     253.00     255.00
+      1.14       0.99       0.82       0.80     253.00     253.00
+      1.16       0.97       0.89       0.82     253.00     253.00
+      1.13       1.10       0.85       0.81       1.14     253.00
+
+rain rate
+      5.60       5.50     253.00     253.00     253.00     255.00
+      6.10       5.60       3.40     253.00     253.00     255.00
+      6.50       5.20       3.60       2.30     253.00     253.00
+      7.30       4.90       4.00       2.90     253.00     253.00
+      7.20       6.40       3.60       3.20       6.00     253.00
+
+ 
+****************** Weekly Means *********************************
+wind speed
+      7.60       8.40     253.00     253.00     253.00     255.00
+      7.00       7.20       8.20     253.00     253.00     255.00
+      7.20       6.60       6.60     251.00     253.00     253.00
+      6.40       6.40       6.60       1.00     253.00     253.00
+      6.00       5.80       5.80       5.40       2.00     253.00
+
+water vapor
+     46.80      48.00     253.00     253.00     253.00     255.00
+     47.10      48.30      51.30     253.00     253.00     255.00
+     47.70      50.70      49.50      60.60     253.00     253.00
+     47.70      51.30      51.00      55.50     253.00     253.00
+     47.70      49.50      50.70      51.90      51.90     253.00
+
+cloud
+      0.65       0.76     253.00     253.00     253.00     255.00
+      0.69       0.66       0.52     253.00     253.00     255.00
+      0.69       0.61       0.53       0.80     253.00     253.00
+      0.70       0.60       0.58       0.58     253.00     253.00
+      0.69       0.67       0.55       0.52       0.82     253.00
+
+rain rate
+      3.10       3.80     253.00     253.00     253.00     255.00
+      3.40       3.20       1.90     253.00     253.00     255.00
+      3.60       2.90       2.00       2.30     253.00     253.00
+      4.10       2.80       2.40       2.00     253.00     253.00
+      4.10       3.70       2.20       2.20       4.60     253.00
+
+
+
+********************** Monthly Means ****************************
+ wind speed
+wind speed
+      3.80       4.20       3.40     253.00     253.00     255.00
+      3.60       4.00       4.20     253.00     253.00     255.00
+      3.80       3.80       4.00     251.00     253.00     253.00
+      3.60       3.60       4.00       3.20     253.00       7.80
+      3.40       3.60       3.80       3.80       3.60       7.80
+
+water vapor
+     50.10      50.40      48.30     253.00     253.00     255.00
+     50.40      50.70      51.00     253.00     253.00     255.00
+     51.00      51.30      51.00      60.60     253.00     253.00
+     51.00      51.60      52.20      52.80     253.00      59.10
+     51.30      51.60      52.20      52.80      53.70      59.10
+
+cloud
+      0.20       0.18       0.00     253.00     253.00     255.00
+      0.19       0.17       0.12     253.00     253.00     255.00
+      0.19       0.16       0.13       0.80     253.00     253.00
+      0.19       0.16       0.15       0.11     253.00       0.06
+      0.21       0.19       0.15       0.15       0.28       0.06
+
+rain rate
+      0.90       0.80       0.00     253.00     253.00     255.00
+      0.90       0.80       0.40     253.00     253.00     255.00
+      0.90       0.70       0.50       2.30     253.00     253.00
+      1.00       0.70       0.60       0.40     253.00       0.00
+      1.10       0.90       0.50       0.60       1.50       0.00
+
+
+These data have been verified many times.  If you have different 
+values please check your program first before contacting RSS.
+
+If you continue to have trouble, contact RSS support:
+ htto:\\www.remss.com\support
+
++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+
+
+
+
+
+

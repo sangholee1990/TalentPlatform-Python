@@ -1,7 +1,9 @@
 # from bytemaps import sys
 # from bytemaps import Dataset
 # from bytemaps import Verify
-from remssHelper.ssmis.bytemaps import *
+from remssHelper.ssmis.bytemaps import sys
+from remssHelper.ssmis.bytemaps import Dataset
+from remssHelper.ssmis.bytemaps import Verify
 
 class SSMISdaily(Dataset):
     """ Read daily SSMIS bytemaps. """
@@ -152,4 +154,4 @@ if __name__ == '__main__':
     print('')
 
     print('all tests completed successfully')
-    print ('')
+    print('')

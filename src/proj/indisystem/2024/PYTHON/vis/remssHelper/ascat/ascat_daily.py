@@ -5,7 +5,13 @@
 # from bytemaps import ibits
 # from bytemaps import is_bad
 # from bytemaps import where
-from remssHelper.ascat.bytemaps import *
+from remssHelper.ascat.bytemaps import sys
+from remssHelper.ascat.bytemaps import Dataset
+from remssHelper.ascat.bytemaps import Verify
+from remssHelper.ascat.bytemaps import get_data
+from remssHelper.ascat.bytemaps import ibits
+from remssHelper.ascat.bytemaps import is_bad
+from remssHelper.ascat.bytemaps import where
 
 class ASCATDaily(Dataset):
     """ Read daily ASCAT bytemaps. """

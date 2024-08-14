@@ -1,0 +1,65 @@
+This verification file is for ASCAT Version 02.1 data, C-2015 GMF (released April 2016)
+
+Verify that your daily file read routine is working correctly 
+by writing out the mingmt, windspd, winddir, scatflag, radrain, and sosmap
+values for this longitude, latitude subset: 
+	lon 170:175  (6 cells)
+	lat 274:278  (5 cells)
+	iasc = 2     (evening, ascending passes)
+	
+!!!these values assume a 1-based system such as fortran.
+If you have zero-based software, use lon 169:174 and lat 273:277.
+file: ascat_20071022v02.1
+
+The results for each latitude and longitude are:
+ilat  ilon mingmt   wspd   wdir	   scatflag  radflag    sos
+  170  274 1164.   12.00  348.00     0       0.00       0.14
+  171  274 1164.   12.00  352.50     0       0.00       0.16
+  172  274 1164.   12.00  357.00     0       0.00       0.12
+  173  274 1164.   12.20  358.50     0    -999.00       0.12
+  174  274 1164.   12.20  358.50     0    -999.00       0.12
+  175  274 1530. -555.00 -555.00  -555    -555.00    -555.00
+  170  275 1164.   11.40  352.50     0       0.00       0.10
+  171  275 1164.   11.60  354.00     0       0.00       0.18
+  172  275 1164.   11.20  358.50     0       0.00       0.22
+  173  275 1164.   11.00    3.00     0       0.00       0.26
+  174  275 1164.   10.60    7.50     0       0.00       0.24
+  175  275 1530. -555.00 -555.00  -555    -555.00    -555.00
+  170  276 1164.   10.80  355.50     0       0.00       0.08
+  171  276 1164.   10.80  357.00     0       0.00       0.12
+  172  276 1164.   10.60    1.50     0       0.00       0.20
+  173  276 1164.   10.40    6.00     0       0.00       0.26
+  174  276 1164.    9.80   10.50     0    -999.00       0.28
+  175  276 1164.    9.80   10.50     0    -999.00       0.28
+  170  277 1164.   10.40  354.00     0       0.00       0.12
+  171  277 1164.   10.20  358.50     0       0.00       0.14
+  172  277 1164.   10.00    3.00     0       0.00       0.16
+  173  277 1164.   10.20    6.00     0       0.00       0.20
+  174  277 1164.    9.80   10.50     0       0.00       0.28
+  175  277 1164.    9.20   13.50     0       0.00       0.30
+  170  278 1164.   10.00  355.50     0       0.00       0.14
+  171  278 1164.    9.80  357.00     0       0.00       0.20
+  172  278 1164.    9.60    0.00     0       0.00       0.18
+  173  278 1164.    9.80    4.50     0       0.00       0.14
+  174  278 1164.    9.80   12.00     0       0.00       0.24
+  175  278 1164.    9.60   18.00     0    -999.00       0.16
+
+ 
+This verification region is located west of 
+Madagascar and is shown in the ascat_v02.1_daily_verify.png file.  
+The pixels listed above are shown in the red rectangle.
+The first set of data in this list is located in 
+the bottom left of the red rectangle.
+
+The time is minute of day GMT (mingmt) and has 
+valid values between 0 and 1440 (0 - 250 binary
+value * 6. scale factor).  A time value greater than 
+1440 is representative of bad or missing data.  
+A time value of 1530 is land.
+All read routines default missing or bad data to -999.0 
+and land to -555.0
+
+
+If you have any problems with any of the 
+read routines contact RSS support:
+http://www.remss.com/support

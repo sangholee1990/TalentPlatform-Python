@@ -165,15 +165,15 @@ if __name__ == '__main__':
 
 
 
-    # read uncertainties:    
+    # read uncertainties:
     ssmi = SSMISuncertainty('f17_20140221v7.unc.gz')
     if not ssmi.variables: sys.exit('problem reading file')
-    
+
     # verify daily:
     verify = UncVerify(ssmi)
-    if verify.success: print 'successful verification for uncertainty file'
+    if verify.success: print('successful verification for uncertainty file')
     else: sys.exit('verification failed for daily')
-    print
+    print()
 
-    print 'all tests completed successfully'
+    print('all tests completed successfully')
     

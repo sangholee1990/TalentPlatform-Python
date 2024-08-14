@@ -1,7 +1,9 @@
 # from bytemaps import sys
 # from bytemaps import Dataset
 # from bytemaps import Verify
-from remssHelper.gmi.bytemaps import *
+from remssHelper.gmi.bytemaps import sys
+from remssHelper.gmi.bytemaps import Dataset
+from remssHelper.gmi.bytemaps import Verify
 
 class GMIdaily(Dataset):
     """ Read daily GMI bytemaps. """
@@ -162,12 +164,12 @@ if __name__ == '__main__':
     # read daily:
     gmi = GMIdaily('f35_20140519v8.2.gz')
     if not gmi.variables: sys.exit('problem reading file')
-    
-    # verify daily:
-    verify = DailyVerify(gmi)    
-    if verify.success: print 'successful verification for daily'
-    else: sys.exit('verification failed for daily')
-    print
 
-    print 'all tests completed successfully'
+    # verify daily:
+    verify = DailyVerify(gmi)
+    if verify.success: print('successful verification for daily')
+    else: sys.exit('verification failed for daily')
+    print()
+
+    print('all tests completed successfully')
     

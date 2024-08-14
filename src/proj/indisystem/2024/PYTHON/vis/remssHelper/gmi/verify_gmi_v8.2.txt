@@ -1,0 +1,257 @@
+Verification file for Remote Sensing Systems' GMI (F35) binary data files
+
+
+PLEASE read any README.txt files in this and other previous directories
+prior to using this file.
+
+The following data can be used to determine if your adapted processing
+routine is correctly reading the RSS GMI binary data file.
+
+To accurately compare these data, you need to download the respective file to check:
+
+Time              Directory                        File
+daily passes      gmi/bmaps_v0N.N/y2014/m05/       F35_20140519vN.N.gz
+3-day mean        gmi/bmaps_v0N.N/y2014/m05/       F35_20140519vN.N_d3d.gz
+weekly mean       gmi/bmaps_v0N.N/weeks/           F35_20140524vN.N.gz 
+monthly mean      gmi/bmaps_v0N.N/y2014/m05/       F35_201405vN.N.gz
+
+Each of these F35 files contains GMI data for:
+the day May 19th, 2014 (daily)
+the days May 17th, 18th and 19th, 2014 (3-day mean)
+May 18th (Sunday) to May 24th (Saturday), 2014 (weekly mean) 
+or the month of May 2014 (monthly mean) 
+
+Once you have obtained the correct file, read it with your program and 
+write out the data for the following subsets:
+
+Fortran, Matlab and other 1-based languages:
+Daily:  (170:175,274:278,1:7,1) from the full array sized (1440,720,7,2)
+Mean:   (170:175,274:278,1:6)   from the full array sized (1440,720,6)
+
+IDL, and other 0-based languages:
+Daily:  (169:174,273:277,0:6,0) from the full array sized (1440,720,7,2)
+Mean:   (169:174,273:277,0:5)   from the full array sized (1440,720,6)
+
+
+The binary file contains numbers 0 to 255
+0 - 250 are valid geophysical data.
+The remaining 5 numbers are coded: 
+251 = areas in which no data was processed
+252 = sea ice > 0%
+253 = bad data such as along coastline regions
+254 = regions of no observations
+255 = land
+
+These data are for a small section in the 
+Mozambique Channel just west of Madagascar. 
+LL 42.375,-21.625  to  UR 43.625,-20.625
+The array position is related to latitude and longitude by:
+  XLAT= 0.25*ILAT - 90.125
+  XLON= 0.25*ILON -  0.125
+
+All of the following data are listed with longitudinal values in columns
+and latitudinal values as rows.  Therefore, there are six columns and
+five rows per geophysical parameter.
+
+
+Values follow for Daily, 3-day, Weekly and Monthly maps in that order:
+
+gmi Daily Data
+File F35_20140519v8.2.gz
+***************daily ********************
+
+gmt time, valid data range 0 to 1440 (in minutes)
+      14.10      14.10      14.10      14.10      14.10     255.00     273
+      14.10      14.10      14.10      14.10      14.10     255.00     274
+      14.10      14.10      14.10      14.10      14.10      14.10     275
+      14.10      14.10      14.10      14.10      14.10      14.10     276
+      14.10      14.10      14.10      14.10      14.10      14.10     277
+
+ sea surface temperature, valid data range -3 to 34.5 (degree C)
+     27.75      28.05      28.05      28.05     253.00     255.00
+     28.50      27.60      28.20      27.15     251.00     255.00
+     28.20      28.20      27.90      27.45      28.04     251.00
+     27.90      28.20      28.20      28.35      27.90      27.60
+     28.20      27.60      27.59      28.50      28.20      28.20
+     
+ wind speed low frequency, valid data range 0 to 50.0 (meters/second)
+     12.60      12.80      13.00      12.80     253.00     255.00
+     12.60      12.80      12.60      12.20     251.00     255.00
+     12.00      12.40      12.20      11.60      10.60     251.00
+     11.60      12.00      12.00      11.60      10.80      10.20
+     11.00      11.20      11.40      11.20      10.60      10.20
+
+ wind speed medium frequency, valid data range 0 to 50.0 (meters/second)
+     12.40      12.20      12.60      12.00     253.00     255.00
+     12.20      12.20      12.20      11.20      10.00     255.00
+     11.60      11.60      11.80      11.20      10.00       8.60
+     11.40      11.60      12.00      11.40      10.60       9.60
+     10.80      11.00      11.00      10.80      10.40       9.80
+
+ water vapor, valid data range 0 to 75 (millimeters)
+      15.90      16.80      16.50      16.50     253.00     255.00
+      16.20      16.80      16.50      16.50      16.80     255.00
+      15.90      16.80      16.50      16.80      16.80      17.40
+      16.20      16.50      16.50      16.80      16.80      17.10
+      16.50      16.50      16.50      16.50      16.80      17.70
+
+ cloud, valid data range -0.05 to 2.45 (millimeters)
+      -0.01      -0.01      -0.01      -0.01     253.00     255.00
+      -0.01      -0.01      -0.01      -0.01      -0.01     255.00
+      -0.01      -0.01      -0.01      -0.01      -0.01      -0.01
+      -0.01      -0.01      -0.01      -0.01      -0.01      -0.01
+       0.00       0.00       0.00      -0.01      -0.01      -0.01
+
+ rain rate, valid data range 0 to 25 (millimeters/hour)
+       0.00       0.00       0.00       0.00     253.00     255.00
+       0.00       0.00       0.00       0.00       0.00     255.00
+       0.00       0.00       0.00       0.00       0.00       0.00
+       0.00       0.00       0.00       0.00       0.00       0.00
+       0.00       0.00       0.00       0.00       0.00       0.00
+
+
+gmi 3-day Data
+File F35_20140519v8.2_d3d.gz    
+***********3-day******************
+                                                           
+ sea surface temperature, valid data range -3 to 34.5 (degree C)
+      27.60      27.75      27.75      28.05     253.00     255.00
+      28.05      27.60      28.20      27.75     251.00     255.00
+      27.90      28.05      27.60      27.75      28.50     251.00
+      27.30      27.75      27.75      28.05      28.05      27.90
+      27.60      27.45      27.60      28.05      28.05      28.5
+
+ wind speed low frequency, valid data range 0 to 50.0 (meters/second)
+       9.20       9.80      10.20      10.40     253.00     255.00
+       9.20       9.80      10.00       9.60     251.00     255.00
+       8.80       9.40       9.60       9.00       8.80     251.00
+       9.60       9.00       9.20       8.60       8.20       8.40
+       9.00       8.60       8.60       8.40       8.00       7.60
+
+ wind speed medium frequency, valid data range 0 to 50.0 (meters/second)
+       9.20       9.20       9.80       9.20     253.00     255.00
+       9.00       9.80       9.80       8.60       7.40     255.00
+       8.80       9.20       9.20       8.60       7.40       6.40
+       9.60       9.00       9.20       8.40       7.80       7.20
+       9.00       8.60       8.80       8.00       7.80       6.80
+
+ water vapor, valid data range 0 to 75 (millimeters)
+      19.20      18.59      17.70      17.10     253.00     255.00
+      18.90      18.59      17.70      17.09      16.80     255.00
+      18.90      18.60      18.00      17.09      16.50      16.20
+      22.20      18.60      17.70      16.80      16.50      16.20
+      22.20      18.90      18.00      17.10      16.20      16.20
+
+ cloud, valid data range -0.05 to 2.45 (millimeters)
+       0.02       0.00       0.00      -0.01     253.00     255.00
+       0.01       0.00       0.00      -0.01      -0.01     255.00
+       0.01       0.00       0.00      -0.01      -0.01      -0.01
+       0.01       0.01       0.00      -0.01      -0.01      -0.01
+       0.01       0.01       0.00      -0.01      -0.01      -0.01
+
+ rain rate, valid data range 0 to 25 (millimeters/hour)
+       0.00       0.00       0.00       0.00     253.00     255.00
+       0.00       0.00       0.00       0.00       0.00     255.00
+       0.00       0.00       0.00       0.00       0.00       0.00
+       0.00       0.00       0.00       0.00       0.00       0.00
+       0.00       0.00       0.00       0.00       0.00       0.00
+       
+
+gmi Weekly Data
+File F35_20140524v8.2.gz
+***********weekly******************
+                                       
+ sea surface temperature, valid data range -3 to 34.5 (degree C)
+      27.15      27.00      27.00      27.15     251.00     255.00
+      27.45      27.00      26.85      27.15     251.00     255.00
+      27.45      27.45      27.15      27.15      27.45     251.00
+      27.15      27.45      27.30      27.45      27.15      27.30
+      27.00      27.15      27.45      27.60      27.45      27.30
+
+ wind speed low frequency, valid data range 0 to 50.0 (meters/second)
+       8.40       8.20       7.80       7.60     251.00     255.00
+       8.60       8.00       7.40       7.40     251.00     255.00
+       8.20       8.00       7.60       7.20       7.20     251.00
+       8.80       8.00       7.80       7.60       7.00       7.00
+       8.60       8.00       8.00       7.80       7.20       7.00
+
+ wind speed medium frequency, valid data range 0 to 50.0 (meters/second)
+       8.40       8.20       7.60       6.80       6.20     255.00
+       8.60       8.00       7.40       6.80       6.60     255.00
+       8.20       7.60       7.40       6.80       6.40       6.20
+       8.60       7.80       7.80       7.40       6.80       6.40
+       8.40       8.00       7.80       7.60       7.20       6.60
+
+ water vapor, valid data range 0 to 75 (millimeters)
+      21.00      21.30      21.30      21.59      25.50     255.00
+      21.60      21.90      21.90      21.90      21.90     255.00
+      22.50      22.50      22.50      22.20      21.90      21.90
+      24.00      23.40      23.10      22.50      21.90      22.50
+      24.60      24.00      23.70      23.40      22.20      23.09
+
+ cloud, valid data range -0.05 to 2.45 (millimeters)
+       0.00       0.00       0.00       0.00      -0.01     255.00
+       0.00       0.00       0.00       0.00       0.00     255.00
+       0.00       0.00       0.00       0.00       0.00      -0.01
+       0.00       0.00       0.00       0.00       0.00       0.00
+       0.01       0.01       0.00       0.00       0.00       0.00
+
+ rain rate, valid data range 0 to 25 (millimeters/hour)
+       0.00       0.00       0.00       0.00       0.00     255.00
+       0.00       0.00       0.00       0.00       0.00     255.00
+       0.00       0.00       0.00       0.00       0.00       0.00
+       0.00       0.00       0.00       0.00       0.00       0.00
+       0.00       0.00       0.00       0.00       0.00       0.00
+
+
+gmi Monthly Data
+File F35_201405v8.2.gz 
+***********monthly******************
+                                       
+ sea surface temperature, valid data range -3 to 34.5 (degree C)
+      27.45      27.45      27.60      28.04     251.00     255.00
+      27.60      27.45      27.60      27.90     251.00     255.00
+      27.60      27.75      27.60      27.75      28.05     251.00
+      27.60      27.60      27.75      27.75      28.05      28.35
+      27.45      27.75      27.75      27.75      27.90      28.20
+
+ wind speed low frequency, valid data range 0 to 50.0 (meters/second)
+       6.20       6.20       6.40       6.80     251.00     255.00
+       6.40       6.40       6.00       6.60     251.00     255.00
+       6.20       6.40       6.60       6.60       6.80     251.00
+       6.40       6.40       6.60       6.60       6.60       7.00
+       6.60       6.40       6.60       6.60       6.40       6.60
+
+ wind speed medium frequency, valid data range 0 to 50.0 (meters/second)
+       6.20       6.00       6.20       6.00       5.60     255.00
+       6.40       6.20       5.80       6.20       6.00     255.00
+       6.20       6.20       6.20       6.20       6.20       6.00
+       6.20       6.20       6.20       6.20       6.40       6.20
+       6.40       6.40       6.40       6.20       6.20       6.00
+
+ water vapor, valid data range 0 to 75 (millimeters)
+      24.30      24.00      24.00      24.30      25.50     255.00
+      24.30      24.00      24.30      24.59      24.30     255.00
+      24.60      24.60      24.60      24.30      23.70      23.70
+      25.20      25.20      24.90      24.00      24.00      23.70
+      25.20      25.20      25.20      24.30      24.00      24.60
+
+ cloud, valid data range -0.05 to 2.45 (millimeters)
+       0.01       0.01       0.01       0.00       0.00     255.00
+       0.02       0.01       0.01       0.00       0.02     255.00
+       0.01       0.01       0.00       0.00       0.00      -0.01
+       0.01       0.02       0.01       0.00       0.00       0.00
+       0.01       0.01       0.00       0.00       0.00       0.00
+
+ rain rate, valid data range 0 to 25 (millimeters/hour)
+       0.00       0.00       0.00       0.00       0.00     255.00
+       0.00       0.00       0.00       0.00       0.00     255.00
+       0.00       0.00       0.00       0.00       0.00       0.00
+       0.00       0.00       0.00       0.00       0.00       0.00
+       0.00       0.00       0.00       0.00       0.00       0.00
+       
+       
+If you have different values, please check your program first before contacting RSS.
+
+If you continue to have trouble, contact RSS support:
+http://www.remss.com/support

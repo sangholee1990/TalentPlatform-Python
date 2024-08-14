@@ -8,7 +8,7 @@ import sys
 from collections import namedtuple
 from collections import OrderedDict
 from operator import mul
-
+from functools import reduce
    
 class Dataset:
     """ Base class for bytemap datasets. """
@@ -298,7 +298,7 @@ def verify(dataset,verify):
             diff = abs(ob.val - readval)
             match = diff < pow(10,ob.ndp)
             if not match: success = False
-            print ob.lon, ob.lat, var, ob.val, readval, diff, match
+            print(ob.lon, ob.lat, var, ob.val, readval, diff, match)
     return success
 
 def zerobased(indx): return indx-1
@@ -306,10 +306,10 @@ def zerobased(indx): return indx-1
 
 if __name__ == '__main__':   
     link = 'http://www.remss.com/terms_of_data_use/terms_of_data_use.html'
-    print 'Remote Sensing Systems'
-    print '444 Tenth Street, Suite 200'
-    print 'Santa Rosa, CA 95401, USA'
-    print 'FTP: ftp://ftp.ssmi.com'
-    print 'Web: http://www.remss.com'
-    print 'Support: support@remss.com'
-    print 'Terms of Data Use: '+link
+    print('Remote Sensing Systems')
+    print('444 Tenth Street, Suite 200')
+    print('Santa Rosa, CA 95401, USA')
+    print('FTP: ftp://ftp.ssmi.com')
+    print('Web: http://www.remss.com')
+    print('Support: support@remss.com')
+    print('Terms of Data Use: '+link)

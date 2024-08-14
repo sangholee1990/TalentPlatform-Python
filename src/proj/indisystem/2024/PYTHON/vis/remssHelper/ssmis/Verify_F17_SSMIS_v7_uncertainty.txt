@@ -1,0 +1,145 @@
+Verification file for Remote Sensing Systems' F17 SSMIS Uncertainty binary data files  
+version 7 data released May 2015).
+
+
+PLEASE read any README.txt files in this and the previous directories prior to using this file.
+
+The following data can be used to determine if your adapted processing routine is correctly 
+reading the RSS SSMIS binary data and the associated uncertainty file.
+
+To accurately compare these data, you need to download the respective file to check:
+
+Directory                        		File
+F17\bmaps_v07_uncertainty\Y2014\M02\    F17_20140221v7.unc.gz
+F17\bmaps_v07\Y2014\M02\				F17_20140221v7.gz
+
+
+The uncertainty file contains uncertainty data for F17 SSMI wind, vapor, cloud and rain (in that order) 
+on the day February 21st, 2014.  
+
+The associated geophysical retrieval file containing the wind, vapor, cloud and rain values 
+is located at F17\bmaps_v07\Y2014\M02\F17_20140221v7.gz
+
+Once you have obtained the correct files, read them with the program of your choice (IDL, Matlab, Fortran, Python, C++)
+and write out the data for the following subset:
+
+Fortran, Matlab and other 1-based languages:
+Verification Data:  (170:175,274:278,1:5,1) from the full array sized (1440,720,5,2)
+
+IDL, and other 0-based languages:
+Verification Data:  (169:174,273:277,0:4,0) from the full array sized (1440,720,5,2)
+
+
+
+The binary file contains numbers 0 to 255
+0 - 250 are valid geophysical data.
+The remaining 5 numbers are coded: 
+251 = areas in which no data was processed
+252 = sea ice > 0%
+253 = bad data such as along coastline regions
+254 = regions of no observations
+255 = land
+
+
+These data are for a small section in the 
+Mozambique Channel just west of Madagascar. 
+LL 42.375,-21.625  to  UR 43.625,-20.625
+The array position is related to latitude and longitude by:
+  XLAT= 0.25*ILAT - 90.125
+  XLON= 0.25*ILON -  0.125
+
+All of the following data are listed with longitudinal values in columns
+and latitudinal values as rows.  Therefore, there are six columns and
+five rows per geophysical parameter.
+
+Values follow for the 5 parameters:
+
+************************Daily****************************************
+Time:  7.10 = fractional hour GMT, NOT local time,  valid data range=0 to 24.0,  255 = land
+Time values are the same in both the data files and the uncertainty files
+       170        171        172        173        174        175     
+      2.60       2.60       2.60       2.60       2.60     255.00 	274
+      2.60       2.60       2.60       2.60       2.60     255.00 	275
+      2.60       2.60       2.60       2.60       2.60       2.60	276
+      2.60       2.60       2.60       2.60       2.60       2.60 	277
+      2.60       2.60       2.60       2.60       2.60       2.60 	278
+      
+
+Wind: 255=land,253=bad data,251=no wind, other data <=50.0 is 10-meter wind speed, uncertainties range [0.,2.5 m/s] 
+       5.20     253.00     253.00     253.00     253.00     255.00
+       5.20       5.00       5.00     253.00     253.00     255.00
+       5.20       5.20       5.00     253.00     253.00     253.00
+       5.20       5.20       5.40     253.00     253.00     253.00
+       5.40       5.20       5.00       5.80     251.00     253.00
+    
+Wind Uncertainties:
+       0.29     253.00     253.00     253.00     253.00     255.00
+       0.30       0.30       0.30     253.00     253.00     255.00
+       0.30       0.31       0.30     253.00     253.00     253.00
+       0.30       0.31       0.31     253.00     253.00     253.00
+       0.30       0.30       0.30       0.32     251.00     253.00
+
+
+
+Water Vapor:  255=land, 253=bad data, other data <=75 is water vapor (mm), uncertainties range [0.,2.5 mm]
+      50.10     253.00     253.00     253.00     253.00     255.00
+      50.70      52.80      54.30     253.00     253.00     255.00
+      52.80      54.00      55.20     253.00     253.00     253.00
+      53.40      54.90      56.10     253.00     253.00     253.00
+      52.20      54.60      55.20      57.60      60.00     253.00  
+      
+Vapor Uncertainties:
+       0.34     253.00     253.00     253.00     253.00     255.00
+       0.34       0.35       0.36     253.00     253.00     255.00
+       0.35       0.36       0.36     253.00     253.00     253.00
+       0.35       0.36       0.37     253.00     253.00     253.00
+       0.35       0.36       0.36       0.40       0.44     253.00
+
+
+Cloud Liquid Water:  255=land,  253=bad data, other data <=2.5 is cloud (mm), uncertainties range [0.,0.25 mm]
+       0.04     253.00     253.00     253.00     253.00     255.00
+       0.06       0.07       0.07     253.00     253.00     255.00
+       0.07       0.08       0.10     253.00     253.00     253.00
+       0.07       0.08       0.10     253.00     253.00     253.00
+       0.04       0.08       0.05       0.13       0.24     253.00
+
+Cloud Uncertainties:
+       0.01     253.00     253.00     253.00     253.00     255.00
+       0.01       0.01       0.01     253.00     253.00     255.00
+       0.01       0.01       0.01     253.00     253.00     253.00
+       0.01       0.01       0.01     253.00     253.00     253.00
+       0.01       0.01       0.01       0.01       0.01     253.00      
+
+
+
+
+Rain:  255=land, 253=bad data, other data <= 25 is rain (mm/hr), uncertainties range [0.,0.5 mm/hr]
+       0.00     253.00     253.00     253.00     253.00     255.00
+       0.00       0.00       0.00     253.00     253.00     255.00
+       0.00       0.00       0.00     253.00     253.00     253.00
+       0.00       0.00       0.00     253.00     253.00     253.00
+       0.00       0.00       0.00       0.00       0.00     253.00
+
+Rain Uncertainties:
+       0.00     253.00     253.00     253.00     253.00     255.00
+       0.00       0.00       0.00     253.00     253.00     255.00
+       0.00       0.00       0.00     253.00     253.00     253.00
+       0.00       0.00       0.00     253.00     253.00     253.00
+       0.00       0.00       0.00       0.00       0.01     253.00     
+
+
+
+
+
+These data have been verified many times.  If you have different 
+values please check your program first before contacting RSS.
+
+If you continue to have trouble, contact RSS support:
+ http://www.remss.com/support
++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+
+
+
+
+
+
