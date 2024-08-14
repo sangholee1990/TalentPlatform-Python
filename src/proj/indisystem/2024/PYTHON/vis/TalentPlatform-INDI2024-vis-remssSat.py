@@ -55,7 +55,7 @@ from remssHelper.ascat.ascat_daily import ASCATDaily
 # =================================================
 warnings.filterwarnings("ignore")
 
-plt.rc('font', family='Malgun Gothic')
+# plt.rc('font', family='Malgun Gothic')
 plt.rc('axes', unicode_minus=False)
 # sns.set(font="Malgun Gothic", rc={"axes.unicode_minus": False}, style='darkgrid')
 
@@ -176,121 +176,320 @@ def initArgument(globalVar, inParams):
 
     return globalVar
 
+@retry(stop_max_attempt_number=10)
+def visSSMIS(modelInfo, dtDateInfo):
+    try:
+        procInfo = mp.current_process()
 
-# class SSMISdaily(Dataset):
-#     """ Read daily SSMIS bytemaps. """
-#     """
-#     Public data:
-#         filename = name of data file
-#         missing = fill value used for missing data;
-#                   if None, then fill with byte codes (251-255)
-#         dimensions = dictionary of dimensions for each coordinate
-#         variables = dictionary of data for each variable
-#     """
-# 
-#     def __init__(self, filename, missing=None):
-#         """
-#         Required arguments:
-#             filename = name of data file to be read (string)
-# 
-#         Optional arguments:
-#             missing = fill value for missing data,
-#                       default is the value used in verify file
-#         """
-#         self.filename = filename
-#         self.missing = missing
-#         Dataset.__init__(self)
-# 
-#     # Dataset:
-# 
-#     def _attributes(self):
-#         return ['coordinates', 'long_name', 'units', 'valid_min', 'valid_max']
-# 
-#     def _coordinates(self):
-#         return ('orbit_segment', 'variable', 'latitude', 'longitude')
-# 
-#     def _shape(self):
-#         return (2, 5, 720, 1440)
-# 
-#     def _variables(self):
-#         return ['time', 'wspd_mf', 'vapor', 'cloud', 'rain',
-#                 'longitude', 'latitude', 'land', 'ice', 'nodata']
-# 
-#         # _default_get():
-# 
-#     def _get_index(self, var):
-#         return {'time': 0,
-#                 'wspd_mf': 1,
-#                 'vapor': 2,
-#                 'cloud': 3,
-#                 'rain': 4,
-#                 }[var]
-# 
-#     def _get_scale(self, var):
-#         return {'time': 0.1,
-#                 'wspd_mf': 0.2,
-#                 'vapor': 0.3,
-#                 'cloud': 0.01,
-#                 'rain': 0.1,
-#                 }[var]
-# 
-#     def _get_offset(self, var):
-#         return {'cloud': -0.05,
-#                 }[var]
-# 
-#     # _get_ attributes:
-# 
-#     def _get_long_name(self, var):
-#         return {'time': 'Fractional Hour GMT',
-#                 'wspd_mf': '10m Surface Wind Speed',
-#                 'vapor': 'Columnar Water Vapor',
-#                 'cloud': 'Cloud Liquid Water',
-#                 'rain': 'Surface Rain Rate',
-#                 'longitude': 'Grid Cell Center Longitude',
-#                 'latitude': 'Grid Cell Center Latitude',
-#                 'land': 'Is this land?',
-#                 'ice': 'Is this ice?',
-#                 'nodata': 'Is there no data?',
-#                 }[var]
-# 
-#     def _get_units(self, var):
-#         return {'time': 'Fractional Hour GMT',
-#                 'wspd_mf': 'm/s',
-#                 'vapor': 'mm',
-#                 'cloud': 'mm',
-#                 'rain': 'mm/hr',
-#                 'longitude': 'degrees east',
-#                 'latitude': 'degrees north',
-#                 'land': 'True or False',
-#                 'ice': 'True or False',
-#                 'nodata': 'True or False',
-#                 }[var]
-# 
-#     def _get_valid_min(self, var):
-#         return {'time': 0.0,
-#                 'wspd_mf': 0.0,
-#                 'vapor': 0.0,
-#                 'cloud': -0.05,
-#                 'rain': 0.0,
-#                 'longitude': 0.0,
-#                 'latitude': -90.0,
-#                 'land': False,
-#                 'ice': False,
-#                 'nodata': False,
-#                 }[var]
-# 
-#     def _get_valid_max(self, var):
-#         return {'time': 24.0,
-#                 'wspd_mf': 50.0,
-#                 'vapor': 75.0,
-#                 'cloud': 2.45,
-#                 'rain': 25.0,
-#                 'longitude': 360.0,
-#                 'latitude': 90.0,
-#                 'land': True,
-#                 'ice': True,
-#                 'nodata': True,
-#                 }[var]
+        inpFile = dtDateInfo.strftime(modelInfo['fileInfo'])
+        fileList = sorted(glob.glob(inpFile))
+        if len(fileList) < 1: return
+
+        for fileInfo in fileList:
+            data = SSMISdaily(fileInfo)
+
+            dim = data.dimensions
+            var = data.variables
+            dataL1 = xr.Dataset(
+                coords={
+                    'orbit': np.arange(dim['orbit_segment'])
+                    , 'lat': var['latitude']
+                    , 'lon': var['longitude']
+                }
+            )
+
+            for key, val in var.items():
+                if re.search('longitude|latitude', key, re.IGNORECASE): continue
+                # Time:  7.10 = fractional hour GMT, NOT local time,  valid data range=0 to 24.0,  255 = land
+                # Wind: 255=land, 253=bad data,  251=no wind calculated, other data <=50.0 is 10-meter wind speed
+                # Water Vapor:  255=land, 253=bad data, other data <=75 is water vapor (mm)
+                # Cloud Liquid Water:  255=land,  253=bad data, other data <=2.5 is cloud (mm)
+                # Rain:  255=land, 253=bad data, other data <= 25 is rain (mm/hr)
+                if re.search('time', key, re.IGNORECASE):
+                    val2 = xr.where((0 <= val) & (val <= 24), val, np.nan)
+                elif re.search('wspd_mf', key, re.IGNORECASE):
+                    val2 = xr.where((val <= 50), val, np.nan)
+                elif re.search('vapor', key, re.IGNORECASE):
+                    val2 = xr.where((val <= 75), val, np.nan)
+                elif re.search('cloud', key, re.IGNORECASE):
+                    val2 = xr.where((val <= 2.5), val, np.nan)
+                elif re.search('rain', key, re.IGNORECASE):
+                    val2 = xr.where((val <= 25), val, np.nan)
+                else:
+                    val2 = val
+
+                try:
+                    dataL1[key] = (('orbit', 'lat', 'lon'), (val2))
+                except Exception as e:
+                    pass
+
+            # NetCDF 저장
+            fileName, fileExt = os.path.splitext(fileInfo)
+            procFile = fileInfo.replace(fileExt, '.nc')
+            if re.search('.gz', fileExt, re.IGNORECASE) and not os.path.isfile(procFile):
+                os.makedirs(os.path.dirname(procFile), exist_ok=True)
+                dataL1.to_netcdf(procFile)
+                log.info(f'[CHECK] procFile : {procFile}')
+
+            # 영상 생산
+            for i, orgVar in enumerate(modelInfo['orgVar']):
+                newVar = modelInfo['newVar'][i]
+
+                saveImg = dtDateInfo.strftime(modelInfo['figInfo']).format(newVar)
+                os.makedirs(os.path.dirname(saveImg), exist_ok=True)
+
+                meanData = dataL1[orgVar].mean(dim=['orbit'])
+                meanData.plot()
+
+                plt.savefig(saveImg, dpi=600, bbox_inches='tight', transparent=False)
+                plt.close()
+                log.info(f'[CHECK] saveImg : {saveImg}')
+
+            log.info(f'[END] visSSMIS : {dtDateInfo} / pid : {procInfo.pid}')
+
+    except Exception as e:
+        log.error(f'Exception : {str(e)}')
+        raise e
+
+@retry(stop_max_attempt_number=10)
+def visAMSR2(modelInfo, dtDateInfo):
+    try:
+        procInfo = mp.current_process()
+
+        inpFile = dtDateInfo.strftime(modelInfo['fileInfo'])
+        fileList = sorted(glob.glob(inpFile))
+        if len(fileList) < 1: return
+
+        for fileInfo in fileList:
+
+            data = xr.open_dataset(fileInfo)
+            dataL1 = data
+
+            # 영상 생산
+            for i, orgVar in enumerate(modelInfo['orgVar']):
+                newVar = modelInfo['newVar'][i]
+
+                saveImg = dtDateInfo.strftime(modelInfo['figInfo']).format(newVar)
+                os.makedirs(os.path.dirname(saveImg), exist_ok=True)
+
+                meanData = dataL1[orgVar].mean(dim=['pass'])
+                meanData.plot()
+
+                plt.savefig(saveImg, dpi=600, bbox_inches='tight', transparent=False)
+                plt.close()
+                log.info(f'[CHECK] saveImg : {saveImg}')
+
+            log.info(f'[END] visAMSR2 : {dtDateInfo} / pid : {procInfo.pid}')
+
+    except Exception as e:
+        log.error(f'Exception : {str(e)}')
+        raise e
+
+@retry(stop_max_attempt_number=10)
+def visGMI(modelInfo, dtDateInfo):
+    try:
+        procInfo = mp.current_process()
+
+        inpFile = dtDateInfo.strftime(modelInfo['fileInfo'])
+        fileList = sorted(glob.glob(inpFile))
+        if len(fileList) < 1: return
+
+        for fileInfo in fileList:
+            data = GMIdaily(fileInfo)
+
+            dim = data.dimensions
+            var = data.variables
+            dataL1 = xr.Dataset(
+                coords={
+                    'orbit': np.arange(dim['orbit_segment'])
+                    , 'lat': var['latitude']
+                    , 'lon': var['longitude']
+                }
+            )
+
+            for key, val in var.items():
+                if re.search('longitude|latitude', key, re.IGNORECASE): continue
+                # gmt time, valid data range 0 to 1440 (in minutes)
+                # sea surface temperature, valid data range -3 to 34.5 (degree C)
+                # wind speed low frequency, valid data range 0 to 50.0 (meters/second)
+                # wind speed medium frequency, valid data range 0 to 50.0 (meters/second)
+                # water vapor, valid data range 0 to 75 (millimeters)
+                # cloud, valid data range -0.05 to 2.45 (millimeters)
+                # rain rate, valid data range 0 to 25 (millimeters/hour)
+                if re.search('time', key, re.IGNORECASE):
+                    val2 = xr.where((0 <= val) & (val <= 1440), val, np.nan)
+                elif re.search('sst', key, re.IGNORECASE):
+                    val2 = xr.where((-3 <= val) & (val <= 34.5), val, np.nan)
+                elif re.search('windLF|windMF', key, re.IGNORECASE):
+                    val2 = xr.where((0 <= val) & (val <= 50.0), val, np.nan)
+                elif re.search('vapor', key, re.IGNORECASE):
+                    val2 = xr.where((0 <= val) & (val <= 75), val, np.nan)
+                elif re.search('cloud', key, re.IGNORECASE):
+                    val2 = xr.where((-0.05 <= val) & (val <= 2.45), val, np.nan)
+                elif re.search('rain', key, re.IGNORECASE):
+                    val2 = xr.where((0 <= val) & (val <= 25), val, np.nan)
+                else:
+                    val2 = val
+
+                try:
+                    dataL1[key] = (('orbit', 'lat', 'lon'), (val2))
+                except Exception as e:
+                    pass
+
+            # NetCDF 저장
+            fileName, fileExt = os.path.splitext(fileInfo)
+            procFile = fileInfo.replace(fileExt, '.nc')
+            if re.search('.gz', fileExt, re.IGNORECASE) and not os.path.isfile(procFile):
+                os.makedirs(os.path.dirname(procFile), exist_ok=True)
+                dataL1.to_netcdf(procFile)
+                log.info(f'[CHECK] procFile : {procFile}')
+
+            # 영상 생산
+            for i, orgVar in enumerate(modelInfo['orgVar']):
+                newVar = modelInfo['newVar'][i]
+
+                saveImg = dtDateInfo.strftime(modelInfo['figInfo']).format(newVar)
+                os.makedirs(os.path.dirname(saveImg), exist_ok=True)
+
+                meanData = dataL1[orgVar].mean(dim=['orbit'])
+                meanData.plot()
+
+                plt.savefig(saveImg, dpi=600, bbox_inches='tight', transparent=False)
+                plt.close()
+                log.info(f'[CHECK] saveImg : {saveImg}')
+
+            log.info(f'[END] visSSMIS : {dtDateInfo} / pid : {procInfo.pid}')
+
+    except Exception as e:
+        log.error(f'Exception : {str(e)}')
+        raise e
+
+
+@retry(stop_max_attempt_number=10)
+def visSMAP(modelInfo, dtDateInfo):
+    try:
+        procInfo = mp.current_process()
+
+        inpFile = dtDateInfo.strftime(modelInfo['fileInfo'])
+        fileList = sorted(glob.glob(inpFile))
+        if len(fileList) < 1: return
+
+        for fileInfo in fileList:
+
+            data = xr.open_dataset(fileInfo)
+            dataL1 = data
+
+            # 영상 생산
+            for i, orgVar in enumerate(modelInfo['orgVar']):
+                newVar = modelInfo['newVar'][i]
+
+                saveImg = dtDateInfo.strftime(modelInfo['figInfo']).format(newVar)
+                os.makedirs(os.path.dirname(saveImg), exist_ok=True)
+
+                meanData = dataL1[orgVar].mean(dim=['node'])
+                meanData.plot()
+
+                plt.savefig(saveImg, dpi=600, bbox_inches='tight', transparent=False)
+                plt.close()
+                log.info(f'[CHECK] saveImg : {saveImg}')
+
+            log.info(f'[END] visAMSR2 : {dtDateInfo} / pid : {procInfo.pid}')
+
+    except Exception as e:
+        log.error(f'Exception : {str(e)}')
+        raise e
+
+
+@retry(stop_max_attempt_number=10)
+def visASCAT(modelInfo, dtDateInfo):
+    try:
+        procInfo = mp.current_process()
+
+        inpFile = dtDateInfo.strftime(modelInfo['fileInfo'])
+        fileList = sorted(glob.glob(inpFile))
+        if len(fileList) < 1: return
+
+        for fileInfo in fileList:
+            data = ASCATDaily(fileInfo)
+
+            dim = data.dimensions
+            var = data.variables
+            dataL1 = xr.Dataset(
+                coords={
+                    'orbit': np.arange(dim['orbit_segment'])
+                    , 'lat': var['latitude']
+                    , 'lon': var['longitude']
+                }
+            )
+
+            for key, val in var.items():
+                if re.search('longitude|latitude', key, re.IGNORECASE): continue
+                val2 = xr.where((val != -999.0), val, np.nan)
+
+                try:
+                    dataL1[key] = (('orbit', 'lat', 'lon'), (val2))
+                except Exception as e:
+                    pass
+
+            # NetCDF 저장
+            fileName, fileExt = os.path.splitext(fileInfo)
+            procFile = fileInfo.replace(fileExt, '.nc')
+            if re.search('.gz', fileExt, re.IGNORECASE) and not os.path.isfile(procFile):
+                os.makedirs(os.path.dirname(procFile), exist_ok=True)
+                dataL1.to_netcdf(procFile)
+                log.info(f'[CHECK] procFile : {procFile}')
+
+            # 영상 생산
+            for i, orgVar in enumerate(modelInfo['orgVar']):
+                newVar = modelInfo['newVar'][i]
+
+                saveImg = dtDateInfo.strftime(modelInfo['figInfo']).format(newVar)
+                # saveImg = dtDateInfo.strftime(modelInfo['figInfo']).format('test')
+                os.makedirs(os.path.dirname(saveImg), exist_ok=True)
+
+                # meanData = dataL1[orgVar].mean(dim=['orbit'])
+                # meanData.plot()
+
+                wind_direction_rad = np.deg2rad(dataL1['winddir'])
+                u = -dataL1['windspd'] * np.sin(wind_direction_rad)
+                v = -dataL1['windspd'] * np.cos(wind_direction_rad)
+
+                dataL1['u'] = u
+                dataL1['v'] = v
+
+                meanData = dataL1[['u', 'v']].mean(dim=['orbit'])
+                # meanData.plot()
+
+                # lon2d, lat2d = np.meshgrid(dataL1.lon, dataL1.lat)
+                # u = meanData['u']
+                # v = meanData['v']
+
+                import cartopy.crs as ccrs
+                import cartopy.feature as cfeature
+                plt.figure(figsize=(12, 6))
+                ax = plt.axes(projection=ccrs.PlateCarree())
+
+                ax.set_global()
+                ax.coastlines()
+                ax.add_feature(cfeature.BORDERS, linestyle=':')
+
+                # 벡터 필드 그리기
+                ax.quiver(dataL1.lon, dataL1.lat, u, v, transform=ccrs.PlateCarree())
+
+                # plt.title("Wind Direction and Speed")
+
+                # plt.show()
+
+                plt.savefig(saveImg, dpi=600, bbox_inches='tight', transparent=False)
+                plt.close()
+                log.info(f'[CHECK] saveImg : {saveImg}')
+
+            log.info(f'[END] visSSMIS : {dtDateInfo} / pid : {procInfo.pid}')
+
+    except Exception as e:
+        log.error(f'Exception : {str(e)}')
+        raise e
+
 
 # ================================================
 # 4. 부 프로그램
@@ -371,14 +570,15 @@ class DtaProcess(object):
             # 옵션 설정
             sysOpt = {
                 # 시작일, 종료일, 시간 간격 (연 1y, 월 1h, 일 1d, 시간 1h)
-                'srtDate': '2024-07-20'
-                , 'endDate': '2024-07-21'
+                'srtDate': '2023-01-01'
+                , 'endDate': '2023-01-03'
                 # 'srtDate': globalVar['srtDate']
                 # , 'endDate': globalVar['endDate']
-                , 'invDate': '1h'
+                , 'invDate': '1d'
 
                 # 수행 목록
-                , 'modelList': ['SSMIS', 'AMSR2', 'GMI', 'SMAP', 'ASCAT-B', 'ASCAT-C', 'AEOLUS-RAY', 'AEOLUS-MIE']
+                # , 'modelList': ['SSMIS', 'AMSR2', 'GMI', 'SMAP', 'ASCAT-B', 'ASCAT-C', 'AEOLUS-RAY', 'AEOLUS-MIE']
+                , 'modelList': ['ASCAT-B', 'ASCAT-C']
                 # 'modelList': [globalVar['modelList']]
 
                 # 비동기 다중 프로세스 개수
@@ -386,115 +586,99 @@ class DtaProcess(object):
                 # , 'cpuCoreNum': globalVar['cpuCoreNum']
 
                 , 'SSMIS': {
-                    'filePath': '/HDD/DATA/data1/SAT/SSMIS/%Y/%m'
-                    , 'fileName': 'f18_%Y%m%dv*.gz'
+                    'fileInfo': '/HDD/DATA/data1/SAT/SSMIS/%Y/%m/f18_%Y%m%dv*.gz'
+                    , 'orgVar': ['wspd_mf']
+                    , 'newVar': ['wind-mf']
+                    , 'figInfo': '/HDD/DATA/data1/IMG/SSMIS/%Y/%m/ssmis_{}-1D_%Y%m%d%H%M.png'
                 }
                 , 'AMSR2': {
-                    'filePath': '/HDD/DATA/data1/SAT/AMSR2/%Y/%m'
-                    , 'fileName': 'RSS_AMSR2_ocean_L3_daily_%Y-%m-%d_v*.*.nc'
+                    'fileInfo': '/HDD/DATA/data1/SAT/AMSR2/%Y/%m/RSS_AMSR2_ocean_L3_daily_%Y-%m-%d_v*.*.nc'
+                    , 'orgVar': ['wind_speed_LF', 'wind_speed_MF', 'wind_speed_AW']
+                    , 'newVar': ['wind-lf', 'wind-mf', 'wind-aw']
+                    , 'figInfo': '/HDD/DATA/data1/IMG/AMSR2/%Y/%m/amsr2_{}-1D_%Y%m%d%H%M.png'
                 }
                 , 'GMI': {
-                    'filePath': '/HDD/DATA/data1/SAT/GMI/%Y/%m'
-                    , 'fileName': 'f35_%Y%m%dv*.*.gz'
+                    'fileInfo': '/HDD/DATA/data1/SAT/GMI/%Y/%m/f35_%Y%m%dv*.*.gz'
+                    , 'orgVar': ['windLF', 'windMF']
+                    , 'newVar': ['wind-lf', 'wind-mf']
+                    , 'figInfo': '/HDD/DATA/data1/IMG/GMI/%Y/%m/gmi_{}-1D_%Y%m%d%H%M.png'
                 }
                 , 'SMAP': {
-                     'filePath': '/HDD/DATA/data1/SAT/SMAP/%Y/%m'
-                    , 'fileName': 'RSS_smap_wind_daily_%Y_%m_%d_NRT_v*.*.nc'
+                    'fileInfo': '/HDD/DATA/data1/SAT/SMAP/%Y/%m/RSS_smap_wind_daily_%Y_%m_%d_NRT_v*.*.nc'
+                    , 'orgVar': ['wind']
+                    , 'newVar': ['wind']
+                    , 'figInfo': '/HDD/DATA/data1/IMG/SMAP/%Y/%m/smap_{}-1D_%Y%m%d%H%M.png'
                 }
                 , 'ASCAT-B': {
-                    'filePath': '/HDD/DATA/data1/SAT/ASCAT/%Y/%m'
-                    , 'fileName': 'ascatb_%Y%m%d_v*.*.gz'
+                    'fileInfo': '/HDD/DATA/data1/SAT/ASCAT/%Y/%m/ascatb_%Y%m%d_v*.*.gz'
+                    , 'orgVar': ['windspd']
+                    , 'newVar': ['wind']
+                    , 'figInfo': '/HDD/DATA/data1/IMG/ASCAT/%Y/%m/ascatb_{}-1D_%Y%m%d%H%M.png'
                 }
                 , 'ASCAT-C': {
-                    'filePath': '/HDD/DATA/data1/SAT/ASCAT/%Y/%m'
-                    , 'fileName': 'ascatc_%Y%m%d_v*.*.gz'
+                    'fileInfo': '/HDD/DATA/data1/SAT/ASCAT/%Y/%m/ascatc_%Y%m%d_v*.*.gz'
+                    , 'orgVar': ['windspd']
+                    , 'newVar': ['wind']
+                    , 'figInfo': '/HDD/DATA/data1/IMG/ASCAT/%Y/%m/ascatc_{}-1D_%Y%m%d%H%M.png'
                 }
                 , 'AEOLUS-RAY': {
-                    'filePath': '/HDD/DATA/data1/SAT/AEOLUS/%Y/%m/%d'
-                    , 'fileName': 'aeolus_wind-ray_%Y%m%d%H%M.nc'
+                    'fileInfo': '/HDD/DATA/data1/SAT/AEOLUS/%Y/%m/%d/aeolus_wind-ray_%Y%m%d*.nc'
                 }
                 , 'AEOLUS-MIE': {
-                    'filePath': '/HDD/DATA/data1/SAT/AEOLUS/%Y/%m/%d'
-                    , 'fileName': 'aeolus_wind-mie_%Y%m%d%H%M.nc'
+                    'fileInfo': '/HDD/DATA/data1/SAT/AEOLUS/%Y/%m/%d/aeolus_wind-mie_%Y%m%d*.nc'
                 }
             }
 
+            # **************************************************************************************************************
+            # 비동기 다중 프로세스 수행
+            # **************************************************************************************************************
+            # 비동기 다중 프로세스 개수
+            pool = Pool(int(sysOpt['cpuCoreNum']))
 
-            print('test')
+            # 시작일/종료일 설정
+            dtSrtDate = pd.to_datetime(sysOpt['srtDate'], format='%Y-%m-%d')
+            dtEndDate = pd.to_datetime(sysOpt['endDate'], format='%Y-%m-%d')
+            dtDateList = pd.date_range(start=dtSrtDate, end=dtEndDate, freq=sysOpt['invDate'])
+            for dtDateInfo in dtDateList:
+                log.info(f'[CHECK] dtDateInfo : {dtDateInfo}')
+
+                for modelType in sysOpt['modelList']:
+                    # log.info(f'[CHECK] modelType : {modelType}')
+
+                    modelInfo = sysOpt.get(modelType)
+                    if modelInfo is None: continue
+
+                    if re.search('SSMIS', modelType, re.IGNORECASE):
+                        pool.apply_async(visSSMIS, args=(modelInfo, dtDateInfo))
+                    elif re.search('AMSR2', modelType, re.IGNORECASE):
+                        pool.apply_async(visAMSR2, args=(modelInfo, dtDateInfo))
+                    elif re.search('GMI', modelType, re.IGNORECASE):
+                        pool.apply_async(visGMI, args=(modelInfo, dtDateInfo))
+                    elif re.search('SMAP', modelType, re.IGNORECASE):
+                        pool.apply_async(visSMAP, args=(modelInfo, dtDateInfo))
+                    elif re.search('ASCAT-B|ASCAT-C', modelType, re.IGNORECASE):
+                        pool.apply_async(visASCAT, args=(modelInfo, dtDateInfo))
+                    # elif re.search('visAEOLUS-RAY|visAEOLUS-MIE', modelType, re.IGNORECASE):
+                    #     pool.apply_async(visAEOLUS, args=(modelInfo, dtDateInfo))
+                    else:
+                        continue
+            pool.close()
+            pool.join()
 
 
-            # /HDD/DATA/data1/SAT/AMSR2/2024/03/RSS_AMSR2_ocean_L3_daily_2024-03-05_v08.2.nc
-            # /HDD/DATA/data1/SAT/SMAP/2024/08/RSS_smap_wind_daily_2024_08_11_NRT_v01.0.nc
 
-            # import xarray as xr
-            # data = xr.open_dataset('/HDD/DATA/data1/SAT/AMSR2/2024/03/RSS_AMSR2_ocean_L3_daily_2024-03-05_v08.2.nc')
+
+
+
+
             #
-            # # data['wind_speed_AW'].sel({'pass': 2}).plot()
-            # # plt.show()
-            #
-            # meanData = data['wind_speed_AW'].mean(dim=['pass'])
-            # meanData.plot()
-            # plt.show()
             #
             #
-            # data = xr.open_dataset('/HDD/DATA/data1/SAT/SMAP/2024/08/RSS_smap_wind_daily_2024_08_11_NRT_v01.0.nc')
             #
-            # # data['node'].values
-            # #
-            # # data['wind'].sel({'node': 0}).plot()
-            # # data['wind'].sel({'node': 1}).plot()
-            # # plt.show()
             #
-            # meanData = data['wind'].mean(dim=['node'])
-            # meanData.plot()
-            # plt.show()
-
-
-            # ASCATDaily
-            data = ASCATDaily('/HDD/DATA/data1/SAT/ASCAT/2024/07/ascatb_20240720_v02.1.gz', missing=-999.)
-            dim = data.dimensions
-            for key, val in dim.items():
-                print(key, val)
-
-            var = data.variables
-            # for key, val in var.items():
-            #     print(key, val.shape)
-
-            dataL2 = xr.Dataset(
-                coords={
-                    'orbit': np.arange(dim['orbit_segment'])
-                    , 'lat': var['latitude']
-                    , 'lon': var['longitude']
-                }
-            )
-
-            # The results for each latitude and longitude are:
-            # ilat  ilon mingmt   wspd   wdir	   scatflag  radflag    sos
-            for key, val in var.items():
-                if re.search('longitude|latitude', key, re.IGNORECASE): continue
-                print(key, val.shape)
-
-                val2 = xr.where((val != -999.0), val, np.nan)
-
-                try:
-                    dataL2[key] = (('orbit', 'lat', 'lon'), (val2))
-                except Exception as e:
-                    pass
-
-            saveImg = '{}/{}/{}.png'.format(globalVar['figPath'], serviceName, 'ASCATDaily')
-            dataL2['windspd'].sel(orbit = 1).plot()
-            plt.savefig(saveImg, dpi=600, bbox_inches='tight', transparent=False)
-            # plt.show()
-            plt.close()
-            print(f'[CHECK] saveImg : {saveImg}')
-
-            saveImg = '{}/{}/{}.png'.format(globalVar['figPath'], serviceName, 'ASCATDaily-mean')
-            meanData = dataL2['windspd'].mean(dim=['orbit'])
-            meanData.plot()
-            plt.savefig(saveImg, dpi=600, bbox_inches='tight', transparent=False)
-            # plt.show()
-            plt.close()
-            print(f'[CHECK] saveImg : {saveImg}')
+            #
+            #
+            #
 
 
 
@@ -502,126 +686,6 @@ class DtaProcess(object):
 
 
 
-
-            # GMIdaily
-            data = GMIdaily('/HDD/DATA/data1/SAT/GMI/2024/08/f35_20240805v8.2.gz')
-
-            dim = data.dimensions
-            for key, val in dim.items():
-                print(key, val)
-
-            var = data.variables
-            # for key, val in var.items():
-            #     print(key, val.shape)
-
-            dataL2 = xr.Dataset(
-                coords={
-                    'orbit': np.arange(dim['orbit_segment'])
-                    , 'lat': var['latitude']
-                    , 'lon': var['longitude']
-                }
-            )
-
-            for key, val in var.items():
-                if re.search('longitude|latitude', key, re.IGNORECASE): continue
-                # print(key, val.shape)
-
-                # gmt time, valid data range 0 to 1440 (in minutes)
-                # sea surface temperature, valid data range -3 to 34.5 (degree C)
-                # wind speed low frequency, valid data range 0 to 50.0 (meters/second)
-                # wind speed medium frequency, valid data range 0 to 50.0 (meters/second)
-                # water vapor, valid data range 0 to 75 (millimeters)
-                # cloud, valid data range -0.05 to 2.45 (millimeters)
-                # rain rate, valid data range 0 to 25 (millimeters/hour)
-                if re.search('time', key, re.IGNORECASE):
-                    val2 = xr.where((0 <= val) & (val <= 1440), val, np.nan)
-                elif re.search('sst', key, re.IGNORECASE):
-                    val2 = xr.where((-3 <= val) & (val <= 34.5), val, np.nan)
-                elif re.search('windLF|windMF', key, re.IGNORECASE):
-                    val2 = xr.where((0 <= val) & (val <= 50.0), val, np.nan)
-                elif re.search('vapor', key, re.IGNORECASE):
-                    val2 = xr.where((0 <= val) & (val <= 75),val, np.nan)
-                elif re.search('cloud', key, re.IGNORECASE):
-                    val2 = xr.where((-0.05 <= val) & (val <= 2.45), val, np.nan)
-                elif re.search('rain', key, re.IGNORECASE):
-                    val2 = xr.where((0 <= val) & (val <= 25), val, np.nan)
-                else:
-                    val2 = val
-
-                try:
-                    dataL2[key] = (('orbit', 'lat', 'lon'), (val2))
-                except Exception as e:
-                    pass
-
-            # dataL2['windLF'].sel(orbit = 1).plot()
-            # plt.show()
-            # dataL2['wspd_mf'].sel(orbit = 0).plot()
-            # plt.show()
-
-            meanData = dataL2['windLF'].mean(dim=['orbit'])
-            meanData.plot()
-            plt.show()
-
-
-
-
-
-            # SSMISdaily
-            data = SSMISdaily('/HDD/DATA/data1/SAT/SSMIS/2024/08/f18_20240806v8.gz')
-
-            dim = data.dimensions
-            for key, val in dim.items():
-                print(key, val)
-
-            var = data.variables
-            # for key, val in var.items():
-            #     print(key, val.shape)
-
-            dataL2 = xr.Dataset(
-                coords={
-                    'orbit': np.arange(dim['orbit_segment'])
-                    , 'lat': var['latitude']
-                    , 'lon': var['longitude']
-                }
-            )
-
-            for key, val in var.items():
-                if re.search('longitude|latitude', key, re.IGNORECASE): continue
-                # print(key, val.shape)
-
-                # Time:  7.10 = fractional hour GMT, NOT local time,  valid data range=0 to 24.0,  255 = land
-                # Wind: 255=land, 253=bad data,  251=no wind calculated, other data <=50.0 is 10-meter wind speed
-                # Water Vapor:  255=land, 253=bad data, other data <=75 is water vapor (mm)
-                # Cloud Liquid Water:  255=land,  253=bad data, other data <=2.5 is cloud (mm)
-                # Rain:  255=land, 253=bad data, other data <= 25 is rain (mm/hr)
-                if re.search('time', key, re.IGNORECASE):
-                    val2 = xr.where((0 <= val) & (val <= 24), val, np.nan)
-                elif re.search('wspd_mf', key, re.IGNORECASE):
-                    val2 = xr.where((val <= 50), val, np.nan)
-                elif re.search('vapor', key, re.IGNORECASE):
-                    val2 = xr.where((val <= 75), val, np.nan)
-                elif re.search('cloud', key, re.IGNORECASE):
-                    val2 = xr.where((val <= 2.5), val, np.nan)
-                elif re.search('rain', key, re.IGNORECASE):
-                    val2 = xr.where((val <= 25), val, np.nan)
-                else:
-                    val2 = val
-
-                try:
-                    dataL2[key] = (('orbit', 'lat', 'lon'), (val2))
-                except Exception as e:
-                    pass
-
-            # import matplotlib.pyplot as plt
-            # # dataL2['wspd_mf'].plot()
-            # dataL2['wspd_mf'].sel(orbit = 1).plot()
-            # plt.show()
-            # dataL2['wspd_mf'].sel(orbit = 0).plot()
-            # plt.show()
-
-            meanData = dataL2['wspd_mf'].mean(dim=['orbit'])
-            meanData.plot()
-            plt.show()
 
             # d = xr.Dataset.from_dict(ssmi)
             # d = xr.DataArray.from_dict(ssmi)
