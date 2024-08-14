@@ -32,6 +32,7 @@ import os
 import re
 from datetime import datetime
 import subprocess
+from viresclient import AeolusRequest
 
 # =================================================
 # 사용자 매뉴얼
@@ -175,7 +176,7 @@ def initArgument(globalVar, inParams):
 
 
 @retry(stop_max_attempt_number=10)
-def subColct(modelInfo, dtDateInfo):
+def colctRemssSat(modelInfo, dtDateInfo):
     try:
         procInfo = mp.current_process()
 
@@ -200,7 +201,7 @@ def subColct(modelInfo, dtDateInfo):
 
             # 파일 검사
             fileList = sorted(glob.glob(updFileInfo))
-            if len(fileList) > 0: return
+            if len(fileList) > 0: continue
 
             os.makedirs(os.path.dirname(tmpFileInfo), exist_ok=True)
             os.makedirs(os.path.dirname(updFileInfo), exist_ok=True)
@@ -224,7 +225,7 @@ def subColct(modelInfo, dtDateInfo):
                     os.remove(tmpFileInfo)
                     log.info(f'[CHECK] CMD : rm -f {tmpFileInfo}')
 
-            log.info(f'[END] subColct : {dtDateInfo} / pid : {procInfo.pid}')
+            log.info(f'[END] colctRemssSat : {dtDateInfo} / pid : {procInfo.pid}')
 
     except Exception as e:
         log.error(f'Exception : {str(e)}')
@@ -233,6 +234,79 @@ def subColct(modelInfo, dtDateInfo):
         if os.path.exists(tmpFileInfo):
             os.remove(tmpFileInfo)
 
+@retry(stop_max_attempt_number=10)
+def colctAeolusSat(modelInfo, dtDateInfo):
+    try:
+        procInfo = mp.current_process()
+
+        # 변수 설정
+        varList = {
+            'ray': ["rayleigh_" + varInfo for varInfo in modelInfo['request']['varList']]
+            , 'mie': ["mie_" + varInfo for varInfo in modelInfo['request']['varList']]
+        }
+
+        # 날짜 설정
+        dtSrtDt = dtDateInfo
+        dtEndDt = dtDateInfo + pd.Timedelta(hours=23, minutes=59, seconds=59)
+        dtDtList = pd.date_range(start=dtSrtDt, end=dtEndDt, freq='1h')
+
+        for i, dtDtInfo in enumerate(dtDtList):
+            if (i + 1) == len(dtDtList): continue
+            sSrtDt = dtDtList[i].tz_localize('UTC').strftime('%Y-%m-%dT%H:%M:%SZ')
+            sEndDt = dtDtList[i + 1].tz_localize('UTC').strftime('%Y-%m-%dT%H:%M:%SZ')
+            log.info(f'[CHECK] sSrtDt : {sSrtDt} ~ sEndDt : {sEndDt}')
+
+            for key, val in varList.items():
+                request = AeolusRequest(url=modelInfo['request']['url'], token=modelInfo['request']['token'])
+                request.set_collection(modelInfo['request']['varLevel'])
+
+                if re.search('ray', key, re.IGNORECASE):
+                    request.set_fields(rayleigh_wind_fields=val)
+                    request.set_range_filter(parameter="rayleigh_wind_result_COG_latitude", minimum=0, maximum=90)
+                    request.set_range_filter(parameter="rayleigh_wind_result_COG_longitude", minimum=180, maximum=360)
+                elif re.search('mie', key, re.IGNORECASE):
+                    request.set_fields(mie_wind_fields=val)
+                    request.set_range_filter(parameter="mie_wind_result_COG_latitude", minimum=0, maximum=90)
+                    request.set_range_filter(parameter="mie_wind_result_COG_longitude", minimum=180, maximum=360)
+                else:
+                    continue
+
+                data = request.get_between(start_time=sSrtDt, end_time=sEndDt, filetype="nc", asynchronous=True)
+                dataL1 = data.as_xarray()
+
+                if len(dataL1) < 1: continue
+
+                tmpFileInfo = dtDtInfo.strftime(modelInfo['tmp']).format(key)
+                updFileInfo = dtDtInfo.strftime(modelInfo['target']).format(key)
+
+                # 파일 검사
+                fileList = sorted(glob.glob(updFileInfo))
+                if len(fileList) > 0: continue
+
+                os.makedirs(os.path.dirname(tmpFileInfo), exist_ok=True)
+                os.makedirs(os.path.dirname(updFileInfo), exist_ok=True)
+
+                if os.path.exists(tmpFileInfo):
+                    os.remove(tmpFileInfo)
+
+                data.to_file(tmpFileInfo, overwrite=True)
+
+                if os.path.exists(tmpFileInfo):
+                    if os.path.getsize(tmpFileInfo) > 0:
+                        shutil.move(tmpFileInfo, updFileInfo)
+                        log.info(f'[CHECK] CMD : mv -f {tmpFileInfo} {updFileInfo}')
+                    else:
+                        os.remove(tmpFileInfo)
+                        log.info(f'[CHECK] CMD : rm -f {tmpFileInfo}')
+
+                log.info(f'[END] colctAeolusSat : {dtDateInfo} / pid : {procInfo.pid}')
+
+    except Exception as e:
+        log.error(f'Exception : {str(e)}')
+        raise e
+    finally:
+        if os.path.exists(tmpFileInfo):
+            os.remove(tmpFileInfo)
 
 # ================================================
 # 4. 부 프로그램
@@ -311,19 +385,20 @@ class DtaProcess(object):
             # 옵션 설정
             sysOpt = {
                 # 시작일, 종료일, 시간 간격 (연 1y, 월 1h, 일 1d, 시간 1h)
-                'srtDate': '2024-07-20'
-                , 'endDate': '2024-07-21'
+                # 'srtDate': '2024-07-20'
+                # , 'endDate': '2024-07-21'
+                'srtDate': '2023-01-01'
+                , 'endDate': '2023-01-02'
                 # 'srtDate': globalVar['srtDate']
                 # , 'endDate': globalVar['endDate']
                 , 'invDate': '1d'
 
                 # 수행 목록
-                # , 'modelList': ['SAT-SSMIS', 'SAT-AMSR2', 'SAT-GMI', 'SAT-SMAP', 'SAT-ASCATB', 'SAT-ASCATC']
-                , 'modelList': ['SAT-ASCATB', 'SAT-ASCATC']
+                , 'modelList': ['SAT-SSMIS', 'SAT-AMSR2', 'SAT-GMI', 'SAT-SMAP', 'SAT-ASCATB', 'SAT-ASCATC', 'SAT-AEOLUS']
                 # 'modelList': [globalVar['modelList']]
 
                 # 비동기 다중 프로세스 개수
-                , 'cpuCoreNum': '6'
+                , 'cpuCoreNum': '7'
                 # , 'cpuCoreNum': globalVar['cpuCoreNum']
 
                 , 'SAT-SSMIS': {
@@ -380,6 +455,34 @@ class DtaProcess(object):
                     , 'tmp': '/HDD/DATA/data1/SAT/ASCAT/%Y/%m/.{}'
                     , 'target': '/HDD/DATA/data1/SAT/ASCAT/%Y/%m/{}'
                 }
+                , 'SAT-AEOLUS': {
+                    'request': {
+                        'url': 'https://aeolus.services/ows'
+                        , 'token': ''
+                        , 'varLevel': 'ALD_U_N_2B'
+                        , 'varList': [
+                            "wind_result_start_time"
+                            , "wind_result_stop_time"
+                            , "wind_result_COG_time"
+                            , "wind_result_bottom_altitude"
+                            , "wind_result_top_altitude"
+                            , "wind_result_range_bin_number"
+                            , "wind_result_start_latitude"
+                            , "wind_result_start_longitude"
+                            , "wind_result_stop_latitude"
+                            , "wind_result_stop_longitude"
+                            , "wind_result_COG_latitude"
+                            , "wind_result_COG_longitude"
+                            , "wind_result_HLOS_error"
+                            , "wind_result_wind_velocity"
+                            , "wind_result_observation_type"
+                            , "wind_result_validity_flag"
+                            , "wind_result_alt_of_DEM_intersection"
+                        ]
+                    }
+                    , 'tmp': '/HDD/DATA/data1/SAT/AEOLUS/%Y/%m/.aeolus_wind-{}_%Y%m%d%H%M.nc'
+                    , 'target': '/HDD/DATA/data1/SAT/AEOLUS/%Y/%m/aeolus_wind-{}_%Y%m%d%H%M.nc'
+                }
             }
 
             # **************************************************************************************************************
@@ -402,7 +505,10 @@ class DtaProcess(object):
                     modelInfo = sysOpt.get(modelType)
                     if modelInfo is None: continue
 
-                    pool.apply_async(subColct, args=(modelInfo, dtDateInfo))
+                    if re.search('SAT-AEOLUS', modelType, re.IGNORECASE):
+                        pool.apply_async(colctAeolusSat, args=(modelInfo, dtDateInfo))
+                    else:
+                        pool.apply_async(colctRemssSat, args=(modelInfo, dtDateInfo))
 
             pool.close()
             pool.join()
