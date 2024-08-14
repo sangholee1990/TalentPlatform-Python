@@ -388,20 +388,21 @@ class DtaProcess(object):
                 # 'srtDate': '2024-07-20'
                 # , 'endDate': '2024-07-21'
                 'srtDate': '2023-01-01'
-                , 'endDate': '2023-01-02'
+                , 'endDate': '2023-01-03'
                 # 'srtDate': globalVar['srtDate']
                 # , 'endDate': globalVar['endDate']
                 , 'invDate': '1d'
 
                 # 수행 목록
-                , 'modelList': ['SAT-SSMIS', 'SAT-AMSR2', 'SAT-GMI', 'SAT-SMAP', 'SAT-ASCATB', 'SAT-ASCATC', 'SAT-AEOLUS']
+                # , 'modelList': ['SSMIS', 'AMSR2', 'GMI', 'SMAP', 'ASCAT-B', 'ASCAT-C', 'AEOLUS']
+                , 'modelList': ['AEOLUS']
                 # 'modelList': [globalVar['modelList']]
 
                 # 비동기 다중 프로세스 개수
                 , 'cpuCoreNum': '7'
                 # , 'cpuCoreNum': globalVar['cpuCoreNum']
 
-                , 'SAT-SSMIS': {
+                , 'SSMIS': {
                     'request': {
                         'url': 'https://data.remss.com'
                         , 'filePath': '/ssmi/f18/bmaps_v08/y%Y/m%m'
@@ -410,7 +411,7 @@ class DtaProcess(object):
                     , 'tmp': '/HDD/DATA/data1/SAT/SSMIS/%Y/%m/.{}'
                     , 'target': '/HDD/DATA/data1/SAT/SSMIS/%Y/%m/{}'
                 }
-                , 'SAT-AMSR2': {
+                , 'AMSR2': {
                     'request': {
                         'url': 'https://data.remss.com'
                         , 'filePath': '/amsr2/ocean/L3/v08.2/daily/%Y'
@@ -419,7 +420,7 @@ class DtaProcess(object):
                     , 'tmp': '/HDD/DATA/data1/SAT/AMSR2/%Y/%m/.{}'
                     , 'target': '/HDD/DATA/data1/SAT/AMSR2/%Y/%m/{}'
                 }
-                , 'SAT-GMI': {
+                , 'GMI': {
                     'request': {
                         'url': 'https://data.remss.com'
                         , 'filePath': '/gmi/bmaps_v08.2/y%Y/m%m'
@@ -428,7 +429,7 @@ class DtaProcess(object):
                     , 'tmp': '/HDD/DATA/data1/SAT/GMI/%Y/%m/.{}'
                     , 'target': '/HDD/DATA/data1/SAT/GMI/%Y/%m/{}'
                 }
-                , 'SAT-SMAP': {
+                , 'SMAP': {
                     'request': {
                         'url': 'https://data.remss.com'
                         , 'filePath': '/smap/wind/L3/v01.0/daily/NRT/%Y'
@@ -437,7 +438,7 @@ class DtaProcess(object):
                     , 'tmp': '/HDD/DATA/data1/SAT/SMAP/%Y/%m/.{}'
                     , 'target': '/HDD/DATA/data1/SAT/SMAP/%Y/%m/{}'
                 }
-                , 'SAT-ASCATB': {
+                , 'ASCAT-B': {
                     'request': {
                         'url': 'https://data.remss.com'
                         , 'filePath': '/ascat/metopb/bmaps_v02.1/y%Y/m%m'
@@ -446,7 +447,7 @@ class DtaProcess(object):
                     , 'tmp': '/HDD/DATA/data1/SAT/ASCAT/%Y/%m/.{}'
                     , 'target': '/HDD/DATA/data1/SAT/ASCAT/%Y/%m/{}'
                 }
-                , 'SAT-ASCATC': {
+                , 'ASCAT-C': {
                     'request': {
                         'url': 'https://data.remss.com'
                         , 'filePath': '/ascat/metopc/bmaps_v02.1/y%Y/m%m'
@@ -455,7 +456,7 @@ class DtaProcess(object):
                     , 'tmp': '/HDD/DATA/data1/SAT/ASCAT/%Y/%m/.{}'
                     , 'target': '/HDD/DATA/data1/SAT/ASCAT/%Y/%m/{}'
                 }
-                , 'SAT-AEOLUS': {
+                , 'AEOLUS': {
                     'request': {
                         'url': 'https://aeolus.services/ows'
                         , 'token': ''
@@ -480,8 +481,8 @@ class DtaProcess(object):
                             , "wind_result_alt_of_DEM_intersection"
                         ]
                     }
-                    , 'tmp': '/HDD/DATA/data1/SAT/AEOLUS/%Y/%m/.aeolus_wind-{}_%Y%m%d%H%M.nc'
-                    , 'target': '/HDD/DATA/data1/SAT/AEOLUS/%Y/%m/aeolus_wind-{}_%Y%m%d%H%M.nc'
+                    , 'tmp': '/HDD/DATA/data1/SAT/AEOLUS/%Y/%m/%d/.aeolus_wind-{}_%Y%m%d%H%M.nc'
+                    , 'target': '/HDD/DATA/data1/SAT/AEOLUS/%Y/%m/%d/aeolus_wind-{}_%Y%m%d%H%M.nc'
                 }
             }
 
@@ -505,7 +506,7 @@ class DtaProcess(object):
                     modelInfo = sysOpt.get(modelType)
                     if modelInfo is None: continue
 
-                    if re.search('SAT-AEOLUS', modelType, re.IGNORECASE):
+                    if re.search('AEOLUS', modelType, re.IGNORECASE):
                         pool.apply_async(colctAeolusSat, args=(modelInfo, dtDateInfo))
                     else:
                         pool.apply_async(colctRemssSat, args=(modelInfo, dtDateInfo))

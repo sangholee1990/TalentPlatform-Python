@@ -378,36 +378,44 @@ class DtaProcess(object):
                 , 'invDate': '1h'
 
                 # 수행 목록
-                , 'modelList': ['SAT-SSMIS', 'SAT-AMSR2', 'SAT-GMI', 'SAT-SMAP', 'SAT-METOPB', 'SAT-METOPC']
+                , 'modelList': ['SSMIS', 'AMSR2', 'GMI', 'SMAP', 'ASCAT-B', 'ASCAT-C', 'AEOLUS-RAY', 'AEOLUS-MIE']
                 # 'modelList': [globalVar['modelList']]
 
                 # 비동기 다중 프로세스 개수
-                , 'cpuCoreNum': '6'
+                , 'cpuCoreNum': '7'
                 # , 'cpuCoreNum': globalVar['cpuCoreNum']
 
-                , 'SAT-SSMIS': {
+                , 'SSMIS': {
                     'filePath': '/HDD/DATA/data1/SAT/SSMIS/%Y/%m'
                     , 'fileName': 'f18_%Y%m%dv*.gz'
                 }
-                , 'SAT-AMSR2': {
+                , 'AMSR2': {
                     'filePath': '/HDD/DATA/data1/SAT/AMSR2/%Y/%m'
                     , 'fileName': 'RSS_AMSR2_ocean_L3_daily_%Y-%m-%d_v*.*.nc'
                 }
-                , 'SAT-GMI': {
+                , 'GMI': {
                     'filePath': '/HDD/DATA/data1/SAT/GMI/%Y/%m'
                     , 'fileName': 'f35_%Y%m%dv*.*.gz'
                 }
-                , 'SAT-SMAP': {
+                , 'SMAP': {
                      'filePath': '/HDD/DATA/data1/SAT/SMAP/%Y/%m'
                     , 'fileName': 'RSS_smap_wind_daily_%Y_%m_%d_NRT_v*.*.nc'
                 }
-                , 'SAT-METOPB': {
-                    'filePath': '/HDD/DATA/data1/SAT/METOPB/%Y/%m'
+                , 'ASCAT-B': {
+                    'filePath': '/HDD/DATA/data1/SAT/ASCAT/%Y/%m'
                     , 'fileName': 'ascatb_%Y%m%d_v*.*.gz'
                 }
-                , 'SAT-METOPC': {
-                    'filePath': '/HDD/DATA/data1/SAT/METOPC/%Y/%m'
+                , 'ASCAT-C': {
+                    'filePath': '/HDD/DATA/data1/SAT/ASCAT/%Y/%m'
                     , 'fileName': 'ascatc_%Y%m%d_v*.*.gz'
+                }
+                , 'AEOLUS-RAY': {
+                    'filePath': '/HDD/DATA/data1/SAT/AEOLUS/%Y/%m/%d'
+                    , 'fileName': 'aeolus_wind-ray_%Y%m%d%H%M.nc'
+                }
+                , 'AEOLUS-MIE': {
+                    'filePath': '/HDD/DATA/data1/SAT/AEOLUS/%Y/%m/%d'
+                    , 'fileName': 'aeolus_wind-mie_%Y%m%d%H%M.nc'
                 }
             }
 
