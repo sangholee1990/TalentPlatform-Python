@@ -33,9 +33,9 @@ import re
 from datetime import datetime
 import subprocess
 
-from remss.ssmis.bytemaps import sys
-from remss.ssmis.bytemaps import Dataset
-from remss.ssmis.bytemaps import Verify
+from remssHelper.ssmis.ssmis_daily_v7 import SSMISdaily
+from remssHelper.gmi.gmi_daily_v8 import GMIdaily
+from remssHelper.ascat.ascat_daily import ASCATDaily
 
 # =================================================
 # 사용자 매뉴얼
@@ -177,120 +177,120 @@ def initArgument(globalVar, inParams):
     return globalVar
 
 
-class SSMISdaily(Dataset):
-    """ Read daily SSMIS bytemaps. """
-    """
-    Public data:
-        filename = name of data file
-        missing = fill value used for missing data;
-                  if None, then fill with byte codes (251-255)
-        dimensions = dictionary of dimensions for each coordinate
-        variables = dictionary of data for each variable
-    """
-
-    def __init__(self, filename, missing=None):
-        """
-        Required arguments:
-            filename = name of data file to be read (string)
-
-        Optional arguments:
-            missing = fill value for missing data,
-                      default is the value used in verify file
-        """
-        self.filename = filename
-        self.missing = missing
-        Dataset.__init__(self)
-
-    # Dataset:
-
-    def _attributes(self):
-        return ['coordinates', 'long_name', 'units', 'valid_min', 'valid_max']
-
-    def _coordinates(self):
-        return ('orbit_segment', 'variable', 'latitude', 'longitude')
-
-    def _shape(self):
-        return (2, 5, 720, 1440)
-
-    def _variables(self):
-        return ['time', 'wspd_mf', 'vapor', 'cloud', 'rain',
-                'longitude', 'latitude', 'land', 'ice', 'nodata']
-
-        # _default_get():
-
-    def _get_index(self, var):
-        return {'time': 0,
-                'wspd_mf': 1,
-                'vapor': 2,
-                'cloud': 3,
-                'rain': 4,
-                }[var]
-
-    def _get_scale(self, var):
-        return {'time': 0.1,
-                'wspd_mf': 0.2,
-                'vapor': 0.3,
-                'cloud': 0.01,
-                'rain': 0.1,
-                }[var]
-
-    def _get_offset(self, var):
-        return {'cloud': -0.05,
-                }[var]
-
-    # _get_ attributes:
-
-    def _get_long_name(self, var):
-        return {'time': 'Fractional Hour GMT',
-                'wspd_mf': '10m Surface Wind Speed',
-                'vapor': 'Columnar Water Vapor',
-                'cloud': 'Cloud Liquid Water',
-                'rain': 'Surface Rain Rate',
-                'longitude': 'Grid Cell Center Longitude',
-                'latitude': 'Grid Cell Center Latitude',
-                'land': 'Is this land?',
-                'ice': 'Is this ice?',
-                'nodata': 'Is there no data?',
-                }[var]
-
-    def _get_units(self, var):
-        return {'time': 'Fractional Hour GMT',
-                'wspd_mf': 'm/s',
-                'vapor': 'mm',
-                'cloud': 'mm',
-                'rain': 'mm/hr',
-                'longitude': 'degrees east',
-                'latitude': 'degrees north',
-                'land': 'True or False',
-                'ice': 'True or False',
-                'nodata': 'True or False',
-                }[var]
-
-    def _get_valid_min(self, var):
-        return {'time': 0.0,
-                'wspd_mf': 0.0,
-                'vapor': 0.0,
-                'cloud': -0.05,
-                'rain': 0.0,
-                'longitude': 0.0,
-                'latitude': -90.0,
-                'land': False,
-                'ice': False,
-                'nodata': False,
-                }[var]
-
-    def _get_valid_max(self, var):
-        return {'time': 24.0,
-                'wspd_mf': 50.0,
-                'vapor': 75.0,
-                'cloud': 2.45,
-                'rain': 25.0,
-                'longitude': 360.0,
-                'latitude': 90.0,
-                'land': True,
-                'ice': True,
-                'nodata': True,
-                }[var]
+# class SSMISdaily(Dataset):
+#     """ Read daily SSMIS bytemaps. """
+#     """
+#     Public data:
+#         filename = name of data file
+#         missing = fill value used for missing data;
+#                   if None, then fill with byte codes (251-255)
+#         dimensions = dictionary of dimensions for each coordinate
+#         variables = dictionary of data for each variable
+#     """
+# 
+#     def __init__(self, filename, missing=None):
+#         """
+#         Required arguments:
+#             filename = name of data file to be read (string)
+# 
+#         Optional arguments:
+#             missing = fill value for missing data,
+#                       default is the value used in verify file
+#         """
+#         self.filename = filename
+#         self.missing = missing
+#         Dataset.__init__(self)
+# 
+#     # Dataset:
+# 
+#     def _attributes(self):
+#         return ['coordinates', 'long_name', 'units', 'valid_min', 'valid_max']
+# 
+#     def _coordinates(self):
+#         return ('orbit_segment', 'variable', 'latitude', 'longitude')
+# 
+#     def _shape(self):
+#         return (2, 5, 720, 1440)
+# 
+#     def _variables(self):
+#         return ['time', 'wspd_mf', 'vapor', 'cloud', 'rain',
+#                 'longitude', 'latitude', 'land', 'ice', 'nodata']
+# 
+#         # _default_get():
+# 
+#     def _get_index(self, var):
+#         return {'time': 0,
+#                 'wspd_mf': 1,
+#                 'vapor': 2,
+#                 'cloud': 3,
+#                 'rain': 4,
+#                 }[var]
+# 
+#     def _get_scale(self, var):
+#         return {'time': 0.1,
+#                 'wspd_mf': 0.2,
+#                 'vapor': 0.3,
+#                 'cloud': 0.01,
+#                 'rain': 0.1,
+#                 }[var]
+# 
+#     def _get_offset(self, var):
+#         return {'cloud': -0.05,
+#                 }[var]
+# 
+#     # _get_ attributes:
+# 
+#     def _get_long_name(self, var):
+#         return {'time': 'Fractional Hour GMT',
+#                 'wspd_mf': '10m Surface Wind Speed',
+#                 'vapor': 'Columnar Water Vapor',
+#                 'cloud': 'Cloud Liquid Water',
+#                 'rain': 'Surface Rain Rate',
+#                 'longitude': 'Grid Cell Center Longitude',
+#                 'latitude': 'Grid Cell Center Latitude',
+#                 'land': 'Is this land?',
+#                 'ice': 'Is this ice?',
+#                 'nodata': 'Is there no data?',
+#                 }[var]
+# 
+#     def _get_units(self, var):
+#         return {'time': 'Fractional Hour GMT',
+#                 'wspd_mf': 'm/s',
+#                 'vapor': 'mm',
+#                 'cloud': 'mm',
+#                 'rain': 'mm/hr',
+#                 'longitude': 'degrees east',
+#                 'latitude': 'degrees north',
+#                 'land': 'True or False',
+#                 'ice': 'True or False',
+#                 'nodata': 'True or False',
+#                 }[var]
+# 
+#     def _get_valid_min(self, var):
+#         return {'time': 0.0,
+#                 'wspd_mf': 0.0,
+#                 'vapor': 0.0,
+#                 'cloud': -0.05,
+#                 'rain': 0.0,
+#                 'longitude': 0.0,
+#                 'latitude': -90.0,
+#                 'land': False,
+#                 'ice': False,
+#                 'nodata': False,
+#                 }[var]
+# 
+#     def _get_valid_max(self, var):
+#         return {'time': 24.0,
+#                 'wspd_mf': 50.0,
+#                 'vapor': 75.0,
+#                 'cloud': 2.45,
+#                 'rain': 25.0,
+#                 'longitude': 360.0,
+#                 'latitude': 90.0,
+#                 'land': True,
+#                 'ice': True,
+#                 'nodata': True,
+#                 }[var]
 
 # ================================================
 # 4. 부 프로그램
@@ -442,18 +442,67 @@ class DtaProcess(object):
             # plt.show()
 
 
-
-
-
-
-
-            ssmi = SSMISdaily('/HDD/DATA/TMP/f18_20240807v8.gz')
-
-            dim = ssmi.dimensions
+            # ASCATDaily
+            data = ASCATDaily('/HDD/DATA/data1/SAT/ASCAT/2024/07/ascatb_20240720_v02.1.gz', missing=-999.)
+            dim = data.dimensions
             for key, val in dim.items():
                 print(key, val)
 
-            var = ssmi.variables
+            var = data.variables
+            # for key, val in var.items():
+            #     print(key, val.shape)
+
+            dataL2 = xr.Dataset(
+                coords={
+                    'orbit': np.arange(dim['orbit_segment'])
+                    , 'lat': var['latitude']
+                    , 'lon': var['longitude']
+                }
+            )
+
+            # The results for each latitude and longitude are:
+            # ilat  ilon mingmt   wspd   wdir	   scatflag  radflag    sos
+            for key, val in var.items():
+                if re.search('longitude|latitude', key, re.IGNORECASE): continue
+                print(key, val.shape)
+
+                val2 = xr.where((val != -999.0), val, np.nan)
+
+                try:
+                    dataL2[key] = (('orbit', 'lat', 'lon'), (val2))
+                except Exception as e:
+                    pass
+
+            saveImg = '{}/{}/{}.png'.format(globalVar['figPath'], serviceName, 'ASCATDaily')
+            dataL2['windspd'].sel(orbit = 1).plot()
+            plt.savefig(saveImg, dpi=600, bbox_inches='tight', transparent=False)
+            # plt.show()
+            plt.close()
+            print(f'[CHECK] saveImg : {saveImg}')
+
+            saveImg = '{}/{}/{}.png'.format(globalVar['figPath'], serviceName, 'ASCATDaily-mean')
+            meanData = dataL2['windspd'].mean(dim=['orbit'])
+            meanData.plot()
+            plt.savefig(saveImg, dpi=600, bbox_inches='tight', transparent=False)
+            # plt.show()
+            plt.close()
+            print(f'[CHECK] saveImg : {saveImg}')
+
+
+
+
+
+
+
+
+            # GMIdaily
+            data = GMIdaily('/HDD/DATA/data1/SAT/GMI/2024/08/f35_20240805v8.2.gz')
+
+            dim = data.dimensions
+            for key, val in dim.items():
+                print(key, val)
+
+            var = data.variables
             # for key, val in var.items():
             #     print(key, val.shape)
 
@@ -467,6 +516,70 @@ class DtaProcess(object):
 
             for key, val in var.items():
                 if re.search('longitude|latitude', key, re.IGNORECASE): continue
+                # print(key, val.shape)
+
+                # gmt time, valid data range 0 to 1440 (in minutes)
+                # sea surface temperature, valid data range -3 to 34.5 (degree C)
+                # wind speed low frequency, valid data range 0 to 50.0 (meters/second)
+                # wind speed medium frequency, valid data range 0 to 50.0 (meters/second)
+                # water vapor, valid data range 0 to 75 (millimeters)
+                # cloud, valid data range -0.05 to 2.45 (millimeters)
+                # rain rate, valid data range 0 to 25 (millimeters/hour)
+                if re.search('time', key, re.IGNORECASE):
+                    val2 = xr.where((0 <= val) & (val <= 1440), val, np.nan)
+                elif re.search('sst', key, re.IGNORECASE):
+                    val2 = xr.where((-3 <= val) & (val <= 34.5), val, np.nan)
+                elif re.search('windLF|windMF', key, re.IGNORECASE):
+                    val2 = xr.where((0 <= val) & (val <= 50.0), val, np.nan)
+                elif re.search('vapor', key, re.IGNORECASE):
+                    val2 = xr.where((0 <= val) & (val <= 75),val, np.nan)
+                elif re.search('cloud', key, re.IGNORECASE):
+                    val2 = xr.where((-0.05 <= val) & (val <= 2.45), val, np.nan)
+                elif re.search('rain', key, re.IGNORECASE):
+                    val2 = xr.where((0 <= val) & (val <= 25), val, np.nan)
+                else:
+                    val2 = val
+
+                try:
+                    dataL2[key] = (('orbit', 'lat', 'lon'), (val2))
+                except Exception as e:
+                    pass
+
+            # dataL2['windLF'].sel(orbit = 1).plot()
+            # plt.show()
+            # dataL2['wspd_mf'].sel(orbit = 0).plot()
+            # plt.show()
+
+            meanData = dataL2['windLF'].mean(dim=['orbit'])
+            meanData.plot()
+            plt.show()
+
+
+
+
+
+            # SSMISdaily
+            data = SSMISdaily('/HDD/DATA/data1/SAT/SSMIS/2024/08/f18_20240806v8.gz')
+
+            dim = data.dimensions
+            for key, val in dim.items():
+                print(key, val)
+
+            var = data.variables
+            # for key, val in var.items():
+            #     print(key, val.shape)
+
+            dataL2 = xr.Dataset(
+                coords={
+                    'orbit': np.arange(dim['orbit_segment'])
+                    , 'lat': var['latitude']
+                    , 'lon': var['longitude']
+                }
+            )
+
+            for key, val in var.items():
+                if re.search('longitude|latitude', key, re.IGNORECASE): continue
+                # print(key, val.shape)
 
                 # Time:  7.10 = fractional hour GMT, NOT local time,  valid data range=0 to 24.0,  255 = land
                 # Wind: 255=land, 253=bad data,  251=no wind calculated, other data <=50.0 is 10-meter wind speed
