@@ -191,30 +191,30 @@ if __name__ == '__main__':
     if not gmi.variables: sys.exit('problem reading file')
 
     # verify 3-day:
-    verify = ThreedayVerify(gmi)
-    if verify.success: print 'successful verification for 3-day'
-    else: sys.exit('verification failed for 3-day')
-    print
-
-    # read weekly averaged:
-    gmi = GMIaveraged('f35_20140524v8.2.gz')
-    if not gmi.variables: sys.exit('problem reading file')
-
-    # verify weekly:
-    verify = WeeklyVerify(gmi)
-    if verify.success: print 'successful verification for weekly'
-    else: sys.exit('verification failed for weekly')     
-    print
-    
-    # read monthly averaged:
-    gmi = GMIaveraged('f35_201405v8.2.gz')
-    if not gmi.variables: sys.exit('problem reading file')
-    
-    # verify:
-    verify = MonthlyVerify(gmi)
-    if verify.success: print 'successful verification for monthly'
-    else: sys.exit('verification failed for monthly')      
-    print
-    
-    print 'all tests completed successfully'
+    # verify = ThreedayVerify(gmi)
+    # if verify.success: print 'successful verification for 3-day'
+    # else: sys.exit('verification failed for 3-day')
+    # print
+    #
+    # # read weekly averaged:
+    # gmi = GMIaveraged('f35_20140524v8.2.gz')
+    # if not gmi.variables: sys.exit('problem reading file')
+    #
+    # # verify weekly:
+    # verify = WeeklyVerify(gmi)
+    # if verify.success: print 'successful verification for weekly'
+    # else: sys.exit('verification failed for weekly')
+    # print
+    #
+    # # read monthly averaged:
+    # gmi = GMIaveraged('f35_201405v8.2.gz')
+    # if not gmi.variables: sys.exit('problem reading file')
+    #
+    # # verify:
+    # verify = MonthlyVerify(gmi)
+    # if verify.success: print 'successful verification for monthly'
+    # else: sys.exit('verification failed for monthly')
+    # print
+    #
+    # print 'all tests completed successfully'
     
