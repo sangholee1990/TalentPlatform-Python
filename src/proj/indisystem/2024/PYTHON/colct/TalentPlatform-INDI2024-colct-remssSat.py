@@ -318,7 +318,8 @@ class DtaProcess(object):
                 , 'invDate': '1d'
 
                 # 수행 목록
-                , 'modelList': ['SAT-SSMIS', 'SAT-AMSR2', 'SAT-GMI', 'SAT-SMAP', 'SAT-METOPB', 'SAT-METOPC']
+                # , 'modelList': ['SAT-SSMIS', 'SAT-AMSR2', 'SAT-GMI', 'SAT-SMAP', 'SAT-ASCATB', 'SAT-ASCATC']
+                , 'modelList': ['SAT-ASCATB', 'SAT-ASCATC']
                 # 'modelList': [globalVar['modelList']]
 
                 # 비동기 다중 프로세스 개수
@@ -361,23 +362,23 @@ class DtaProcess(object):
                     , 'tmp': '/HDD/DATA/data1/SAT/SMAP/%Y/%m/.{}'
                     , 'target': '/HDD/DATA/data1/SAT/SMAP/%Y/%m/{}'
                 }
-                , 'SAT-METOPB': {
+                , 'SAT-ASCATB': {
                     'request': {
                         'url': 'https://data.remss.com'
                         , 'filePath': '/ascat/metopb/bmaps_v02.1/y%Y/m%m'
                         , 'fileNamePattern': 'ascatb_(\d{4})(\d{2})(\d{2})_v(\d+\.\d+)\.gz'
                     }
-                    , 'tmp': '/HDD/DATA/data1/SAT/METOPB/%Y/%m/.{}'
-                    , 'target': '/HDD/DATA/data1/SAT/METOPB/%Y/%m/{}'
+                    , 'tmp': '/HDD/DATA/data1/SAT/ASCAT/%Y/%m/.{}'
+                    , 'target': '/HDD/DATA/data1/SAT/ASCAT/%Y/%m/{}'
                 }
-                , 'SAT-METOPC': {
+                , 'SAT-ASCATC': {
                     'request': {
                         'url': 'https://data.remss.com'
                         , 'filePath': '/ascat/metopc/bmaps_v02.1/y%Y/m%m'
                         , 'fileNamePattern': 'ascatc_(\d{4})(\d{2})(\d{2})_v(\d+\.\d+)\.gz'
                     }
-                    , 'tmp': '/HDD/DATA/data1/SAT/METOPC/%Y/%m/.{}'
-                    , 'target': '/HDD/DATA/data1/SAT/METOPC/%Y/%m/{}'
+                    , 'tmp': '/HDD/DATA/data1/SAT/ASCAT/%Y/%m/.{}'
+                    , 'target': '/HDD/DATA/data1/SAT/ASCAT/%Y/%m/{}'
                 }
             }
 
