@@ -444,45 +444,41 @@ def visASCAT(modelInfo, dtDateInfo):
                 newVar = modelInfo['newVar'][i]
 
                 saveImg = dtDateInfo.strftime(modelInfo['figInfo']).format(newVar)
-                # saveImg = dtDateInfo.strftime(modelInfo['figInfo']).format('test')
                 os.makedirs(os.path.dirname(saveImg), exist_ok=True)
 
-                # meanData = dataL1[orgVar].mean(dim=['orbit'])
-                # meanData.plot()
-
-                wind_direction_rad = np.deg2rad(dataL1['winddir'])
-                u = -dataL1['windspd'] * np.sin(wind_direction_rad)
-                v = -dataL1['windspd'] * np.cos(wind_direction_rad)
-
-                dataL1['u'] = u
-                dataL1['v'] = v
-
-                meanData = dataL1[['u', 'v']].mean(dim=['orbit'])
-                # meanData.plot()
-
-                # lon2d, lat2d = np.meshgrid(dataL1.lon, dataL1.lat)
-                # u = meanData['u']
-                # v = meanData['v']
-
-                import cartopy.crs as ccrs
-                import cartopy.feature as cfeature
-                plt.figure(figsize=(12, 6))
-                ax = plt.axes(projection=ccrs.PlateCarree())
-
-                ax.set_global()
-                ax.coastlines()
-                ax.add_feature(cfeature.BORDERS, linestyle=':')
-
-                # 벡터 필드 그리기
-                ax.quiver(dataL1.lon, dataL1.lat, u, v, transform=ccrs.PlateCarree())
-
-                # plt.title("Wind Direction and Speed")
-
-                # plt.show()
+                meanData = dataL1[orgVar].mean(dim=['orbit'])
+                meanData.plot()
 
                 plt.savefig(saveImg, dpi=600, bbox_inches='tight', transparent=False)
                 plt.close()
                 log.info(f'[CHECK] saveImg : {saveImg}')
+
+
+                # wind_direction_rad = np.deg2rad(dataL1['winddir'])
+                # u = -dataL1['windspd'] * np.sin(wind_direction_rad)
+                # v = -dataL1['windspd'] * np.cos(wind_direction_rad)
+                #
+                # dataL1['u'] = u
+                # dataL1['v'] = v
+                #
+                # meanData = dataL1[['u', 'v']].mean(dim=['orbit'])
+                # # meanData.plot()
+                #
+                # # lon2d, lat2d = np.meshgrid(dataL1.lon, dataL1.lat)
+                # # u = meanData['u']
+                # # v = meanData['v']
+                #
+                # import cartopy.crs as ccrs
+                # import cartopy.feature as cfeature
+                # plt.figure(figsize=(12, 6))
+                # plt.axes(projection=ccrs.PlateCarree())
+
+                # ax.set_global()
+                # ax.coastlines()
+                # ax.add_feature(cfeature.BORDERS, linestyle=':')
+
+                # 벡터 필드 그리기
+                # plt.quiver(meanData['lon'], meanData['lat'], meanData['u'], meanData['v'], transform=ccrs.PlateCarree())
 
             log.info(f'[END] visSSMIS : {dtDateInfo} / pid : {procInfo.pid}')
 
@@ -582,7 +578,7 @@ class DtaProcess(object):
                 # 'modelList': [globalVar['modelList']]
 
                 # 비동기 다중 프로세스 개수
-                , 'cpuCoreNum': '7'
+                , 'cpuCoreNum': '1'
                 # , 'cpuCoreNum': globalVar['cpuCoreNum']
 
                 , 'SSMIS': {
