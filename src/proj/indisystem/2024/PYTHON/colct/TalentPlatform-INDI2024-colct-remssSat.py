@@ -271,17 +271,17 @@ def colctAeolusSat(modelInfo, dtDateInfo):
                 else:
                     continue
 
-                data = request.get_between(start_time=sSrtDt, end_time=sEndDt, filetype="nc", asynchronous=True)
-                dataL1 = data.as_xarray()
-
-                if len(dataL1) < 1: continue
-
                 tmpFileInfo = dtDtInfo.strftime(modelInfo['tmp']).format(key)
                 updFileInfo = dtDtInfo.strftime(modelInfo['target']).format(key)
 
                 # 파일 검사
                 fileList = sorted(glob.glob(updFileInfo))
                 if len(fileList) > 0: continue
+
+                data = request.get_between(start_time=sSrtDt, end_time=sEndDt, filetype="nc", asynchronous=True)
+                dataL1 = data.as_xarray()
+
+                if len(dataL1) < 1: continue
 
                 os.makedirs(os.path.dirname(tmpFileInfo), exist_ok=True)
                 os.makedirs(os.path.dirname(updFileInfo), exist_ok=True)
@@ -290,6 +290,7 @@ def colctAeolusSat(modelInfo, dtDateInfo):
                     os.remove(tmpFileInfo)
 
                 data.to_file(tmpFileInfo, overwrite=True)
+                # dataL1.to_netcdf(tmpFileInfo)
 
                 if os.path.exists(tmpFileInfo):
                     if os.path.getsize(tmpFileInfo) > 0:
@@ -385,8 +386,6 @@ class DtaProcess(object):
             # 옵션 설정
             sysOpt = {
                 # 시작일, 종료일, 시간 간격 (연 1y, 월 1h, 일 1d, 시간 1h)
-                # 'srtDate': '2024-07-20'
-                # , 'endDate': '2024-07-21'
                 'srtDate': '2023-01-01'
                 , 'endDate': '2023-01-03'
                 # 'srtDate': globalVar['srtDate']
@@ -489,14 +488,13 @@ class DtaProcess(object):
             # **************************************************************************************************************
             # 비동기 다중 프로세스 수행
             # **************************************************************************************************************
+            # 비동기 다중 프로세스 개수
+            pool = Pool(int(sysOpt['cpuCoreNum']))
+
             # 시작일/종료일 설정
             dtSrtDate = pd.to_datetime(sysOpt['srtDate'], format='%Y-%m-%d')
             dtEndDate = pd.to_datetime(sysOpt['endDate'], format='%Y-%m-%d')
             dtDateList = pd.date_range(start=dtSrtDate, end=dtEndDate, freq=sysOpt['invDate'])
-
-            # 비동기 다중 프로세스 개수
-            pool = Pool(int(sysOpt['cpuCoreNum']))
-
             for dtDateInfo in dtDateList:
                 log.info(f'[CHECK] dtDateInfo : {dtDateInfo}')
 

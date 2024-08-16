@@ -643,7 +643,7 @@ def visAEOLUS(modelInfo, dtDateInfo):
             data = request.get_from_file(fileInfo)
             dataL1 = data.as_xarray()
 
-            # if len(dataL1) < 1: continue
+            if len(dataL1) < 1: continue
 
             isRay = re.search('_wind-ray_', fileInfo, re.IGNORECASE)
 
@@ -653,7 +653,7 @@ def visAEOLUS(modelInfo, dtDateInfo):
             plotParam2D(
                 parameter="wind_result_wind_velocity",
                 channel="rayleigh" if isRay else "mie",
-                obs_type="clear",
+                obs_type="clear" if isRay else "cloudy",
                 QC_filter=True,
                 error_estimate_threshold=800 if isRay else 500,
                 start_bin=0,
