@@ -36,6 +36,12 @@ import subprocess
 from remssHelper.ssmis.ssmis_daily_v7 import SSMISdaily
 from remssHelper.gmi.gmi_daily_v8 import GMIdaily
 from remssHelper.ascat.ascat_daily import ASCATDaily
+from matplotlib.collections import PolyCollection
+import matplotlib.cm as cm
+import matplotlib.colors as colors
+from viresclient import AeolusRequest
+from netCDF4 import Dataset, num2date
+import cartopy.crs as ccrs
 
 # =================================================
 # 사용자 매뉴얼
@@ -176,6 +182,144 @@ def initArgument(globalVar, inParams):
 
     return globalVar
 
+def format_date(x, pos=None):
+    dt_obj = num2date(x, units="s since 2000-01-01", only_use_cftime_datetimes=False)
+    return dt_obj.strftime("%H:%M:%S")
+
+def plotParam2D(
+        parameter="wind_result_wind_velocity",
+        channel="rayleigh",
+        obs_type="clear",
+        QC_filter=True,
+        error_estimate_threshold=800,
+        start_bin=0,
+        end_bin=-1,
+        ds=None
+):
+    # if channel == "rayleigh":
+    #     ds = ds_rayleigh
+    # elif channel == "mie":
+    #     ds = ds_mie
+
+    # define necessary parameters for plotting
+    X0 = ds[channel + "_wind_result_start_time"].values
+    X1 = ds[channel + "_wind_result_stop_time"].values
+
+    Y0 = ds[channel + "_wind_result_bottom_altitude"].values / 1000.0
+    Y1 = ds[channel + "_wind_result_top_altitude"].values / 1000.0
+    Z = ds[channel + "_" + parameter].values
+
+    # create a mask out of different filters which can be applied to the different parameters
+    mask = np.zeros(len(Z), dtype=bool)
+
+    # mask dependent on start and end bin given as parameter to the plot function
+    mask[0:start_bin] = True
+    mask[end_bin:-1] = True
+
+    # mask where validity flag is 0
+    if QC_filter:
+        mask = mask | (ds[channel + "_wind_result_validity_flag"] == 0)
+
+    # mask dependent on observation type
+    if obs_type == "cloudy":
+        mask = mask | (ds[channel + "_wind_result_observation_type"] != 1)
+    elif obs_type == "clear":
+        mask = mask | (ds[channel + "_wind_result_observation_type"] != 2)
+
+    # mask where wind results have error estimates larger than a given threshold
+    mask = mask | (ds[channel + "_wind_result_HLOS_error"] > error_estimate_threshold)
+
+    # mask all necessary parameters for plotting
+    # tilde before mask inverts the boolean mask array
+    X0 = X0[~mask]
+    X1 = X1[~mask]
+    Y0 = Y0[~mask]
+    Y1 = Y1[~mask]
+    Z = Z[~mask]
+
+    patches = []
+    for x0, x1, y0, y1 in zip(X0, X1, Y0, Y1):
+        patches.append(((x0, y0), (x0, y1), (x1, y1), (x1, y0)))
+
+    # define min and max value for the colorbar
+    if parameter == "wind_result_wind_velocity":
+        Z_vmax = np.amax(np.abs(np.asarray([np.nanpercentile(Z, 2), np.nanpercentile(Z, 98)])))
+        Z_vmin = -Z_vmax
+    else:
+        Z_vmax = np.nanpercentile(Z, 99)
+        Z_vmin = np.nanpercentile(Z, 1)
+
+    # fig, (axis, axis2) = plt.subplots(1, 2, figsize=(10, 8), constrained_layout=True)
+    fig, (axis, axis2) = plt.subplots(1, 2, figsize=(20, 5), constrained_layout=True)
+
+    axis = plt.subplot(1, 2, 1, projection=ccrs.PlateCarree())
+    axis.stock_img()
+    axis.gridlines(draw_labels=True, linewidth=0.3, color="black", alpha=0.5, linestyle="-")
+    axis.scatter(
+        ds[channel + "_wind_result_COG_longitude"],
+        ds[channel + "_wind_result_COG_latitude"],
+        marker="o",
+        c="k",
+        s=3,
+        label='wind result COG',
+        transform=ccrs.Geodetic(),
+    )
+    axis.scatter(
+        ds[channel + "_wind_result_COG_longitude"][0],
+        ds[channel + "_wind_result_COG_latitude"][0],
+        marker="o",
+        c="g",
+        edgecolor="g",
+        s=40,
+        label="start",
+        transform=ccrs.Geodetic(),
+    )
+    axis.scatter(
+        ds[channel + "_wind_result_COG_longitude"][-1],
+        ds[channel + "_wind_result_COG_latitude"][-1],
+        marker="o",
+        c="r",
+        edgecolor="r",
+        s=40,
+        label="stop",
+        transform=ccrs.Geodetic(),
+    )
+    axis.legend()
+    axis.set_title(channel.title())
+
+    coll = PolyCollection(
+        patches,
+        array=Z,
+        cmap=cm.RdBu_r,
+        norm=colors.Normalize(
+            vmin=Z_vmin,
+            vmax=Z_vmax,
+            clip=False,
+        ),
+    )
+
+    axis2.add_collection(coll)
+
+    axis2.scatter(
+        ds[channel + "_wind_result_COG_time"][~mask],
+        ds[channel + "_wind_result_alt_of_DEM_intersection"][~mask] / 1000.0,
+        marker='o',
+        c='r',
+        s=5,
+        label='DEM altitude',
+    )
+    # ax.set_ylim(-1, 30)
+    axis2.set_xlabel("Date [UTC]")
+    axis2.set_ylabel("Altitude [km]")
+    axis2.set_title("{} - {} \n {} wind results".format(channel.title(), parameter, len(Z)))
+    axis2.grid()
+    axis2.legend()
+
+    axis2.xaxis.set_major_formatter(format_date)
+    axis2.autoscale()
+    fig.colorbar(coll, ax=axis2, aspect=50, pad=0.01)
+    fig.autofmt_xdate()
+
 @retry(stop_max_attempt_number=10)
 def visSSMIS(modelInfo, dtDateInfo):
     try:
@@ -261,7 +405,6 @@ def visAMSR2(modelInfo, dtDateInfo):
         if len(fileList) < 1: return
 
         for fileInfo in fileList:
-
             data = xr.open_dataset(fileInfo)
             dataL1 = data
 
@@ -375,7 +518,6 @@ def visSMAP(modelInfo, dtDateInfo):
         if len(fileList) < 1: return
 
         for fileInfo in fileList:
-
             data = xr.open_dataset(fileInfo)
             dataL1 = data
 
@@ -487,6 +629,49 @@ def visASCAT(modelInfo, dtDateInfo):
         raise e
 
 
+@retry(stop_max_attempt_number=10)
+def visAEOLUS(modelInfo, dtDateInfo):
+    try:
+        procInfo = mp.current_process()
+
+        inpFile = dtDateInfo.strftime(modelInfo['fileInfo'])
+        fileList = sorted(glob.glob(inpFile))
+        if len(fileList) < 1: return
+
+        for fileInfo in fileList:
+            request = AeolusRequest(url=modelInfo['request']['url'], token=modelInfo['request']['token'])
+            data = request.get_from_file(fileInfo)
+            dataL1 = data.as_xarray()
+
+            # if len(dataL1) < 1: continue
+
+            isRay = re.search('_wind-ray_', fileInfo, re.IGNORECASE)
+
+            saveImg = dtDateInfo.strftime(modelInfo['figInfo'])
+            os.makedirs(os.path.dirname(saveImg), exist_ok=True)
+
+            plotParam2D(
+                parameter="wind_result_wind_velocity",
+                channel="rayleigh" if isRay else "mie",
+                obs_type="clear",
+                QC_filter=True,
+                error_estimate_threshold=800 if isRay else 500,
+                start_bin=0,
+                end_bin=-1,
+                ds=dataL1
+            )
+
+            plt.savefig(saveImg, dpi=600, bbox_inches='tight', transparent=False)
+            plt.close()
+            log.info(f'[CHECK] saveImg : {saveImg}')
+
+            log.info(f'[END] visAEOLUS : {dtDateInfo} / pid : {procInfo.pid}')
+
+    except Exception as e:
+        log.error(f'Exception : {str(e)}')
+        raise e
+
+
 # ================================================
 # 4. 부 프로그램
 # ================================================
@@ -570,11 +755,11 @@ class DtaProcess(object):
                 , 'endDate': '2023-01-03'
                 # 'srtDate': globalVar['srtDate']
                 # , 'endDate': globalVar['endDate']
-                , 'invDate': '1d'
+                , 'invDate': '1h'
 
                 # 수행 목록
-                # , 'modelList': ['SSMIS', 'AMSR2', 'GMI', 'SMAP', 'ASCAT-B', 'ASCAT-C', 'AEOLUS-RAY', 'AEOLUS-MIE']
-                , 'modelList': ['ASCAT-B', 'ASCAT-C']
+                , 'modelList': ['SSMIS', 'AMSR2', 'GMI', 'SMAP', 'ASCAT-B', 'ASCAT-C', 'AEOLUS-RAY', 'AEOLUS-MIE']
+                # , 'modelList': ['AEOLUS-RAY', 'AEOLUS-MIE']
                 # 'modelList': [globalVar['modelList']]
 
                 # 비동기 다중 프로세스 개수
@@ -618,10 +803,20 @@ class DtaProcess(object):
                     , 'figInfo': '/HDD/DATA/data1/IMG/ASCAT/%Y/%m/ascatc_{}-1D_%Y%m%d%H%M.png'
                 }
                 , 'AEOLUS-RAY': {
-                    'fileInfo': '/HDD/DATA/data1/SAT/AEOLUS/%Y/%m/%d/aeolus_wind-ray_%Y%m%d*.nc'
+                    'fileInfo': '/HDD/DATA/data1/SAT/AEOLUS/%Y/%m/%d/aeolus_wind-ray_%Y%m%d%H%M.nc'
+                    , 'request': {
+                        'url': 'https://aeolus.services/ows'
+                        , 'token': ''
+                    }
+                    , 'figInfo': '/HDD/DATA/data1/IMG/AEOLUS/%Y/%m/aeolus_wind-ray_%Y%m%d%H%M.png'
                 }
                 , 'AEOLUS-MIE': {
-                    'fileInfo': '/HDD/DATA/data1/SAT/AEOLUS/%Y/%m/%d/aeolus_wind-mie_%Y%m%d*.nc'
+                    'fileInfo': '/HDD/DATA/data1/SAT/AEOLUS/%Y/%m/%d/aeolus_wind-mie_%Y%m%d%H%M.nc'
+                    , 'request': {
+                        'url': 'https://aeolus.services/ows'
+                        , 'token': ''
+                    }
+                    , 'figInfo': '/HDD/DATA/data1/IMG/AEOLUS/%Y/%m/aeolus_wind-mie_%Y%m%d%H%M.png'
                 }
             }
 
@@ -654,70 +849,12 @@ class DtaProcess(object):
                         pool.apply_async(visSMAP, args=(modelInfo, dtDateInfo))
                     elif re.search('ASCAT-B|ASCAT-C', modelType, re.IGNORECASE):
                         pool.apply_async(visASCAT, args=(modelInfo, dtDateInfo))
-                    # elif re.search('visAEOLUS-RAY|visAEOLUS-MIE', modelType, re.IGNORECASE):
-                    #     pool.apply_async(visAEOLUS, args=(modelInfo, dtDateInfo))
+                    elif re.search('AEOLUS-RAY|AEOLUS-MIE', modelType, re.IGNORECASE):
+                        pool.apply_async(visAEOLUS, args=(modelInfo, dtDateInfo))
                     else:
                         continue
             pool.close()
             pool.join()
-
-
-
-
-
-
-
-            #
-            #
-            #
-            #
-            #
-            #
-            #
-            #
-
-
-
-
-
-
-
-
-            # d = xr.Dataset.from_dict(ssmi)
-            # d = xr.DataArray.from_dict(ssmi)
-            #
-            # d = xr.DataArray.from_dict(ssmi._get_variables())
-
-
-
-            # meanData = data['wind_speed_AW'].mean(dim=['pass'])
-            # meanData.plot()
-            # plt.show()
-
-
-            # **************************************************************************************************************
-            # 비동기 다중 프로세스 수행
-            # **************************************************************************************************************
-            # 비동기 다중 프로세스 개수
-            # pool = Pool(int(sysOpt['cpuCoreNum']))
-            #
-            # for modelType in sysOpt['modelList']:
-            #     log.info(f'[CHECK] modelType : {modelType}')
-            #
-            #     modelInfo = sysOpt.get(modelType)
-            #     if modelInfo is None: continue
-            #
-            #     # 시작일/종료일 설정
-            #     dtSrtDate = pd.to_datetime(modelInfo['srtDate'], format='%Y-%m-%d')
-            #     dtEndDate = pd.to_datetime(modelInfo['endDate'], format='%Y-%m-%d')
-            #     dtDateList = pd.date_range(start=dtSrtDate, end=dtEndDate, freq=modelInfo['invDate'])
-            #
-            #     for dtDateInfo in dtDateList:
-            #         log.info(f'[CHECK] dtDateInfo : {dtDateInfo}')
-            #         pool.apply_async(subColct, args=(modelInfo, dtDateInfo))
-            #
-            # pool.close()
-            # pool.join()
 
         except Exception as e:
             log.error(f"Exception : {e}")
