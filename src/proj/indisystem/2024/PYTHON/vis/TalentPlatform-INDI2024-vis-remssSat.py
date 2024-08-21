@@ -320,6 +320,25 @@ def plotParam2D(
     fig.colorbar(coll, ax=axis2, aspect=50, pad=0.01)
     fig.autofmt_xdate()
 
+def visProc(modelType, modelInfo, dtDateInfo):
+    try:
+        visFunList = {
+            'SSMIS': visSSMIS
+            , 'AMSR2': visAMSR2
+            , 'GMI': visGMI
+            , 'SMAP': visSMAP
+            , 'ASCAT-B': visASCAT
+            , 'ASCAT-C': visASCAT
+            , 'AEOLUS-RAY': visAEOLUS
+            , 'AEOLUS-MIE': visAEOLUS
+        }
+
+        visFun = visFunList.get(modelType)
+        visFun(modelInfo, dtDateInfo)
+    except Exception as e:
+        log.error(f'Exception : {str(e)}')
+        raise e
+
 @retry(stop_max_attempt_number=10)
 def visSSMIS(modelInfo, dtDateInfo):
     try:
@@ -759,11 +778,10 @@ class DtaProcess(object):
 
                 # 수행 목록
                 , 'modelList': ['SSMIS', 'AMSR2', 'GMI', 'SMAP', 'ASCAT-B', 'ASCAT-C', 'AEOLUS-RAY', 'AEOLUS-MIE']
-                # , 'modelList': ['AEOLUS-RAY', 'AEOLUS-MIE']
                 # 'modelList': [globalVar['modelList']]
 
                 # 비동기 다중 프로세스 개수
-                , 'cpuCoreNum': '1'
+                , 'cpuCoreNum': '5'
                 # , 'cpuCoreNum': globalVar['cpuCoreNum']
 
                 , 'SSMIS': {
@@ -838,21 +856,8 @@ class DtaProcess(object):
 
                     modelInfo = sysOpt.get(modelType)
                     if modelInfo is None: continue
+                    pool.apply_async(visProc, args=(modelType, modelInfo, dtDateInfo))
 
-                    if re.search('SSMIS', modelType, re.IGNORECASE):
-                        pool.apply_async(visSSMIS, args=(modelInfo, dtDateInfo))
-                    elif re.search('AMSR2', modelType, re.IGNORECASE):
-                        pool.apply_async(visAMSR2, args=(modelInfo, dtDateInfo))
-                    elif re.search('GMI', modelType, re.IGNORECASE):
-                        pool.apply_async(visGMI, args=(modelInfo, dtDateInfo))
-                    elif re.search('SMAP', modelType, re.IGNORECASE):
-                        pool.apply_async(visSMAP, args=(modelInfo, dtDateInfo))
-                    elif re.search('ASCAT-B|ASCAT-C', modelType, re.IGNORECASE):
-                        pool.apply_async(visASCAT, args=(modelInfo, dtDateInfo))
-                    elif re.search('AEOLUS-RAY|AEOLUS-MIE', modelType, re.IGNORECASE):
-                        pool.apply_async(visAEOLUS, args=(modelInfo, dtDateInfo))
-                    else:
-                        continue
             pool.close()
             pool.join()
 
