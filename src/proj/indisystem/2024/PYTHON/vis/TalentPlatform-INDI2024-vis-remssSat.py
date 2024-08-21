@@ -186,21 +186,7 @@ def format_date(x, pos=None):
     dt_obj = num2date(x, units="s since 2000-01-01", only_use_cftime_datetimes=False)
     return dt_obj.strftime("%H:%M:%S")
 
-def plotParam2D(
-        parameter="wind_result_wind_velocity",
-        channel="rayleigh",
-        obs_type="clear",
-        QC_filter=True,
-        error_estimate_threshold=800,
-        start_bin=0,
-        end_bin=-1,
-        ds=None
-):
-    # if channel == "rayleigh":
-    #     ds = ds_rayleigh
-    # elif channel == "mie":
-    #     ds = ds_mie
-
+def plotParam2D(parameter="wind_result_wind_velocity", channel="rayleigh", obs_type="clear", QC_filter=True, error_estimate_threshold=800, start_bin=0, end_bin=-1, ds=None):
     # define necessary parameters for plotting
     X0 = ds[channel + "_wind_result_start_time"].values
     X1 = ds[channel + "_wind_result_stop_time"].values
@@ -250,9 +236,11 @@ def plotParam2D(
         Z_vmin = np.nanpercentile(Z, 1)
 
     # fig, (axis, axis2) = plt.subplots(1, 2, figsize=(10, 8), constrained_layout=True)
-    fig, (axis, axis2) = plt.subplots(1, 2, figsize=(20, 5), constrained_layout=True)
+    # fig, (axis, axis2) = plt.subplots(1, 2, figsize=(20, 5), constrained_layout=True)
+    fig, (axis, axis2) = plt.subplots(2, 1, figsize=(9, 10), constrained_layout=True)
 
-    axis = plt.subplot(1, 2, 1, projection=ccrs.PlateCarree())
+    # axis = plt.subplot(1, 2, 1, projection=ccrs.PlateCarree())
+    axis = plt.subplot(2, 1, 1, projection=ccrs.PlateCarree())
     axis.stock_img()
     axis.gridlines(draw_labels=True, linewidth=0.3, color="black", alpha=0.5, linestyle="-")
     axis.scatter(
