@@ -820,60 +820,60 @@ class DtaProcess(object):
                 # 'modelList': [globalVar['modelList']]
 
                 # 비동기 다중 프로세스 개수
-                , 'cpuCoreNum': '5'
+                , 'cpuCoreNum': '10'
                 # , 'cpuCoreNum': globalVar['cpuCoreNum']
 
                 , 'SSMIS': {
-                    'fileInfo': '/HDD/DATA/data1/SAT/SSMIS/%Y/%m/f18_%Y%m%dv*.gz'
+                    'fileInfo': '/HDD/DATA/data1/SAT/SSMIS/%Y%m/%d/f18_%Y%m%dv*.gz'
                     , 'orgVar': ['wspd_mf']
                     , 'newVar': ['wind-mf']
-                    , 'figInfo': '/HDD/DATA/data1/IMG/SSMIS/%Y/%m/ssmis_{}-1D_%Y%m%d%H%M.png'
+                    , 'figInfo': '/HDD/DATA/data1/IMG/SSMIS/%Y%m/%d/ssmis_{}-1D_%Y%m%d%H%M.png'
                 }
                 , 'AMSR2': {
-                    'fileInfo': '/HDD/DATA/data1/SAT/AMSR2/%Y/%m/RSS_AMSR2_ocean_L3_daily_%Y-%m-%d_v*.*.nc'
+                    'fileInfo': '/HDD/DATA/data1/SAT/AMSR2/%Y%m/%d/RSS_AMSR2_ocean_L3_daily_%Y-%m-%d_v*.*.nc'
                     , 'orgVar': ['wind_speed_LF', 'wind_speed_MF', 'wind_speed_AW']
                     , 'newVar': ['wind-lf', 'wind-mf', 'wind-aw']
-                    , 'figInfo': '/HDD/DATA/data1/IMG/AMSR2/%Y/%m/amsr2_{}-1D_%Y%m%d%H%M.png'
+                    , 'figInfo': '/HDD/DATA/data1/IMG/AMSR2/%Y%m/%d/amsr2_{}-1D_%Y%m%d%H%M.png'
                 }
                 , 'GMI': {
-                    'fileInfo': '/HDD/DATA/data1/SAT/GMI/%Y/%m/f35_%Y%m%dv*.*.gz'
+                    'fileInfo': '/HDD/DATA/data1/SAT/GMI/%Y%m/%d/f35_%Y%m%dv*.*.gz'
                     , 'orgVar': ['windLF', 'windMF']
                     , 'newVar': ['wind-lf', 'wind-mf']
-                    , 'figInfo': '/HDD/DATA/data1/IMG/GMI/%Y/%m/gmi_{}-1D_%Y%m%d%H%M.png'
+                    , 'figInfo': '/HDD/DATA/data1/IMG/GMI/%Y%m/%d/gmi_{}-1D_%Y%m%d%H%M.png'
                 }
                 , 'SMAP': {
-                    'fileInfo': '/HDD/DATA/data1/SAT/SMAP/%Y/%m/RSS_smap_wind_daily_%Y_%m_%d_NRT_v*.*.nc'
+                    'fileInfo': '/HDD/DATA/data1/SAT/SMAP/%Y%m/%d/RSS_smap_wind_daily_%Y_%m_%d_NRT_v*.*.nc'
                     , 'orgVar': ['wind']
                     , 'newVar': ['wind']
-                    , 'figInfo': '/HDD/DATA/data1/IMG/SMAP/%Y/%m/smap_{}-1D_%Y%m%d%H%M.png'
+                    , 'figInfo': '/HDD/DATA/data1/IMG/SMAP/%Y%m/%d/smap_{}-1D_%Y%m%d%H%M.png'
                 }
                 , 'ASCAT-B': {
-                    'fileInfo': '/HDD/DATA/data1/SAT/ASCAT/%Y/%m/ascatb_%Y%m%d_v*.*.gz'
+                    'fileInfo': '/HDD/DATA/data1/SAT/ASCAT/%Y%m/%d/ascatb_%Y%m%d_v*.*.gz'
                     , 'orgVar': ['windspd']
                     , 'newVar': ['wind']
-                    , 'figInfo': '/HDD/DATA/data1/IMG/ASCAT/%Y/%m/ascatb_{}-1D_%Y%m%d%H%M.png'
+                    , 'figInfo': '/HDD/DATA/data1/IMG/ASCAT/%Y%m/%d/ascatb_{}-1D_%Y%m%d%H%M.png'
                 }
                 , 'ASCAT-C': {
-                    'fileInfo': '/HDD/DATA/data1/SAT/ASCAT/%Y/%m/ascatc_%Y%m%d_v*.*.gz'
+                    'fileInfo': '/HDD/DATA/data1/SAT/ASCAT/%Y%m/%d/ascatc_%Y%m%d_v*.*.gz'
                     , 'orgVar': ['windspd']
                     , 'newVar': ['wind']
-                    , 'figInfo': '/HDD/DATA/data1/IMG/ASCAT/%Y/%m/ascatc_{}-1D_%Y%m%d%H%M.png'
+                    , 'figInfo': '/HDD/DATA/data1/IMG/ASCAT/%Y%m/%d/ascatc_{}-1D_%Y%m%d%H%M.png'
                 }
                 , 'AEOLUS-RAY': {
-                    'fileInfo': '/HDD/DATA/data1/SAT/AEOLUS/%Y/%m/%d/aeolus_wind-ray_%Y%m%d%H%M.nc'
+                    'fileInfo': '/HDD/DATA/data1/SAT/AEOLUS/%Y%m/%d/aeolus_wind-ray_%Y%m%d%H%M.nc'
                     , 'request': {
                         'url': 'https://aeolus.services/ows'
                         , 'token': ''
                     }
-                    , 'figInfo': '/HDD/DATA/data1/IMG/AEOLUS/%Y/%m/aeolus_wind-ray_%Y%m%d%H%M.png'
+                    , 'figInfo': '/HDD/DATA/data1/IMG/AEOLUS/%Y%m/%d/aeolus_wind-ray_%Y%m%d%H%M.png'
                 }
                 , 'AEOLUS-MIE': {
-                    'fileInfo': '/HDD/DATA/data1/SAT/AEOLUS/%Y/%m/%d/aeolus_wind-mie_%Y%m%d%H%M.nc'
+                    'fileInfo': '/HDD/DATA/data1/SAT/AEOLUS/%Y%m/%d/aeolus_wind-mie_%Y%m%d%H%M.nc'
                     , 'request': {
                         'url': 'https://aeolus.services/ows'
                         , 'token': ''
                     }
-                    , 'figInfo': '/HDD/DATA/data1/IMG/AEOLUS/%Y/%m/aeolus_wind-mie_%Y%m%d%H%M.png'
+                    , 'figInfo': '/HDD/DATA/data1/IMG/AEOLUS/%Y%m/%d/aeolus_wind-mie_%Y%m%d%H%M.png'
                 }
             }
 
