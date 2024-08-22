@@ -391,6 +391,10 @@ def visSSMIS(modelInfo, dtDateInfo):
                 saveImg = dtDateInfo.strftime(modelInfo['figInfo']).format(newVar)
                 os.makedirs(os.path.dirname(saveImg), exist_ok=True)
 
+                # 파일 검사
+                fileList = sorted(glob.glob(saveImg))
+                if len(fileList) > 0: continue
+
                 fig, ax = plt.subplots(figsize=(10, 4), subplot_kw={'projection': ccrs.PlateCarree()})
 
                 ax.set_global()
@@ -438,6 +442,10 @@ def visAMSR2(modelInfo, dtDateInfo):
 
                 saveImg = dtDateInfo.strftime(modelInfo['figInfo']).format(newVar)
                 os.makedirs(os.path.dirname(saveImg), exist_ok=True)
+
+                # 파일 검사
+                fileList = sorted(glob.glob(saveImg))
+                if len(fileList) > 0: continue
 
                 fig, ax = plt.subplots(figsize=(10, 4), subplot_kw={'projection': ccrs.PlateCarree()})
 
@@ -533,6 +541,10 @@ def visGMI(modelInfo, dtDateInfo):
                 saveImg = dtDateInfo.strftime(modelInfo['figInfo']).format(newVar)
                 os.makedirs(os.path.dirname(saveImg), exist_ok=True)
 
+                # 파일 검사
+                fileList = sorted(glob.glob(saveImg))
+                if len(fileList) > 0: continue
+
                 fig, ax = plt.subplots(figsize=(10, 4), subplot_kw={'projection': ccrs.PlateCarree()})
 
                 ax.set_global()
@@ -581,6 +593,10 @@ def visSMAP(modelInfo, dtDateInfo):
 
                 saveImg = dtDateInfo.strftime(modelInfo['figInfo']).format(newVar)
                 os.makedirs(os.path.dirname(saveImg), exist_ok=True)
+
+                # 파일 검사
+                fileList = sorted(glob.glob(saveImg))
+                if len(fileList) > 0: continue
 
                 fig, ax = plt.subplots(figsize=(10, 4), subplot_kw={'projection': ccrs.PlateCarree()})
 
@@ -658,6 +674,10 @@ def visASCAT(modelInfo, dtDateInfo):
                 saveImg = dtDateInfo.strftime(modelInfo['figInfo']).format(newVar)
                 os.makedirs(os.path.dirname(saveImg), exist_ok=True)
 
+                # 파일 검사
+                fileList = sorted(glob.glob(saveImg))
+                if len(fileList) > 0: continue
+
                 fig, ax = plt.subplots(figsize=(10, 4), subplot_kw={'projection': ccrs.PlateCarree()})
 
                 ax.set_global()
@@ -707,6 +727,10 @@ def visAEOLUS(modelInfo, dtDateInfo):
 
             saveImg = dtDateInfo.strftime(modelInfo['figInfo'])
             os.makedirs(os.path.dirname(saveImg), exist_ok=True)
+
+            # 파일 검사
+            fileList = sorted(glob.glob(saveImg))
+            if len(fileList) > 0: continue
 
             plotParam2D(
                 parameter="wind_result_wind_velocity",
@@ -820,7 +844,7 @@ class DtaProcess(object):
                 # 'modelList': [globalVar['modelList']]
 
                 # 비동기 다중 프로세스 개수
-                , 'cpuCoreNum': '10'
+                , 'cpuCoreNum': '5'
                 # , 'cpuCoreNum': globalVar['cpuCoreNum']
 
                 , 'SSMIS': {
