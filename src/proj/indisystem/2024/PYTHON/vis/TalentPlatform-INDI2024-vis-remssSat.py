@@ -42,6 +42,7 @@ import matplotlib.colors as colors
 from viresclient import AeolusRequest
 from netCDF4 import Dataset, num2date
 import cartopy.crs as ccrs
+import cartopy.feature as cfeature
 
 # =================================================
 # 사용자 매뉴얼
@@ -296,6 +297,7 @@ def plotParam2D(parameter="wind_result_wind_velocity", channel="rayleigh", obs_t
         s=5,
         label='DEM altitude',
     )
+
     # ax.set_ylim(-1, 30)
     axis2.set_xlabel("Date [UTC]")
     axis2.set_ylabel("Altitude [km]")
@@ -389,8 +391,23 @@ def visSSMIS(modelInfo, dtDateInfo):
                 saveImg = dtDateInfo.strftime(modelInfo['figInfo']).format(newVar)
                 os.makedirs(os.path.dirname(saveImg), exist_ok=True)
 
+                fig, ax = plt.subplots(figsize=(10, 4), subplot_kw={'projection': ccrs.PlateCarree()})
+
+                ax.set_global()
+                ax.add_feature(cfeature.LAND.with_scale('110m'), edgecolor='k', lw=0.5)
+                ax.add_feature(cfeature.OCEAN.with_scale('110m'), edgecolor='k', facecolor='white', lw=0.5)
+                ax.add_feature(cfeature.LAKES.with_scale('110m'), edgecolor='k', facecolor='white', lw=0.5)
+                ax.add_feature(cfeature.BORDERS.with_scale('110m'), lw=0.5, edgecolor='k')
+                ax.add_feature(cfeature.RIVERS.with_scale('110m'), lw=0.5, edgecolor='k')
+
                 meanData = dataL1[orgVar].mean(dim=['orbit'])
-                meanData.plot()
+                meanData.plot(ax=ax, transform=ccrs.PlateCarree(), cmap=cm.get_cmap('jet'))
+
+                gl = ax.gridlines(draw_labels=True)
+                gl.top_labels = False
+                gl.right_labels = False
+
+                plt.title(os.path.basename(saveImg).split('.')[0])
 
                 plt.savefig(saveImg, dpi=600, bbox_inches='tight', transparent=False)
                 plt.close()
@@ -422,8 +439,23 @@ def visAMSR2(modelInfo, dtDateInfo):
                 saveImg = dtDateInfo.strftime(modelInfo['figInfo']).format(newVar)
                 os.makedirs(os.path.dirname(saveImg), exist_ok=True)
 
+                fig, ax = plt.subplots(figsize=(10, 4), subplot_kw={'projection': ccrs.PlateCarree()})
+
+                ax.set_global()
+                ax.add_feature(cfeature.LAND.with_scale('110m'), edgecolor='k', lw=0.5)
+                ax.add_feature(cfeature.OCEAN.with_scale('110m'), edgecolor='k', facecolor='white', lw=0.5)
+                ax.add_feature(cfeature.LAKES.with_scale('110m'), edgecolor='k', facecolor='white', lw=0.5)
+                ax.add_feature(cfeature.BORDERS.with_scale('110m'), lw=0.5, edgecolor='k')
+                ax.add_feature(cfeature.RIVERS.with_scale('110m'), lw=0.5, edgecolor='k')
+
                 meanData = dataL1[orgVar].mean(dim=['pass'])
-                meanData.plot()
+                meanData.plot(ax=ax, transform=ccrs.PlateCarree(), cmap=cm.get_cmap('jet'))
+
+                gl = ax.gridlines(draw_labels=True)
+                gl.top_labels = False
+                gl.right_labels = False
+
+                plt.title(os.path.basename(saveImg).split('.')[0])
 
                 plt.savefig(saveImg, dpi=600, bbox_inches='tight', transparent=False)
                 plt.close()
@@ -501,8 +533,23 @@ def visGMI(modelInfo, dtDateInfo):
                 saveImg = dtDateInfo.strftime(modelInfo['figInfo']).format(newVar)
                 os.makedirs(os.path.dirname(saveImg), exist_ok=True)
 
+                fig, ax = plt.subplots(figsize=(10, 4), subplot_kw={'projection': ccrs.PlateCarree()})
+
+                ax.set_global()
+                ax.add_feature(cfeature.LAND.with_scale('110m'), edgecolor='k', lw=0.5)
+                ax.add_feature(cfeature.OCEAN.with_scale('110m'), edgecolor='k', facecolor='white', lw=0.5)
+                ax.add_feature(cfeature.LAKES.with_scale('110m'), edgecolor='k', facecolor='white', lw=0.5)
+                ax.add_feature(cfeature.BORDERS.with_scale('110m'), lw=0.5, edgecolor='k')
+                ax.add_feature(cfeature.RIVERS.with_scale('110m'), lw=0.5, edgecolor='k')
+
                 meanData = dataL1[orgVar].mean(dim=['orbit'])
-                meanData.plot()
+                meanData.plot(ax=ax, transform=ccrs.PlateCarree(), cmap=cm.get_cmap('jet'))
+
+                gl = ax.gridlines(draw_labels=True)
+                gl.top_labels = False
+                gl.right_labels = False
+
+                plt.title(os.path.basename(saveImg).split('.')[0])
 
                 plt.savefig(saveImg, dpi=600, bbox_inches='tight', transparent=False)
                 plt.close()
@@ -535,8 +582,24 @@ def visSMAP(modelInfo, dtDateInfo):
                 saveImg = dtDateInfo.strftime(modelInfo['figInfo']).format(newVar)
                 os.makedirs(os.path.dirname(saveImg), exist_ok=True)
 
+                fig, ax = plt.subplots(figsize=(10, 4), subplot_kw={'projection': ccrs.PlateCarree()})
+
+                ax.set_global()
+                ax.add_feature(cfeature.LAND.with_scale('110m'), edgecolor='k', lw=0.5)
+                ax.add_feature(cfeature.OCEAN.with_scale('110m'), edgecolor='k', facecolor='white', lw=0.5)
+                ax.add_feature(cfeature.LAKES.with_scale('110m'), edgecolor='k', facecolor='white', lw=0.5)
+                ax.add_feature(cfeature.BORDERS.with_scale('110m'), lw=0.5, edgecolor='k')
+                ax.add_feature(cfeature.RIVERS.with_scale('110m'), lw=0.5, edgecolor='k')
+
                 meanData = dataL1[orgVar].mean(dim=['node'])
-                meanData.plot()
+                # meanData.plot()
+                meanData.plot(ax=ax, transform=ccrs.PlateCarree(), cmap=cm.get_cmap('jet'))
+
+                gl = ax.gridlines(draw_labels=True)
+                gl.top_labels = False
+                gl.right_labels = False
+
+                plt.title(os.path.basename(saveImg).split('.')[0])
 
                 plt.savefig(saveImg, dpi=600, bbox_inches='tight', transparent=False)
                 plt.close()
@@ -595,39 +658,27 @@ def visASCAT(modelInfo, dtDateInfo):
                 saveImg = dtDateInfo.strftime(modelInfo['figInfo']).format(newVar)
                 os.makedirs(os.path.dirname(saveImg), exist_ok=True)
 
+                fig, ax = plt.subplots(figsize=(10, 4), subplot_kw={'projection': ccrs.PlateCarree()})
+
+                ax.set_global()
+                ax.add_feature(cfeature.LAND.with_scale('110m'), edgecolor='k', lw=0.5)
+                ax.add_feature(cfeature.OCEAN.with_scale('110m'), edgecolor='k', facecolor='white', lw=0.5)
+                ax.add_feature(cfeature.LAKES.with_scale('110m'), edgecolor='k', facecolor='white', lw=0.5)
+                ax.add_feature(cfeature.BORDERS.with_scale('110m'), lw=0.5, edgecolor='k')
+                ax.add_feature(cfeature.RIVERS.with_scale('110m'), lw=0.5, edgecolor='k')
+
                 meanData = dataL1[orgVar].mean(dim=['orbit'])
-                meanData.plot()
+                meanData.plot(ax=ax, transform=ccrs.PlateCarree(), cmap=cm.get_cmap('jet'))
+
+                gl = ax.gridlines(draw_labels=True)
+                gl.top_labels = False
+                gl.right_labels = False
+
+                plt.title(os.path.basename(saveImg).split('.')[0])
 
                 plt.savefig(saveImg, dpi=600, bbox_inches='tight', transparent=False)
                 plt.close()
                 log.info(f'[CHECK] saveImg : {saveImg}')
-
-
-                # wind_direction_rad = np.deg2rad(dataL1['winddir'])
-                # u = -dataL1['windspd'] * np.sin(wind_direction_rad)
-                # v = -dataL1['windspd'] * np.cos(wind_direction_rad)
-                #
-                # dataL1['u'] = u
-                # dataL1['v'] = v
-                #
-                # meanData = dataL1[['u', 'v']].mean(dim=['orbit'])
-                # # meanData.plot()
-                #
-                # # lon2d, lat2d = np.meshgrid(dataL1.lon, dataL1.lat)
-                # # u = meanData['u']
-                # # v = meanData['v']
-                #
-                # import cartopy.crs as ccrs
-                # import cartopy.feature as cfeature
-                # plt.figure(figsize=(12, 6))
-                # plt.axes(projection=ccrs.PlateCarree())
-
-                # ax.set_global()
-                # ax.coastlines()
-                # ax.add_feature(cfeature.BORDERS, linestyle=':')
-
-                # 벡터 필드 그리기
-                # plt.quiver(meanData['lon'], meanData['lat'], meanData['u'], meanData['v'], transform=ccrs.PlateCarree())
 
             log.info(f'[END] visSSMIS : {dtDateInfo} / pid : {procInfo.pid}')
 
@@ -844,6 +895,7 @@ class DtaProcess(object):
 
                     modelInfo = sysOpt.get(modelType)
                     if modelInfo is None: continue
+
                     pool.apply_async(visProc, args=(modelType, modelInfo, dtDateInfo))
 
             pool.close()
