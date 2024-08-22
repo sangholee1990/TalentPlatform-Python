@@ -405,7 +405,7 @@ def visSSMIS(modelInfo, dtDateInfo):
                 ax.add_feature(cfeature.RIVERS.with_scale('110m'), lw=0.5, edgecolor='k')
 
                 meanData = dataL1[orgVar].mean(dim=['orbit'])
-                meanData.plot(ax=ax, transform=ccrs.PlateCarree(), cmap=cm.get_cmap('jet'))
+                meanData.plot(ax=ax, transform=ccrs.PlateCarree(), cmap=cm.get_cmap('jet'), vmin=0, vmax=50)
 
                 gl = ax.gridlines(draw_labels=True)
                 gl.top_labels = False
@@ -457,7 +457,7 @@ def visAMSR2(modelInfo, dtDateInfo):
                 ax.add_feature(cfeature.RIVERS.with_scale('110m'), lw=0.5, edgecolor='k')
 
                 meanData = dataL1[orgVar].mean(dim=['pass'])
-                meanData.plot(ax=ax, transform=ccrs.PlateCarree(), cmap=cm.get_cmap('jet'))
+                meanData.plot(ax=ax, transform=ccrs.PlateCarree(), cmap=cm.get_cmap('jet'), vmin=0, vmax=50)
 
                 gl = ax.gridlines(draw_labels=True)
                 gl.top_labels = False
@@ -555,7 +555,7 @@ def visGMI(modelInfo, dtDateInfo):
                 ax.add_feature(cfeature.RIVERS.with_scale('110m'), lw=0.5, edgecolor='k')
 
                 meanData = dataL1[orgVar].mean(dim=['orbit'])
-                meanData.plot(ax=ax, transform=ccrs.PlateCarree(), cmap=cm.get_cmap('jet'))
+                meanData.plot(ax=ax, transform=ccrs.PlateCarree(), cmap=cm.get_cmap('jet'), vmin=0, vmax=50)
 
                 gl = ax.gridlines(draw_labels=True)
                 gl.top_labels = False
@@ -609,7 +609,7 @@ def visSMAP(modelInfo, dtDateInfo):
 
                 meanData = dataL1[orgVar].mean(dim=['node'])
                 # meanData.plot()
-                meanData.plot(ax=ax, transform=ccrs.PlateCarree(), cmap=cm.get_cmap('jet'))
+                meanData.plot(ax=ax, transform=ccrs.PlateCarree(), cmap=cm.get_cmap('jet'), vmin=0, vmax=50)
 
                 gl = ax.gridlines(draw_labels=True)
                 gl.top_labels = False
@@ -688,7 +688,7 @@ def visASCAT(modelInfo, dtDateInfo):
                 ax.add_feature(cfeature.RIVERS.with_scale('110m'), lw=0.5, edgecolor='k')
 
                 meanData = dataL1[orgVar].mean(dim=['orbit'])
-                meanData.plot(ax=ax, transform=ccrs.PlateCarree(), cmap=cm.get_cmap('jet'))
+                meanData.plot(ax=ax, transform=ccrs.PlateCarree(), cmap=cm.get_cmap('jet'), vmin=0, vmax=50)
 
                 gl = ax.gridlines(draw_labels=True)
                 gl.top_labels = False
@@ -721,11 +721,16 @@ def visAEOLUS(modelInfo, dtDateInfo):
             data = request.get_from_file(fileInfo)
             dataL1 = data.as_xarray()
 
-            if len(dataL1) < 1: continue
-
             isRay = re.search('_wind-ray_', fileInfo, re.IGNORECASE)
 
-            saveImg = dtDateInfo.strftime(modelInfo['figInfo'])
+            if len(dataL1) < 1: continue
+            if len(dataL1["rayleigh_wind_data" if isRay else "mie_wind_data"]) < 1: continue
+
+            match = re.search(r"\d{12}", fileInfo)
+            if not match: continue
+            getDateTime = pd.to_datetime(match.group(0), format='%Y%m%d%H%M')
+
+            saveImg = getDateTime.strftime(modelInfo['figInfo'])
             os.makedirs(os.path.dirname(saveImg), exist_ok=True)
 
             # 파일 검사
@@ -837,7 +842,7 @@ class DtaProcess(object):
                 , 'endDate': '2023-01-03'
                 # 'srtDate': globalVar['srtDate']
                 # , 'endDate': globalVar['endDate']
-                , 'invDate': '1h'
+                , 'invDate': '1d'
 
                 # 수행 목록
                 , 'modelList': ['SSMIS', 'AMSR2', 'GMI', 'SMAP', 'ASCAT-B', 'ASCAT-C', 'AEOLUS-RAY', 'AEOLUS-MIE']
@@ -884,7 +889,7 @@ class DtaProcess(object):
                     , 'figInfo': '/HDD/DATA/data1/IMG/ASCAT/%Y%m/%d/ascatc_{}-1D_%Y%m%d%H%M.png'
                 }
                 , 'AEOLUS-RAY': {
-                    'fileInfo': '/HDD/DATA/data1/SAT/AEOLUS/%Y%m/%d/aeolus_wind-ray_%Y%m%d%H%M.nc'
+                    'fileInfo': '/HDD/DATA/data1/SAT/AEOLUS/%Y%m/%d/aeolus_wind-ray_%Y%m%d*.nc'
                     , 'request': {
                         'url': 'https://aeolus.services/ows'
                         , 'token': ''
@@ -892,7 +897,7 @@ class DtaProcess(object):
                     , 'figInfo': '/HDD/DATA/data1/IMG/AEOLUS/%Y%m/%d/aeolus_wind-ray_%Y%m%d%H%M.png'
                 }
                 , 'AEOLUS-MIE': {
-                    'fileInfo': '/HDD/DATA/data1/SAT/AEOLUS/%Y%m/%d/aeolus_wind-mie_%Y%m%d%H%M.nc'
+                    'fileInfo': '/HDD/DATA/data1/SAT/AEOLUS/%Y%m/%d/aeolus_wind-mie_%Y%m%d*.nc'
                     , 'request': {
                         'url': 'https://aeolus.services/ows'
                         , 'token': ''
