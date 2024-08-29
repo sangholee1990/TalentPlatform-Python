@@ -228,6 +228,7 @@ def colctRemssSat(modelInfo, dtDateInfo):
             if os.path.exists(tmpFileInfo):
                 os.remove(tmpFileInfo)
 
+            # cmd = f"curl -s -C - {modelInfo['request']['url']}/{fileInfo} --retry 10 -o {tmpFileInfo} --cacert /home/hanul/anaconda3/envs/py38/lib/python3.8/site-packages/certifi/cacert.pem"
             cmd = f"curl -s -C - {modelInfo['request']['url']}/{fileInfo} --retry 10 -o {tmpFileInfo}"
             log.info(f'[CHECK] cmd : {cmd}')
 
@@ -297,7 +298,8 @@ def colctAeolusSat(modelInfo, dtDateInfo):
                 fileList = sorted(glob.glob(updFileInfo))
                 if len(fileList) > 0: continue
 
-                data = request.get_between(start_time=sSrtDt, end_time=sEndDt, filetype="nc", asynchronous=True)
+                # data = request.get_between(start_time=sSrtDt, end_time=sEndDt, filetype="nc", asynchronous=True)
+                data = request.get_between(start_time=sSrtDt, end_time=sEndDt, filetype="nc", asynchronous=False)
                 dataL1 = data.as_xarray()
 
                 if len(dataL1) < 1: continue
@@ -410,10 +412,10 @@ class DtaProcess(object):
             # 옵션 설정
             sysOpt = {
                 # 시작일, 종료일, 시간 간격 (연 1y, 월 1h, 일 1d, 시간 1h)
-                # 'srtDate': '2023-01-01'
-                # , 'endDate': '2023-01-03'
-                'srtDate': globalVar['srtDate']
-                , 'endDate': globalVar['endDate']
+                'srtDate': '2023-01-01'
+                , 'endDate': '2023-01-03'
+                # 'srtDate': globalVar['srtDate']
+                # , 'endDate': globalVar['endDate']
                 , 'invDate': '1d'
 
                 # 수행 목록
@@ -421,8 +423,8 @@ class DtaProcess(object):
                 # 'modelList': [globalVar['modelList']]
 
                 # 비동기 다중 프로세스 개수
-                # , 'cpuCoreNum': '5'
-                , 'cpuCoreNum': globalVar['cpuCoreNum']
+                , 'cpuCoreNum': '5'
+                # , 'cpuCoreNum': globalVar['cpuCoreNum']
 
                 , 'SSMIS': {
                     'request': {
