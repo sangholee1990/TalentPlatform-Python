@@ -338,11 +338,16 @@ class DtaProcess(object):
     # Python을 이용한 위성측정기반 바람 산출물 수집
 
     # cd /home/hanul/SYSTEMS/KIER/PROG/PYTHON/colct
-    # nohup /home/hanul/anaconda3/envs/py38/bin/python3 TalentPlatform-INDI2024-colct-remssAMSR2.py --modelList SAT-AMSR2 --cpuCoreNum 5 --srtDate 2024-08-01 --endDate 2024-08-15 &
+    # nohup /home/hanul/anaconda3/envs/py38/bin/python3 TalentPlatform-INDI2024-colct-remssSat.py --modelList SAT-AMSR2 --cpuCoreNum 5 --srtDate 2023-01-01 --endDate 2023-01-03 &
+    # ps -ef | grep "TalentPlatform-INDI2024-colct-remssSat.py" | awk '{print $2}' | xargs kill -9
 
-    # ps -ef | grep "TalentPlatform-INDI2024-colct-remssSMAP.py" | awk '{print $2}' | xargs kill -9
-    # ps -ef | grep "RunShell-get-gfsncep2.sh" | awk '{print $2}' | xargs kill -9
-    # ps -ef | egrep "RunShell|Repro" | awk '{print $2}' | xargs kill -9
+    # TalentPlatform-INDI2024-colct-remssSat.py --modelList 'SSMIS' --cpuCoreNum '5' --srtDate '2023-01-01' --endDate '2023-01-03'
+    # TalentPlatform-INDI2024-colct-remssSat.py --modelList 'AMSR2' --cpuCoreNum '5' --srtDate '2023-01-01' --endDate '2023-01-03'
+    # TalentPlatform-INDI2024-colct-remssSat.py --modelList 'GMI' --cpuCoreNum '5' --srtDate '2023-01-01' --endDate '2023-01-03'
+    # TalentPlatform-INDI2024-colct-remssSat.py --modelList 'SMAP' --cpuCoreNum '5' --srtDate '2023-01-01' --endDate '2023-01-03'
+    # TalentPlatform-INDI2024-colct-remssSat.py --modelList 'ASCAT-B' --cpuCoreNum '5' --srtDate '2023-01-01' --endDate '2023-01-03'
+    # TalentPlatform-INDI2024-colct-remssSat.py --modelList 'ASCAT-C' --cpuCoreNum '5' --srtDate '2023-01-01' --endDate'2023-01-03'
+    # TalentPlatform-INDI2024-colct-remssSat.py --modelList 'AEOLUS' --cpuCoreNum '5' --srtDate '2023-01-01' --endDate '2023-01-03'
 
     # ================================================================================================
     # 환경변수 설정
@@ -405,20 +410,19 @@ class DtaProcess(object):
             # 옵션 설정
             sysOpt = {
                 # 시작일, 종료일, 시간 간격 (연 1y, 월 1h, 일 1d, 시간 1h)
-                'srtDate': '2023-01-01'
-                , 'endDate': '2023-01-03'
-                # 'srtDate': globalVar['srtDate']
-                # , 'endDate': globalVar['endDate']
+                # 'srtDate': '2023-01-01'
+                # , 'endDate': '2023-01-03'
+                'srtDate': globalVar['srtDate']
+                , 'endDate': globalVar['endDate']
                 , 'invDate': '1d'
 
                 # 수행 목록
                 , 'modelList': ['SSMIS', 'AMSR2', 'GMI', 'SMAP', 'ASCAT-B', 'ASCAT-C', 'AEOLUS']
-                # , 'modelList': ['AEOLUS']
                 # 'modelList': [globalVar['modelList']]
 
                 # 비동기 다중 프로세스 개수
-                , 'cpuCoreNum': '10'
-                # , 'cpuCoreNum': globalVar['cpuCoreNum']
+                # , 'cpuCoreNum': '5'
+                , 'cpuCoreNum': globalVar['cpuCoreNum']
 
                 , 'SSMIS': {
                     'request': {
@@ -426,8 +430,8 @@ class DtaProcess(object):
                         , 'filePath': '/ssmi/f18/bmaps_v08/y%Y/m%m'
                         , 'fileNamePattern': 'f18_(\d{4})(\d{2})(\d{2})v(\d+)\.gz'
                     }
-                    , 'tmp': '/HDD/DATA/data1/SAT/SSMIS/%Y%m/%d/.{}'
-                    , 'target': '/HDD/DATA/data1/SAT/SSMIS/%Y%m/%d/{}'
+                    , 'tmp': '/data1/SAT/SSMIS/%Y%m/%d/.{}'
+                    , 'target': '/data1/SAT/SSMIS/%Y%m/%d/{}'
                 }
                 , 'AMSR2': {
                     'request': {
@@ -435,8 +439,8 @@ class DtaProcess(object):
                         , 'filePath': '/amsr2/ocean/L3/v08.2/daily/%Y'
                         , 'fileNamePattern': 'RSS_AMSR2_ocean_L3_daily_(\d{4})-(\d{2})-(\d{2})_v(\d+\.\d+)\.nc'
                     }
-                    , 'tmp': '/HDD/DATA/data1/SAT/AMSR2/%Y%m/%d/.{}'
-                    , 'target': '/HDD/DATA/data1/SAT/AMSR2/%Y%m/%d/{}'
+                    , 'tmp': '/data1/SAT/AMSR2/%Y%m/%d/.{}'
+                    , 'target': '/data1/SAT/AMSR2/%Y%m/%d/{}'
                 }
                 , 'GMI': {
                     'request': {
@@ -444,8 +448,8 @@ class DtaProcess(object):
                         , 'filePath': '/gmi/bmaps_v08.2/y%Y/m%m'
                         , 'fileNamePattern': 'f35_(\d{4})(\d{2})(\d{2})v(\d+\.\d+)\.gz'
                     }
-                    , 'tmp': '/HDD/DATA/data1/SAT/GMI/%Y%m/%d/.{}'
-                    , 'target': '/HDD/DATA/data1/SAT/GMI/%Y%m/%d/{}'
+                    , 'tmp': '/data1/SAT/GMI/%Y%m/%d/.{}'
+                    , 'target': '/data1/SAT/GMI/%Y%m/%d/{}'
                 }
                 , 'SMAP': {
                     'request': {
@@ -453,8 +457,8 @@ class DtaProcess(object):
                         , 'filePath': '/smap/wind/L3/v01.0/daily/NRT/%Y'
                         , 'fileNamePattern': 'RSS_smap_wind_daily_(\d{4})_(\d{2})_(\d{2})_NRT_v(\d+\.\d+)\.nc'
                     }
-                    , 'tmp': '/HDD/DATA/data1/SAT/SMAP/%Y%m/%d/.{}'
-                    , 'target': '/HDD/DATA/data1/SAT/SMAP/%Y%m/%d/{}'
+                    , 'tmp': '/data1/SAT/SMAP/%Y%m/%d/.{}'
+                    , 'target': '/data1/SAT/SMAP/%Y%m/%d/{}'
                 }
                 , 'ASCAT-B': {
                     'request': {
@@ -462,8 +466,8 @@ class DtaProcess(object):
                         , 'filePath': '/ascat/metopb/bmaps_v02.1/y%Y/m%m'
                         , 'fileNamePattern': 'ascatb_(\d{4})(\d{2})(\d{2})_v(\d+\.\d+)\.gz'
                     }
-                    , 'tmp': '/HDD/DATA/data1/SAT/ASCAT/%Y%m/%d/.{}'
-                    , 'target': '/HDD/DATA/data1/SAT/ASCAT/%Y%m/%d/{}'
+                    , 'tmp': '/data1/SAT/ASCAT/%Y%m/%d/.{}'
+                    , 'target': '/data1/SAT/ASCAT/%Y%m/%d/{}'
                 }
                 , 'ASCAT-C': {
                     'request': {
@@ -471,8 +475,8 @@ class DtaProcess(object):
                         , 'filePath': '/ascat/metopc/bmaps_v02.1/y%Y/m%m'
                         , 'fileNamePattern': 'ascatc_(\d{4})(\d{2})(\d{2})_v(\d+\.\d+)\.gz'
                     }
-                    , 'tmp': '/HDD/DATA/data1/SAT/ASCAT/%Y%m/%d/.{}'
-                    , 'target': '/HDD/DATA/data1/SAT/ASCAT/%Y%m/%d/{}'
+                    , 'tmp': '/data1/SAT/ASCAT/%Y%m/%d/.{}'
+                    , 'target': '/data1/SAT/ASCAT/%Y%m/%d/{}'
                 }
                 , 'AEOLUS': {
                     'request': {
@@ -499,8 +503,8 @@ class DtaProcess(object):
                             , "wind_result_alt_of_DEM_intersection"
                         ]
                     }
-                    , 'tmp': '/HDD/DATA/data1/SAT/AEOLUS/%Y%m/%d/.aeolus_wind-{}_%Y%m%d%H%M.nc'
-                    , 'target': '/HDD/DATA/data1/SAT/AEOLUS/%Y%m/%d/aeolus_wind-{}_%Y%m%d%H%M.nc'
+                    , 'tmp': '/data1/SAT/AEOLUS/%Y%m/%d/.aeolus_wind-{}_%Y%m%d%H%M.nc'
+                    , 'target': '/data1/SAT/AEOLUS/%Y%m/%d/aeolus_wind-{}_%Y%m%d%H%M.nc'
                 }
             }
 

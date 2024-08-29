@@ -188,7 +188,7 @@ def format_date(x, pos=None):
     return dt_obj.strftime("%H:%M:%S")
 
 def plotParam2D(parameter="wind_result_wind_velocity", channel="rayleigh", obs_type="clear", QC_filter=True, error_estimate_threshold=800, start_bin=0, end_bin=-1, ds=None):
-    # define necessary parameters for plotting
+
     X0 = ds[channel + "_wind_result_start_time"].values
     X1 = ds[channel + "_wind_result_stop_time"].values
 
@@ -239,11 +239,16 @@ def plotParam2D(parameter="wind_result_wind_velocity", channel="rayleigh", obs_t
     # fig, (axis, axis2) = plt.subplots(1, 2, figsize=(10, 8), constrained_layout=True)
     # fig, (axis, axis2) = plt.subplots(1, 2, figsize=(20, 5), constrained_layout=True)
     fig, (axis, axis2) = plt.subplots(2, 1, figsize=(9, 10), constrained_layout=True)
+    # fig, (axis, axis2) = plt.subplots(2, 1, figsize=(9, 10), constrained_layout=True, subplot_kw={'projection': ccrs.PlateCarree()})
+    # fig, (axis, axis2) = plt.subplots(2, 1, figsize=(9, 10), constrained_layout=True, subplot_kw={'projection': ccrs.PlateCarree()})
 
     # axis = plt.subplot(1, 2, 1, projection=ccrs.PlateCarree())
     axis = plt.subplot(2, 1, 1, projection=ccrs.PlateCarree())
     axis.stock_img()
-    axis.gridlines(draw_labels=True, linewidth=0.3, color="black", alpha=0.5, linestyle="-")
+    gl = axis.gridlines(draw_labels=True, linewidth=0.3, color="black", alpha=0.5, linestyle="-")
+    gl.top_labels = False
+    gl.right_labels = False
+
     axis.scatter(
         ds[channel + "_wind_result_COG_longitude"],
         ds[channel + "_wind_result_COG_latitude"],
@@ -274,19 +279,11 @@ def plotParam2D(parameter="wind_result_wind_velocity", channel="rayleigh", obs_t
         transform=ccrs.Geodetic(),
     )
     axis.legend()
-    axis.set_title(channel.title())
+    # axis.set_title(channel.title())
+    axis.set_title("{} {} (N = {})".format(channel.title(), parameter, len(Z)))
 
-    coll = PolyCollection(
-        patches,
-        array=Z,
-        cmap=cm.RdBu_r,
-        norm=colors.Normalize(
-            vmin=Z_vmin,
-            vmax=Z_vmax,
-            clip=False,
-        ),
-    )
-
+    coll = PolyCollection(patches, array=Z, cmap=cm.RdBu_r, norm=colors.Normalize(vmin=Z_vmin, vmax=Z_vmax, clip=False))
+    # coll = PolyCollection(patches, array=Z, cmap=cm.get_cmap('jet'), norm=colors.Normalize(vmin=Z_vmin, vmax=Z_vmax, clip=False))
     axis2.add_collection(coll)
 
     axis2.scatter(
@@ -301,13 +298,14 @@ def plotParam2D(parameter="wind_result_wind_velocity", channel="rayleigh", obs_t
     # ax.set_ylim(-1, 30)
     axis2.set_xlabel("Date [UTC]")
     axis2.set_ylabel("Altitude [km]")
-    axis2.set_title("{} - {} \n {} wind results".format(channel.title(), parameter, len(Z)))
+    # axis2.set_title("{} - {} \n {} wind results".format(channel.title(), parameter, len(Z)))
     axis2.grid()
     axis2.legend()
 
     axis2.xaxis.set_major_formatter(format_date)
     axis2.autoscale()
-    fig.colorbar(coll, ax=axis2, aspect=50, pad=0.01)
+    # fig.colorbar(coll, ax=axis2, aspect=50, pad=0.01)
+    fig.colorbar(coll, ax=axis2)
     fig.autofmt_xdate()
 
 def visProc(modelType, modelInfo, dtDateInfo):
@@ -361,13 +359,13 @@ def visSSMIS(modelInfo, dtDateInfo):
                 if re.search('time', key, re.IGNORECASE):
                     val2 = xr.where((0 <= val) & (val <= 24), val, np.nan)
                 elif re.search('wspd_mf', key, re.IGNORECASE):
-                    val2 = xr.where((val <= 50), val, np.nan)
+                    val2 = xr.where((0 <= val) & (val <= 50), val, np.nan)
                 elif re.search('vapor', key, re.IGNORECASE):
-                    val2 = xr.where((val <= 75), val, np.nan)
+                    val2 = xr.where((0 <= val) & (val <= 75), val, np.nan)
                 elif re.search('cloud', key, re.IGNORECASE):
-                    val2 = xr.where((val <= 2.5), val, np.nan)
+                    val2 = xr.where((0 <= val) & (val <= 2.5), val, np.nan)
                 elif re.search('rain', key, re.IGNORECASE):
-                    val2 = xr.where((val <= 25), val, np.nan)
+                    val2 = xr.where((0 <= val) & (val <= 25), val, np.nan)
                 else:
                     val2 = val
 
@@ -395,7 +393,8 @@ def visSSMIS(modelInfo, dtDateInfo):
                 fileList = sorted(glob.glob(saveImg))
                 if len(fileList) > 0: continue
 
-                fig, ax = plt.subplots(figsize=(10, 4), subplot_kw={'projection': ccrs.PlateCarree()})
+                # fig, ax = plt.subplots(figsize=(10, 4), subplot_kw={'projection': ccrs.PlateCarree()})
+                fig, ax = plt.subplots(figsize=(8, 4), subplot_kw={'projection': ccrs.PlateCarree()})
 
                 ax.set_global()
                 ax.add_feature(cfeature.LAND.with_scale('110m'), edgecolor='k', lw=0.5)
@@ -413,7 +412,9 @@ def visSSMIS(modelInfo, dtDateInfo):
 
                 plt.title(os.path.basename(saveImg).split('.')[0])
 
-                plt.savefig(saveImg, dpi=600, bbox_inches='tight', transparent=False)
+                # plt.savefig(saveImg, dpi=600, bbox_inches='tight', transparent=False)
+                plt.tight_layout()
+                plt.savefig(saveImg, dpi=600, transparent=False)
                 plt.close()
                 log.info(f'[CHECK] saveImg : {saveImg}')
 
@@ -447,7 +448,8 @@ def visAMSR2(modelInfo, dtDateInfo):
                 fileList = sorted(glob.glob(saveImg))
                 if len(fileList) > 0: continue
 
-                fig, ax = plt.subplots(figsize=(10, 4), subplot_kw={'projection': ccrs.PlateCarree()})
+                # fig, ax = plt.subplots(figsize=(10, 4), subplot_kw={'projection': ccrs.PlateCarree()})
+                fig, ax = plt.subplots(figsize=(8, 4), subplot_kw={'projection': ccrs.PlateCarree()})
 
                 ax.set_global()
                 ax.add_feature(cfeature.LAND.with_scale('110m'), edgecolor='k', lw=0.5)
@@ -465,7 +467,9 @@ def visAMSR2(modelInfo, dtDateInfo):
 
                 plt.title(os.path.basename(saveImg).split('.')[0])
 
-                plt.savefig(saveImg, dpi=600, bbox_inches='tight', transparent=False)
+                # plt.savefig(saveImg, dpi=600, bbox_inches='tight', transparent=False)
+                plt.tight_layout()
+                plt.savefig(saveImg, dpi=600, transparent=False)
                 plt.close()
                 log.info(f'[CHECK] saveImg : {saveImg}')
 
@@ -545,7 +549,8 @@ def visGMI(modelInfo, dtDateInfo):
                 fileList = sorted(glob.glob(saveImg))
                 if len(fileList) > 0: continue
 
-                fig, ax = plt.subplots(figsize=(10, 4), subplot_kw={'projection': ccrs.PlateCarree()})
+                # fig, ax = plt.subplots(figsize=(10, 4), subplot_kw={'projection': ccrs.PlateCarree()})
+                fig, ax = plt.subplots(figsize=(8, 4), subplot_kw={'projection': ccrs.PlateCarree()})
 
                 ax.set_global()
                 ax.add_feature(cfeature.LAND.with_scale('110m'), edgecolor='k', lw=0.5)
@@ -563,7 +568,9 @@ def visGMI(modelInfo, dtDateInfo):
 
                 plt.title(os.path.basename(saveImg).split('.')[0])
 
-                plt.savefig(saveImg, dpi=600, bbox_inches='tight', transparent=False)
+                # plt.savefig(saveImg, dpi=600, bbox_inches='tight', transparent=False)
+                plt.tight_layout()
+                plt.savefig(saveImg, dpi=600, transparent=False)
                 plt.close()
                 log.info(f'[CHECK] saveImg : {saveImg}')
 
@@ -598,7 +605,8 @@ def visSMAP(modelInfo, dtDateInfo):
                 fileList = sorted(glob.glob(saveImg))
                 if len(fileList) > 0: continue
 
-                fig, ax = plt.subplots(figsize=(10, 4), subplot_kw={'projection': ccrs.PlateCarree()})
+                # fig, ax = plt.subplots(figsize=(10, 4), subplot_kw={'projection': ccrs.PlateCarree()})
+                fig, ax = plt.subplots(figsize=(8, 4), subplot_kw={'projection': ccrs.PlateCarree()})
 
                 ax.set_global()
                 ax.add_feature(cfeature.LAND.with_scale('110m'), edgecolor='k', lw=0.5)
@@ -617,7 +625,9 @@ def visSMAP(modelInfo, dtDateInfo):
 
                 plt.title(os.path.basename(saveImg).split('.')[0])
 
-                plt.savefig(saveImg, dpi=600, bbox_inches='tight', transparent=False)
+                # plt.savefig(saveImg, dpi=600, bbox_inches='tight', transparent=False)
+                plt.tight_layout()
+                plt.savefig(saveImg, dpi=600, transparent=False)
                 plt.close()
                 log.info(f'[CHECK] saveImg : {saveImg}')
 
@@ -678,7 +688,8 @@ def visASCAT(modelInfo, dtDateInfo):
                 fileList = sorted(glob.glob(saveImg))
                 if len(fileList) > 0: continue
 
-                fig, ax = plt.subplots(figsize=(10, 4), subplot_kw={'projection': ccrs.PlateCarree()})
+                # fig, ax = plt.subplots(figsize=(10, 4), subplot_kw={'projection': ccrs.PlateCarree()})
+                fig, ax = plt.subplots(figsize=(8, 4), subplot_kw={'projection': ccrs.PlateCarree()})
 
                 ax.set_global()
                 ax.add_feature(cfeature.LAND.with_scale('110m'), edgecolor='k', lw=0.5)
@@ -696,7 +707,9 @@ def visASCAT(modelInfo, dtDateInfo):
 
                 plt.title(os.path.basename(saveImg).split('.')[0])
 
-                plt.savefig(saveImg, dpi=600, bbox_inches='tight', transparent=False)
+                # plt.savefig(saveImg, dpi=600, bbox_inches='tight', transparent=False)
+                plt.tight_layout()
+                plt.savefig(saveImg, dpi=600, transparent=False)
                 plt.close()
                 log.info(f'[CHECK] saveImg : {saveImg}')
 
@@ -735,7 +748,7 @@ def visAEOLUS(modelInfo, dtDateInfo):
 
             # 파일 검사
             fileList = sorted(glob.glob(saveImg))
-            if len(fileList) > 0: continue
+            # if len(fileList) > 0: continue
 
             plotParam2D(
                 parameter="wind_result_wind_velocity",
@@ -748,7 +761,9 @@ def visAEOLUS(modelInfo, dtDateInfo):
                 ds=dataL1
             )
 
-            plt.savefig(saveImg, dpi=600, bbox_inches='tight', transparent=False)
+            # plt.tight_layout()
+            # plt.savefig(saveImg, dpi=600, bbox_inches='tight', transparent=False)
+            plt.savefig(saveImg, dpi=600, transparent=False)
             plt.close()
             log.info(f'[CHECK] saveImg : {saveImg}')
 
@@ -838,10 +853,10 @@ class DtaProcess(object):
             # 옵션 설정
             sysOpt = {
                 # 시작일, 종료일, 시간 간격 (연 1y, 월 1h, 일 1d, 시간 1h)
-                'srtDate': '2023-01-01'
-                , 'endDate': '2023-01-03'
-                # 'srtDate': globalVar['srtDate']
-                # , 'endDate': globalVar['endDate']
+                # 'srtDate': '2023-01-01'
+                # , 'endDate': '2023-01-03'
+                'srtDate': globalVar['srtDate']
+                , 'endDate': globalVar['endDate']
                 , 'invDate': '1d'
 
                 # 수행 목록
@@ -849,60 +864,60 @@ class DtaProcess(object):
                 # 'modelList': [globalVar['modelList']]
 
                 # 비동기 다중 프로세스 개수
-                , 'cpuCoreNum': '5'
-                # , 'cpuCoreNum': globalVar['cpuCoreNum']
+                # , 'cpuCoreNum': '5'
+                , 'cpuCoreNum': globalVar['cpuCoreNum']
 
                 , 'SSMIS': {
-                    'fileInfo': '/HDD/DATA/data1/SAT/SSMIS/%Y%m/%d/f18_%Y%m%dv*.gz'
+                    'fileInfo': '/data1/SAT/SSMIS/%Y%m/%d/f18_%Y%m%dv*.gz'
                     , 'orgVar': ['wspd_mf']
                     , 'newVar': ['wind-mf']
-                    , 'figInfo': '/HDD/DATA/data1/IMG/SSMIS/%Y%m/%d/ssmis_{}-1D_%Y%m%d%H%M.png'
+                    , 'figInfo': '/data1/IMG/SSMIS/%Y%m/%d/ssmis_{}-1D_%Y%m%d%H%M.png'
                 }
                 , 'AMSR2': {
-                    'fileInfo': '/HDD/DATA/data1/SAT/AMSR2/%Y%m/%d/RSS_AMSR2_ocean_L3_daily_%Y-%m-%d_v*.*.nc'
+                    'fileInfo': '/data1/SAT/AMSR2/%Y%m/%d/RSS_AMSR2_ocean_L3_daily_%Y-%m-%d_v*.*.nc'
                     , 'orgVar': ['wind_speed_LF', 'wind_speed_MF', 'wind_speed_AW']
                     , 'newVar': ['wind-lf', 'wind-mf', 'wind-aw']
-                    , 'figInfo': '/HDD/DATA/data1/IMG/AMSR2/%Y%m/%d/amsr2_{}-1D_%Y%m%d%H%M.png'
+                    , 'figInfo': '/data1/IMG/AMSR2/%Y%m/%d/amsr2_{}-1D_%Y%m%d%H%M.png'
                 }
                 , 'GMI': {
-                    'fileInfo': '/HDD/DATA/data1/SAT/GMI/%Y%m/%d/f35_%Y%m%dv*.*.gz'
+                    'fileInfo': '/data1/SAT/GMI/%Y%m/%d/f35_%Y%m%dv*.*.gz'
                     , 'orgVar': ['windLF', 'windMF']
                     , 'newVar': ['wind-lf', 'wind-mf']
-                    , 'figInfo': '/HDD/DATA/data1/IMG/GMI/%Y%m/%d/gmi_{}-1D_%Y%m%d%H%M.png'
+                    , 'figInfo': '/data1/IMG/GMI/%Y%m/%d/gmi_{}-1D_%Y%m%d%H%M.png'
                 }
                 , 'SMAP': {
-                    'fileInfo': '/HDD/DATA/data1/SAT/SMAP/%Y%m/%d/RSS_smap_wind_daily_%Y_%m_%d_NRT_v*.*.nc'
+                    'fileInfo': '/data1/SAT/SMAP/%Y%m/%d/RSS_smap_wind_daily_%Y_%m_%d_NRT_v*.*.nc'
                     , 'orgVar': ['wind']
                     , 'newVar': ['wind']
-                    , 'figInfo': '/HDD/DATA/data1/IMG/SMAP/%Y%m/%d/smap_{}-1D_%Y%m%d%H%M.png'
+                    , 'figInfo': '/data1/IMG/SMAP/%Y%m/%d/smap_{}-1D_%Y%m%d%H%M.png'
                 }
                 , 'ASCAT-B': {
-                    'fileInfo': '/HDD/DATA/data1/SAT/ASCAT/%Y%m/%d/ascatb_%Y%m%d_v*.*.gz'
+                    'fileInfo': '/data1/SAT/ASCAT/%Y%m/%d/ascatb_%Y%m%d_v*.*.gz'
                     , 'orgVar': ['windspd']
                     , 'newVar': ['wind']
-                    , 'figInfo': '/HDD/DATA/data1/IMG/ASCAT/%Y%m/%d/ascatb_{}-1D_%Y%m%d%H%M.png'
+                    , 'figInfo': '/data1/IMG/ASCAT/%Y%m/%d/ascatb_{}-1D_%Y%m%d%H%M.png'
                 }
                 , 'ASCAT-C': {
-                    'fileInfo': '/HDD/DATA/data1/SAT/ASCAT/%Y%m/%d/ascatc_%Y%m%d_v*.*.gz'
+                    'fileInfo': '/data1/SAT/ASCAT/%Y%m/%d/ascatc_%Y%m%d_v*.*.gz'
                     , 'orgVar': ['windspd']
                     , 'newVar': ['wind']
-                    , 'figInfo': '/HDD/DATA/data1/IMG/ASCAT/%Y%m/%d/ascatc_{}-1D_%Y%m%d%H%M.png'
+                    , 'figInfo': '/data1/IMG/ASCAT/%Y%m/%d/ascatc_{}-1D_%Y%m%d%H%M.png'
                 }
                 , 'AEOLUS-RAY': {
-                    'fileInfo': '/HDD/DATA/data1/SAT/AEOLUS/%Y%m/%d/aeolus_wind-ray_%Y%m%d*.nc'
+                    'fileInfo': '/data1/SAT/AEOLUS/%Y%m/%d/aeolus_wind-ray_%Y%m%d*.nc'
                     , 'request': {
                         'url': 'https://aeolus.services/ows'
                         , 'token': ''
                     }
-                    , 'figInfo': '/HDD/DATA/data1/IMG/AEOLUS/%Y%m/%d/aeolus_wind-ray_%Y%m%d%H%M.png'
+                    , 'figInfo': '/data1/IMG/AEOLUS/%Y%m/%d/aeolus_wind-ray_%Y%m%d%H%M.png'
                 }
                 , 'AEOLUS-MIE': {
-                    'fileInfo': '/HDD/DATA/data1/SAT/AEOLUS/%Y%m/%d/aeolus_wind-mie_%Y%m%d*.nc'
+                    'fileInfo': '/data1/SAT/AEOLUS/%Y%m/%d/aeolus_wind-mie_%Y%m%d*.nc'
                     , 'request': {
                         'url': 'https://aeolus.services/ows'
                         , 'token': ''
                     }
-                    , 'figInfo': '/HDD/DATA/data1/IMG/AEOLUS/%Y%m/%d/aeolus_wind-mie_%Y%m%d%H%M.png'
+                    , 'figInfo': '/data1/IMG/AEOLUS/%Y%m/%d/aeolus_wind-mie_%Y%m%d%H%M.png'
                 }
             }
 
