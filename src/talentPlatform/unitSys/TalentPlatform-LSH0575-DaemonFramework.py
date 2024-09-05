@@ -263,8 +263,46 @@ class DtaProcess(object):
             fileList = sorted(glob.glob(inpFile))
             fileInfo = fileList[0]
             shpData = gpd.read_file(fileInfo)
+
+            # [CHECK] shpCode : KOR / shpVal : 410 / shpName : Republic of Korea / shpGeoCen : POINT (127.75250070905732 36.30623116907186)
+            for idx, item in shpData.iterrows():
+                shpCode = item.ISOCODE
+                shpName = item.NAME0
+                shpVal = item.Value
+                shpGeoCen = item.geometry.centroid
+                log.info(f'[CHECK] shpCode : {shpCode} / shpVal : {shpVal} / shpName : {shpName} / shpGeoCen : {shpGeoCen}')
+
+
+
+            # shpDataL1 = shpData.iloc[0, ]
+            #  Value                                                         4
+            # ISOCODE                                                     AFG
+            # UNSDCODE                                                      4
+            # NAME0                                               Afghanistan
+            # CIESINCODE                                                    4
+            # DATATYPE                         Population estimate/projection
+            # DATACODE                                                      6
+            # DATAYEAR                                                   2011
+            # DATALEVEL                                                     2
+            # SEXLEVEL                                                      2
+            # AGELEVEL                                                      0
+            # GRSTART                                                    1998
+            # GREND                                                      2011
+            # GRLEVEL                                                       1
+            # LASTCENSUS                                                 1979
+            # MEANUNITKM                                          4507.466751
+            # geometry      POLYGON ((60.90833333333333 29.833333333333343...
+            
+            
+            # shpData.head()
+            # shpData.info()
+            # shpData.describe()
+
             # shpData.plot()
             # plt.show()
+
+
+            # shpData.columns
 
             # shpData = gpd.read_file(shpFile, encoding='EUC-KR').to_crs(epsg=4326)
 
