@@ -19,6 +19,8 @@ from matplotlib import font_manager, rc
 
 import seaborn as sns
 
+from scipy.interpolate import Rbf
+
 # =================================================
 # 사용자 매뉴얼
 # =================================================
@@ -328,14 +330,10 @@ class DtaProcess(object):
             xlsxDataL2['dtXran'] = pd.to_numeric(xlsxDataL2['dtDate'].apply(lambda x: convDateToDeci(x)), errors='coerce')
             xlsxDataL2['orgVal'] = pd.to_numeric(xlsxDataL2['orgVal'], errors='coerce')
 
-            from scipy.interpolate import Rbf
-            # Radial basis function (RBF) interpolation in N dimensions.
-
             xlsxDataL3 = xlsxDataL2.copy().set_index('dtDate').resample('1D').asfreq()
             xlsxDataL3['dtXran'] = pd.to_numeric(xlsxDataL3.index.to_series().apply(lambda x: convDateToDeci(x)), errors='coerce')
 
-
-            # rbfModel = Rbf(xlsxDataL2['dtXran'].values, xlsxDataL2['orgVal'].values, function='multiquadric')
+            # Radial basis function (RBF) interpolation in N dimensions.
             try:
                 rbfModel = Rbf(xlsxDataL2['dtXran'].values, xlsxDataL2['orgVal'].values, function='linear')
                 rbfRes = rbfModel(xlsxDataL3['dtXran'].values)
@@ -355,24 +353,8 @@ class DtaProcess(object):
 
             inpFile = '{}/{}/{}'.format(globalVar['inpPath'], serviceName, '*/gpw_v4_national_identifier_grid_rev11_30_sec.tif')
             fileList = sorted(glob.glob(inpFile))
-
             # if (len(fileList) < 1): continue
-
             fileInfo = fileList[0]
-            # for k, fileInfo in enumerate(fileList):
-            #     # log.info("[CHECK] fileInfo : {}".format(fileInfo))
-            #
-            #     fileName = os.path.basename(fileInfo)
-            #     doy = fileName.split('_')[5]
-
-
-            # shp2 = gpd.read_file(shapefile2)
-            # shp1.plot(ax=ax, color='None', edgecolor='black', linewidth=3)
-            # shp2.plot(ax=ax, color='None', edgecolor='black')
-
-            # 21600
-            # 43200
-
             gpwNatData = xr.open_rasterio(fileInfo)
             gpwNatDataL1 = gpwNatData.sel(band=1)
             gpwNatDataL2 = gpwNatDataL1.interp({'x': lonList, 'y': latList}, method='nearest')
@@ -403,10 +385,21 @@ class DtaProcess(object):
             # gpwPopDataL2 = gpwPopDataL1.sel(x=slice(120, 150), y=slice(40, 50))
             gpwPopDataL2 = gpwPopDataL1.interp({'x': lonList, 'y': latList}, method='nearest')
 
+            # gpwPopDataL2 = gpwPopDataL1.isel(x=slice(120, 150), y=slice(40, 50))
 
+            # gpwNatDataL1 = gpwNatData.to_dataset(name='NAT')
+            # gpwPopDataL1 = gpwPopData.to_dataset(name='POP')
+            gpwNatDataL1 = gpwNatData.to_dataset(name='NAT').isel(x=slice(120, 150), y=slice(40, 50))
+            gpwPopDataL1 = gpwPopData.to_dataset(name='POP').isel(x=slice(120, 150), y=slice(40, 50))
 
+            gpwData = xr.merge([gpwNatDataL1, gpwPopDataL1])
 
-
+            # gpwDataL1 = gpwData
+            # gpwDataL1['NAT'] = xr.where((gpwDataL1['NAT'] == gpwNatData.nodatavals), np.nan, gpwDataL1['NAT'])
+            # gpwDataL1['POP'] = xr.where((gpwDataL1['POP'] == gpwPopData.nodatavals), np.nan, gpwDataL1['POP'])
+            #
+            # gpwDataL1['POP'].plot()
+            # plt.show()
 
             # gpwPopDataL2.plot()
             # plt.show()
