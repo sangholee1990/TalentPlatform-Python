@@ -162,6 +162,12 @@ def initArgument(globalVar, inParams):
 
     return globalVar
 
+# 날짜형을 10진수 변환
+def convDateToDeci(dtDate):
+    srt = datetime(year=dtDate.year, month=1, day=1)
+    end = datetime(year=dtDate.year + 1, month=1, day=1)
+    return dtDate.year + ((dtDate - srt) / (end - srt))
+
 # ================================================
 # 4. 부 프로그램
 # ================================================
@@ -272,10 +278,8 @@ class DtaProcess(object):
                 shpGeoCen = item.geometry.centroid
                 log.info(f'[CHECK] shpCode : {shpCode} / shpVal : {shpVal} / shpName : {shpName} / shpGeoCen : {shpGeoCen}')
 
-
-
             # shpDataL1 = shpData.iloc[0, ]
-            #  Value                                                         4
+            # Value                                                         4
             # ISOCODE                                                     AFG
             # UNSDCODE                                                      4
             # NAME0                                               Afghanistan
@@ -292,8 +296,10 @@ class DtaProcess(object):
             # LASTCENSUS                                                 1979
             # MEANUNITKM                                          4507.466751
             # geometry      POLYGON ((60.90833333333333 29.833333333333343...
-            
-            
+
+
+
+
             # shpData.head()
             # shpData.info()
             # shpData.describe()
@@ -301,22 +307,51 @@ class DtaProcess(object):
             # shpData.plot()
             # plt.show()
 
+            xlsxFile = '{}/{}/{}'.format(globalVar['inpPath'], serviceName, 'WPP2024_GEN_F01_DEMOGRAPHIC_INDICATORS_COMPACT.xlsx')
+            xlsxList = sorted(glob.glob(xlsxFile))
+            xlsxInfo = xlsxList[0]
+            xlsxData = pd.read_excel(xlsxInfo, skiprows=16, engine='openpyxl')
 
-            # shpData.columns
+            # xlsxData.columns
+            xlsxColList = ['ISO3 Alpha-code', 'Location code', 'Year', 'Total Population, as of 1 January (thousands)']
+            xlsxDataL1 = xlsxData.loc[
+                (xlsxData['ISO3 Alpha-code'] == 'KOR')
+                & (xlsxData['Location code'] == 410)][xlsxColList]
 
-            # shpData = gpd.read_file(shpFile, encoding='EUC-KR').to_crs(epsg=4326)
+            # xlsxDataL1
 
-            # shpData.plot(color=None, edgecolor='k', facecolor='none')
-            # for idx, row in shpData.iterrows():
-                # centroid = row.geometry.centroid
-                # plt.annotate(text=row['gu'], xy=(centroid.x, centroid.y), horizontalalignment='center', verticalalignment='center')
-            # plt.show()
+            xlsxDataL2 = xlsxDataL1.copy().rename(columns={'Total Population, as of 1 January (thousands)': 'orgVal'})
+            xlsxDataL2['dtDate'] = pd.to_datetime(xlsxDataL2['Year'], format='%Y')
+            # xlsxDataL2.set_index('dtDate', inplace=True)
+            # xlsxDataL3['newVal'] = xlsxDataL3['orgVal'].interpolate(method='linear')
 
-            inpFile = '{}/{}/{}'.format(globalVar['inpPath'], serviceName, 'WPP2024_GEN_F01_DEMOGRAPHIC_INDICATORS_COMPACT.xlsx')
-            fileList = sorted(glob.glob(inpFile))
+            xlsxDataL2['dtXran'] = pd.to_numeric(xlsxDataL2['dtDate'].apply(lambda x: convDateToDeci(x)), errors='coerce')
+            xlsxDataL2['orgVal'] = pd.to_numeric(xlsxDataL2['orgVal'], errors='coerce')
 
-            fileInfo = fileList[0]
-            # refData = pd.read_excel(fileInfo, skiprows=16)
+            from scipy.interpolate import Rbf
+            # Radial basis function (RBF) interpolation in N dimensions.
+
+            xlsxDataL3 = xlsxDataL2.copy().set_index('dtDate').resample('1D').asfreq()
+            xlsxDataL3['dtXran'] = pd.to_numeric(xlsxDataL3.index.to_series().apply(lambda x: convDateToDeci(x)), errors='coerce')
+
+
+            # rbfModel = Rbf(xlsxDataL2['dtXran'].values, xlsxDataL2['orgVal'].values, function='multiquadric')
+            try:
+                rbfModel = Rbf(xlsxDataL2['dtXran'].values, xlsxDataL2['orgVal'].values, function='linear')
+                rbfRes = rbfModel(xlsxDataL3['dtXran'].values)
+                xlsxDataL3['newVal'] = rbfRes
+            except Exception as e:
+                log.error(f"Exception : {e}")
+
+            xlsxDataL4 = xlsxDataL3.reset_index()
+
+
+            # xlsxDataL2['dtDate'].apply(lambda x: x.timestamp())
+
+
+            # 1950.0, 19757.089
+            # 2023.0, 51759.392
+
 
             inpFile = '{}/{}/{}'.format(globalVar['inpPath'], serviceName, '*/gpw_v4_national_identifier_grid_rev11_30_sec.tif')
             fileList = sorted(glob.glob(inpFile))
@@ -334,7 +369,9 @@ class DtaProcess(object):
             # shp2 = gpd.read_file(shapefile2)
             # shp1.plot(ax=ax, color='None', edgecolor='black', linewidth=3)
             # shp2.plot(ax=ax, color='None', edgecolor='black')
-            #
+
+            # 21600
+            # 43200
 
             gpwNatData = xr.open_rasterio(fileInfo)
             gpwNatDataL1 = gpwNatData.sel(band=1)
@@ -342,9 +379,11 @@ class DtaProcess(object):
             # gpwNatDataL2 = gpwNatDataL1.isel(x=slice(14000, 14100), y=slice(100, 200))
             # gpwNatDataL2 = gpwNatDataL1.sel(x=slice(119.999, 121.001), y=slice(88.999, 90.001))
             # gpwNatDataL1['x'].values
+            #
+            # gpwNatDataL1['x'].values
 
-            gpwNatDataL2.plot()
-            plt.show()
+            # gpwNatDataL2.plot()
+            # plt.show()
 
             # gpwNatDataL2.plot()
             # plt.show()
@@ -364,8 +403,13 @@ class DtaProcess(object):
             # gpwPopDataL2 = gpwPopDataL1.sel(x=slice(120, 150), y=slice(40, 50))
             gpwPopDataL2 = gpwPopDataL1.interp({'x': lonList, 'y': latList}, method='nearest')
 
-            gpwPopDataL2.plot()
-            plt.show()
+
+
+
+
+
+            # gpwPopDataL2.plot()
+            # plt.show()
 
             # gpwPopData.attrs
             # dataL3 = dataL2.interp(x=lonList, y=latList, method='nearest')
@@ -373,23 +417,32 @@ class DtaProcess(object):
             # 결측값 처리
             # dataL3 = xr.where((dataL3 < 0), np.nan, dataL3)
 
+            gpwNatDataL3 = xr.where((gpwNatDataL2 == gpwNatDataL2.nodatavals), np.nan, gpwNatDataL2)
+            gpwPopDataL3 = xr.where((gpwPopDataL2 == gpwPopDataL2.nodatavals), np.nan, gpwPopDataL2)
 
-            lon1D = gpwNatDataL1['x'].values
-            lat1D = gpwNatDataL1['y'].values
+
+            lon1D = gpwNatDataL3['x'].values
+            lat1D = gpwNatDataL3['y'].values
 
             data = xr.Dataset(
                 {
-                    'NAT': (('time', 'lat', 'lon'), (gpwNatDataL1.values).reshape(1, len(lat1D), len(lon1D)))
-                    , 'POP': (('time', 'lat', 'lon'), (gpwPopDataL1.values).reshape(1, len(lat1D), len(lon1D)))
+                    'NAT': (('time', 'lat', 'lon'), (gpwNatDataL3.values).reshape(1, len(lat1D), len(lon1D)))
+                    , 'POP': (('time', 'lat', 'lon'), (gpwPopDataL3.values).reshape(1, len(lat1D), len(lon1D)))
                 }
                 , coords={
-                    'time': pd.date_range(2015, periods=1)
+                    'time': pd.date_range(pd.to_datetime(2020, format='%Y'), periods=1)
                     , 'lat': lat1D
                     , 'lon': lon1D
                 }
             )
 
-            print(data)
+            # print(data)
+
+            data['NAT'].plot()
+            plt.show()
+
+            data['POP'].plot()
+            plt.show()
 
             # if (len(dataL5) < 1):
             #     dataL5 = dataL4
