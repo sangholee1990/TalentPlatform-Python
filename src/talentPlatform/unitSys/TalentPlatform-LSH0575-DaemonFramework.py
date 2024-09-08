@@ -360,23 +360,45 @@ class DtaProcess(object):
             # =========================================================
             # 가중치 계산
             # =========================================================
-            locCodeList = np.unique(gpwDataL1['NAT'])
+            # locCodeList = np.unique(gpwDataL1['NAT'])
             gpwDataL2 = gpwDataL1.copy()
+            dtDateList = np.unique(xlsxDataL5['dtDate'])
             locCodeList = np.unique(xlsxDataL5['locCode'])
-            for locCode in locCodeList:
-                log.info(f'[CHECK] locCode : {locCode}')
 
-                gpwDataL3 = gpwDataL2.where(gpwDataL2['NAT'] == locCode, drop=True)
-                if len(gpwDataL3['POP']) < 1: continue
+            for dtDate in dtDateList:
+                log.info(f'[CHECK] dtDate : {dtDate}')
 
-                # sumDataL1 = sumData.sel(NAT = locCode)
-                sumDataL1 = sumData.where(sumData['NAT'] == locCode, drop=True)
-                if len(sumDataL1['POP']) < 1: continue
+                for locCode in locCodeList:
+                    gpwDataL3 = gpwDataL2.where(gpwDataL2['NAT'] == locCode, drop=True)
+                    if len(gpwDataL3['POP']) < 1: continue
 
-                sumVal = sumDataL1['POP'].values
-                xlsxDataL6 = xlsxDataL5.loc[
-                    (xlsxData['Location code'] == locCode)
-                    ]
+                    # sumDataL1 = sumData.sel(NAT = locCode)
+                    sumDataL1 = sumData.where(sumData['NAT'] == locCode, drop=True)
+                    if len(sumDataL1['POP']) < 1: continue
+
+                    xlsxDataL6 = xlsxDataL5.loc[
+                        (xlsxDataL5['locCode'] == locCode)
+                        & (xlsxDataL5['dtDate'] == dtDate)
+                        ]
+                    if len(xlsxDataL6) < 1: continue
+
+                    sumVal = sumDataL1['POP'].values[0]
+                    newVal = xlsxDataL6['newVal'].values[0]
+                    weg = newVal / sumVal
+
+                    isMask = (gpwDataL2['NAT'] == locCode)
+                    gpwDataL2['POP'] * isMask.values
+                    np.nansum(gpwDataL2['POP'] * isMask.values)
+
+                    # np.nansum(gpwDataL2['POP'])
+                    # np.nansum(gpwDataL2['POP'])
+
+                    # [ 3.3936563,  3.3936563,  3.3936565, ..., 74.442375 , 74.44239  ,
+                    #         74.442375 ]
+
+                    sumDataL1 = sumData.where(sumData['NAT'] == locCode, drop=True)
+
+                    gpwDataL3['POP']
 
             # gpwNatDataL1['x'].values
 
