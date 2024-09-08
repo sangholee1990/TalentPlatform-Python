@@ -357,16 +357,26 @@ class DtaProcess(object):
             #     sumDataL1 = sumData.sel(NAT = nat)
             #     sumVal = sumDataL1['POP'].values
 
+            # =========================================================
+            # 가중치 계산
+            # =========================================================
+            locCodeList = np.unique(gpwDataL1['NAT'])
             gpwDataL2 = gpwDataL1.copy()
             locCodeList = np.unique(xlsxDataL5['locCode'])
             for locCode in locCodeList:
                 log.info(f'[CHECK] locCode : {locCode}')
 
                 gpwDataL3 = gpwDataL2.where(gpwDataL2['NAT'] == locCode, drop=True)
+                if len(gpwDataL3['POP']) < 1: continue
 
+                # sumDataL1 = sumData.sel(NAT = locCode)
+                sumDataL1 = sumData.where(sumData['NAT'] == locCode, drop=True)
+                if len(sumDataL1['POP']) < 1: continue
 
-                sumDataL1 = sumData.sel(NAT = locCode)
                 sumVal = sumDataL1['POP'].values
+                xlsxDataL6 = xlsxDataL5.loc[
+                    (xlsxData['Location code'] == locCode)
+                    ]
 
             # gpwNatDataL1['x'].values
 

@@ -563,6 +563,7 @@ class DtaProcess(object):
 
     # cd /SYSTEMS/PROG/PYTHON/IDE/src/talentPlatform/unitSys
     # nohup /SYSTEMS/LIB/anaconda3/envs/py36/bin/python TalentPlatform-LSH0454-Active-OpenAPI-Model.py --addrList "서울특별시 성동구" &
+    # nohup /SYSTEMS/LIB/anaconda3/envs/py36/bin/python TalentPlatform-LSH0454-Active-OpenAPI-Model.py --addrList "서울특별시 금천구" &
 
     # ================================================================================================
     # 환경변수 설정
@@ -657,8 +658,8 @@ class DtaProcess(object):
                 # , 'addrList': ['서울특별시 용산구']
                 # , 'addrList': ['서울특별시 양천구']
                 # , 'addrList': ['경기도 과천시']
-                , 'addrList': ['경기도 의정부시']
-                # , 'addrList': [globalVar['addrList']]
+                # , 'addrList': ['경기도 의정부시']
+                , 'addrList': [globalVar['addrList']]
             }
 
             # *********************************************************************************
