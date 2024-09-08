@@ -22,6 +22,9 @@ import seaborn as sns
 from scipy.interpolate import Rbf
 from xarray.util.generate_aggregations import skipna
 
+import xarray as xr
+import geopandas as gpd
+
 # =================================================
 # 사용자 매뉴얼
 # =================================================
@@ -258,9 +261,6 @@ class DtaProcess(object):
                 , 'latMax': 40
                 , 'latInv': 1
             }
-
-            import xarray as xr
-            import geopandas as gpd
 
             # 위경도 설정
             lonList = np.arange(sysOpt['lonMin'], sysOpt['lonMax'], sysOpt['lonInv'])
