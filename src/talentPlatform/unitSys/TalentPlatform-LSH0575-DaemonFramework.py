@@ -254,6 +254,20 @@ class DtaProcess(object):
 
     # ps -ef | grep TalentPlatform-LSH0575-DaemonFramework.py | awk '{print $2}' | xargs kill -9
 
+
+    # 인구 데이터셋 가중치를 고려한 결과를 송부하오니 확인 부탁드립니다.
+
+    # [작업 결과]
+    # Ssh: 22334
+    # 소스코드: /data2/hzhenshao/GPW-POP/TalentPlatform-LSH0575-DaemonFramework.py
+    # 최종 결과물: /data2/hzhenshao/GPW-POP/LSH0575/OUTPUT/%Y%m/%d/gpw-pop_%Y%m%d.nc
+
+    # [이슈사항]
+    # - 컬럼비아 인구 격자 데이터의 경우 해당 국가가 존재하나 UN 엑셀 파일에는 없음
+    #   > 248: Åland Islands (올란드 제도)
+    #   > 612: Tokelau (토켈라우)
+    #   > 744: United States Minor Outlying Islands (미국령 군소 제도)
+
     # ================================================================================================
     # 환경변수 설정
     # ================================================================================================
