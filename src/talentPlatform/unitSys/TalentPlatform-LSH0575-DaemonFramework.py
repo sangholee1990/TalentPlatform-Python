@@ -244,7 +244,7 @@ class DtaProcess(object):
     # ================================================
     # 요구사항
     # ================================================
-    # Python을 이용한 NASA 인구 데이터 UN 총인구 가중치 계산 및 NetCDF 가공
+    # Python을 이용한 컬럼비아 인구 데이터 UN 총인구 가중치 계산 및 NetCDF 가공
 
     # /data2/hzhenshao/GPW-POP/py38/bin/python TalentPlatform-LSH0575-DaemonFramework.py
 
@@ -253,7 +253,6 @@ class DtaProcess(object):
     # tail -f nohup.out
 
     # ps -ef | grep TalentPlatform-LSH0575-DaemonFramework.py | awk '{print $2}' | xargs kill -9
-
 
     # 인구 데이터셋 가중치를 고려한 결과를 송부하오니 확인 부탁드립니다.
 
