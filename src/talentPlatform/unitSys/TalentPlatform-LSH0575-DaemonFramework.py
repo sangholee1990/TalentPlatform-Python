@@ -229,6 +229,8 @@ def calcProc(dtDate, xlsxDataL5, sumData, gpwDataL1):
         dsData.to_netcdf(saveFile)
         log.info(f"[CHECK] saveFile : {saveFile}")
 
+        log.info(f'[END] calcProc : {dtDateInfo} / pid : {procInfo.pid}')
+
     except Exception as e:
         log.error(f'Exception : {str(e)}')
         raise e
