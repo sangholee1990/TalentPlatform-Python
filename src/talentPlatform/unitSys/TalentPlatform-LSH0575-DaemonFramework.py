@@ -24,6 +24,8 @@ from xarray.util.generate_aggregations import skipna
 
 import xarray as xr
 import geopandas as gpd
+from multiprocessing import Pool
+import multiprocessing as mp
 
 # =================================================
 # 사용자 매뉴얼
@@ -174,6 +176,63 @@ def convDateToDeci(dtDate):
     end = datetime(year=dtDate.year + 1, month=1, day=1)
     return dtDate.year + ((dtDate - srt) / (end - srt))
 
+def calcProc(dtDate, xlsxDataL5, sumData, gpwDataL1):
+    try:
+        procInfo = mp.current_process()
+
+        saveFilePattern = pd.to_datetime(dtDate).strftime('%Y%m/%d/gpw-pop_%Y%m%d.nc')
+        saveFile = '{}/{}/{}'.format(globalVar['outPath'], serviceName, saveFilePattern)
+
+        gpwDataL2 = gpwDataL1.copy()
+        locCodeList = np.unique(xlsxDataL5['locCode'])
+        for locCode in locCodeList:
+            # sumDataL1 = sumData.sel(NAT = locCode)
+            sumDataL1 = sumData.where(sumData['NAT'] == locCode, drop=True)
+            if len(sumDataL1['POP']) < 1: continue
+
+            xlsxDataL6 = xlsxDataL5.loc[
+                (xlsxDataL5['locCode'] == locCode)
+                & (xlsxDataL5['dtDate'] == dtDate)
+                ]
+            if len(xlsxDataL6) < 1: continue
+
+
+            sumVal = sumDataL1['POP'].values[0]
+            newVal = xlsxDataL6['newVal'].values[0]
+            weg = newVal / sumVal
+
+            gpwDataL3 = gpwDataL2.where(gpwDataL2['NAT'] == locCode, drop=True)
+            if len(gpwDataL3['POP']) < 1: continue
+
+            log.info(f'[CHECK] locCode : {locCode}')
+
+            isMask = (gpwDataL2['NAT'] == locCode)
+            gpwDataL2['POP'] = gpwDataL2['POP'].where(~isMask, gpwDataL2['POP'] * weg)
+
+        # 데이터 저장
+        lon1D = gpwDataL2['x'].values
+        lat1D = gpwDataL2['y'].values
+
+        dsData = xr.Dataset(
+            {
+                'NAT': (('time', 'lat', 'lon'), (gpwDataL2['NAT'].values).reshape(1, len(lat1D), len(lon1D)))
+                , 'POP': (('time', 'lat', 'lon'), (gpwDataL2['POP'].values).reshape(1, len(lat1D), len(lon1D)))
+            }
+            , coords={
+                'time': pd.date_range(dtDate, periods=1)
+                , 'lat': lat1D
+                , 'lon': lon1D
+            }
+        )
+
+        os.makedirs(os.path.dirname(saveFile), exist_ok=True)
+        dsData.to_netcdf(saveFile)
+        log.info(f"[CHECK] saveFile : {saveFile}")
+
+    except Exception as e:
+        log.error(f'Exception : {str(e)}')
+        raise e
+
 # ================================================
 # 4. 부 프로그램
 # ================================================
@@ -260,6 +319,10 @@ class DtaProcess(object):
                 , 'latMin': 30
                 , 'latMax': 40
                 , 'latInv': 1
+
+                # 비동기 다중 프로세스 개수
+                , 'cpuCoreNum': '5'
+                # , 'cpuCoreNum': globalVar['cpuCoreNum']
             }
 
             # 위경도 설정
@@ -353,62 +416,22 @@ class DtaProcess(object):
             sumData = gpwDataL1.groupby(gpwDataL1['NAT']).sum()
 
             # =========================================================
+            # 비동기 다중 프로세스 수행
             # 날짜/국가별로 가중치 계산
             # =========================================================
+            # 비동기 다중 프로세스 개수
+            pool = Pool(int(sysOpt['cpuCoreNum']))
+
             # locCodeList = np.unique(gpwDataL1['NAT'])
             dtDateList = np.unique(xlsxDataL5['dtDate'])
-            locCodeList = np.unique(xlsxDataL5['locCode'])
 
             for dtDate in dtDateList:
                 log.info(f'[CHECK] dtDate : {dtDate}')
 
-                gpwDataL2 = gpwDataL1.copy()
-                for locCode in locCodeList:
-                    # sumDataL1 = sumData.sel(NAT = locCode)
-                    sumDataL1 = sumData.where(sumData['NAT'] == locCode, drop=True)
-                    if len(sumDataL1['POP']) < 1: continue
+                pool.apply_async(calcProc, args=(dtDate, xlsxDataL5, sumData, gpwDataL1))
 
-                    xlsxDataL6 = xlsxDataL5.loc[
-                        (xlsxDataL5['locCode'] == locCode)
-                        & (xlsxDataL5['dtDate'] == dtDate)
-                        ]
-                    if len(xlsxDataL6) < 1: continue
-
-                    log.info(f'[CHECK] locCode : {locCode}')
-
-                    sumVal = sumDataL1['POP'].values[0]
-                    newVal = xlsxDataL6['newVal'].values[0]
-                    weg = newVal / sumVal
-
-                    # gpwDataL3 = gpwDataL2.where(gpwDataL2['NAT'] == locCode, drop=True)
-                    # if len(gpwDataL3['POP']) < 1: continue
-
-                    isMask = (gpwDataL2['NAT'] == locCode)
-                    gpwDataL2['POP'] = gpwDataL2['POP'].where(~isMask, gpwDataL2['POP'] * weg)
-
-                    # np.nansum(gpwDataL2.where(gpwDataL2['NAT'] == locCode, drop=True)['POP'])
-
-                # 데이터 저장
-                lon1D = gpwDataL2['x'].values
-                lat1D = gpwDataL2['y'].values
-
-                dsData = xr.Dataset(
-                    {
-                        'NAT': (('time', 'lat', 'lon'), (gpwDataL2['NAT'].values).reshape(1, len(lat1D), len(lon1D)))
-                        , 'POP': (('time', 'lat', 'lon'), (gpwDataL2['POP'].values).reshape(1, len(lat1D), len(lon1D)))
-                    }
-                    , coords={
-                        'time': pd.date_range(dtDate, periods=1)
-                        , 'lat': lat1D
-                        , 'lon': lon1D
-                    }
-                )
-
-                saveFilePattern = pd.to_datetime(dtDate).strftime('%Y%m/%d/gpw-pop_%Y%m%d.nc')
-                saveFile = '{}/{}/{}'.format(globalVar['outPath'], serviceName, saveFilePattern)
-                os.makedirs(os.path.dirname(saveFile), exist_ok=True)
-                dsData.to_netcdf(saveFile)
-                log.info(f"[CHECK] saveFile : {saveFile}")
+            pool.close()
+            pool.join()
 
             # =========================================================
             # gpw 데이터 읽기/병합
