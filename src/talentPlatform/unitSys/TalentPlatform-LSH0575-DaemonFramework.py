@@ -248,8 +248,8 @@ class DtaProcess(object):
                 , 'endDate': '2023-01-01'
 
                 # 경도 최소/최대/간격
-                # , 'lonMin': 0
-                # , 'lonMax': 360
+                # , 'lonMin': -180
+                # , 'lonMax': 180
                 , 'lonMin': 130
                 , 'lonMax': 140
                 , 'lonInv': 1
@@ -323,22 +323,28 @@ class DtaProcess(object):
             fileList = sorted(glob.glob(inpFile))
             # if (len(fileList) < 1): continue
             fileInfo = fileList[0]
+            # gpwNatData = xr.open_rasterio(fileInfo)
             gpwNatData = xr.open_rasterio(fileInfo)
-            gpwNatDataL1 = gpwNatData.sel(band=1)
+            # gpwNatDataL1 = gpwNatData.sel(band=1)
+            gpwNatDataL1 = gpwNatData.sel(band=1).interp(x=lonList, y=latList, method='nearest')
 
             inpFile = '{}/{}/{}'.format(globalVar['inpPath'], serviceName, '*/gpw_v4_population_count_rev11_2000_30_sec.tif')
             fileList = sorted(glob.glob(inpFile))
             # if (len(fileList) < 1): continue
             fileInfo = fileList[0]
             gpwPopData = xr.open_rasterio(fileInfo)
-            gpwPopDataL1 = gpwPopData.sel(band=1).to_dataset(name='POP')
+            # gpwPopDataL1 = gpwPopData.sel(band=1).to_dataset(name='POP')
+            gpwPopDataL1 = gpwPopData.sel(band=1).interp(x=lonList, y=latList, method='nearest').to_dataset(name='POP')
 
             # 데이터 병합
             gpwData = gpwPopDataL1.copy()
             gpwData.coords['NAT'] = (('y', 'x'), gpwNatDataL1.values)
 
-            # gpwDataL1 = gpwData
-            gpwDataL1 = gpwData.sel(x=slice(130, 131)).isel(y=slice(5500, 6000))
+            # gpwData.to_netcdf('/DATA/INPUT/LSH0575/gpw-pop_2000.nc')
+            # sys.exit(0)
+
+            gpwDataL1 = gpwData
+            # gpwDataL1 = gpwData.sel(x=slice(130, 131)).isel(y=slice(5500, 6000))
 
             gpwDataL1['NAT'] = xr.where((gpwDataL1['NAT'] == gpwNatData.nodatavals), np.nan, gpwDataL1['NAT'])
             gpwDataL1['POP'] = xr.where((gpwDataL1['POP'] == gpwPopData.nodatavals), np.nan, gpwDataL1['POP'])
@@ -346,32 +352,18 @@ class DtaProcess(object):
             # NAT에 따른 합계
             sumData = gpwDataL1.groupby(gpwDataL1['NAT']).sum()
 
-
-            # natList = np.unique(gpwDataL1['NAT'].values)
-            # for nat in natList:
-            #     if pd.isna(nat): continue
-            #     log.info(f'[CHECK] nat : {nat}')
-            #
-            #     gpwDataL3 = gpwDataL2.sel(NAT = nat)
-            #
-            #     sumDataL1 = sumData.sel(NAT = nat)
-            #     sumVal = sumDataL1['POP'].values
-
             # =========================================================
-            # 가중치 계산
+            # 날짜/국가별로 가중치 계산
             # =========================================================
             # locCodeList = np.unique(gpwDataL1['NAT'])
-            gpwDataL2 = gpwDataL1.copy()
             dtDateList = np.unique(xlsxDataL5['dtDate'])
             locCodeList = np.unique(xlsxDataL5['locCode'])
 
             for dtDate in dtDateList:
                 log.info(f'[CHECK] dtDate : {dtDate}')
 
+                gpwDataL2 = gpwDataL1.copy()
                 for locCode in locCodeList:
-                    gpwDataL3 = gpwDataL2.where(gpwDataL2['NAT'] == locCode, drop=True)
-                    if len(gpwDataL3['POP']) < 1: continue
-
                     # sumDataL1 = sumData.sel(NAT = locCode)
                     sumDataL1 = sumData.where(sumData['NAT'] == locCode, drop=True)
                     if len(sumDataL1['POP']) < 1: continue
@@ -382,102 +374,46 @@ class DtaProcess(object):
                         ]
                     if len(xlsxDataL6) < 1: continue
 
+                    log.info(f'[CHECK] locCode : {locCode}')
+
                     sumVal = sumDataL1['POP'].values[0]
                     newVal = xlsxDataL6['newVal'].values[0]
                     weg = newVal / sumVal
 
+                    # gpwDataL3 = gpwDataL2.where(gpwDataL2['NAT'] == locCode, drop=True)
+                    # if len(gpwDataL3['POP']) < 1: continue
+
                     isMask = (gpwDataL2['NAT'] == locCode)
-                    gpwDataL2['POP'] * isMask.values
-                    np.nansum(gpwDataL2['POP'] * isMask.values)
+                    gpwDataL2['POP'] = gpwDataL2['POP'].where(~isMask, gpwDataL2['POP'] * weg)
 
-                    # np.nansum(gpwDataL2['POP'])
-                    # np.nansum(gpwDataL2['POP'])
+                    # np.nansum(gpwDataL2.where(gpwDataL2['NAT'] == locCode, drop=True)['POP'])
 
-                    # [ 3.3936563,  3.3936563,  3.3936565, ..., 74.442375 , 74.44239  ,
-                    #         74.442375 ]
+                # 데이터 저장
+                lon1D = gpwDataL2['x'].values
+                lat1D = gpwDataL2['y'].values
 
-                    sumDataL1 = sumData.where(sumData['NAT'] == locCode, drop=True)
+                dsData = xr.Dataset(
+                    {
+                        'NAT': (('time', 'lat', 'lon'), (gpwDataL2['NAT'].values).reshape(1, len(lat1D), len(lon1D)))
+                        , 'POP': (('time', 'lat', 'lon'), (gpwDataL2['POP'].values).reshape(1, len(lat1D), len(lon1D)))
+                    }
+                    , coords={
+                        'time': pd.date_range(dtDate, periods=1)
+                        , 'lat': lat1D
+                        , 'lon': lon1D
+                    }
+                )
 
-                    gpwDataL3['POP']
-
-            # gpwNatDataL1['x'].values
-
-            # gpwNatDataL1['NAT'].plot()
-            # plt.show()
-
-            # gpwPopDataL1 = gpwPopData.to_dataset(name='POP')
-            # gpwPopDataL1 = gpwPopData.to_dataset(name='POP').isel(x=slice(120, 150), y=slice(40, 50))
-            # gpwPopDataL1 = gpwPopData.sel(band = 1).to_dataset(name='POP').sel(x=slice(130, 131)).isel(y=slice(5500, 6000))
-
-            # gpwNatDataL1['NAT'].plot()
-            # gpwPopDataL1['POP'].plot()
-            # plt.show()
-
-
-            # gpwData = xr.merge([gpwNatDataL1, gpwPopDataL1])
-
-            # gpwData
-
-            # isMask = gpwNatDataL1['NAT'] == 156
-            # gpwPopDataL1['POP'] * isMask.values
-            #
-            # gpwPopDataL1.coords['NAT'] = (('y', 'x'), gpwNatDataL1['NAT'].values)
-            #
-            # isMask = gpwPopDataL1['NAT'] == 156
-            # gpwPopDataL1['POP'] * isMask
-            #
-            # # isMask = (gpwData['NAT'] == 156)
-            #
-            # gg = gpwPopDataL1['POP'].groupby(gpwPopDataL1['NAT']).sum()
-            # gg.sel(NAT = 156).values
-
-
-
-            # gpwData['NAT'].where(isMask, drop=True).values
-
-            #
-            # gpwData['NAT'] = xr.where((gpwData['NAT'] == gpwNatData.nodatavals), np.nan, gpwData['NAT'])
-            # gpwData['POP'] = xr.where((gpwData['POP'] == gpwPopData.nodatavals), np.nan, gpwData['POP'])
-            #
-            # # gpwDataL1 = gpwData.sel(band=1)
-            # gpwDataL1 = gpwData
-            #
-            # # np.unique(gpwDataL1['NAT'].values)
-            # # np.unique(gpwDataL1['POP'].values)
-            #
-            # # array([156., 408., 643.,  nan])
-            # # isMask = (gpwNatData.sel(band=1) == 156)
-            # isMask = (gpwDataL1['NAT'] == 156)
-            # # gpwNatData[isFlag]
-
-
-
-
-            # gpwNatData.where(isMask)
-            # gpwDataL1.where(isMask)
-
-            # b = gpwDataL1['NAT'].where(isMask, drop=False)
-            #
-            # # pop_sum = gpwDataL1.groupby(gpwDataL1['NAT']).sum()
-            #
-            # # gpwDataL1.groupby(gpwDataL1['NAT']).sum( skipna=True)
-            #
-            # # gpwDataL1.sel(NAT = 156)
-            #
-            # isMask = (gpwDataL1['NAT'] == 156)
-            # gpwDataL1['NAT'].where(isMask, drop=True).values
-            #
-            # # gpwData['x'].values
-            #
-            # # gpwDataL2 = gpwDataL1.to_dataframe().reset_index(drop=False)
-            # gpwDataL2 = gpwData.to_dataframe().reset_index(drop=False)
-            # gpwDataL2.dropna().groupby(['NAT']).sum().reset_index()
-            #
-
+                saveFilePattern = pd.to_datetime(dtDate).strftime('%Y%m/%d/gpw-pop_%Y%m%d.nc')
+                saveFile = '{}/{}/{}'.format(globalVar['outPath'], serviceName, saveFilePattern)
+                os.makedirs(os.path.dirname(saveFile), exist_ok=True)
+                dsData.to_netcdf(saveFile)
+                log.info(f"[CHECK] saveFile : {saveFile}")
 
             # =========================================================
             # gpw 데이터 읽기/병합
-            # =========================================================
+            # ==================
+            # =======================================
             # inpFile = '{}/{}/{}'.format(globalVar['inpPath'], serviceName, '*/gpw_v4_national_identifier_grid_rev11_30_sec.shp')
             # fileList = sorted(glob.glob(inpFile))
             # fileInfo = fileList[0]
@@ -505,6 +441,18 @@ class DtaProcess(object):
 
             # 1950.0, 19757.089
             # 2023.0, 51759.392
+
+
+            # natList = np.unique(gpwDataL1['NAT'].values)
+            # for nat in natList:
+            #     if pd.isna(nat): continue
+            #     log.info(f'[CHECK] nat : {nat}')
+            #
+            #     gpwDataL3 = gpwDataL2.sel(NAT = nat)
+            #
+            #     sumDataL1 = sumData.sel(NAT = nat)
+            #     sumVal = sumDataL1['POP'].values
+
 
 
 
