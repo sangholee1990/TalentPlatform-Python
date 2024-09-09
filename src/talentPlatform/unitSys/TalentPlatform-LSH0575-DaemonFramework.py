@@ -180,8 +180,10 @@ def calcProc(dtDate, xlsxDataL5, sumData, gpwDataL1):
     try:
         procInfo = mp.current_process()
 
-        saveFilePattern = pd.to_datetime(dtDate).strftime('%Y%m/%d/gpw-pop_%Y%m%d.nc')
+        saveFilePattern = pd.to_datetime(dtDate).strftime('OUTPUT/%Y%m/%d/gpw-pop_%Y%m%d.nc')
         saveFile = '{}/{}/{}'.format(globalVar['outPath'], serviceName, saveFilePattern)
+
+        if os.path.exists(saveFile): return
 
         gpwDataL2 = gpwDataL1.copy()
         locCodeList = np.unique(xlsxDataL5['locCode'])
@@ -196,7 +198,6 @@ def calcProc(dtDate, xlsxDataL5, sumData, gpwDataL1):
                 ]
             if len(xlsxDataL6) < 1: continue
 
-
             sumVal = sumDataL1['POP'].values[0]
             newVal = xlsxDataL6['newVal'].values[0]
             weg = newVal / sumVal
@@ -204,7 +205,7 @@ def calcProc(dtDate, xlsxDataL5, sumData, gpwDataL1):
             gpwDataL3 = gpwDataL2.where(gpwDataL2['NAT'] == locCode, drop=True)
             if len(gpwDataL3['POP']) < 1: continue
 
-            log.info(f'[CHECK] locCode : {locCode}')
+            # log.info(f'[CHECK] locCode : {locCode}')
 
             isMask = (gpwDataL2['NAT'] == locCode)
             gpwDataL2['POP'] = gpwDataL2['POP'].where(~isMask, gpwDataL2['POP'] * weg)
@@ -229,7 +230,7 @@ def calcProc(dtDate, xlsxDataL5, sumData, gpwDataL1):
         dsData.to_netcdf(saveFile)
         log.info(f"[CHECK] saveFile : {saveFile}")
 
-        log.info(f'[END] calcProc : {dtDateInfo} / pid : {procInfo.pid}')
+        log.info(f'[END] calcProc : {dtDate} / pid : {procInfo.pid}')
 
     except Exception as e:
         log.error(f'Exception : {str(e)}')
@@ -243,15 +244,23 @@ class DtaProcess(object):
     # ================================================
     # 요구사항
     # ================================================
-    # Python을 이용한 컬럼비아 인구 데이터 UN 총인구 가중치 계산 및 NetCDF 가공
+    # Python을 이용한 NASA 인구 데이터 UN 총인구 가중치 계산 및 NetCDF 가공
+
+    # /data2/hzhenshao/GPW-POP/py38/bin/python TalentPlatform-LSH0575-DaemonFramework.py
+
+    # cd /data2/hzhenshao/GPW-POP
+    # nohup /data2/hzhenshao/GPW-POP/py38/bin/python TalentPlatform-LSH0575-DaemonFramework.py &
+    # tail -f nohup.out
+
+    # ps -ef | grep TalentPlatform-LSH0575-DaemonFramework.py | awk '{print $2}' | xargs kill -9
 
     # ================================================================================================
     # 환경변수 설정
     # ================================================================================================
     global env, contextPath, prjName, serviceName, log, globalVar
 
-    # env = 'local'  # 로컬 : 원도우 환경, 작업환경 (현재 소스 코드 환경 시 .) 설정
-    env = 'dev'      # 개발 : 원도우 환경, 작업환경 (사용자 환경 시 contextPath) 설정
+    env = 'local'  # 로컬 : 원도우 환경, 작업환경 (현재 소스 코드 환경 시 .) 설정
+    # env = 'dev'      # 개발 : 원도우 환경, 작업환경 (사용자 환경 시 contextPath) 설정
     # env = 'oper'  # 운영 : 리눅스 환경, 작업환경 (사용자 환경 시 contextPath) 설정
 
     if (platform.system() == 'Windows'):
@@ -295,35 +304,40 @@ class DtaProcess(object):
 
         try:
 
-            if (platform.system() == 'Windows'):
+            if platform.system() == 'Windows':
                 pass
             else:
-                globalVar['inpPath'] = '/DATA/INPUT'
-                globalVar['outPath'] = '/DATA/OUTPUT'
-                globalVar['figPath'] = '/DATA/FIG'
+                pass
+
+            # globalVar['inpPath'] = '/DATA/INPUT'
+            # globalVar['outPath'] = '/DATA/OUTPUT'
+            # globalVar['figPath'] = '/DATA/FIG'
 
             # 옵션 설정
             sysOpt = {
                 # 시작/종료 시간
                 'srtDate': '2019-01-01'
-                , 'endDate': '2023-01-01'
+                , 'endDate': '2025-12-31'
 
                 # 경도 최소/최대/간격
-                # , 'lonMin': -180
-                # , 'lonMax': 180
-                , 'lonMin': 130
-                , 'lonMax': 140
-                , 'lonInv': 1
+                , 'lonMin': -180
+                , 'lonMax': 180
+                , 'lonInv': 0.1
+                # , 'lonMin': 130
+                # , 'lonMax': 140
+                # , 'lonInv': 1
 
                 # 위도 최소/최대/간격
-                # , 'latMin': -90
-                # , 'latMax': 90
-                , 'latMin': 30
-                , 'latMax': 40
-                , 'latInv': 1
+                , 'latMin': -90
+                , 'latMax': 90
+                , 'latInv': 0.1
+                # , 'latMin': 30
+                # , 'latMax': 40
+                # , 'latInv': 1
 
                 # 비동기 다중 프로세스 개수
                 , 'cpuCoreNum': '5'
+                # , 'cpuCoreNum': '50'
                 # , 'cpuCoreNum': globalVar['cpuCoreNum']
             }
 
@@ -332,7 +346,6 @@ class DtaProcess(object):
             latList = np.arange(sysOpt['latMin'], sysOpt['latMax'], sysOpt['latInv'])
             log.info(f'[CHECK] len(lonList) : {len(lonList)}')
             log.info(f'[CHECK] len(latList) : {len(latList)}')
-
 
             # =========================================================
             # 엑셀 파일 읽기
@@ -364,7 +377,12 @@ class DtaProcess(object):
                 xlsxDataL2['dtXran'] = pd.to_numeric(xlsxDataL2['dtDate'].apply(lambda x: convDateToDeci(x)), errors='coerce')
                 xlsxDataL2['orgVal'] = pd.to_numeric(xlsxDataL2['orgVal'], errors='coerce')
 
-                xlsxDataL3 = xlsxDataL2.copy().set_index('dtDate').resample('1D').asfreq()
+                dtData = pd.DataFrame({
+                    'dtDate': pd.date_range(start=sysOpt['srtDate'], end=sysOpt['endDate'], freq='1D')
+                })
+
+                # xlsxDataL3 = xlsxDataL2.copy().set_index('dtDate').resample('1D').asfreq()
+                xlsxDataL3 = pd.merge(left=dtData, right=xlsxDataL2, how='left', left_on=['dtDate'], right_on=['dtDate']).set_index('dtDate')
                 xlsxDataL3['dtXran'] = pd.to_numeric(xlsxDataL3.index.to_series().apply(lambda x: convDateToDeci(x)), errors='coerce')
 
                 # Radial basis function (RBF) interpolation in N dimensions.
@@ -429,122 +447,9 @@ class DtaProcess(object):
 
             for dtDate in dtDateList:
                 log.info(f'[CHECK] dtDate : {dtDate}')
-
                 pool.apply_async(calcProc, args=(dtDate, xlsxDataL5, sumData, gpwDataL1))
-
             pool.close()
             pool.join()
-
-            # =========================================================
-            # gpw 데이터 읽기/병합
-            # ==================
-            # =======================================
-            # inpFile = '{}/{}/{}'.format(globalVar['inpPath'], serviceName, '*/gpw_v4_national_identifier_grid_rev11_30_sec.shp')
-            # fileList = sorted(glob.glob(inpFile))
-            # fileInfo = fileList[0]
-            # shpData = gpd.read_file(fileInfo)
-            #
-            # # shpData.head()
-            # # shpData.info()
-            # # shpData.describe()
-            #
-            # # shpData.plot()
-            # # plt.show()
-            #
-            # # [CHECK] shpCode : KOR / shpVal : 410 / shpName : Republic of Korea / shpGeoCen : POINT (127.75250070905732 36.30623116907186)
-            # for idx, item in shpData.iterrows():
-            #     shpCode = item.ISOCODE
-            #     shpName = item.NAME0
-            #     shpVal = item.Value
-            #     shpGeoCen = item.geometry.centroid
-            #     log.info(f'[CHECK] shpCode : {shpCode} / shpVal : {shpVal} / shpName : {shpName} / shpGeoCen : {shpGeoCen}')
-            #
-
-
-            # xlsxDataL2['dtDate'].apply(lambda x: x.timestamp())
-
-
-            # 1950.0, 19757.089
-            # 2023.0, 51759.392
-
-
-            # natList = np.unique(gpwDataL1['NAT'].values)
-            # for nat in natList:
-            #     if pd.isna(nat): continue
-            #     log.info(f'[CHECK] nat : {nat}')
-            #
-            #     gpwDataL3 = gpwDataL2.sel(NAT = nat)
-            #
-            #     sumDataL1 = sumData.sel(NAT = nat)
-            #     sumVal = sumDataL1['POP'].values
-
-
-
-
-
-            # lon1D = gpwNatDataL3['x'].values
-            # lat1D = gpwNatDataL3['y'].values
-            #
-            # data = xr.Dataset(
-            #     {
-            #         'NAT': (('time', 'lat', 'lon'), (gpwNatDataL3.values).reshape(1, len(lat1D), len(lon1D)))
-            #         , 'POP': (('time', 'lat', 'lon'), (gpwPopDataL3.values).reshape(1, len(lat1D), len(lon1D)))
-            #     }
-            #     , coords={
-            #         'time': pd.date_range(pd.to_datetime(2020, format='%Y'), periods=1)
-            #         , 'lat': lat1D
-            #         , 'lon': lon1D
-            #     }
-            # )
-
-            # print(data)
-
-            # data['NAT'].plot()
-            # plt.show()
-            #
-            # data['POP'].plot()
-            # plt.show()
-
-            # if (len(dataL5) < 1):
-            #     dataL5 = dataL4
-            # else:
-            #     dataL5 = xr.concat([dataL5, dataL4], "time")
-
-            # gpwDataL1 = gpwData
-            # gpwDataL1['NAT'] = xr.where((gpwDataL1['NAT'] == gpwNatData.nodatavals), np.nan, gpwDataL1['NAT'])
-            # gpwDataL1['POP'] = xr.where((gpwDataL1['POP'] == gpwPopData.nodatavals), np.nan, gpwDataL1['POP'])
-            #
-            # gpwDataL1['POP'].plot()
-            # plt.show()
-
-            # gpwPopDataL2.plot()
-            # plt.show()
-
-            # gpwPopData.attrs
-            # dataL3 = dataL2.interp(x=lonList, y=latList, method='nearest')
-
-            # 결측값 처리
-            # dataL3 = xr.where((dataL3 < 0), np.nan, dataL3)
-
-            # gpwNatDataL1 = gpwNatData.sel(band=1)
-            # gpwNatDataL2 = gpwNatDataL1.interp({'x': lonList, 'y': latList}, method='nearest')
-            # gpwNatDataL2 = gpwNatDataL1.isel(x=slice(14000, 14100), y=slice(100, 200))
-            # gpwNatDataL2 = gpwNatDataL1.sel(x=slice(119.999, 121.001), y=slice(88.999, 90.001))
-            # gpwNatDataL1['x'].values
-            #
-            # gpwNatDataL1['x'].values
-
-            # gpwNatDataL2.plot()
-            # plt.show()
-
-            # gpwNatDataL2.plot()
-            # plt.show()
-            # gpwNatDataL1['x'].values
-
-            # gpwNatDataL1.plot()
-
-            # dataL1 = data.to_dataset('band').rename({1: 'val'})
-
 
         except Exception as e:
             log.error(f"Exception : {str(e)}")
