@@ -132,10 +132,6 @@ def initLog(env=None, contextPath=None, prjName=None):
 
     return log
 
-# def getPubliIp():
-#     response = requests.get('https://api.ipify.org')
-#     return response.text
-
 # 인증키 검사
 def chkApiKey(api_key: str = Depends(APIKeyHeader(name="api"))):
     if api_key != '20240922-topbds':
