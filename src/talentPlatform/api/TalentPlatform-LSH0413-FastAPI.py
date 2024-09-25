@@ -559,7 +559,7 @@ app.mount('/VIDEO', StaticFiles(directory=VIDEO_PATH), name=VIDEO_PATH)
 app.mount('/CSV', StaticFiles(directory=CSV_PATH), name=CSV_PATH)
 app.mount('/UPLOAD', StaticFiles(directory=UPLOAD_PATH), name=UPLOAD_PATH)
 
-origins = [
+oriList = [
     "http://localhost:8080"
     , "http://localhost:9000"
     , "http://localhost:9100"
@@ -567,13 +567,13 @@ origins = [
     , "http://riakorea.co.kr"
 ]
 
-# Enable CORS middleware
 app.add_middleware(
-    CORSMiddleware,
-    allow_origins=["*"],  # Set the appropriate origins
-    allow_credentials=True,
-    allow_methods=["*"],
-    allow_headers=["*"],
+    CORSMiddleware
+    , allow_origins=["*"]
+    # , allow_origins=oriList
+    , allow_credentials=True
+    , allow_methods=["*"]
+    , allow_headers=["*"]
 )
 
 # 미들웨어 함수를 적용하여 헤더 인증키 확인
