@@ -196,6 +196,7 @@ app = FastAPI(
 # CORS 설정
 oriList = [
     'http://localhost:8300'
+    , 'http://localhost:3000'
     , 'http://49.247.41.71:8300'
 ]
 
