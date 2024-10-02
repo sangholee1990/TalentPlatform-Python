@@ -316,16 +316,16 @@ def calRain_SN(rVarf, rVark, rVard, Rtyp, dt, aZh):
 
     # Rtyp에 따른 강우량 계산
     Rcal = {}
-    # Rcal에 단위 시간당 강우강도 (mm/h)
     if Rtyp == 'int':
+        # Rcal에 단위 시간당 강우강도 (mm/h)
         Rcal[1] = RintZH
         Rcal[2] = RintKD
         Rcal[3] = RintZD
         Rcal[4] = RintJP
         Rcal[5] = RintCS
 
-    # Rcal에 누적 강우강도 (mm)
     elif Rtyp == 'ran':
+        # Rcal에 누적 강우강도 (mm)
         Rcal[1] = RintZH * dt / 3600
         Rcal[2] = RintKD * dt / 3600
         Rcal[3] = RintZD * dt / 3600
@@ -446,17 +446,14 @@ class DtaProcess(object):
                     , 'procList': ['t2m', 'skt', 'u', 'v']
 
                     # 가공 파일 정보
-                    , 'procPath': '/DATA/OUTPUT/LSH0547'
-                    , 'procName': '{}_{}-{}_{}-{}.nc'
+                    , 'procPath': '/DATA/OUTPUT/LSH0579/PROC'
+                    , 'procName': 'RDR_{}_FQC_%Y%m%d%H%M.nc'
 
-                    , 'figPath': '/DATA/FIG/LSH0547'
-                    , 'figName': '{}_{}-{}_{}-{}.png'
+                    , 'figPath': '/DATA/FIG/LSH0579'
+                    , 'figName': 'RDR_{}_FQC_%Y%m%d%H%M.png'
                 }
             }
 
-            # ==========================================================================================================
-            # 파이썬 전처리
-            # ==========================================================================================================
             # 시작일/종료일 설정
             dtSrtDate = pd.to_datetime(sysOpt['srtDate'], format='%Y-%m-%d')
             dtEndDate = pd.to_datetime(sysOpt['endDate'], format='%Y-%m-%d')
@@ -474,6 +471,9 @@ class DtaProcess(object):
                     for dtDateInfo in dtDateList:
                         # log.info(f'[CHECK] dtDateInfo : {dtDateInfo}')
 
+                        # ==========================================================================================================
+                        # KMA_GNG_Kang4_수정용2.py
+                        # ==========================================================================================================
                         inpFilePattern = '{}/{}'.format(modelInfo['filePath'], modelInfo['fileName'])
                         inpFile = dtDateInfo.strftime(inpFilePattern).format(code)
                         fileList = sorted(glob.glob(inpFile))
@@ -485,80 +485,65 @@ class DtaProcess(object):
                         fileName = os.path.basename(fileInfo)
                         fileNameNotExt = fileName.split(".")[0]
 
-                        a = pyart.io.read(fileInfo)
+                        # 자료 읽기
+                        data = pyart.io.read(fileInfo)
 
-                        rnam = a.metadata['instrument_name']  # radar_name
-                        rlat = a.latitude['data']
-                        rlon = a.longitude['data']
-                        ralt = a.altitude['data']
-                        styp = a.scan_type
-                        fbwh = a.instrument_parameters['radar_beam_width_h']['data']
-                        fprt = a.instrument_parameters['prt']['data']
-                        fvel = a.instrument_parameters['nyquist_velocity']['data']
-                        fpul = a.instrument_parameters['pulse_width']['data']
-                        ffrq = a.instrument_parameters['frequency']['data']
-                        nray = a.nrays
-                        ngat = a.ngates
-                        nswp = a.nsweeps
-                        fang = a.fixed_angle['data']
-                        fazm = a.azimuth['data']
-                        frng = a.range['data']
-                        felv = a.elevation['data']
-                        fscn = a.scan_rate['data']
-                        fswp = a.sweep_number['data']
-                        fsws = a.sweep_start_ray_index['data']
-                        fswe = a.sweep_end_ray_index['data']
-                        ftme = a.time['data']
-                        fdat_ref = a.fields['reflectivity']['data']
-                        fdat_zdr = a.fields['corrected_differential_reflectivity']['data']
-                        fdat_pdp = a.fields['differential_phase']['data']
-                        fdat_kdp = a.fields['specific_differential_phase']['data']
-                        fdat_vel = a.fields['velocity']['data']
-                        fdat_phv = a.fields['cross_correlation_ratio']['data']
-                        fdat_spw = a.fields['spectrum_width']['data']
-                        str_nam = [rnam]
-                        arr_lat_lon_alt_bwh = [rlat, rlon, ralt, fbwh]
-                        str_typ = [styp]
-                        arr_prt_prm_vel = [fprt, fvel]
-                        num_ray_gat_swp = [nray, ngat, nswp]
-                        fix_ang = fang
-                        arr_azm_rng_elv = [fazm, frng, felv]
-                        arr_etc = [fpul, ffrq, fscn, fswp, fsws, fswe, ftme]
-                        arr_ref = np.array(fdat_ref)
-                        arr_zdr = np.array(fdat_zdr)
-                        arr_pdp = np.array(fdat_pdp)
-                        arr_kdp = np.array(fdat_kdp)
-                        arr_vel = np.array(fdat_vel)
-                        arr_phv = np.array(fdat_phv)
-                        arr_spw = np.array(fdat_spw)
+                        rnam = data.metadata['instrument_name']
+                        rlat = data.latitude['data']
+                        rlon = data.longitude['data']
+                        ralt = data.altitude['data']
+                        styp = data.scan_type
+                        fbwh = data.instrument_parameters['radar_beam_width_h']['data']
+                        fprt = data.instrument_parameters['prt']['data']
+                        fvel = data.instrument_parameters['nyquist_velocity']['data']
+                        fpul = data.instrument_parameters['pulse_width']['data']
+                        ffrq = data.instrument_parameters['frequency']['data']
+                        nray = data.nrays
+                        ngat = data.ngates
+                        nswp = data.nsweeps
+                        fang = data.fixed_angle['data']
+                        fazm = data.azimuth['data']
+                        frng = data.range['data']
+                        felv = data.elevation['data']
+                        fscn = data.scan_rate['data']
+                        fswp = data.sweep_number['data']
+                        fsws = data.sweep_start_ray_index['data']
+                        fswe = data.sweep_end_ray_index['data']
+                        ftme = data.time['data']
+                        fdat_ref = data.fields['reflectivity']['data']
+                        fdat_zdr = data.fields['corrected_differential_reflectivity']['data']
+                        fdat_pdp = data.fields['differential_phase']['data']
+                        fdat_kdp = data.fields['specific_differential_phase']['data']
+                        fdat_vel = data.fields['velocity']['data']
+                        fdat_phv = data.fields['cross_correlation_ratio']['data']
+                        fdat_spw = data.fields['spectrum_width']['data']
 
-                        # 자료 저장
-                        data = {
-                            'str_nam': str_nam,
-                            'arr_lat_lon_alt_bwh': arr_lat_lon_alt_bwh,
-                            'str_typ': str_typ,
-                            'arr_prt_prm_vel': arr_prt_prm_vel,
-                            'num_ray_gat_swp': num_ray_gat_swp,
-                            'fix_ang': fix_ang,
-                            'arr_azm_rng_elv': arr_azm_rng_elv,
-                            'arr_etc': arr_etc,
-                            'arr_ref': arr_ref,
+                        # 자료 가공
+                        dataL1 = {
+                            'str_nam': [rnam],
+                            'arr_lat_lon_alt_bwh': [rlat, rlon, ralt, fbwh],
+                            'str_typ': [styp],
+                            'arr_prt_prm_vel': [fprt, fvel],
+                            'num_ray_gat_swp': [nray, ngat, nswp],
+                            'fix_ang': fang,
+                            'arr_azm_rng_elv': [fazm, frng, felv],
+                            'arr_etc':  [fpul, ffrq, fscn, fswp, fsws, fswe, ftme],
+                            'arr_ref': np.array(fdat_ref),
                             # 'arr_crf': arr_crf,
-                            'arr_zdr': arr_zdr,
-                            'arr_pdp': arr_pdp,
-                            'arr_kdp': arr_kdp,
-                            'arr_vel': arr_vel,
-                            'arr_phv': arr_phv,
+                            'arr_zdr': np.array(fdat_zdr),
+                            'arr_pdp': np.array(fdat_pdp),
+                            'arr_kdp': np.array(fdat_kdp),
+                            'arr_vel': np.array(fdat_vel),
+                            'arr_phv': np.array(fdat_phv),
                             # 'arr_ecf': arr_ecf,
                             # 'arr_coh': arr_coh,
-                            'arr_spw': arr_spw
+                            'arr_spw': np.array(fdat_spw)
                         }
 
-                        radar = a
-
                         # plot sigmet data
-                        display = pyart.graph.RadarDisplay(radar)
+                        display = pyart.graph.RadarDisplay(data)
                         fig = plt.figure(figsize=(35, 8))
+
                         # ----------------------
                         # nEL=0 # GNG 0.2
                         # nEL=3 # GDK 0.8
@@ -566,419 +551,146 @@ class DtaProcess(object):
                         # ----------------
                         nEL = 0  # FCO SBS
                         # ----------------------
-                        for i in range(3):
+
+                        plotList = [
+                            {'field': 'reflectivity', 'vmin': -5, 'vmax': 40},
+                            {'field': 'corrected_differential_reflectivity', 'vmin': -2, 'vmax': 5},
+                            {'field': 'cross_correlation_ratio', 'vmin': 0.5, 'vmax': 1.0}
+                        ]
+
+                        for i, plotInfo in enumerate(plotList):
                             ax = fig.add_subplot(1, 3, i + 1)
-                            #
-                            try:
-                                if i == 0:
-                                    display.plot('reflectivity', nEL, vmin=-5, vmax=40)
-                                elif i == 1:
-                                    display.plot('corrected_differential_reflectivity', nEL, vmin=-2, vmax=5)
-                                elif i == 2:
-                                    display.plot('cross_correlation_ratio', nEL, vmin=0.5, vmax=1.0)
-                                else:
-                                    continue
+                            display.plot(plotInfo['field'], nEL, vmin=plotInfo['vmin'], vmax=plotInfo['vmax'])
+                            # display.plot_range_rings([50, 100, 150, 200, 250]) # KMA 설정
+                            display.plot_range_rings([25, 50, 75, 100, 125]) # FCO 설정
+                            display.plot_cross_hair(5.0)
 
-                                # display.plot_range_rings([50, 100, 150, 200, 250]) #KMA
-                                display.plot_range_rings([25, 50, 75, 100, 125])  # FCO
-                                display.plot_cross_hair(5.)
+                        saveImgPattern = '{}/{}'.format(modelInfo['figPath'], modelInfo['figName'])
+                        saveImg = dtDateInfo.strftime(saveImgPattern).format(code)
+                        os.makedirs(os.path.dirname(saveImg), exist_ok=True)
+                        plt.savefig(saveImg, dpi=600, bbox_inches='tight')
+                        plt.close()
+                        log.info(f"[CHECK] saveImg : {saveImg}")
 
-                            except Exception as e:
-                                print(f"Error plotting {i}: {e}")
+                        # ==========================================================================================================
+                        # snowC_GNG_Kang_20240923_KMA_GNG.m
+                        # ==========================================================================================================
+                        # 초기 변수 설정
+                        # datDRA = ['D:/SNOW/KMA_GNG_sel_OUT']
+                        # datDR = datDRA[0]
+                        # inpFilePattern = '{}/{}/{}/'.format(globalVar['inpPath'], serviceName, 'KMA_GNG_sel_OUT')
+                        # datDRA = [inpFilePattern]
+                        # datDR = datDRA[0]
 
-                        # plt.show()
+                        # 강수 유형
+                        # int(mm/h)/ran(mm)
+                        Rtyp = 'int'
 
-                        #----------------------------------------------------------------------
-                        trm = 3
+                        # 강수 알고리즘 인덱스
+                        # Rcal{RintZH;RintKD;RintZD;RintJP;RintCS}
+                        Ralg = 3
 
-                        # savf1 = os.path.join(dirname + '/_OUT', (filename[0:len(f) - trm] + '.png'))
-                        # plt.savefig(str(savf1))
+                        # 시간 간격 [초]
+                        # 5분 단위
+                        # [80s+70s=>2.5min] low sng 300km[-0.3 0.1 0.60]=80s, high dul 150km[1.4 2.7 4.8]=70s
+                        dt = 5.0 * 60
 
-                        # fileName = os.path.basename(f)
-                        # fileNameNotExt = fileName.split(".")[0]
+                        # 시작 Elevation Angle
+                        srtEA = 3  # 시작 각도
+                        # frDir = datDR
+                        # fwDir = f"{datDR}_CMU/"
 
-                        # saveImg = '{}/{}/{}.png'.format(globalVar['figPath'], serviceName, fileNameNotExt)
-                        # os.makedirs(os.path.dirname(saveImg), exist_ok=True)
-                        # plt.savefig(saveImg, dpi=600, bbox_inches='tight')
-                        # plt.close()
-                        # log.info(f"[CHECK] saveImg : {saveImg}")
+                        # 결과 저장 디렉토리가 없으면 생성
+                        # if not os.path.exists(fwDir):
+                        #     os.makedirs(fwDir)
 
-                        # ----------------------------------------------------------------------
-                        # sfmat = os.path.join(dirname + '/_OUT', (filename[0:len(f) - trm] + '.mat'))
-                        # sio.savemat(str(sfmat),
-                        #             mdict={'str_nam': str_nam,
-                        #                    'arr_lat_lon_alt_bwh': arr_lat_lon_alt_bwh,
-                        #                    'str_typ': str_typ,
-                        #                    'arr_prt_prm_vel': arr_prt_prm_vel,
-                        #                    'num_ray_gat_swp': num_ray_gat_swp,
-                        #                    'fix_ang': fix_ang,
-                        #                    'arr_azm_rng_elv': arr_azm_rng_elv,
-                        #                    'arr_etc': arr_etc,
-                        #                    'arr_ref': arr_ref,
-                        #                    # 'arr_crf': arr_crf,
-                        #                    'arr_zdr': arr_zdr,
-                        #                    'arr_pdp': arr_pdp,
-                        #                    'arr_kdp': arr_kdp,
-                        #                    'arr_vel': arr_vel,
-                        #                    'arr_phv': arr_phv,
-                        #                    # 'arr_ecf': arr_ecf,
-                        #                    # 'arr_coh': arr_coh,
-                        #                    'arr_spw': arr_spw},
-                        #             do_compression=True)
+                        # 파일 리스트 가져오기
+                        # flist = [f for f in os.listdir(frDir) if f.endswith('.mat')]
+                        # nflst = len(flist)
 
+                        # 변수 초기화
+                        ZcaloA = np.zeros((601, 601))
+                        FcaloA = np.zeros((601, 601))
+                        RcaloA = np.zeros((601, 601))
+                        # sFcalA = np.zeros((nflst, 1))
+                        # sRcalA = np.zeros((nflst, 1))
+                        # xFcalA = np.zeros((nflst, 1))
+                        # xRcalA = np.zeros((nflst, 1))
 
+                        # 9 지점에 대해 데이터 저장
+                        # aws_data = np.zeros((nflst, 9, 3))
 
+                        # 파일별로 루프
+                        # j = 0
+                        # for j in range(nflst):
+                        #     fname = flist[j]
+                        #     print(f"Processing file {j + 1}/{nflst}: {fname}")
 
+                            # MATLAB 파일 로드
+                            # data = sio.loadmat(os.path.join(frDir, fname))
 
-
-
-            # inpFile = '{}/{}/{}'.format(globalVar['inpPath'], serviceName, 'HN_M.csv')
-            # fileList = sorted(glob.glob(inpFile))
-
-            # 관악산(KWK), 오성산(KSN), 광덕산(GDK), 면봉산(MYN), 구덕산(PSN), 백령도(BRI), 영종도(IIA), 진도(JNI), 고산(GSN), 성산(SSP), 강릉(GNG)
-            # KMA = ['KWK', 'KSN', 'GDK', 'MYN', 'PSN', 'BRI', 'IIA', 'JNI', 'GSN', 'SSP', 'GNG']
-            # KMA = ['KSN']
-            # radarCodeList = sysOpt['radarCodeList']
-            # code = radarCodeList[0]
-
-            # rDir = 'E:/uf/'
-            # os.chdir('E:/uf/')
-            rDir = '{}/{}/{}/'.format(globalVar['inpPath'], serviceName, 'uf')
-            rrDir = rDir + 'RDR_FQC_20230215'
-            file_lists = {code: glob.glob(f"{rrDir}\\*{code}*") for code in KMA}
-
-            #  Print the count of files for each variable using enumerate
-            for index, (code, files) in enumerate(file_lists.items()):
-                print(f"{index + 1}. {code}: {len(files)} files")
-
-            # KMA = ['GNG', 'JNI', 'KWK', 'KSN', 'MYN', 'PSN']
-            # KMA = ['MYN', 'PSN']
-
-            # rDir = 'E:/uf/'
-            # os.chdir('E:/uf/')
-            dir_list = os.listdir(rDir)
-            # dir_list = dir_list[10:16]
-
-            j = 0
-            for j in range(len(dir_list)):
-                rFDir = rDir + dir_list[j]
-                print(rFDir)
-                dirname = rFDir
-
-                # code = 'KSN'
-                list_files = []
-                for code in KMA:
-                    list_files.extend(glob.glob1(rFDir, f"*{code}*"))
-
-                # 테스트
-                list_files = [rFDir]
-
-                    # list_files=list_files[:5]
-                num_files = len(list_files)
-                uffname = 'reflectivity'
-                for f in list_files:
-                    print(f)
-                    filename = f
-                    if re.search('.mat', filename, re.IGNORECASE): continue
-
-                    readf = os.path.join(dirname, filename)
-                    a = pyart.io.read(readf)
-
-                    # ----------------------------------------------------------------------
-                    rnam = a.metadata['instrument_name']  # radar_name
-                    rlat = a.latitude['data']
-                    rlon = a.longitude['data']
-                    ralt = a.altitude['data']
-                    # ----------------------------------------------------------------------
-                    styp = a.scan_type
-                    # ----------------------------------------------------------------------
-                    fbwh = a.instrument_parameters['radar_beam_width_h']['data']
-                    fprt = a.instrument_parameters['prt']['data']
-                    # fprb=a.instrument_parameters['prt_ratio']['data']
-                    ###fprf=a.instrument_parameters['prf_flag']['data'] # 0 for high PRF, 1 for low PRF
-                    ###sprt=a.instrument_parameters['prt_mode']['data'] # 'fixed', 'staggered', 'dual'
-                    fvel = a.instrument_parameters['nyquist_velocity']['data']
-                    ###frng=a.instrument_parameters['unambiguous_range']
-                    fpul = a.instrument_parameters['pulse_width']['data']  # [1.0e-6, seconds]
-                    ffrq = a.instrument_parameters['frequency']['data']  # [2.88e+09, s-1]
-                    # ----------------------------------------------------------------------
-                    nray = a.nrays  # 1080
-                    ngat = a.ngates  # 1196 (125m)
-                    nswp = a.nsweeps  # 3
-                    # ----------------------------------------------------------------------
-                    fang = a.fixed_angle['data']  # -0.2(359.8) 0.1 0.5
-                    # print(fang)
-                    # ----------------------------------------------------------------------
-                    fazm = a.azimuth['data']  #
-                    frng = a.range['data']  #
-                    felv = a.elevation['data']  #
-                    # ----------------------------------------------------------------------
-                    fscn = a.scan_rate['data']  # scan rate[deg/s]
-                    fswp = a.sweep_number['data']  # 0,1,2...
-                    fsws = a.sweep_start_ray_index['data']  # [0 273 546]
-                    fswe = a.sweep_end_ray_index['data']  # [272 545 818]
-                    ftme = a.time['data']  # [seconds]
-                    # ----------------------------------------------------------------------
-                    fdat_ref = a.fields['reflectivity']['data']
-                    # fdat_crf=a.fields['corrected_reflectivity']['data']
-                    fdat_zdr = a.fields['corrected_differential_reflectivity']['data']
-                    # ----------------------------------------------------------------------
-                    fdat_pdp = a.fields['differential_phase']['data']
-                    fdat_kdp = a.fields['specific_differential_phase']['data']
-                    fdat_vel = a.fields['velocity']['data']
-                    fdat_phv = a.fields['cross_correlation_ratio']['data']
-                    # fdat_ecf=a.fields['radar_echo_classification']['data']
-                    # fdat_coh=a.fields['normalized_coherent_power']['data']
-                    fdat_spw = a.fields['spectrum_width']['data']
-                    ###    fdat_tpw=a.fields['total_power']['data']
-                    # ----------------------------------------------------------------------
-                    c = fdat_ref.shape
-                    # ----------------------------------------------------------------------
-                    str_nam = [rnam]
-                    # arr_lat_lon_alt=[rlat,rlon,ralt]
-                    arr_lat_lon_alt_bwh = [rlat, rlon, ralt, fbwh]
-                    str_typ = [styp]
-                    # arr_bwh_prt_prf_vel_rng=[fbwh,fprt,fprf,fvel,frng]
-                    # arr_prt_prf_vel=[fprt,fprf,fvel]
-                    # arr_prt_prm_vel=[fprt,sprt,fvel]
-                    arr_prt_prm_vel = [fprt, fvel]
-                    num_ray_gat_swp = [nray, ngat, nswp]
-                    fix_ang = fang
-                    arr_azm_rng_elv = [fazm, frng, felv]  # 3XN
-                    # ----------------------------------------------------------------------
-                    arr_etc = [fpul, ffrq, fscn, fswp, fsws, fswe, ftme]
-                    # arr_etc=[fpul,fswp,fsws,fswe,ftme]
-                    # ----------------------------------------------------------------------
-                    arr_ref = np.array(fdat_ref)
-                    # arr_crf=np.array(fdat_crf)
-                    arr_zdr = np.array(fdat_zdr)
-                    arr_pdp = np.array(fdat_pdp)
-                    arr_kdp = np.array(fdat_kdp)
-                    arr_vel = np.array(fdat_vel)
-                    arr_phv = np.array(fdat_phv)
-                    # arr_ecf=np.array(fdat_ecf)
-                    # arr_coh=np.array(fdat_coh)
-                    arr_spw = np.array(fdat_spw)
-                    # ----------------------------------------------------------------------
-                    # ----------------------------------------------------------------------
-                    radar = a
-                    # ----------------------------------------------------------------------
-                    # # plot sigmet data
-
-                    display = pyart.graph.RadarDisplay(radar)
-                    fig = plt.figure(figsize=(35, 8))
-                    # ----------------------
-                    # nEL=0 # GNG 0.2
-                    # nEL=3 # GDK 0.8
-                    # nEL=1 # GSN 5.2
-                    # ----------------
-                    nEL = 0  # FCO SBS
-                    # ----------------------
-                    # fig.subplots_adjust(hspace=0.3)
-                    for i in range(3):
-                        ax = fig.add_subplot(1, 3, i + 1)
-                        #
-                        try:
-                            if i == 0:
-                                display.plot('reflectivity', nEL, vmin=-5, vmax=40)
-                            elif i == 1:
-                                # display.plot('differential_phase', 0, vmin=-30, vmax=120)
-                                display.plot('corrected_differential_reflectivity', nEL, vmin=-2, vmax=5)
-                            elif i == 2:
-                                # display.plot('specific_differential_phase', 0, vmin=-1, vmax=5)
-                                display.plot('cross_correlation_ratio', nEL, vmin=0.5, vmax=1.0)
-                            #
-                            # display.plot_range_rings([50, 100, 150, 200, 250]) #KMA
-                            display.plot_range_rings([25, 50, 75, 100, 125])  # FCO
-                            display.plot_cross_hair(5.)
-
-                        except Exception as e:
-                            print(f"Error plotting {i}: {e}")
-
-                    # plt.show()
-
-                    #----------------------------------------------------------------------
-                    trm = 3
-
-                    # savf1 = os.path.join(dirname + '/_OUT', (filename[0:len(f) - trm] + '.png'))
-                    # plt.savefig(str(savf1))
-
-                    fileName = os.path.basename(f)
-                    fileNameNotExt = fileName.split(".")[0]
-
-                    # saveImg = '{}/{}/{}.png'.format(globalVar['figPath'], serviceName, fileNameNotExt)
-                    # os.makedirs(os.path.dirname(saveImg), exist_ok=True)
-                    # plt.savefig(saveImg, dpi=600, bbox_inches='tight')
-                    # plt.close()
-                    # log.info(f"[CHECK] saveImg : {saveImg}")
-
-                    # ----------------------------------------------------------------------
-                    # sfmat = os.path.join(dirname + '/_OUT', (filename[0:len(f) - trm] + '.mat'))
-                    # sio.savemat(str(sfmat),
-                    #             mdict={'str_nam': str_nam,
-                    #                    'arr_lat_lon_alt_bwh': arr_lat_lon_alt_bwh,
-                    #                    'str_typ': str_typ,
-                    #                    'arr_prt_prm_vel': arr_prt_prm_vel,
-                    #                    'num_ray_gat_swp': num_ray_gat_swp,
-                    #                    'fix_ang': fix_ang,
-                    #                    'arr_azm_rng_elv': arr_azm_rng_elv,
-                    #                    'arr_etc': arr_etc,
-                    #                    'arr_ref': arr_ref,
-                    #                    # 'arr_crf': arr_crf,
-                    #                    'arr_zdr': arr_zdr,
-                    #                    'arr_pdp': arr_pdp,
-                    #                    'arr_kdp': arr_kdp,
-                    #                    'arr_vel': arr_vel,
-                    #                    'arr_phv': arr_phv,
-                    #                    # 'arr_ecf': arr_ecf,
-                    #                    # 'arr_coh': arr_coh,
-                    #                    'arr_spw': arr_spw},
-                    #             do_compression=True)
-
-                    # 자료 저장
-                    data = {
-                        'str_nam': str_nam,
-                        'arr_lat_lon_alt_bwh': arr_lat_lon_alt_bwh,
-                        'str_typ': str_typ,
-                        'arr_prt_prm_vel': arr_prt_prm_vel,
-                        'num_ray_gat_swp': num_ray_gat_swp,
-                        'fix_ang': fix_ang,
-                        'arr_azm_rng_elv': arr_azm_rng_elv,
-                        'arr_etc': arr_etc,
-                        'arr_ref': arr_ref,
-                        # 'arr_crf': arr_crf,
-                        'arr_zdr': arr_zdr,
-                        'arr_pdp': arr_pdp,
-                        'arr_kdp': arr_kdp,
-                        'arr_vel': arr_vel,
-                        'arr_phv': arr_phv,
-                        # 'arr_ecf': arr_ecf,
-                        # 'arr_coh': arr_coh,
-                        'arr_spw': arr_spw
-                    }
-
-                    # ==================================================================================================
-                    # 강우강도 산출
-                    # ==================================================================================================
-                    # 초기 변수 설정
-                    # datDRA = ['D:/SNOW/KMA_GNG_sel_OUT']
-                    # datDR = datDRA[0]
-                    inpFilePattern = '{}/{}/{}/'.format(globalVar['inpPath'], serviceName, 'KMA_GNG_sel_OUT')
-                    datDRA = [inpFilePattern]
-                    datDR = datDRA[0]
-
-                    # 강수 유형
-                    # int(mm/h)/ran(mm)
-                    Rtyp = 'int'
-
-                    # 강수 알고리즘 인덱스
-                    # Rcal{RintZH;RintKD;RintZD;RintJP;RintCS}
-                    Ralg = 3
-
-                    # 시간 간격 [초]
-                    # 5분 단위
-                    # [80s+70s=>2.5min] low sng 300km[-0.3 0.1 0.60]=80s, high dul 150km[1.4 2.7 4.8]=70s
-                    dt = 5.0 * 60
-
-                    # 시작 Elevation Angle
-                    srtEA = 3  # 시작 각도
-                    frDir = datDR
-                    fwDir = f"{datDR}_CMU/"
-
-                    # 결과 저장 디렉토리가 없으면 생성
-                    # if not os.path.exists(fwDir):
-                    #     os.makedirs(fwDir)
-
-                    # 파일 리스트 가져오기
-                    flist = [f for f in os.listdir(frDir) if f.endswith('.mat')]
-                    nflst = len(flist)
-
-                    # 변수 초기화
-                    ZcaloA = np.zeros((601, 601))
-                    FcaloA = np.zeros((601, 601))
-                    RcaloA = np.zeros((601, 601))
-                    sFcalA = np.zeros((nflst, 1))
-                    sRcalA = np.zeros((nflst, 1))
-                    xFcalA = np.zeros((nflst, 1))
-                    xRcalA = np.zeros((nflst, 1))
-
-                    # 9 지점에 대해 데이터 저장
-                    aws_data = np.zeros((nflst, 9, 3))
-
-                    # 파일별로 루프
-                    j = 0
-                    for j in range(nflst):
-                        fname = flist[j]
-                        print(f"Processing file {j + 1}/{nflst}: {fname}")
-
-                        # MATLAB 파일 로드
-                        # data = sio.loadmat(os.path.join(frDir, fname))
-
-                        # 데이터 읽기
+                            # 데이터 읽기
 
                         # 방위각
-                        azm_r = data['arr_azm_rng_elv'][0].T
+                        azm_r = dataL1['arr_azm_rng_elv'][0].T
 
                         # 거리
-                        rng_r = data['arr_azm_rng_elv'][1].T
+                        rng_r = dataL1['arr_azm_rng_elv'][1].T
 
                         # 고도각
-                        elv_r = data['arr_azm_rng_elv'][2].T
+                        elv_r = dataL1['arr_azm_rng_elv'][2].T
 
                         # 각도 정보
-                        Tang = data['fix_ang'].flatten()
+                        Tang = dataL1['fix_ang'].flatten()
                         Tang[Tang > 180] -= 360
 
-                        # 고도각에 따른 인덱스
-                        # didxs = data['arr_etc'][2].astype(np.int32) + 1
-                        # didxe = data['arr_etc'][3].astype(np.int32) + 1
-
-                        # 특정 고도각 선택
-                        # Arng = np.arange(didxs[srtEA - 1], didxe[srtEA - 1] + 1)
 
                         # 고도각에 따른 인덱스
                         # pattern = r'D:/Data190/|D:/Data191/|D:/2022/X0810/|' + re.escape(datDRA)
-                        pattern = r'Data190|Data191|2022/X0810|' + re.escape(datDRA[0])
-
-                        if re.search(pattern, datDR, re.IGNORECASE):
-                            didxs = np.array(data['arr_etc'][4], dtype=np.int32)  # arr_etc{5} -> arr_etc[4]
-                            didxe = np.array(data['arr_etc'][5], dtype=np.int32)  # arr_etc{6} -> arr_etc[5]
+                        pattern = r'Data190|Data191|2022/X0810|RDR_KSN_FQC'
+                        if re.search(pattern, fileInfo, re.IGNORECASE):
+                            didxs = np.array(dataL1['arr_etc'][4], dtype=np.int32)  # arr_etc{5} -> arr_etc[4]
+                            didxe = np.array(dataL1['arr_etc'][5], dtype=np.int32)  # arr_etc{6} -> arr_etc[5]
                         else:
-                            didxs = np.array(data['arr_etc'][2], dtype=np.int32)  # arr_etc{3} -> arr_etc[2]
-                            didxe = np.array(data['arr_etc'][3], dtype=np.int32)  # arr_etc{4} -> arr_etc[3]
+                            didxs = np.array(dataL1['arr_etc'][2], dtype=np.int32)  # arr_etc{3} -> arr_etc[2]
+                            didxe = np.array(dataL1['arr_etc'][3], dtype=np.int32)  # arr_etc{4} -> arr_etc[3]
+
+                        log.info(f"[CHECK] didxs : {didxs}")
+                        log.info(f"[CHECK] didxe : {didxe}")
 
                         # 인덱스 값 변경 (0-based indexing 보정)
                         didxs = didxs + 1  # set '0' to '1'
                         didxe = didxe + 1
 
                         # didxs와 didxe를 합쳐서 배열 생성
-                        # didX2 = np.array([didxs, didxe])
                         didX2 = np.column_stack((didxs, didxe)).ravel()
+                        log.info(f"[CHECK] didX2 : {didX2}")
 
                         # elv_r 배열에서 인덱스 값 추출 (인덱스는 0-based이므로 조정 필요)
                         Fang = elv_r[didxs]  # numpy 배열 인덱싱
-                        # print(Fang)  # 출력 예시
+                        log.info(f"[CHECK] Fang : {Fang}")
 
                         # dual para
-                        if data['arr_prt_prm_vel'][0][0] == data['arr_prt_prm_vel'][0][-1]:
+                        if dataL1['arr_prt_prm_vel'][0][0] == dataL1['arr_prt_prm_vel'][0][-1]:
                             Tprf = 'sing'
                         else:
                             Tprf = 'dual'
+                        log.info(f"[CHECK] Tprf : {Tprf}")
 
-                        bw = data['arr_lat_lon_alt_bwh'][3]
-                        print(bw)
+                        bw = dataL1['arr_lat_lon_alt_bwh'][3]
+                        log.info(f"[CHECK] bw : {bw}")
 
                         # Elev. ang
                         Arng = range(didxs[srtEA - 1], didxe[srtEA - 1] + 1)
-                        print(list(Arng))
+                        log.info(f"[CHECK] Arng : {Arng}")
 
                         # Var. info
-                        rVar_rf = data['arr_ref'].T
-                        rVar_rk = data['arr_kdp'].T
-                        rVar_rd = data['arr_zdr'].T
-                        rVar_rc = data['arr_phv'].T
-                        rVar_rp = data['arr_pdp'].T
-                        rVar_rv = data['arr_vel'].T
+                        rVar_rf = dataL1['arr_ref'].T
+                        rVar_rk = dataL1['arr_kdp'].T
+                        rVar_rd = dataL1['arr_zdr'].T
+                        rVar_rc = dataL1['arr_phv'].T
+                        rVar_rp = dataL1['arr_pdp'].T
+                        rVar_rv = dataL1['arr_vel'].T
 
                         rVar_rf[rVar_rf < 0] = 0
 
@@ -1000,16 +712,13 @@ class DtaProcess(object):
                         rng = rng_r
                         elv = elv_r[Arng]
 
-                        # xr = rng * (np.sin(np.deg2rad(azm.)) * np.cos(np.deg2rad(elv))) / 1000
-                        # yr = rng * (np.cos(np.deg2rad(azm)) * np.cos(np.deg2rad(elv))) / 1000
+                        # 1196 x 1080 -> 960 x 360
+                        xrEle = rng[:, None] * (np.sin(np.deg2rad(azm.T)) * np.cos(np.deg2rad(elv.T))) / 1000
 
                         # 1196 x 1080 -> 960 x 360
-                        xr = rng[:, None] * (np.sin(np.deg2rad(azm.T)) * np.cos(np.deg2rad(elv.T))) / 1000
-
-                        # 1196 x 1080 -> 960 x 360
-                        yr = rng[:, None] * (np.cos(np.deg2rad(azm.T)) * np.cos(np.deg2rad(elv.T))) / 1000
-                        dxr = xr.flatten()
-                        dyr = yr.flatten()
+                        yrEle = rng[:, None] * (np.cos(np.deg2rad(azm.T)) * np.cos(np.deg2rad(elv.T))) / 1000
+                        dxr = xrEle.flatten()
+                        dyr = yrEle.flatten()
 
                         # 격자 설정
                         xi, yi = np.meshgrid(np.arange(-300, 301, gw), np.arange(-300, 301, gw))
@@ -1028,17 +737,15 @@ class DtaProcess(object):
                         Rcal = griddata((dxr, dyr), dzr.flatten(),(xi, yi), method='linear')
 
                         # xy->lonlat
-                        lat0 = data['arr_lat_lon_alt_bwh'][0][0]
-                        lon0 = data['arr_lat_lon_alt_bwh'][1][0]
-                        elv0 = data['arr_lat_lon_alt_bwh'][2][0]
+                        lat0 = dataL1['arr_lat_lon_alt_bwh'][0][0]
+                        lon0 = dataL1['arr_lat_lon_alt_bwh'][1][0]
+                        elv0 = dataL1['arr_lat_lon_alt_bwh'][2][0]
 
-                        enu_proj = Proj(proj='tmerc', lat_0=lat0, lon_0=lon0, ellps='WGS84', units='km')
-                        wgs84_proj = Proj(proj='latlong', datum='WGS84')
-                        transformer = Transformer.from_proj(enu_proj, wgs84_proj)
+                        projEnu = Proj(proj='tmerc', lat_0=lat0, lon_0=lon0, ellps='WGS84', units='km')
+                        projWgs84 = Proj(proj='latlong', datum='WGS84')
+                        transformer = Transformer.from_proj(projEnu, projWgs84)
                         xlong, ylatg = transformer.transform(xi, yi)
                         h0 = np.zeros_like(xi)
-
-
 
                         # 누적 계산 반사도 팩터
                         ZcaloA = ZcaloA + zhh
@@ -1050,16 +757,16 @@ class DtaProcess(object):
                         RcaloA = RcaloA + Rcal
 
                         # 1time당 sumFcalA 반사도
-                        sFcalA[j] = np.nansum(ziR)
+                        # sFcalA[j] = np.nansum(ziR)
 
                         # 1time당 sumFcalA 강우강도
-                        sRcalA[j] = np.nansum(Rcal)
+                        # sRcalA[j] = np.nansum(Rcal)
 
                         # 1time당 maxFcalA
-                        xFcalA[j] = np.nanmax(ziR)
+                        # xFcalA[j] = np.nanmax(ziR)
 
                         # 1time당 sumFcalA
-                        xRcalA[j] = np.nanmax(Rcal)
+                        # xRcalA[j] = np.nanmax(Rcal)
 
                         # NetCDF 생산
                         lon2D = xlong
@@ -1068,10 +775,7 @@ class DtaProcess(object):
                         xdim = lon2D.shape[0]
                         ydim = lon2D.shape[1]
 
-                        # 202112241240
-                        dtDateInfo = pd.to_datetime('202112241240', format = '%Y%m%d%H%M')
-
-                        dsData = xr.Dataset(
+                        dataL2 = xr.Dataset(
                             {
                                 'zhh': (('time', 'row', 'col'), (zhh).reshape(1, xdim, ydim))
                                 , 'ziR': (('time', 'row', 'col'), (ziR).reshape(1, xdim, ydim))
@@ -1087,106 +791,107 @@ class DtaProcess(object):
                         )
 
                         # NetCDF 저장
-                        saveNcFile = '{}/{}/{}_{}.nc'.format(globalVar['outPath'], serviceName, 'RDR_GDK_FQC', dtDateInfo.strftime('%Y%m%d%H%M'))
+                        saveNcFilePattern = '{}/{}'.format(modelInfo['procPath'], modelInfo['procName'])
+                        saveNcFile = dtDateInfo.strftime(saveNcFilePattern).format(code)
                         os.makedirs(os.path.dirname(saveNcFile), exist_ok=True)
-                        dsData.to_netcdf(saveNcFile)
-                        log.info(f'[CHECK] saveNcFile : {saveNcFile}')
+                        dataL2.to_netcdf(saveNcFile)
+                        log.info(f"[CHECK] saveNcFile : {saveNcFile}")
 
-                        # dsData.isel(time = 0)['zhh'].plot()
-                        # plt.show()
-
-                        target_lat = 37.0
-                        target_lon = 127.0
-
-                        # dsData['lat'].values
-
-                        result = dsData.sel(x=1, y=2)
-                        # result = dsData.sel(lat=target_lat, lon=target_lon, method='nearest')
-
-
-
-                        # 융합 ASOS/AWS 지상 관측소
-                        sysOpt['stnList'] = [90, 104, 105, 106, 520, 523, 661, 670, 671]
-
-                        inpAllStnFile = '{}/{}'.format(globalVar['cfgPath'], 'stnInfo/ALL_STN_INFO.csv')
-                        allStnData = pd.read_csv(inpAllStnFile)
-                        allStnDataL1 = allStnData[['STN', 'STN_KO', 'LON', 'LAT']]
-                        allStnDataL2 = allStnDataL1[allStnDataL1['STN'].isin(sysOpt['stnList'])]
-
-
-
-                        # 최근접 화소
-                        cfgData = dsData
-                        cfgDataL1 = cfgData.to_dataframe().reset_index(drop=False)
-                        baTree = BallTree(np.deg2rad(cfgDataL1[['lat', 'lon']].values), metric='haversine')
-
-
-                        for i, posInfo in allStnDataL2.iterrows():
-                            if (pd.isna(posInfo['LAT']) or pd.isna(posInfo['LON'])): continue
-
-                            closest = baTree.query(np.deg2rad(np.c_[posInfo['LAT'], posInfo['LON']]), k=1)
-                            cloDist = closest[0][0][0] * 1000.0
-                            cloIdx = closest[1][0][0]
-                            cfgInfo = cfgDataL1.loc[cloIdx]
-
-                            allStnDataL2.loc[i, 'posRow'] = cfgInfo['row']
-                            allStnDataL2.loc[i, 'posCol'] = cfgInfo['col']
-                            allStnDataL2.loc[i, 'posLat'] = cfgInfo['lon']
-                            allStnDataL2.loc[i, 'posLon'] = cfgInfo['lat']
-                            allStnDataL2.loc[i, 'posDistKm'] = cloDist
-
-
-                        for i, posInfo in allStnDataL2.iterrows():
-                            if (pd.isna(posInfo['posRow']) or pd.isna(posInfo['posCol'])): continue
-
-                            posData = dsData.interp({'row': posInfo['posRow'], 'col': posInfo['posCol']}, method='nearest')
-                            # posData = dsData.interp({'row': posInfo['posRow'], 'col': posInfo['posCol']}, method='linear')
-                            # log.info(f'[CHECK] posInfo : {posInfo}')
-
-                        # ZcaloA += np.nan_to_num(zhh)
+                        # # dsData.isel(time = 0)['zhh'].plot()
+                        # # plt.show()
                         #
-                        # # 레이더 데이터를 저장
-                        # sio.savemat(os.path.join(fwDir, f"zhh{j + 1:03d}.mat"), {'zhh': zhh})
+                        # target_lat = 37.0
+                        # target_lon = 127.0
                         #
-                        # # 강우량 계산 및 누적
-                        # Rcal = zhh  # 간단한 예시, 실제 강우량 계산 로직 대체 필요
-                        # RcaloA += np.nan_to_num(Rcal)
-                        # sio.savemat(os.path.join(fwDir, f"Rcal{j + 1:03d}.mat"), {'Rcal': Rcal})
+                        # # dsData['lat'].values
                         #
-                        # # 특정 위치 값 저장 (임의의 위치로 설정, 예시)
-                        # aws_data[j, :, 0] = zhh[300, 300]  # 반사도 값 예시
-                        # aws_data[j, :, 1] = zhh[349, 275]  # 다른 위치 값 예시
-                        # aws_data[j, :, 2] = Rcal[349, 275]  # 강우량 값 예시
+                        # result = dsData.sel(x=1, y=2)
+                        # # result = dsData.sel(lat=target_lat, lon=target_lon, method='nearest')
+                        #
 
-                    #         aws90(j,3)=Rcal(349,275);
-                    #     aws104(j,3)=Rcal(300,300);
-                    #     aws105(j,3)=Rcal(294,303);
-                    #     aws106(j,3)=Rcal(267,324);
-                    #     aws520(j,3)=Rcal(340,271);
-                    #     aws523(j,3)=Rcal(310,297);
-                    #     aws661(j,3)=Rcal(382,261);
-                    #     aws670(j,3)=Rcal(331,280);
-                    #     aws671(j,3)=Rcal(342,277);
 
-                    # 누적된 데이터를 최종 저장
-                    sio.savemat(os.path.join(fwDir, 'dat.mat'), {
-                        'ZcaloA': ZcaloA, 'RcaloA': RcaloA, 'FcaloA': FcaloA, 'aws_data': aws_data
-                    })
+                        # # 융합 ASOS/AWS 지상 관측소
+                        # sysOpt['stnList'] = [90, 104, 105, 106, 520, 523, 661, 670, 671]
+                        #
+                        # inpAllStnFile = '{}/{}'.format(globalVar['cfgPath'], 'stnInfo/ALL_STN_INFO.csv')
+                        # allStnData = pd.read_csv(inpAllStnFile)
+                        # allStnDataL1 = allStnData[['STN', 'STN_KO', 'LON', 'LAT']]
+                        # allStnDataL2 = allStnDataL1[allStnDataL1['STN'].isin(sysOpt['stnList'])]
+                        #
+                        #
+                        #
+                        # # 최근접 화소
+                        # cfgData = dsData
+                        # cfgDataL1 = cfgData.to_dataframe().reset_index(drop=False)
+                        # baTree = BallTree(np.deg2rad(cfgDataL1[['lat', 'lon']].values), metric='haversine')
+                        #
+                        #
+                        # for i, posInfo in allStnDataL2.iterrows():
+                        #     if (pd.isna(posInfo['LAT']) or pd.isna(posInfo['LON'])): continue
+                        #
+                        #     closest = baTree.query(np.deg2rad(np.c_[posInfo['LAT'], posInfo['LON']]), k=1)
+                        #     cloDist = closest[0][0][0] * 1000.0
+                        #     cloIdx = closest[1][0][0]
+                        #     cfgInfo = cfgDataL1.loc[cloIdx]
+                        #
+                        #     allStnDataL2.loc[i, 'posRow'] = cfgInfo['row']
+                        #     allStnDataL2.loc[i, 'posCol'] = cfgInfo['col']
+                        #     allStnDataL2.loc[i, 'posLat'] = cfgInfo['lon']
+                        #     allStnDataL2.loc[i, 'posLon'] = cfgInfo['lat']
+                        #     allStnDataL2.loc[i, 'posDistKm'] = cloDist
+                        #
+                        #
+                        # for i, posInfo in allStnDataL2.iterrows():
+                        #     if (pd.isna(posInfo['posRow']) or pd.isna(posInfo['posCol'])): continue
+                        #
+                        #     posData = dsData.interp({'row': posInfo['posRow'], 'col': posInfo['posCol']}, method='nearest')
+                        #     # posData = dsData.interp({'row': posInfo['posRow'], 'col': posInfo['posCol']}, method='linear')
+                        #     # log.info(f'[CHECK] posInfo : {posInfo}')
 
-                    # 결과 시각화
-                    plt.figure(figsize=(10, 8))
-                    plt.pcolor(xi, yi, ZcaloA, shading='flat', cmap='jet')
-                    plt.colorbar()
-                    plt.title("Cumulative Reflectivity")
-                    plt.savefig(os.path.join(fwDir, 'cf.png'), dpi=300)
-                    plt.close()
+                            # ZcaloA += np.nan_to_num(zhh)
+                            #
+                            # # 레이더 데이터를 저장
+                            # sio.savemat(os.path.join(fwDir, f"zhh{j + 1:03d}.mat"), {'zhh': zhh})
+                            #
+                            # # 강우량 계산 및 누적
+                            # Rcal = zhh  # 간단한 예시, 실제 강우량 계산 로직 대체 필요
+                            # RcaloA += np.nan_to_num(Rcal)
+                            # sio.savemat(os.path.join(fwDir, f"Rcal{j + 1:03d}.mat"), {'Rcal': Rcal})
+                            #
+                            # # 특정 위치 값 저장 (임의의 위치로 설정, 예시)
+                            # aws_data[j, :, 0] = zhh[300, 300]  # 반사도 값 예시
+                            # aws_data[j, :, 1] = zhh[349, 275]  # 다른 위치 값 예시
+                            # aws_data[j, :, 2] = Rcal[349, 275]  # 강우량 값 예시
 
-                    plt.figure(figsize=(10, 8))
-                    plt.pcolor(xi, yi, RcaloA, shading='flat', cmap='jet')
-                    plt.colorbar()
-                    plt.title("Cumulative Rainfall")
-                    plt.savefig(os.path.join(fwDir, 'cr.png'), dpi=300)
-                    plt.close()
+                        #         aws90(j,3)=Rcal(349,275);
+                        #     aws104(j,3)=Rcal(300,300);
+                        #     aws105(j,3)=Rcal(294,303);
+                        #     aws106(j,3)=Rcal(267,324);
+                        #     aws520(j,3)=Rcal(340,271);
+                        #     aws523(j,3)=Rcal(310,297);
+                        #     aws661(j,3)=Rcal(382,261);
+                        #     aws670(j,3)=Rcal(331,280);
+                        #     aws671(j,3)=Rcal(342,277);
+
+                        # # 누적된 데이터를 최종 저장
+                        # sio.savemat(os.path.join(fwDir, 'dat.mat'), {
+                        #     'ZcaloA': ZcaloA, 'RcaloA': RcaloA, 'FcaloA': FcaloA, 'aws_data': aws_data
+                        # })
+                        #
+                        # # 결과 시각화
+                        # plt.figure(figsize=(10, 8))
+                        # plt.pcolor(xi, yi, ZcaloA, shading='flat', cmap='jet')
+                        # plt.colorbar()
+                        # plt.title("Cumulative Reflectivity")
+                        # plt.savefig(os.path.join(fwDir, 'cf.png'), dpi=300)
+                        # plt.close()
+                        #
+                        # plt.figure(figsize=(10, 8))
+                        # plt.pcolor(xi, yi, RcaloA, shading='flat', cmap='jet')
+                        # plt.colorbar()
+                        # plt.title("Cumulative Rainfall")
+                        # plt.savefig(os.path.join(fwDir, 'cr.png'), dpi=300)
+                        # plt.close()
 
 
         except Exception as e:
