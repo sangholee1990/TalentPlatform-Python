@@ -16,8 +16,22 @@ import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
 from matplotlib import font_manager, rc
+import glob, os
+import numpy as np
+import matplotlib.pyplot as plt
+import scipy.io as sio
+import pyart
+import gzip
+import shutil
 
-import seaborn as sns
+import os
+import numpy as np
+import matplotlib.pyplot as plt
+from scipy.interpolate import griddata
+from pyproj import Proj, Transformer
+import re
+import xarray as xr
+from sklearn.neighbors import BallTree
 
 # =================================================
 # 사용자 매뉴얼
@@ -164,6 +178,7 @@ def initArgument(globalVar, inParams):
 
 
 def JPL_qpe(kdp, drf, ref):
+
     # 데이터 크기 설정
     nx, ny = ref.shape
     RZh = np.zeros((nx, ny))
@@ -209,6 +224,7 @@ def JPL_qpe(kdp, drf, ref):
 
 
 def CSU_qpe(kdp, drf, ref):
+
     # 데이터 크기 설정
     nx, ny = ref.shape
     RCSU = np.zeros((nx, ny))
@@ -249,6 +265,7 @@ def CSU_qpe(kdp, drf, ref):
 
 
 def calRain_SN(rVarf, rVark, rVard, Rtyp, dt, aZh):
+
     # 초기화
     appzdrOffset = 'no'
     zdrOffset = 0
@@ -410,41 +427,220 @@ class DtaProcess(object):
 
             # 옵션 설정
             sysOpt = {
-                # 시작/종료 시간
-                'srtDate': '2019-01-01'
+                # 시작일, 종료일, 시간 간격 (연 1y, 월 1h, 일 1d, 시간 1h, 분 1t)
+                'srtDate': '2022-12-21'
                 , 'endDate': '2023-01-01'
+                , 'invDate': '5t'
+                
+                # 관악산(KWK), 오성산(KSN), 광덕산(GDK), 면봉산(MYN), 구덕산(PSN), 백령도(BRI), 영종도(IIA), 진도(JNI), 고산(GSN), 성산(SSP), 강릉(GNG)
+                , 'codeList': ['KSN']
+
+                # 수행 목록
+                , 'modelList': ['RDR-FQC']
+
+                # 세부 정보
+                , 'RDR-FQC': {
+                    'filePath': '/DATA/INPUT/LSH0579/uf'
+                    , 'fileName': 'RDR_{}_FQC_%Y%m%d%H%M.uf'
+                    , 'varList': ['2T_GDS0_SFC', 'SKT_GDS0_SFC', '10U_GDS0_SFC', '10V_GDS0_SFC']
+                    , 'procList': ['t2m', 'skt', 'u', 'v']
+
+                    # 가공 파일 정보
+                    , 'procPath': '/DATA/OUTPUT/LSH0547'
+                    , 'procName': '{}_{}-{}_{}-{}.nc'
+
+                    , 'figPath': '/DATA/FIG/LSH0547'
+                    , 'figName': '{}_{}-{}_{}-{}.png'
+                }
             }
-
-            # from __future__ import print_function
-            # from __future__ import absolute_import
-            # from __future__ import division
-
-            import glob, os
-            import numpy as np
-            import matplotlib.pyplot as plt
-            import scipy.io as sio
-            import pyart
-            import gzip
-            import shutil
-
-            import os
-            import numpy as np
-            # import scipy.io as sio
-            import matplotlib.pyplot as plt
-            from scipy.interpolate import griddata
-            from pyproj import Proj, Transformer
-            import re
 
             # ==========================================================================================================
             # 파이썬 전처리
             # ==========================================================================================================
+            # 시작일/종료일 설정
+            dtSrtDate = pd.to_datetime(sysOpt['srtDate'], format='%Y-%m-%d')
+            dtEndDate = pd.to_datetime(sysOpt['endDate'], format='%Y-%m-%d')
+            dtDateList = pd.date_range(start=dtSrtDate, end=dtEndDate, freq=sysOpt['invDate'])
+
+            for modelType in sysOpt['modelList']:
+                log.info(f'[CHECK] modelType : {modelType}')
+
+                modelInfo = sysOpt.get(modelType)
+                if modelInfo is None: continue
+
+                for code in sysOpt['codeList']:
+                    # log.info(f'[CHECK] code : {code}')
+
+                    for dtDateInfo in dtDateList:
+                        # log.info(f'[CHECK] dtDateInfo : {dtDateInfo}')
+
+                        inpFilePattern = '{}/{}'.format(modelInfo['filePath'], modelInfo['fileName'])
+                        inpFile = dtDateInfo.strftime(inpFilePattern).format(code)
+                        fileList = sorted(glob.glob(inpFile))
+
+                        if fileList is None or len(fileList) < 1: continue
+                        fileInfo = fileList[0]
+                        log.info(f'[CHECK] fileInfo : {fileInfo}')
+
+                        fileName = os.path.basename(fileInfo)
+                        fileNameNotExt = fileName.split(".")[0]
+
+                        a = pyart.io.read(fileInfo)
+
+                        rnam = a.metadata['instrument_name']  # radar_name
+                        rlat = a.latitude['data']
+                        rlon = a.longitude['data']
+                        ralt = a.altitude['data']
+                        styp = a.scan_type
+                        fbwh = a.instrument_parameters['radar_beam_width_h']['data']
+                        fprt = a.instrument_parameters['prt']['data']
+                        fvel = a.instrument_parameters['nyquist_velocity']['data']
+                        fpul = a.instrument_parameters['pulse_width']['data']
+                        ffrq = a.instrument_parameters['frequency']['data']
+                        nray = a.nrays
+                        ngat = a.ngates
+                        nswp = a.nsweeps
+                        fang = a.fixed_angle['data']
+                        fazm = a.azimuth['data']
+                        frng = a.range['data']
+                        felv = a.elevation['data']
+                        fscn = a.scan_rate['data']
+                        fswp = a.sweep_number['data']
+                        fsws = a.sweep_start_ray_index['data']
+                        fswe = a.sweep_end_ray_index['data']
+                        ftme = a.time['data']
+                        fdat_ref = a.fields['reflectivity']['data']
+                        fdat_zdr = a.fields['corrected_differential_reflectivity']['data']
+                        fdat_pdp = a.fields['differential_phase']['data']
+                        fdat_kdp = a.fields['specific_differential_phase']['data']
+                        fdat_vel = a.fields['velocity']['data']
+                        fdat_phv = a.fields['cross_correlation_ratio']['data']
+                        fdat_spw = a.fields['spectrum_width']['data']
+                        str_nam = [rnam]
+                        arr_lat_lon_alt_bwh = [rlat, rlon, ralt, fbwh]
+                        str_typ = [styp]
+                        arr_prt_prm_vel = [fprt, fvel]
+                        num_ray_gat_swp = [nray, ngat, nswp]
+                        fix_ang = fang
+                        arr_azm_rng_elv = [fazm, frng, felv]
+                        arr_etc = [fpul, ffrq, fscn, fswp, fsws, fswe, ftme]
+                        arr_ref = np.array(fdat_ref)
+                        arr_zdr = np.array(fdat_zdr)
+                        arr_pdp = np.array(fdat_pdp)
+                        arr_kdp = np.array(fdat_kdp)
+                        arr_vel = np.array(fdat_vel)
+                        arr_phv = np.array(fdat_phv)
+                        arr_spw = np.array(fdat_spw)
+
+                        # 자료 저장
+                        data = {
+                            'str_nam': str_nam,
+                            'arr_lat_lon_alt_bwh': arr_lat_lon_alt_bwh,
+                            'str_typ': str_typ,
+                            'arr_prt_prm_vel': arr_prt_prm_vel,
+                            'num_ray_gat_swp': num_ray_gat_swp,
+                            'fix_ang': fix_ang,
+                            'arr_azm_rng_elv': arr_azm_rng_elv,
+                            'arr_etc': arr_etc,
+                            'arr_ref': arr_ref,
+                            # 'arr_crf': arr_crf,
+                            'arr_zdr': arr_zdr,
+                            'arr_pdp': arr_pdp,
+                            'arr_kdp': arr_kdp,
+                            'arr_vel': arr_vel,
+                            'arr_phv': arr_phv,
+                            # 'arr_ecf': arr_ecf,
+                            # 'arr_coh': arr_coh,
+                            'arr_spw': arr_spw
+                        }
+
+                        radar = a
+
+                        # plot sigmet data
+                        display = pyart.graph.RadarDisplay(radar)
+                        fig = plt.figure(figsize=(35, 8))
+                        # ----------------------
+                        # nEL=0 # GNG 0.2
+                        # nEL=3 # GDK 0.8
+                        # nEL=1 # GSN 5.2
+                        # ----------------
+                        nEL = 0  # FCO SBS
+                        # ----------------------
+                        for i in range(3):
+                            ax = fig.add_subplot(1, 3, i + 1)
+                            #
+                            try:
+                                if i == 0:
+                                    display.plot('reflectivity', nEL, vmin=-5, vmax=40)
+                                elif i == 1:
+                                    display.plot('corrected_differential_reflectivity', nEL, vmin=-2, vmax=5)
+                                elif i == 2:
+                                    display.plot('cross_correlation_ratio', nEL, vmin=0.5, vmax=1.0)
+                                else:
+                                    continue
+
+                                # display.plot_range_rings([50, 100, 150, 200, 250]) #KMA
+                                display.plot_range_rings([25, 50, 75, 100, 125])  # FCO
+                                display.plot_cross_hair(5.)
+
+                            except Exception as e:
+                                print(f"Error plotting {i}: {e}")
+
+                        # plt.show()
+
+                        #----------------------------------------------------------------------
+                        trm = 3
+
+                        # savf1 = os.path.join(dirname + '/_OUT', (filename[0:len(f) - trm] + '.png'))
+                        # plt.savefig(str(savf1))
+
+                        # fileName = os.path.basename(f)
+                        # fileNameNotExt = fileName.split(".")[0]
+
+                        # saveImg = '{}/{}/{}.png'.format(globalVar['figPath'], serviceName, fileNameNotExt)
+                        # os.makedirs(os.path.dirname(saveImg), exist_ok=True)
+                        # plt.savefig(saveImg, dpi=600, bbox_inches='tight')
+                        # plt.close()
+                        # log.info(f"[CHECK] saveImg : {saveImg}")
+
+                        # ----------------------------------------------------------------------
+                        # sfmat = os.path.join(dirname + '/_OUT', (filename[0:len(f) - trm] + '.mat'))
+                        # sio.savemat(str(sfmat),
+                        #             mdict={'str_nam': str_nam,
+                        #                    'arr_lat_lon_alt_bwh': arr_lat_lon_alt_bwh,
+                        #                    'str_typ': str_typ,
+                        #                    'arr_prt_prm_vel': arr_prt_prm_vel,
+                        #                    'num_ray_gat_swp': num_ray_gat_swp,
+                        #                    'fix_ang': fix_ang,
+                        #                    'arr_azm_rng_elv': arr_azm_rng_elv,
+                        #                    'arr_etc': arr_etc,
+                        #                    'arr_ref': arr_ref,
+                        #                    # 'arr_crf': arr_crf,
+                        #                    'arr_zdr': arr_zdr,
+                        #                    'arr_pdp': arr_pdp,
+                        #                    'arr_kdp': arr_kdp,
+                        #                    'arr_vel': arr_vel,
+                        #                    'arr_phv': arr_phv,
+                        #                    # 'arr_ecf': arr_ecf,
+                        #                    # 'arr_coh': arr_coh,
+                        #                    'arr_spw': arr_spw},
+                        #             do_compression=True)
+
+
+
+
+
+
 
             # inpFile = '{}/{}/{}'.format(globalVar['inpPath'], serviceName, 'HN_M.csv')
             # fileList = sorted(glob.glob(inpFile))
 
             # 관악산(KWK), 오성산(KSN), 광덕산(GDK), 면봉산(MYN), 구덕산(PSN), 백령도(BRI), 영종도(IIA), 진도(JNI), 고산(GSN), 성산(SSP), 강릉(GNG)
             # KMA = ['KWK', 'KSN', 'GDK', 'MYN', 'PSN', 'BRI', 'IIA', 'JNI', 'GSN', 'SSP', 'GNG']
-            KMA = ['KSN']
+            # KMA = ['KSN']
+            # radarCodeList = sysOpt['radarCodeList']
+            # code = radarCodeList[0]
+
             # rDir = 'E:/uf/'
             # os.chdir('E:/uf/')
             rDir = '{}/{}/{}/'.format(globalVar['inpPath'], serviceName, 'uf')
@@ -865,8 +1061,7 @@ class DtaProcess(object):
                         # 1time당 sumFcalA
                         xRcalA[j] = np.nanmax(Rcal)
 
-                        import xarray as xr
-
+                        # NetCDF 생산
                         lon2D = xlong
                         lat2D = ylatg
 
@@ -919,7 +1114,7 @@ class DtaProcess(object):
                         allStnDataL2 = allStnDataL1[allStnDataL1['STN'].isin(sysOpt['stnList'])]
 
 
-                        from sklearn.neighbors import BallTree
+
                         # 최근접 화소
                         cfgData = dsData
                         cfgDataL1 = cfgData.to_dataframe().reset_index(drop=False)
