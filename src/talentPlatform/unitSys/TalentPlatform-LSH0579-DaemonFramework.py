@@ -444,9 +444,6 @@ class DtaProcess(object):
                     , 'fileName': 'RDR_GDK_FQC_202112241240.nc'
                 }
 
-                # 관악산(KWK), 오성산(KSN), 광덕산(GDK), 면봉산(MYN), 구덕산(PSN), 백령도(BRI), 영종도(IIA), 진도(JNI), 고산(GSN), 성산(SSP), 강릉(GNG)
-                , 'codeList': ['KSN']
-
                 # 수행 목록
                 , 'modelList': ['RDR-FQC']
 
@@ -454,15 +451,24 @@ class DtaProcess(object):
                 , 'RDR-FQC': {
                     'filePath': '/DATA/INPUT/LSH0579/uf'
                     , 'fileName': 'RDR_{}_FQC_%Y%m%d%H%M.uf'
-                    , 'varList': ['2T_GDS0_SFC', 'SKT_GDS0_SFC', '10U_GDS0_SFC', '10V_GDS0_SFC']
-                    , 'procList': ['t2m', 'skt', 'u', 'v']
+                    # 관악산(KWK), 오성산(KSN), 광덕산(GDK), 면봉산(MYN), 구덕산(PSN), 백령도(BRI), 영종도(IIA), 진도(JNI), 고산(GSN), 성산(SSP), 강릉(GNG)
+                    , 'codeList': ['KSN']
 
-                    # 가공 파일 정보
-                    , 'procPath': '/DATA/OUTPUT/LSH0579/PROC'
-                    , 'procName': 'RDR_{}_FQC_%Y%m%d%H%M.nc'
+                    # , 'varList': ['2T_GDS0_SFC', 'SKT_GDS0_SFC', '10U_GDS0_SFC', '10V_GDS0_SFC']
+                    # , 'procList': ['t2m', 'skt', 'u', 'v']
 
+
+                    # 저장 파일
+                    , 'savePath': '/DATA/OUTPUT/LSH0579/PROC'
+                    , 'saveName': 'RDR_{}_FQC_%Y%m%d%H%M.nc'
+
+                    # 저장 영상
                     , 'figPath': '/DATA/FIG/LSH0579'
-                    , 'figName': 'RDR_{}_FQC_%Y%m%d%H%M.png'
+                    , 'figName': 'DR_{}_FQC_%Y%m%d%H%M.png'
+
+                    # 가공 파일
+                    , 'procPath': '/DATA/OUTPUT/LSH0579/PROC'
+                    , 'procName': 'RDR_{}_FQC_*.nc'
                 }
             }
 
@@ -471,7 +477,7 @@ class DtaProcess(object):
             dtEndDate = pd.to_datetime(sysOpt['endDate'], format='%Y-%m-%d')
             dtDateList = pd.date_range(start=dtSrtDate, end=dtEndDate, freq=sysOpt['invDate'])
 
-            # 융합 ASOS/AWS 지상 관측소
+            # ASOS/AWS 융합 지상관측소
             inpFilePattern = '{}/{}'.format(sysOpt['stnInfo']['filePath'], sysOpt['stnInfo']['fileName'])
             fileList = sorted(glob.glob(inpFilePattern))
             fileInfo = fileList[0]
@@ -479,7 +485,7 @@ class DtaProcess(object):
             allStnDataL1 = allStnData[['STN', 'STN_KO', 'LON', 'LAT']]
             allStnDataL2 = allStnDataL1[allStnDataL1['STN'].isin(sysOpt['stnInfo']['list'])]
 
-            # 레이더 가공파일
+            # 레이더 가공 파일
             inpFilePattern = '{}/{}'.format(sysOpt['radarInfo']['filePath'], sysOpt['radarInfo']['fileName'])
             fileList = sorted(glob.glob(inpFilePattern))
             fileInfo = fileList[0]
@@ -525,8 +531,63 @@ class DtaProcess(object):
                 modelInfo = sysOpt.get(modelType)
                 if modelInfo is None: continue
 
-                for code in sysOpt['codeList']:
+                for code in modelInfo['codeList']:
                     # log.info(f'[CHECK] code : {code}')
+
+                    # 가공 파일 병합
+                    procFilePattern = '{}/{}'.format(modelInfo['procPath'], modelInfo['procName'])
+                    procFile = procFilePattern.format(code)
+                    fileList = sorted(glob.glob(procFile))
+
+                    if fileList is None or len(fileList) < 1: continue
+                    dataL3 = xr.open_mfdataset(fileList)
+
+                    # dataL3.isel(time = 0)['ziR'].plot()
+                    # plt.show()
+
+
+                    # 매 5분마다 지상 관측소를 기준으로 최근접/선형내삽 화소 추출
+                    # posInfo = allStnDataL2.iloc[6]
+                    for i, posInfo in allStnDataL2.iterrows():
+                        if (pd.isna(posInfo['posRow']) or pd.isna(posInfo['posCol'])): continue
+                        log.info(f"[CHECK] posInfo : {posInfo.to_frame().T}")
+
+                        # 화소 추출
+                        posData = dataL3.interp({'row': posInfo['posRow'], 'col': posInfo['posCol']}, method='nearest') # 최근접
+                        # posData = dataL3.interp({'row': posInfo['posRow'], 'col': posInfo['posCol']}, method='linear') # 선형내삽
+
+                        # posDataL1 = posData.to_dataframe().reset_index(drop=False).dropna()
+                        posDataL1 = posData.to_dataframe().reset_index(drop=False)
+                        if len(posDataL1) < 1: continue
+
+                        # print(posDataL1)
+                        # selData = xr.where((posData == np.nan), np.nan, posData)
+
+                        # posData.dropna(dim=['ziR'])
+
+                        # posData.where()
+
+                        # posData['ziR'].values
+                        #
+                        # posData['ziR'].plot()
+                        # plt.show()
+
+
+                    # 매 1시간마다 지상 관측소를 기준으로 최근접/선형내삽 화소 추출
+                    dataL4 = dataL3.resample(time='1H').sum(dim=['time'], skipna=True)
+                    for i, posInfo in allStnDataL2.iterrows():
+                        if (pd.isna(posInfo['posRow']) or pd.isna(posInfo['posCol'])): continue
+                        log.info(f"[CHECK] posInfo : {posInfo.to_frame().T}")
+
+                        # 화소 추출
+                        # posData = dataL4.interp({'row': posInfo['posRow'], 'col': posInfo['posCol']}, method='nearest')  # 최근접
+                        posData = dataL4.interp({'row': posInfo['posRow'], 'col': posInfo['posCol']}, method='linear') # 선형내삽
+
+                        posDataL1 = posData.to_dataframe().reset_index(drop=False).dropna()
+                        # posDataL1 = posData.to_dataframe().reset_index(drop=False)
+                        if len(posDataL1) < 1: continue
+                        print(posDataL1)
+
 
                     for dtDateInfo in dtDateList:
                         # log.info(f'[CHECK] dtDateInfo : {dtDateInfo}')
@@ -635,13 +696,6 @@ class DtaProcess(object):
                         # ==========================================================================================================
                         # snowC_GNG_Kang_20240923_KMA_GNG.m
                         # ==========================================================================================================
-                        # 초기 변수 설정
-                        # datDRA = ['D:/SNOW/KMA_GNG_sel_OUT']
-                        # datDR = datDRA[0]
-                        # inpFilePattern = '{}/{}/{}/'.format(globalVar['inpPath'], serviceName, 'KMA_GNG_sel_OUT')
-                        # datDRA = [inpFilePattern]
-                        # datDR = datDRA[0]
-
                         # 강수 유형
                         # int(mm/h)/ran(mm)
                         Rtyp = 'int'
@@ -657,16 +711,6 @@ class DtaProcess(object):
 
                         # 시작 Elevation Angle
                         srtEA = 3  # 시작 각도
-                        # frDir = datDR
-                        # fwDir = f"{datDR}_CMU/"
-
-                        # 결과 저장 디렉토리가 없으면 생성
-                        # if not os.path.exists(fwDir):
-                        #     os.makedirs(fwDir)
-
-                        # 파일 리스트 가져오기
-                        # flist = [f for f in os.listdir(frDir) if f.endswith('.mat')]
-                        # nflst = len(flist)
 
                         # 변수 초기화
                         ZcaloA = np.zeros((601, 601))
@@ -851,11 +895,11 @@ class DtaProcess(object):
                         )
 
                         # NetCDF 저장
-                        saveNcFilePattern = '{}/{}'.format(modelInfo['procPath'], modelInfo['procName'])
-                        saveNcFile = dtDateInfo.strftime(saveNcFilePattern).format(code)
-                        os.makedirs(os.path.dirname(saveNcFile), exist_ok=True)
-                        dataL2.to_netcdf(saveNcFile)
-                        log.info(f"[CHECK] saveNcFile : {saveNcFile}")
+                        saveFilePattern = '{}/{}'.format(modelInfo['savePath'], modelInfo['saveName'])
+                        saveFile = dtDateInfo.strftime(saveFilePattern).format(code)
+                        os.makedirs(os.path.dirname(saveFile), exist_ok=True)
+                        dataL2.to_netcdf(saveFile)
+                        log.info(f"[CHECK] saveFile : {saveFile}")
 
                             # ZcaloA += np.nan_to_num(zhh)
                             #
@@ -901,7 +945,6 @@ class DtaProcess(object):
                         # plt.title("Cumulative Rainfall")
                         # plt.savefig(os.path.join(fwDir, 'cr.png'), dpi=300)
                         # plt.close()
-
 
         except Exception as e:
             log.error(f"Exception : {str(e)}")
