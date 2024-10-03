@@ -532,317 +532,317 @@ class DtaProcess(object):
                 for code in modelInfo['codeList']:
                     # log.info(f'[CHECK] code : {code}')
 
-                    # for dtDateInfo in dtDateList:
-                    #     # log.info(f'[CHECK] dtDateInfo : {dtDateInfo}')
-                    #
-                    #     # ==========================================================================================================
-                    #     # KMA_GNG_Kang4_수정용2.py
-                    #     # ==========================================================================================================
-                    #     inpFilePattern = '{}/{}'.format(modelInfo['filePath'], modelInfo['fileName'])
-                    #     inpFile = dtDateInfo.strftime(inpFilePattern).format(code)
-                    #     fileList = sorted(glob.glob(inpFile))
-                    #
-                    #     if fileList is None or len(fileList) < 1: continue
-                    #     fileInfo = fileList[0]
-                    #     log.info(f'[CHECK] fileInfo : {fileInfo}')
-                    #
-                    #     fileName = os.path.basename(fileInfo)
-                    #     fileNameNotExt = fileName.split(".")[0]
-                    #
-                    #     # 자료 읽기
-                    #     data = pyart.io.read(fileInfo)
-                    #
-                    #     rnam = data.metadata['instrument_name']
-                    #     rlat = data.latitude['data']
-                    #     rlon = data.longitude['data']
-                    #     ralt = data.altitude['data']
-                    #     styp = data.scan_type
-                    #     fbwh = data.instrument_parameters['radar_beam_width_h']['data']
-                    #     fprt = data.instrument_parameters['prt']['data']
-                    #     fvel = data.instrument_parameters['nyquist_velocity']['data']
-                    #     fpul = data.instrument_parameters['pulse_width']['data']
-                    #     ffrq = data.instrument_parameters['frequency']['data']
-                    #     nray = data.nrays
-                    #     ngat = data.ngates
-                    #     nswp = data.nsweeps
-                    #     fang = data.fixed_angle['data']
-                    #     fazm = data.azimuth['data']
-                    #     frng = data.range['data']
-                    #     felv = data.elevation['data']
-                    #     fscn = data.scan_rate['data']
-                    #     fswp = data.sweep_number['data']
-                    #     fsws = data.sweep_start_ray_index['data']
-                    #     fswe = data.sweep_end_ray_index['data']
-                    #     ftme = data.time['data']
-                    #     fdat_ref = data.fields['reflectivity']['data']
-                    #     fdat_zdr = data.fields['corrected_differential_reflectivity']['data']
-                    #     fdat_pdp = data.fields['differential_phase']['data']
-                    #     fdat_kdp = data.fields['specific_differential_phase']['data']
-                    #     fdat_vel = data.fields['velocity']['data']
-                    #     fdat_phv = data.fields['cross_correlation_ratio']['data']
-                    #     fdat_spw = data.fields['spectrum_width']['data']
-                    #
-                    #     # 자료 가공
-                    #     dataL1 = {
-                    #         'str_nam': [rnam],
-                    #         'arr_lat_lon_alt_bwh': [rlat, rlon, ralt, fbwh],
-                    #         'str_typ': [styp],
-                    #         'arr_prt_prm_vel': [fprt, fvel],
-                    #         'num_ray_gat_swp': [nray, ngat, nswp],
-                    #         'fix_ang': fang,
-                    #         'arr_azm_rng_elv': [fazm, frng, felv],
-                    #         'arr_etc':  [fpul, ffrq, fscn, fswp, fsws, fswe, ftme],
-                    #         'arr_ref': np.array(fdat_ref),
-                    #         # 'arr_crf': arr_crf,
-                    #         'arr_zdr': np.array(fdat_zdr),
-                    #         'arr_pdp': np.array(fdat_pdp),
-                    #         'arr_kdp': np.array(fdat_kdp),
-                    #         'arr_vel': np.array(fdat_vel),
-                    #         'arr_phv': np.array(fdat_phv),
-                    #         # 'arr_ecf': arr_ecf,
-                    #         # 'arr_coh': arr_coh,
-                    #         'arr_spw': np.array(fdat_spw)
-                    #     }
-                    #
-                    #     # plot sigmet data
-                    #     display = pyart.graph.RadarDisplay(data)
-                    #     fig = plt.figure(figsize=(35, 8))
-                    #
-                    #     # ----------------------
-                    #     # nEL=0 # GNG 0.2
-                    #     # nEL=3 # GDK 0.8
-                    #     # nEL=1 # GSN 5.2
-                    #     # ----------------
-                    #     nEL = 0  # FCO SBS
-                    #     # ----------------------
-                    #
-                    #     plotList = [
-                    #         {'field': 'reflectivity', 'vmin': -5, 'vmax': 40},
-                    #         {'field': 'corrected_differential_reflectivity', 'vmin': -2, 'vmax': 5},
-                    #         {'field': 'cross_correlation_ratio', 'vmin': 0.5, 'vmax': 1.0}
-                    #     ]
-                    #
-                    #     for i, plotInfo in enumerate(plotList):
-                    #         ax = fig.add_subplot(1, 3, i + 1)
-                    #         display.plot(plotInfo['field'], nEL, vmin=plotInfo['vmin'], vmax=plotInfo['vmax'])
-                    #         # display.plot_range_rings([50, 100, 150, 200, 250]) # KMA 설정
-                    #         display.plot_range_rings([25, 50, 75, 100, 125]) # FCO 설정
-                    #         display.plot_cross_hair(5.0)
-                    #
-                    #     saveImgPattern = '{}/{}'.format(modelInfo['figPath'], modelInfo['figName'])
-                    #     saveImg = dtDateInfo.strftime(saveImgPattern).format(code)
-                    #     os.makedirs(os.path.dirname(saveImg), exist_ok=True)
-                    #     plt.savefig(saveImg, dpi=600, bbox_inches='tight')
-                    #     plt.close()
-                    #     log.info(f"[CHECK] saveImg : {saveImg}")
-                    #
-                    #     # ==========================================================================================================
-                    #     # snowC_GNG_Kang_20240923_KMA_GNG.m
-                    #     # ==========================================================================================================
-                    #     # 강수 유형
-                    #     # int(mm/h)/ran(mm)
-                    #     Rtyp = 'int'
-                    #
-                    #     # 강수 알고리즘 인덱스
-                    #     # Rcal{RintZH;RintKD;RintZD;RintJP;RintCS}
-                    #     Ralg = 3
-                    #
-                    #     # 시간 간격 [초]
-                    #     # 5분 단위
-                    #     # [80s+70s=>2.5min] low sng 300km[-0.3 0.1 0.60]=80s, high dul 150km[1.4 2.7 4.8]=70s
-                    #     dt = 5.0 * 60
-                    #
-                    #     # 시작 Elevation Angle
-                    #     srtEA = 3  # 시작 각도
-                    #
-                    #     # 변수 초기화
-                    #     ZcaloA = np.zeros((601, 601))
-                    #     FcaloA = np.zeros((601, 601))
-                    #     RcaloA = np.zeros((601, 601))
-                    #     # sFcalA = np.zeros((nflst, 1))
-                    #     # sRcalA = np.zeros((nflst, 1))
-                    #     # xFcalA = np.zeros((nflst, 1))
-                    #     # xRcalA = np.zeros((nflst, 1))
-                    #
-                    #     # 9 지점에 대해 데이터 저장
-                    #     # aws_data = np.zeros((nflst, 9, 3))
-                    #
-                    #     # 파일별로 루프
-                    #     # j = 0
-                    #     # for j in range(nflst):
-                    #     #     fname = flist[j]
-                    #     #     print(f"Processing file {j + 1}/{nflst}: {fname}")
-                    #
-                    #         # MATLAB 파일 로드
-                    #         # data = sio.loadmat(os.path.join(frDir, fname))
-                    #
-                    #         # 데이터 읽기
-                    #
-                    #     # 방위각
-                    #     azm_r = dataL1['arr_azm_rng_elv'][0].T
-                    #
-                    #     # 거리
-                    #     rng_r = dataL1['arr_azm_rng_elv'][1].T
-                    #
-                    #     # 고도각
-                    #     elv_r = dataL1['arr_azm_rng_elv'][2].T
-                    #
-                    #     # 각도 정보
-                    #     Tang = dataL1['fix_ang'].flatten()
-                    #     # Tang[Tang > 180] -= 360
-                    #     Tang[Tang > 180] = Tang[Tang > 180] - 360
-                    #
-                    #     # 고도각에 따른 인덱스
-                    #     # pattern = r'D:/Data190/|D:/Data191/|D:/2022/X0810/|' + re.escape(datDRA)
-                    #     pattern = r'Data190|Data191|2022/X0810|RDR_KSN_FQC'
-                    #     if re.search(pattern, fileInfo, re.IGNORECASE):
-                    #         didxs = np.array(dataL1['arr_etc'][4], dtype=np.int32)  # arr_etc{5} -> arr_etc[4]
-                    #         didxe = np.array(dataL1['arr_etc'][5], dtype=np.int32)  # arr_etc{6} -> arr_etc[5]
-                    #     else:
-                    #         didxs = np.array(dataL1['arr_etc'][2], dtype=np.int32)  # arr_etc{3} -> arr_etc[2]
-                    #         didxe = np.array(dataL1['arr_etc'][3], dtype=np.int32)  # arr_etc{4} -> arr_etc[3]
-                    #
-                    #     log.info(f"[CHECK] didxs : {didxs}")
-                    #     log.info(f"[CHECK] didxe : {didxe}")
-                    #
-                    #     # 인덱스 값 변경 (0-based indexing 보정)
-                    #     didxs = didxs + 1  # set '0' to '1'
-                    #     didxe = didxe + 1
-                    #
-                    #     # didxs와 didxe를 합쳐서 배열 생성
-                    #     didX2 = np.column_stack((didxs, didxe)).ravel()
-                    #     log.info(f"[CHECK] didX2 : {didX2}")
-                    #
-                    #     # elv_r 배열에서 인덱스 값 추출 (인덱스는 0-based이므로 조정 필요)
-                    #     Fang = elv_r[didxs]  # numpy 배열 인덱싱
-                    #     log.info(f"[CHECK] Fang : {Fang}")
-                    #
-                    #     # dual para
-                    #     if dataL1['arr_prt_prm_vel'][0][0] == dataL1['arr_prt_prm_vel'][0][-1]:
-                    #         Tprf = 'sing'
-                    #     else:
-                    #         Tprf = 'dual'
-                    #     log.info(f"[CHECK] Tprf : {Tprf}")
-                    #
-                    #     bw = dataL1['arr_lat_lon_alt_bwh'][3]
-                    #     log.info(f"[CHECK] bw : {bw}")
-                    #
-                    #     # Elev. ang
-                    #     Arng = range(didxs[srtEA - 1], didxe[srtEA - 1] + 1)
-                    #     log.info(f"[CHECK] Arng : {Arng}")
-                    #
-                    #     # Var. info
-                    #     rVar_rf = dataL1['arr_ref'].T
-                    #     rVar_rk = dataL1['arr_kdp'].T
-                    #     rVar_rd = dataL1['arr_zdr'].T
-                    #     rVar_rc = dataL1['arr_phv'].T
-                    #     rVar_rp = dataL1['arr_pdp'].T
-                    #     rVar_rv = dataL1['arr_vel'].T
-                    #
-                    #     rVar_rf[rVar_rf < 0] = 0
-                    #
-                    #     rVarf = rVar_rf[:, Arng]
-                    #     rVark = rVar_rk[:, Arng]
-                    #     rVard = rVar_rd[:, Arng]
-                    #     rVarc = rVar_rc[:, Arng]
-                    #     rVarp = rVar_rp[:, Arng]
-                    #     rVarv = rVar_rv[:, Arng]
-                    #
-                    #     # cal. rain
-                    #     # rainfall(mm)
-                    #     [Rcalo, Rcas] = calRain_SN(rVarf, rVark, rVard, Rtyp, dt, 10)
-                    #
-                    #     # grid
-                    #     gw = 1
-                    #
-                    #     azm = azm_r[Arng]
-                    #     rng = rng_r
-                    #     elv = elv_r[Arng]
-                    #
-                    #     # 1196 x 1080 -> 960 x 360
-                    #     xrEle = rng[:, None] * (np.sin(np.deg2rad(azm.T)) * np.cos(np.deg2rad(elv.T))) / 1000
-                    #
-                    #     # 1196 x 1080 -> 960 x 360
-                    #     yrEle = rng[:, None] * (np.cos(np.deg2rad(azm.T)) * np.cos(np.deg2rad(elv.T))) / 1000
-                    #     dxr = xrEle.flatten()
-                    #     dyr = yrEle.flatten()
-                    #
-                    #     # 격자 설정
-                    #     xi, yi = np.meshgrid(np.arange(-300, 301, gw), np.arange(-300, 301, gw))
-                    #
-                    #     # zh.linear unit in mm6 m-3
-                    #     zh = np.power(10.0, rVarf / 10.0)
-                    #     zhh = griddata((dxr, dyr), zh.flatten(), (xi, yi), method='linear')
-                    #
-                    #     # refl.
-                    #     rVarf[np.isnan(rVarf)] = 0
-                    #     ziR = griddata((dxr, dyr), rVarf.flatten(), (xi, yi), method='linear')
-                    #
-                    #     # rain
-                    #     dzr = Rcalo[Ralg]
-                    #     dzr[np.isnan(dzr)] = 0
-                    #     Rcal = griddata((dxr, dyr), dzr.flatten(),(xi, yi), method='linear')
-                    #
-                    #     # xy->lonlat
-                    #     lat0 = dataL1['arr_lat_lon_alt_bwh'][0][0]
-                    #     lon0 = dataL1['arr_lat_lon_alt_bwh'][1][0]
-                    #     elv0 = dataL1['arr_lat_lon_alt_bwh'][2][0]
-                    #
-                    #     projEnu = Proj(proj='tmerc', lat_0=lat0, lon_0=lon0, ellps='WGS84', units='km')
-                    #     projWgs84 = Proj(proj='latlong', datum='WGS84')
-                    #     transformer = Transformer.from_proj(projEnu, projWgs84)
-                    #     xlong, ylatg = transformer.transform(xi, yi)
-                    #     h0 = np.zeros_like(xi)
-                    #
-                    #     # 누적 계산 반사도 팩터
-                    #     ZcaloA = ZcaloA + zhh
-                    #
-                    #     # 누적 계산 반사도
-                    #     FcaloA = FcaloA + ziR
-                    #
-                    #     # 누적 계산 강우강도, mm/hr
-                    #     RcaloA = RcaloA + Rcal
-                    #
-                    #     # 1time당 sumFcalA 반사도
-                    #     # sFcalA[j] = np.nansum(ziR)
-                    #
-                    #     # 1time당 sumFcalA 강우강도
-                    #     # sRcalA[j] = np.nansum(Rcal)
-                    #
-                    #     # 1time당 maxFcalA
-                    #     # xFcalA[j] = np.nanmax(ziR)
-                    #
-                    #     # 1time당 sumFcalA
-                    #     # xRcalA[j] = np.nanmax(Rcal)
-                    #
-                    #     # NetCDF 생산
-                    #     lon2D = xlong
-                    #     lat2D = ylatg
-                    #
-                    #     xdim = lon2D.shape[0]
-                    #     ydim = lon2D.shape[1]
-                    #
-                    #     dataL2 = xr.Dataset(
-                    #         {
-                    #             'zhh': (('time', 'row', 'col'), (zhh).reshape(1, xdim, ydim))
-                    #             , 'ziR': (('time', 'row', 'col'), (ziR).reshape(1, xdim, ydim))
-                    #             , 'Rcal': (('time', 'row', 'col'), (Rcal).reshape(1, xdim, ydim))
-                    #         }
-                    #         , coords={
-                    #             'row': np.arange(xdim)
-                    #             , 'col': np.arange(ydim)
-                    #             , 'lon': (('row', 'col'), lon2D)
-                    #             , 'lat': (('row', 'col'), lat2D)
-                    #             , 'time': pd.date_range(dtDateInfo, periods=1)
-                    #         }
-                    #     )
-                    #
-                    #     # NetCDF 저장
-                    #     saveFilePattern = '{}/{}'.format(modelInfo['savePath'], modelInfo['saveName'])
-                    #     saveFile = dtDateInfo.strftime(saveFilePattern).format(code)
-                    #     os.makedirs(os.path.dirname(saveFile), exist_ok=True)
-                    #     dataL2.to_netcdf(saveFile)
-                    #     log.info(f"[CHECK] saveFile : {saveFile}")
+                    for dtDateInfo in dtDateList:
+                        # log.info(f'[CHECK] dtDateInfo : {dtDateInfo}')
+
+                        # ==========================================================================================================
+                        # KMA_GNG_Kang4_수정용2.py
+                        # ==========================================================================================================
+                        inpFilePattern = '{}/{}'.format(modelInfo['filePath'], modelInfo['fileName'])
+                        inpFile = dtDateInfo.strftime(inpFilePattern).format(code)
+                        fileList = sorted(glob.glob(inpFile))
+
+                        if fileList is None or len(fileList) < 1: continue
+                        fileInfo = fileList[0]
+                        log.info(f'[CHECK] fileInfo : {fileInfo}')
+
+                        fileName = os.path.basename(fileInfo)
+                        fileNameNotExt = fileName.split(".")[0]
+
+                        # 자료 읽기
+                        data = pyart.io.read(fileInfo)
+
+                        rnam = data.metadata['instrument_name']
+                        rlat = data.latitude['data']
+                        rlon = data.longitude['data']
+                        ralt = data.altitude['data']
+                        styp = data.scan_type
+                        fbwh = data.instrument_parameters['radar_beam_width_h']['data']
+                        fprt = data.instrument_parameters['prt']['data']
+                        fvel = data.instrument_parameters['nyquist_velocity']['data']
+                        fpul = data.instrument_parameters['pulse_width']['data']
+                        ffrq = data.instrument_parameters['frequency']['data']
+                        nray = data.nrays
+                        ngat = data.ngates
+                        nswp = data.nsweeps
+                        fang = data.fixed_angle['data']
+                        fazm = data.azimuth['data']
+                        frng = data.range['data']
+                        felv = data.elevation['data']
+                        fscn = data.scan_rate['data']
+                        fswp = data.sweep_number['data']
+                        fsws = data.sweep_start_ray_index['data']
+                        fswe = data.sweep_end_ray_index['data']
+                        ftme = data.time['data']
+                        fdat_ref = data.fields['reflectivity']['data']
+                        fdat_zdr = data.fields['corrected_differential_reflectivity']['data']
+                        fdat_pdp = data.fields['differential_phase']['data']
+                        fdat_kdp = data.fields['specific_differential_phase']['data']
+                        fdat_vel = data.fields['velocity']['data']
+                        fdat_phv = data.fields['cross_correlation_ratio']['data']
+                        fdat_spw = data.fields['spectrum_width']['data']
+
+                        # 자료 가공
+                        dataL1 = {
+                            'str_nam': [rnam],
+                            'arr_lat_lon_alt_bwh': [rlat, rlon, ralt, fbwh],
+                            'str_typ': [styp],
+                            'arr_prt_prm_vel': [fprt, fvel],
+                            'num_ray_gat_swp': [nray, ngat, nswp],
+                            'fix_ang': fang,
+                            'arr_azm_rng_elv': [fazm, frng, felv],
+                            'arr_etc':  [fpul, ffrq, fscn, fswp, fsws, fswe, ftme],
+                            'arr_ref': np.array(fdat_ref),
+                            # 'arr_crf': arr_crf,
+                            'arr_zdr': np.array(fdat_zdr),
+                            'arr_pdp': np.array(fdat_pdp),
+                            'arr_kdp': np.array(fdat_kdp),
+                            'arr_vel': np.array(fdat_vel),
+                            'arr_phv': np.array(fdat_phv),
+                            # 'arr_ecf': arr_ecf,
+                            # 'arr_coh': arr_coh,
+                            'arr_spw': np.array(fdat_spw)
+                        }
+
+                        # plot sigmet data
+                        display = pyart.graph.RadarDisplay(data)
+                        fig = plt.figure(figsize=(35, 8))
+
+                        # ----------------------
+                        # nEL=0 # GNG 0.2
+                        # nEL=3 # GDK 0.8
+                        # nEL=1 # GSN 5.2
+                        # ----------------
+                        nEL = 0  # FCO SBS
+                        # ----------------------
+
+                        plotList = [
+                            {'field': 'reflectivity', 'vmin': -5, 'vmax': 40},
+                            {'field': 'corrected_differential_reflectivity', 'vmin': -2, 'vmax': 5},
+                            {'field': 'cross_correlation_ratio', 'vmin': 0.5, 'vmax': 1.0}
+                        ]
+
+                        for i, plotInfo in enumerate(plotList):
+                            ax = fig.add_subplot(1, 3, i + 1)
+                            display.plot(plotInfo['field'], nEL, vmin=plotInfo['vmin'], vmax=plotInfo['vmax'])
+                            # display.plot_range_rings([50, 100, 150, 200, 250]) # KMA 설정
+                            display.plot_range_rings([25, 50, 75, 100, 125]) # FCO 설정
+                            display.plot_cross_hair(5.0)
+
+                        saveImgPattern = '{}/{}'.format(modelInfo['figPath'], modelInfo['figName'])
+                        saveImg = dtDateInfo.strftime(saveImgPattern).format(code)
+                        os.makedirs(os.path.dirname(saveImg), exist_ok=True)
+                        plt.savefig(saveImg, dpi=600, bbox_inches='tight')
+                        plt.close()
+                        log.info(f"[CHECK] saveImg : {saveImg}")
+
+                        # ==========================================================================================================
+                        # snowC_GNG_Kang_20240923_KMA_GNG.m
+                        # ==========================================================================================================
+                        # 강수 유형
+                        # int(mm/h)/ran(mm)
+                        Rtyp = 'int'
+
+                        # 강수 알고리즘 인덱스
+                        # Rcal{RintZH;RintKD;RintZD;RintJP;RintCS}
+                        Ralg = 3
+
+                        # 시간 간격 [초]
+                        # 5분 단위
+                        # [80s+70s=>2.5min] low sng 300km[-0.3 0.1 0.60]=80s, high dul 150km[1.4 2.7 4.8]=70s
+                        dt = 5.0 * 60
+
+                        # 시작 Elevation Angle
+                        srtEA = 3  # 시작 각도
+
+                        # 변수 초기화
+                        ZcaloA = np.zeros((601, 601))
+                        FcaloA = np.zeros((601, 601))
+                        RcaloA = np.zeros((601, 601))
+                        # sFcalA = np.zeros((nflst, 1))
+                        # sRcalA = np.zeros((nflst, 1))
+                        # xFcalA = np.zeros((nflst, 1))
+                        # xRcalA = np.zeros((nflst, 1))
+
+                        # 9 지점에 대해 데이터 저장
+                        # aws_data = np.zeros((nflst, 9, 3))
+
+                        # 파일별로 루프
+                        # j = 0
+                        # for j in range(nflst):
+                        #     fname = flist[j]
+                        #     print(f"Processing file {j + 1}/{nflst}: {fname}")
+
+                            # MATLAB 파일 로드
+                            # data = sio.loadmat(os.path.join(frDir, fname))
+
+                            # 데이터 읽기
+
+                        # 방위각
+                        azm_r = dataL1['arr_azm_rng_elv'][0].T
+
+                        # 거리
+                        rng_r = dataL1['arr_azm_rng_elv'][1].T
+
+                        # 고도각
+                        elv_r = dataL1['arr_azm_rng_elv'][2].T
+
+                        # 각도 정보
+                        Tang = dataL1['fix_ang'].flatten()
+                        # Tang[Tang > 180] -= 360
+                        Tang[Tang > 180] = Tang[Tang > 180] - 360
+
+                        # 고도각에 따른 인덱스
+                        # pattern = r'D:/Data190/|D:/Data191/|D:/2022/X0810/|' + re.escape(datDRA)
+                        pattern = r'Data190|Data191|2022/X0810|RDR_KSN_FQC'
+                        if re.search(pattern, fileInfo, re.IGNORECASE):
+                            didxs = np.array(dataL1['arr_etc'][4], dtype=np.int32)  # arr_etc{5} -> arr_etc[4]
+                            didxe = np.array(dataL1['arr_etc'][5], dtype=np.int32)  # arr_etc{6} -> arr_etc[5]
+                        else:
+                            didxs = np.array(dataL1['arr_etc'][2], dtype=np.int32)  # arr_etc{3} -> arr_etc[2]
+                            didxe = np.array(dataL1['arr_etc'][3], dtype=np.int32)  # arr_etc{4} -> arr_etc[3]
+
+                        log.info(f"[CHECK] didxs : {didxs}")
+                        log.info(f"[CHECK] didxe : {didxe}")
+
+                        # 인덱스 값 변경 (0-based indexing 보정)
+                        didxs = didxs + 1  # set '0' to '1'
+                        didxe = didxe + 1
+
+                        # didxs와 didxe를 합쳐서 배열 생성
+                        didX2 = np.column_stack((didxs, didxe)).ravel()
+                        log.info(f"[CHECK] didX2 : {didX2}")
+
+                        # elv_r 배열에서 인덱스 값 추출 (인덱스는 0-based이므로 조정 필요)
+                        Fang = elv_r[didxs]  # numpy 배열 인덱싱
+                        log.info(f"[CHECK] Fang : {Fang}")
+
+                        # dual para
+                        if dataL1['arr_prt_prm_vel'][0][0] == dataL1['arr_prt_prm_vel'][0][-1]:
+                            Tprf = 'sing'
+                        else:
+                            Tprf = 'dual'
+                        log.info(f"[CHECK] Tprf : {Tprf}")
+
+                        bw = dataL1['arr_lat_lon_alt_bwh'][3]
+                        log.info(f"[CHECK] bw : {bw}")
+
+                        # Elev. ang
+                        Arng = range(didxs[srtEA - 1], didxe[srtEA - 1] + 1)
+                        log.info(f"[CHECK] Arng : {Arng}")
+
+                        # Var. info
+                        rVar_rf = dataL1['arr_ref'].T
+                        rVar_rk = dataL1['arr_kdp'].T
+                        rVar_rd = dataL1['arr_zdr'].T
+                        rVar_rc = dataL1['arr_phv'].T
+                        rVar_rp = dataL1['arr_pdp'].T
+                        rVar_rv = dataL1['arr_vel'].T
+
+                        rVar_rf[rVar_rf < 0] = 0
+
+                        rVarf = rVar_rf[:, Arng]
+                        rVark = rVar_rk[:, Arng]
+                        rVard = rVar_rd[:, Arng]
+                        rVarc = rVar_rc[:, Arng]
+                        rVarp = rVar_rp[:, Arng]
+                        rVarv = rVar_rv[:, Arng]
+
+                        # cal. rain
+                        # rainfall(mm)
+                        [Rcalo, Rcas] = calRain_SN(rVarf, rVark, rVard, Rtyp, dt, 10)
+
+                        # grid
+                        gw = 1
+
+                        azm = azm_r[Arng]
+                        rng = rng_r
+                        elv = elv_r[Arng]
+
+                        # 1196 x 1080 -> 960 x 360
+                        xrEle = rng[:, None] * (np.sin(np.deg2rad(azm.T)) * np.cos(np.deg2rad(elv.T))) / 1000
+
+                        # 1196 x 1080 -> 960 x 360
+                        yrEle = rng[:, None] * (np.cos(np.deg2rad(azm.T)) * np.cos(np.deg2rad(elv.T))) / 1000
+                        dxr = xrEle.flatten()
+                        dyr = yrEle.flatten()
+
+                        # 격자 설정
+                        xi, yi = np.meshgrid(np.arange(-300, 301, gw), np.arange(-300, 301, gw))
+
+                        # zh.linear unit in mm6 m-3
+                        zh = np.power(10.0, rVarf / 10.0)
+                        zhh = griddata((dxr, dyr), zh.flatten(), (xi, yi), method='linear')
+
+                        # refl.
+                        rVarf[np.isnan(rVarf)] = 0
+                        ziR = griddata((dxr, dyr), rVarf.flatten(), (xi, yi), method='linear')
+
+                        # rain
+                        dzr = Rcalo[Ralg]
+                        dzr[np.isnan(dzr)] = 0
+                        Rcal = griddata((dxr, dyr), dzr.flatten(),(xi, yi), method='linear')
+
+                        # xy->lonlat
+                        lat0 = dataL1['arr_lat_lon_alt_bwh'][0][0]
+                        lon0 = dataL1['arr_lat_lon_alt_bwh'][1][0]
+                        elv0 = dataL1['arr_lat_lon_alt_bwh'][2][0]
+
+                        projEnu = Proj(proj='tmerc', lat_0=lat0, lon_0=lon0, ellps='WGS84', units='km')
+                        projWgs84 = Proj(proj='latlong', datum='WGS84')
+                        transformer = Transformer.from_proj(projEnu, projWgs84)
+                        xlong, ylatg = transformer.transform(xi, yi)
+                        h0 = np.zeros_like(xi)
+
+                        # 누적 계산 반사도 팩터
+                        ZcaloA = ZcaloA + zhh
+
+                        # 누적 계산 반사도
+                        FcaloA = FcaloA + ziR
+
+                        # 누적 계산 강우강도, mm/hr
+                        RcaloA = RcaloA + Rcal
+
+                        # 1time당 sumFcalA 반사도
+                        # sFcalA[j] = np.nansum(ziR)
+
+                        # 1time당 sumFcalA 강우강도
+                        # sRcalA[j] = np.nansum(Rcal)
+
+                        # 1time당 maxFcalA
+                        # xFcalA[j] = np.nanmax(ziR)
+
+                        # 1time당 sumFcalA
+                        # xRcalA[j] = np.nanmax(Rcal)
+
+                        # NetCDF 생산
+                        lon2D = xlong
+                        lat2D = ylatg
+
+                        xdim = lon2D.shape[0]
+                        ydim = lon2D.shape[1]
+
+                        dataL2 = xr.Dataset(
+                            {
+                                'zhh': (('time', 'row', 'col'), (zhh).reshape(1, xdim, ydim))
+                                , 'ziR': (('time', 'row', 'col'), (ziR).reshape(1, xdim, ydim))
+                                , 'Rcal': (('time', 'row', 'col'), (Rcal).reshape(1, xdim, ydim))
+                            }
+                            , coords={
+                                'row': np.arange(xdim)
+                                , 'col': np.arange(ydim)
+                                , 'lon': (('row', 'col'), lon2D)
+                                , 'lat': (('row', 'col'), lat2D)
+                                , 'time': pd.date_range(dtDateInfo, periods=1)
+                            }
+                        )
+
+                        # NetCDF 저장
+                        saveFilePattern = '{}/{}'.format(modelInfo['savePath'], modelInfo['saveName'])
+                        saveFile = dtDateInfo.strftime(saveFilePattern).format(code)
+                        os.makedirs(os.path.dirname(saveFile), exist_ok=True)
+                        dataL2.to_netcdf(saveFile)
+                        log.info(f"[CHECK] saveFile : {saveFile}")
 
                     # ==========================================================================================================
                     # 매 5분 순간마다 지상 관측소를 기준으로 최근접/선형내삽 화소 추출
@@ -856,29 +856,29 @@ class DtaProcess(object):
                     if fileList is None or len(fileList) < 1: continue
                     dataL3 = xr.open_mfdataset(fileList).sel(time=slice(sysOpt['srtDate'], sysOpt['endDate']))
 
-                    # dataL3.isel(time = 0)['ziR'].plot()
-                    # plt.show()
+                    # 엑셀 저장
+                    # Rst.xlsx
+                    # RstH.xlsx
+                    # 매 5분 순간마다 지상 관측소를 기준으로 최근접/선형내삽 화소 추출
+                    for i, posInfo in allStnDataL2.iterrows():
+                        if (pd.isna(posInfo['posRow']) or pd.isna(posInfo['posCol'])): continue
+                        log.info(f"[CHECK] posInfo : {posInfo.to_frame().T}")
 
-                    # # 매 5분 순간마다 지상 관측소를 기준으로 최근접/선형내삽 화소 추출
-                    # for i, posInfo in allStnDataL2.iterrows():
-                    #     if (pd.isna(posInfo['posRow']) or pd.isna(posInfo['posCol'])): continue
-                    #     log.info(f"[CHECK] posInfo : {posInfo.to_frame().T}")
-                    #
-                    #     for varIdx, varInfo in enumerate(modelInfo['varList']):
-                    #         varName = modelInfo['varName'][varIdx]
-                    #
-                    #         # 최근접 화소 추출
-                    #         posData = dataL3[varInfo].interp({'row': posInfo['posRow'], 'col': posInfo['posCol']}, method='nearest')
-                    #
-                    #         # 선형내삽 화소 추출
-                    #         # posData = dataL3[varInfo].interp({'row': posInfo['posRow'], 'col': posInfo['posCol']}, method='linear')
-                    #
-                    #         posDataL1 = posData.to_dataframe().reset_index(drop=False)
-                    #         # posDataL1 = posData.to_dataframe().reset_index(drop=False).dropna()
-                    #         if len(posDataL1) < 1: continue
-                    #
-                    #     # posData['ziR'].plot()
-                    #     # plt.show()
+                        for varIdx, varInfo in enumerate(modelInfo['varList']):
+                            varName = modelInfo['varName'][varIdx]
+
+                            # 최근접 화소 추출
+                            posData = dataL3[varInfo].interp({'row': posInfo['posRow'], 'col': posInfo['posCol']}, method='nearest')
+
+                            # 선형내삽 화소 추출
+                            # posData = dataL3[varInfo].interp({'row': posInfo['posRow'], 'col': posInfo['posCol']}, method='linear')
+
+                            posDataL1 = posData.to_dataframe().reset_index(drop=False)
+                            # posDataL1 = posData.to_dataframe().reset_index(drop=False).dropna()
+                            if len(posDataL1) < 1: continue
+
+                        # posData['ziR'].plot()
+                        # plt.show()
 
                     # dataL3['Rcal'] = xr.where((dataL3['Rcal'] == 0), np.nan, dataL3['Rcal'])
 
@@ -893,8 +893,7 @@ class DtaProcess(object):
                             varName = modelInfo['varName'][varIdx]
 
                             # 최근접 화소 추출
-                            posData = dataL4[varInfo].interp({'row': posInfo['posRow'], 'col': posInfo['posCol']},
-                                                             method='nearest')
+                            posData = dataL4[varInfo].interp({'row': posInfo['posRow'], 'col': posInfo['posCol']}, method='nearest')
 
                             # 선형내삽 화소 추출
                             # posData = dataL4[varInfo].interp({'row': posInfo['posRow'], 'col': posInfo['posCol']}, method='linear')
