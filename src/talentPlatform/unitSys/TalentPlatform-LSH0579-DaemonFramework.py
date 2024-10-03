@@ -453,10 +453,8 @@ class DtaProcess(object):
                     , 'fileName': 'RDR_{}_FQC_%Y%m%d%H%M.uf'
                     # 관악산(KWK), 오성산(KSN), 광덕산(GDK), 면봉산(MYN), 구덕산(PSN), 백령도(BRI), 영종도(IIA), 진도(JNI), 고산(GSN), 성산(SSP), 강릉(GNG)
                     , 'codeList': ['KSN']
-
-                    # , 'varList': ['2T_GDS0_SFC', 'SKT_GDS0_SFC', '10U_GDS0_SFC', '10V_GDS0_SFC']
-                    # , 'procList': ['t2m', 'skt', 'u', 'v']
-
+                    , 'varList': ['zhh', 'ziR', 'Rcal']
+                    , 'varName': ['누적반사도팩터', '누적반사도', '누적강우강도']
 
                     # 저장 파일
                     , 'savePath': '/DATA/OUTPUT/LSH0579/PROC'
@@ -520,11 +518,6 @@ class DtaProcess(object):
 
             log.info(f"[CHECK] allStnDataL2 : {allStnDataL2}")
 
-            # for i, posInfo in allStnDataL2.iterrows():
-            #     if (pd.isna(posInfo['posRow']) or pd.isna(posInfo['posCol'])): continue
-            #
-            #     posData = dsData.interp({'row': posInfo['posRow'], 'col': posInfo['posCol']}, method='nearest')
-
             for modelType in sysOpt['modelList']:
                 log.info(f'[CHECK] modelType : {modelType}')
 
@@ -533,61 +526,6 @@ class DtaProcess(object):
 
                 for code in modelInfo['codeList']:
                     # log.info(f'[CHECK] code : {code}')
-
-                    # 가공 파일 병합
-                    procFilePattern = '{}/{}'.format(modelInfo['procPath'], modelInfo['procName'])
-                    procFile = procFilePattern.format(code)
-                    fileList = sorted(glob.glob(procFile))
-
-                    if fileList is None or len(fileList) < 1: continue
-                    dataL3 = xr.open_mfdataset(fileList)
-
-                    # dataL3.isel(time = 0)['ziR'].plot()
-                    # plt.show()
-
-
-                    # 매 5분마다 지상 관측소를 기준으로 최근접/선형내삽 화소 추출
-                    # posInfo = allStnDataL2.iloc[6]
-                    for i, posInfo in allStnDataL2.iterrows():
-                        if (pd.isna(posInfo['posRow']) or pd.isna(posInfo['posCol'])): continue
-                        log.info(f"[CHECK] posInfo : {posInfo.to_frame().T}")
-
-                        # 화소 추출
-                        posData = dataL3.interp({'row': posInfo['posRow'], 'col': posInfo['posCol']}, method='nearest') # 최근접
-                        # posData = dataL3.interp({'row': posInfo['posRow'], 'col': posInfo['posCol']}, method='linear') # 선형내삽
-
-                        # posDataL1 = posData.to_dataframe().reset_index(drop=False).dropna()
-                        posDataL1 = posData.to_dataframe().reset_index(drop=False)
-                        if len(posDataL1) < 1: continue
-
-                        # print(posDataL1)
-                        # selData = xr.where((posData == np.nan), np.nan, posData)
-
-                        # posData.dropna(dim=['ziR'])
-
-                        # posData.where()
-
-                        # posData['ziR'].values
-                        #
-                        # posData['ziR'].plot()
-                        # plt.show()
-
-
-                    # 매 1시간마다 지상 관측소를 기준으로 최근접/선형내삽 화소 추출
-                    dataL4 = dataL3.resample(time='1H').sum(dim=['time'], skipna=True)
-                    for i, posInfo in allStnDataL2.iterrows():
-                        if (pd.isna(posInfo['posRow']) or pd.isna(posInfo['posCol'])): continue
-                        log.info(f"[CHECK] posInfo : {posInfo.to_frame().T}")
-
-                        # 화소 추출
-                        # posData = dataL4.interp({'row': posInfo['posRow'], 'col': posInfo['posCol']}, method='nearest')  # 최근접
-                        posData = dataL4.interp({'row': posInfo['posRow'], 'col': posInfo['posCol']}, method='linear') # 선형내삽
-
-                        posDataL1 = posData.to_dataframe().reset_index(drop=False).dropna()
-                        # posDataL1 = posData.to_dataframe().reset_index(drop=False)
-                        if len(posDataL1) < 1: continue
-                        print(posDataL1)
-
 
                     for dtDateInfo in dtDateList:
                         # log.info(f'[CHECK] dtDateInfo : {dtDateInfo}')
@@ -945,6 +883,73 @@ class DtaProcess(object):
                         # plt.title("Cumulative Rainfall")
                         # plt.savefig(os.path.join(fwDir, 'cr.png'), dpi=300)
                         # plt.close()
+
+                    # ==========================================================================================================
+                    # 매 5분 순간마다 지상 관측소를 기준으로 최근접/선형내삽 화소 추출
+                    # 매 1시간 누적마다 지상 관측소를 기준으로 최근접/선형내삽 화소 추출
+                    # ==========================================================================================================
+                    # 가공 파일 병합
+                    procFilePattern = '{}/{}'.format(modelInfo['procPath'], modelInfo['procName'])
+                    procFile = procFilePattern.format(code)
+                    fileList = sorted(glob.glob(procFile))
+
+                    if fileList is None or len(fileList) < 1: continue
+                    dataL3 = xr.open_mfdataset(fileList).sel(time=slice(sysOpt['srtDate'], sysOpt['endDate']))
+
+                    # dataL3.isel(time = 0)['ziR'].plot()
+                    # plt.show()
+
+                    # 매 5분 순간마다 지상 관측소를 기준으로 최근접/선형내삽 화소 추출
+                    for i, posInfo in allStnDataL2.iterrows():
+                        if (pd.isna(posInfo['posRow']) or pd.isna(posInfo['posCol'])): continue
+                        log.info(f"[CHECK] posInfo : {posInfo.to_frame().T}")
+
+                        for varIdx, varInfo in enumerate(modelInfo['varList']):
+                            varName = modelInfo['varName'][varIdx]
+
+                            # 최근접 화소 추출
+                            posData = dataL3[varInfo].interp({'row': posInfo['posRow'], 'col': posInfo['posCol']},
+                                                             method='nearest')
+
+                            # 선형내삽 화소 추출
+                            # posData = dataL3[varInfo].interp({'row': posInfo['posRow'], 'col': posInfo['posCol']}, method='linear')
+
+                            posDataL1 = posData.to_dataframe().reset_index(drop=False)
+                            # posDataL1 = posData.to_dataframe().reset_index(drop=False).dropna()
+                            if len(posDataL1) < 1: continue
+
+                        # posData['ziR'].plot()
+                        # plt.show()
+
+                    # 매 1시간 누적마다 지상 관측소를 기준으로 최근접/선형내삽 화소 추출
+                    dataL4 = dataL3.resample(time='1H').sum(dim=['time'], skipna=True)
+                    for i, posInfo in allStnDataL2.iterrows():
+                        if (pd.isna(posInfo['posRow']) or pd.isna(posInfo['posCol'])): continue
+                        log.info(f"[CHECK] posInfo : {posInfo.to_frame().T}")
+
+                        for varIdx, varInfo in enumerate(modelInfo['varList']):
+                            varName = modelInfo['varName'][varIdx]
+
+                            # 최근접 화소 추출
+                            posData = dataL4[varInfo].interp({'row': posInfo['posRow'], 'col': posInfo['posCol']},
+                                                             method='nearest')
+
+                            # 선형내삽 화소 추출
+                            # posData = dataL4[varInfo].interp({'row': posInfo['posRow'], 'col': posInfo['posCol']}, method='linear')
+
+                            # posDataL1 = posData.to_dataframe().reset_index(drop=False).dropna()
+                            posDataL1 = posData.to_dataframe().reset_index(drop=False)
+                            if len(posDataL1) < 1: continue
+                            print(posDataL1)
+
+                            # # 누적 계산 반사도 팩터
+                            # posDataL1[var].values
+                            #
+                            # # 누적 계산 반사도
+                            # posDataL1['ziR'].values
+                            #
+                            # # 누적 계산 강우강도, mm/hr
+                            # posDataL1['Rcal'].values
 
         except Exception as e:
             log.error(f"Exception : {str(e)}")
