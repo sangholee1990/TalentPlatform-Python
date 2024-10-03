@@ -51,7 +51,7 @@ from sklearn.neighbors import BallTree
 # =================================================
 warnings.filterwarnings("ignore")
 
-plt.rc('font', family='Malgun Gothic')
+# plt.rc('font', family='Malgun Gothic')
 plt.rc('axes', unicode_minus=False)
 # sns.set(font="Malgun Gothic", rc={"axes.unicode_minus": False}, style='darkgrid')
 
@@ -431,7 +431,19 @@ class DtaProcess(object):
                 'srtDate': '2022-12-21'
                 , 'endDate': '2023-01-01'
                 , 'invDate': '5t'
-                
+
+                # 융합 ASOS/AWS 지상 관측소
+                , 'stnInfo': {
+                    'list': [90, 104, 105, 106, 520, 523, 661, 670, 671]
+                    , 'filePath': '/SYSTEMS/PROG/PYTHON/IDE/resources/config/stnInfo'
+                    , 'fileName': 'ALL_STN_INFO.csv'
+                }
+
+                , 'radarInfo': {
+                    'filePath': '/SYSTEMS/PROG/PYTHON/IDE/resources/config/radarInfo'
+                    , 'fileName': 'RDR_GDK_FQC_202112241240.nc'
+                }
+
                 # 관악산(KWK), 오성산(KSN), 광덕산(GDK), 면봉산(MYN), 구덕산(PSN), 백령도(BRI), 영종도(IIA), 진도(JNI), 고산(GSN), 성산(SSP), 강릉(GNG)
                 , 'codeList': ['KSN']
 
@@ -458,6 +470,54 @@ class DtaProcess(object):
             dtSrtDate = pd.to_datetime(sysOpt['srtDate'], format='%Y-%m-%d')
             dtEndDate = pd.to_datetime(sysOpt['endDate'], format='%Y-%m-%d')
             dtDateList = pd.date_range(start=dtSrtDate, end=dtEndDate, freq=sysOpt['invDate'])
+
+            # 융합 ASOS/AWS 지상 관측소
+            inpFilePattern = '{}/{}'.format(sysOpt['stnInfo']['filePath'], sysOpt['stnInfo']['fileName'])
+            fileList = sorted(glob.glob(inpFilePattern))
+            fileInfo = fileList[0]
+            allStnData = pd.read_csv(fileInfo)
+            allStnDataL1 = allStnData[['STN', 'STN_KO', 'LON', 'LAT']]
+            allStnDataL2 = allStnDataL1[allStnDataL1['STN'].isin(sysOpt['stnInfo']['list'])]
+
+            # 레이더 가공파일
+            inpFilePattern = '{}/{}'.format(sysOpt['radarInfo']['filePath'], sysOpt['radarInfo']['fileName'])
+            fileList = sorted(glob.glob(inpFilePattern))
+            fileInfo = fileList[0]
+            cfgData = xr.open_dataset(fileInfo)
+            cfgDataL1 = cfgData.to_dataframe().reset_index(drop=False)
+
+            # 융합 ASOS/AWS 지상 관측소을 기준으로 최근접 화소 (posRow, posCol, posLat, posLon, posDistKm)
+            #      STN STN_KO        LON       LAT  ...  posCol      posLat     posLon  posDistKm
+            # 0     90     속초  128.56473  38.25085  ...   456.0  128.565921  38.251865   0.024091
+            # 10   104    북강릉  128.85535  37.80456  ...   482.0  128.850344  37.805816   0.072428
+            # 11   105     강릉  128.89099  37.75147  ...   486.0  128.894198  37.750990   0.045061
+            # 12   106     동해  129.12433  37.50709  ...   507.0  129.124659  37.503421   0.064192
+            # 289  520    설악동  128.51818  38.16705  ...   452.0  128.518319  38.171507   0.077807
+            # 292  523    주문진  128.82139  37.89848  ...   479.0  128.818774  37.896447   0.050570
+            # 424  661     현내  128.40191  38.54251  ...   441.0  128.401035  38.542505   0.011947
+            # 432  670     양양  128.62954  38.08874  ...   462.0  128.630338  38.088726   0.010963
+            # 433  671     청호  128.59360  38.19091  ...   459.0  128.598611  38.188309   0.082373
+            baTree = BallTree(np.deg2rad(cfgDataL1[['lat', 'lon']].values), metric='haversine')
+            for i, posInfo in allStnDataL2.iterrows():
+                if (pd.isna(posInfo['LAT']) or pd.isna(posInfo['LON'])): continue
+
+                closest = baTree.query(np.deg2rad(np.c_[posInfo['LAT'], posInfo['LON']]), k=1)
+                cloDist = closest[0][0][0] * 1000.0
+                cloIdx = closest[1][0][0]
+                cfgInfo = cfgDataL1.loc[cloIdx]
+
+                allStnDataL2.loc[i, 'posRow'] = cfgInfo['row']
+                allStnDataL2.loc[i, 'posCol'] = cfgInfo['col']
+                allStnDataL2.loc[i, 'posLat'] = cfgInfo['lon']
+                allStnDataL2.loc[i, 'posLon'] = cfgInfo['lat']
+                allStnDataL2.loc[i, 'posDistKm'] = cloDist
+
+            log.info(f"[CHECK] allStnDataL2 : {allStnDataL2}")
+
+            # for i, posInfo in allStnDataL2.iterrows():
+            #     if (pd.isna(posInfo['posRow']) or pd.isna(posInfo['posCol'])): continue
+            #
+            #     posData = dsData.interp({'row': posInfo['posRow'], 'col': posInfo['posCol']}, method='nearest')
 
             for modelType in sysOpt['modelList']:
                 log.info(f'[CHECK] modelType : {modelType}')
@@ -644,7 +704,6 @@ class DtaProcess(object):
                         Tang = dataL1['fix_ang'].flatten()
                         Tang[Tang > 180] -= 360
 
-
                         # 고도각에 따른 인덱스
                         # pattern = r'D:/Data190/|D:/Data191/|D:/2022/X0810/|' + re.escape(datDRA)
                         pattern = r'Data190|Data191|2022/X0810|RDR_KSN_FQC'
@@ -796,57 +855,6 @@ class DtaProcess(object):
                         os.makedirs(os.path.dirname(saveNcFile), exist_ok=True)
                         dataL2.to_netcdf(saveNcFile)
                         log.info(f"[CHECK] saveNcFile : {saveNcFile}")
-
-                        # # dsData.isel(time = 0)['zhh'].plot()
-                        # # plt.show()
-                        #
-                        # target_lat = 37.0
-                        # target_lon = 127.0
-                        #
-                        # # dsData['lat'].values
-                        #
-                        # result = dsData.sel(x=1, y=2)
-                        # # result = dsData.sel(lat=target_lat, lon=target_lon, method='nearest')
-                        #
-
-
-                        # # 융합 ASOS/AWS 지상 관측소
-                        # sysOpt['stnList'] = [90, 104, 105, 106, 520, 523, 661, 670, 671]
-                        #
-                        # inpAllStnFile = '{}/{}'.format(globalVar['cfgPath'], 'stnInfo/ALL_STN_INFO.csv')
-                        # allStnData = pd.read_csv(inpAllStnFile)
-                        # allStnDataL1 = allStnData[['STN', 'STN_KO', 'LON', 'LAT']]
-                        # allStnDataL2 = allStnDataL1[allStnDataL1['STN'].isin(sysOpt['stnList'])]
-                        #
-                        #
-                        #
-                        # # 최근접 화소
-                        # cfgData = dsData
-                        # cfgDataL1 = cfgData.to_dataframe().reset_index(drop=False)
-                        # baTree = BallTree(np.deg2rad(cfgDataL1[['lat', 'lon']].values), metric='haversine')
-                        #
-                        #
-                        # for i, posInfo in allStnDataL2.iterrows():
-                        #     if (pd.isna(posInfo['LAT']) or pd.isna(posInfo['LON'])): continue
-                        #
-                        #     closest = baTree.query(np.deg2rad(np.c_[posInfo['LAT'], posInfo['LON']]), k=1)
-                        #     cloDist = closest[0][0][0] * 1000.0
-                        #     cloIdx = closest[1][0][0]
-                        #     cfgInfo = cfgDataL1.loc[cloIdx]
-                        #
-                        #     allStnDataL2.loc[i, 'posRow'] = cfgInfo['row']
-                        #     allStnDataL2.loc[i, 'posCol'] = cfgInfo['col']
-                        #     allStnDataL2.loc[i, 'posLat'] = cfgInfo['lon']
-                        #     allStnDataL2.loc[i, 'posLon'] = cfgInfo['lat']
-                        #     allStnDataL2.loc[i, 'posDistKm'] = cloDist
-                        #
-                        #
-                        # for i, posInfo in allStnDataL2.iterrows():
-                        #     if (pd.isna(posInfo['posRow']) or pd.isna(posInfo['posCol'])): continue
-                        #
-                        #     posData = dsData.interp({'row': posInfo['posRow'], 'col': posInfo['posCol']}, method='nearest')
-                        #     # posData = dsData.interp({'row': posInfo['posRow'], 'col': posInfo['posCol']}, method='linear')
-                        #     # log.info(f'[CHECK] posInfo : {posInfo}')
 
                             # ZcaloA += np.nan_to_num(zhh)
                             #
