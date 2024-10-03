@@ -702,7 +702,8 @@ class DtaProcess(object):
 
                         # 각도 정보
                         Tang = dataL1['fix_ang'].flatten()
-                        Tang[Tang > 180] -= 360
+                        # Tang[Tang > 180] -= 360
+                        Tang[Tang > 180] = Tang[Tang > 180] - 360
 
                         # 고도각에 따른 인덱스
                         # pattern = r'D:/Data190/|D:/Data191/|D:/2022/X0810/|' + re.escape(datDRA)
