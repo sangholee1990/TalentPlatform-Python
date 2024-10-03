@@ -433,13 +433,14 @@ class DtaProcess(object):
                 , 'endDate': '2023-01-01'
                 , 'invDate': '5t'
 
-                # 융합 ASOS/AWS 지상 관측소
+                # ASOS/AWS 융합 지상관측소
                 , 'stnInfo': {
                     'list': [90, 104, 105, 106, 520, 523, 661, 670, 671]
                     , 'filePath': '/SYSTEMS/PROG/PYTHON/IDE/resources/config/stnInfo'
                     , 'fileName': 'ALL_STN_INFO.csv'
                 }
 
+                # 레이더 가공 임시
                 , 'radarInfo': {
                     'filePath': '/SYSTEMS/PROG/PYTHON/IDE/resources/config/radarInfo'
                     , 'fileName': 'RDR_GDK_FQC_202112241240.nc'
