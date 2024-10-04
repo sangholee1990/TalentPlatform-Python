@@ -454,7 +454,8 @@ class DtaProcess(object):
                     'filePath': '/DATA/INPUT/LSH0579/uf'
                     , 'fileName': 'RDR_{}_FQC_%Y%m%d%H%M.uf'
                     # 관악산(KWK), 오성산(KSN), 광덕산(GDK), 면봉산(MYN), 구덕산(PSN), 백령도(BRI), 영종도(IIA), 진도(JNI), 고산(GSN), 성산(SSP), 강릉(GNG)
-                    , 'codeList': ['KSN']
+                    # , 'codeList': ['KSN']
+                    , 'codeList': ['GDK']
                     , 'varList': ['zhh', 'ziR', 'Rcal']
                     , 'varName': ['누적반사도팩터', '누적반사도', '누적강우강도']
 
@@ -796,13 +797,13 @@ class DtaProcess(object):
                         h0 = np.zeros_like(xi)
 
                         # 누적 계산 반사도 팩터
-                        ZcaloA = ZcaloA + zhh
+                        # ZcaloA = ZcaloA + zhh
 
                         # 누적 계산 반사도
-                        FcaloA = FcaloA + ziR
+                        # FcaloA = FcaloA + ziR
 
                         # 누적 계산 강우강도, mm/hr
-                        RcaloA = RcaloA + Rcal
+                        # RcaloA = RcaloA + Rcal
 
                         # 1time당 sumFcalA 반사도
                         # sFcalA[j] = np.nansum(ziR)
@@ -823,6 +824,9 @@ class DtaProcess(object):
                         xdim = lon2D.shape[0]
                         ydim = lon2D.shape[1]
 
+                        # zhh 반사도 팩터
+                        # ziR 반사도
+                        # Rcal 강우강도 mm/hr
                         dataL2 = xr.Dataset(
                             {
                                 'zhh': (('time', 'row', 'col'), (zhh).reshape(1, xdim, ydim))
