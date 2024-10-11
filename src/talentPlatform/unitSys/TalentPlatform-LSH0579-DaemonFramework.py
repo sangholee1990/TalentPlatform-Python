@@ -429,9 +429,9 @@ def radarProc(modelInfo, code, dtDateInfo):
         # ----------------------
 
         plotList = [
-            {'field': 'reflectivity', 'vmin': -5, 'vmax': 40},
-            {'field': 'corrected_differential_reflectivity', 'vmin': -2, 'vmax': 5},
-            {'field': 'cross_correlation_ratio', 'vmin': 0.5, 'vmax': 1.0}
+            {'field': 'reflectivity', 'vmin': -5, 'vmax': 40}
+            , {'field': 'corrected_differential_reflectivity', 'vmin': -2, 'vmax': 5}
+            , {'field': 'cross_correlation_ratio', 'vmin': 0.5, 'vmax': 1.0}
         ]
 
         for i, plotInfo in enumerate(plotList):

@@ -6,10 +6,20 @@
 # =================================================
 # 도움말
 # =================================================
+# 프로그램 시작
 # cd /HDD/SYSTEMS/PROG/PYTHON/IDE/src/talentPlatform/api
 # conda activate py38
 # uvicorn TalentPlatform-LSH0577-DaemonApi:app --reload --host=0.0.0.0 --port=9000
 # nohup uvicorn TalentPlatform-LSH0577-DaemonApi:app --reload --host=0.0.0.0 --port=9000 &
+# tail -f nohup.out
+
+# 프로그램 종료
+# ps -ef | grep "TalentPlatform-LSH0577-DaemonApi" | awk '{print $2}' | xargs kill -9
+
+# 포트 종료
+# yum install lsof -y
+# lsof -i :9000
+# lsof -i :9000 | awk '{print $2}' | xargs kill -9
 
 # "[TOP BDS] [통합] 아파트 보고서 (데이터 분석, 가격 예측)" 및 빅쿼리 기반으로 API 배포체계를 전달하오니 확인 부탁드립니다.
 # - 명세1) http://49.247.41.71:9000/docs
