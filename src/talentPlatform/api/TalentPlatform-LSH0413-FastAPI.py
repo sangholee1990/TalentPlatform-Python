@@ -665,7 +665,8 @@ async def viedo_upload(
 
     except Exception as e:
         log.error(f'Exception : {e}')
-        raise HTTPException(status_code=400, detail=resRespone("fail", 400, "처리 실패", len(str(e)), str(e)))
+        raise HTTPException(status_code=400, detail=
+        ("fail", 400, "처리 실패", len(str(e)), str(e)))
 
 
 @app.get("/video/down", dependencies=[Depends(chkApiKey)])
