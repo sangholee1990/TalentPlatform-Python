@@ -978,13 +978,13 @@ class DtaProcess(object):
 
                 # ASOS/AWS 융합 지상관측소
                 , 'stnInfo': {
-                    # KSN
-                    # 'list': [90, 104, 105, 106, 520, 523, 661, 670, 671]
-
-                    # GDK
-                    'list': [332, 323]
-                    , 'filePath': '/SYSTEMS/PROG/PYTHON/IDE/resources/config/stnInfo'
+                    'filePath': '/SYSTEMS/PROG/PYTHON/IDE/resources/config/stnInfo'
                     , 'fileName': 'ALL_STN_INFO.csv'
+                    # KSN
+                    # , 'list': [90, 104, 105, 106, 520, 523, 661, 670, 671]
+                                  
+                    # GDK
+                    , 'list': [323]
                 }
 
                 # 수행 목록
@@ -995,12 +995,8 @@ class DtaProcess(object):
                     'filePath': '/DATA/INPUT/LSH0579/uf'
                     , 'fileName': 'RDR_{}_FQC_%Y%m%d%H%M.uf'
                     # 관악산(KWK), 오성산(KSN), 광덕산(GDK), 면봉산(MYN), 구덕산(PSN), 백령도(BRI), 영종도(IIA), 진도(JNI), 고산(GSN), 성산(SSP), 강릉(GNG)
-                    # , 'codeList': ['KSN']
+                    # , 'codeList': ['KWK', 'KSN', 'GDK', 'MYN', 'PSN', 'BRI', 'IIA', 'JNI', 'GSN', 'SSP', 'GNG']
                     , 'codeList': ['GDK']
-                    # , 'varList': ['zhh', 'ziR', 'Rcal']
-                    # , 'varName': ['누적반사도팩터', '누적반사도', '누적강우강도']
-                    , 'varList': ['ziR']
-                    , 'varName': ['누적반사도']
 
                     # 강수 유형 int(mm/h)/ran(mm)
                     , 'rainType': 'int'
