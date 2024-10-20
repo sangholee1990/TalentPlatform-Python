@@ -722,7 +722,8 @@ def radarValid(sysOpt, modelInfo, code, dtDateList):
         # 매 5분 순간마다 가공파일 검색/병합
         # 융합 ASOS/AWS 지상 관측소을 기준으로 최근접 레이더 가공파일 화소 찾기 (posRow, posCol, posLat, posLon, posDistKm)
         # 매 5분 순간마다 가공파일을 이용하여 매 1시간 누적 계산
-        # 매 1시간 누적마다 지상 관측소를 기준으로 최근접/선형내삽 화소 추출
+        # 매 1시간 누적마다 지상 관측소를 기준으로 최근접/선형내삽 화소 추출 그리고 엑셀 저장
+        # 매 1시간 누적마다 반사도/강우강도 시각화
         # ==========================================================================================================
         # 매 5분 순간마다 가공파일 검색/병합
         procFilePattern = '{}/{}'.format(modelInfo['procPath'], modelInfo['procName'])
@@ -787,7 +788,7 @@ def radarValid(sysOpt, modelInfo, code, dtDateList):
         dataL4 = dataL3.resample(time='1H').sum(dim=['time'], skipna=False)
         # dataL4 = dataL3.resample(time='1H').sum(dim=['time'], skipna=True)
 
-        # 매 1시간 누적마다 지상 관측소를 기준으로 최근접/선형내삽 화소 추출
+        # 매 1시간 누적마다 지상 관측소를 기준으로 최근접/선형내삽 화소 추출 그리고 엑셀 저장
         posDataL3 = pd.DataFrame()
         for i, posInfo in allStnDataL2.iterrows():
             if (pd.isna(posInfo['posRow']) or pd.isna(posInfo['posCol'])): continue
