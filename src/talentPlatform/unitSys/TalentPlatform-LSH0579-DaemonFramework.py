@@ -475,7 +475,8 @@ def radarProc(modelInfo, code, dtDateInfo):
         saveImgPattern = '{}/{}'.format(modelInfo['figPath'], modelInfo['figName'])
         saveImg = dtDateInfo.strftime(saveImgPattern).format(code)
         os.makedirs(os.path.dirname(saveImg), exist_ok=True)
-        plt.savefig(saveImg, dpi=600, bbox_inches='tight')
+        # plt.savefig(saveImg, dpi=600, bbox_inches='tight')
+        plt.savefig(saveImg, dpi=100, bbox_inches='tight')
         plt.close()
         log.info(f"[CHECK] saveImg : {saveImg}")
 
@@ -814,8 +815,7 @@ def radarValid(sysOpt, modelInfo, code, dtDateList):
                 posDataL3 = pd.merge(posDataL3, posDataL2, how='left', on='time')
 
         saveXlsxPattern = '{}/{}'.format(modelInfo['xlsxPath'], modelInfo['xlsxName'])
-        saveXlsxFile = dtDateInfo.strftime(saveXlsxPattern).format(code, dtSrtDate.strftime('%Y%m%d%H%M'),
-                                                                   dtEndDate.strftime('%Y%m%d%H%M'))
+        saveXlsxFile = saveXlsxPattern.format(code, dtDateList.min().strftime('%Y%m%d%H%M'), dtDateList.max().strftime('%Y%m%d%H%M'))
         os.makedirs(os.path.dirname(saveXlsxFile), exist_ok=True)
         posDataL3.to_excel(saveXlsxFile, index=False)
         log.info(f"[CHECK] saveXlsxFile : {saveXlsxFile}")
@@ -857,7 +857,8 @@ def radarValid(sysOpt, modelInfo, code, dtDateList):
             plt.pcolormesh(lon2D, lat2D, val2D, cmap=cm.get_cmap('jet'), vmin=50, vmax=500)
             plt.colorbar()
             plt.title(mainTitle)
-            plt.savefig(saveImg, dpi=600, bbox_inches='tight', transparent=False)
+            # plt.savefig(saveImg, dpi=600, bbox_inches='tight', transparent=False)
+            plt.savefig(saveImg, dpi=100, bbox_inches='tight', transparent=False)
             # plt.show()
             plt.close()
             log.info(f"[CHECK] saveImg : {saveImg}")
@@ -1028,7 +1029,7 @@ class DtaProcess(object):
 
                     # 엑셀 파일
                     , 'xlsxPath': '/DATA/OUTPUT/LSH0579'
-                    , 'xlsxName': 'RDR_{}_FQC-{}_{}-{}.xlsx'
+                    , 'xlsxName': 'RDR_{}_FQC_{}-{}.xlsx'
 
                     # 누적 영상
                     , 'cumPath': '/DATA/FIG/LSH0579'
@@ -1047,7 +1048,7 @@ class DtaProcess(object):
             # 비동기 다중 프로세스 수행
             # **************************************************************************************************************
             # 비동기 다중 프로세스 개수
-            # pool = Pool(int(sysOpt['cpuCoreNum']))
+            pool = Pool(int(sysOpt['cpuCoreNum']))
 
             for modelType in sysOpt['modelList']:
                 log.info(f'[CHECK] modelType : {modelType}')
@@ -1059,11 +1060,11 @@ class DtaProcess(object):
                     log.info(f'[CHECK] code : {code}')
 
                     # 자료 가공
-                    # for dtDateInfo in dtDateList:
-                    #     # log.info(f'[CHECK] dtDateInfo : {dtDateInfo}')
-                    #     pool.apply_async(radarProc, args=(modelInfo, code, dtDateInfo))
-                    # pool.close()
-                    # pool.join()
+                    for dtDateInfo in dtDateList:
+                        # log.info(f'[CHECK] dtDateInfo : {dtDateInfo}')
+                        pool.apply_async(radarProc, args=(modelInfo, code, dtDateInfo))
+                    pool.close()
+                    pool.join()
 
                     # 자료 검증
                     radarValid(sysOpt, modelInfo, code, dtDateList)
