@@ -135,8 +135,7 @@ def initGlobalVar(env=None, contextPath=None, prjName=None):
         , 'logPath': contextPath if env in 'local' else os.path.join(contextPath, 'resources', 'log', prjName)
         , 'mapPath': contextPath if env in 'local' else os.path.join(contextPath, 'resources', 'mapInfo')
         , 'sysCfg': contextPath if env in 'local' else os.path.join(contextPath, 'resources', 'config', 'system.json')
-        ,
-        'seleniumPath': contextPath if env in 'local' else os.path.join(contextPath, 'resources', 'config', 'selenium')
+        , 'seleniumPath': contextPath if env in 'local' else os.path.join(contextPath, 'resources', 'config', 'selenium')
         , 'fontPath': contextPath if env in 'local' else os.path.join(contextPath, 'resources', 'config', 'fontInfo')
     }
 
@@ -715,6 +714,157 @@ def radarProc(modelInfo, code, dtDateInfo):
         log.error(f'Exception : {str(e)}')
         raise e
 
+@retry(stop_max_attempt_number=1)
+def radarValid(sysOpt, modelInfo, code, dtDateList):
+    try:
+        # ==========================================================================================================
+        # 매 5분 순간마다 가공파일 검색/병합
+        # 융합 ASOS/AWS 지상 관측소을 기준으로 최근접 레이더 가공파일 화소 찾기 (posRow, posCol, posLat, posLon, posDistKm)
+        # 매 5분 순간마다 가공파일을 이용하여 매 1시간 누적 계산
+        # 매 1시간 누적마다 지상 관측소를 기준으로 최근접/선형내삽 화소 추출
+        # ==========================================================================================================
+        # 매 5분 순간마다 가공파일 검색/병합
+        procFilePattern = '{}/{}'.format(modelInfo['procPath'], modelInfo['procName'])
+        # dtHourList = pd.date_range(start=dtSrtDate, end=dtEndDate, freq=sysOpt['invHour'])
+
+        searchList = []
+        for dtDateInfo in dtDateList:
+            procFile = dtDateInfo.strftime(procFilePattern).format(code)
+            fileList = sorted(glob.glob(procFile))
+            if fileList is None or len(fileList) < 1: continue
+            searchList.append(fileList[0])
+
+        if searchList is None or len(searchList) < 1: return
+        dataL3 = xr.open_mfdataset(searchList).sel(time=slice(sysOpt['srtDate'], sysOpt['endDate']))
+
+        # 레이더 가공 파일 일부
+        fileInfo = searchList[0]
+        cfgData = xr.open_dataset(fileInfo)
+        cfgDataL1 = cfgData.to_dataframe().reset_index(drop=False)
+
+        # ASOS/AWS 융합 지상관측소
+        inpFilePattern = '{}/{}'.format(sysOpt['stnInfo']['filePath'], sysOpt['stnInfo']['fileName'])
+        fileList = sorted(glob.glob(inpFilePattern))
+        fileInfo = fileList[0]
+        allStnData = pd.read_csv(fileInfo)
+        allStnDataL1 = allStnData[['STN', 'STN_KO', 'LON', 'LAT']]
+        allStnDataL2 = allStnDataL1[allStnDataL1['STN'].isin(sysOpt['stnInfo']['list'])]
+
+        # 융합 ASOS/AWS 지상 관측소을 기준으로 최근접 레이더 가공파일 화소 찾기 (posRow, posCol, posLat, posLon, posDistKm)
+        #      STN STN_KO        LON       LAT  ...  posCol      posLat     posLon  posDistKm
+        # 0     90     속초  128.56473  38.25085  ...   456.0  128.565921  38.251865   0.024091
+        # 10   104    북강릉  128.85535  37.80456  ...   482.0  128.850344  37.805816   0.072428
+        # 11   105     강릉  128.89099  37.75147  ...   486.0  128.894198  37.750990   0.045061
+        # 12   106     동해  129.12433  37.50709  ...   507.0  129.124659  37.503421   0.064192
+        # 289  520    설악동  128.51818  38.16705  ...   452.0  128.518319  38.171507   0.077807
+        # 292  523    주문진  128.82139  37.89848  ...   479.0  128.818774  37.896447   0.050570
+        # 424  661     현내  128.40191  38.54251  ...   441.0  128.401035  38.542505   0.011947
+        # 432  670     양양  128.62954  38.08874  ...   462.0  128.630338  38.088726   0.010963
+        # 433  671     청호  128.59360  38.19091  ...   459.0  128.598611  38.188309   0.082373
+        baTree = BallTree(np.deg2rad(cfgDataL1[['lat', 'lon']].values), metric='haversine')
+        for i, posInfo in allStnDataL2.iterrows():
+            if (pd.isna(posInfo['LAT']) or pd.isna(posInfo['LON'])): continue
+
+            closest = baTree.query(np.deg2rad(np.c_[posInfo['LAT'], posInfo['LON']]), k=1)
+            cloDist = closest[0][0][0] * 1000.0
+            cloIdx = closest[1][0][0]
+            cfgInfo = cfgDataL1.loc[cloIdx]
+
+            allStnDataL2.loc[i, 'posRow'] = cfgInfo['row']
+            allStnDataL2.loc[i, 'posCol'] = cfgInfo['col']
+            allStnDataL2.loc[i, 'posLat'] = cfgInfo['lon']
+            allStnDataL2.loc[i, 'posLon'] = cfgInfo['lat']
+            allStnDataL2.loc[i, 'posDistKm'] = cloDist
+
+        log.info(f"[CHECK] allStnDataL2 : {allStnDataL2}")
+
+        # 엑셀 저장
+        # Rst.xlsx
+        # RstH.xlsx
+
+        # 매 5분 순간마다 가공파일을 이용하여 매 1시간 누적 계산
+        dataL4 = dataL3.resample(time='1H').sum(dim=['time'], skipna=False)
+        # dataL4 = dataL3.resample(time='1H').sum(dim=['time'], skipna=True)
+
+        # 매 1시간 누적마다 지상 관측소를 기준으로 최근접/선형내삽 화소 추출
+        posDataL3 = pd.DataFrame()
+        for i, posInfo in allStnDataL2.iterrows():
+            if (pd.isna(posInfo['posRow']) or pd.isna(posInfo['posCol'])): continue
+            log.info(f"[CHECK] posInfo : {posInfo.to_frame().T}")
+
+            # 최근접 화소 추출
+            posData = dataL4.interp({'row': posInfo['posRow'], 'col': posInfo['posCol']}, method='nearest')
+            # posData = dataL4.sel({'row': posInfo['posRow'], 'col': posInfo['posCol']})
+
+            # 선형내삽 화소 추출
+            # posData = dataL4[varInfo].interp({'row': posInfo['posRow'], 'col': posInfo['posCol']}, method='linear')
+
+            posDataL1 = pd.DataFrame({
+                'time': posData['time'].values
+                , 'ziR': posData['ziR'].values
+                , 'Rcal': posData['Rcal'].values
+            })
+
+            if len(posDataL1) < 1: continue
+            posDataL2 = posDataL1.rename(columns={'ziR': f"누적반사도{posInfo['STN']}", "Rcal": f"누적강도{posInfo['STN']}"})
+
+            if len(posDataL3) == 0:
+                posDataL3 = posDataL2
+            else:
+                posDataL3 = pd.merge(posDataL3, posDataL2, how='left', on='time')
+
+        saveXlsxPattern = '{}/{}'.format(modelInfo['xlsxPath'], modelInfo['xlsxName'])
+        saveXlsxFile = dtDateInfo.strftime(saveXlsxPattern).format(code, dtSrtDate.strftime('%Y%m%d%H%M'),
+                                                                   dtEndDate.strftime('%Y%m%d%H%M'))
+        os.makedirs(os.path.dirname(saveXlsxFile), exist_ok=True)
+        posDataL3.to_excel(saveXlsxFile, index=False)
+        log.info(f"[CHECK] saveXlsxFile : {saveXlsxFile}")
+
+        # 매 1시간 누적 반사도/강우강도 시각화
+        timeList = dataL4['time'].values
+        for timeInfo in timeList:
+            selData = dataL4.sel(time=timeInfo)
+            dtDateInfo = pd.to_datetime(selData['time'].values)
+
+            # 누적 반사도
+            saveImgPattern = '{}/{}'.format(modelInfo['cumPath'], modelInfo['cumName'])
+            saveImg = dtDateInfo.strftime(saveImgPattern).format(code, 'cf')
+            mainTitle = os.path.basename(saveImg).split(".")[0]
+            os.makedirs(os.path.dirname(saveImg), exist_ok=True)
+
+            lon2D = selData['lon'].values
+            lat2D = selData['lat'].values
+            val2D = selData['ziR'].values
+
+            plt.pcolormesh(lon2D, lat2D, val2D, cmap=cm.get_cmap('jet'), vmin=500, vmax=6000)
+            plt.colorbar()
+            plt.title(mainTitle)
+            plt.savefig(saveImg, dpi=600, bbox_inches='tight', transparent=False)
+            # plt.show()
+            plt.close()
+            log.info(f"[CHECK] saveImg : {saveImg}")
+
+            # 누적 강우강도 mm/hr
+            saveImgPattern = '{}/{}'.format(modelInfo['cumPath'], modelInfo['cumName'])
+            saveImg = dtDateInfo.strftime(saveImgPattern).format(code, 'cr')
+            mainTitle = os.path.basename(saveImg).split(".")[0]
+            os.makedirs(os.path.dirname(saveImg), exist_ok=True)
+
+            lon2D = selData['lon'].values
+            lat2D = selData['lat'].values
+            val2D = selData['Rcal'].values
+
+            plt.pcolormesh(lon2D, lat2D, val2D, cmap=cm.get_cmap('jet'), vmin=50, vmax=500)
+            plt.colorbar()
+            plt.title(mainTitle)
+            plt.savefig(saveImg, dpi=600, bbox_inches='tight', transparent=False)
+            # plt.show()
+            plt.close()
+            log.info(f"[CHECK] saveImg : {saveImg}")
+    except Exception as e:
+        log.error(f'Exception : {str(e)}')
+        raise e
+
 
 # ================================================
 # 4. 부 프로그램
@@ -872,13 +1022,17 @@ class DtaProcess(object):
                     , 'figPath': '/DATA/FIG/LSH0579'
                     , 'figName': 'RDR_{}_FQC_%Y%m%d%H%M.png'
 
-                    # 누적 영상
-                    , 'cumPath': '/DATA/FIG/LSH0579'
-                    , 'cumName': 'RDR_{}_FQC-{}_%Y%m%d%H%M.png'
-
                     # 가공 파일
                     , 'procPath': '/DATA/OUTPUT/LSH0579/PROC'
                     , 'procName': 'RDR_{}_FQC_%Y%m%d%H%M.nc'
+
+                    # 엑셀 파일
+                    , 'xlsxPath': '/DATA/OUTPUT/LSH0579'
+                    , 'xlsxName': 'RDR_{}_FQC-{}_{}-{}.xlsx'
+
+                    # 누적 영상
+                    , 'cumPath': '/DATA/FIG/LSH0579'
+                    , 'cumName': 'RDR_{}_FQC-{}_%Y%m%d%H%M.png'
                 }
             }
 
@@ -902,186 +1056,17 @@ class DtaProcess(object):
                 if modelInfo is None: continue
 
                 for code in modelInfo['codeList']:
-                    # log.info(f'[CHECK] code : {code}')
-                    #
+                    log.info(f'[CHECK] code : {code}')
+
+                    # 자료 가공
                     # for dtDateInfo in dtDateList:
                     #     # log.info(f'[CHECK] dtDateInfo : {dtDateInfo}')
                     #     pool.apply_async(radarProc, args=(modelInfo, code, dtDateInfo))
                     # pool.close()
                     # pool.join()
 
-                    # ==========================================================================================================
-                    # 매 5분 순간마다 지상 관측소를 기준으로 최근접/선형내삽 화소 추출
-                    # 매 1시간 누적마다 지상 관측소를 기준으로 최근접/선형내삽 화소 추출
-                    # ==========================================================================================================
-                    # 가공 파일 병합
-                    procFilePattern = '{}/{}'.format(modelInfo['procPath'], modelInfo['procName'])
-                    # dtHourList = pd.date_range(start=dtSrtDate, end=dtEndDate, freq=sysOpt['invHour'])
-
-                    searchList = []
-                    for dtDateInfo in dtDateList:
-                        procFile = dtDateInfo.strftime(procFilePattern).format(code)
-                        fileList = sorted(glob.glob(procFile))
-                        if fileList is None or len(fileList) < 1: continue
-                        searchList.append(fileList[0])
-
-                    if searchList is None or len(searchList) < 1: continue
-                    dataL3 = xr.open_mfdataset(searchList).sel(time=slice(sysOpt['srtDate'], sysOpt['endDate']))
-
-                    # dataL3 = xr.Dataset()
-                    # for dtDateInfo in dtDateList:
-                    #     procFile = dtDateInfo.strftime(procFilePattern).format(code)
-                    #     fileList = sorted(glob.glob(procFile))
-                    #     if fileList is None or len(fileList) < 1: continue
-                    #     fileInfo = fileList[0]
-                    #     tmpData = xr.open_dataset(fileInfo)
-                    #     dataL3 = xr.merge([dataL3, tmpData])
-
-                    # 레이더 가공 파일
-                    fileInfo = searchList[0]
-                    cfgData = xr.open_dataset(fileInfo)
-                    cfgDataL1 = cfgData.to_dataframe().reset_index(drop=False)
-
-                    # ASOS/AWS 융합 지상관측소
-                    inpFilePattern = '{}/{}'.format(sysOpt['stnInfo']['filePath'], sysOpt['stnInfo']['fileName'])
-                    fileList = sorted(glob.glob(inpFilePattern))
-                    fileInfo = fileList[0]
-                    allStnData = pd.read_csv(fileInfo)
-                    allStnDataL1 = allStnData[['STN', 'STN_KO', 'LON', 'LAT']]
-                    allStnDataL2 = allStnDataL1[allStnDataL1['STN'].isin(sysOpt['stnInfo']['list'])]
-
-                    # 융합 ASOS/AWS 지상 관측소을 기준으로 최근접 화소 (posRow, posCol, posLat, posLon, posDistKm)
-                    #      STN STN_KO        LON       LAT  ...  posCol      posLat     posLon  posDistKm
-                    # 0     90     속초  128.56473  38.25085  ...   456.0  128.565921  38.251865   0.024091
-                    # 10   104    북강릉  128.85535  37.80456  ...   482.0  128.850344  37.805816   0.072428
-                    # 11   105     강릉  128.89099  37.75147  ...   486.0  128.894198  37.750990   0.045061
-                    # 12   106     동해  129.12433  37.50709  ...   507.0  129.124659  37.503421   0.064192
-                    # 289  520    설악동  128.51818  38.16705  ...   452.0  128.518319  38.171507   0.077807
-                    # 292  523    주문진  128.82139  37.89848  ...   479.0  128.818774  37.896447   0.050570
-                    # 424  661     현내  128.40191  38.54251  ...   441.0  128.401035  38.542505   0.011947
-                    # 432  670     양양  128.62954  38.08874  ...   462.0  128.630338  38.088726   0.010963
-                    # 433  671     청호  128.59360  38.19091  ...   459.0  128.598611  38.188309   0.082373
-                    baTree = BallTree(np.deg2rad(cfgDataL1[['lat', 'lon']].values), metric='haversine')
-                    for i, posInfo in allStnDataL2.iterrows():
-                        if (pd.isna(posInfo['LAT']) or pd.isna(posInfo['LON'])): continue
-
-                        closest = baTree.query(np.deg2rad(np.c_[posInfo['LAT'], posInfo['LON']]), k=1)
-                        cloDist = closest[0][0][0] * 1000.0
-                        cloIdx = closest[1][0][0]
-                        cfgInfo = cfgDataL1.loc[cloIdx]
-
-                        allStnDataL2.loc[i, 'posRow'] = cfgInfo['row']
-                        allStnDataL2.loc[i, 'posCol'] = cfgInfo['col']
-                        allStnDataL2.loc[i, 'posLat'] = cfgInfo['lon']
-                        allStnDataL2.loc[i, 'posLon'] = cfgInfo['lat']
-                        allStnDataL2.loc[i, 'posDistKm'] = cloDist
-
-                    log.info(f"[CHECK] allStnDataL2 : {allStnDataL2}")
-
-                    # 엑셀 저장
-                    # Rst.xlsx
-                    # RstH.xlsx
-                    # 매 5분 순간마다 지상 관측소를 기준으로 최근접/선형내삽 화소 추출
-                    # for i, posInfo in allStnDataL2.iterrows():
-                    #     if (pd.isna(posInfo['posRow']) or pd.isna(posInfo['posCol'])): continue
-                    #     log.info(f"[CHECK] posInfo : {posInfo.to_frame().T}")
-                    #
-                    #     for varIdx, varInfo in enumerate(modelInfo['varList']):
-                    #         varName = modelInfo['varName'][varIdx]
-                    #
-                    #         # 최근접 화소 추출
-                    #         posData = dataL3[varInfo].interp({'row': posInfo['posRow'], 'col': posInfo['posCol']}, method='nearest')
-                    #
-                    #         # 선형내삽 화소 추출
-                    #         # posData = dataL3[varInfo].interp({'row': posInfo['posRow'], 'col': posInfo['posCol']}, method='linear')
-                    #
-                    #         posDataL1 = posData.to_dataframe().reset_index(drop=False)
-                    #         # posDataL1 = posData.to_dataframe().reset_index(drop=False).dropna()
-                    #         if len(posDataL1) < 1: continue
-                    #         print(posDataL1)
-
-                    # posData['ziR'].plot()
-                    # plt.show()
-
-                    # dataL3['Rcal'] = xr.where((dataL3['Rcal'] == 0), np.nan, dataL3['Rcal'])
-
-                    # 매 1시간 누적마다 지상 관측소를 기준으로 최근접/선형내삽 화소 추출
-                    dataL4 = dataL3.resample(time='1H').sum(dim=['time'], skipna=False)
-                    # dataL4 = dataL3.resample(time='1H').sum(dim=['time'], skipna=True)
-
-                    # 매 1시간 누적 반사도/강우강도 시각화
-                    # timeList = dataL4['time'].values
-                    # for timeInfo in timeList:
-                    #     selData = dataL4.sel(time = timeInfo)
-                    #     dtDateInfo = pd.to_datetime(selData['time'].values)
-
-                    # timeList = dataL4['time'].values
-                    for i, posInfo in allStnDataL2.iterrows():
-                        if (pd.isna(posInfo['posRow']) or pd.isna(posInfo['posCol'])): continue
-                        log.info(f"[CHECK] posInfo : {posInfo.to_frame().T}")
-
-                        # for timeInfo in timeList:
-
-                        # 최근접 화소 추출
-                        posData = dataL4.interp({'row': posInfo['posRow'], 'col': posInfo['posCol']}, method='nearest')
-                        # posData = dataL4.sel({'row': posInfo['posRow'], 'col': posInfo['posCol']})
-
-                        # 선형내삽 화소 추출
-                        # posData = dataL4[varInfo].interp({'row': posInfo['posRow'], 'col': posInfo['posCol']}, method='linear')
-
-                        # # posDataL1 = posData.to_dataframe().reset_index(drop=False).dropna()
-                        # posDataL1 = posData.to_dataframe()
-                        posDataL1 = pd.DataFrame({
-                            'time': posData['time'].values
-                            , 'zhh': posData['zhh'].values
-                            , 'ziR': posData['ziR'].values
-                            , 'Rcal': posData['Rcal'].values
-                        })
-
-                        if len(posDataL1) < 1: continue
-                        print(posDataL1[['time', 'zhh', 'ziR', 'Rcal']])
-
-                    # 매 1시간 누적 반사도/강우강도 시각화
-                    timeList = dataL4['time'].values
-                    for timeInfo in timeList:
-                        selData = dataL4.sel(time=timeInfo)
-                        dtDateInfo = pd.to_datetime(selData['time'].values)
-
-                        # 누적 반사도
-                        saveImgPattern = '{}/{}'.format(modelInfo['cumPath'], modelInfo['cumName'])
-                        saveImg = dtDateInfo.strftime(saveImgPattern).format(code, 'cf')
-                        mainTitle = os.path.basename(saveImg).split(".")[0]
-                        os.makedirs(os.path.dirname(saveImg), exist_ok=True)
-
-                        lon2D = selData['lon'].values
-                        lat2D = selData['lat'].values
-                        val2D = selData['ziR'].values
-
-                        plt.pcolormesh(lon2D, lat2D, val2D, cmap=cm.get_cmap('jet'), vmin=500, vmax=6000)
-                        plt.colorbar()
-                        plt.title(mainTitle)
-                        plt.savefig(saveImg, dpi=600, bbox_inches='tight', transparent=False)
-                        # plt.show()
-                        plt.close()
-                        log.info(f"[CHECK] saveImg : {saveImg}")
-
-                        # 누적 강우강도 mm/hr
-                        saveImgPattern = '{}/{}'.format(modelInfo['cumPath'], modelInfo['cumName'])
-                        saveImg = dtDateInfo.strftime(saveImgPattern).format(code, 'cr')
-                        mainTitle = os.path.basename(saveImg).split(".")[0]
-                        os.makedirs(os.path.dirname(saveImg), exist_ok=True)
-
-                        lon2D = selData['lon'].values
-                        lat2D = selData['lat'].values
-                        val2D = selData['Rcal'].values
-
-                        plt.pcolormesh(lon2D, lat2D, val2D, cmap=cm.get_cmap('jet'), vmin=50, vmax=500)
-                        plt.colorbar()
-                        plt.title(mainTitle)
-                        plt.savefig(saveImg, dpi=600, bbox_inches='tight', transparent=False)
-                        # plt.show()
-                        plt.close()
-                        log.info(f"[CHECK] saveImg : {saveImg}")
+                    # 자료 검증
+                    radarValid(sysOpt, modelInfo, code, dtDateList)
 
         except Exception as e:
             log.error(f"Exception : {str(e)}")
