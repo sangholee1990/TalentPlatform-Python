@@ -63,12 +63,12 @@ plt.rc('axes', unicode_minus=False)
 # 그래프에서 마이너스 글꼴 깨지는 문제에 대한 대처
 mpl.rcParams['axes.unicode_minus'] = False
 
+
 # =================================================
 # 2. 유틸리티 함수
 # =================================================
 # 로그 설정
 def initLog(env=None, contextPath=None, prjName=None):
-
     if env is None: env = 'local'
     if contextPath is None: contextPath = os.getcwd()
     if prjName is None: prjName = 'test'
@@ -135,7 +135,8 @@ def initGlobalVar(env=None, contextPath=None, prjName=None):
         , 'logPath': contextPath if env in 'local' else os.path.join(contextPath, 'resources', 'log', prjName)
         , 'mapPath': contextPath if env in 'local' else os.path.join(contextPath, 'resources', 'mapInfo')
         , 'sysCfg': contextPath if env in 'local' else os.path.join(contextPath, 'resources', 'config', 'system.json')
-        , 'seleniumPath': contextPath if env in 'local' else os.path.join(contextPath, 'resources', 'config', 'selenium')
+        ,
+        'seleniumPath': contextPath if env in 'local' else os.path.join(contextPath, 'resources', 'config', 'selenium')
         , 'fontPath': contextPath if env in 'local' else os.path.join(contextPath, 'resources', 'config', 'fontInfo')
     }
 
@@ -183,7 +184,6 @@ def initArgument(globalVar, inParams):
 
 
 def JPL_qpe(kdp, drf, ref):
-
     # 데이터 크기 설정
     nx, ny = ref.shape
     RZh = np.zeros((nx, ny))
@@ -236,7 +236,6 @@ def JPL_qpe(kdp, drf, ref):
 
 
 def CSU_qpe(kdp, drf, ref):
-
     # 데이터 크기 설정
     nx, ny = ref.shape
     RCSU = np.zeros((nx, ny))
@@ -277,8 +276,8 @@ def CSU_qpe(kdp, drf, ref):
 
     return RCSU, Rcas
 
-def calRain_SN(rVarf, rVark, rVard, Rtyp, dt, aZh):
 
+def calRain_SN(rVarf, rVark, rVard, Rtyp, dt, aZh):
     # 초기화
     appzdrOffset = 'no'
     zdrOffset = 0
@@ -371,6 +370,7 @@ def calRain_SN(rVarf, rVark, rVard, Rtyp, dt, aZh):
 
     return Rcal, Rcas
 
+
 @retry(stop_max_attempt_number=1)
 def radarProc(modelInfo, code, dtDateInfo):
     try:
@@ -436,7 +436,7 @@ def radarProc(modelInfo, code, dtDateInfo):
             , 'num_ray_gat_swp': [nray, ngat, nswp]
             , 'fix_ang': fang
             , 'arr_azm_rng_elv': [fazm, frng, felv]
-            , 'arr_etc':  [fpul, ffrq, fscn, fswp, fsws, fswe, ftme]
+            , 'arr_etc': [fpul, ffrq, fscn, fswp, fsws, fswe, ftme]
             , 'arr_ref': np.array(fdat_ref)
             # , 'arr_crf': arr_crf
             , 'arr_zdr': np.array(fdat_zdr)
@@ -470,7 +470,7 @@ def radarProc(modelInfo, code, dtDateInfo):
             ax = fig.add_subplot(1, 3, i + 1)
             display.plot(plotInfo['field'], nEL, vmin=plotInfo['vmin'], vmax=plotInfo['vmax'])
             # display.plot_range_rings([50, 100, 150, 200, 250]) # KMA 설정
-            display.plot_range_rings([25, 50, 75, 100, 125]) # FCO 설정
+            display.plot_range_rings([25, 50, 75, 100, 125])  # FCO 설정
             display.plot_cross_hair(5.0)
 
         saveImgPattern = '{}/{}'.format(modelInfo['figPath'], modelInfo['figName'])
@@ -638,7 +638,7 @@ def radarProc(modelInfo, code, dtDateInfo):
         # dzr = Rcalo[Ralg - 1].astype(np.float64)
         dzr = Rcalo[Ralg].astype(np.float64)
         dzr[np.isnan(dzr)] = 0
-        Rcal = griddata((dxr, dyr), dzr.flatten(),(xi, yi), method='linear')
+        Rcal = griddata((dxr, dyr), dzr.flatten(), (xi, yi), method='linear')
         # Rcal = griddata(np.column_stack((dxr, dyr)), dzr.flatten(),(xi, yi), method='linear')
 
         # xy -> lonlat
@@ -715,11 +715,11 @@ def radarProc(modelInfo, code, dtDateInfo):
         log.error(f'Exception : {str(e)}')
         raise e
 
+
 # ================================================
 # 4. 부 프로그램
 # ================================================
 class DtaProcess(object):
-
     # ================================================
     # 요구사항
     # ================================================
@@ -759,7 +759,7 @@ class DtaProcess(object):
     global env, contextPath, prjName, serviceName, log, globalVar
 
     # env = 'local'  # 로컬 : 원도우 환경, 작업환경 (현재 소스 코드 환경 시 .) 설정
-    env = 'dev'      # 개발 : 원도우 환경, 작업환경 (사용자 환경 시 contextPath) 설정
+    env = 'dev'  # 개발 : 원도우 환경, 작업환경 (사용자 환경 시 contextPath) 설정
     # env = 'oper'  # 운영 : 리눅스 환경, 작업환경 (사용자 환경 시 contextPath) 설정
 
     if (platform.system() == 'Windows'):
@@ -893,7 +893,7 @@ class DtaProcess(object):
             # 비동기 다중 프로세스 수행
             # **************************************************************************************************************
             # 비동기 다중 프로세스 개수
-            pool = Pool(int(sysOpt['cpuCoreNum']))
+            # pool = Pool(int(sysOpt['cpuCoreNum']))
 
             for modelType in sysOpt['modelList']:
                 log.info(f'[CHECK] modelType : {modelType}')
@@ -903,12 +903,12 @@ class DtaProcess(object):
 
                 for code in modelInfo['codeList']:
                     # log.info(f'[CHECK] code : {code}')
-
-                    for dtDateInfo in dtDateList:
-                        # log.info(f'[CHECK] dtDateInfo : {dtDateInfo}')
-                        pool.apply_async(radarProc, args=(modelInfo, code, dtDateInfo))
-                    pool.close()
-                    pool.join()
+                    #
+                    # for dtDateInfo in dtDateList:
+                    #     # log.info(f'[CHECK] dtDateInfo : {dtDateInfo}')
+                    #     pool.apply_async(radarProc, args=(modelInfo, code, dtDateInfo))
+                    # pool.close()
+                    # pool.join()
 
                     # ==========================================================================================================
                     # 매 5분 순간마다 지상 관측소를 기준으로 최근접/선형내삽 화소 추출
@@ -927,6 +927,15 @@ class DtaProcess(object):
 
                     if searchList is None or len(searchList) < 1: continue
                     dataL3 = xr.open_mfdataset(searchList).sel(time=slice(sysOpt['srtDate'], sysOpt['endDate']))
+
+                    # dataL3 = xr.Dataset()
+                    # for dtDateInfo in dtDateList:
+                    #     procFile = dtDateInfo.strftime(procFilePattern).format(code)
+                    #     fileList = sorted(glob.glob(procFile))
+                    #     if fileList is None or len(fileList) < 1: continue
+                    #     fileInfo = fileList[0]
+                    #     tmpData = xr.open_dataset(fileInfo)
+                    #     dataL3 = xr.merge([dataL3, tmpData])
 
                     # 레이더 가공 파일
                     fileInfo = searchList[0]
@@ -991,8 +1000,8 @@ class DtaProcess(object):
                     #         if len(posDataL1) < 1: continue
                     #         print(posDataL1)
 
-                        # posData['ziR'].plot()
-                        # plt.show()
+                    # posData['ziR'].plot()
+                    # plt.show()
 
                     # dataL3['Rcal'] = xr.where((dataL3['Rcal'] == 0), np.nan, dataL3['Rcal'])
 
@@ -1000,56 +1009,42 @@ class DtaProcess(object):
                     dataL4 = dataL3.resample(time='1H').sum(dim=['time'], skipna=False)
                     # dataL4 = dataL3.resample(time='1H').sum(dim=['time'], skipna=True)
 
+                    # 매 1시간 누적 반사도/강우강도 시각화
+                    # timeList = dataL4['time'].values
+                    # for timeInfo in timeList:
+                    #     selData = dataL4.sel(time = timeInfo)
+                    #     dtDateInfo = pd.to_datetime(selData['time'].values)
+
+                    # timeList = dataL4['time'].values
                     for i, posInfo in allStnDataL2.iterrows():
                         if (pd.isna(posInfo['posRow']) or pd.isna(posInfo['posCol'])): continue
                         log.info(f"[CHECK] posInfo : {posInfo.to_frame().T}")
 
+                        # for timeInfo in timeList:
+
                         # 최근접 화소 추출
                         posData = dataL4.interp({'row': posInfo['posRow'], 'col': posInfo['posCol']}, method='nearest')
+                        # posData = dataL4.sel({'row': posInfo['posRow'], 'col': posInfo['posCol']})
 
                         # 선형내삽 화소 추출
                         # posData = dataL4[varInfo].interp({'row': posInfo['posRow'], 'col': posInfo['posCol']}, method='linear')
 
-                        # posData[varInfo].values
-                        # a = posData.compute()
+                        # # posDataL1 = posData.to_dataframe().reset_index(drop=False).dropna()
+                        # posDataL1 = posData.to_dataframe()
+                        posDataL1 = pd.DataFrame({
+                            'time': posData['time'].values
+                            , 'zhh': posData['zhh'].values
+                            , 'ziR': posData['ziR'].values
+                            , 'Rcal': posData['Rcal'].values
+                        })
 
-                        # posDataL1 = posData.to_dataframe().reset_index(drop=False).dropna()
-                        posDataL1 = posData.to_dataframe().reset_index(drop=False)
                         if len(posDataL1) < 1: continue
                         print(posDataL1[['time', 'zhh', 'ziR', 'Rcal']])
-
-                        # for varIdx, varInfo in enumerate(modelInfo['varList']):
-                        #     varName = modelInfo['varName'][varIdx]
-                        #
-                        #     # 최근접 화소 추출
-                        #     # posData = dataL4[varInfo].interp({'row': posInfo['posRow'], 'col': posInfo['posCol']}, method='nearest')
-                        #     posData = dataL4[varInfo].sel({'row': posInfo['posRow'], 'col': posInfo['posCol']})
-                        #
-                        #     # 선형내삽 화소 추출
-                        #     # posData = dataL4[varInfo].interp({'row': posInfo['posRow'], 'col': posInfo['posCol']}, method='linear')
-                        #
-                        #     # posData[varInfo].values
-                        #     # a = posData.compute()
-                        #
-                        #
-                        #     # posDataL1 = posData.to_dataframe().reset_index(drop=False).dropna()
-                        #     posDataL1 = posData.to_dataframe().reset_index(drop=False)
-                        #     # if len(posDataL1) < 1: continue
-                        #     # print(posDataL1)
-
-                            # # 누적 계산 반사도 팩터
-                            # posDataL1['zhh'].values
-                            #
-                            # # 누적 계산 반사도
-                            # posDataL1['ziR'].values
-                            #
-                            # # 누적 계산 강우강도, mm/hr
-                            # posDataL1['Rcal'].values
 
                     # 매 1시간 누적 반사도/강우강도 시각화
                     timeList = dataL4['time'].values
                     for timeInfo in timeList:
-                        selData = dataL4.sel(time = timeInfo)
+                        selData = dataL4.sel(time=timeInfo)
                         dtDateInfo = pd.to_datetime(selData['time'].values)
 
                         # 누적 반사도
@@ -1094,6 +1089,7 @@ class DtaProcess(object):
         finally:
             log.info('[END] {}'.format("exec"))
 
+
 # ================================================
 # 3. 주 프로그램
 # ================================================
@@ -1104,7 +1100,7 @@ if __name__ == '__main__':
     try:
 
         # 파이썬 실행 시 전달인자를 초기 환경변수 설정
-        inParams = { }
+        inParams = {}
         print("[CHECK] inParams : {}".format(inParams))
 
         # 부 프로그램 호출
