@@ -36,6 +36,7 @@ import matplotlib.cm as cm
 from multiprocessing import Pool
 import multiprocessing as mp
 from retrying import retry
+from pymap3d import enu2geodetic
 
 # =================================================
 # 사용자 매뉴얼
@@ -194,13 +195,16 @@ def JPL_qpe(kdp, drf, ref):
 
     # 단일편파 및 이중편파 레이더 데이터 변환
     # zh: mm^6 m^-3, linear scale value
-    zh = np.power(10.0, ref / 10.0)
+    # zh = np.power(10.0, ref / 10.0)
+    zh = 10.0 ** (ref / 10.0)
 
     # zdr: mm^6 m^-3, linear scale value
-    zdr = np.power(10.0, drf / 10.0)
+    # zdr = np.power(10.0, drf / 10.0)
+    zdr = 10.0 ** (drf / 10.0)
 
     # R(Zh) 계산
-    RZh = 1.70 * 10 ** (-2) * zh ** 0.714
+    # RZh = 1.70 * 10 ** (-2) * zh ** 0.714
+    RZh = 1.70e-2 * zh ** 0.714
 
     # R(Kdp) 계산 (Ryzhkov et al., 2005)
     RKdp = 44.0 * (np.abs(kdp) ** 0.822) * np.sign(kdp)
@@ -224,6 +228,10 @@ def JPL_qpe(kdp, drf, ref):
     RJPL[ix] = RKdp[ix]
     Rcas[ix] = 3
 
+    idx = ((RJPL < 0) | np.isnan(ref) | (ref < 10) | (RJPL > 150) | (drf < -3) | (drf > 5))
+    Rcas[idx] = 0
+    RJPL[idx] = np.nan
+
     return RJPL, Rcas
 
 
@@ -236,37 +244,38 @@ def CSU_qpe(kdp, drf, ref):
 
     # 단일편파 및 이중편파 레이더 데이터 변환
     # zh: mm^6 m^-3, linear unit
-    zh = np.power(10.0, ref / 10.0)
+    # zh = np.power(10.0, ref / 10.0)
+    zh = 10.0 ** (ref / 10.0)
 
     # zdr: dB, log unit
     zdr = drf
 
     # CASE I: R(Kdp, Zdr)
-    ix = (kdp >= 0.3) & (ref >= 38) & (zdr >= 0.5)
+    ix = (kdp >= 0.3) & (ref >= 38.0) & (zdr >= 0.5)
     RCSU[ix] = 90.8 * (kdp[ix] ** 0.93) * (10 ** (-0.169 * zdr[ix]))
     Rcas[ix] = 1
 
     # CASE II: R(Kdp)
-    ix = (kdp >= 0.3) & (ref >= 38) & (zdr < 0.5)
+    ix = (kdp >= 0.3) & (ref >= 38.0) & (zdr < 0.5)
     RCSU[ix] = 40.5 * (kdp[ix] ** 0.85)
     Rcas[ix] = 2
 
     # CASE III: R(Zh, Zdr)
-    ix = ((kdp < 0.3) | (ref < 38)) & (zdr >= 0.5)
-    RCSU[ix] = 6.7 * 10 ** (-3) * (zh[ix] ** 0.927) * (10 ** (-0.343 * zdr[ix]))
+    ix = ((kdp < 0.3) | (ref < 38.0)) & (zdr >= 0.5)
+    # RCSU[ix] = 6.7 * 10 ** (-3) * (zh[ix] ** 0.927) * (10 ** (-0.343 * zdr[ix]))
+    RCSU[ix] = 6.7e-3 * (zh[ix] ** 0.927) * (10 ** (-0.343 * zdr[ix]))
     Rcas[ix] = 3
 
     # CASE IV: R(Zh)
-    ix = ((kdp < 0.3) | (ref < 38)) & (zdr < 0.5)
+    ix = ((kdp < 0.3) | (ref < 38.0)) & (zdr < 0.5)
     RCSU[ix] = 0.017 * (zh[ix] ** 0.7143)
     Rcas[ix] = 4
 
-    # ix = (RCSU < 0) | np.isnan(ref) | (ref < 10) | (RCSU > 150) | (drf < -3) | (drf > 5)
-    # Rcas[ix] = 0
-    # RCSU[ix] = np.nan
+    idx = ((RCSU < 0) | np.isnan(ref) | (ref < 10) | (RCSU > 150) | (drf < -3) | (drf > 5))
+    Rcas[idx] = 0
+    RCSU[idx] = np.nan
 
     return RCSU, Rcas
-
 
 def calRain_SN(rVarf, rVark, rVard, Rtyp, dt, aZh):
 
@@ -275,29 +284,39 @@ def calRain_SN(rVarf, rVark, rVard, Rtyp, dt, aZh):
     zdrOffset = 0
 
     # 1. R(Zh): 단일편파 강우량 계산
-    zh = np.power(10.0, rVarf / 10.0)
-    RintZH = 1.70 * 10 ** (-2) * (zh + aZh) ** 0.714
-    RintZH[rVarf == -327.6800] = np.nan
-    RintZH[RintZH <= 0] = np.nan
+    # zh = np.power(10.0, rVarf / 10.0)
+    zh = 10.0 ** (rVarf / 10.0)
+    # RintZH = 1.70 * 10 ** (-2) * (zh + aZh) ** 0.714
+    RintZH = 1.70e-2 * (zh + aZh) ** 0.714
+    # RintZH[rVarf == -327.6800] = np.nan
+    # RintZH[RintZH <= 0] = np.nan
+    RintZH = np.where(rVarf == -327.6800, np.nan, RintZH)
+    RintZH = np.where(RintZH <= 0, np.nan, RintZH)
     Rcas = 1
 
     # 2. R(Kdp): Ryzhkov et al., 2005의 Kdp 기반 강우량 계산
     RintKD = 44.0 * (np.abs(rVark) ** 0.822) * np.sign(rVark)
-    RintKD[rVark == -327.6800] = np.nan
-    RintKD[RintKD <= 0] = np.nan
+    # RintKD[rVark == -327.6800] = np.nan
+    # RintKD[RintKD <= 0] = np.nan
+    RintKD = np.where(rVark == -327.6800, np.nan, RintKD)
+    RintKD = np.where(RintKD <= 0, np.nan, RintKD)
     Rcas = 1
 
     # 3. R(Zh, Zdr): Bringi and Chandraseker, 2001의 Zh, Zdr 기반 강우량 계산
     # Zdr 계산
     if appzdrOffset == 'yes':
-        zdr = np.power(10.0, (rVard + zdrOffset) / 10.0)
+        # zdr = np.power(10.0, (rVard + zdrOffset) / 10.0)
+        zdr = 10.0 ** ((rVard + zdrOffset) / 10.0)
     else:
-        zdr = np.power(10.0, rVard / 10.0)
+        # zdr = np.power(10.0, rVard / 10.0)
+        zdr = 10.0 ** (rVard / 10.0)
 
     # S-band 기준
     RintZD = 0.0067 * (zh ** 0.927) * (zdr ** -3.43)
-    RintZD[(rVarf == -327.6800) | (rVard == -327.6800)] = np.nan
-    RintZD[RintZD <= 0] = np.nan
+    # RintZD[(rVarf == -327.6800) | (rVard == -327.6800)] = np.nan
+    # RintZD[RintZD <= 0] = np.nan
+    RintZD = np.where((rVarf == -327.6800) | (rVard == -327.6800), np.nan, RintZD)
+    RintZD = np.where(RintZD <= 0, np.nan, RintZD)
     Rcas = 1
 
     # 4. JPL 강우강도 계산
@@ -306,8 +325,10 @@ def calRain_SN(rVarf, rVark, rVard, Rtyp, dt, aZh):
     else:
         RintJP, Rcas = JPL_qpe(rVark, rVard, rVarf)
 
-    RintJP[(rVark == -327.6800) | (rVard == -327.6800) | (rVarf == -327.6800)] = np.nan
-    RintJP[RintJP <= 0] = np.nan
+    # RintJP[(rVark == -327.6800) | (rVard == -327.6800) | (rVarf == -327.6800)] = np.nan
+    # RintJP[RintJP <= 0] = np.nan
+    RintJP = np.where((rVark == -327.6800) | (rVard == -327.6800) | (rVarf == -327.6800), np.nan, RintJP)
+    RintJP = np.where(RintJP <= 0, np.nan, RintJP)
 
     # 5. CSU 강우강도 계산
     if appzdrOffset == 'yes':
@@ -315,26 +336,38 @@ def calRain_SN(rVarf, rVark, rVard, Rtyp, dt, aZh):
     else:
         RintCS, Rcas = CSU_qpe(rVark, rVard, rVarf)
 
-    RintCS[(rVark == -327.6800) | (rVard == -327.6800) | (rVarf == -327.6800)] = np.nan
-    RintCS[RintCS <= 0] = np.nan
+    # RintCS[(rVark == -327.6800) | (rVard == -327.6800) | (rVarf == -327.6800)] = np.nan
+    # RintCS[RintCS <= 0] = np.nan
+    RintCS = np.where((rVark == -327.6800) | (rVard == -327.6800) | (rVarf == -327.6800), np.nan, RintCS)
+    RintCS = np.where(RintCS <= 0, np.nan, RintCS)
 
     # Rtyp에 따른 강우량 계산
-    Rcal = {}
     if Rtyp == 'int':
         # Rcal에 단위 시간당 강우강도 (mm/h)
-        Rcal[1] = RintZH
-        Rcal[2] = RintKD
-        Rcal[3] = RintZD
-        Rcal[4] = RintJP
-        Rcal[5] = RintCS
+        # Rcal = [RintZH, RintKD, RintZD, RintJP, RintCS]
+        # Rcal = [RintZH, RintKD, RintZD, RintJP, RintCS]
+        Rcal = {
+            'RintZH': RintZH,
+            'RintKD': RintKD,
+            'RintZD': RintZD,
+            'RintJP': RintJP,
+            'RintCS': RintCS
+        }
 
     elif Rtyp == 'ran':
         # Rcal에 누적 강우강도 (mm)
-        Rcal[1] = RintZH * dt / 3600
-        Rcal[2] = RintKD * dt / 3600
-        Rcal[3] = RintZD * dt / 3600
-        Rcal[4] = RintJP * dt / 3600
-        Rcal[5] = RintCS * dt / 3600
+        factor = dt / 3600.0
+        # Rcal = [RintZH * factor, RintKD * factor, RintZD * factor, RintJP * factor, RintCS * factor]
+        Rcal = {
+            'RintZH': RintZH * factor,
+            'RintKD': RintKD * factor,
+            'RintZD': RintZD * factor,
+            'RintJP': RintJP * factor,
+            'RintCS': RintCS * factor
+        }
+
+    else:
+        Rcal = None
 
     return Rcal, Rcas
 
@@ -348,7 +381,7 @@ def radarProc(modelInfo, code, dtDateInfo):
         # ==========================================================================================================
         saveFilePattern = '{}/{}'.format(modelInfo['savePath'], modelInfo['saveName'])
         saveFile = dtDateInfo.strftime(saveFilePattern).format(code)
-        if os.path.exists(saveFile): return
+        # if os.path.exists(saveFile): return
 
         inpFilePattern = '{}/{}'.format(modelInfo['filePath'], modelInfo['fileName'])
         inpFile = dtDateInfo.strftime(inpFilePattern).format(code)
@@ -427,7 +460,6 @@ def radarProc(modelInfo, code, dtDateInfo):
         # ----------------
         nEL = 0  # FCO SBS
         # ----------------------
-
         plotList = [
             {'field': 'reflectivity', 'vmin': -5, 'vmax': 40}
             , {'field': 'corrected_differential_reflectivity', 'vmin': -2, 'vmax': 5}
@@ -453,19 +485,24 @@ def radarProc(modelInfo, code, dtDateInfo):
         # ==========================================================================================================
         # 강수 유형
         # int(mm/h)/ran(mm)
-        Rtyp = 'int'
+        # Rtyp = 'int'
+        Rtyp = modelInfo['rainType']
 
         # 강수 알고리즘 인덱스
         # Rcal{RintZH;RintKD;RintZD;RintJP;RintCS}
-        Ralg = 3
+        # Ralg = 3
+        # Ralg = 'RintZD'
+        Ralg = modelInfo['rainAlg']
 
         # 시간 간격 [초]
         # 5분 단위
         # [80s+70s=>2.5min] low sng 300km[-0.3 0.1 0.60]=80s, high dul 150km[1.4 2.7 4.8]=70s
-        dt = 5.0 * 60
+        # dt = 5.0 * 60
+        dt = modelInfo['rainDt']
 
         # 시작 Elevation Angle
-        srtEA = 3  # 시작 각도
+        # srtEA = 3  # 시작 각도
+        srtEA = modelInfo['rainSrtEA']
 
         # 변수 초기화
         # ZcaloA = np.zeros((601, 601))
@@ -480,39 +517,46 @@ def radarProc(modelInfo, code, dtDateInfo):
         # aws_data = np.zeros((nflst, 9, 3))
 
         # 방위각
-        azm_r = dataL1['arr_azm_rng_elv'][0].T
+        azm_r = dataL1['arr_azm_rng_elv'][0].T.flatten()
 
         # 거리
-        rng_r = dataL1['arr_azm_rng_elv'][1].T
+        rng_r = dataL1['arr_azm_rng_elv'][1].T.flatten()
 
         # 고도각
-        elv_r = dataL1['arr_azm_rng_elv'][2].T
+        elv_r = dataL1['arr_azm_rng_elv'][2].T.flatten()
 
         # 각도 정보
         Tang = dataL1['fix_ang'].flatten()
-        Tang[Tang > 180] -= 360
-        # Tang[Tang > 180] = Tang[Tang > 180] - 360
+        #         # Tang[Tang > 180] -= 360
+        #         # Tang[Tang > 180] = Tang[Tang > 180] - 360
+        Tang = np.where(Tang > 180, Tang - 360, Tang)
 
         # 고도각에 따른 인덱스
         # pattern = r'D:/Data190/|D:/Data191/|D:/2022/X0810/|' + re.escape(datDRA)
         matchPattern = r'Data190|Data191|2022/X0810|RDR_.*_FQC'
         if re.search(matchPattern, fileInfo, re.IGNORECASE):
-            didxs = np.array(dataL1['arr_etc'][4], dtype=np.int32)  # arr_etc{5} -> arr_etc[4]
-            didxe = np.array(dataL1['arr_etc'][5], dtype=np.int32)  # arr_etc{6} -> arr_etc[5]
+            didxs = dataL1['arr_etc'][4].flatten().astype(int)
+            didxe = dataL1['arr_etc'][5].flatten().astype(int)
         else:
-            didxs = np.array(dataL1['arr_etc'][2], dtype=np.int32)  # arr_etc{3} -> arr_etc[2]
-            didxe = np.array(dataL1['arr_etc'][3], dtype=np.int32)  # arr_etc{4} -> arr_etc[3]
+            didxs = dataL1['arr_etc'][2].flatten().astype(int)
+            didxe = dataL1['arr_etc'][3].flatten().astype(int)
 
         # log.info(f"[CHECK] didxs : {didxs}")
         # log.info(f"[CHECK] didxe : {didxe}")
 
         # 인덱스 값 변경 (0-based indexing 보정)
-        didxs = didxs + 1  # set '0' to '1'
-        didxe = didxe + 1
+        # didxs = didxs + 1  # set '0' to '1'
+        # didxe = didxe + 1
 
         # didxs와 didxe를 합쳐서 배열 생성
-        didX2 = np.column_stack((didxs, didxe)).ravel()
+        # didX2 = np.column_stack((didxs, didxe)).ravel()
         # log.info(f"[CHECK] didX2 : {didX2}")
+
+        # didxs = didxs + 1
+        # didxe = didxe + 1
+
+        # didX2 = np.vstack((didxs, didxe)).ravel()
+        # didX2 = np.column_stack((didxs, didxe)).ravel()
 
         # elv_r 배열에서 인덱스 값 추출 (인덱스는 0-based이므로 조정 필요)
         Fang = elv_r[didxs]
@@ -529,7 +573,8 @@ def radarProc(modelInfo, code, dtDateInfo):
         # log.info(f"[CHECK] bw : {bw}")
 
         # Elev. ang
-        Arng = range(didxs[srtEA - 1], didxe[srtEA - 1] + 1)
+        # Arng = np.arange(didxs[srtEA - 1], didxe[srtEA - 1] + 1)
+        Arng = np.arange(didxs[srtEA - 2], didxe[srtEA - 2] + 1)
         # log.info(f"[CHECK] Arng : {Arng}")
 
         # Var. info
@@ -540,8 +585,8 @@ def radarProc(modelInfo, code, dtDateInfo):
         rVar_rp = dataL1['arr_pdp'].T
         rVar_rv = dataL1['arr_vel'].T
 
-        rVar_rf[rVar_rf < 0] = 0
-
+        # rVar_rf[rVar_rf < 0] = 0
+        rVar_rf = np.where(rVar_rf < 0, 0, rVar_rf)
         rVarf = rVar_rf[:, Arng]
         rVark = rVar_rk[:, Arng]
         rVard = rVar_rd[:, Arng]
@@ -552,6 +597,7 @@ def radarProc(modelInfo, code, dtDateInfo):
         # cal. rain
         # rainfall(mm)
         [Rcalo, Rcas] = calRain_SN(rVarf, rVark, rVard, Rtyp, dt, 10)
+        if Rcalo is None: return
 
         # grid
         gw = 1
@@ -561,10 +607,15 @@ def radarProc(modelInfo, code, dtDateInfo):
         elv = elv_r[Arng]
 
         # 1196 x 1080 -> 960 x 360
-        xrEle = rng[:, None] * (np.sin(np.deg2rad(azm.T)) * np.cos(np.deg2rad(elv.T))) / 1000
-
+        # xrEle = rng[:, None] * (np.sin(np.deg2rad(azm.T)) * np.cos(np.deg2rad(elv.T))) / 1000
         # 1196 x 1080 -> 960 x 360
-        yrEle = rng[:, None] * (np.cos(np.deg2rad(azm.T)) * np.cos(np.deg2rad(elv.T))) / 1000
+        # yrEle = rng[:, None] * (np.cos(np.deg2rad(azm.T)) * np.cos(np.deg2rad(elv.T))) / 1000
+
+        azm_rad = np.deg2rad(azm)
+        elv_rad = np.deg2rad(elv)
+        xrEle = (rng.reshape(-1, 1) * np.sin(azm_rad) * np.cos(elv_rad)) / 1000
+        yrEle = (rng.reshape(-1, 1) * np.cos(azm_rad) * np.cos(elv_rad)) / 1000
+
         dxr = xrEle.flatten()
         dyr = yrEle.flatten()
 
@@ -572,28 +623,36 @@ def radarProc(modelInfo, code, dtDateInfo):
         xi, yi = np.meshgrid(np.arange(-300, 301, gw), np.arange(-300, 301, gw))
 
         # zh.linear unit in mm6 m-3
-        zh = np.power(10.0, rVarf / 10.0)
+        # zh = np.power(10.0, rVarf / 10.0)
+        zh = 10.0 ** (rVarf / 10.0)
         zhh = griddata((dxr, dyr), zh.flatten(), (xi, yi), method='linear')
+        # zhh = griddata(np.column_stack((dxr, dyr)), zh.flatten(), (xi, yi), method='linear')
 
         # refl.
         rVarf[np.isnan(rVarf)] = 0
         ziR = griddata((dxr, dyr), rVarf.flatten(), (xi, yi), method='linear')
+        # ziR = griddata(np.column_stack((dxr, dyr)), rVarf.flatten(), (xi, yi), method='linear')
 
         # rain
-        dzr = Rcalo[Ralg]
+        # dzr = Rcalo[Ralg]
+        # dzr = Rcalo[Ralg - 1].astype(np.float64)
+        dzr = Rcalo[Ralg].astype(np.float64)
         dzr[np.isnan(dzr)] = 0
         Rcal = griddata((dxr, dyr), dzr.flatten(),(xi, yi), method='linear')
+        # Rcal = griddata(np.column_stack((dxr, dyr)), dzr.flatten(),(xi, yi), method='linear')
 
         # xy -> lonlat
         lat0 = dataL1['arr_lat_lon_alt_bwh'][0][0]
         lon0 = dataL1['arr_lat_lon_alt_bwh'][1][0]
         elv0 = dataL1['arr_lat_lon_alt_bwh'][2][0]
 
-        projEnu = Proj(proj='tmerc', lat_0=lat0, lon_0=lon0, ellps='WGS84', units='km')
-        projWgs84 = Proj(proj='latlong', datum='WGS84')
-        transformer = Transformer.from_proj(projEnu, projWgs84)
-        xlong, ylatg = transformer.transform(xi, yi)
-        h0 = np.zeros_like(xi)
+        # projEnu = Proj(proj='tmerc', lat_0=lat0, lon_0=lon0, ellps='WGS84', units='km')
+        # projWgs84 = Proj(proj='latlong', datum='WGS84')
+        # transformer = Transformer.from_proj(projEnu, projWgs84)
+        # xlong, ylatg = transformer.transform(xi, yi)
+        # h0 = np.zeros_like(xi)
+
+        ylatg, xlong, h0 = enu2geodetic(xi * 1000, yi * 1000, np.zeros_like(xi), lat0, lon0, 0, deg=True)
 
         # 누적 계산 반사도 팩터
         # ZcaloA = ZcaloA + zhh
@@ -688,6 +747,12 @@ class DtaProcess(object):
     # - 현재 코드가 맞는지 의문임. 혹시 기존에 작업하는 과정과 다르다면 알려주셔요.
     # - input : MA_GNG_sel_OUT, output :＿CMU폴더, mat, Rst, RstH
 
+    # TalentPlatform-LSH0579-DaemonFramework.py
+    # cd /SYSTEMS/PROG/PYTHON/IDE/src/talentPlatform/unitSys
+    # conda activate py38
+    # nohup python3 TalentPlatform-LSH0579-DaemonFramework.py &
+    # tail -f nohup.out
+
     # ================================================================================================
     # 환경변수 설정
     # ================================================================================================
@@ -750,15 +815,15 @@ class DtaProcess(object):
             # 옵션 설정
             sysOpt = {
                 # 시작일, 종료일, 시간 간격 (연 1y, 월 1h, 일 1d, 시간 1h, 분 1t)
-                # 'srtDate': '2022-12-21'
-                # , 'endDate': '2023-02-10'
-                'srtDate': '2023-02-09'
-                , 'endDate': '2023-02-16'
+                # 'srtDate': '2023-02-10 00:00'
+                # , 'endDate': '2023-02-10 01:00'
+                'srtDate': '2023-02-09 15:00'
+                , 'endDate': '2023-02-10 15:00'
                 , 'invDate': '5t'
                 # , 'invHour': '1h'
 
                 # 비동기 다중 프로세스 개수
-                , 'cpuCoreNum': '3'
+                , 'cpuCoreNum': '2'
 
                 # ASOS/AWS 융합 지상관측소
                 , 'stnInfo': {
@@ -786,6 +851,19 @@ class DtaProcess(object):
                     , 'varList': ['ziR']
                     , 'varName': ['누적반사도']
 
+                    # 강수 유형 int(mm/h)/ran(mm)
+                    , 'rainType': 'int'
+
+                    # 강수 알고리즘 Rcal{RintZH;RintKD;RintZD;RintJP;RintCS}
+                    , 'rainAlg': 'RintZD'
+
+                    # 강수 시간 간격 [초] 5분 단위
+                    # [80s+70s=>2.5min] low sng 300km[-0.3 0.1 0.60]=80s, high dul 150km[1.4 2.7 4.8]=70s
+                    , 'rainDt': 5.0 * 60
+
+                    # 강수 시작 고도각
+                    , 'rainSrtEA': 3
+
                     # 저장 파일
                     , 'savePath': '/DATA/OUTPUT/LSH0579/PROC'
                     , 'saveName': 'RDR_{}_FQC_%Y%m%d%H%M.nc'
@@ -805,8 +883,10 @@ class DtaProcess(object):
             }
 
             # 시작일/종료일 설정
-            dtSrtDate = pd.to_datetime(sysOpt['srtDate'], format='%Y-%m-%d')
-            dtEndDate = pd.to_datetime(sysOpt['endDate'], format='%Y-%m-%d')
+            # dtSrtDate = pd.to_datetime(sysOpt['srtDate'], format='%Y-%m-%d')
+            # dtEndDate = pd.to_datetime(sysOpt['endDate'], format='%Y-%m-%d')
+            dtSrtDate = pd.to_datetime(sysOpt['srtDate'], format='%Y-%m-%d %H:%M')
+            dtEndDate = pd.to_datetime(sysOpt['endDate'], format='%Y-%m-%d %H:%M')
             dtDateList = pd.date_range(start=dtSrtDate, end=dtEndDate, freq=sysOpt['invDate'])
 
             # **************************************************************************************************************
@@ -829,7 +909,6 @@ class DtaProcess(object):
                         pool.apply_async(radarProc, args=(modelInfo, code, dtDateInfo))
                     pool.close()
                     pool.join()
-
 
                     # ==========================================================================================================
                     # 매 5분 순간마다 지상 관측소를 기준으로 최근접/선형내삽 화소 추출
@@ -937,7 +1016,7 @@ class DtaProcess(object):
                         # posDataL1 = posData.to_dataframe().reset_index(drop=False).dropna()
                         posDataL1 = posData.to_dataframe().reset_index(drop=False)
                         if len(posDataL1) < 1: continue
-                        print(posDataL1)
+                        print(posDataL1[['time', 'zhh', 'ziR', 'Rcal']])
 
                         # for varIdx, varInfo in enumerate(modelInfo['varList']):
                         #     varName = modelInfo['varName'][varIdx]
@@ -959,7 +1038,7 @@ class DtaProcess(object):
                         #     # print(posDataL1)
 
                             # # 누적 계산 반사도 팩터
-                            # posDataL1[var].values
+                            # posDataL1['zhh'].values
                             #
                             # # 누적 계산 반사도
                             # posDataL1['ziR'].values
