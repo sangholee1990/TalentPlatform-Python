@@ -967,10 +967,10 @@ class DtaProcess(object):
             # 옵션 설정
             sysOpt = {
                 # 시작일, 종료일, 시간 간격 (연 1y, 월 1h, 일 1d, 시간 1h, 분 1t)
-                # 'srtDate': '2023-02-10 00:00'
-                # , 'endDate': '2023-02-10 01:00'
-                'srtDate': '2023-02-09 15:00'
-                , 'endDate': '2023-02-10 15:00'
+                'srtDate': '2023-02-10 00:00'
+                , 'endDate': '2023-02-10 01:00'
+                # 'srtDate': '2023-02-09 15:00'
+                # , 'endDate': '2023-02-10 15:00'
                 , 'invDate': '5t'
                 # , 'invHour': '1h'
 
@@ -1045,7 +1045,7 @@ class DtaProcess(object):
             # 비동기 다중 프로세스 수행
             # **************************************************************************************************************
             # 비동기 다중 프로세스 개수
-            pool = Pool(int(sysOpt['cpuCoreNum']))
+            # pool = Pool(int(sysOpt['cpuCoreNum']))
 
             for modelType in sysOpt['modelList']:
                 log.info(f'[CHECK] modelType : {modelType}')
@@ -1056,12 +1056,15 @@ class DtaProcess(object):
                 for code in modelInfo['codeList']:
                     log.info(f'[CHECK] code : {code}')
 
+                    # 비동기 자료 가공
+                    # for dtDateInfo in dtDateList:
+                    #     # log.info(f'[CHECK] dtDateInfo : {dtDateInfo}')
+                    #     pool.apply_async(radarProc, args=(modelInfo, code, dtDateInfo))
+                    # pool.close()
+                    # pool.join()
+
                     # 자료 가공
-                    for dtDateInfo in dtDateList:
-                        # log.info(f'[CHECK] dtDateInfo : {dtDateInfo}')
-                        pool.apply_async(radarProc, args=(modelInfo, code, dtDateInfo))
-                    pool.close()
-                    pool.join()
+                    radarProc(modelInfo, code, dtDateInfo)
 
                     # 자료 검증
                     radarValid(sysOpt, modelInfo, code, dtDateList)
