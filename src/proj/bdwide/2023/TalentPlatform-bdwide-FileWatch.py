@@ -397,10 +397,10 @@ class DtaProcess(object):
             filePathList = set(os.path.dirname(os.path.dirname(fileInfo)) for fileInfo in mntrgFileList)
 
             # 기존 파일 처리
-            # for mntrgFileInfo in mntrgFileList:
-            #     fileList = glob.glob(mntrgFileInfo)
-            #     for fileInfo in fileList:
-            #         makeFileProc(fileInfo)
+            for mntrgFileInfo in mntrgFileList:
+                fileList = glob.glob(mntrgFileInfo)
+                for fileInfo in fileList:
+                    makeFileProc(fileInfo)
 
             # 신규 파일 감시
             observer = Observer()
