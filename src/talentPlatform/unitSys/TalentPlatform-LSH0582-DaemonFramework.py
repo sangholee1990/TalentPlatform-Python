@@ -308,7 +308,7 @@ class DtaProcess(object):
     # ================================================
     # 요구사항
     # ================================================
-    # Python을 이용한 성별, 연령별에 따른 흡연자 비중 및 비율 시각화
+    # Python을 이용한 NASA 기후 데이터 가공 및 2D 동영상 제작
 
     # ================================================================================================
     # 환경변수 설정
@@ -325,7 +325,7 @@ class DtaProcess(object):
         contextPath = os.getcwd() if env in 'local' else '/SYSTEMS/PROG/PYTHON/IDE'
 
     prjName = 'test'
-    serviceName = 'LSH0365'
+    serviceName = 'LSH0582'
 
     # 4.1. 환경 변수 설정 (로그 설정)
     log = initLog(env, contextPath, prjName)
