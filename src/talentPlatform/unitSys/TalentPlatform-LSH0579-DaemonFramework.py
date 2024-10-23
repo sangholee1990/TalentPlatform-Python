@@ -722,7 +722,8 @@ def radarValid(sysOpt, modelInfo, code, dtDateList):
         # 매 5분 순간마다 가공파일 검색/병합
         # 융합 ASOS/AWS 지상 관측소을 기준으로 최근접 레이더 가공파일 화소 찾기 (posRow, posCol, posLat, posLon, posDistKm)
         # 매 5분 순간마다 가공파일을 이용하여 매 1시간 누적 계산
-        # 매 1시간 누적마다 지상 관측소를 기준으로 최근접/선형내삽 화소 추출
+        # 매 1시간 누적마다 지상 관측소를 기준으로 최근접/선형내삽 화소 추출 그리고 엑셀 저장
+        # 매 1시간 누적마다 반사도/강우강도 시각화
         # ==========================================================================================================
         # 매 5분 순간마다 가공파일 검색/병합
         procFilePattern = '{}/{}'.format(modelInfo['procPath'], modelInfo['procName'])
@@ -787,7 +788,7 @@ def radarValid(sysOpt, modelInfo, code, dtDateList):
         dataL4 = dataL3.resample(time='1H').sum(dim=['time'], skipna=False)
         # dataL4 = dataL3.resample(time='1H').sum(dim=['time'], skipna=True)
 
-        # 매 1시간 누적마다 지상 관측소를 기준으로 최근접/선형내삽 화소 추출
+        # 매 1시간 누적마다 지상 관측소를 기준으로 최근접/선형내삽 화소 추출 그리고 엑셀 저장
         posDataL3 = pd.DataFrame()
         for i, posInfo in allStnDataL2.iterrows():
             if (pd.isna(posInfo['posRow']) or pd.isna(posInfo['posCol'])): continue
@@ -966,10 +967,10 @@ class DtaProcess(object):
             # 옵션 설정
             sysOpt = {
                 # 시작일, 종료일, 시간 간격 (연 1y, 월 1h, 일 1d, 시간 1h, 분 1t)
-                # 'srtDate': '2023-02-10 00:00'
-                # , 'endDate': '2023-02-10 01:00'
-                'srtDate': '2023-02-09 15:00'
-                , 'endDate': '2023-02-10 15:00'
+                'srtDate': '2023-02-10 00:00'
+                , 'endDate': '2023-02-10 01:00'
+                # 'srtDate': '2023-02-09 15:00'
+                # , 'endDate': '2023-02-10 15:00'
                 , 'invDate': '5t'
                 # , 'invHour': '1h'
 
@@ -978,13 +979,13 @@ class DtaProcess(object):
 
                 # ASOS/AWS 융합 지상관측소
                 , 'stnInfo': {
-                    # KSN
-                    # 'list': [90, 104, 105, 106, 520, 523, 661, 670, 671]
-
-                    # GDK
-                    'list': [332, 323]
-                    , 'filePath': '/SYSTEMS/PROG/PYTHON/IDE/resources/config/stnInfo'
+                    'filePath': '/SYSTEMS/PROG/PYTHON/IDE/resources/config/stnInfo'
                     , 'fileName': 'ALL_STN_INFO.csv'
+                    # KSN
+                    # , 'list': [90, 104, 105, 106, 520, 523, 661, 670, 671]
+                                  
+                    # GDK
+                    , 'list': [323]
                 }
 
                 # 수행 목록
@@ -995,12 +996,8 @@ class DtaProcess(object):
                     'filePath': '/DATA/INPUT/LSH0579/uf'
                     , 'fileName': 'RDR_{}_FQC_%Y%m%d%H%M.uf'
                     # 관악산(KWK), 오성산(KSN), 광덕산(GDK), 면봉산(MYN), 구덕산(PSN), 백령도(BRI), 영종도(IIA), 진도(JNI), 고산(GSN), 성산(SSP), 강릉(GNG)
-                    # , 'codeList': ['KSN']
+                    # , 'codeList': ['KWK', 'KSN', 'GDK', 'MYN', 'PSN', 'BRI', 'IIA', 'JNI', 'GSN', 'SSP', 'GNG']
                     , 'codeList': ['GDK']
-                    # , 'varList': ['zhh', 'ziR', 'Rcal']
-                    # , 'varName': ['누적반사도팩터', '누적반사도', '누적강우강도']
-                    , 'varList': ['ziR']
-                    , 'varName': ['누적반사도']
 
                     # 강수 유형 int(mm/h)/ran(mm)
                     , 'rainType': 'int'
@@ -1048,7 +1045,7 @@ class DtaProcess(object):
             # 비동기 다중 프로세스 수행
             # **************************************************************************************************************
             # 비동기 다중 프로세스 개수
-            pool = Pool(int(sysOpt['cpuCoreNum']))
+            # pool = Pool(int(sysOpt['cpuCoreNum']))
 
             for modelType in sysOpt['modelList']:
                 log.info(f'[CHECK] modelType : {modelType}')
@@ -1059,12 +1056,15 @@ class DtaProcess(object):
                 for code in modelInfo['codeList']:
                     log.info(f'[CHECK] code : {code}')
 
+                    # 비동기 자료 가공
+                    # for dtDateInfo in dtDateList:
+                    #     # log.info(f'[CHECK] dtDateInfo : {dtDateInfo}')
+                    #     pool.apply_async(radarProc, args=(modelInfo, code, dtDateInfo))
+                    # pool.close()
+                    # pool.join()
+
                     # 자료 가공
-                    for dtDateInfo in dtDateList:
-                        # log.info(f'[CHECK] dtDateInfo : {dtDateInfo}')
-                        pool.apply_async(radarProc, args=(modelInfo, code, dtDateInfo))
-                    pool.close()
-                    pool.join()
+                    radarProc(modelInfo, code, dtDateInfo)
 
                     # 자료 검증
                     radarValid(sysOpt, modelInfo, code, dtDateList)
