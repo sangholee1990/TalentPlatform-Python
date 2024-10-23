@@ -291,12 +291,10 @@ class DtaProcess(object):
     # Python을 이용한 기존 파일 처리 및 신규 파일 감시
 
     # 프로그램 종료
-    
     # ps -ef | grep python | grep TalentPlatform-bdwide-FileWatch.py | awk '{print $2}' | xargs kill -9
 
     # 프로그램 시작
     # conda activate py38
-    # cd /SYSTEMS/PROG/PYTHON/PyCharm/src/proj/bdwide/2023
     # cd /SYSTEMS/PROG/PYTHON/IDE/src/proj/bdwide/2023
     # nohup python TalentPlatform-bdwide-FileWatch.py &
     # tail -f nohup.out
