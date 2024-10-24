@@ -910,11 +910,11 @@ class DtaProcess(object):
     # ================================================================================================
     global env, contextPath, prjName, serviceName, log, globalVar
 
-    # env = 'local'  # 로컬 : 원도우 환경, 작업환경 (현재 소스 코드 환경 시 .) 설정
-    env = 'dev'  # 개발 : 원도우 환경, 작업환경 (사용자 환경 시 contextPath) 설정
+    env = 'local'  # 로컬 : 원도우 환경, 작업환경 (현재 소스 코드 환경 시 .) 설정
+    # env = 'dev'  # 개발 : 원도우 환경, 작업환경 (사용자 환경 시 contextPath) 설정
     # env = 'oper'  # 운영 : 리눅스 환경, 작업환경 (사용자 환경 시 contextPath) 설정
 
-    if (platform.system() == 'Windows'):
+    if platform.system() == 'Windows':
         contextPath = os.getcwd() if env in 'local' else 'E:/04. TalentPlatform/Github/TalentPlatform-Python'
     else:
         contextPath = os.getcwd() if env in 'local' else '/SYSTEMS/PROG/PYTHON/IDE'
@@ -1056,15 +1056,16 @@ class DtaProcess(object):
                 for code in modelInfo['codeList']:
                     log.info(f'[CHECK] code : {code}')
 
+                    # 단일 자료 가공
+                    for dtDateInfo in dtDateList:
+                        radarProc(modelInfo, code, dtDateInfo)
+
                     # 비동기 자료 가공
                     # for dtDateInfo in dtDateList:
                     #     # log.info(f'[CHECK] dtDateInfo : {dtDateInfo}')
                     #     pool.apply_async(radarProc, args=(modelInfo, code, dtDateInfo))
                     # pool.close()
                     # pool.join()
-
-                    # 자료 가공
-                    radarProc(modelInfo, code, dtDateInfo)
 
                     # 자료 검증
                     radarValid(sysOpt, modelInfo, code, dtDateList)
