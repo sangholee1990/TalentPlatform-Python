@@ -236,8 +236,216 @@ class DtaProcess(object):
                 , 'endDate': '2023-01-01'
             }
 
+            import torch
+            from transformers import GPT2LMHeadModel, PreTrainedTokenizerFast
+
+            # 모델과 토크나이저 로드
+            model = GPT2LMHeadModel.from_pretrained("skt/kogpt2-base-v2")
+            tokenizer = PreTrainedTokenizerFast.from_pretrained("skt/kogpt2-base-v2")
+
+            # 텍스트 생성 함수
+            # 텍스트 생성 함수
+            def generate_blog_post(prompt, max_length=600):
+                input_ids = tokenizer.encode(prompt, return_tensors='pt')
+
+                with torch.no_grad():
+                    output = model.generate(input_ids, max_length=max_length, repetition_penalty=1.0,
+                           pad_token_id=tokenizer.pad_token_id,
+                           eos_token_id=tokenizer.eos_token_id,
+                           bos_token_id=tokenizer.bos_token_id,
+                           use_cache=True)
+
+                # generated_text = tokenizer.decode(output[0], skip_special_tokens=True)
+                generated_text = tokenizer.decode(output[0])
+                return generated_text
+
+            # 블로그 글 작성 프롬프트
+            max_token_limit = model.config.n_positions
+            print(f"모델의 최대 토큰 수: {max_token_limit}")
+
+            prompt = "2030의 미백을 개선하는 화장품에 대한 광고성 블로그 포스팅을 작성해조."
+            # prompt = "맛집 블로그 포스팅을 작성해조."
+            blog_post = generate_blog_post(prompt, max_length=min(max_token_limit, 1024))  # 최대 토큰 수에 맞게 조정
+            print(blog_post)
+
+            # blog_post2 = generate_blog_post(blog_post, max_length=min(max_token_limit, 1000))
+            # print(blog_post2)
+
+            # 블로그 글 작성 프롬프트
+            # prompt = "오늘의 기술 트렌드에 대해 이야기해보겠습니다. 최근 인공지능의 발전으로"
+            # prompt = "2030의 미백을 개선하는 화장품에 대한 광고성 블로그 포스팅을 적어줘. 친절한 언니가 동생에게 하는 어조로 구성"
+            # prompt = "2030의 미백을 개선하는 화장품에 대한 광고성 블로그 포스팅을 작성해조."
+            # # # prompt = "맛집 블로그 포스팅을 적어줘."
+            # blog_post = generate_blog_post(prompt)
+            #
+            # print(blog_post)
+            #
+            # def generate_blog_post(prompt, max_length=300):
+            #     input_ids = tokenizer.encode(prompt, return_tensors="pt")
+            #     output = model.generate(
+            #         input_ids,
+            #         max_length=max_length,
+            #         num_beams=5,
+            #         no_repeat_ngram_size=3,
+            #         repetition_penalty=1.5,
+            #         top_k=50,
+            #         top_p=0.95
+            #     )
+            #     return tokenizer.decode(output[0], skip_special_tokens=True)
+            #
+            # # 블로그 주제 예시
+            # prompt = "2030의 미백을 개선하는 화장품에 대한 광고성 블로그 포스팅"
+            #
+            # # 텍스트 생성
+            # blog_post = generate_blog_post(prompt)
+            # print(blog_post)
+
+
+            # KakaoBrain KoGPT
+            # from transformers import AutoModelForCausalLM, AutoTokenizer
+            #
+            # model_name = "kakaobrain/kogpt"
+            # tokenizer = AutoTokenizer.from_pretrained(model_name)
+            # model = AutoModelForCausalLM.from_pretrained(model_name)
+            #
+            # input_text = "한국어 텍스트 생성 예제입니다."
+            # input_ids = tokenizer.encode(input_text, return_tensors="pt")
+            #
+            # output = model.generate(input_ids, max_length=50, num_return_sequences=1, do_sample=True, top_k=50,
+            #                         top_p=0.9)
+            # generated_text = tokenizer.decode(
+            # output[0], skip_special_tokens=True)
+            # print(generated_text)
+
+
+            # Hugging Face Transformers 라
+            from transformers import GPT2LMHeadModel, GPT2Tokenizer
+
+
+            # # 모델과 토크나이저 불러오기
+            # model_name = "gpt2"  # 또는 "skt/kogpt2-base-v2" (한국어용 KoGPT2 모델)
+            # model = GPT2LMHeadModel.from_pretrained(model_name)
+            # tokenizer = GPT2Tokenizer.from_pretrained(model_name)
+
+            # def generate_text(prompt, max_length=50):
+            #     # 입력 텍스트를 토큰화
+            #     inputs = tokenizer.encode(prompt, return_tensors="pt")
+            #     # 텍스트 생성
+            #     outputs = model.generate(inputs, max_length=max_length, do_sample=True, pad_token_id=tokenizer.eos_token_id,  top_k=50)
+            #     # 생성된 토큰을 텍스트로 변환
+            #     generated_text = tokenizer.decode(outputs[0], skip_special_tokens=True)
+            #     return generated_text
+
+
+
+            # # 예제 텍스트 생성
+            # prompt = "2030의 미백을 개선하는 화장품에 대한 광고성 블로그 포스팅을 적어줘. 친절한 언니가 동생에게 하는 어조로 구성"
+            # # prompt = "맛집 블로그 포스팅을 적어줘."
+            # generated_text = generate_text(prompt)
+            # print(generated_text)
+
+
+            # Polyglot-Ko (EleutherAI, 몽고메리)
+            # from transformers import AutoTokenizer, AutoModelForCausalLM
+            #
+            # model_name = "EleutherAI/polyglot-ko-1.3b"
+            # tokenizer = AutoTokenizer.from_pretrained(model_name)
+            # model = AutoModelForCausalLM.from_pretrained(model_name)
+            #
+            # input_text = "글쓰기 모델 예제입니다."
+            # input_ids = tokenizer.encode(input_text, return_tensors="pt")
+            #
+            # output = model.generate(input_ids, max_length=50, num_return_sequences=1, do_sample=True, top_k=50,
+            #                         top_p=0.9)
+            # generated_text = tokenizer.decode(output[0], skip_special_tokens=True)
+            # print(generated_text)
+
+
+
+
+
+
+            # import json
+            # import requests
+
+            API_TOKEN = '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'
+
+            # headers = {"Authorization": f"Bearer {API_TOKEN}"}
+            # API_URL = "https://api-inference.huggingface.co/models/deepset/roberta-base-squad2"
+            # def query(payload):
+            #     data = json.dumps(payload)
+            #     response = requests.request("POST", API_URL, headers=headers, data=data)
+            #     return json.loads(response.content.decode("utf-8"))
+            # data = query(
+            #     {
+            #         "inputs": {
+            #             "question": "기후변환 블로그 글써조",
+            #             "context": "기후변환 블로그 글써조",
+            #         }
+            #     }
+            # )
+            #
+            # print(data)
+
+            API_URL = "https://api-inference.huggingface.co/models/gpt2"
+            API_TOKEN = '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'
+            headers = {
+                "Authorization": f"Bearer {API_TOKEN}",
+                "Content-Type": "application/json",
+                # "x-use-cache": "false"
+                "x-wait-for-model": "true"
+
+            }
+
+            data = {
+                # "inputs": "Can you please let us know more details about your "
+                "inputs": "맛집 블로그 글 써조"
+            }
+            response = requests.post(API_URL, headers=headers, json=data)
+            print(response.json())
+
+            # def query(payload):
+            #     data = json.dumps(payload)
+            #     response = requests.request("POST", API_URL, headers=headers, data=data)
+            #     return json.loads(response.content.decode("utf-8"))
+            #
+            # data = query({"inputs": "맛집 블로그 글 써조"})
+            # print(data)
+
+
+
             # inpFile = '{}/{}/{}'.format(globalVar['inpPath'], serviceName, 'HN_M.csv')
             # fileList = sorted(glob.glob(inpFile))
+
+            # import torch
+            # from transformers import AutoTokenizer, AutoModelForCausalLM
+            #
+            # tokenizer = AutoTokenizer.from_pretrained(
+            #     'kakaobrain/kogpt',  # KoGPT 모델의 이름 지정
+            #     revision='KoGPT6B-ryan1.5b-float16',  # 모델 버전 선택
+            #     bos_token='[BOS]',  # 문장의 시작을 나타내는 토큰
+            #     eos_token='[EOS]',  # 문장의 끝을 나타내는 토큰
+            #     unk_token='[UNK]',  # 미지의 단어를 나타내는 토큰
+            #     pad_token='[PAD]',  # 패딩 토큰
+            #     mask_token='[MASK]'  # 마스크 토큰
+            # )
+            #
+            # model = AutoModelForCausalLM.from_pretrained(
+            #     'kakaobrain/kogpt', revision='KoGPT6B-ryan1.5b-float16',
+            #     # or float32 version: revision=KoGPT6B-ryan1.5b
+            #     pad_token_id=tokenizer.eos_token_id,
+            #     torch_dtype='auto', low_cpu_mem_usage=True
+            # ).to(device='cuda', non_blocking=True)
+            # _ = model.eval()
+            #
+            # prompt = '인간처럼 생각하고, 행동하는 \'지능\'을 통해 인류가 이제까지 풀지 못했던'
+            # with torch.no_grad():
+            #     tokens = tokenizer.encode(prompt, return_tensors='pt').to(device='cuda', non_blocking=True)
+            #     gen_tokens = model.generate(tokens, do_sample=True, temperature=0.8, max_length=64)
+            #     generated = tokenizer.batch_decode(gen_tokens)[0]
+            #
+            # print(generated)
+
 
             from transformers import GPT2LMHeadModel, PreTrainedTokenizerFast
 
@@ -257,24 +465,51 @@ class DtaProcess(object):
             device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
             model.to(device)
 
+            def generate_complete_text(prompt, max_new_tokens=150, max_length=1000):
+                generated_text = prompt
+                while len(generated_text) < max_length:
+                    new_text = generate_korean_text2(generated_text, max_new_tokens=max_new_tokens)
+
+                    # 중복된 텍스트 제거
+                    generated_text += new_text[len(generated_text):]
+
+                    # 텍스트가 eos_token으로 끝났다면 종료
+                    if new_text.endswith(tokenizer.eos_token):
+                        break
+
+                return generated_text
+
             def generate_korean_text2(prompt, max_new_tokens=150):
                 inputs = tokenizer.encode(prompt, return_tensors="pt").to(device)
                 outputs = model.generate(
                     inputs,
                     max_new_tokens=max_new_tokens,
-                    do_sample=True,
-                    top_p=0.95,
-                    top_k=50,
-                    pad_token_id=tokenizer.pad_token_id,
-                    eos_token_id=tokenizer.eos_token_id,
-                    early_stopping=True,
-                    no_repeat_ngram_size=2,
-                    repetition_penalty=1.2,
-                    temperature=0.8
+                    # do_sample=True,
+                    # top_p=0.95,
+                    # top_k=50,
+                    # # top_p=0.90,
+                    # # top_k=40,
+                    # pad_token_id=tokenizer.pad_token_id,
+                    # eos_token_id=tokenizer.eos_token_id,
+                    # early_stopping=True,
+                    # # early_stopping=False,
+                    # no_repeat_ngram_size=2,
+                    # repetition_penalty=1.2,
+                    # temperature=0.8
                 )
                 generated_text = tokenizer.decode(outputs[0], skip_special_tokens=True)
 
                 return generated_text
+
+            # prompt = """2030의 미백을 개선하는 화장품에 대한 광고성 블로그 포스팅을 적어줘. 친절한 언니가 동생에게 하는 어조로 구성"""
+            # prompt = "2030의 미백을 개선하는 화장품에 대한 광고성 블로그 포스팅을 적어줘. 친절한 언니가 동생에게 하는 어조로 구성"
+            prompt = "맛집 블로그 포스팅을 적어줘."
+
+            # prompt = "2024년 디지털 마케팅 트렌드는"
+            # blog_post = generate_korean_text2(prompt, max_new_tokens=500)
+            blog_post = generate_complete_text(prompt, max_new_tokens=150, max_length=2000)
+            print(blog_post)
+
                 # # 문장 단위로 분할
                 # import re
                 # sentences = re.split('(?<=[.!?])\s', generated_text)
