@@ -183,192 +183,247 @@ def initArgument(globalVar, inParams):
 
 
 def JPL_qpe(kdp, drf, ref):
-    # 데이터 크기 설정
-    nx, ny = ref.shape
-    RZh = np.zeros((nx, ny))
-    RKdp = np.zeros((nx, ny))
-    ZdrF1 = np.zeros((nx, ny))
-    ZdrF2 = np.zeros((nx, ny))
-    RJPL = np.zeros((nx, ny))
-    Rcas = np.zeros((nx, ny))
 
-    # 단일편파 및 이중편파 레이더 데이터 변환
-    # zh: mm^6 m^-3, linear scale value
-    # zh = np.power(10.0, ref / 10.0)
-    zh = 10.0 ** (ref / 10.0)
+    try:
+        # 데이터 크기 설정
+        nx, ny = ref.shape
+        RZh = np.zeros((nx, ny))
+        RKdp = np.zeros((nx, ny))
+        ZdrF1 = np.zeros((nx, ny))
+        ZdrF2 = np.zeros((nx, ny))
+        RJPL = np.zeros((nx, ny))
+        Rcas = np.zeros((nx, ny))
 
-    # zdr: mm^6 m^-3, linear scale value
-    # zdr = np.power(10.0, drf / 10.0)
-    zdr = 10.0 ** (drf / 10.0)
+        # 단일편파 및 이중편파 레이더 데이터 변환
+        # zh: mm^6 m^-3, linear scale value
+        # zh = np.power(10.0, ref / 10.0)
+        zh = 10.0 ** (ref / 10.0)
 
-    # R(Zh) 계산
-    # RZh = 1.70 * 10 ** (-2) * zh ** 0.714
-    RZh = 1.70e-2 * zh ** 0.714
+        # zdr: mm^6 m^-3, linear scale value
+        # zdr = np.power(10.0, drf / 10.0)
+        zdr = 10.0 ** (drf / 10.0)
 
-    # R(Kdp) 계산 (Ryzhkov et al., 2005)
-    RKdp = 44.0 * (np.abs(kdp) ** 0.822) * np.sign(kdp)
+        # R(Zh) 계산
+        # RZh = 1.70 * 10 ** (-2) * zh ** 0.714
+        RZh = 1.70e-2 * zh ** 0.714
 
-    # Zdr 보정 인자 계산
-    ZdrF1 = 0.4 + 5.0 * np.abs(zdr - 1.0) ** 1.3
-    ZdrF2 = 0.4 + 3.5 * np.abs(zdr - 1.0) ** 1.7
+        # R(Kdp) 계산 (Ryzhkov et al., 2005)
+        RKdp = 44.0 * (np.abs(kdp) ** 0.822) * np.sign(kdp)
 
-    # CASE I: R(Zh,Zdr) [mm/h]
-    ix = (RZh > 0) & (RZh < 6)
-    RJPL[ix] = RZh[ix] / ZdrF1[ix]
-    Rcas[ix] = 1
+        # Zdr 보정 인자 계산
+        ZdrF1 = 0.4 + 5.0 * np.abs(zdr - 1.0) ** 1.3
+        ZdrF2 = 0.4 + 3.5 * np.abs(zdr - 1.0) ** 1.7
 
-    # CASE II: R(Kdp,Zdr)
-    ix = (RZh > 6) & (RZh < 50)
-    RJPL[ix] = RKdp[ix] / ZdrF2[ix]
-    Rcas[ix] = 2
+        # CASE I: R(Zh,Zdr) [mm/h]
+        ix = (RZh > 0) & (RZh < 6)
+        RJPL[ix] = RZh[ix] / ZdrF1[ix]
+        Rcas[ix] = 1
 
-    # CASE III: R(Kdp)
-    ix = RZh > 50  # CASE III 조건
-    RJPL[ix] = RKdp[ix]
-    Rcas[ix] = 3
+        # CASE II: R(Kdp,Zdr)
+        ix = (RZh > 6) & (RZh < 50)
+        RJPL[ix] = RKdp[ix] / ZdrF2[ix]
+        Rcas[ix] = 2
 
-    idx = ((RJPL < 0) | np.isnan(ref) | (ref < 10) | (RJPL > 150) | (drf < -3) | (drf > 5))
-    Rcas[idx] = 0
-    RJPL[idx] = np.nan
+        # CASE III: R(Kdp)
+        ix = RZh > 50  # CASE III 조건
+        RJPL[ix] = RKdp[ix]
+        Rcas[ix] = 3
 
-    return RJPL, Rcas
+        idx = ((RJPL < 0) | np.isnan(ref) | (ref < 10) | (RJPL > 150) | (drf < -3) | (drf > 5))
+        Rcas[idx] = 0
+        RJPL[idx] = np.nan
 
+        return RJPL, Rcas
+
+    except Exception as e:
+        log.error(f"Exception : {str(e)}")
+        return None, None
 
 def CSU_qpe(kdp, drf, ref):
-    # 데이터 크기 설정
-    nx, ny = ref.shape
-    RCSU = np.zeros((nx, ny))
-    Rcas = np.zeros((nx, ny))
 
-    # 단일편파 및 이중편파 레이더 데이터 변환
-    # zh: mm^6 m^-3, linear unit
-    # zh = np.power(10.0, ref / 10.0)
-    zh = 10.0 ** (ref / 10.0)
+    try:
+        # 데이터 크기 설정
+        nx, ny = ref.shape
+        RCSU = np.zeros((nx, ny))
+        Rcas = np.zeros((nx, ny))
 
-    # zdr: dB, log unit
-    zdr = drf
+        # 단일편파 및 이중편파 레이더 데이터 변환
+        # zh: mm^6 m^-3, linear unit
+        # zh = np.power(10.0, ref / 10.0)
+        zh = 10.0 ** (ref / 10.0)
 
-    # CASE I: R(Kdp, Zdr)
-    ix = (kdp >= 0.3) & (ref >= 38.0) & (zdr >= 0.5)
-    RCSU[ix] = 90.8 * (kdp[ix] ** 0.93) * (10 ** (-0.169 * zdr[ix]))
-    Rcas[ix] = 1
+        # zdr: dB, log unit
+        zdr = drf
 
-    # CASE II: R(Kdp)
-    ix = (kdp >= 0.3) & (ref >= 38.0) & (zdr < 0.5)
-    RCSU[ix] = 40.5 * (kdp[ix] ** 0.85)
-    Rcas[ix] = 2
+        # CASE I: R(Kdp, Zdr)
+        ix = (kdp >= 0.3) & (ref >= 38.0) & (zdr >= 0.5)
+        RCSU[ix] = 90.8 * (kdp[ix] ** 0.93) * (10 ** (-0.169 * zdr[ix]))
+        Rcas[ix] = 1
 
-    # CASE III: R(Zh, Zdr)
-    ix = ((kdp < 0.3) | (ref < 38.0)) & (zdr >= 0.5)
-    # RCSU[ix] = 6.7 * 10 ** (-3) * (zh[ix] ** 0.927) * (10 ** (-0.343 * zdr[ix]))
-    RCSU[ix] = 6.7e-3 * (zh[ix] ** 0.927) * (10 ** (-0.343 * zdr[ix]))
-    Rcas[ix] = 3
+        # CASE II: R(Kdp)
+        ix = (kdp >= 0.3) & (ref >= 38.0) & (zdr < 0.5)
+        RCSU[ix] = 40.5 * (kdp[ix] ** 0.85)
+        Rcas[ix] = 2
 
-    # CASE IV: R(Zh)
-    ix = ((kdp < 0.3) | (ref < 38.0)) & (zdr < 0.5)
-    RCSU[ix] = 0.017 * (zh[ix] ** 0.7143)
-    Rcas[ix] = 4
+        # CASE III: R(Zh, Zdr)
+        ix = ((kdp < 0.3) | (ref < 38.0)) & (zdr >= 0.5)
+        # RCSU[ix] = 6.7 * 10 ** (-3) * (zh[ix] ** 0.927) * (10 ** (-0.343 * zdr[ix]))
+        RCSU[ix] = 6.7e-3 * (zh[ix] ** 0.927) * (10 ** (-0.343 * zdr[ix]))
+        Rcas[ix] = 3
 
-    idx = ((RCSU < 0) | np.isnan(ref) | (ref < 10) | (RCSU > 150) | (drf < -3) | (drf > 5))
-    Rcas[idx] = 0
-    RCSU[idx] = np.nan
+        # CASE IV: R(Zh)
+        ix = ((kdp < 0.3) | (ref < 38.0)) & (zdr < 0.5)
+        RCSU[ix] = 0.017 * (zh[ix] ** 0.7143)
+        Rcas[ix] = 4
 
-    return RCSU, Rcas
+        idx = ((RCSU < 0) | np.isnan(ref) | (ref < 10) | (RCSU > 150) | (drf < -3) | (drf > 5))
+        Rcas[idx] = 0
+        RCSU[idx] = np.nan
+
+        return RCSU, Rcas
+
+    except Exception as e:
+        log.error(f"Exception : {str(e)}")
+        return None, None
 
 
 def calRain_SN(rVarf, rVark, rVard, Rtyp, dt, aZh):
-    # 초기화
-    appzdrOffset = 'no'
-    zdrOffset = 0
 
-    # 1. R(Zh): 단일편파 강우량 계산
-    # zh = np.power(10.0, rVarf / 10.0)
-    zh = 10.0 ** (rVarf / 10.0)
-    # RintZH = 1.70 * 10 ** (-2) * (zh + aZh) ** 0.714
-    RintZH = 1.70e-2 * (zh + aZh) ** 0.714
-    # RintZH[rVarf == -327.6800] = np.nan
-    # RintZH[RintZH <= 0] = np.nan
-    RintZH = np.where(rVarf == -327.6800, np.nan, RintZH)
-    RintZH = np.where(RintZH <= 0, np.nan, RintZH)
-    Rcas = 1
+    try:
+        # 초기화
+        appzdrOffset = 'no'
+        zdrOffset = 0
 
-    # 2. R(Kdp): Ryzhkov et al., 2005의 Kdp 기반 강우량 계산
-    RintKD = 44.0 * (np.abs(rVark) ** 0.822) * np.sign(rVark)
-    # RintKD[rVark == -327.6800] = np.nan
-    # RintKD[RintKD <= 0] = np.nan
-    RintKD = np.where(rVark == -327.6800, np.nan, RintKD)
-    RintKD = np.where(RintKD <= 0, np.nan, RintKD)
-    Rcas = 1
+        # 1. R(Zh): 단일편파 강우량 계산
+        # zh = np.power(10.0, rVarf / 10.0)
+        zh = 10.0 ** (rVarf / 10.0)
+        # RintZH = 1.70 * 10 ** (-2) * (zh + aZh) ** 0.714
+        RintZH = 1.70e-2 * (zh + aZh) ** 0.714
+        # RintZH[rVarf == -327.6800] = np.nan
+        # RintZH[RintZH <= 0] = np.nan
+        RintZH = np.where(rVarf == -327.6800, np.nan, RintZH)
+        RintZH = np.where(RintZH <= 0, np.nan, RintZH)
+        Rcas = 1
 
-    # 3. R(Zh, Zdr): Bringi and Chandraseker, 2001의 Zh, Zdr 기반 강우량 계산
-    # Zdr 계산
-    if appzdrOffset == 'yes':
-        # zdr = np.power(10.0, (rVard + zdrOffset) / 10.0)
-        zdr = 10.0 ** ((rVard + zdrOffset) / 10.0)
-    else:
-        # zdr = np.power(10.0, rVard / 10.0)
-        zdr = 10.0 ** (rVard / 10.0)
+        # 2. R(Kdp): Ryzhkov et al., 2005의 Kdp 기반 강우량 계산
+        RintKD = 44.0 * (np.abs(rVark) ** 0.822) * np.sign(rVark)
+        # RintKD[rVark == -327.6800] = np.nan
+        # RintKD[RintKD <= 0] = np.nan
+        RintKD = np.where(rVark == -327.6800, np.nan, RintKD)
+        RintKD = np.where(RintKD <= 0, np.nan, RintKD)
+        Rcas = 1
 
-    # S-band 기준
-    RintZD = 0.0067 * (zh ** 0.927) * (zdr ** -3.43)
-    # RintZD[(rVarf == -327.6800) | (rVard == -327.6800)] = np.nan
-    # RintZD[RintZD <= 0] = np.nan
-    RintZD = np.where((rVarf == -327.6800) | (rVard == -327.6800), np.nan, RintZD)
-    RintZD = np.where(RintZD <= 0, np.nan, RintZD)
-    Rcas = 1
+        # 3. R(Zh, Zdr): Bringi and Chandraseker, 2001의 Zh, Zdr 기반 강우량 계산
+        # Zdr 계산
+        if appzdrOffset == 'yes':
+            # zdr = np.power(10.0, (rVard + zdrOffset) / 10.0)
+            zdr = 10.0 ** ((rVard + zdrOffset) / 10.0)
+        else:
+            # zdr = np.power(10.0, rVard / 10.0)
+            zdr = 10.0 ** (rVard / 10.0)
 
-    # 4. JPL 강우강도 계산
-    if appzdrOffset == 'yes':
-        RintJP, Rcas = JPL_qpe(rVark, rVard + zdrOffset, rVarf)
-    else:
-        RintJP, Rcas = JPL_qpe(rVark, rVard, rVarf)
+        # S-band 기준
+        RintZD = 0.0067 * (zh ** 0.927) * (zdr ** -3.43)
+        # RintZD[(rVarf == -327.6800) | (rVard == -327.6800)] = np.nan
+        # RintZD[RintZD <= 0] = np.nan
+        RintZD = np.where((rVarf == -327.6800) | (rVard == -327.6800), np.nan, RintZD)
+        RintZD = np.where(RintZD <= 0, np.nan, RintZD)
+        Rcas = 1
 
-    # RintJP[(rVark == -327.6800) | (rVard == -327.6800) | (rVarf == -327.6800)] = np.nan
-    # RintJP[RintJP <= 0] = np.nan
-    RintJP = np.where((rVark == -327.6800) | (rVard == -327.6800) | (rVarf == -327.6800), np.nan, RintJP)
-    RintJP = np.where(RintJP <= 0, np.nan, RintJP)
+        # 4. JPL 강우강도 계산
+        if appzdrOffset == 'yes':
+            RintJP, Rcas = JPL_qpe(rVark, rVard + zdrOffset, rVarf)
+        else:
+            RintJP, Rcas = JPL_qpe(rVark, rVard, rVarf)
 
-    # 5. CSU 강우강도 계산
-    if appzdrOffset == 'yes':
-        RintCS, Rcas = CSU_qpe(rVark, rVard + zdrOffset, rVarf)
-    else:
-        RintCS, Rcas = CSU_qpe(rVark, rVard, rVarf)
+        # RintJP[(rVark == -327.6800) | (rVard == -327.6800) | (rVarf == -327.6800)] = np.nan
+        # RintJP[RintJP <= 0] = np.nan
+        RintJP = np.where((rVark == -327.6800) | (rVard == -327.6800) | (rVarf == -327.6800), np.nan, RintJP)
+        RintJP = np.where(RintJP <= 0, np.nan, RintJP)
 
-    # RintCS[(rVark == -327.6800) | (rVard == -327.6800) | (rVarf == -327.6800)] = np.nan
-    # RintCS[RintCS <= 0] = np.nan
-    RintCS = np.where((rVark == -327.6800) | (rVard == -327.6800) | (rVarf == -327.6800), np.nan, RintCS)
-    RintCS = np.where(RintCS <= 0, np.nan, RintCS)
+        # 5. CSU 강우강도 계산
+        if appzdrOffset == 'yes':
+            RintCS, Rcas = CSU_qpe(rVark, rVard + zdrOffset, rVarf)
+        else:
+            RintCS, Rcas = CSU_qpe(rVark, rVard, rVarf)
 
-    # Rtyp에 따른 강우량 계산
-    if Rtyp == 'int':
-        # Rcal에 단위 시간당 강우강도 (mm/h)
-        # Rcal = [RintZH, RintKD, RintZD, RintJP, RintCS]
-        # Rcal = [RintZH, RintKD, RintZD, RintJP, RintCS]
-        Rcal = {
-            'RintZH': RintZH,
-            'RintKD': RintKD,
-            'RintZD': RintZD,
-            'RintJP': RintJP,
-            'RintCS': RintCS
-        }
+        # RintCS[(rVark == -327.6800) | (rVard == -327.6800) | (rVarf == -327.6800)] = np.nan
+        # RintCS[RintCS <= 0] = np.nan
+        RintCS = np.where((rVark == -327.6800) | (rVard == -327.6800) | (rVarf == -327.6800), np.nan, RintCS)
+        RintCS = np.where(RintCS <= 0, np.nan, RintCS)
 
-    elif Rtyp == 'ran':
-        # Rcal에 누적 강우강도 (mm)
-        factor = dt / 3600.0
-        # Rcal = [RintZH * factor, RintKD * factor, RintZD * factor, RintJP * factor, RintCS * factor]
-        Rcal = {
-            'RintZH': RintZH * factor,
-            'RintKD': RintKD * factor,
-            'RintZD': RintZD * factor,
-            'RintJP': RintJP * factor,
-            'RintCS': RintCS * factor
-        }
+        # Rtyp에 따른 강우량 계산
+        if Rtyp == 'int':
+            # Rcal에 단위 시간당 강우강도 (mm/h)
+            # Rcal = [RintZH, RintKD, RintZD, RintJP, RintCS]
+            # Rcal = [RintZH, RintKD, RintZD, RintJP, RintCS]
+            Rcal = {
+                'RintZH': RintZH,
+                'RintKD': RintKD,
+                'RintZD': RintZD,
+                'RintJP': RintJP,
+                'RintCS': RintCS
+            }
 
-    else:
-        Rcal = None
+        elif Rtyp == 'ran':
+            # Rcal에 누적 강우강도 (mm)
+            factor = dt / 3600.0
+            # Rcal = [RintZH * factor, RintKD * factor, RintZD * factor, RintJP * factor, RintCS * factor]
+            Rcal = {
+                'RintZH': RintZH * factor,
+                'RintKD': RintKD * factor,
+                'RintZD': RintZD * factor,
+                'RintJP': RintJP * factor,
+                'RintCS': RintCS * factor
+            }
 
-    return Rcal, Rcas
+        else:
+            Rcal = None
 
+        return Rcal, Rcas
+
+    except Exception as e:
+        log.error(f"Exception : {str(e)}")
+        return None, None
+
+def makeProcVis(modelInfo, code, dtDateInfo, data):
+
+    try:
+        # plot sigmet data
+        display = pyart.graph.RadarDisplay(data)
+        fig = plt.figure(figsize=(35, 8))
+
+        # ----------------------
+        # nEL=0 # GNG 0.2
+        # nEL=3 # GDK 0.8
+        # nEL=1 # GSN 5.2
+        # ----------------
+        nEL = 0  # FCO SBS
+        # ----------------------
+        plotList = [
+            {'field': 'reflectivity', 'vmin': -5, 'vmax': 40}
+            , {'field': 'corrected_differential_reflectivity', 'vmin': -2, 'vmax': 5}
+            , {'field': 'cross_correlation_ratio', 'vmin': 0.5, 'vmax': 1.0}
+        ]
+
+        for i, plotInfo in enumerate(plotList):
+            ax = fig.add_subplot(1, 3, i + 1)
+            display.plot(plotInfo['field'], nEL, vmin=plotInfo['vmin'], vmax=plotInfo['vmax'])
+            # display.plot_range_rings([50, 100, 150, 200, 250]) # KMA 설정
+            display.plot_range_rings([25, 50, 75, 100, 125])  # FCO 설정
+            display.plot_cross_hair(5.0)
+
+        saveImgPattern = '{}/{}'.format(modelInfo['figPath'], modelInfo['figName'])
+        saveImg = dtDateInfo.strftime(saveImgPattern).format(code)
+        os.makedirs(os.path.dirname(saveImg), exist_ok=True)
+        # plt.savefig(saveImg, dpi=600, bbox_inches='tight')
+        plt.savefig(saveImg, dpi=100, bbox_inches='tight')
+        plt.close()
+        log.info(f"[CHECK] saveImg : {saveImg}")
+
+    except Exception as e:
+        log.error(f"Exception : {str(e)}")
+        raise e
 
 @retry(stop_max_attempt_number=1)
 def radarProc(modelInfo, code, dtDateInfo):
@@ -386,7 +441,11 @@ def radarProc(modelInfo, code, dtDateInfo):
         inpFile = dtDateInfo.strftime(inpFilePattern).format(code)
         fileList = sorted(glob.glob(inpFile))
 
-        if fileList is None or len(fileList) < 1: return
+        if fileList is None or len(fileList) < 1:
+            log.error(f"[ERROR] inpFile : {inpFile} / 입력파일을 확인해주세요.")
+            # raise Exception(f"[ERROR] inpFile : {inpFile} / 입력파일을 확인해주세요.")
+            return
+
         fileInfo = fileList[0]
         log.info(f'[CHECK] fileInfo : {fileInfo}')
 
@@ -448,37 +507,8 @@ def radarProc(modelInfo, code, dtDateInfo):
             , 'arr_spw': np.array(fdat_spw)
         }
 
-        # plot sigmet data
-        display = pyart.graph.RadarDisplay(data)
-        fig = plt.figure(figsize=(35, 8))
-
-        # ----------------------
-        # nEL=0 # GNG 0.2
-        # nEL=3 # GDK 0.8
-        # nEL=1 # GSN 5.2
-        # ----------------
-        nEL = 0  # FCO SBS
-        # ----------------------
-        plotList = [
-            {'field': 'reflectivity', 'vmin': -5, 'vmax': 40}
-            , {'field': 'corrected_differential_reflectivity', 'vmin': -2, 'vmax': 5}
-            , {'field': 'cross_correlation_ratio', 'vmin': 0.5, 'vmax': 1.0}
-        ]
-
-        for i, plotInfo in enumerate(plotList):
-            ax = fig.add_subplot(1, 3, i + 1)
-            display.plot(plotInfo['field'], nEL, vmin=plotInfo['vmin'], vmax=plotInfo['vmax'])
-            # display.plot_range_rings([50, 100, 150, 200, 250]) # KMA 설정
-            display.plot_range_rings([25, 50, 75, 100, 125])  # FCO 설정
-            display.plot_cross_hair(5.0)
-
-        saveImgPattern = '{}/{}'.format(modelInfo['figPath'], modelInfo['figName'])
-        saveImg = dtDateInfo.strftime(saveImgPattern).format(code)
-        os.makedirs(os.path.dirname(saveImg), exist_ok=True)
-        # plt.savefig(saveImg, dpi=600, bbox_inches='tight')
-        plt.savefig(saveImg, dpi=100, bbox_inches='tight')
-        plt.close()
-        log.info(f"[CHECK] saveImg : {saveImg}")
+        if modelInfo['isProcVis']:
+            makeProcVis(modelInfo, code, dtDateInfo, data)
 
         # ==========================================================================================================
         # snowC_GNG_Kang_20240923_KMA_GNG.m
@@ -569,13 +599,20 @@ def radarProc(modelInfo, code, dtDateInfo):
             Tprf = 'dual'
         # log.info(f"[CHECK] Tprf : {Tprf}")
 
+        # log.info(f"[CHECK] dataL1['arr_prt_prm_vel'] : {len(dataL1['arr_prt_prm_vel'])} : {dataL1['arr_prt_prm_vel']}")
+        # log.info(f"[CHECK] dataL1['arr_prt_prm_vel'][0] : {dataL1['arr_prt_prm_vel'][0].shape} : {dataL1['arr_prt_prm_vel'][0]}")
+        # log.info(f"[CHECK] dataL1['arr_prt_prm_vel'][0][0] : {dataL1['arr_prt_prm_vel'][0][0]}")
+        # log.info(f"[CHECK] dataL1['arr_prt_prm_vel'][0][-1] : {dataL1['arr_prt_prm_vel'][0][-1]}")
+
+        # log.info(f"[CHECK] dataL1['arr_ref'] : {dataL1['arr_ref'].shape} : {dataL1['arr_ref']}")
+
         bw = dataL1['arr_lat_lon_alt_bwh'][3]
         # log.info(f"[CHECK] bw : {bw}")
 
         # Elev. ang
         # Arng = np.arange(didxs[srtEA - 1], didxe[srtEA - 1] + 1)
         Arng = np.arange(didxs[srtEA - 2], didxe[srtEA - 2] + 1)
-        # log.info(f"[CHECK] Arng : {Arng}")
+        log.info(f"[CHECK] Arng : {Arng}")
 
         # Var. info
         rVar_rf = dataL1['arr_ref'].T
@@ -653,6 +690,9 @@ def radarProc(modelInfo, code, dtDateInfo):
         # h0 = np.zeros_like(xi)
 
         ylatg, xlong, h0 = enu2geodetic(xi * 1000, yi * 1000, np.zeros_like(xi), lat0, lon0, 0, deg=True)
+
+        xlong[300][300]
+        ylatg[300][300]
 
         # 누적 계산 반사도 팩터
         # ZcaloA = ZcaloA + zhh
@@ -736,7 +776,10 @@ def radarValid(sysOpt, modelInfo, code, dtDateList):
             if fileList is None or len(fileList) < 1: continue
             searchList.append(fileList[0])
 
-        if searchList is None or len(searchList) < 1: return
+        if searchList is None or len(searchList) < 1:
+            log.error(f"[ERROR] procFilePattern : {procFilePattern} / 가공파일을 확인해주세요.")
+            return
+
         dataL3 = xr.open_mfdataset(searchList).sel(time=slice(sysOpt['srtDate'], sysOpt['endDate']))
 
         # 레이더 가공 파일 일부
@@ -747,10 +790,17 @@ def radarValid(sysOpt, modelInfo, code, dtDateList):
         # ASOS/AWS 융합 지상관측소
         inpFilePattern = '{}/{}'.format(sysOpt['stnInfo']['filePath'], sysOpt['stnInfo']['fileName'])
         fileList = sorted(glob.glob(inpFilePattern))
+        if fileList is None or len(fileList) < 1:
+            log.error(f"[ERROR] inpFilePattern : {inpFilePattern} / 융합 지상관측소를 확인해주세요.")
+            return
+
         fileInfo = fileList[0]
         allStnData = pd.read_csv(fileInfo)
         allStnDataL1 = allStnData[['STN', 'STN_KO', 'LON', 'LAT']]
-        allStnDataL2 = allStnDataL1[allStnDataL1['STN'].isin(sysOpt['stnInfo']['list'])]
+
+        # 2024.10.24 수정
+        # allStnDataL2 = allStnDataL1[allStnDataL1['STN'].isin(sysOpt['stnInfo']['list'])]
+        allStnDataL2 = allStnDataL1[allStnDataL1['STN']]
 
         # 융합 ASOS/AWS 지상 관측소을 기준으로 최근접 레이더 가공파일 화소 찾기 (posRow, posCol, posLat, posLon, posDistKm)
         #      STN STN_KO        LON       LAT  ...  posCol      posLat     posLon  posDistKm
@@ -905,6 +955,16 @@ class DtaProcess(object):
     # nohup python3 TalentPlatform-LSH0579-DaemonFramework.py &
     # tail -f nohup.out
 
+    # 리눅스 소프트링크 생성
+    # 원본 정보 /SYSTEMS/PROG/PYTHON/IDE/resources/config/stnInfo
+    # 링크 정보 /HDD/SYSTEMS/PROG/PYTHON/IDE/src/talentPlatform/unitSys/stnInfo
+    # ln -sf /SYSTEMS/PROG/PYTHON/IDE/resources/config/stnInfo /HDD/SYSTEMS/PROG/PYTHON/IDE/src/talentPlatform/unitSys/stnInfo
+    # ln -sf /DATA/INPUT/LSH0579/uf /HDD/SYSTEMS/PROG/PYTHON/IDE/src/talentPlatform/unitSys/uf
+
+    # 원도우 소프트링크 생성
+    # mklink /D "C:\HDD\SYSTEMS\PROG\PYTHON\IDE\src\talentPlatform\unitSys\stnInfo" "C:\SYSTEMS\PROG\PYTHON\IDE\resources\config\stnInfo"
+    # mklink /D "C:\HDD\SYSTEMS\PROG\PYTHON\IDE\src\talentPlatform\unitSys\uf" "C:\DATA\INPUT\LSH0579\uf"
+
     # ================================================================================================
     # 환경변수 설정
     # ================================================================================================
@@ -979,7 +1039,8 @@ class DtaProcess(object):
 
                 # ASOS/AWS 융합 지상관측소
                 , 'stnInfo': {
-                    'filePath': '/SYSTEMS/PROG/PYTHON/IDE/resources/config/stnInfo'
+                    # 'filePath': '/SYSTEMS/PROG/PYTHON/IDE/resources/config/stnInfo'
+                    'filePath': f'{contextPath}/stnInfo'
                     , 'fileName': 'ALL_STN_INFO.csv'
                     # KSN
                     # , 'list': [90, 104, 105, 106, 520, 523, 661, 670, 671]
@@ -993,7 +1054,8 @@ class DtaProcess(object):
 
                 # 세부 정보
                 , 'RDR-FQC': {
-                    'filePath': '/DATA/INPUT/LSH0579/uf'
+                    # 'filePath': '/DATA/INPUT/LSH0579/uf'
+                    'filePath': f'{contextPath}/uf'
                     , 'fileName': 'RDR_{}_FQC_%Y%m%d%H%M.uf'
                     # 관악산(KWK), 오성산(KSN), 광덕산(GDK), 면봉산(MYN), 구덕산(PSN), 백령도(BRI), 영종도(IIA), 진도(JNI), 고산(GSN), 성산(SSP), 강릉(GNG)
                     # , 'codeList': ['KWK', 'KSN', 'GDK', 'MYN', 'PSN', 'BRI', 'IIA', 'JNI', 'GSN', 'SSP', 'GNG']
@@ -1011,6 +1073,9 @@ class DtaProcess(object):
 
                     # 강수 시작 고도각
                     , 'rainSrtEA': 3
+
+                    # 가공파일 시각화 여부
+                    , 'isProcVis': True
 
                     # 저장 파일
                     , 'savePath': '/DATA/OUTPUT/LSH0579/PROC'
