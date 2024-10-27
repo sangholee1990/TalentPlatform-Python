@@ -249,7 +249,7 @@ class DtaProcess(object):
                 input_ids = tokenizer.encode(prompt, return_tensors='pt')
 
                 with torch.no_grad():
-                    output = model.generate(input_ids, max_length=max_length, repetition_penalty=1.0,
+                    output = model.generate(input_ids, max_length=max_length, repetition_penalty=2.0,
                            pad_token_id=tokenizer.pad_token_id,
                            eos_token_id=tokenizer.eos_token_id,
                            bos_token_id=tokenizer.bos_token_id,
@@ -263,10 +263,55 @@ class DtaProcess(object):
             max_token_limit = model.config.n_positions
             print(f"모델의 최대 토큰 수: {max_token_limit}")
 
-            prompt = "2030의 미백을 개선하는 화장품에 대한 광고성 블로그 포스팅을 작성해조."
-            # prompt = "맛집 블로그 포스팅을 작성해조."
-            blog_post = generate_blog_post(prompt, max_length=min(max_token_limit, 1024))  # 최대 토큰 수에 맞게 조정
+            # prompt = "20~30대 미백을 개선하는 화장품을 소개해조"
+            prompt = "맛집 블로그 포스팅을 작성해조."
+            prompt = """
+            집 블로그 포스팅을 작성할 때는 아래와 같은 요소를 포함하면 좋습니다:
+
+서론 (오프닝)
+
+이 곳을 방문하게 된 이유 (추천받았는지, 우연히 찾았는지 등)
+간단한 맛집 소개 (위치나 분위기, 인기 메뉴 등)
+간단한 첫인상이나 분위기
+맛집 정보
+
+가게 이름과 위치
+영업시간과 쉬는 날
+주차 정보 (가게 앞, 주변 주차장 등)
+주요 메뉴와 추천 메뉴
+
+어떤 메뉴가 인기 있는지, 추천하고 싶은지
+메뉴 가격대 및 각 메뉴의 특징
+메뉴 선택 이유와 맛 평가
+음식 사진과 디테일 설명
+
+음식 사진을 담아내며 각 메뉴의 디테일 설명 (색감, 플레이팅 등)
+한 입 먹었을 때의 첫 느낌, 깊은 맛, 질감 등
+음식 맛 표현 (매콤, 고소, 신선함, 향신료 등 느낌)
+분위기와 인테리어
+
+가게 내부 분위기, 좌석 배치, 인테리어 특징
+특이한 소품이나 장식들
+가족과 함께 가기 좋은지, 친구와의 모임 장소로 적합한지, 데이트 장소로 좋은지 등
+서비스와 직원 응대
+
+직원의 친절함, 서비스 속도
+추가적인 서비스 (리필, 서비스 메뉴 제공 등)
+총평과 추천 이유
+
+가게 전체적인 장단점 요약
+이 곳을 방문해야 할 이유 (특별한 맛, 분위기, 좋은 서비스 등)
+다시 가고 싶은지, 혹은 특정한 날에 방문하기 좋은 곳인지
+추가 정보
+
+예약 여부, 할인 정보, 주변에 가볼 만한 다른 장소 등
+            """
+            # 최대 토큰 수에 맞게 조정
+            blog_post = generate_blog_post(prompt, max_length=min(max_token_limit, 1024))
             print(blog_post)
+
+            blog_post2 = generate_blog_post('계속', max_length=min(max_token_limit, 1024))
+            print(blog_post2)
 
             # blog_post2 = generate_blog_post(blog_post, max_length=min(max_token_limit, 1000))
             # print(blog_post2)
@@ -368,8 +413,6 @@ class DtaProcess(object):
             # import json
             # import requests
 
-            API_TOKEN = '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'
-
             # headers = {"Authorization": f"Bearer {API_TOKEN}"}
             # API_URL = "https://api-inference.huggingface.co/models/deepset/roberta-base-squad2"
             # def query(payload):
@@ -387,22 +430,13 @@ class DtaProcess(object):
             #
             # print(data)
 
-            API_URL = "https://api-inference.huggingface.co/models/gpt2"
-            API_TOKEN = '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'
-            headers = {
-                "Authorization": f"Bearer {API_TOKEN}",
-                "Content-Type": "application/json",
-                # "x-use-cache": "false"
-                "x-wait-for-model": "true"
-
-            }
-
-            data = {
-                # "inputs": "Can you please let us know more details about your "
-                "inputs": "맛집 블로그 글 써조"
-            }
-            response = requests.post(API_URL, headers=headers, json=data)
-            print(response.json())
+            #
+            # data = {
+            #     # "inputs": "Can you please let us know more details about your "
+            #     "inputs": "맛집 블로그 글 써조"
+            # }
+            # response = requests.post(API_URL, headers=headers, json=data)
+            # print(response.json())
 
             # def query(payload):
             #     data = json.dumps(payload)
