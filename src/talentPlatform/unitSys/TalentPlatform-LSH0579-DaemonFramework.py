@@ -423,7 +423,85 @@ def makeProcVis(modelInfo, code, dtDateInfo, data):
 
     except Exception as e:
         log.error(f"Exception : {str(e)}")
-        raise e
+
+def matchStnRadar(sysOpt, modelInfo, code, dtDateList):
+
+    try:
+        # ==========================================================================================================
+        # 융합 ASOS/AWS 지상 관측소을 기준으로 최근접 레이더 가공파일 화소 찾기 (posRow, posCol, posLat, posLon, posDistKm)
+        # ==========================================================================================================
+        # 매 5분 순간마다 가공파일 검색/병합
+        procFilePattern = '{}/{}'.format(modelInfo['procPath'], modelInfo['procName'])
+        # dtHourList = pd.date_range(start=dtSrtDate, end=dtEndDate, freq=sysOpt['invHour'])
+
+        searchList = []
+        for dtDateInfo in dtDateList:
+            procFile = dtDateInfo.strftime(procFilePattern).format(code)
+            fileList = sorted(glob.glob(procFile))
+            if fileList is None or len(fileList) < 1: continue
+            searchList.append(fileList[0])
+            break
+
+        if searchList is None or len(searchList) < 1:
+            log.error(f"[ERROR] procFilePattern : {procFilePattern} / 가공파일을 확인해주세요.")
+            return
+
+        # 레이더 가공 파일 일부
+        fileInfo = searchList[0]
+        cfgData = xr.open_dataset(fileInfo)
+        cfgDataL1 = cfgData.to_dataframe().reset_index(drop=False)
+
+        # ASOS/AWS 융합 지상관측소
+        inpFilePattern = '{}/{}'.format(sysOpt['stnInfo']['filePath'], sysOpt['stnInfo']['fileName'])
+        fileList = sorted(glob.glob(inpFilePattern))
+        if fileList is None or len(fileList) < 1:
+            log.error(f"[ERROR] inpFilePattern : {inpFilePattern} / 융합 지상관측소를 확인해주세요.")
+            return
+
+        fileInfo = fileList[0]
+        allStnData = pd.read_csv(fileInfo)
+        allStnDataL1 = allStnData[['STN', 'STN_KO', 'LON', 'LAT']]
+
+        # 2024.10.24 수정
+        # allStnDataL2 = allStnDataL1[allStnDataL1['STN'].isin(sysOpt['stnInfo']['list'])]
+        allStnDataL2 = allStnDataL1
+
+        # 융합 ASOS/AWS 지상 관측소을 기준으로 최근접 레이더 가공파일 화소 찾기 (posRow, posCol, posLat, posLon, posDistKm)
+        #      STN STN_KO        LON       LAT  ...  posCol      posLat     posLon  posDistKm
+        # 0     90     속초  128.56473  38.25085  ...   456.0  128.565921  38.251865   0.024091
+        # 10   104    북강릉  128.85535  37.80456  ...   482.0  128.850344  37.805816   0.072428
+        # 11   105     강릉  128.89099  37.75147  ...   486.0  128.894198  37.750990   0.045061
+        # 12   106     동해  129.12433  37.50709  ...   507.0  129.124659  37.503421   0.064192
+        # 289  520    설악동  128.51818  38.16705  ...   452.0  128.518319  38.171507   0.077807
+        # 292  523    주문진  128.82139  37.89848  ...   479.0  128.818774  37.896447   0.050570
+        # 424  661     현내  128.40191  38.54251  ...   441.0  128.401035  38.542505   0.011947
+        # 432  670     양양  128.62954  38.08874  ...   462.0  128.630338  38.088726   0.010963
+        # 433  671     청호  128.59360  38.19091  ...   459.0  128.598611  38.188309   0.082373
+        baTree = BallTree(np.deg2rad(cfgDataL1[['lat', 'lon']].values), metric='haversine')
+        for i, posInfo in allStnDataL2.iterrows():
+            if (pd.isna(posInfo['LAT']) or pd.isna(posInfo['LON'])): continue
+
+            closest = baTree.query(np.deg2rad(np.c_[posInfo['LAT'], posInfo['LON']]), k=1)
+            cloDist = closest[0][0][0] * 1000.0
+            cloIdx = closest[1][0][0]
+            cfgInfo = cfgDataL1.loc[cloIdx]
+
+            allStnDataL2.loc[i, 'posRow'] = cfgInfo['row']
+            allStnDataL2.loc[i, 'posCol'] = cfgInfo['col']
+            allStnDataL2.loc[i, 'posLat'] = cfgInfo['lon']
+            allStnDataL2.loc[i, 'posLon'] = cfgInfo['lat']
+            allStnDataL2.loc[i, 'posDistKm'] = cloDist
+
+        # log.info(f"[CHECK] allStnDataL2 : {allStnDataL2}")
+
+        saveFilePattern = '{}/{}'.format(sysOpt['stnInfo']['matchPath'], sysOpt['stnInfo']['matchName'])
+        saveFile = dtDateInfo.strftime(saveFilePattern).format(code)
+        os.makedirs(os.path.dirname(saveFile), exist_ok=True)
+        allStnDataL2.to_csv(saveFile, index=False)
+        log.info(f"[CHECK] saveFile : {saveFile}")
+
+    except Exception as e:
+        log.error(f'Exception : {str(e)}')
 
 @retry(stop_max_attempt_number=1)
 def radarProc(modelInfo, code, dtDateInfo):
@@ -612,7 +690,7 @@ def radarProc(modelInfo, code, dtDateInfo):
         # Elev. ang
         # Arng = np.arange(didxs[srtEA - 1], didxe[srtEA - 1] + 1)
         Arng = np.arange(didxs[srtEA - 2], didxe[srtEA - 2] + 1)
-        log.info(f"[CHECK] Arng : {Arng}")
+        # log.info(f"[CHECK] Arng : {Arng}")
 
         # Var. info
         rVar_rf = dataL1['arr_ref'].T
@@ -760,7 +838,7 @@ def radarValid(sysOpt, modelInfo, code, dtDateList):
     try:
         # ==========================================================================================================
         # 매 5분 순간마다 가공파일 검색/병합
-        # 융합 ASOS/AWS 지상 관측소을 기준으로 최근접 레이더 가공파일 화소 찾기 (posRow, posCol, posLat, posLon, posDistKm)
+        # 융합 ASOS/AWS 지상 관측소 및 레이더 가공파일의 매칭 파일 읽기
         # 매 5분 순간마다 가공파일을 이용하여 매 1시간 누적 계산
         # 매 1시간 누적마다 지상 관측소를 기준으로 최근접/선형내삽 화소 추출 그리고 엑셀 저장
         # 매 1시간 누적마다 반사도/강우강도 시각화
@@ -782,58 +860,19 @@ def radarValid(sysOpt, modelInfo, code, dtDateList):
 
         dataL3 = xr.open_mfdataset(searchList).sel(time=slice(sysOpt['srtDate'], sysOpt['endDate']))
 
-        # 레이더 가공 파일 일부
-        fileInfo = searchList[0]
-        cfgData = xr.open_dataset(fileInfo)
-        cfgDataL1 = cfgData.to_dataframe().reset_index(drop=False)
-
-        # ASOS/AWS 융합 지상관측소
-        inpFilePattern = '{}/{}'.format(sysOpt['stnInfo']['filePath'], sysOpt['stnInfo']['fileName'])
-        fileList = sorted(glob.glob(inpFilePattern))
+        matchFilePattern = '{}/{}'.format(sysOpt['stnInfo']['matchPath'], sysOpt['stnInfo']['matchName'])
+        matchFile = dtDateInfo.strftime(matchFilePattern).format(code)
+        fileList = sorted(glob.glob(matchFile))
         if fileList is None or len(fileList) < 1:
-            log.error(f"[ERROR] inpFilePattern : {inpFilePattern} / 융합 지상관측소를 확인해주세요.")
+            log.error(f"[ERROR] matchFile : {matchFile} / 지상관측소-레이더 매칭파일을 확인해주세요.")
             return
 
-        fileInfo = fileList[0]
-        allStnData = pd.read_csv(fileInfo)
-        allStnDataL1 = allStnData[['STN', 'STN_KO', 'LON', 'LAT']]
-
-        # 2024.10.24 수정
-        # allStnDataL2 = allStnDataL1[allStnDataL1['STN'].isin(sysOpt['stnInfo']['list'])]
-        allStnDataL2 = allStnDataL1[allStnDataL1['STN']]
-
-        # 융합 ASOS/AWS 지상 관측소을 기준으로 최근접 레이더 가공파일 화소 찾기 (posRow, posCol, posLat, posLon, posDistKm)
-        #      STN STN_KO        LON       LAT  ...  posCol      posLat     posLon  posDistKm
-        # 0     90     속초  128.56473  38.25085  ...   456.0  128.565921  38.251865   0.024091
-        # 10   104    북강릉  128.85535  37.80456  ...   482.0  128.850344  37.805816   0.072428
-        # 11   105     강릉  128.89099  37.75147  ...   486.0  128.894198  37.750990   0.045061
-        # 12   106     동해  129.12433  37.50709  ...   507.0  129.124659  37.503421   0.064192
-        # 289  520    설악동  128.51818  38.16705  ...   452.0  128.518319  38.171507   0.077807
-        # 292  523    주문진  128.82139  37.89848  ...   479.0  128.818774  37.896447   0.050570
-        # 424  661     현내  128.40191  38.54251  ...   441.0  128.401035  38.542505   0.011947
-        # 432  670     양양  128.62954  38.08874  ...   462.0  128.630338  38.088726   0.010963
-        # 433  671     청호  128.59360  38.19091  ...   459.0  128.598611  38.188309   0.082373
-        baTree = BallTree(np.deg2rad(cfgDataL1[['lat', 'lon']].values), metric='haversine')
-        for i, posInfo in allStnDataL2.iterrows():
-            if (pd.isna(posInfo['LAT']) or pd.isna(posInfo['LON'])): continue
-
-            closest = baTree.query(np.deg2rad(np.c_[posInfo['LAT'], posInfo['LON']]), k=1)
-            cloDist = closest[0][0][0] * 1000.0
-            cloIdx = closest[1][0][0]
-            cfgInfo = cfgDataL1.loc[cloIdx]
-
-            allStnDataL2.loc[i, 'posRow'] = cfgInfo['row']
-            allStnDataL2.loc[i, 'posCol'] = cfgInfo['col']
-            allStnDataL2.loc[i, 'posLat'] = cfgInfo['lon']
-            allStnDataL2.loc[i, 'posLon'] = cfgInfo['lat']
-            allStnDataL2.loc[i, 'posDistKm'] = cloDist
-
-        log.info(f"[CHECK] allStnDataL2 : {allStnDataL2}")
+        allStnDataL2 = pd.read_csv(fileList[0])
+        # log.info(f"[CHECK] allStnDataL2 : {allStnDataL2}")
 
         # 엑셀 저장
         # Rst.xlsx
         # RstH.xlsx
-
         # 매 5분 순간마다 가공파일을 이용하여 매 1시간 누적 계산
         dataL4 = dataL3.resample(time='1H').sum(dim=['time'], skipna=False)
         # dataL4 = dataL3.resample(time='1H').sum(dim=['time'], skipna=True)
@@ -1037,20 +1076,31 @@ class DtaProcess(object):
                 # 비동기 다중 프로세스 개수
                 , 'cpuCoreNum': '2'
 
+                # 비동기 True, 동기 False
+                # , 'isAsync': True
+                , 'isAsync': False
+
                 # ASOS/AWS 융합 지상관측소
                 , 'stnInfo': {
+                    # 원본 파일
                     # 'filePath': '/SYSTEMS/PROG/PYTHON/IDE/resources/config/stnInfo'
                     'filePath': f'{contextPath}/stnInfo'
                     , 'fileName': 'ALL_STN_INFO.csv'
+
+                    # 매칭 파일
+                    , 'matchPath': f'{contextPath}/match'
+                    , 'matchName': 'MATCH_STN_RADAR-{}.csv'
+
                     # KSN
                     # , 'list': [90, 104, 105, 106, 520, 523, 661, 670, 671]
                                   
                     # GDK
-                    , 'list': [323]
+                    # , 'list': [323]
                 }
 
                 # 수행 목록
                 , 'modelList': ['RDR-FQC']
+
 
                 # 세부 정보
                 , 'RDR-FQC': {
@@ -1075,7 +1125,8 @@ class DtaProcess(object):
                     , 'rainSrtEA': 3
 
                     # 가공파일 시각화 여부
-                    , 'isProcVis': True
+                    # , 'isProcVis': True
+                    , 'isProcVis': False
 
                     # 저장 파일
                     , 'savePath': '/DATA/OUTPUT/LSH0579/PROC'
@@ -1110,7 +1161,7 @@ class DtaProcess(object):
             # 비동기 다중 프로세스 수행
             # **************************************************************************************************************
             # 비동기 다중 프로세스 개수
-            # pool = Pool(int(sysOpt['cpuCoreNum']))
+            pool = Pool(int(sysOpt['cpuCoreNum'])) if sysOpt['isAsync'] else None
 
             for modelType in sysOpt['modelList']:
                 log.info(f'[CHECK] modelType : {modelType}')
@@ -1121,24 +1172,32 @@ class DtaProcess(object):
                 for code in modelInfo['codeList']:
                     log.info(f'[CHECK] code : {code}')
 
-                    # 단일 자료 가공
                     for dtDateInfo in dtDateList:
-                        radarProc(modelInfo, code, dtDateInfo)
+                        if sysOpt['isAsync']:
+                            # 비동기 자료 가공
+                            pool.apply_async(radarProc, args=(modelInfo, code, dtDateInfo))
+                        else:
+                            # 단일 자료 가공
+                            radarProc(modelInfo, code, dtDateInfo)
+                    if pool:
+                        pool.close()
+                        pool.join()
 
-                    # 비동기 자료 가공
-                    # for dtDateInfo in dtDateList:
-                    #     # log.info(f'[CHECK] dtDateInfo : {dtDateInfo}')
-                    #     pool.apply_async(radarProc, args=(modelInfo, code, dtDateInfo))
-                    # pool.close()
-                    # pool.join()
+                    # 지상관측소 및 레이더 간의 최근접 화소 찾기
+                    # matchStnRadar(sysOpt, modelInfo, code, dtDateList)
 
                     # 자료 검증
                     radarValid(sysOpt, modelInfo, code, dtDateList)
 
         except Exception as e:
             log.error(f"Exception : {str(e)}")
+            if pool:
+                pool.terminate()
             raise e
         finally:
+            if pool:
+                pool.close()
+                pool.join()
             log.info('[END] {}'.format("exec"))
 
 
