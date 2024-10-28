@@ -521,7 +521,6 @@ def radarProc(modelInfo, code, dtDateInfo):
 
         if fileList is None or len(fileList) < 1:
             log.error(f"[ERROR] inpFile : {inpFile} / 입력파일을 확인해주세요.")
-            # raise Exception(f"[ERROR] inpFile : {inpFile} / 입력파일을 확인해주세요.")
             return
 
         fileInfo = fileList[0]
@@ -728,15 +727,19 @@ def radarProc(modelInfo, code, dtDateInfo):
 
         azm_rad = np.deg2rad(azm)
         elv_rad = np.deg2rad(elv)
+
+        # 원본 불규칙 격자의 레이더 위경도 좌표 (xrEle/yrEle, 960 x 360 배열)
         xrEle = (rng.reshape(-1, 1) * np.sin(azm_rad) * np.cos(elv_rad)) / 1000
         yrEle = (rng.reshape(-1, 1) * np.cos(azm_rad) * np.cos(elv_rad)) / 1000
 
         dxr = xrEle.flatten()
         dyr = yrEle.flatten()
 
-        # 격자 설정
+        # 가공 규칙 격자의 레이더 인덱스 좌표 (xi/yi, 601 x 601 배열)
+        # 즉 중심 기준점 (0,0)을 기준으로 반경 300 km (동/서/남/북쪽 300 km)을 생성
         xi, yi = np.meshgrid(np.arange(-300, 301, gw), np.arange(-300, 301, gw))
 
+        # 가공 규칙 격자를 기준으로 선형 내삽 수행
         # zh.linear unit in mm6 m-3
         # zh = np.power(10.0, rVarf / 10.0)
         zh = 10.0 ** (rVarf / 10.0)
@@ -756,10 +759,16 @@ def radarProc(modelInfo, code, dtDateInfo):
         Rcal = griddata((dxr, dyr), dzr.flatten(), (xi, yi), method='linear')
         # Rcal = griddata(np.column_stack((dxr, dyr)), dzr.flatten(),(xi, yi), method='linear')
 
+        # 가공 규칙 격자 (xi, yi) 및 중심 기준점 (lat0, lon0)를 이용한 위경도 변환
+        # - 기준점 (127.43, 38.11)에서 가공 규칙 격자 (0, 0) -> 위경도 (124.13, 35.37)
+        # - 기준점 (127.43, 38.11)에서 가공 규칙 격자 (300, 300) -> 위경도 (127.43, 38.11)
+        # - 기준점 (127.43, 38.11)에서 가공 규칙 격자 (600, 600) -> 위경도 (130.98, 40.76)
         # xy -> lonlat
         lat0 = dataL1['arr_lat_lon_alt_bwh'][0][0]
         lon0 = dataL1['arr_lat_lon_alt_bwh'][1][0]
         elv0 = dataL1['arr_lat_lon_alt_bwh'][2][0]
+
+        ylatg, xlong, h0 = enu2geodetic(xi * 1000, yi * 1000, np.zeros_like(xi), lat0, lon0, 0, deg=True)
 
         # projEnu = Proj(proj='tmerc', lat_0=lat0, lon_0=lon0, ellps='WGS84', units='km')
         # projWgs84 = Proj(proj='latlong', datum='WGS84')
@@ -767,10 +776,13 @@ def radarProc(modelInfo, code, dtDateInfo):
         # xlong, ylatg = transformer.transform(xi, yi)
         # h0 = np.zeros_like(xi)
 
-        ylatg, xlong, h0 = enu2geodetic(xi * 1000, yi * 1000, np.zeros_like(xi), lat0, lon0, 0, deg=True)
+        # xlong[0][0]
+        # ylatg[0][0]
+        # xlong[300][300]
+        # ylatg[300][300]
+        # xlong[600][600]
+        # ylatg[600][600]
 
-        xlong[300][300]
-        ylatg[300][300]
 
         # 누적 계산 반사도 팩터
         # ZcaloA = ZcaloA + zhh
@@ -1184,7 +1196,7 @@ class DtaProcess(object):
                         pool.join()
 
                     # 지상관측소 및 레이더 간의 최근접 화소 찾기
-                    # matchStnRadar(sysOpt, modelInfo, code, dtDateList)
+                    matchStnRadar(sysOpt, modelInfo, code, dtDateList)
 
                     # 자료 검증
                     radarValid(sysOpt, modelInfo, code, dtDateList)
