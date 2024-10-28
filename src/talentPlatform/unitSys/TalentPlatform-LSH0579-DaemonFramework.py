@@ -964,10 +964,10 @@ def radarValid(sysOpt, modelInfo, code, dtDateList):
             # plt.show()
             plt.close()
             log.info(f"[CHECK] saveImg : {saveImg}")
+
     except Exception as e:
         log.error(f'Exception : {str(e)}')
         raise e
-
 
 # ================================================
 # 4. 부 프로그램
