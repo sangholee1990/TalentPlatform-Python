@@ -1097,7 +1097,6 @@ class DtaProcess(object):
                     # 수집 파일
                     , 'colctUrl': 'https://api.binance.com/api/v3/klines'
                     , 'colctColList': ['Open_time', 'Open', 'High', 'Low', 'Close', 'Volume', 'Close_time', 'quote_av', 'trades', 'tb_base_av', 'tb_quote_av', 'ignore']
-                    , 'colctCodeFilter': None
                     , 'colctPath': '/DATA/OUTPUT/LSH0579/COLCT/%Y%m/%d/%H/%code%'
                     , 'colctName': '%code%_%Y%m%d%H%M.csv'
 
@@ -1151,6 +1150,7 @@ class DtaProcess(object):
                 for symbol in cfgData['symbol'].tolist():
                     log.info(f'[CHECK] symbol : {symbol}')
 
+                    if not re.search(r'BTCUSDT', symbol, re.IGNORECASE): continue
 
                     for dtDateInfo in dtDateList:
                         log.info(f'[CHECK] dtDateInfo : {dtDateInfo}')
@@ -1180,6 +1180,7 @@ class DtaProcess(object):
                         resDataL1['Symbol'] = symbol
                         resDataL1.loc[:, 'Open':'tb_quote_av'] = resDataL1.loc[:, 'Open':'tb_quote_av'].astype(float)  # string to float
                         resDataL1['trades'] = resDataL1['trades'].astype(int)
+
 
 
 
