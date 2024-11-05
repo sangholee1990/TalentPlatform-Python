@@ -1068,7 +1068,8 @@ class DtaProcess(object):
             sysOpt = {
                 # 시작일, 종료일, 시간 간격 (연 1y, 월 1h, 일 1d, 시간 1h, 분 1t)
                 'srtDate': '2024-01-10 00:00'
-                , 'endDate': '2024-01-10 01:00'
+                # , 'endDate': '2024-01-10 01:00'
+                , 'endDate': '2024-01-10 06:00'
                 , 'invDate': '1t'
 
                 # 비동기 다중 프로세스 개수
@@ -1097,8 +1098,8 @@ class DtaProcess(object):
                     # 수집 파일
                     , 'colctUrl': 'https://api.binance.com/api/v3/klines'
                     , 'colctColList': ['Open_time', 'Open', 'High', 'Low', 'Close', 'Volume', 'Close_time', 'quote_av', 'trades', 'tb_base_av', 'tb_quote_av', 'ignore']
-                    , 'colctPath': '/DATA/OUTPUT/LSH0579/COLCT/%Y%m/%d/%H/%code%'
-                    , 'colctName': '%code%_%Y%m%d%H%M.csv'
+                    , 'colctPath': '/DATA/OUTPUT/LSH0579/COLCT/%Y%m/%d/%H/{symbol}'
+                    , 'colctName': '{symbol}_%Y%m%d%H%M.csv'
 
                     , 'savePath': '/DATA/OUTPUT/LSH0579/PROC'
                     , 'saveName': 'RDR_{}_FQC_%Y%m%d%H%M.nc'
@@ -1147,21 +1148,27 @@ class DtaProcess(object):
                 modelInfo = sysOpt.get(modelType)
                 if modelInfo is None: continue
 
+                # symbol = 'BTCUSDT'
                 for symbol in cfgData['symbol'].tolist():
-                    log.info(f'[CHECK] symbol : {symbol}')
+                    # log.info(f'[CHECK] symbol : {symbol}')
 
-                    if not re.search(r'BTCUSDT', symbol, re.IGNORECASE): continue
+                    # 테스트
+                    if not 'BTCUSDT' == symbol: continue
 
                     for dtDateInfo in dtDateList:
-                        log.info(f'[CHECK] dtDateInfo : {dtDateInfo}')
+                        # log.info(f'[CHECK] dtDateInfo : {dtDateInfo}')
 
-                        # symbol = 'BTCUSDT'
+                        colctFilePattern = '{}/{}'.format(modelInfo['colctPath'], modelInfo['colctName'])
+                        colctFile = dtDateInfo.strftime(colctFilePattern).format(symbol=symbol)
+                        if os.path.exists(colctFile): continue
+
+                        dtUnixTimeMs = int(dtDateInfo.timestamp() * 1000)
                         params = {
                             'symbol': symbol
                             , 'interval': '1m'
                             , 'limit': 1000
-                            , 'startTime': int(dtDateInfo.timestamp() * 1000)
-                            , 'endTime': int(dtDateInfo.timestamp() * 1000)
+                            , 'startTime': dtUnixTimeMs
+                            , 'endTime': dtUnixTimeMs
                         }
 
                         res = requests.get(modelInfo['colctUrl'], params=params)
@@ -1181,44 +1188,10 @@ class DtaProcess(object):
                         resDataL1.loc[:, 'Open':'tb_quote_av'] = resDataL1.loc[:, 'Open':'tb_quote_av'].astype(float)  # string to float
                         resDataL1['trades'] = resDataL1['trades'].astype(int)
 
-
-
-
-                        # data.extend(js)  # result에 저장
-                        # start = js[-1][0] + 60000  # 다음 step으로
-
-
-
-                        # if sysOpt['isAsync']:
-                        #     # 비동기 자료 가공
-                        #     pool.apply_async(radarProc, args=(modelInfo, code, dtDateInfo))
-                        # else:
-                        #     # 단일 자료 가공
-                        #     radarProc(modelInfo, code, dtDateInfo)
-
-
-            # start_date = '2024-01-01'
-            # end_date = '2024-01-02'
-            # symbol = symbols_usdt[0]
-            # symbol
-            # get_data(start_date, end_date, symbol)
-            #
-            # # years = list(range(2017, 2022))  # 바이낸스에서는 2017년 8월 이후의 데이터부터 제공
-            # cc = 0
-            # for symbol in symbols_usdt:
-            #     cc = cc + 1
-            #     if (cc <= 2):
-            #         print(symbol)
-            #         start_date = '2017-01-01'
-            #         end_date = '2024-10-28'
-            #         df = get_data(start_date, end_date, symbol)
-            #         if (type(df) == int):
-            #             continue
-            #
-            #         df.to_csv(f'./raw_data/{symbol[:3].lower()}.csv', index=False)  # csv파일로 저장하는 부분
-            #         time.sleep(1)  # 과다한 요청으로 API사용이 제한되는것을 막기 위해
-
-
+                        # 파일 저장
+                        os.makedirs(os.path.dirname(colctFile), exist_ok=True)
+                        resDataL1.to_csv(colctFile, index=False)
+                        log.info(f"[CHECK] colctFile : {colctFile}")
 
             # **************************************************************************************************************
             # 비동기 다중 프로세스 수행
