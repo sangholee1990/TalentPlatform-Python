@@ -44,6 +44,10 @@ import pandas as pd
 from tqdm import tqdm
 import time
 import pytz
+import asyncio
+from datetime import datetime
+from apscheduler.schedulers.asyncio import AsyncIOScheduler
+from apscheduler.executors.asyncio import AsyncIOExecutor
 
 # =================================================
 # 사용자 매뉴얼
@@ -62,6 +66,8 @@ import pytz
 # 1. 초기 설정
 # =================================================
 warnings.filterwarnings("ignore")
+
+kst = pytz.timezone("Asia/Seoul")
 
 # plt.rc('font', family='Malgun Gothic')
 plt.rc('axes', unicode_minus=False)
@@ -996,6 +1002,47 @@ def cfgProc(sysOpt):
         log.error(f"Exception : {str(e)}")
         return None
 
+@retry(stop_max_attempt_number=5)
+def colctTrendVideo(sysOpt, funName):
+    print(f"[{datetime.now()}] {funName} : {sysOpt}")
+
+    try:
+        print(f"[{datetime.now()}] {funName} : {sysOpt}")
+        raise Exception("예외 발생")
+    except Exception as e:
+        log.error(f"Exception : {str(e)}")
+        raise e
+
+async def asyncSchdl(sysOpt):
+
+    scheduler = AsyncIOScheduler()
+    scheduler.add_executor(AsyncIOExecutor(), 'default')
+
+    # 정적 스케줄 등록
+    # scheduler.add_job(colctTrendVideo, 'cron', second=0, args=[sysOpt, 'colctTrendVideo'])
+
+    # 동적 스케줄 등록
+    jobList = [
+        (colctTrendVideo, 'cron', {'second': '0'}, {'args': [sysOpt, 'colctTrendVideo']})
+        , (colctTrendVideo, 'cron', {'second': '30'}, {'args': [sysOpt, 'colctTrendVideo2']})
+        , (colctTrendVideo, 'cron', {'second': '*/15'}, {'args': [None, 'colctTrendVideo3']})
+    ]
+    
+    for fun, trigger, triggerArgs, kwargs in jobList:
+        try:
+            scheduler.add_job(fun, trigger, **triggerArgs, **kwargs)
+        except Exception as e:
+            log.error(f"Exception : {str(e)}")
+
+    scheduler.start()
+
+    try:
+        await asyncio.Event().wait()
+    except (KeyboardInterrupt, SystemExit):
+        asyncio.Event().close()
+    finally:
+        scheduler.shutdown()
+
 # ================================================
 # 4. 부 프로그램
 # ================================================
@@ -1122,76 +1169,89 @@ class DtaProcess(object):
                 }
             }
 
-            # 시작일/종료일 설정
-            # dtSrtDate = pd.to_datetime(sysOpt['srtDate'], format='%Y-%m-%d')
-            # dtEndDate = pd.to_datetime(sysOpt['endDate'], format='%Y-%m-%d')
-            dtSrtDate = pd.to_datetime(sysOpt['srtDate'], format='%Y-%m-%d %H:%M')
-            dtEndDate = pd.to_datetime(sysOpt['endDate'], format='%Y-%m-%d %H:%M')
-            dtDateList = pd.date_range(start=dtSrtDate, end=dtEndDate, freq=sysOpt['invDate'])
+            # **********************************************************************************************************
+            # 자동화
+            # **********************************************************************************************************
+            asyncio.run(asyncSchdl(sysOpt))
 
-            # **************************************************************************************************************
-            # 테스트
-            # **************************************************************************************************************
+            # # **********************************************************************************************************
+            # # 수동화
+            # # **********************************************************************************************************
+            # # 시작일/종료일 설정
+            # # dtSrtDate = pd.to_datetime(sysOpt['srtDate'], format='%Y-%m-%d')
+            # # dtEndDate = pd.to_datetime(sysOpt['endDate'], format='%Y-%m-%d')
+            # dtSrtDate = pd.to_datetime(sysOpt['srtDate'], format='%Y-%m-%d %H:%M')
+            # dtEndDate = pd.to_datetime(sysOpt['endDate'], format='%Y-%m-%d %H:%M')
+            # dtDateList = pd.date_range(start=dtSrtDate, end=dtEndDate, freq=sysOpt['invDate'])
+            #
+            # # **************************************************************************************************************
+            # # 테스트
+            # # **************************************************************************************************************
+            # # endDate = datetime.now()
+            #
+            #
+            #
+            # cfgData = cfgProc(sysOpt)
+            # if cfgData is None or len(cfgData) < 1:
+            #     log.error(f"[ERROR] cfgData['cfgUrl'] : {cfgData['cfgUrl']} / 설정 정보 URL을 확인해주세요.")
+            #     raise Exception("오류 발생")
+            #
+            # # int(kst.localize(dtDateList[0]).timestamp() * 1000)
+            #
+            # for modelType in sysOpt['modelList']:
+            #     log.info(f'[CHECK] modelType : {modelType}')
+            #
+            #     modelInfo = sysOpt.get(modelType)
+            #     if modelInfo is None: continue
+            #
+            #     # symbol = 'BTCUSDT'
+            #     for symbol in cfgData['symbol'].tolist():
+            #         # log.info(f'[CHECK] symbol : {symbol}')
+            #
+            #         # 테스트
+            #         if not 'BTCUSDT' == symbol: continue
+            #
+            #         for dtDateInfo in dtDateList:
+            #             # log.info(f'[CHECK] dtDateInfo : {dtDateInfo}')
+            #
+            #             colctFilePattern = '{}/{}'.format(modelInfo['colctPath'], modelInfo['colctName'])
+            #             colctFile = dtDateInfo.strftime(colctFilePattern).format(symbol=symbol)
+            #             if os.path.exists(colctFile): continue
+            #
+            #             dtUnixTimeMs = int(dtDateInfo.timestamp() * 1000)
+            #             params = {
+            #                 'symbol': symbol
+            #                 , 'interval': '1m'
+            #                 , 'limit': 1000
+            #                 , 'startTime': dtUnixTimeMs
+            #                 , 'endTime': dtUnixTimeMs
+            #             }
+            #
+            #             res = requests.get(modelInfo['colctUrl'], params=params)
+            #             if not (res.status_code == 200): return None
+            #
+            #             resJson = res.json()
+            #             if resJson is None or len(resJson) < 1: return None
+            #
+            #             resData = pd.DataFrame(resJson)
+            #             if resData is None or len(resData) < 1: return None
+            #
+            #             resDataL1 = resData
+            #             resDataL1.columns = modelInfo['colctColList']
+            #             resDataL1['Open_time'] = resDataL1.apply(lambda x: datetime.fromtimestamp(resDataL1['Open_time'] // 1000), axis=1)
+            #             resDataL1 = resDataL1.drop(columns=['Close_time', 'ignore'])
+            #             resDataL1['Symbol'] = symbol
+            #             resDataL1.loc[:, 'Open':'tb_quote_av'] = resDataL1.loc[:, 'Open':'tb_quote_av'].astype(float)
+            #             resDataL1['trades'] = resDataL1['trades'].astype(int)
+            #
+            #             # 파일 저장
+            #             os.makedirs(os.path.dirname(colctFile), exist_ok=True)
+            #             resDataL1.to_csv(colctFile, index=False)
 
-            kst = pytz.timezone("Asia/Seoul")
 
-            cfgData = cfgProc(sysOpt)
-            if cfgData is None or len(cfgData) < 1:
-                log.error(f"[ERROR] cfgData['cfgUrl'] : {cfgData['cfgUrl']} / 설정 정보 URL을 확인해주세요.")
-                raise Exception("오류 발생")
 
-            # int(kst.localize(dtDateList[0]).timestamp() * 1000)
 
-            for modelType in sysOpt['modelList']:
-                log.info(f'[CHECK] modelType : {modelType}')
 
-                modelInfo = sysOpt.get(modelType)
-                if modelInfo is None: continue
-
-                # symbol = 'BTCUSDT'
-                for symbol in cfgData['symbol'].tolist():
-                    # log.info(f'[CHECK] symbol : {symbol}')
-
-                    # 테스트
-                    if not 'BTCUSDT' == symbol: continue
-
-                    for dtDateInfo in dtDateList:
-                        # log.info(f'[CHECK] dtDateInfo : {dtDateInfo}')
-
-                        colctFilePattern = '{}/{}'.format(modelInfo['colctPath'], modelInfo['colctName'])
-                        colctFile = dtDateInfo.strftime(colctFilePattern).format(symbol=symbol)
-                        if os.path.exists(colctFile): continue
-
-                        dtUnixTimeMs = int(dtDateInfo.timestamp() * 1000)
-                        params = {
-                            'symbol': symbol
-                            , 'interval': '1m'
-                            , 'limit': 1000
-                            , 'startTime': dtUnixTimeMs
-                            , 'endTime': dtUnixTimeMs
-                        }
-
-                        res = requests.get(modelInfo['colctUrl'], params=params)
-                        if not (res.status_code == 200): return None
-
-                        resJson = res.json()
-                        if resJson is None or len(resJson) < 1: return None
-
-                        resData = pd.DataFrame(resJson)
-                        if resData is None or len(resData) < 1: return None
-
-                        resDataL1 = resData
-                        resDataL1.columns = modelInfo['colctColList']
-                        resDataL1['Open_time'] = resDataL1.apply(lambda x: datetime.fromtimestamp(resDataL1['Open_time'] // 1000), axis=1)
-                        resDataL1 = resDataL1.drop(columns=['Close_time', 'ignore'])
-                        resDataL1['Symbol'] = symbol
-                        resDataL1.loc[:, 'Open':'tb_quote_av'] = resDataL1.loc[:, 'Open':'tb_quote_av'].astype(float)  # string to float
-                        resDataL1['trades'] = resDataL1['trades'].astype(int)
-
-                        # 파일 저장
-                        os.makedirs(os.path.dirname(colctFile), exist_ok=True)
-                        resDataL1.to_csv(colctFile, index=False)
-                        log.info(f"[CHECK] colctFile : {colctFile}")
 
             # **************************************************************************************************************
             # 비동기 다중 프로세스 수행
@@ -1252,7 +1312,6 @@ if __name__ == '__main__':
 
         # 부 프로그램 호출
         subDtaProcess = DtaProcess(inParams)
-
         subDtaProcess.exec()
 
     except Exception as e:
