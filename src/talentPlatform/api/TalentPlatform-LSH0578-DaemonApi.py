@@ -241,13 +241,6 @@ csvList = sorted(glob.glob(csvFile))
 csvInfo = csvList[0]
 csvData = pd.read_csv(csvInfo)
 
-# jsonFile = '{}/{}'.format(globalVar['cfgPath'], 'iconic-ruler-239806-7f6de5759012.json')
-# jsonList = sorted(glob.glob(jsonFile))
-# jsonInfo = jsonList[0]
-
-# credentials = service_account.Credentials.from_service_account_file(jsonInfo)
-# client = bigquery.Client(credentials=credentials, project=credentials.project_id)
-
 # base = declarative_base()
 
 # ============================================
@@ -322,8 +315,8 @@ async def selPdfToTxt(
         if tmpFileInfo and os.path.exists(tmpFileInfo):
             os.remove(tmpFileInfo)
 
-# @app.post(f"/api/sel-selBlogTypePost", dependencies=[Depends(chkApiKey)])
-@app.post(f"/api/sel-selBlogTypePost")
+# @app.post(f"/api/sel-blogTypePost", dependencies=[Depends(chkApiKey)])
+@app.post(f"/api/sel-blogTypePost")
 async def selBlogTypePost(request: blogTypePostData = Form(...)):
     """
     기능\n
@@ -363,8 +356,8 @@ async def selBlogTypePost(request: blogTypePostData = Form(...)):
         log.error(f'Exception : {e}')
         raise HTTPException(status_code=400, detail=resRespone("fail", 400, "처리 실패",None, str(e)))
 
-# @app.post(f"/api/sel-selBlogPost", dependencies=[Depends(chkApiKey)])
-@app.post(f"/api/sel-selBlogPost")
+# @app.post(f"/api/sel-blogPost", dependencies=[Depends(chkApiKey)])
+@app.post(f"/api/sel-blogPost")
 async def selBlogPost(request: blogPostData = Form(...)):
     """
     기능\n
