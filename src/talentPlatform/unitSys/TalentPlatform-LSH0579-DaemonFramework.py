@@ -511,9 +511,9 @@ def radarProc(modelInfo, code, dtDateInfo):
         # ==========================================================================================================
         # KMA_GNG_Kang4_수정용2.py
         # ==========================================================================================================
-        saveFilePattern = '{}/{}'.format(modelInfo['savePath'], modelInfo['saveName'])
-        saveFile = dtDateInfo.strftime(saveFilePattern).format(code)
-        # if os.path.exists(saveFile): return
+        procFilePattern = '{}/{}'.format(modelInfo['procPath'], modelInfo['procName'])
+        procFile = dtDateInfo.strftime(procFilePattern).format(code)
+        # if os.path.exists(procFile): return
 
         inpFilePattern = '{}/{}'.format(modelInfo['filePath'], modelInfo['fileName'])
         inpFile = dtDateInfo.strftime(inpFilePattern).format(code)
@@ -835,9 +835,9 @@ def radarProc(modelInfo, code, dtDateInfo):
         # refData = sio.loadmat(f"/HDD/DATA/INPUT/LSH0579/KMA_GNG_sel_OUT/_CMU/dat.mat")
 
         # NetCDF 저장
-        os.makedirs(os.path.dirname(saveFile), exist_ok=True)
-        dataL2.to_netcdf(saveFile)
-        log.info(f"[CHECK] saveFile : {saveFile}")
+        os.makedirs(os.path.dirname(procFile), exist_ok=True)
+        dataL2.to_netcdf(procFile)
+        log.info(f"[CHECK] procFile : {procFile}")
 
         log.info(f'[END] radarProc : {dtDateInfo} / pid : {procInfo.pid}')
 
@@ -1102,12 +1102,6 @@ class DtaProcess(object):
                     # 매칭 파일
                     , 'matchPath': f'{contextPath}/match'
                     , 'matchName': 'MATCH_STN_RADAR-{}.csv'
-
-                    # KSN
-                    # , 'list': [90, 104, 105, 106, 520, 523, 661, 670, 671]
-                                  
-                    # GDK
-                    # , 'list': [323]
                 }
 
                 # 수행 목록
@@ -1140,17 +1134,13 @@ class DtaProcess(object):
                     # , 'isProcVis': True
                     , 'isProcVis': False
 
-                    # 저장 파일
-                    , 'savePath': '/DATA/OUTPUT/LSH0579/PROC'
-                    , 'saveName': 'RDR_{}_FQC_%Y%m%d%H%M.nc'
+                    # 가공 파일
+                    , 'procPath': '/DATA/OUTPUT/LSH0579/PROC'
+                    , 'procName': 'RDR_{}_FQC_%Y%m%d%H%M.nc'
 
                     # 저장 영상
                     , 'figPath': '/DATA/FIG/LSH0579'
                     , 'figName': 'RDR_{}_FQC_%Y%m%d%H%M.png'
-
-                    # 가공 파일
-                    , 'procPath': '/DATA/OUTPUT/LSH0579/PROC'
-                    , 'procName': 'RDR_{}_FQC_%Y%m%d%H%M.nc'
 
                     # 엑셀 파일
                     , 'xlsxPath': '/DATA/OUTPUT/LSH0579'
