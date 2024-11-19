@@ -236,82 +236,181 @@ class DtaProcess(object):
                 , 'endDate': '2023-01-01'
             }
 
+            # from transformers import AutoModelForCausalLM, AutoTokenizer
+            # import torch
+            #
+            # # 모델과 토크나이저 로드
+            # model_name = "gpt2"  # 원하는 모델 이름, 예: "gpt2-medium", "EleutherAI/gpt-neo-125M" 등
+            # model = AutoModelForCausalLM.from_pretrained(model_name)
+            # tokenizer = AutoTokenizer.from_pretrained(model_name)
+            #
+            # # 프롬프트 설정
+            # prompt = "한국에서 원격 근무의 장점과 단점에 대해 설명하겠습니다."
+            #
+            # # model.config.pad_token_id = model.config.eos_token_id
+            # tokenizer.pad_token = tokenizer.eos_token
+            # model.config.pad_token_id = tokenizer.pad_token_id
+            #
+            # # 입력 텍스트를 토큰화하고 텐서로 변환
+            # inputs = tokenizer(prompt, return_tensors="pt", padding=True)
+            #
+            # # attention_mask와 pad_token_id 설정
+            # input_ids = inputs["input_ids"]
+            # attention_mask = inputs["attention_mask"]
+            #
+            # # 모델을 사용해 텍스트 생성
+            # with torch.no_grad():
+            #     output = model.generate(
+            #         input_ids,
+            #         attention_mask=attention_mask,  # attention mask 추가
+            #         max_length=150,
+            #         num_return_sequences=1,
+            #         no_repeat_ngram_size=2,
+            #         pad_token_id=tokenizer.pad_token_id  # pad_token_id 명시적 설정
+            #     )
+            #
+            # # 생성된 텍스트 디코딩
+            # generated_text = tokenizer.decode(output[0], skip_special_tokens=True)
+            # print(generated_text)
+
+
+
+
+
+
+            # from openai import OpenAI
+            #
+            # client = OpenAI(api_key=None)
+            #
+            # stream = client.chat.completions.create(
+            #     model="gpt-3.5-turbo",
+            #     messages=[{"role": "user", "content": "한국에서 원격 근무의 장점과 단점에 대한 블로그 글을 작성해 주세요. 소개, 주요 내용, 결론 포함."}],
+            #     stream=True,
+            # )
+            #
+            # for chunk in stream:
+            #     if chunk.choices[0].delta.content is not None:
+            #         print(chunk.choices[0].delta.content, end="")
+
+
+
+            # import openai
+            #
+            # openai.api_key = None
+            # # client = OpenAI(
+            # #     api_key=None
+            # # )
+            #
+            # response = openai.ChatCompletion.create(
+            #     model="gpt-4",  # 혹은 "gpt-3.5-turbo"와 같은 채팅 기반 모델 지정
+            #     messages=[
+            #         # {"role": "system", "content": "You are a helpful assistant."},
+            #         {"role": "user", "content": "한국에서 원격 근무의 장점과 단점에 대한 블로그 글을 작성해 주세요. 소개, 주요 내용, 결론 포함."}
+            #     ]
+            # )
+            #
+            # print(response['choices'][0]['message']['content'])
+
+
             import torch
             from transformers import GPT2LMHeadModel, PreTrainedTokenizerFast
 
-            # 모델과 토크나이저 로드
             model = GPT2LMHeadModel.from_pretrained("skt/kogpt2-base-v2")
             tokenizer = PreTrainedTokenizerFast.from_pretrained("skt/kogpt2-base-v2")
 
-            # 텍스트 생성 함수
-            # 텍스트 생성 함수
-            def generate_blog_post(prompt, max_length=600):
-                input_ids = tokenizer.encode(prompt, return_tensors='pt')
+            def generate_korean_text(prompt, max_new_tokens=150):
+                inputs = tokenizer.encode(prompt, return_tensors="pt")
+                outputs = model.generate(
+                    inputs,
+                    max_length=max_new_tokens,
+                    do_sample=True,
+                    top_p=0.95,
+                    top_k=50,
+                    pad_token_id=tokenizer.pad_token_id,
+                    no_repeat_ngram_size=2,
+                    repetition_penalty=1.2,
+                    temperature=0.8,
+                    eos_token_id=tokenizer.eos_token_id,
+                    # eos_token_id=None,
+                    early_stopping=True
+                )
 
-                with torch.no_grad():
-                    output = model.generate(input_ids, max_length=max_length, repetition_penalty=2.0,
-                           pad_token_id=tokenizer.pad_token_id,
-                           eos_token_id=tokenizer.eos_token_id,
-                           bos_token_id=tokenizer.bos_token_id,
-                           use_cache=True)
-
-                # generated_text = tokenizer.decode(output[0], skip_special_tokens=True)
-                generated_text = tokenizer.decode(output[0])
-                return generated_text
+                return tokenizer.decode(outputs[0], skip_special_tokens=True)
 
             # 블로그 글 작성 프롬프트
             max_token_limit = model.config.n_positions
             print(f"모델의 최대 토큰 수: {max_token_limit}")
 
             # prompt = "20~30대 미백을 개선하는 화장품을 소개해조"
-            prompt = "맛집 블로그 포스팅을 작성해조."
+            # prompt = "맛집 블로그 포스팅을 작성해조."
             prompt = """
-            집 블로그 포스팅을 작성할 때는 아래와 같은 요소를 포함하면 좋습니다:
+올리브영 세럼 추천 티엘스 레드 오렌지 잡티세럼 스킨케어 2024. 9. 30. 10:36
+기미 부자가 선택한 잡티세럼
+안녕하세요 퓨어벨입니다.
+매년 조금씩 올라오던 기미가 요즘 들어 유난히 눈에 띄는 것 같아서 더 늦기 전에 관리해주고 있어요. 올리브영 세럼 추천 찾아봤는데 7일 잡티세럼으로 레드 오렌지 나이아신아마이드 세럼이 가장 인기가 좋은 것 같더라고요.
+또 사람들 사이에서 좋다고 알려진 건 꼭 써봐야하는 성격이라 바로 겟해봤죠. 용기며 디자인도 왠지 제 스타일이라 마음에 들었어요!
+사용한 지는 보름 정도 다 되어가는데 아침에 화장할 때 보면 확실히 고민이 컸던 잡티나 기미들이 조금씩 옅어져 있다는 걸 느낄 수 있었습니다!! 솔직히 세럼 하나만으로 이렇게 큰 변화를 느끼게 될 줄은 몰랐는데 올리브영에서 인기가 많은 이유를 실감하겠더군요.
+왜 며칠 만에 피부가 바뀌고 몇 주만에 고민이 해결됐다는 소리 들으면 분명히 과장일 거라 생각했는데 진짜 가능하던걸요. 일주일만 사용해도 티가 확 난다는 잡티세럼이라서 매일 사용하며 다음 날 아침 꼼꼼하게 피부 체크해봤는데 거뭇한 기미가 전부 사라진 건 아니지만 확실히 결 정리나 피부 톤 자체가 맑아지더군요.
+잡티나 기미가 집중적으로 있던 부분들이 특히 환해졌죠. 생얼인데 톤업크림 바른 것 같은 느낌이 나서 놀랐어요. 며칠 만에 건강해진 느낌?! 와 좋긴 좋구나 싶어서 올리브영 가서 바로 몇 개 더 쟁이고 왔다는 사실!
+순한 비건이라 더욱 안심이 됩니다. 용량은 30ml인데 자극이 없는 세럼이라 매일매일 사용해도 부담스럽지 않네요. 올리브영에서 미백에 효과 있다는 제품들 써보면 간혹 자극이 가서 예민해지곤 했었거든요. 그럼 바로 중단해야 했는데 이건 전혀 자극적이지 않아요.
+주름 개선까지 이중으로 관리가 되는 거라 저녁마다 빼놓지 않고 바르는 데 넘 좋습니다. 일반 수분세럼 바르는 것 같은데 관리를 해주는 거니까 심리적인 뿌듯함도 크네요. 특히 요즘 제가 비건에 관심이 많은데 이 세럼이 비건인 점도 마음에 들어요.
 
-서론 (오프닝)
+해당 내용와 유사한 형태로 블로그 지수에 영향 없이 블로그 글 생성            
+"""
 
-이 곳을 방문하게 된 이유 (추천받았는지, 우연히 찾았는지 등)
-간단한 맛집 소개 (위치나 분위기, 인기 메뉴 등)
-간단한 첫인상이나 분위기
-맛집 정보
+            # 최대 토큰 수에 맞게 조정
+            blog_post = generate_korean_text(prompt, max_new_tokens=min(max_token_limit, 1024))
+            print(blog_post)
+            print(blog_post)
 
-가게 이름과 위치
-영업시간과 쉬는 날
-주차 정보 (가게 앞, 주변 주차장 등)
-주요 메뉴와 추천 메뉴
 
-어떤 메뉴가 인기 있는지, 추천하고 싶은지
-메뉴 가격대 및 각 메뉴의 특징
-메뉴 선택 이유와 맛 평가
-음식 사진과 디테일 설명
-
-음식 사진을 담아내며 각 메뉴의 디테일 설명 (색감, 플레이팅 등)
-한 입 먹었을 때의 첫 느낌, 깊은 맛, 질감 등
-음식 맛 표현 (매콤, 고소, 신선함, 향신료 등 느낌)
-분위기와 인테리어
-
-가게 내부 분위기, 좌석 배치, 인테리어 특징
-특이한 소품이나 장식들
-가족과 함께 가기 좋은지, 친구와의 모임 장소로 적합한지, 데이트 장소로 좋은지 등
-서비스와 직원 응대
-
-직원의 친절함, 서비스 속도
-추가적인 서비스 (리필, 서비스 메뉴 제공 등)
-총평과 추천 이유
-
-가게 전체적인 장단점 요약
-이 곳을 방문해야 할 이유 (특별한 맛, 분위기, 좋은 서비스 등)
-다시 가고 싶은지, 혹은 특정한 날에 방문하기 좋은 곳인지
-추가 정보
-
-예약 여부, 할인 정보, 주변에 가볼 만한 다른 장소 등
-            """
+            #             prompt = """
+#             집 블로그 포스팅을 작성할 때는 아래와 같은 요소를 포함하면 좋습니다:
+#
+# 서론 (오프닝)
+#
+# 이 곳을 방문하게 된 이유 (추천받았는지, 우연히 찾았는지 등)
+# 간단한 맛집 소개 (위치나 분위기, 인기 메뉴 등)
+# 간단한 첫인상이나 분위기
+# 맛집 정보
+#
+# 가게 이름과 위치
+# 영업시간과 쉬는 날
+# 주차 정보 (가게 앞, 주변 주차장 등)
+# 주요 메뉴와 추천 메뉴
+#
+# 어떤 메뉴가 인기 있는지, 추천하고 싶은지
+# 메뉴 가격대 및 각 메뉴의 특징
+# 메뉴 선택 이유와 맛 평가
+# 음식 사진과 디테일 설명
+#
+# 음식 사진을 담아내며 각 메뉴의 디테일 설명 (색감, 플레이팅 등)
+# 한 입 먹었을 때의 첫 느낌, 깊은 맛, 질감 등
+# 음식 맛 표현 (매콤, 고소, 신선함, 향신료 등 느낌)
+# 분위기와 인테리어
+#
+# 가게 내부 분위기, 좌석 배치, 인테리어 특징
+# 특이한 소품이나 장식들
+# 가족과 함께 가기 좋은지, 친구와의 모임 장소로 적합한지, 데이트 장소로 좋은지 등
+# 서비스와 직원 응대
+#
+# 직원의 친절함, 서비스 속도
+# 추가적인 서비스 (리필, 서비스 메뉴 제공 등)
+# 총평과 추천 이유
+#
+# 가게 전체적인 장단점 요약
+# 이 곳을 방문해야 할 이유 (특별한 맛, 분위기, 좋은 서비스 등)
+# 다시 가고 싶은지, 혹은 특정한 날에 방문하기 좋은 곳인지
+# 추가 정보
+#
+# 예약 여부, 할인 정보, 주변에 가볼 만한 다른 장소 등
+#             """
             # 최대 토큰 수에 맞게 조정
             blog_post = generate_blog_post(prompt, max_length=min(max_token_limit, 1024))
             print(blog_post)
 
-            blog_post2 = generate_blog_post('계속', max_length=min(max_token_limit, 1024))
-            print(blog_post2)
+            # blog_post2 = generate_blog_post('계속', max_length=min(max_token_limit, 1024))
+            # print(blog_post2)
 
             # blog_post2 = generate_blog_post(blog_post, max_length=min(max_token_limit, 1000))
             # print(blog_post2)
