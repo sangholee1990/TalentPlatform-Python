@@ -1,7 +1,7 @@
 # ============================================
 # 요구사항
 # ============================================
-# [완료] LSH0577. Python을 이용한 빅쿼리 기반으로 API 배포체계
+# LSH0577. Python을 이용한 빅쿼리 기반으로 API 배포체계
 
 # =================================================
 # 도움말
@@ -22,8 +22,20 @@
 # lsof -i :9000 | awk '{print $2}' | xargs kill -9
 
 # "[TOP BDS] [통합] 아파트 보고서 (데이터 분석, 가격 예측)" 및 빅쿼리 기반으로 API 배포체계를 전달하오니 확인 부탁드립니다.
-# - 명세1) http://49.247.41.71:9000/docs
-# - 명세2) http://49.247.41.71:9000/redoc
+# 명세1) http://49.247.41.71:9000/docs
+# 명세2) http://49.247.41.71:9000/redoc
+
+# 2024.11.08 아실 플랫폼과 같은 시군구/읍면동/계약년월을 기준으로 최고상승/최고하락 아파트 목록
+# https://docs.google.com/document/d/1jUxkICwo2WqHACLc_dEziGl7_Y4f5MMClHW7yyKn_XQ/edit?tab=t.0#heading=h.ebgsmeszn577
+# 실거래가 기준 전월 대비 상승 비율이 높은 아파트 리스트 구성
+# 금액의 비율이 가장 높은 순으로만 아파트 구성
+# 전월의 평균금액과 이번월의 평균금액의 비율 변화
+# 전월에 거래가 없으면 해당 아파트는 미표시
+# 읍면동 단위로 구분하여 아파트 랭킹 (상위 10개, 더보기 통해 상위 30개)
+# 초기 화면은 시 단위, 메뉴바 통해 시군구까지 조회 가능
+# 아파트의 평형별로 구분하여 아파트 랭킹 구성
+# 레퍼런스 : 아실 데이터 https://asil.kr/asil/index.jsp
+
 
 # ============================================
 # 라이브러리
@@ -39,7 +51,7 @@ from sqlalchemy.orm import sessionmaker
 from datetime import datetime
 from fastapi import FastAPI, Depends, HTTPException
 from sqlalchemy.orm import Session
-from pydantic import BaseModel
+# from pydantic import BaseModel
 from fastapi import FastAPI, HTTPException, Depends
 from fastapi.responses import JSONResponse
 from sqlalchemy.orm import Session
@@ -189,8 +201,8 @@ log = initLog(env, ctxPath, prjName)
 # 옵션 설정
 sysOpt = {
     # 시작/종료 시간
-    'srtDate': '2018-01-01'
-    , 'endDate': '2018-12-31'
+    # 'srtDate': '2018-01-01'
+    # , 'endDate': '2018-12-31'
 }
 
 
@@ -234,6 +246,133 @@ client = bigquery.Client(credentials=credentials, project=credentials.project_id
 @app.get(f"/", include_in_schema=False)
 async def redirect_to_docs():
     return RedirectResponse(url="/docs")
+
+@app.post(f"/api/sel-statReal", dependencies=[Depends(chkApiKey)])
+# @app.post(f"/api/sel-statReal")
+def selStatReal(
+        sgg: str = Query(None, description="시군구")
+        , dong: str = Query(None, description="법정동")
+        , area: str = Query(None, description="평수")
+        , yyyymm: str = Query(None, description="연월")
+    ):
+    """
+    기능\n
+        TB_REAL 통계 목록 조회\n
+    테스트\n
+        시군구: 서울특별시 금천구\n
+        법정동: 독산동\n
+        평수: 5평\n
+        연월: 202201\n
+
+        또는 \n
+
+        시군구: \n
+        법정동: \n
+        평수: \n
+        연월: 202201\n
+    """
+
+    try:
+        # 기본 SQL
+        sql = """
+            WITH MONTHLYAVGPRICES AS (
+                SELECT
+                    APT,
+                    SGG,
+                    DONG,
+                    AREA,
+                    DATE_TRUNC(DATE, MONTH) AS MONTH,
+                    AVG(AMOUNT) AS AVG_AMOUNT
+                FROM
+                    `DMS01.TB_REAL`
+                WHERE AMOUNT > 0
+                GROUP BY 1, 2, 3, 4, 5
+            ),
+
+            LAGGEDPRICES AS (
+                SELECT
+                    APT,
+                    SGG,
+                    DONG,
+                    AREA,
+                    MONTH,
+                    AVG_AMOUNT,
+                    LAG(AVG_AMOUNT, 1, 0) OVER (PARTITION BY APT, SGG, DONG, AREA ORDER BY MONTH) AS PREV_AVG_AMOUNT,
+                    SAFE_DIVIDE(AVG_AMOUNT - LAG(AVG_AMOUNT, 1, 0) OVER (PARTITION BY APT, SGG, DONG, AREA ORDER BY MONTH), LAG(AVG_AMOUNT, 1, 0) OVER (PARTITION BY APT, SGG, DONG, AREA ORDER BY MONTH)) * 100 AS RATE
+                FROM MONTHLYAVGPRICES
+                WHERE AVG_AMOUNT > 0
+            )
+
+            SELECT * FROM (
+                (SELECT
+                    '최고하락' AS GRP,
+                    SGG,
+                    DONG,
+                    DATE_ADD(MONTH, INTERVAL -1 MONTH) AS PREV_MONTH,
+                    MONTH AS CURR_MONTH,
+                    APT,
+                    AREA,
+                    PREV_AVG_AMOUNT,
+                    AVG_AMOUNT AS CURR_AVG_AMOUNT,
+                    RATE
+                FROM LAGGEDPRICES
+                WHERE
+                    (SGG LIKE '%' || @sgg || '%' OR @sgg IS NULL)
+                    AND (DONG LIKE '%' || @dong || '%' OR @dong IS NULL)
+                    AND (AREA LIKE '%' || @area || '%' OR @area IS NULL)
+                    AND (MONTH = DATE_TRUNC(PARSE_DATE('%Y%m', @yyyymm), MONTH) OR @yyyymm IS NULL)
+                    AND PREV_AVG_AMOUNT > 0
+                ORDER BY RATE ASC
+                LIMIT 30)
+
+                UNION ALL
+
+                (SELECT
+                    '최고상승' AS GRP,
+                    SGG,
+                    DONG,
+                    DATE_ADD(MONTH, INTERVAL -1 MONTH) AS PREV_MONTH,
+                    MONTH AS CURR_MONTH,
+                    APT,
+                    AREA,
+                    PREV_AVG_AMOUNT,
+                    AVG_AMOUNT AS CURR_AVG_AMOUNT,
+                    RATE
+                FROM LAGGEDPRICES
+                WHERE
+                    (SGG LIKE '%' || @sgg || '%' OR @sgg IS NULL)
+                    AND (DONG LIKE '%' || @dong || '%' OR @dong IS NULL)
+                    AND (AREA LIKE '%' || @area || '%' OR @area IS NULL)
+                    AND (MONTH = DATE_TRUNC(PARSE_DATE('%Y%m', @yyyymm), MONTH) OR @yyyymm IS NULL)
+                    AND PREV_AVG_AMOUNT > 0
+                ORDER BY RATE DESC
+                LIMIT 30)
+            );
+        """
+
+        # 동적 파라미터
+        queryParam = [
+            bigquery.ScalarQueryParameter("sgg", "STRING", sgg if sgg else None)
+            , bigquery.ScalarQueryParameter("dong", "STRING", dong if dong else None)
+            , bigquery.ScalarQueryParameter("area", "STRING", area if area else None)
+            , bigquery.ScalarQueryParameter("yyyymm", "STRING", yyyymm if yyyymm else None)
+        ]
+        log.info(f"[CHECK] queryParam : {queryParam}")
+
+        # 쿼리 실행
+        queryJobCfg = bigquery.QueryJobConfig(query_parameters=queryParam)
+        queryJob = client.query(sql, job_config=queryJobCfg)
+        results = queryJob.result()
+
+        fileList = [dict(row) for row in results]
+        if fileList is None or len(fileList) < 1:
+            raise Exception("검색 결과 없음")
+
+        return resRespone("succ", 200, "처리 완료", len(fileList), fileList)
+
+    except Exception as e:
+        log.error(f'Exception : {e}')
+        raise HTTPException(status_code=400, detail=resRespone("fail", 400, "처리 실패", str(e)))
 
 @app.post(f"/api/sel-real", dependencies=[Depends(chkApiKey)])
 # @app.post(f"/api/sel-real")
@@ -284,7 +423,7 @@ def selReal(
         log.error(f'Exception : {e}')
         raise HTTPException(status_code=400, detail=resRespone("fail", 400, "처리 실패", str(e)))
 
-@app.post(f"/api/sel-real", dependencies=[Depends(chkApiKey)])
+@app.post(f"/api/sel-prd", dependencies=[Depends(chkApiKey)])
 # @app.post(f"/api/sel-prd")
 def selReal(
         sgg: str = Query(None, description="시군구")
@@ -332,6 +471,7 @@ def selReal(
     except Exception as e:
         log.error(f'Exception : {e}')
         raise HTTPException(status_code=400, detail=resRespone("fail", 400, "처리 실패", str(e)))
+
 
 @app.post(f"/api/sel-infra", dependencies=[Depends(chkApiKey)])
 # @app.post(f"/api/sel-infra")
