@@ -22,7 +22,7 @@ import matplotlib.pyplot as plt
 import scipy.io as sio
 import gzip
 import shutil
-
+from io import StringIO
 import os
 import numpy as np
 import matplotlib.pyplot as plt
@@ -314,6 +314,23 @@ class DtaProcess(object):
             fileList = sorted(glob.glob(inpFile))
             stateData = pd.read_fwf(fileList[0], header=None, names=["abbr", "state"])
 
+            inpFile = '{}/{}/{}'.format(globalVar['inpPath'], serviceName, 'ghcnd-stations.txt')
+            fileList = sorted(glob.glob(inpFile))
+
+            colSpec = [
+                (0, 11),  # STATION ID
+                (12, 20),  # LATITUDE
+                (21, 30),  # LONGITUDE
+                (31, 37),  # ELEVATION
+                (38, 40),  # STATE
+                (41, 71),  # NAME
+                (72, 75),  # GSNFLAG
+                (76, 79),  # HCNFLAG
+                (80, 85)  # WMOID
+            ]
+
+            stationData = pd.read_fwf(fileList[0], colspecs=colSpec, names= ["STATION", "LATITUDE", "LONGITUDE", "ELEVATION", "STATE", "NAME", "GSNFLAG", "HCNFLAG", "WMOID"])
+
             inpFile = '{}/{}/{}'.format(globalVar['inpPath'], serviceName, 'rsv.csv')
             fileList = sorted(glob.glob(inpFile))
             rsvData = pd.read_csv(fileList[0])
@@ -398,55 +415,56 @@ class DtaProcess(object):
 
 
 
-                # # Define the path template for each year's file
+                # Define the path template for each year's file
                 # path_template = r"C:\Users\hongz\Downloads\{}.csv\{}.csv"
-                #
-                # # Load the station list from the "station_florida.xlsx" file
-                # # station_florida_path = r"C:\Users\hongz\Downloads\station minnesota.xlsx"
-                # station_florida_data = pd.read_excel(station_florida_path)
-                #
-                # # Assume the stations are in the first column
-                # stations_of_interest = station_florida_data.iloc[:, 0].unique()
-                #
-                # # Initialize an empty DataFrame to hold all the filtered and reshaped data
-                # combined_data = pd.DataFrame()
-                #
-                # # Loop through each year from 2001 to 2010
-                # # for year in range(2000, 2011):
-                # for year in range(grouped_data['year'].min(), grouped_data['year'].max()):
-                #     # Create the file path for the current year
-                #     file_path = path_template.format(year, year)
-                #
-                #     # Check if the file exists
-                #     if not os.path.exists(file_path):
-                #         print(f"File for year {year} not found at path: {file_path}")
-                #         continue  # Skip to the next year if file is missing
-                #
-                #     # Load only the first four columns for the current year without headers
-                #     data = pd.read_csv(file_path, header=None, usecols=[0, 1, 2, 3],
-                #                        names=['Station', 'Date', 'Variable', 'Value'])
-                #
-                #     # Filter the data to only include stations of interest
-                #     filtered_data = data[data['Station'].isin(stations_of_interest)]
-                #
-                #     # Pivot the data so that each variable has its own column
-                #     reshaped_data = filtered_data.pivot_table(
-                #         index=['Station', 'Date'],
-                #         columns='Variable',
-                #         values='Value',
-                #         aggfunc='first'
-                #     ).reset_index()
-                #
-                #     # Append the reshaped data for the current year to the combined DataFrame
-                #     combined_data = pd.concat([combined_data, reshaped_data], ignore_index=True)
-                #
-                # # Define the output path for the Excel file
-                # output_file_path = r"C:\Users\hongz\Downloads\MinnesotaCombined_Station_Data_Pivoted_2001_2010.xlsx"
-                #
-                # # Save the combined reshaped data to an Excel file
-                # combined_data.to_excel(output_file_path, index=False)
-                #
-                # print(f"All data from 2001 to 2010 saved with variables as columns in {output_file_path}")
+                path_template = r"/DATA/INPUT/LSH0589/noaa/{}.csv"
+
+                # Load the station list from the "station_florida.xlsx" file
+                # station_florida_path = r"C:\Users\hongz\Downloads\station minnesota.xlsx"
+                station_florida_data = pd.read_excel(station_florida_path)
+
+                # Assume the stations are in the first column
+                stations_of_interest = station_florida_data.iloc[:, 0].unique()
+
+                # Initialize an empty DataFrame to hold all the filtered and reshaped data
+                combined_data = pd.DataFrame()
+
+                # Loop through each year from 2001 to 2010
+                # for year in range(2000, 2011):
+                for year in range(grouped_data['year'].min(), grouped_data['year'].max()):
+                    # Create the file path for the current year
+                    file_path = path_template.format(year, year)
+
+                    # Check if the file exists
+                    if not os.path.exists(file_path):
+                        print(f"File for year {year} not found at path: {file_path}")
+                        continue  # Skip to the next year if file is missing
+
+                    # Load only the first four columns for the current year without headers
+                    data = pd.read_csv(file_path, header=None, usecols=[0, 1, 2, 3],
+                                       names=['Station', 'Date', 'Variable', 'Value'])
+
+                    # Filter the data to only include stations of interest
+                    filtered_data = data[data['Station'].isin(stations_of_interest)]
+
+                    # Pivot the data so that each variable has its own column
+                    reshaped_data = filtered_data.pivot_table(
+                        index=['Station', 'Date'],
+                        columns='Variable',
+                        values='Value',
+                        aggfunc='first'
+                    ).reset_index()
+
+                    # Append the reshaped data for the current year to the combined DataFrame
+                    combined_data = pd.concat([combined_data, reshaped_data], ignore_index=True)
+
+                # Define the output path for the Excel file
+                output_file_path = r"C:\Users\hongz\Downloads\MinnesotaCombined_Station_Data_Pivoted_2001_2010.xlsx"
+
+                # Save the combined reshaped data to an Excel file
+                combined_data.to_excel(output_file_path, index=False)
+
+                print(f"All data from 2001 to 2010 saved with variables as columns in {output_file_path}")
 
 
                 # Load the provided Excel file
