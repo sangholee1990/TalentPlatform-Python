@@ -45,6 +45,9 @@ import asyncio
 from datetime import datetime
 from apscheduler.schedulers.asyncio import AsyncIOScheduler
 from apscheduler.executors.asyncio import AsyncIOExecutor
+import requests
+import gzip
+import shutil
 
 # =================================================
 # 사용자 매뉴얼
@@ -274,6 +277,34 @@ class DtaProcess(object):
             # dtDateList = pd.date_range(start=dtSrtDate, end=dtEndDate, freq=sysOpt['invDate'])
 
             # =========================================================
+            # 자료 수집
+            # =========================================================
+            dtYearList = pd.date_range(start=pd.to_datetime('1750', format='%Y'), end=pd.to_datetime('2024', format='%Y'), freq='1y')
+            for dtYear in dtYearList:
+                log.info(f'[CHECK] dtYear : {dtYear}')
+
+                url = f"https://www.ncei.noaa.gov/pub/data/ghcn/daily/by_year/{dtYear.strftime('%Y')}.csv.gz"
+                gzFile = f"{globalVar['inpPath']}/{serviceName}/noaa/{dtYear.strftime('%Y')}.csv.gz"
+                csvFile = f"{globalVar['inpPath']}/{serviceName}/noaa/{dtYear.strftime('%Y')}.csv"
+                os.makedirs(os.path.dirname(csvFile), exist_ok=True)
+
+                response = requests.get(url, stream=True)
+
+                if not response.status_code == 200:
+                    log.info(f'Failed to download {gzFile}. Status code: {response.status_code}')
+                    continue
+
+                with open(gzFile, 'wb') as f:
+                    f.write(response.raw.read())
+                log.info(f'Downloaded {gzFile} successfully.')
+
+                # Extract the gzipped file
+                with gzip.open(gzFile, 'rb') as f_in:
+                    with open(csvFile, 'wb') as f_out:
+                        shutil.copyfileobj(f_in, f_out)
+                log.info(f'Extracted to {csvFile} successfully.')
+
+            # =========================================================
             # 파일 읽기
             # =========================================================
             inpFile = '{}/{}/{}'.format(globalVar['inpPath'], serviceName, 'ghcnd-states.txt')
@@ -309,11 +340,135 @@ class DtaProcess(object):
                 log.info(f"최대값: {maxVal}, 문턱값: {maxThres:.1f}, 최소 인덱스 AWEEK1: {minIdxAweek1}")
 
 
-                # Save the counts to a CSV file
-                # output_path = r'C:\Users\hongz\Downloads\aweek1_counts.csv'
-                # aweek1_counts.to_csv(output_path, header=['Count'])
+                # Filter for necessary columns and 'AWEEK1' > 680
+                columns_needed = ['AWEEK1', 'HOSPSTCO', 'rsv', 'COUNTYPOP', 'mbirth_rate', 'year', 'weekyear']
+                # filtered_data = data_main[columns_needed]
+                filtered_data = rsvDataL1[columns_needed]
 
-                # print(f"Results saved to {output_path}")
+                # filtered_data = filtered_data[filtered_data['AWEEK1'] > 680]
+                filtered_data = filtered_data[filtered_data['AWEEK1'] > minIdxAweek1]
+
+                # Remove duplicates and drop missing values
+                filtered_data = filtered_data.drop_duplicates().dropna()
+
+                # Fill in missing weeks with averaged RSV values
+                filled_data = []
+                for _, group in filtered_data.groupby('HOSPSTCO'):
+                    group = group.sort_values('AWEEK1').reset_index(drop=True)
+                    for i in range(len(group) - 1):
+                        current_week = group.loc[i, 'AWEEK1']
+                        next_week = group.loc[i + 1, 'AWEEK1']
+                        rsv_current = group.loc[i, 'rsv']
+
+                        if next_week - current_week > 1:
+                            avg_rsv_per_week = rsv_current / (next_week - current_week)
+                            for week in range(current_week + 1, next_week):
+                                interpolated_row = group.loc[i].copy()
+                                interpolated_row['AWEEK1'] = week
+                                interpolated_row['rsv'] = avg_rsv_per_week
+                                filled_data.append(interpolated_row)
+
+                    filled_data.append(group)
+
+                # Concatenate all rows and convert back to DataFrame
+                interpolated_data = pd.concat(filled_data).reset_index(drop=True)
+
+                # Group by 'AWEEK1', 'year', 'weekyear' and aggregate data
+                grouped_data = interpolated_data.groupby(['AWEEK1', 'year', 'weekyear']).agg({
+                    'rsv': 'sum',
+                    'COUNTYPOP': 'sum',
+                    'mbirth_rate': lambda x: (x * interpolated_data.loc[x.index, 'COUNTYPOP']).sum() / interpolated_data.loc[
+                        x.index, 'COUNTYPOP'].sum()
+                }).reset_index()
+
+
+                # Plotting RSV cases over AWEEK1 values
+                # plt.figure(figsize=(10, 6))
+                # plt.plot(grouped_data['AWEEK1'], grouped_data['rsv'], marker='o', linestyle='-')
+                # plt.xlabel('AWEEK1')
+                # plt.ylabel('RSV Cases')
+                # plt.title('RSV Cases over AWEEK1')
+                # plt.grid(True)
+                # plt.show()
+
+
+
+
+
+                # # Define the path template for each year's file
+                # path_template = r"C:\Users\hongz\Downloads\{}.csv\{}.csv"
+                #
+                # # Load the station list from the "station_florida.xlsx" file
+                # # station_florida_path = r"C:\Users\hongz\Downloads\station minnesota.xlsx"
+                # station_florida_data = pd.read_excel(station_florida_path)
+                #
+                # # Assume the stations are in the first column
+                # stations_of_interest = station_florida_data.iloc[:, 0].unique()
+                #
+                # # Initialize an empty DataFrame to hold all the filtered and reshaped data
+                # combined_data = pd.DataFrame()
+                #
+                # # Loop through each year from 2001 to 2010
+                # # for year in range(2000, 2011):
+                # for year in range(grouped_data['year'].min(), grouped_data['year'].max()):
+                #     # Create the file path for the current year
+                #     file_path = path_template.format(year, year)
+                #
+                #     # Check if the file exists
+                #     if not os.path.exists(file_path):
+                #         print(f"File for year {year} not found at path: {file_path}")
+                #         continue  # Skip to the next year if file is missing
+                #
+                #     # Load only the first four columns for the current year without headers
+                #     data = pd.read_csv(file_path, header=None, usecols=[0, 1, 2, 3],
+                #                        names=['Station', 'Date', 'Variable', 'Value'])
+                #
+                #     # Filter the data to only include stations of interest
+                #     filtered_data = data[data['Station'].isin(stations_of_interest)]
+                #
+                #     # Pivot the data so that each variable has its own column
+                #     reshaped_data = filtered_data.pivot_table(
+                #         index=['Station', 'Date'],
+                #         columns='Variable',
+                #         values='Value',
+                #         aggfunc='first'
+                #     ).reset_index()
+                #
+                #     # Append the reshaped data for the current year to the combined DataFrame
+                #     combined_data = pd.concat([combined_data, reshaped_data], ignore_index=True)
+                #
+                # # Define the output path for the Excel file
+                # output_file_path = r"C:\Users\hongz\Downloads\MinnesotaCombined_Station_Data_Pivoted_2001_2010.xlsx"
+                #
+                # # Save the combined reshaped data to an Excel file
+                # combined_data.to_excel(output_file_path, index=False)
+                #
+                # print(f"All data from 2001 to 2010 saved with variables as columns in {output_file_path}")
+
+
+                # Load the provided Excel file
+                # file_path = r"C:\Users\hongz\Downloads\MinnesotaCombined_Station_Data_Pivoted_2001_2010.xlsx"
+                # data = pd.read_excel(file_path)
+                #
+                # # Group by 'Date' and calculate the mean for each variable column, ignoring NaN values
+                # variable_columns = data.columns.difference(['Station', 'Date'])
+                # average_by_date = data.groupby('Date')[variable_columns].mean().reset_index()
+                #
+                # # Define the output path for the file with averages by date
+                # output_file_path = r"C:\Users\hongz\Downloads\MinnesotaAverage_Values_Across_Stations.xlsx"
+                #
+                # # Save the averages by date to an Excel file
+                # average_by_date.to_excel(output_file_path, index=False)
+                #
+                # print(f"Averages by date saved to {output_file_path}")
+
+
+
+
+
+
+
+
 
 
         except Exception as e:
