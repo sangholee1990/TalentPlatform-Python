@@ -304,6 +304,9 @@ class DtaProcess(object):
                         shutil.copyfileobj(f_in, f_out)
                 log.info(f'Extracted to {csvFile} successfully.')
 
+                if os.path.exists(gzFile):
+                    os.remove(gzFile)
+
             # =========================================================
             # 파일 읽기
             # =========================================================
