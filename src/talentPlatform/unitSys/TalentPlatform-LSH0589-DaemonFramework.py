@@ -337,9 +337,12 @@ class DtaProcess(object):
             rsvData = pd.read_csv(fileList[0])
 
             for i, stateInfo in stateData.iterrows():
-                log.info(f"[CHECK] abbr : {stateInfo['abbr']}")
 
                 # stateInfo['abbr'] = 'MN'
+                # if not stateInfo['abbr'] == 'MN': continue
+
+                log.info(f"[CHECK] abbr : {stateInfo['abbr']}")
+
                 rsvDataL1 = rsvData.loc[(rsvData['HOSPST'] == stateInfo['abbr'])].reset_index(drop=True)
                 if len(rsvDataL1) < 1: continue
 
@@ -465,8 +468,13 @@ class DtaProcess(object):
                         aggfunc='first'
                     ).reset_index()
 
+                    variable_columns = reshaped_data.columns.difference(['Station', 'Date'])
+                    average_by_date = reshaped_data.groupby('Date')[variable_columns].mean().reset_index()
+                    resDataL1 = average_by_date.loc[:, ~average_by_date.isna().any()]
+
                     # Append the reshaped data for the current year to the combined DataFrame
-                    combined_data = pd.concat([combined_data, reshaped_data], ignore_index=True)
+                    # combined_data = pd.concat([combined_data, reshaped_data], ignore_index=True)
+                    combined_data = pd.concat([combined_data, resDataL1], ignore_index=True)
 
                 # Define the output path for the Excel file
                 # output_file_path = r"C:\Users\hongz\Downloads\MinnesotaCombined_Station_Data_Pivoted_2001_2010.xlsx"
@@ -483,19 +491,17 @@ class DtaProcess(object):
 
                 # Group by 'Date' and calculate the mean for each variable column, ignoring NaN values
                 if len(combined_data) < 1: continue
-
+                comData = combined_data.reset_index()
                 # variable_columns = data.columns.difference(['Station', 'Date'])
                 # average_by_date = data.groupby('Date')[variable_columns].mean().reset_index()
-                variable_columns = combined_data.columns.difference(['Station', 'Date'])
-                average_by_date = combined_data.groupby('Date')[variable_columns].mean().reset_index()
-                # average_by_date.columns
+                # variable_columns = combined_data.columns.difference(['Station', 'Date'])
+                # average_by_date = combined_data.groupby('Date')[variable_columns].mean().reset_index()
 
                 # 결측값 개수
                 # nanCnt = average_by_date.isna().sum()
 
                 # avgDataL1 = average_by_date.dropna(axis=1, how='all').reset_index(drop=True)
-                avgDataL1 = average_by_date.loc[:, ~average_by_date.isna().any()]
-                # avgDataL1.columns
+                # avgDataL1 = average_by_date.loc[:, ~average_by_date.isna().any()]
 
                 # Define the output path for the file with averages by date
                 # output_file_path = r"C:\Users\hongz\Downloads\MinnesotaAverage_Values_Across_Stations.xlsx"
@@ -504,7 +510,8 @@ class DtaProcess(object):
 
                 # Save the averages by date to an Excel file
                 # average_by_date.to_excel(xlsxFile, index=False)
-                avgDataL1.to_excel(xlsxFile, index=False)
+                # avgDataL1.to_excel(xlsxFile, index=False)
+                comData.to_excel(xlsxFile, index=False)
 
                 # print(f"Averages by date saved to {output_file_path}")
                 log.info(f"xlsxFile : {xlsxFile}")
