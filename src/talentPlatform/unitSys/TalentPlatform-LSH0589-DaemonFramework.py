@@ -339,7 +339,11 @@ class DtaProcess(object):
             for i, stateInfo in stateData.iterrows():
 
                 # stateInfo['abbr'] = 'MN'
-                # if not stateInfo['abbr'] == 'MN': continue
+                if not stateInfo['abbr'] == 'MN': continue
+
+                xlsxFile = f"{globalVar['outPath']}/{serviceName}/{stateInfo['abbr']}-{stateInfo['state']}_Average_Values_Across_Stations_{minYear}-{maxYear}.xlsx"
+                if os.path.exists(xlsxFile): continue
+                os.makedirs(os.path.dirname(xlsxFile), exist_ok=True)
 
                 log.info(f"[CHECK] abbr : {stateInfo['abbr']}")
 
@@ -505,8 +509,8 @@ class DtaProcess(object):
 
                 # Define the output path for the file with averages by date
                 # output_file_path = r"C:\Users\hongz\Downloads\MinnesotaAverage_Values_Across_Stations.xlsx"
-                xlsxFile = f"{globalVar['outPath']}/{serviceName}/{stateInfo['abbr']}-{stateInfo['state']}_Average_Values_Across_Stations_{minYear}-{maxYear}.xlsx"
-                os.makedirs(os.path.dirname(xlsxFile), exist_ok=True)
+                # xlsxFile = f"{globalVar['outPath']}/{serviceName}/{stateInfo['abbr']}-{stateInfo['state']}_Average_Values_Across_Stations_{minYear}-{maxYear}.xlsx"
+                # os.makedirs(os.path.dirname(xlsxFile), exist_ok=True)
 
                 # Save the averages by date to an Excel file
                 # average_by_date.to_excel(xlsxFile, index=False)
