@@ -205,6 +205,14 @@ class DtaProcess(object):
     # ================================================
     # Python을 이용한 미국 전역 관측소를 기준으로 매칭 자동화
 
+    # cd /SYSTEMS/PROG/PYTHON/IDE/src/talentPlatform/unitSys
+    # nohup /SYSTEMS/LIB/anaconda3/envs/py38/bin/python3.8 TalentPlatform-LSH0589-DaemonFramework.py &
+    # tail -f nohup.out
+
+    # cd /data2/hzhenshao/GPW-POP
+    # nohup /data2/hzhenshao/GPW-POP/py38/bin/python TalentPlatform-LSH0575-DaemonFramework.py &
+    # tail -f nohup.out
+
     # ================================================================================================
     # 환경변수 설정
     # ================================================================================================
@@ -267,9 +275,9 @@ class DtaProcess(object):
             # 옵션 설정
             sysOpt = {
                 # 시작일, 종료일, 시간 간격 (연 1y, 월 1h, 일 1d, 시간 1h, 분 1t)
-                'srtDate': '2024-01-10 00:00'
-                , 'endDate': '2024-01-10 06:00'
-                , 'invDate': '1t'
+                # 'srtDate': '2024-01-10 00:00'
+                # , 'endDate': '2024-01-10 06:00'
+                # , 'invDate': '1t'
             }
 
             # 시작일/종료일 설정
@@ -278,7 +286,7 @@ class DtaProcess(object):
             # dtDateList = pd.date_range(start=dtSrtDate, end=dtEndDate, freq=sysOpt['invDate'])
 
             # =========================================================
-            # 자료 수집
+            # 데이터 수집
             # =========================================================
             # dtYearList = pd.date_range(start=pd.to_datetime('1750', format='%Y'), end=pd.to_datetime('2024', format='%Y'), freq='1y')
             # for dtYear in dtYearList:
@@ -309,7 +317,7 @@ class DtaProcess(object):
             #         os.remove(gzFile)
 
             # =========================================================
-            # 파일 읽기
+            # 데이터 처리
             # =========================================================
             inpFile = '{}/{}/{}'.format(globalVar['inpPath'], serviceName, 'ghcnd-states.txt')
             fileList = sorted(glob.glob(inpFile))
@@ -339,13 +347,13 @@ class DtaProcess(object):
             for i, stateInfo in stateData.iterrows():
 
                 # stateInfo['abbr'] = 'MN'
-                if not stateInfo['abbr'] == 'MN': continue
-
-                xlsxFile = f"{globalVar['outPath']}/{serviceName}/{stateInfo['abbr']}-{stateInfo['state']}_Average_Values_Across_Stations_{minYear}-{maxYear}.xlsx"
-                if os.path.exists(xlsxFile): continue
-                os.makedirs(os.path.dirname(xlsxFile), exist_ok=True)
+                # if not stateInfo['abbr'] == 'MN': continue
 
                 log.info(f"[CHECK] abbr : {stateInfo['abbr']}")
+
+                xlsxFilePattern = f"{globalVar['outPath']}/{serviceName}/{stateInfo['abbr']}-{stateInfo['state']}_Average_Values_Across_Stations_*.xlsx"
+                xlsxFileList = glob.glob(xlsxFilePattern)
+                if len(xlsxFileList) > 0: continue
 
                 rsvDataL1 = rsvData.loc[(rsvData['HOSPST'] == stateInfo['abbr'])].reset_index(drop=True)
                 if len(rsvDataL1) < 1: continue
@@ -509,8 +517,8 @@ class DtaProcess(object):
 
                 # Define the output path for the file with averages by date
                 # output_file_path = r"C:\Users\hongz\Downloads\MinnesotaAverage_Values_Across_Stations.xlsx"
-                # xlsxFile = f"{globalVar['outPath']}/{serviceName}/{stateInfo['abbr']}-{stateInfo['state']}_Average_Values_Across_Stations_{minYear}-{maxYear}.xlsx"
-                # os.makedirs(os.path.dirname(xlsxFile), exist_ok=True)
+                xlsxFile = f"{globalVar['outPath']}/{serviceName}/{stateInfo['abbr']}-{stateInfo['state']}_Average_Values_Across_Stations_{minYear}-{maxYear}.xlsx"
+                os.makedirs(os.path.dirname(xlsxFile), exist_ok=True)
 
                 # Save the averages by date to an Excel file
                 # average_by_date.to_excel(xlsxFile, index=False)
