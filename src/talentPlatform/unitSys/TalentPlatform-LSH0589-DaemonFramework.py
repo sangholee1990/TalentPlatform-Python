@@ -48,6 +48,7 @@ from apscheduler.executors.asyncio import AsyncIOExecutor
 import requests
 import gzip
 import shutil
+import dask.dataframe as dd
 
 # =================================================
 # 사용자 매뉴얼
@@ -279,33 +280,33 @@ class DtaProcess(object):
             # =========================================================
             # 자료 수집
             # =========================================================
-            dtYearList = pd.date_range(start=pd.to_datetime('1750', format='%Y'), end=pd.to_datetime('2024', format='%Y'), freq='1y')
-            for dtYear in dtYearList:
-                log.info(f'[CHECK] dtYear : {dtYear}')
-
-                url = f"https://www.ncei.noaa.gov/pub/data/ghcn/daily/by_year/{dtYear.strftime('%Y')}.csv.gz"
-                gzFile = f"{globalVar['inpPath']}/{serviceName}/noaa/{dtYear.strftime('%Y')}.csv.gz"
-                csvFile = f"{globalVar['inpPath']}/{serviceName}/noaa/{dtYear.strftime('%Y')}.csv"
-                os.makedirs(os.path.dirname(csvFile), exist_ok=True)
-
-                response = requests.get(url, stream=True)
-
-                if not response.status_code == 200:
-                    log.info(f'Failed to download {gzFile}. Status code: {response.status_code}')
-                    continue
-
-                with open(gzFile, 'wb') as f:
-                    f.write(response.raw.read())
-                log.info(f'Downloaded {gzFile} successfully.')
-
-                # Extract the gzipped file
-                with gzip.open(gzFile, 'rb') as f_in:
-                    with open(csvFile, 'wb') as f_out:
-                        shutil.copyfileobj(f_in, f_out)
-                log.info(f'Extracted to {csvFile} successfully.')
-
-                if os.path.exists(gzFile):
-                    os.remove(gzFile)
+            # dtYearList = pd.date_range(start=pd.to_datetime('1750', format='%Y'), end=pd.to_datetime('2024', format='%Y'), freq='1y')
+            # for dtYear in dtYearList:
+            #     log.info(f'[CHECK] dtYear : {dtYear}')
+            #
+            #     url = f"https://www.ncei.noaa.gov/pub/data/ghcn/daily/by_year/{dtYear.strftime('%Y')}.csv.gz"
+            #     gzFile = f"{globalVar['inpPath']}/{serviceName}/noaa/{dtYear.strftime('%Y')}.csv.gz"
+            #     csvFile = f"{globalVar['inpPath']}/{serviceName}/noaa/{dtYear.strftime('%Y')}.csv"
+            #     os.makedirs(os.path.dirname(csvFile), exist_ok=True)
+            #
+            #     response = requests.get(url, stream=True)
+            #
+            #     if not response.status_code == 200:
+            #         log.info(f'Failed to download {gzFile}. Status code: {response.status_code}')
+            #         continue
+            #
+            #     with open(gzFile, 'wb') as f:
+            #         f.write(response.raw.read())
+            #     log.info(f'Downloaded {gzFile} successfully.')
+            #
+            #     # Extract the gzipped file
+            #     with gzip.open(gzFile, 'rb') as f_in:
+            #         with open(csvFile, 'wb') as f_out:
+            #             shutil.copyfileobj(f_in, f_out)
+            #     log.info(f'Extracted to {csvFile} successfully.')
+            #
+            #     if os.path.exists(gzFile):
+            #         os.remove(gzFile)
 
             # =========================================================
             # 파일 읽기
@@ -335,12 +336,10 @@ class DtaProcess(object):
             fileList = sorted(glob.glob(inpFile))
             rsvData = pd.read_csv(fileList[0])
 
-
             for i, stateInfo in stateData.iterrows():
                 log.info(f"[CHECK] abbr : {stateInfo['abbr']}")
 
-                stateInfo['abbr'] = 'MN'
-
+                # stateInfo['abbr'] = 'MN'
                 rsvDataL1 = rsvData.loc[(rsvData['HOSPST'] == stateInfo['abbr'])].reset_index(drop=True)
                 if len(rsvDataL1) < 1: continue
 
@@ -356,9 +355,7 @@ class DtaProcess(object):
 
                 # 기준값 이상인 최소값 찾기
                 minIdxAweek1 = aweek1_counts[aweek1_counts >= maxThres].index.min()
-
-                log.info(f"최대값: {maxVal}, 문턱값: {maxThres:.1f}, 최소 인덱스 AWEEK1: {minIdxAweek1}")
-
+                log.info(f"maxVal: {maxVal}, maxThres: {maxThres:.1f}, minIdxAweek1: {minIdxAweek1}")
 
                 # Filter for necessary columns and 'AWEEK1' > 680
                 columns_needed = ['AWEEK1', 'HOSPSTCO', 'rsv', 'COUNTYPOP', 'mbirth_rate', 'year', 'weekyear']
@@ -400,7 +397,7 @@ class DtaProcess(object):
                     'mbirth_rate': lambda x: (x * interpolated_data.loc[x.index, 'COUNTYPOP']).sum() / interpolated_data.loc[
                         x.index, 'COUNTYPOP'].sum()
                 }).reset_index()
-
+                if len(grouped_data) < 1: continue
 
                 # Plotting RSV cases over AWEEK1 values
                 # plt.figure(figsize=(10, 6))
@@ -411,29 +408,33 @@ class DtaProcess(object):
                 # plt.grid(True)
                 # plt.show()
 
-
-
-
-
                 # Define the path template for each year's file
                 # path_template = r"C:\Users\hongz\Downloads\{}.csv\{}.csv"
-                path_template = r"/DATA/INPUT/LSH0589/noaa/{}.csv"
+                path_template = f"{globalVar['inpPath']}/{serviceName}/noaa/{{}}.csv"
 
                 # Load the station list from the "station_florida.xlsx" file
                 # station_florida_path = r"C:\Users\hongz\Downloads\station minnesota.xlsx"
-                station_florida_data = pd.read_excel(station_florida_path)
+                # station_florida_data = pd.read_excel(station_florida_path)
+                station_florida_data = stationData.loc[(stationData['STATE'] == stateInfo['abbr'])].reset_index(drop=True)
+                if len(station_florida_data) < 1: continue
 
                 # Assume the stations are in the first column
                 stations_of_interest = station_florida_data.iloc[:, 0].unique()
+                if len(stations_of_interest) < 1: continue
+
+                minYear = int(grouped_data['year'].min())
+                maxYear = int(grouped_data['year'].max())
+                log.info(f"minYear : {minYear} / maxYear : {maxYear}")
 
                 # Initialize an empty DataFrame to hold all the filtered and reshaped data
                 combined_data = pd.DataFrame()
-
-                # Loop through each year from 2001 to 2010
                 # for year in range(2000, 2011):
-                for year in range(grouped_data['year'].min(), grouped_data['year'].max()):
+                for year in range(minYear, maxYear):
+                    log.info(f"year : {year}")
+
                     # Create the file path for the current year
-                    file_path = path_template.format(year, year)
+                    # file_path = path_template.format(year, year)
+                    file_path = path_template.format(year)
 
                     # Check if the file exists
                     if not os.path.exists(file_path):
@@ -441,14 +442,23 @@ class DtaProcess(object):
                         continue  # Skip to the next year if file is missing
 
                     # Load only the first four columns for the current year without headers
-                    data = pd.read_csv(file_path, header=None, usecols=[0, 1, 2, 3],
-                                       names=['Station', 'Date', 'Variable', 'Value'])
+                    # data = pd.read_csv(file_path, header=None, usecols=[0, 1, 2, 3], names=['Station', 'Date', 'Variable', 'Value'])
+                    data = dd.read_csv(file_path, header=None, usecols=[0, 1, 2, 3], names=['Station', 'Date', 'Variable', 'Value'])
+                    if len(data) < 1: continue
 
                     # Filter the data to only include stations of interest
                     filtered_data = data[data['Station'].isin(stations_of_interest)]
+                    if len(filtered_data) < 1: continue
 
                     # Pivot the data so that each variable has its own column
-                    reshaped_data = filtered_data.pivot_table(
+                    # reshaped_data = filtered_data.pivot_table(
+                    #     index=['Station', 'Date'],
+                    #     columns='Variable',
+                    #     values='Value',
+                    #     aggfunc='first'
+                    # ).reset_index()
+
+                    reshaped_data = filtered_data.compute().pivot_table(
                         index=['Station', 'Date'],
                         columns='Variable',
                         values='Value',
@@ -459,38 +469,45 @@ class DtaProcess(object):
                     combined_data = pd.concat([combined_data, reshaped_data], ignore_index=True)
 
                 # Define the output path for the Excel file
-                output_file_path = r"C:\Users\hongz\Downloads\MinnesotaCombined_Station_Data_Pivoted_2001_2010.xlsx"
+                # output_file_path = r"C:\Users\hongz\Downloads\MinnesotaCombined_Station_Data_Pivoted_2001_2010.xlsx"
 
                 # Save the combined reshaped data to an Excel file
-                combined_data.to_excel(output_file_path, index=False)
+                # combined_data.to_excel(output_file_path, index=False)
 
-                print(f"All data from 2001 to 2010 saved with variables as columns in {output_file_path}")
+                # (f"All data from 2001 to 2010 saved with variables as columns in {output_file_path}")
 
 
                 # Load the provided Excel file
                 # file_path = r"C:\Users\hongz\Downloads\MinnesotaCombined_Station_Data_Pivoted_2001_2010.xlsx"
                 # data = pd.read_excel(file_path)
-                #
-                # # Group by 'Date' and calculate the mean for each variable column, ignoring NaN values
+
+                # Group by 'Date' and calculate the mean for each variable column, ignoring NaN values
+                if len(combined_data) < 1: continue
+
                 # variable_columns = data.columns.difference(['Station', 'Date'])
                 # average_by_date = data.groupby('Date')[variable_columns].mean().reset_index()
-                #
-                # # Define the output path for the file with averages by date
+                variable_columns = combined_data.columns.difference(['Station', 'Date'])
+                average_by_date = combined_data.groupby('Date')[variable_columns].mean().reset_index()
+                # average_by_date.columns
+
+                # 결측값 개수
+                # nanCnt = average_by_date.isna().sum()
+
+                # avgDataL1 = average_by_date.dropna(axis=1, how='all').reset_index(drop=True)
+                avgDataL1 = average_by_date.loc[:, ~average_by_date.isna().any()]
+                # avgDataL1.columns
+
+                # Define the output path for the file with averages by date
                 # output_file_path = r"C:\Users\hongz\Downloads\MinnesotaAverage_Values_Across_Stations.xlsx"
-                #
-                # # Save the averages by date to an Excel file
-                # average_by_date.to_excel(output_file_path, index=False)
-                #
+                xlsxFile = f"{globalVar['outPath']}/{serviceName}/{stateInfo['abbr']}-{stateInfo['state']}_Average_Values_Across_Stations_{minYear}-{maxYear}.xlsx"
+                os.makedirs(os.path.dirname(xlsxFile), exist_ok=True)
+
+                # Save the averages by date to an Excel file
+                # average_by_date.to_excel(xlsxFile, index=False)
+                avgDataL1.to_excel(xlsxFile, index=False)
+
                 # print(f"Averages by date saved to {output_file_path}")
-
-
-
-
-
-
-
-
-
+                log.info(f"xlsxFile : {xlsxFile}")
 
         except Exception as e:
             log.error(f"Exception : {str(e)}")
