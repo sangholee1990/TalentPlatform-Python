@@ -209,10 +209,6 @@ class DtaProcess(object):
     # nohup /SYSTEMS/LIB/anaconda3/envs/py38/bin/python3.8 TalentPlatform-LSH0589-DaemonFramework.py &
     # tail -f nohup.out
 
-    # cd /data2/hzhenshao/GPW-POP
-    # nohup /data2/hzhenshao/GPW-POP/py38/bin/python TalentPlatform-LSH0575-DaemonFramework.py &
-    # tail -f nohup.out
-
     # ================================================================================================
     # 환경변수 설정
     # ================================================================================================
@@ -395,10 +391,14 @@ class DtaProcess(object):
                         if next_week - current_week > 1:
                             avg_rsv_per_week = rsv_current / (next_week - current_week)
                             for week in range(current_week + 1, next_week):
-                                interpolated_row = group.loc[i].copy()
-                                interpolated_row['AWEEK1'] = week
-                                interpolated_row['rsv'] = avg_rsv_per_week
-                                filled_data.append(interpolated_row)
+
+                                try:
+                                    interpolated_row = group.loc[i].copy()
+                                    interpolated_row['AWEEK1'] = week
+                                    interpolated_row['rsv'] = avg_rsv_per_week
+                                    filled_data.append(interpolated_row)
+                                except Exception as e:
+                                    pass
 
                     filled_data.append(group)
 
