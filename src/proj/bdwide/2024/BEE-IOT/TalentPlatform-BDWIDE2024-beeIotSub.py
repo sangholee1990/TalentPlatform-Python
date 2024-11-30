@@ -120,8 +120,7 @@ def initGlobalVar(env=None, contextPath=None, prjName=None):
         , 'logPath': contextPath if env in 'local' else os.path.join(contextPath, 'resources', 'log', prjName)
         , 'mapPath': contextPath if env in 'local' else os.path.join(contextPath, 'resources', 'mapInfo')
         , 'sysCfg': contextPath if env in 'local' else os.path.join(contextPath, 'resources', 'config', 'system.json')
-        ,
-        'seleniumPath': contextPath if env in 'local' else os.path.join(contextPath, 'resources', 'config', 'selenium')
+        , 'seleniumPath': contextPath if env in 'local' else os.path.join(contextPath, 'resources', 'config', 'selenium')
         , 'fontPath': contextPath if env in 'local' else os.path.join(contextPath, 'resources', 'config', 'fontInfo')
     }
 
@@ -179,7 +178,7 @@ def on_message(client, userdata, msg):
 def connect_mqtt(sysOpt) -> mqtt_client.Client:
 
     # client = mqtt_client.Client(client_id=sysOpt['client_id'], protocol=sysOpt['callback_api_version'])
-    client = mqtt_client.Client(client_id=sysOpt['client_id'], protocol=sysOpt['protocol'])
+    client = mqtt_client.Client(client_id=sysOpt['client_id'], protocol=sysOpt['protocol'], callback_api_version=sysOpt['callback_api_version'])
     client.on_connect = on_connect
     try:
         client.connect(sysOpt['broker'], sysOpt['port'])
@@ -280,7 +279,7 @@ class DtaProcess(object):
                     "topic/mqtt/battery"
                 ]
                 , 'client_id': f"publish-{random.randint(0, 1000)}"
-                # , 'callback_api_version': CallbackAPIVersion.VERSION2
+                , 'callback_api_version': CallbackAPIVersion.VERSION2
                 , 'protocol': mqtt_client.MQTTv311
             }
 

@@ -178,7 +178,7 @@ def connect_mqtt(sysOpt):
     MQTT 브로커에 연결합니다.
     """
     # client = mqtt_client.Client(sysOpt['client_id'])
-    client = mqtt_client.Client(client_id=sysOpt['client_id'], callback_api_version=sysOpt['callback_api_version'])
+    client = mqtt_client.Client(client_id=sysOpt['client_id'], protocol=sysOpt['protocol'], callback_api_version=sysOpt['callback_api_version'])
     client.on_connect = on_connect
     try:
         client.connect(sysOpt['broker'], sysOpt['port'])
@@ -277,11 +277,15 @@ class DtaProcess(object):
             # 옵션 설정
             sysOpt = {
                 # 'broker': "broker.emqx.io"
+                # 'broker': "localhost"
                 'broker': "localhost"
                 , 'port': 1883
-                , 'topic': "python/mqtt"
-                , 'client_id': f"publish-{random.randint(0, 1000)}"
+                # , 'topic': "python/mqtt"
+                , 'topic': "topic/mqtt/temperture"
+                # , 'client_id': f"publish-{random.randint(0, 1000)}"
+                , 'client_id': f"client_id"
                 , 'callback_api_version': CallbackAPIVersion.VERSION2
+                , 'protocol': mqtt_client.MQTTv311
                 # 발행 메시지 개수
                 , 'pubCnt': 5
                 # 메시지 간격
