@@ -278,7 +278,7 @@ class DtaProcess(object):
             sysOpt = {
                 # 'broker': "broker.emqx.io"
                 # 'broker': "localhost"
-                'broker': "localhost"
+                'broker': "49.247.41.71"
                 , 'port': 1883
                 # , 'topic': "python/mqtt"
                 # , 'topic': "topic/mqtt/temperture"
