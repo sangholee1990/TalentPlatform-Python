@@ -402,6 +402,8 @@ class DtaProcess(object):
 
                     filled_data.append(group)
 
+                if len(filled_data) < 1: continue
+
                 # Concatenate all rows and convert back to DataFrame
                 interpolated_data = pd.concat(filled_data).reset_index(drop=True)
 
