@@ -167,16 +167,16 @@ def initArgument(globalVar, inParams):
 
     return globalVar
 
+def on_connect(client, userdata, flags, rc, properties=None):
+    if rc == 0:
+        log.info("Connected to MQTT Broker!")
+    else:
+        log.info(f"Failed to connect, return code {rc}")
+
 def connect_mqtt(sysOpt):
     """
     MQTT 브로커에 연결합니다.
     """
-    def on_connect(client, userdata, flags, rc, properties=None):
-        if rc == 0:
-            log.info("Connected to MQTT Broker!")
-        else:
-            log.info(f"Failed to connect, return code {rc}")
-
     # client = mqtt_client.Client(sysOpt['client_id'])
     client = mqtt_client.Client(client_id=sysOpt['client_id'], callback_api_version=sysOpt['callback_api_version'])
     client.on_connect = on_connect

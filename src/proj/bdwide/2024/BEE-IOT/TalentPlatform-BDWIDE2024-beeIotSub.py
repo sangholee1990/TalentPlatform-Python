@@ -167,20 +167,19 @@ def initArgument(globalVar, inParams):
 
     return globalVar
 
-
 def on_connect(client, userdata, flags, rc, properties=None):
     if rc == 0:
         log.info("Successfully connected to MQTT Broker")
     else:
         log.error("Failed to connect to MQTT Broker, return code %d", rc)
 
-def connect_mqtt(sysOpt) -> mqtt_client.Client:
-    """
-    MQTT 브로커에 연결합니다.
-    """
+def on_message(client, userdata, msg):
+    log.info("Received message from topic '%s': %s", msg.topic, msg.payload.decode())
 
-    # client = mqtt_client.Client(sysOpt['client_id'])
-    client = mqtt_client.Client(client_id=sysOpt['client_id'], callback_api_version=sysOpt['callback_api_version'])
+def connect_mqtt(sysOpt) -> mqtt_client.Client:
+
+    # client = mqtt_client.Client(client_id=sysOpt['client_id'], protocol=sysOpt['callback_api_version'])
+    client = mqtt_client.Client(client_id=sysOpt['client_id'], protocol=sysOpt['protocol'])
     client.on_connect = on_connect
     try:
         client.connect(sysOpt['broker'], sysOpt['port'])
@@ -190,14 +189,10 @@ def connect_mqtt(sysOpt) -> mqtt_client.Client:
     return client
 
 def subscribe(client: mqtt_client.Client, sysOpt):
-    """
-    지정된 토픽에 대해 구독을 설정합니다.
-    """
-    def on_message(client, userdata, msg):
-        log.info("Received message from topic '%s': %s", msg.topic, msg.payload.decode())
-
     try:
-        client.subscribe(sysOpt['topic'])
+        for topic in sysOpt['topicList']:
+            client.subscribe(topic)
+            log.info("Subscribed to topic: %s", topic)
         client.on_message = on_message
     except Exception as e:
         log.error("Error subscribing to topic '%s': %s", sysOpt['topic'], e)
@@ -274,9 +269,19 @@ class DtaProcess(object):
                 # 'broker': "broker.emqx.io"
                 'broker': "localhost"
                 , 'port': 1883
-                , 'topic': "python/mqtt"
+                # , 'topic': "python/mqtt"
+                , 'topicList': [
+                    "topic/mqtt/temperture",
+                    "topic/mqtt/humidity",
+                    "topic/mqtt/co2",
+                    "topic/mqtt/weight",
+                    "topic/mqtt/date",
+                    "topic/mqtt/time",
+                    "topic/mqtt/battery"
+                ]
                 , 'client_id': f"publish-{random.randint(0, 1000)}"
-                , 'callback_api_version': CallbackAPIVersion.VERSION2
+                # , 'callback_api_version': CallbackAPIVersion.VERSION2
+                , 'protocol': mqtt_client.MQTTv311
             }
 
             client = connect_mqtt(sysOpt)
