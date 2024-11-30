@@ -281,7 +281,8 @@ class DtaProcess(object):
                 'broker': "localhost"
                 , 'port': 1883
                 # , 'topic': "python/mqtt"
-                , 'topic': "topic/mqtt/temperture"
+                # , 'topic': "topic/mqtt/temperture"
+                , 'topic': "topic/video"
                 # , 'client_id': f"publish-{random.randint(0, 1000)}"
                 , 'client_id': f"client_id"
                 , 'callback_api_version': CallbackAPIVersion.VERSION2

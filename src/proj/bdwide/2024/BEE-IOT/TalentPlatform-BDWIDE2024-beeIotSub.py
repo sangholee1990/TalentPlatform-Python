@@ -192,6 +192,7 @@ def subscribe(client: mqtt_client.Client, sysOpt):
         for topic in sysOpt['topicList']:
             client.subscribe(topic)
             log.info("Subscribed to topic: %s", topic)
+
         client.on_message = on_message
     except Exception as e:
         log.error("Error subscribing to topic '%s': %s", sysOpt['topic'], e)
@@ -270,13 +271,15 @@ class DtaProcess(object):
                 , 'port': 1883
                 # , 'topic': "python/mqtt"
                 , 'topicList': [
-                    "topic/mqtt/temperture",
-                    "topic/mqtt/humidity",
-                    "topic/mqtt/co2",
-                    "topic/mqtt/weight",
-                    "topic/mqtt/date",
-                    "topic/mqtt/time",
-                    "topic/mqtt/battery"
+                    "topic/mqtt/temperture"
+                    , "topic/mqtt/humidity"
+                    , "topic/mqtt/co2"
+                    , "topic/mqtt/weight"
+                    , "topic/mqtt/date"
+                    , "topic/mqtt/time"
+                    , "topic/mqtt/battery"
+                    , "topic/video"
+                    , "topic/audio"
                 ]
                 , 'client_id': f"publish-{random.randint(0, 1000)}"
                 , 'callback_api_version': CallbackAPIVersion.VERSION2
