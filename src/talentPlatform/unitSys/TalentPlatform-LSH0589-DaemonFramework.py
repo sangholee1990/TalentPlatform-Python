@@ -345,14 +345,14 @@ class DtaProcess(object):
                 # stateInfo['abbr'] = 'MN'
                 # if not stateInfo['abbr'] == 'MN': continue
 
-                log.info(f"[CHECK] abbr : {stateInfo['abbr']}")
-
                 xlsxFilePattern = f"{globalVar['outPath']}/{serviceName}/{stateInfo['abbr']}-{stateInfo['state']}_Average_Values_Across_Stations_*.xlsx"
                 xlsxFileList = glob.glob(xlsxFilePattern)
                 if len(xlsxFileList) > 0: continue
 
                 rsvDataL1 = rsvData.loc[(rsvData['HOSPST'] == stateInfo['abbr'])].reset_index(drop=True)
                 if len(rsvDataL1) < 1: continue
+
+                log.info(f"[CHECK] abbr : {stateInfo['abbr']}")
 
                 # Minnesota.ipynb 참조
                 # Count unique values in the "AWEEK1" column and sort by index
