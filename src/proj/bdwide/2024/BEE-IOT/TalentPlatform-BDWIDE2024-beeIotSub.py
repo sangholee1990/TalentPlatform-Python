@@ -175,6 +175,13 @@ def on_connect(client, userdata, flags, rc, properties=None):
 def on_message(client, userdata, msg):
     log.info("Received message from topic '%s': %s", msg.topic, msg.payload.decode())
 
+    # 241203004305 연월일시분초?
+    # 24.43 온도
+    # 38.10 습도
+    # -2 co2
+    # 1979 무게
+    # 0.00 배터리
+
 def connect_mqtt(sysOpt) -> mqtt_client.Client:
 
     # client = mqtt_client.Client(client_id=sysOpt['client_id'], protocol=sysOpt['callback_api_version'])
@@ -270,13 +277,14 @@ class DtaProcess(object):
                 'broker': "49.247.41.71"
                 , 'port': 1883
                 , 'topicList': [
-                    "topic/mqtt/temperture"
-                    , "topic/mqtt/humidity"
-                    , "topic/mqtt/co2"
-                    , "topic/mqtt/weight"
-                    , "topic/mqtt/date"
-                    , "topic/mqtt/time"
-                    , "topic/mqtt/battery"
+                    "topic/mqtt"
+                    # , "topic/mqtt/temperture"
+                    # , "topic/mqtt/humidity"
+                    # , "topic/mqtt/co2"
+                    # , "topic/mqtt/weight"
+                    # , "topic/mqtt/date"
+                    # , "topic/mqtt/time"
+                    # , "topic/mqtt/battery"
                     , "topic/video"
                     , "topic/audio"
                 ]
