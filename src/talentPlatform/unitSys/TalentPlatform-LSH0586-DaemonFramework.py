@@ -249,7 +249,16 @@ def calculate_sum_cv(data, start_time, end_time):
 
 
 # 그래프를 그리는 함수 정의
-def plot_close_and_sum_cv(result):
+def plot_close_and_sum_cv(sysOpt, modelInfo, symbol, result):
+
+    dtDateInfo = pd.to_datetime(sysOpt['srtDate'], format='%Y-%m-%d %H:%M')
+    minDt = pd.to_datetime(sysOpt['srtDate'], format='%Y-%m-%d %H:%M').strftime('%Y%m%d%H%M')
+    maxDt = pd.to_datetime(sysOpt['endDate'], format='%Y-%m-%d %H:%M').strftime('%Y%m%d%H%M')
+    saveImgPattern = '{}/{}'.format(modelInfo['figPath'], modelInfo['figName'])
+    saveImg = dtDateInfo.strftime(saveImgPattern).format(symbol=symbol, minDt=minDt, maxDt=maxDt)
+    # mainTitle = os.path.basename(saveImg).split(".")[0]
+    os.makedirs(os.path.dirname(saveImg), exist_ok=True)
+
     # 하나의 subplot을 생성
     fig, ax = plt.subplots(figsize=(10, 6))
 
@@ -284,10 +293,8 @@ def plot_close_and_sum_cv(result):
     # 그래프 출력
     # plt.show()
 
-
-# 불필요한 경고 억제
-# warnings.filterwarnings('ignore', category=pd.errors.PerformanceWarning)
-# warnings.filterwarnings('ignore', category=pd.errors.SettingWithCopyWarning)
+    plt.close()
+    log.info(f"[CHECK] saveImg : {saveImg}")
 
 # calculate_sum_cv 함수 최적화
 def calculate_sum_cv_last(data, start_time, end_time):
@@ -378,7 +385,7 @@ def plot_multiple_graphs(result):
 
 
 # CSV 파일로 저장하는 함수
-def save_daily_data_to_csv(data_L1, date, time_deltas):
+def save_daily_data_to_csv(sysOpt, modelInfo, symbol, data_L1, date, time_deltas):
     # 하루 단위의 시간을 설정 (00:00:00부터 23:59:59까지 1분 간격)
     start_of_day = pd.to_datetime(date)
     end_of_day = start_of_day + timedelta(days=1) - timedelta(minutes=1)
@@ -388,11 +395,18 @@ def save_daily_data_to_csv(data_L1, date, time_deltas):
     daily_data = process_in_parallel(data_L1, time_range_day, time_deltas)
 
     # 파일명 설정 (예: 2024-01-01.csv)
-    file_name = os.path.join(output_dir, f"{start_of_day.strftime('%Y-%m-%d')}.csv")
+    # file_name = os.path.join(output_dir, f"{start_of_day.strftime('%Y-%m-%d')}.csv")
 
     # 데이터프레임을 CSV 파일로 저장
-    daily_data.to_csv(file_name, index=False)
-    print(f"Saved: {file_name}")
+    # daily_data.to_csv(file_name, index=False)
+    # print(f"Saved: {file_name}")
+
+    saveFilePattern = '{}/{}'.format(modelInfo['procPath'], modelInfo['procName'])
+    saveFile = start_of_day.strftime(saveFilePattern).format(symbol=symbol)
+    os.makedirs(os.path.dirname(saveFile), exist_ok=True)
+
+    daily_data.to_csv(saveFile, index=False)
+    log.info(f"[CHECK] saveFile : {saveFile}")
 
 @retry(stop_max_attempt_number=5)
 def colctTrendVideo(sysOpt, funName):
@@ -513,7 +527,7 @@ class DtaProcess(object):
             sysOpt = {
                 # 시작일, 종료일, 시간 간격 (연 1y, 월 1h, 일 1d, 시간 1h, 분 1t)
                 'srtDate': '2024-01-10 00:00'
-                , 'endDate': '2024-01-10 01:00'
+                , 'endDate': '2024-01-20 00:00'
                 # , 'endDate': '2024-01-10 06:00'
                 , 'invDate': '1t'
                 , 'timeDel': [
@@ -553,25 +567,21 @@ class DtaProcess(object):
                     , 'colctPath': '/DATA/OUTPUT/LSH0579/COLCT/%Y%m/%d/%H/{symbol}'
                     , 'colctName': '{symbol}_%Y%m%d%H%M.csv'
 
-
-                    , 'savePath': '/DATA/OUTPUT/LSH0579/PROC'
-                    , 'saveName': 'RDR_{}_FQC_%Y%m%d%H%M.nc'
-
                     # 저장 영상
-                    , 'figPath': '/DATA/FIG/LSH0579'
-                    , 'figName': 'RDR_{}_FQC_%Y%m%d%H%M.png'
+                    , 'figPath': '/DATA/OUTPUT/LSH0579/VIS/%Y%m/%d/%H/{symbol}'
+                    , 'figName': '{symbol}_L1_{minDt}-{maxDt}.png'
 
                     # 가공 파일
-                    , 'procPath': '/DATA/OUTPUT/LSH0579/PROC'
-                    , 'procName': 'RDR_{}_FQC_%Y%m%d%H%M.nc'
+                    , 'procPath': '/DATA/OUTPUT/LSH0579/PROC/%Y%m/%d/%H/{symbol}'
+                    , 'procName': '{symbol}_%Y%m%d%H%M.csv'
 
                     # 엑셀 파일
-                    , 'xlsxPath': '/DATA/OUTPUT/LSH0579'
-                    , 'xlsxName': 'RDR_{}_FQC_{}-{}.xlsx'
+                    # , 'xlsxPath': '/DATA/OUTPUT/LSH0579'
+                    # , 'xlsxName': 'RDR_{}_FQC_{}-{}.xlsx'
 
                     # 누적 영상
-                    , 'cumPath': '/DATA/FIG/LSH0579'
-                    , 'cumName': 'RDR_{}_FQC-{}_%Y%m%d%H%M.png'
+                    # , 'cumPath': '/DATA/FIG/LSH0579'
+                    # , 'cumName': 'RDR_{}_FQC-{}_%Y%m%d%H%M.png'
                 }
             }
 
@@ -655,6 +665,7 @@ class DtaProcess(object):
                         # 파일 저장
                         os.makedirs(os.path.dirname(colctFile), exist_ok=True)
                         resDataL1.to_csv(colctFile, index=False)
+                        log.info(f"[CHECK] colctFile : {colctFile}")
 
                     # *******************************************************************************************
                     # 1번, 3번 : 전처리
@@ -684,7 +695,7 @@ class DtaProcess(object):
                     result = calculate_sum_cv(data_L1, sysOpt['srtDate'], sysOpt['endDate'])
 
                     # 그림 생산
-                    plot_close_and_sum_cv(result)
+                    plot_close_and_sum_cv(sysOpt, modelInfo, symbol, result)
 
                     # 시간 범위 및 deltas 설정
                     # start_loop_date = pd.to_datetime('2024-10-28 00:00:00')
@@ -706,9 +717,9 @@ class DtaProcess(object):
                     data_L2 = data_L2.sort_values(by='Open_time').reset_index(drop=True)
 
                     # CSV 저장 디렉토리 설정 (없으면 생성)
-                    output_dir = "L1OUT/BTC"
-                    if not os.path.exists(output_dir):
-                        os.makedirs(output_dir)
+                    # output_dir = "L1OUT/BTC"
+                    # if not os.path.exists(output_dir):
+                    #     os.makedirs(output_dir)
 
                     # 시간 범위 및 deltas 설정
                     # start_loop_date = pd.to_datetime('2024-10-05')
@@ -717,7 +728,8 @@ class DtaProcess(object):
 
                     # 날짜별로 데이터를 처리하고 CSV로 저장하는 루프
                     for single_date in time_range:
-                        save_daily_data_to_csv(data_L1, single_date, sysOpt['timeDel'])
+                        log.info(f"[CHECK] single_date : {single_date}")
+                        save_daily_data_to_csv(sysOpt, modelInfo, symbol, data_L1, single_date, sysOpt['timeDel'])
 
             # **************************************************************************************************************
             # 비동기 다중 프로세스 수행
