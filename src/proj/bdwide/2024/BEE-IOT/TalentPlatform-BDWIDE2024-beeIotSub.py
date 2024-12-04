@@ -173,14 +173,33 @@ def on_connect(client, userdata, flags, rc, properties=None):
         log.error("Failed to connect to MQTT Broker, return code %d", rc)
 
 def on_message(client, userdata, msg):
-    log.info("Received message from topic '%s': %s", msg.topic, msg.payload.decode())
 
-    # 241203004305 연월일시분초?
-    # 24.43 온도
-    # 38.10 습도
-    # -2 co2
-    # 1979 무게
-    # 0.00 배터리
+    # 센서 데이터
+    if msg.topic == 'topic/mqtt':
+        log.info("Received message from topic '%s': %s", msg.topic, msg.payload.decode())
+
+        # 241203004305 연월일시분초?
+        # 24.43 온도
+        # 38.10 습도
+        # -2 co2
+        # 1979 무게
+        # 0.00 배터리
+
+    # 오디오 데이터
+    if msg.topic == 'topic/audio':
+        audio_data = msg.payload
+        print(audio_data)
+
+        timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+        filename = f"/DATA/BEE-IOT2/audio_{timestamp}.wav"
+
+        with open(filename, 'wb') as f:
+            f.write(audio_data)
+        log.info("오디오 데이터를 '%s' 토픽에서 수신하여 '%s' 파일로 저장했습니다.", msg.topic, filename)
+
+    # 비디오 데이터
+    if msg.topic == 'topic/video':
+        log.info("비디오 데이터")
 
 def connect_mqtt(sysOpt) -> mqtt_client.Client:
 
@@ -199,7 +218,6 @@ def subscribe(client: mqtt_client.Client, sysOpt):
         for topic in sysOpt['topicList']:
             client.subscribe(topic)
             log.info("Subscribed to topic: %s", topic)
-
         client.on_message = on_message
     except Exception as e:
         log.error("Error subscribing to topic '%s': %s", sysOpt['topic'], e)
@@ -212,7 +230,7 @@ class DtaProcess(object):
     # ================================================
     # 요구사항
     # ================================================
-    # Python을 이용한 성별, 연령별에 따른 흡연자 비중 및 비율 시각화
+    # Python을 이용한 메시지 mqtt 구독형
 
     # ================================================================================================
     # 환경변수 설정
