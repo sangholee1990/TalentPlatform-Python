@@ -37,6 +37,10 @@ import configparser
 from urllib.parse import quote_plus
 import pytz
 import pymysql
+from sqlalchemy.dialects.mysql import insert as mysql_insert
+import asyncio
+import websockets
+import os
 
 # =================================================
 # 사용자 매뉴얼
@@ -181,7 +185,6 @@ def initArgument(globalVar, inParams):
 
     return globalVar
 
-
 def initCfgInfo(sysOpt, sysPath):
     log.info('[START] {}'.format('initCfgInfo'))
 
@@ -209,9 +212,30 @@ def initCfgInfo(sysOpt, sysPath):
         session = sessMake()
         # session.execute("""SELECT * FROM TB_VIDEO_INFO""").fetchall()
 
+        # 메타정보
+        metadata = MetaData()
+
+        # 테이블 생성
+        tbBeeIot = Table(
+            'TB_BEE_IOT',
+            metadata,
+            Column('MES_DT', String(14), primary_key=True, comment="측정 시간")
+            , Column('TMP', Float, comment="온도 (섭씨)")
+            , Column('HUM', Float, comment="습도 (%)")
+            , Column('CO2', Float, comment="CO2 (ppm)")
+            , Column('WEG', Float, comment="무게 (g)")
+            , Column('BAT', Float, comment="배터리 (%)")
+            , Column('REG_DATE', DateTime, default=datetime.now(pytz.timezone('Asia/Seoul')), nullable=False, comment="등록일")
+            , Column('MOD_DATE', DateTime, default=datetime.now(pytz.timezone('Asia/Seoul')), onupdate=datetime.now(pytz.timezone('Asia/Seoul')), nullable=True, comment="수정일")
+            , extend_existing=True
+        )
+
+        metadata.create_all(engine)
+
         result = {
             'engine': engine
             , 'session': session
+            , 'tbBeeIot': tbBeeIot
         }
 
         return result
@@ -224,75 +248,72 @@ def initCfgInfo(sysOpt, sysPath):
         # try, catch 구문이 종료되기 전에 무조건 실행
         log.info('[END] {}'.format('initCfgInfo'))
 
-def on_connect(client, userdata, flags, rc, properties=None):
-    if rc == 0:
-        log.info("Successfully connected to MQTT Broker")
-    else:
-        log.error("Failed to connect to MQTT Broker, return code %d", rc)
+def dbMergeData(session, table, dataList, pkList):
+    try:
+        stmt = mysql_insert(table).values(dataList)
+        updDict = {c.name: stmt.inserted[c.name] for c in stmt.inserted if c.name not in pkList}
+        onConflictStmt = stmt.on_duplicate_key_update(**updDict)
 
-def on_message(client, userdata, msg):
+        session.execute(onConflictStmt)
+        session.commit()
+
+    except Exception as e:
+        session.rollback()
+        log.error(f"Exception : {str(e)}")
+
+    finally:
+        session.close()
+
+def onCon(client, userdata, flags, rc, properties=None):
+    if rc == 0:
+        log.info(f"Successfully connected to MQTT Broker")
+    else:
+        log.error(f"Failed to connect to MQTT Broker, return code : {rc}")
+
+
+def onMsg(client, sysOpt, msg):
+
     try:
         # 센서 데이터
-        # 241203004305,24.43,38.10,-2,1979,0.00
-        # 연월일시분초,온도,습도,co2,무게,배터리
         if msg.topic == 'topic/mqtt':
-            msgStr = msg.payload.decode("utf-8")
+            # 연월일시분초,온도,습도,co2,무게,배터리
+            # msgStr = '241203004305,24.43,38.10,-2,1979,0.00'
+            msgStr = msg.payload.decode("UTF-8")
             if msgStr is None or len(msgStr) < 1: return
-
-            log.info("Received message from topic '%s': %s", msg.topic, msgStr)
+            log.info(f"[CHECK] msgStr : {msgStr}")
 
             msgSplit = msgStr.split(',')
             if len(msgSplit) != 6: return
 
-            # 측정 시간 (연월일시분초)
-            dt = pd.to_datetime(msgSplit[0], format='%y%m%d%H%M%S')
+            colList = ['MES_DT', 'TMP', 'HUM', 'CO2', 'WEG', 'BAT']
+            msgData = pd.DataFrame([msgSplit], columns=colList)
 
-            # 온도 (섭씨)
-            tmp = float(msgSplit[1])
+            msgData['MES_DT'] = pd.to_datetime(msgData['MES_DT'], format='%y%m%d%H%M%S').dt.strftime('%Y%m%d%H%M%S')
+            msgData['TMP'] = msgData['TMP'].astype(float)
+            msgData['HUM'] = msgData['HUM'].astype(float)
+            msgData['CO2'] = msgData['CO2'].astype(float)
+            msgData['WEG'] = msgData['WEG'].astype(float)
+            msgData['BAT'] = msgData['BAT'].astype(float)
 
-            # 습도 (%)
-            hum = float(msgSplit[2])
-
-            # CO2 (ppm)
-            co2 = float(msgSplit[3])
-
-            # 무게 (g)
-            weg = float(msgSplit[4])
-
-            # 배터리 (%)
-            bat = float(msgSplit[5])
-
-
+            dbMergeData(sysOpt['db']['session'], sysOpt['db']['table']['tbBeeIot'], msgData.to_dict(orient='records'), pkList=['MES_DT'])
 
         # 오디오 데이터
         # if msg.topic == 'topic/audio':
-        #     audio_data = msg.payload
-        #     print(audio_data)
-        #
-        #     timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-        #     filename = f"/DATA/BEE-IOT2/audio_{timestamp}.wav"
-        #
-        #     with open(filename, 'wb') as f:
-        #         f.write(audio_data)
-        #     log.info("오디오 데이터를 '%s' 토픽에서 수신하여 '%s' 파일로 저장했습니다.", msg.topic, filename)
 
         # 비디오 데이터
         # if msg.topic == 'topic/video':
-        #     log.info("비디오 데이터")
 
     except Exception as e:
         log.error(f"Exception : {str(e)}")
 
-
-def connect_mqtt(sysOpt) -> mqtt_client.Client:
-
-    # client = mqtt_client.Client(client_id=sysOpt['client_id'], protocol=sysOpt['callback_api_version'])
-    client = mqtt_client.Client(client_id=sysOpt['client_id'], protocol=sysOpt['protocol'], callback_api_version=sysOpt['callback_api_version'])
-    client.on_connect = on_connect
+def mqttCon(sysOpt) -> mqtt_client.Client:
     try:
+        # client = mqtt_client.Client(client_id=sysOpt['client_id'], protocol=sysOpt['callback_api_version'])
+        client = mqtt_client.Client(client_id=sysOpt['client_id'], protocol=sysOpt['protocol'], callback_api_version=sysOpt['callback_api_version'])
+        client.on_connect = onCon
         client.connect(sysOpt['broker'], sysOpt['port'])
     except Exception as e:
-        log.error("Error connecting to MQTT Broker: %s", e)
+        log.error(f"Exception : {str(e)}")
         raise
     return client
 
@@ -300,20 +321,29 @@ def subscribe(client: mqtt_client.Client, sysOpt):
     try:
         for topic in sysOpt['topicList']:
             client.subscribe(topic)
-            log.info("Subscribed to topic: %s", topic)
-        client.on_message = on_message
+            log.info(f"[CHECK] topic : {topic}")
+
+        client.user_data_set(sysOpt)
+        client.on_message = lambda client, userdata, msg: onMsg(client, userdata, msg)
+
     except Exception as e:
-        log.error("Error subscribing to topic '%s': %s", sysOpt['topic'], e)
+        log.error(f"Exception : {str(e)}")
         raise
 
 # ================================================
 # 4. 부 프로그램
 # ================================================
 class DtaProcess(object):
+
     # ================================================
     # 요구사항
     # ================================================
-    # Python을 이용한 메시지 mqtt 구독형
+    # Python을 이용한 메시지 mqtt 메시지 구독
+
+    # conda activate py38
+    # cd /SYSTEMS/PROG/PYTHON/IDE/src/proj/bdwide/2024/BEE-IOT
+    # nohup python TalentPlatform-BDWIDE2024-beeIotSub.py &
+    # tail -f nohup.out
 
     # ================================================================================================
     # 환경변수 설정
@@ -380,20 +410,10 @@ class DtaProcess(object):
                 , 'port': 1883
                 , 'topicList': [
                     "topic/mqtt"
-                    # , "topic/mqtt/temperture"
-                    # , "topic/mqtt/humidity"
-                    # , "topic/mqtt/co2"
-                    # , "topic/mqtt/weight"
-                    # , "topic/mqtt/date"
-                    # , "topic/mqtt/time"
-                    # , "topic/mqtt/battery"
-                    , "topic/video"
-                    , "topic/audio"
                 ]
-                , 'client_id': f"publish-{random.randint(0, 1000)}"
+                , 'client_id': f"pub-{random.randint(0, 1000)}"
                 , 'callback_api_version': CallbackAPIVersion.VERSION2
                 , 'protocol': mqtt_client.MQTTv311
-                # , 'updIp': '49.247.41.71'
                 , 'db': {
                     'engine': None
                     , 'session': None
@@ -403,42 +423,19 @@ class DtaProcess(object):
                 }
             }
 
-            # DB 정보
+            # DB
             cfgInfo = initCfgInfo(sysOpt, f"{globalVar['cfgPath']}/system.cfg")
-            # engine = cfgInfo['engine']
-            # session = cfgInfo['session']
-
             sysOpt['db']['engine'] = cfgInfo['engine']
             sysOpt['db']['session'] = cfgInfo['session']
+            sysOpt['db']['table']['tbBeeIot'] = cfgInfo['tbBeeIot']
 
-            metadata = MetaData()
-
-            tbBeeIot = Table(
-                'TB_BEE_IOT',
-                metadata,
-                Column('MES_DT', DateTime, primary_key=True, comment="측정 시간")
-                , Column('TMP', Float, comment="온도 (섭씨)")
-                , Column('HUM', Float, comment="습도 (%)")
-                , Column('CO2', Float, comment="CO2 (ppm)")
-                , Column('WEG', Float, comment="무게 (g)")
-                , Column('BAT', Float, comment="배터리 (%)")
-                , Column('REG_DATE', DateTime, default=datetime.now(pytz.timezone('Asia/Seoul')), nullable=False, comment="등록일")
-                , Column('MOD_DATE', DateTime, default=datetime.now(pytz.timezone('Asia/Seoul')), onupdate=datetime.now(pytz.timezone('Asia/Seoul')), nullable=True, comment="수정일")
-                , extend_existing=True
-            )
-            sysOpt['db']['table']['tbBeeIot'] = tbBeeIot
-
-            metadata.create_all(sysOpt['db']['engine'])
-
-
-            exit(1)
-            client = connect_mqtt(sysOpt)
-            subscribe(client, sysOpt)
-
+            # 메시지 구독
             try:
+                client = mqttCon(sysOpt)
+                subscribe(client, sysOpt)
                 client.loop_forever()
             except Exception as e:
-                log.error("Unexpected error: %s", e)
+                log.error(f"Exception : {str(e)}")
 
         except Exception as e:
             log.error(f"Exception : {str(e)}")
