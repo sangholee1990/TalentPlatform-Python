@@ -42,6 +42,8 @@ import asyncio
 import websockets
 import os
 
+from sqlalchemy.sql import func
+
 # =================================================
 # 사용자 매뉴얼
 # =================================================
@@ -66,7 +68,6 @@ plt.rc('axes', unicode_minus=False)
 
 # 그래프에서 마이너스 글꼴 깨지는 문제에 대한 대처
 mpl.rcParams['axes.unicode_minus'] = False
-
 
 # =================================================
 # 2. 유틸리티 함수
@@ -225,8 +226,10 @@ def initCfgInfo(sysOpt, sysPath):
             , Column('CO2', Float, comment="CO2 (ppm)")
             , Column('WEG', Float, comment="무게 (g)")
             , Column('BAT', Float, comment="배터리 (%)")
-            , Column('REG_DATE', DateTime, default=datetime.now(pytz.timezone('Asia/Seoul')), nullable=False, comment="등록일")
-            , Column('MOD_DATE', DateTime, default=datetime.now(pytz.timezone('Asia/Seoul')), onupdate=datetime.now(pytz.timezone('Asia/Seoul')), nullable=True, comment="수정일")
+            # , Column('REG_DATE', DateTime, default=datetime.now(pytz.timezone('Asia/Seoul')), nullable=False, comment="등록일")
+            # , Column('MOD_DATE', DateTime, default=datetime.now(pytz.timezone('Asia/Seoul')), onupdate=datetime.now(pytz.timezone('Asia/Seoul')), nullable=True, comment="수정일")
+            , Column('REG_DATE', DateTime, server_default=func.now(), nullable=False, comment="등록일")
+            , Column('MOD_DATE', DateTime, server_default=func.now(), onupdate=func.now(), nullable=True, comment="수정일")
             , extend_existing=True
         )
 
@@ -248,10 +251,10 @@ def initCfgInfo(sysOpt, sysPath):
         # try, catch 구문이 종료되기 전에 무조건 실행
         log.info('[END] {}'.format('initCfgInfo'))
 
-def dbMergeData(session, table, dataList, pkList):
+def dbMergeData(session, table, dataList, pkList, excList):
     try:
         stmt = mysql_insert(table).values(dataList)
-        updDict = {c.name: stmt.inserted[c.name] for c in stmt.inserted if c.name not in pkList}
+        updDict = {c.name: stmt.inserted[c.name] for c in stmt.inserted if c.name not in pkList and c.name not in excList}
         onConflictStmt = stmt.on_duplicate_key_update(**updDict)
 
         session.execute(onConflictStmt)
@@ -295,7 +298,14 @@ def onMsg(client, sysOpt, msg):
             msgData['WEG'] = msgData['WEG'].astype(float)
             msgData['BAT'] = msgData['BAT'].astype(float)
 
-            dbMergeData(sysOpt['db']['session'], sysOpt['db']['table']['tbBeeIot'], msgData.to_dict(orient='records'), pkList=['MES_DT'])
+            # DB 적재
+            dbMergeData(
+                sysOpt['db']['session']
+                , sysOpt['db']['table']['tbBeeIot']
+                , msgData.to_dict(orient='records')
+                , pkList=['MES_DT']
+                , excList=['REG_DATE', 'MOD_DATE']
+            )
 
         # 오디오 데이터
         # if msg.topic == 'topic/audio':
@@ -340,10 +350,14 @@ class DtaProcess(object):
     # ================================================
     # Python을 이용한 메시지 mqtt 메시지 구독
 
+    # 프로그램 시작
     # conda activate py38
     # cd /SYSTEMS/PROG/PYTHON/IDE/src/proj/bdwide/2024/BEE-IOT
     # nohup python TalentPlatform-BDWIDE2024-beeIotSub.py &
     # tail -f nohup.out
+
+    # 프로그램 종료
+    # ps -ef | grep python | grep TalentPlatform-BDWIDE2024-beeIotSub.py | awk '{print $2}' | xargs kill -9
 
     # ================================================================================================
     # 환경변수 설정
