@@ -23,6 +23,21 @@ from paho.mqtt import client as mqtt_client
 from paho.mqtt.enums import CallbackAPIVersion
 from time import sleep
 
+from sqlalchemy.dialects.mysql import insert
+from sqlalchemy import Boolean, Column, ForeignKey, Integer, String, DateTime, create_engine
+from sqlalchemy.ext.declarative import declarative_base
+from sqlalchemy.exc import SQLAlchemyError
+from sqlalchemy import create_engine
+from sqlalchemy.orm import sessionmaker
+from sqlalchemy import Column, Float
+from sqlalchemy.dialects.mysql import DOUBLE
+from sqlalchemy import Table, Column, Integer, String, MetaData
+from sqlalchemy import Column, Numeric
+import configparser
+from urllib.parse import quote_plus
+import pytz
+import pymysql
+
 # =================================================
 # 사용자 매뉴얼
 # =================================================
@@ -166,6 +181,49 @@ def initArgument(globalVar, inParams):
 
     return globalVar
 
+
+def initCfgInfo(sysOpt, sysPath):
+    log.info('[START] {}'.format('initCfgInfo'))
+
+    result = None
+
+    try:
+        # DB 연결 정보
+        pymysql.install_as_MySQLdb()
+
+        # DB 정보
+        config = configparser.ConfigParser()
+        config.read(sysPath, encoding='utf-8')
+
+        configKey = 'mysql-iwinv-dms01user01'
+        dbUser = config.get(configKey, 'user')
+        dbPwd = quote_plus(config.get(configKey, 'pwd'))
+        dbHost = config.get(configKey, 'host')
+        dbHost = 'localhost' if (sysOpt.get('updIp') is None or dbHost == sysOpt['updIp']) else dbHost
+        dbPort = config.get(configKey, 'port')
+        dbName = config.get(configKey, 'dbName')
+
+        engine = create_engine(f"mysql+pymysql://{dbUser}:{dbPwd}@{dbHost}:{dbPort}/{dbName}", echo=False)
+        # engine = create_engine('mariadb://{0}:{1}@{2}:{3}/{4}'.format(dbUser, dbPwd, dbHost, dbPort, dbName), echo=False)
+        sessMake = sessionmaker(bind=engine)
+        session = sessMake()
+        # session.execute("""SELECT * FROM TB_VIDEO_INFO""").fetchall()
+
+        result = {
+            'engine': engine
+            , 'session': session
+        }
+
+        return result
+
+    except Exception as e:
+        log.error('Exception : {}'.format(e))
+        return result
+
+    finally:
+        # try, catch 구문이 종료되기 전에 무조건 실행
+        log.info('[END] {}'.format('initCfgInfo'))
+
 def on_connect(client, userdata, flags, rc, properties=None):
     if rc == 0:
         log.info("Successfully connected to MQTT Broker")
@@ -173,33 +231,58 @@ def on_connect(client, userdata, flags, rc, properties=None):
         log.error("Failed to connect to MQTT Broker, return code %d", rc)
 
 def on_message(client, userdata, msg):
+    try:
+        # 센서 데이터
+        # 241203004305,24.43,38.10,-2,1979,0.00
+        # 연월일시분초,온도,습도,co2,무게,배터리
+        if msg.topic == 'topic/mqtt':
+            msgStr = msg.payload.decode("utf-8")
+            if msgStr is None or len(msgStr) < 1: return
 
-    # 센서 데이터
-    if msg.topic == 'topic/mqtt':
-        log.info("Received message from topic '%s': %s", msg.topic, msg.payload.decode())
+            log.info("Received message from topic '%s': %s", msg.topic, msgStr)
 
-        # 241203004305 연월일시분초?
-        # 24.43 온도
-        # 38.10 습도
-        # -2 co2
-        # 1979 무게
-        # 0.00 배터리
+            msgSplit = msgStr.split(',')
+            if len(msgSplit) != 6: return
 
-    # 오디오 데이터
-    if msg.topic == 'topic/audio':
-        audio_data = msg.payload
-        print(audio_data)
+            # 측정 시간 (연월일시분초)
+            dt = pd.to_datetime(msgSplit[0], format='%y%m%d%H%M%S')
 
-        timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-        filename = f"/DATA/BEE-IOT2/audio_{timestamp}.wav"
+            # 온도 (섭씨)
+            tmp = float(msgSplit[1])
 
-        with open(filename, 'wb') as f:
-            f.write(audio_data)
-        log.info("오디오 데이터를 '%s' 토픽에서 수신하여 '%s' 파일로 저장했습니다.", msg.topic, filename)
+            # 습도 (%)
+            hum = float(msgSplit[2])
 
-    # 비디오 데이터
-    if msg.topic == 'topic/video':
-        log.info("비디오 데이터")
+            # CO2 (ppm)
+            co2 = float(msgSplit[3])
+
+            # 무게 (g)
+            weg = float(msgSplit[4])
+
+            # 배터리 (%)
+            bat = float(msgSplit[5])
+
+
+
+        # 오디오 데이터
+        # if msg.topic == 'topic/audio':
+        #     audio_data = msg.payload
+        #     print(audio_data)
+        #
+        #     timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+        #     filename = f"/DATA/BEE-IOT2/audio_{timestamp}.wav"
+        #
+        #     with open(filename, 'wb') as f:
+        #         f.write(audio_data)
+        #     log.info("오디오 데이터를 '%s' 토픽에서 수신하여 '%s' 파일로 저장했습니다.", msg.topic, filename)
+
+        # 비디오 데이터
+        # if msg.topic == 'topic/video':
+        #     log.info("비디오 데이터")
+
+    except Exception as e:
+        log.error(f"Exception : {str(e)}")
+
 
 def connect_mqtt(sysOpt) -> mqtt_client.Client:
 
@@ -282,12 +365,13 @@ class DtaProcess(object):
 
         try:
 
-            if (platform.system() == 'Windows'):
+            if platform.system() == 'Windows':
                 pass
             else:
                 globalVar['inpPath'] = '/DATA/INPUT'
                 globalVar['outPath'] = '/DATA/OUTPUT'
                 globalVar['figPath'] = '/DATA/FIG'
+                globalVar['cfgPath'] = '/SYSTEMS/PROG/PYTHON/IDE/resources/config'
 
             # 옵션 설정
             sysOpt = {
@@ -309,8 +393,45 @@ class DtaProcess(object):
                 , 'client_id': f"publish-{random.randint(0, 1000)}"
                 , 'callback_api_version': CallbackAPIVersion.VERSION2
                 , 'protocol': mqtt_client.MQTTv311
+                # , 'updIp': '49.247.41.71'
+                , 'db': {
+                    'engine': None
+                    , 'session': None
+                    , 'table': {
+                        'tbBeeIot': None
+                    }
+                }
             }
 
+            # DB 정보
+            cfgInfo = initCfgInfo(sysOpt, f"{globalVar['cfgPath']}/system.cfg")
+            # engine = cfgInfo['engine']
+            # session = cfgInfo['session']
+
+            sysOpt['db']['engine'] = cfgInfo['engine']
+            sysOpt['db']['session'] = cfgInfo['session']
+
+            metadata = MetaData()
+
+            tbBeeIot = Table(
+                'TB_BEE_IOT',
+                metadata,
+                Column('MES_DT', DateTime, primary_key=True, comment="측정 시간")
+                , Column('TMP', Float, comment="온도 (섭씨)")
+                , Column('HUM', Float, comment="습도 (%)")
+                , Column('CO2', Float, comment="CO2 (ppm)")
+                , Column('WEG', Float, comment="무게 (g)")
+                , Column('BAT', Float, comment="배터리 (%)")
+                , Column('REG_DATE', DateTime, default=datetime.now(pytz.timezone('Asia/Seoul')), nullable=False, comment="등록일")
+                , Column('MOD_DATE', DateTime, default=datetime.now(pytz.timezone('Asia/Seoul')), onupdate=datetime.now(pytz.timezone('Asia/Seoul')), nullable=True, comment="수정일")
+                , extend_existing=True
+            )
+            sysOpt['db']['table']['tbBeeIot'] = tbBeeIot
+
+            metadata.create_all(sysOpt['db']['engine'])
+
+
+            exit(1)
             client = connect_mqtt(sysOpt)
             subscribe(client, sysOpt)
 
