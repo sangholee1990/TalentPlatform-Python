@@ -66,6 +66,31 @@ from sklearn.preprocessing import MinMaxScaler, StandardScaler
 import matplotlib.pyplot as plt
 import numpy as np
 
+import numpy as np
+import pandas as pd
+import os
+import time
+from datetime import datetime, timedelta
+
+from sklearn.model_selection import train_test_split
+from sklearn.ensemble import RandomForestRegressor
+from sklearn.multioutput import MultiOutputRegressor
+from sklearn.metrics import mean_squared_error
+import xgboost as xgb
+from sklearn.model_selection import TimeSeriesSplit
+from sklearn.model_selection import PredefinedSplit
+
+import pandas as pd
+import numpy as np
+import tensorflow as tf
+from tensorflow.keras import layers, models, regularizers
+from sklearn.preprocessing import StandardScaler
+from sklearn.metrics import mean_squared_error
+import matplotlib.pyplot as plt
+import os
+
+from tensorflow.keras.callbacks import EarlyStopping
+
 # =================================================
 # 사용자 매뉴얼
 # =================================================
@@ -423,23 +448,23 @@ def save_daily_data_to_csv(sysOpt, modelInfo, symbol, data_L1, date, time_deltas
     log.info(f"[CHECK] saveFile : {saveFile}")
 
 
-def merge_csv_files(directory_path):
-    # 디렉토리 내 모든 파일 이름을 가져옴
-    csv_files = [file for file in os.listdir(directory_path) if file.endswith('.csv')]
-
-    # 데이터프레임 리스트 생성
-    dataframes = []
-
-    for file in csv_files:
-        file_path = os.path.join(directory_path, file)
-        # CSV 파일을 읽고 데이터프레임에 추가
-        df = pd.read_csv(file_path)
-        dataframes.append(df)
-
-    # 모든 데이터프레임 병합
-    merged_df = pd.concat(dataframes, ignore_index=True)
-
-    return merged_df
+# def merge_csv_files(directory_path):
+#     # 디렉토리 내 모든 파일 이름을 가져옴
+#     csv_files = [file for file in os.listdir(directory_path) if file.endswith('.csv')]
+#
+#     # 데이터프레임 리스트 생성
+#     dataframes = []
+#
+#     for file in csv_files:
+#         file_path = os.path.join(directory_path, file)
+#         # CSV 파일을 읽고 데이터프레임에 추가
+#         df = pd.read_csv(file_path)
+#         dataframes.append(df)
+#
+#     # 모든 데이터프레임 병합
+#     merged_df = pd.concat(dataframes, ignore_index=True)
+#
+#     return merged_df
 
 
 def preprocess_features(df):
@@ -551,6 +576,147 @@ def calculate_past_min_max_changes(df):
         df[f'max_value_{label}'] = max_values[label]
 
     return df
+
+
+def get_train(data, target_date):
+    # 날짜를 기준으로 train/test 데이터 분할
+    target_date = target_date
+    target_date = datetime.strptime(target_date, "%Y-%m-%d")
+
+    train_data = data[(pd.to_datetime(data['Open_time']) >= target_date - pd.DateOffset(days=181)) &
+                      (pd.to_datetime(data['Open_time']) < target_date - pd.DateOffset(days=1))]
+
+    train_data = train_data[train_data['Open_time'].dt.minute % 5 == 0]
+
+    test_data = data[(pd.to_datetime(data['Open_time']) >= target_date) &
+                     (pd.to_datetime(data['Open_time']) < target_date + pd.DateOffset(days=1))]
+
+    train_data = train_data.drop(columns=['Unnamed: 0'])
+    test_data = test_data.drop(columns=['Unnamed: 0'])
+
+    train_data = train_data.reset_index(drop=True)
+    test_data = test_data.reset_index(drop=True)
+
+    return train_data;
+
+
+def get_test(data, target_date):
+    # 날짜를 기준으로 train/test 데이터 분할
+    target_date = target_date
+    target_date = datetime.strptime(target_date, "%Y-%m-%d")
+
+    train_data = data[(pd.to_datetime(data['Open_time']) >= target_date - pd.DateOffset(days=181)) &
+                      (pd.to_datetime(data['Open_time']) < target_date - pd.DateOffset(days=1))]
+
+    train_data = train_data[train_data['Open_time'].dt.minute % 5 == 0]
+
+    test_data = data[(pd.to_datetime(data['Open_time']) >= target_date) &
+                     (pd.to_datetime(data['Open_time']) < target_date + pd.DateOffset(days=1))]
+
+    train_data = train_data.drop(columns=['Unnamed: 0'])
+    test_data = test_data.drop(columns=['Unnamed: 0'])
+
+    train_data = train_data.reset_index(drop=True)
+    test_data = test_data.reset_index(drop=True)
+
+    return test_data;
+
+
+def get_train_d(data, target_date):
+    # 날짜를 기준으로 train/test 데이터 분할
+    target_date = target_date
+    target_date = datetime.strptime(target_date, "%Y-%m-%d")
+
+    train_data = data[(pd.to_datetime(data['Open_time']) >= target_date - pd.DateOffset(days=181)) &
+                      (pd.to_datetime(data['Open_time']) < target_date - pd.DateOffset(days=1))]
+
+    train_data = train_data[train_data['Open_time'].dt.minute % 5 == 0]
+
+    valid_data = data[(pd.to_datetime(data['Open_time']) >= target_date) &
+                      (pd.to_datetime(data['Open_time']) < target_date + pd.DateOffset(days=1))]
+
+    train_data = train_data.drop(columns=['Unnamed: 0'])
+    valid_data = valid_data.drop(columns=['Unnamed: 0'])
+
+    train_data = train_data.reset_index(drop=True)
+    valid_data = valid_data.reset_index(drop=True)
+
+    return train_data;
+
+
+def get_valid_d(data, target_date):
+    # 날짜를 기준으로 train/test 데이터 분할
+    target_date = target_date
+    target_date = datetime.strptime(target_date, "%Y-%m-%d")
+
+    train_data = data[(pd.to_datetime(data['Open_time']) >= target_date - pd.DateOffset(days=181)) &
+                      (pd.to_datetime(data['Open_time']) < target_date - pd.DateOffset(days=1))]
+
+    train_data = train_data[train_data['Open_time'].dt.minute % 5 == 0]
+
+    valid_data = data[(pd.to_datetime(data['Open_time']) >= target_date) &
+                      (pd.to_datetime(data['Open_time']) < target_date + pd.DateOffset(days=1))]
+
+    train_data = train_data.drop(columns=['Unnamed: 0'])
+    valid_data = valid_data.drop(columns=['Unnamed: 0'])
+
+    train_data = train_data.reset_index(drop=True)
+    valid_data = valid_data.reset_index(drop=True)
+
+    return valid_data;
+
+
+def create_model(input_dim, learning_rate=0.001):
+    model = models.Sequential()
+
+    # 입력층
+    model.add(layers.Dense(512, activation='relu', input_shape=(input_dim,),
+                           kernel_regularizer=regularizers.l2(0.001)))
+    model.add(layers.BatchNormalization())
+    model.add(layers.Dropout(0.3))
+
+    # 은닉층 1
+    model.add(layers.Dense(256, activation='relu',
+                           kernel_regularizer=regularizers.l2(0.001)))
+    model.add(layers.BatchNormalization())
+    model.add(layers.Dropout(0.3))
+
+    # 은닉층 2
+    model.add(layers.Dense(128, activation='relu',
+                           kernel_regularizer=regularizers.l2(0.001)))
+    model.add(layers.BatchNormalization())
+    model.add(layers.Dropout(0.3))
+
+    # 은닉층 3
+    model.add(layers.Dense(64, activation='relu',
+                           kernel_regularizer=regularizers.l2(0.001)))
+    model.add(layers.BatchNormalization())
+    model.add(layers.Dropout(0.3))
+
+    # 은닉층 4
+    model.add(layers.Dense(32, activation='relu',
+                           kernel_regularizer=regularizers.l2(0.001)))
+    model.add(layers.BatchNormalization())
+    model.add(layers.Dropout(0.3))
+
+    # 은닉층 5
+    model.add(layers.Dense(32, activation='relu',
+                           kernel_regularizer=regularizers.l2(0.001)))
+    model.add(layers.BatchNormalization())
+    model.add(layers.Dropout(0.3))
+
+    # 출력층
+    model.add(layers.Dense(2))  # 출력 노드 수는 2 (min_value, max_value 예측)
+
+    # 옵티마이저와 손실 함수 설정
+    optimizer = tf.keras.optimizers.Adam(learning_rate=learning_rate)
+    model.compile(optimizer=optimizer, loss='mse', metrics=['mae'])
+
+    return model
+
+
+
+
 
 @retry(stop_max_attempt_number=5)
 def colctTrendVideo(sysOpt, funName):
@@ -721,6 +887,10 @@ class DtaProcess(object):
                     , 'procPath': '/DATA/OUTPUT/LSH0586/PROC/%Y%m/%d/%H/{symbol}'
                     , 'procName': '{symbol}_L1_%Y%m%d%H%M.csv'
 
+                    # 가공 파일2
+                    , 'proc2Path': '/DATA/OUTPUT/LSH0586/PROC/%Y%m/%d/%H/{symbol}'
+                    , 'proc2Name': '{symbol}_L2_{minDt}-{maxDt}.csv'
+
                     # 엑셀 파일
                     # , 'xlsxPath': '/DATA/OUTPUT/LSH0586'
                     # , 'xlsxName': 'RDR_{}_FQC_{}-{}.xlsx'
@@ -817,155 +987,202 @@ class DtaProcess(object):
                     # 1번 : 전처리
                     # Untitled1.ipynb
                     # *******************************************************************************************
-                    data = pd.DataFrame()
-                    for dtDateInfo in dtDateList:
-                        colctFilePattern = '{}/{}'.format(modelInfo['colctPath'], modelInfo['colctName'])
-                        colctFile = dtDateInfo.strftime(colctFilePattern).format(symbol=symbol)
-                        orgData = pd.read_csv(colctFile)
-                        if orgData is None or len(orgData) < 1: continue
-                        data = pd.concat([data, orgData], ignore_index=True)
-
-                    # 문자열을 datetime 형식으로 변환
-                    data['Open_time'] = pd.to_datetime(data['Open_time'])
-
-                    # KST TO UTC
-                    data['Open_time'] = data['Open_time'] - timedelta(hours=9)
-
-                    data_L1 = data.loc[:, ['Open_time', 'Close', 'trades', 'quote_av', 'tb_quote_av']]
-                    data_L1['tb_quote_sell'] = data_L1['quote_av'] - data_L1['tb_quote_av']
-
-                    # 예시 호출
-                    # start_time = '2024-10-10 00:00:00'
-                    # end_time = '2024-10-10 23:59:00'
-
-                    result = calculate_sum_cv(data_L1, sysOpt['srtDate'], sysOpt['endDate'])
-
-                    # 그림 생산
-                    plot_close_and_sum_cv(sysOpt, modelInfo, symbol, result)
-
-                    # 시간 범위 및 deltas 설정
-                    # start_loop_date = pd.to_datetime('2024-10-28 00:00:00')
-                    # end_loop_date = pd.to_datetime('2024-10-10 23:59:00')
-                    # time_range = pd.date_range(start=start_loop_date, end=end_loop_date, freq='1T')
+                    # data = pd.DataFrame()
+                    # for dtDateInfo in dtDateList:
+                    #     colctFilePattern = '{}/{}'.format(modelInfo['colctPath'], modelInfo['colctName'])
+                    #     colctFile = dtDateInfo.strftime(colctFilePattern).format(symbol=symbol)
+                    #     if not os.path.exists(colctFile): continue
+                    #     orgData = pd.read_csv(colctFile)
+                    #     if orgData is None or len(orgData) < 1: continue
+                    #     data = pd.concat([data, orgData], ignore_index=True)
                     #
-                    # time_deltas = [
-                    #     timedelta(days=7),  # 1주일 전
-                    #     timedelta(days=1),  # 하루 전
-                    #     timedelta(hours=4),  # 4시간 전
-                    #     timedelta(hours=1),  # 1시간 전
-                    #     timedelta(minutes=15),  # 15분 전
-                    #     timedelta(minutes=5)  # 5분 전
-                    # ]
-
-                    # TODO 장시간 소요
-                    # 병렬 처리 함수 호출
-                    # data_L2 = process_in_parallel(data_L1, time_range, time_deltas)
-                    data_L2 = process_in_parallel(data_L1, dtDateList, sysOpt['timeDel'])
-                    data_L2 = data_L2.sort_values(by='Open_time').reset_index(drop=True)
-
-                    # CSV 저장 디렉토리 설정 (없으면 생성)
-                    # output_dir = "L1OUT/BTC"
-                    # if not os.path.exists(output_dir):
-                    #     os.makedirs(output_dir)
-
-                    # 시간 범위 및 deltas 설정
-                    # start_loop_date = pd.to_datetime('2024-10-05')
-                    # end_loop_date = pd.to_datetime('2024-10-29')
-
-                    # 1일 간격
-                    time_range = pd.date_range(start=dtSrtDate, end=dtEndDate, freq='1D')
-
-                    # 날짜별로 데이터를 처리하고 CSV로 저장하는 루프
-                    for single_date in time_range:
-                        log.info(f"[CHECK] single_date : {single_date}")
-                        save_daily_data_to_csv(sysOpt, modelInfo, symbol, data_L1, single_date, sysOpt['timeDel'])
-
+                    # # 문자열을 datetime 형식으로 변환
+                    # data['Open_time'] = pd.to_datetime(data['Open_time'])
+                    #
+                    # # KST TO UTC
+                    # data['Open_time'] = data['Open_time'] - timedelta(hours=9)
+                    #
+                    # data_L1 = data.loc[:, ['Open_time', 'Close', 'trades', 'quote_av', 'tb_quote_av']]
+                    # data_L1['tb_quote_sell'] = data_L1['quote_av'] - data_L1['tb_quote_av']
+                    #
+                    # # 예시 호출
+                    # result = calculate_sum_cv(data_L1, sysOpt['srtDate'], sysOpt['endDate'])
+                    #
+                    # # 그림 생산
+                    # plot_close_and_sum_cv(sysOpt, modelInfo, symbol, result)
+                    #
+                    # # TODO 장시간 소요
+                    # # 병렬 처리 함수 호출
+                    # # data_L2 = process_in_parallel(data_L1, time_range, time_deltas)
+                    # data_L2 = process_in_parallel(data_L1, dtDateList, sysOpt['timeDel'])
+                    # data_L2 = data_L2.sort_values(by='Open_time').reset_index(drop=True)
+                    #
+                    # # 1일 간격
+                    # time_range = pd.date_range(start=dtSrtDate, end=dtEndDate, freq='1D')
+                    #
+                    # # 날짜별로 데이터를 처리하고 CSV로 저장하는 루프
+                    # for single_date in time_range:
+                    #     log.info(f"[CHECK] single_date : {single_date}")
+                    #     save_daily_data_to_csv(sysOpt, modelInfo, symbol, data_L1, single_date, sysOpt['timeDel'])
 
                     # *******************************************************************************************
                     # 3번 : 전처리
                     # Untitled3.ipynb
                     # *******************************************************************************************
                     # 예시 사용법
-                    directory_path = './L1OUT/BTC/'
-                    merged_df = merge_csv_files(directory_path)
+                    # directory_path = './L1OUT/BTC/'
+                    # merged_df = merge_csv_files(directory_path)
 
                     # 병합된 데이터프레임 확인
-                    print(merged_df)
+                    merged_df = pd.DataFrame()
+                    for dtDateInfo in dtDateList:
+                        procFilePattern = '{}/{}'.format(modelInfo['procPath'], modelInfo['procName'])
+                        procFile = dtDateInfo.strftime(procFilePattern).format(symbol=symbol)
+                        if not os.path.exists(procFile): continue
+                        orgData = pd.read_csv(procFile)
+                        if orgData is None or len(orgData) < 1: continue
+                        merged_df = pd.concat([merged_df, orgData], ignore_index=True)
 
                     merged_df = merged_df.sort_values(by='Open_time').reset_index(drop=True)
-                    merged_df
+                    selColList = [
+                        'Open_time', 'Close_t1',
+                        'normal_Close_t1', 'normal_sum_cv_t1', 'close_range_t1', 'sum_cv_range_t1',
+                        'normal_Close_t2', 'normal_sum_cv_t2', 'close_range_t2', 'sum_cv_range_t2',
+                        'normal_Close_t3', 'normal_sum_cv_t3', 'close_range_t3', 'sum_cv_range_t3',
+                        'normal_Close_t4', 'normal_sum_cv_t4', 'close_range_t4', 'sum_cv_range_t4',
+                        'normal_Close_t5', 'normal_sum_cv_t5', 'close_range_t5', 'sum_cv_range_t5',
+                        'normal_Close_t6', 'normal_sum_cv_t6', 'close_range_t6', 'sum_cv_range_t6'
+                    ]
 
-                    selected_columns = merged_df[['Open_time', 'Close_t1',
-                                                  'normal_Close_t1', 'normal_sum_cv_t1', 'close_range_t1',
-                                                  'sum_cv_range_t1',
-                                                  'normal_Close_t2', 'normal_sum_cv_t2', 'close_range_t2',
-                                                  'sum_cv_range_t2',
-                                                  'normal_Close_t3', 'normal_sum_cv_t3', 'close_range_t3',
-                                                  'sum_cv_range_t3',
-                                                  'normal_Close_t4', 'normal_sum_cv_t4', 'close_range_t4',
-                                                  'sum_cv_range_t4',
-                                                  'normal_Close_t5', 'normal_sum_cv_t5', 'close_range_t5',
-                                                  'sum_cv_range_t5',
-                                                  'normal_Close_t6', 'normal_sum_cv_t6', 'close_range_t6',
-                                                  'sum_cv_range_t6']]
-                    selected_columns
-
-                    selected_columns = selected_columns.rename(columns={'Close_t1': 'close_value'})
-
-                    # 변경된 데이터프레임 확인
-                    print(selected_columns)
-
+                    selected_columns = merged_df[selColList].rename(columns={'Close_t1': 'close_value'})
                     selected_columns_L1 = preprocess_features(selected_columns)
-                    print(selected_columns_L1)
 
                     # min_value와 max_value 계산
                     selected_columns_L2 = calculate_min_max_change(selected_columns_L1)
-
                     selected_columns_L3 = calculate_past_min_max_changes(selected_columns_L2)
-                    selected_columns_L3
 
                     selected_columns_L4 = selected_columns_L3.loc[selected_columns_L3['min_value'] != -999.]
-                    selected_columns_L4 = selected_columns_L4[1440 * 7:10000000]
-                    selected_columns_L4
-
-                    output_dir = "L2OUT/BTC/"
-                    if not os.path.exists(output_dir):
-                        os.makedirs(output_dir)
-
-                    selected_columns_L4.to_csv(output_dir + "OUT.csv")
+                    # selected_columns_L5 = selected_columns_L4[1440 * 7:10000000]
+                    selected_columns_L5 = selected_columns_L4[1440 * 7:10000000]
 
 
-            # **************************************************************************************************************
-            # 비동기 다중 프로세스 수행
-            # **************************************************************************************************************
-            # 비동기 다중 프로세스 개수
-            # pool = Pool(int(sysOpt['cpuCoreNum'])) if sysOpt['isAsync'] else None
-            #
-            # for modelType in sysOpt['modelList']:
-            #     log.info(f'[CHECK] modelType : {modelType}')
-            #
-            #     modelInfo = sysOpt.get(modelType)
-            #     if modelInfo is None: continue
-            #
-            #     for code in modelInfo['codeList']:
-            #         log.info(f'[CHECK] code : {code}')
-            #
-            #         for dtDateInfo in dtDateList:
-            #             if sysOpt['isAsync']:
-            #                 # 비동기 자료 가공
-            #                 pool.apply_async(radarProc, args=(modelInfo, code, dtDateInfo))
-            #             else:
-            #                 # 단일 자료 가공
-            #                 radarProc(modelInfo, code, dtDateInfo)
-            #         if pool:
-            #             pool.close()
-            #             pool.join()
-            #
-            #         # 지상관측소 및 레이더 간의 최근접 화소 찾기
-            #         matchStnRadar(sysOpt, modelInfo, code, dtDateList)
-            #
-            #         # 자료 검증
-            #         radarValid(sysOpt, modelInfo, code, dtDateList)
+                    # output_dir = "L2OUT/BTC/"
+                    # if not os.path.exists(output_dir):
+                    #     os.makedirs(output_dir)
+                    #
+                    # selected_columns_L4.to_csv(output_dir + "OUT.csv")
+
+                    saveFilePattern = '{}/{}'.format(modelInfo['proc2Path'], modelInfo['proc2Name'])
+                    minDt = dtSrtDate.strftime('%Y%m%d%H%M')
+                    maxDt = dtEndDate.strftime('%Y%m%d%H%M')
+                    saveFile = dtSrtDate.strftime(saveFilePattern).format(symbol=symbol, minDt=minDt, maxDt=maxDt)
+
+                    os.makedirs(os.path.dirname(saveFile), exist_ok=True)
+                    selected_columns_L5.to_csv(saveFile, index=False)
+                    log.info(f"[CHECK] saveFile : {saveFile}")
+
+                    # *******************************************************************************************
+                    # 5번 : 모델생성 및 적용
+                    # Untitled5.ipynb
+                    # *******************************************************************************************
+                    # 데이터 로드
+                    # data = pd.read_csv('./L2OUT/BTC/OUT.csv')
+                    data = selected_columns_L5
+
+                    # 'Open_time'을 datetime 형식으로 변환
+                    data['Open_time'] = pd.to_datetime(data['Open_time'], errors='coerce')
+
+                    # Define start and end dates
+                    start_date = "2024-07-01"
+                    end_date = "2024-10-25"
+
+                    # Generate the date range with daily frequency
+                    date_range = pd.date_range(start=start_date, end=end_date, freq='D')
+
+                    # Display the list of dates
+                    date_range.tolist()
+                    date_range_str = date_range.strftime('%Y-%m-%d').tolist()
+
+                    for i in date_range_str:
+                        print(f"Processing date: {i}")
+                        train_data = get_train_d(data, i)
+                        test_data = get_test_d(data, i)
+                        valid_data = get_valid_d(data, i)
+
+                        # 무시할 피처와 타겟 변수 설정
+                        ignore_features = ['Open_time', 'close_value']
+                        target_features = ['min_value', 'max_value']
+
+                        # 입력 데이터 준비
+                        X_train = train_data.drop(columns=ignore_features + target_features)
+                        X_valid = valid_data.drop(columns=ignore_features + target_features)
+
+                        # 타겟 데이터 준비
+                        y_train = train_data[target_features]
+                        y_valid = valid_data[target_features]
+
+                        # 모든 입력 변수 표준화
+                        scaler_X = StandardScaler()
+                        X_train_scaled = scaler_X.fit_transform(X_train)
+                        X_valid_scaled = scaler_X.transform(X_valid)
+                        model = create_model(X_train_scaled.shape[1])
+
+                        # 조기 종료 콜백 설정
+                        early_stopping = EarlyStopping(
+                            monitor='val_loss',
+                            patience=10,
+                            restore_best_weights=True
+                        )
+
+                        # 모델 학습
+                        history = model.fit(
+                            X_train_scaled, y_train,
+                            epochs=100,
+                            batch_size=32,
+                            verbose=0,
+                            validation_split=0.1
+                        )
+
+                        # 테스트 데이터에 대한 평가
+                        test_loss, test_mae = model.evaluate(X_valid_scaled, y_valid, verbose=1)
+                        print(f"테스트 데이터 손실(MSE): {test_loss:.4f}, 테스트 데이터 MAE: {test_mae:.4f}")
+
+                        # 예측 수행
+                        predictions = model.predict(X_valid_scaled)
+
+                        # RMSE 계산
+                        rmse_min = np.sqrt(mean_squared_error(y_valid['min_value'], predictions[:, 0]))
+                        rmse_max = np.sqrt(mean_squared_error(y_valid['max_value'], predictions[:, 1]))
+                        print(f"min_value에 대한 RMSE: {rmse_min:.4f}")
+                        print(f"max_value에 대한 RMSE: {rmse_max:.4f}")
+
+                        # 결과 데이터프레임 생성
+                        predictions_df = pd.DataFrame({
+                            'Open_time': valid_data['Open_time'],
+                            'close_value': valid_data['close_value'],
+                            'min_value': y_valid['min_value'],
+                            'min_value_pred': predictions[:, 0],
+                            'max_value': y_valid['max_value'],
+                            'max_value_pred': predictions[:, 1]
+                        })
+
+                        output_dir = "FINOUT3/BTC/"
+                        if not os.path.exists(output_dir):
+                            os.makedirs(output_dir)
+
+                        predictions_df.to_csv(output_dir + i + ".csv", index=False)
+
+                    # *******************************************************************************************
+                    # 6번 : 시각화
+                    # Untitled6.ipynb
+                    # *******************************************************************************************
+
+
+                    # *******************************************************************************************
+                    # 7번 : 백테스팅 코드
+                    # Untitled7.ipynb
+                    # *******************************************************************************************
+
 
         except Exception as e:
             log.error(f"Exception : {str(e)}")
@@ -1002,3 +1219,35 @@ if __name__ == '__main__':
 
     finally:
         print('[END] {}'.format("main"))
+
+# **************************************************************************************************************
+# 비동기 다중 프로세스 수행
+# **************************************************************************************************************
+# 비동기 다중 프로세스 개수
+# pool = Pool(int(sysOpt['cpuCoreNum'])) if sysOpt['isAsync'] else None
+#
+# for modelType in sysOpt['modelList']:
+#     log.info(f'[CHECK] modelType : {modelType}')
+#
+#     modelInfo = sysOpt.get(modelType)
+#     if modelInfo is None: continue
+#
+#     for code in modelInfo['codeList']:
+#         log.info(f'[CHECK] code : {code}')
+#
+#         for dtDateInfo in dtDateList:
+#             if sysOpt['isAsync']:
+#                 # 비동기 자료 가공
+#                 pool.apply_async(radarProc, args=(modelInfo, code, dtDateInfo))
+#             else:
+#                 # 단일 자료 가공
+#                 radarProc(modelInfo, code, dtDateInfo)
+#         if pool:
+#             pool.close()
+#             pool.join()
+#
+#         # 지상관측소 및 레이더 간의 최근접 화소 찾기
+#         matchStnRadar(sysOpt, modelInfo, code, dtDateList)
+#
+#         # 자료 검증
+#         radarValid(sysOpt, modelInfo, code, dtDateList)
