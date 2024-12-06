@@ -160,12 +160,13 @@ def chkApiKey(api_key: str = Depends(APIKeyHeader(name="api"))):
     if api_key != '20240922-topbds':
         raise HTTPException(status_code=400, detail=resRespone("fail", 400, "인증 실패"))
 
-def resRespone(status: str, code: int, message: str, cnt: int = 0, data: Any = None) -> dict:
+def resRespone(status: str, code: int, message: str, allCnt: int = 0, rowCnt: int = 0, data: Any = None) -> dict:
     return {
         "status": status
         , "code": code
         , "message": message
-        , "cnt": cnt
+        , "allCnt": allCnt
+        , "rowCnt": rowCnt
         , "data": data
     }
 
@@ -237,8 +238,6 @@ jsonInfo = jsonList[0]
 
 credentials = service_account.Credentials.from_service_account_file(jsonInfo)
 client = bigquery.Client(credentials=credentials, project=credentials.project_id)
-
-# base = declarative_base()
 
 # ============================================
 # 비즈니스 로직
@@ -368,7 +367,7 @@ def selStatReal(
         if fileList is None or len(fileList) < 1:
             raise Exception("검색 결과 없음")
 
-        return resRespone("succ", 200, "처리 완료", len(fileList), fileList)
+        return resRespone("succ", 200, "처리 완료", len(fileList), len(fileList), fileList)
 
     except Exception as e:
         log.error(f'Exception : {e}')
@@ -383,41 +382,86 @@ def selReal(
         , year: int = Query(None, description="연도")
         , limit: int = Query(10, description="1쪽당 개수")
         , page: int = Query(1, description="현재 쪽")
+        , sort: str = Query(None, description="정렬")
     ):
     """
     기능\n
         TB_REAL 목록 조회\n
     테스트\n
-        시군구: 서울특별시 강남구\n
-        아파트: 시영\n
+        시군구 (시군구, 시군구, ...): 서울특별시 강남구,서울특별시 금천구\n
+        아파트 (아파트, 아파트, ...): \n
+        평수 (평수, 평수, ...): 5평,6평\n
+        연도: \n
         1쪽당 개수: 10\n
         현재 쪽: 1\n
+        정렬 (컬럼|차순, 컬럼|차순, ...): year|asc,area|desc\n
     """
 
     try:
         # 기본 SQL
-        sql = f"SELECT * FROM `iconic-ruler-239806.DMS01.TB_REAL`"
+        baseSql = f"SELECT * FROM `iconic-ruler-239806.DMS01.TB_REAL`"
+        cntSql = f"SELECT COUNT(*) AS CNT FROM `iconic-ruler-239806.DMS01.TB_REAL`"
 
         # 동적 SQL 파라미터
         condList = []
-        if sgg: condList.append(f"sgg LIKE '%{sgg}%'")
-        if apt: condList.append(f"apt LIKE '%{apt}%'")
-        if area: condList.append(f"area LIKE '%{area}%'")
-        if year: condList.append(f"year = {year}")
-        if condList: sql += " WHERE " + " AND ".join(condList)
+        if sgg:
+            # condList.append(f"sgg LIKE '%{sgg}%'")
+            sggList = [s.strip() for s in sgg.split(',')]
+            sggCond = [f"sgg LIKE '%{s}%'" for s in sggList]
+            condList.append(f"({' OR '.join(sggCond)})")
 
-        sql += f" LIMIT {limit} OFFSET {(page - 1) * limit}"
-        log.info(f"[CHECK] sql : {sql}")
+        if apt:
+            # condList.append(f"apt LIKE '%{apt}%'")
+            aptList = [s.strip() for s in apt.split(',')]
+            aptCond = [f"apt LIKE '%{s}%'" for s in aptList]
+            condList.append(f"({' OR '.join(aptCond)})")
+
+        if area:
+            # condList.append(f"area LIKE '%{area}%'")
+            areaList = [s.strip() for s in area.split(',')]
+            areaCond = [f"area LIKE '%{s}%'" for s in areaList]
+            condList.append(f"({' OR '.join(areaCond)})")
+
+        if year:
+            condList.append(f"year = {year}")
+
+        if condList:
+            condSql = " WHERE " + " AND ".join(condList)
+            baseSql += condSql
+            cntSql += condSql
+
+        # 정렬 'year|desc,price|desc'
+        sortList = []
+        if sort:
+            for sortInfo in sort.split(','):
+                sortPart = sortInfo.split('|')
+                if sortPart is None or len(sortPart) != 2: continue
+                sortCol = sortPart[0]
+                sortOrd = sortPart[1].upper() if sortPart[1].upper() in ["ASC", "DESC"] else "ASC"
+                sortList.append(f"{sortCol} {sortOrd}")
+        if sortList:
+            sortSql = " ORDER BY " + ", ".join(sortList)
+            baseSql += sortSql
+
+        # 페이징
+        pageSql = f" LIMIT {limit} OFFSET {(page - 1) * limit}"
+        baseSql += pageSql
+
+        log.info(f"[CHECK] baseSql : {baseSql}")
+        log.info(f"[CHECK] cntSql : {cntSql}")
 
         # 쿼리 실행
-        query_job = client.query(sql)
-        results = query_job.result()
-
-        fileList = [dict(row) for row in results]
+        baseQuery = client.query(baseSql)
+        baseRes = baseQuery.result()
+        fileList = [dict(row) for row in baseRes]
         if fileList is None or len(fileList) < 1:
             raise Exception("검색 결과 없음")
 
-        return resRespone("succ", 200, "처리 완료", len(fileList), fileList)
+        cntQuery = client.query(cntSql)
+        cntRes = cntQuery.result()
+        cnt = next(cntRes)['CNT']
+
+        return resRespone("succ", 200, "처리 완료", cnt, len(fileList), fileList)
 
     except Exception as e:
         log.error(f'Exception : {e}')
@@ -432,41 +476,86 @@ def selReal(
         , year: int = Query(None, description="연도")
         , limit: int = Query(10, description="1쪽당 개수")
         , page: int = Query(1, description="현재 쪽")
+        , sort: str = Query(None, description="정렬")
     ):
     """
     기능\n
         TB_PRD 목록 조회\n
     테스트\n
-        시군구: 서울특별시 강남구\n
-        아파트: 시영\n
+        시군구 (시군구, 시군구, ...): 서울특별시 강남구,서울특별시 금천구\n
+        아파트 (아파트, 아파트, ...): \n
+        평수 (평수, 평수, ...): 5평,6평\n
+        연도: \n
         1쪽당 개수: 10\n
         현재 쪽: 1\n
+        정렬 (컬럼|차순, 컬럼|차순, ...): year|asc,area|desc\n
     """
 
     try:
         # 기본 SQL
-        sql = f"SELECT * FROM `iconic-ruler-239806.DMS01.TB_PRD`"
+        baseSql = f"SELECT * FROM `iconic-ruler-239806.DMS01.TB_PRD`"
+        cntSql = f"SELECT COUNT(*) AS CNT FROM `iconic-ruler-239806.DMS01.TB_PRD`"
 
         # 동적 SQL 파라미터
         condList = []
-        if sgg: condList.append(f"sgg LIKE '%{sgg}%'")
-        if apt: condList.append(f"apt LIKE '%{apt}%'")
-        if area: condList.append(f"area LIKE '%{area}%'")
-        if year: condList.append(f"year = {year}")
-        if condList: sql += " WHERE " + " AND ".join(condList)
+        if sgg:
+            # condList.append(f"sgg LIKE '%{sgg}%'")
+            sggList = [s.strip() for s in sgg.split(',')]
+            sggCond = [f"sgg LIKE '%{s}%'" for s in sggList]
+            condList.append(f"({' OR '.join(sggCond)})")
 
-        sql += f" LIMIT {limit} OFFSET {(page - 1) * limit}"
-        log.info(f"[CHECK] sql : {sql}")
+        if apt:
+            # condList.append(f"apt LIKE '%{apt}%'")
+            aptList = [s.strip() for s in apt.split(',')]
+            aptCond = [f"apt LIKE '%{s}%'" for s in aptList]
+            condList.append(f"({' OR '.join(aptCond)})")
+
+        if area:
+            # condList.append(f"area LIKE '%{area}%'")
+            areaList = [s.strip() for s in area.split(',')]
+            areaCond = [f"area LIKE '%{s}%'" for s in areaList]
+            condList.append(f"({' OR '.join(areaCond)})")
+
+        if year:
+            condList.append(f"year = {year}")
+
+        if condList:
+            condSql = " WHERE " + " AND ".join(condList)
+            baseSql += condSql
+            cntSql += condSql
+
+        # 정렬 'year|desc,price|desc'
+        sortList = []
+        if sort:
+            for sortInfo in sort.split(','):
+                sortPart = sortInfo.split('|')
+                if sortPart is None or len(sortPart) != 2: continue
+                sortCol = sortPart[0]
+                sortOrd = sortPart[1].upper() if sortPart[1].upper() in ["ASC", "DESC"] else "ASC"
+                sortList.append(f"{sortCol} {sortOrd}")
+        if sortList:
+            sortSql = f" ORDER BY " + ", ".join(sortList)
+            baseSql += sortSql
+
+        # 페이징
+        pageSql = f" LIMIT {limit} OFFSET {(page - 1) * limit}"
+        baseSql += pageSql
+
+        log.info(f"[CHECK] baseSql : {baseSql}")
+        log.info(f"[CHECK] cntSql : {cntSql}")
 
         # 쿼리 실행
-        query_job = client.query(sql)
-        results = query_job.result()
-
-        fileList = [dict(row) for row in results]
+        baseQuery = client.query(baseSql)
+        baseRes = baseQuery.result()
+        fileList = [dict(row) for row in baseRes]
         if fileList is None or len(fileList) < 1:
             raise Exception("검색 결과 없음")
 
-        return resRespone("succ", 200, "처리 완료", len(fileList), fileList)
+        cntQuery = client.query(cntSql)
+        cntRes = cntQuery.result()
+        cnt = next(cntRes)['CNT']
+
+        return resRespone("succ", 200, "처리 완료", cnt, len(fileList), fileList)
 
     except Exception as e:
         log.error(f'Exception : {e}')
@@ -509,7 +598,7 @@ def selReal(
         if fileList is None or len(fileList) < 1:
             raise Exception("검색 결과 없음")
 
-        return resRespone("succ", 200, "처리 완료", len(fileList), fileList)
+        return resRespone("succ", 200, "처리 완료", len(fileList), len(fileList), fileList)
 
     except Exception as e:
         log.error(f'Exception : {e}')
@@ -551,7 +640,7 @@ def selReal(
         if fileList is None or len(fileList) < 1:
             raise Exception("검색 결과 없음")
 
-        return resRespone("succ", 200, "처리 완료", len(fileList), fileList)
+        return resRespone("succ", 200, "처리 완료", len(fileList), len(fileList), fileList)
 
     except Exception as e:
         log.error(f'Exception : {e}')
@@ -593,7 +682,7 @@ def selReal(
         if fileList is None or len(fileList) < 1:
             raise Exception("검색 결과 없음")
 
-        return resRespone("succ", 200, "처리 완료", len(fileList), fileList)
+        return resRespone("succ", 200, "처리 완료", len(fileList), len(fileList), fileList)
 
     except Exception as e:
         log.error(f'Exception : {e}')
@@ -635,7 +724,7 @@ def selReal(
         if fileList is None or len(fileList) < 1:
             raise Exception("검색 결과 없음")
 
-        return resRespone("succ", 200, "처리 완료", len(fileList), fileList)
+        return resRespone("succ", 200, "처리 완료", len(fileList), len(fileList), fileList)
 
     except Exception as e:
         log.error(f'Exception : {e}')
@@ -677,7 +766,7 @@ def selReal(
         if fileList is None or len(fileList) < 1:
             raise Exception("검색 결과 없음")
 
-        return resRespone("succ", 200, "처리 완료", len(fileList), fileList)
+        return resRespone("succ", 200, "처리 완료", len(fileList), len(fileList), fileList)
 
     except Exception as e:
         log.error(f'Exception : {e}')
@@ -719,7 +808,7 @@ def selReal(
         if fileList is None or len(fileList) < 1:
             raise Exception("검색 결과 없음")
 
-        return resRespone("succ", 200, "처리 완료", len(fileList), fileList)
+        return resRespone("succ", 200, "처리 완료", len(fileList), len(fileList), fileList)
 
     except Exception as e:
         log.error(f'Exception : {e}')
@@ -761,7 +850,7 @@ def selReal(
         if fileList is None or len(fileList) < 1:
             raise Exception("검색 결과 없음")
 
-        return resRespone("succ", 200, "처리 완료", len(fileList), fileList)
+        return resRespone("succ", 200, "처리 완료", len(fileList), len(fileList), fileList)
 
     except Exception as e:
         log.error(f'Exception : {e}')
