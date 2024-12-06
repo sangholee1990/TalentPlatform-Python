@@ -60,6 +60,11 @@ import matplotlib.pyplot as plt
 from sklearn.preprocessing import MinMaxScaler
 import warnings
 import concurrent.futures
+import os
+import pandas as pd
+from sklearn.preprocessing import MinMaxScaler, StandardScaler
+import matplotlib.pyplot as plt
+import numpy as np
 
 # =================================================
 # 사용자 매뉴얼
@@ -289,6 +294,7 @@ def plot_close_and_sum_cv(sysOpt, modelInfo, symbol, result):
 
     # 그래프 간 여백 조정
     plt.tight_layout()
+    plt.savefig(saveImg, dpi=600, bbox_inches='tight', transparent=False)
 
     # 그래프 출력
     # plt.show()
@@ -318,26 +324,29 @@ def calculate_sum_cv_last(data, start_time, end_time):
     filtered_data['sum_cv_range'] = sum_cv_range
 
     # 6. 마지막 행만 데이터프레임 형태로 반환
-    return filtered_data[
-               ['Open_time', 'Close', 'sum_cv', 'normal_Close', 'normal_sum_cv', 'close_range', 'sum_cv_range']].iloc[
-           -1:]
-
+    return filtered_data[['Open_time', 'Close', 'sum_cv', 'normal_Close', 'normal_sum_cv', 'close_range', 'sum_cv_range']].iloc[-1:]
 
 # 병렬 처리용 함수 (calculate_sum_cv 호출)
 def process_single_time(end_time, data_L1, time_deltas):
+
     temp_dfs = []
     for i, delta in enumerate(time_deltas):
-        start_time = end_time - delta
-        result_df = calculate_sum_cv_last(data_L1, start_time, end_time)
-        result_df = result_df.add_suffix(f'_t{i + 1}')
-        result_df.rename(columns={f'Open_time_t{i + 1}': 'Open_time'}, inplace=True)
-        temp_dfs.append(result_df)
+        try:
+            start_time = end_time - delta
+            result_df = calculate_sum_cv_last(data_L1, start_time, end_time)
+            result_df = result_df.add_suffix(f'_t{i + 1}')
+            result_df.rename(columns={f'Open_time_t{i + 1}': 'Open_time'}, inplace=True)
+            temp_dfs.append(result_df)
+        except Exception as e:
+            pass
+
+    if temp_dfs is None or len(temp_dfs) < 1: return
 
     # 열 병합 수행
     merged_df = pd.concat(temp_dfs, axis=1)
     merged_df = merged_df.loc[:, ~merged_df.columns.duplicated()]
-    return merged_df
 
+    return merged_df
 
 # 병렬 처리 적용
 def process_in_parallel(data_L1, time_range, time_deltas):
@@ -386,10 +395,15 @@ def plot_multiple_graphs(result):
 
 # CSV 파일로 저장하는 함수
 def save_daily_data_to_csv(sysOpt, modelInfo, symbol, data_L1, date, time_deltas):
+
     # 하루 단위의 시간을 설정 (00:00:00부터 23:59:59까지 1분 간격)
     start_of_day = pd.to_datetime(date)
     end_of_day = start_of_day + timedelta(days=1) - timedelta(minutes=1)
     time_range_day = pd.date_range(start=start_of_day, end=end_of_day, freq='1T')
+
+    saveFilePattern = '{}/{}'.format(modelInfo['procPath'], modelInfo['procName'])
+    saveFile = start_of_day.strftime(saveFilePattern).format(symbol=symbol)
+    # if os.path.exists(saveFile): return
 
     # 해당 날짜의 데이터 처리
     daily_data = process_in_parallel(data_L1, time_range_day, time_deltas)
@@ -401,12 +415,142 @@ def save_daily_data_to_csv(sysOpt, modelInfo, symbol, data_L1, date, time_deltas
     # daily_data.to_csv(file_name, index=False)
     # print(f"Saved: {file_name}")
 
-    saveFilePattern = '{}/{}'.format(modelInfo['procPath'], modelInfo['procName'])
-    saveFile = start_of_day.strftime(saveFilePattern).format(symbol=symbol)
-    os.makedirs(os.path.dirname(saveFile), exist_ok=True)
+    # Open_time 오름차순 정렬
+    daily_dataL1 = daily_data.sort_values(by='Open_time', ascending=True)
 
-    daily_data.to_csv(saveFile, index=False)
+    os.makedirs(os.path.dirname(saveFile), exist_ok=True)
+    daily_dataL1.to_csv(saveFile, index=False)
     log.info(f"[CHECK] saveFile : {saveFile}")
+
+
+def merge_csv_files(directory_path):
+    # 디렉토리 내 모든 파일 이름을 가져옴
+    csv_files = [file for file in os.listdir(directory_path) if file.endswith('.csv')]
+
+    # 데이터프레임 리스트 생성
+    dataframes = []
+
+    for file in csv_files:
+        file_path = os.path.join(directory_path, file)
+        # CSV 파일을 읽고 데이터프레임에 추가
+        df = pd.read_csv(file_path)
+        dataframes.append(df)
+
+    # 모든 데이터프레임 병합
+    merged_df = pd.concat(dataframes, ignore_index=True)
+
+    return merged_df
+
+
+def preprocess_features(df):
+    # Min-Max 정규화를 위한 스케일러 생성
+    min_max_scaler = MinMaxScaler()
+
+    # 로그 변환이 필요한 변수 목록
+    log_transform_columns = ['close_range_t1', 'sum_cv_range_t1', 'close_range_t2', 'sum_cv_range_t2',
+                             'close_range_t4', 'sum_cv_range_t4', 'close_range_t5', 'sum_cv_range_t5',
+                             'close_range_t6', 'sum_cv_range_t6']
+
+    # 로그 변환 수행 (log(1 + x) 형태로 변환)
+    for col in log_transform_columns:
+        df[col] = np.log1p(df[col])
+
+    return df
+
+
+def calculate_min_max_change(df):
+    # Open_time 컬럼을 datetime 형식으로 변환
+    df['Open_time'] = pd.to_datetime(df['Open_time'])
+
+    # 결과를 저장할 빈 리스트
+    min_values = []
+    max_values = []
+
+    # 데이터셋의 각 행에 대해 반복
+    for i in range(len(df)):
+        # 현재 시간
+        current_time = df.loc[i, 'Open_time']
+        current_close = df.loc[i, 'close_value']
+
+        # 현재 시간부터 24시간(1440분) 뒤까지의 데이터를 자름
+        future_data = df[(df['Open_time'] >= current_time) &
+                         (df['Open_time'] < current_time + pd.Timedelta(hours=24))]
+
+        # 데이터의 길이가 1440개 미만이면 -999로 설정
+        if len(future_data) < 1440:
+            min_values.append(-999)
+            max_values.append(-999)
+        else:
+            # 최대값과 최소값 계산
+            max_close = future_data['close_value'].max()
+            min_close = future_data['close_value'].min()
+
+            # 기준 변화율 계산 및 저장
+            max_change = ((max_close - current_close) / current_close) * 100
+            min_change = ((min_close - current_close) / current_close) * 100
+
+            max_values.append(max_change)
+            min_values.append(min_change)
+
+    # 결과를 데이터프레임에 추가
+    df['min_value'] = min_values
+    df['max_value'] = max_values
+
+    return df
+
+
+def calculate_past_min_max_changes(df):
+    # 'Open_time' 컬럼을 datetime 형식으로 변환
+    df['Open_time'] = pd.to_datetime(df['Open_time'])
+
+    # 계산할 시간 간격과 레이블 설정
+    intervals = [
+        (pd.Timedelta(weeks=1), 't1'),  # 1주일 전
+        (pd.Timedelta(days=1), 't2'),  # 1일 전
+        (pd.Timedelta(hours=4), 't3'),  # 4시간 전
+        (pd.Timedelta(hours=1), 't4'),  # 1시간 전
+        (pd.Timedelta(minutes=15), 't5'),  # 15분 전
+        (pd.Timedelta(minutes=5), 't6')  # 5분 전
+    ]
+
+    # 각 시간 간격에 대한 결과를 저장할 딕셔너리 초기화
+    min_values = {label: [] for _, label in intervals}
+    max_values = {label: [] for _, label in intervals}
+
+    # 데이터프레임의 각 행에 대해 반복
+    for i in range(len(df)):
+        # 현재 시간과 현재 종가
+        current_time = df.loc[i, 'Open_time']
+        current_close = df.loc[i, 'close_value']
+
+        # 각 시간 간격에 대해 최소값과 최대값 계산
+        for delta, label in intervals:
+            # 과거 데이터 추출
+            past_data = df[(df['Open_time'] >= current_time - delta) & (df['Open_time'] < current_time)]
+
+            # 과거 데이터가 없는 경우 -999를 추가
+            if past_data.empty:
+                min_values[label].append(-999)
+                max_values[label].append(-999)
+            else:
+                # 최소값과 최대값 계산
+                min_close = past_data['close_value'].min()
+                max_close = past_data['close_value'].max()
+
+                # 변화율 계산
+                min_change = ((min_close - current_close) / current_close) * 100
+                max_change = ((max_close - current_close) / current_close) * 100
+
+                # 결과 저장
+                min_values[label].append(min_change)
+                max_values[label].append(max_change)
+
+    # 계산된 결과를 데이터프레임에 추가
+    for _, label in intervals:
+        df[f'min_value_{label}'] = min_values[label]
+        df[f'max_value_{label}'] = max_values[label]
+
+    return df
 
 @retry(stop_max_attempt_number=5)
 def colctTrendVideo(sysOpt, funName):
@@ -458,6 +602,7 @@ class DtaProcess(object):
     # ================================================
     # Python을 이용한 비트코인 데이터 기반 AI 지능형 체계 구축
 
+    # G:\내 드라이브\shlee\04. TalentPlatform\[재능플랫폼] 최종납품\[요청] LSH0586. Python을 이용한 비트코인 데이터 기반 AI 지능형 체계 구축\LSH0586
     # 0번 : 수집
     # 1번, 3번 : 전처리
     # 5번 : 모델생성 및 적용
@@ -527,8 +672,9 @@ class DtaProcess(object):
             sysOpt = {
                 # 시작일, 종료일, 시간 간격 (연 1y, 월 1h, 일 1d, 시간 1h, 분 1t)
                 'srtDate': '2024-01-10 00:00'
-                , 'endDate': '2024-01-20 00:00'
-                # , 'endDate': '2024-01-10 06:00'
+                # , 'endDate': '2024-01-11 00:00'
+                , 'endDate': '2024-01-17 00:00'
+                # , 'endDate': '2024-01-20 00:00'
                 , 'invDate': '1t'
                 , 'timeDel': [
                     timedelta(days=7)   # 1주일 전
@@ -564,23 +710,23 @@ class DtaProcess(object):
                     # 수집 파일
                     , 'colctUrl': 'https://api.binance.com/api/v3/klines'
                     , 'colctColList': ['Open_time', 'Open', 'High', 'Low', 'Close', 'Volume', 'Close_time', 'quote_av', 'trades', 'tb_base_av', 'tb_quote_av', 'ignore']
-                    , 'colctPath': '/DATA/OUTPUT/LSH0579/COLCT/%Y%m/%d/%H/{symbol}'
+                    , 'colctPath': '/DATA/OUTPUT/LSH0586/COLCT/%Y%m/%d/%H/{symbol}'
                     , 'colctName': '{symbol}_%Y%m%d%H%M.csv'
 
-                    # 저장 영상
-                    , 'figPath': '/DATA/OUTPUT/LSH0579/VIS/%Y%m/%d/%H/{symbol}'
+                    # 가공 영상
+                    , 'figPath': '/DATA/OUTPUT/LSH0586/VIS/%Y%m/%d/%H/{symbol}'
                     , 'figName': '{symbol}_L1_{minDt}-{maxDt}.png'
 
                     # 가공 파일
-                    , 'procPath': '/DATA/OUTPUT/LSH0579/PROC/%Y%m/%d/%H/{symbol}'
-                    , 'procName': '{symbol}_%Y%m%d%H%M.csv'
+                    , 'procPath': '/DATA/OUTPUT/LSH0586/PROC/%Y%m/%d/%H/{symbol}'
+                    , 'procName': '{symbol}_L1_%Y%m%d%H%M.csv'
 
                     # 엑셀 파일
-                    # , 'xlsxPath': '/DATA/OUTPUT/LSH0579'
+                    # , 'xlsxPath': '/DATA/OUTPUT/LSH0586'
                     # , 'xlsxName': 'RDR_{}_FQC_{}-{}.xlsx'
 
                     # 누적 영상
-                    # , 'cumPath': '/DATA/FIG/LSH0579'
+                    # , 'cumPath': '/DATA/FIG/LSH0586'
                     # , 'cumName': 'RDR_{}_FQC-{}_%Y%m%d%H%M.png'
                 }
             }
@@ -668,7 +814,7 @@ class DtaProcess(object):
                         log.info(f"[CHECK] colctFile : {colctFile}")
 
                     # *******************************************************************************************
-                    # 1번, 3번 : 전처리
+                    # 1번 : 전처리
                     # Untitled1.ipynb
                     # *******************************************************************************************
                     data = pd.DataFrame()
@@ -711,6 +857,7 @@ class DtaProcess(object):
                     #     timedelta(minutes=5)  # 5분 전
                     # ]
 
+                    # TODO 장시간 소요
                     # 병렬 처리 함수 호출
                     # data_L2 = process_in_parallel(data_L1, time_range, time_deltas)
                     data_L2 = process_in_parallel(data_L1, dtDateList, sysOpt['timeDel'])
@@ -724,12 +871,69 @@ class DtaProcess(object):
                     # 시간 범위 및 deltas 설정
                     # start_loop_date = pd.to_datetime('2024-10-05')
                     # end_loop_date = pd.to_datetime('2024-10-29')
-                    time_range = pd.date_range(start=dtSrtDate, end=dtEndDate, freq='1D')  # 1일 간격
+
+                    # 1일 간격
+                    time_range = pd.date_range(start=dtSrtDate, end=dtEndDate, freq='1D')
 
                     # 날짜별로 데이터를 처리하고 CSV로 저장하는 루프
                     for single_date in time_range:
                         log.info(f"[CHECK] single_date : {single_date}")
                         save_daily_data_to_csv(sysOpt, modelInfo, symbol, data_L1, single_date, sysOpt['timeDel'])
+
+
+                    # *******************************************************************************************
+                    # 3번 : 전처리
+                    # Untitled3.ipynb
+                    # *******************************************************************************************
+                    # 예시 사용법
+                    directory_path = './L1OUT/BTC/'
+                    merged_df = merge_csv_files(directory_path)
+
+                    # 병합된 데이터프레임 확인
+                    print(merged_df)
+
+                    merged_df = merged_df.sort_values(by='Open_time').reset_index(drop=True)
+                    merged_df
+
+                    selected_columns = merged_df[['Open_time', 'Close_t1',
+                                                  'normal_Close_t1', 'normal_sum_cv_t1', 'close_range_t1',
+                                                  'sum_cv_range_t1',
+                                                  'normal_Close_t2', 'normal_sum_cv_t2', 'close_range_t2',
+                                                  'sum_cv_range_t2',
+                                                  'normal_Close_t3', 'normal_sum_cv_t3', 'close_range_t3',
+                                                  'sum_cv_range_t3',
+                                                  'normal_Close_t4', 'normal_sum_cv_t4', 'close_range_t4',
+                                                  'sum_cv_range_t4',
+                                                  'normal_Close_t5', 'normal_sum_cv_t5', 'close_range_t5',
+                                                  'sum_cv_range_t5',
+                                                  'normal_Close_t6', 'normal_sum_cv_t6', 'close_range_t6',
+                                                  'sum_cv_range_t6']]
+                    selected_columns
+
+                    selected_columns = selected_columns.rename(columns={'Close_t1': 'close_value'})
+
+                    # 변경된 데이터프레임 확인
+                    print(selected_columns)
+
+                    selected_columns_L1 = preprocess_features(selected_columns)
+                    print(selected_columns_L1)
+
+                    # min_value와 max_value 계산
+                    selected_columns_L2 = calculate_min_max_change(selected_columns_L1)
+
+                    selected_columns_L3 = calculate_past_min_max_changes(selected_columns_L2)
+                    selected_columns_L3
+
+                    selected_columns_L4 = selected_columns_L3.loc[selected_columns_L3['min_value'] != -999.]
+                    selected_columns_L4 = selected_columns_L4[1440 * 7:10000000]
+                    selected_columns_L4
+
+                    output_dir = "L2OUT/BTC/"
+                    if not os.path.exists(output_dir):
+                        os.makedirs(output_dir)
+
+                    selected_columns_L4.to_csv(output_dir + "OUT.csv")
+
 
             # **************************************************************************************************************
             # 비동기 다중 프로세스 수행
