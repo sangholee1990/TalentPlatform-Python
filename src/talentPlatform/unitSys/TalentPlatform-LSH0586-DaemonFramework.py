@@ -82,14 +82,25 @@ from sklearn.model_selection import PredefinedSplit
 
 import pandas as pd
 import numpy as np
-import tensorflow as tf
-from tensorflow.keras import layers, models, regularizers
+# import tensorflow as tf
+# from tensorflow.keras import layers, models, regularizers
 from sklearn.preprocessing import StandardScaler
 from sklearn.metrics import mean_squared_error
 import matplotlib.pyplot as plt
 import os
 
-from tensorflow.keras.callbacks import EarlyStopping
+# from tensorflow.keras.callbacks import EarlyStopping
+import numpy as np
+import pandas as pd
+import os
+import time
+from datetime import datetime, timedelta
+
+from sklearn.model_selection import train_test_split
+from sklearn.ensemble import RandomForestRegressor
+from sklearn.multioutput import MultiOutputRegressor
+from sklearn.metrics import mean_squared_error
+import matplotlib.pyplot as plt
 
 # =================================================
 # 사용자 매뉴얼
@@ -330,8 +341,7 @@ def plot_close_and_sum_cv(sysOpt, modelInfo, symbol, result):
 # calculate_sum_cv 함수 최적화
 def calculate_sum_cv_last(data, start_time, end_time):
     # 1. 시작 시간과 끝 시간으로 데이터를 필터링
-    filtered_data = data.loc[
-        (data['Open_time'] >= pd.to_datetime(start_time)) & (data['Open_time'] <= pd.to_datetime(end_time))].copy()
+    filtered_data = data.loc[(data['Open_time'] >= pd.to_datetime(start_time)) & (data['Open_time'] <= pd.to_datetime(end_time))].copy()
 
     # 2. tb_quote_av - tb_quote_sell 차이 계산 및 누적합
     filtered_data.loc[:, 'sum_cv'] = (filtered_data['tb_quote_av'] - filtered_data['tb_quote_sell']).cumsum()
@@ -619,7 +629,7 @@ def get_test(data, target_date):
     train_data = train_data.reset_index(drop=True)
     test_data = test_data.reset_index(drop=True)
 
-    return test_data;
+    return test_data
 
 
 def get_train_d(data, target_date):
@@ -641,7 +651,7 @@ def get_train_d(data, target_date):
     train_data = train_data.reset_index(drop=True)
     valid_data = valid_data.reset_index(drop=True)
 
-    return train_data;
+    return train_data
 
 
 def get_valid_d(data, target_date):
@@ -769,8 +779,8 @@ class DtaProcess(object):
     # Python을 이용한 비트코인 데이터 기반 AI 지능형 체계 구축
 
     # G:\내 드라이브\shlee\04. TalentPlatform\[재능플랫폼] 최종납품\[요청] LSH0586. Python을 이용한 비트코인 데이터 기반 AI 지능형 체계 구축\LSH0586
-    # 0번 : 수집
-    # 1번, 3번 : 전처리
+    # 0번 : 수집 1분
+    # 1번, 3번 : 전처리 1분
     # 5번 : 모델생성 및 적용
     # 6번 : 시각화
     # 7번 : 백테스팅 코드
@@ -840,7 +850,8 @@ class DtaProcess(object):
                 'srtDate': '2024-01-10 00:00'
                 # , 'endDate': '2024-01-11 00:00'
                 , 'endDate': '2024-01-17 00:00'
-                # , 'endDate': '2024-01-20 00:00'
+                # , 'endDate': '2024-01-17 23:59'
+                # , 'endDate': '2024-01-20 23:59'
                 , 'invDate': '1t'
                 , 'timeDel': [
                     timedelta(days=7)   # 1주일 전
@@ -987,43 +998,43 @@ class DtaProcess(object):
                     # 1번 : 전처리
                     # Untitled1.ipynb
                     # *******************************************************************************************
-                    # data = pd.DataFrame()
-                    # for dtDateInfo in dtDateList:
-                    #     colctFilePattern = '{}/{}'.format(modelInfo['colctPath'], modelInfo['colctName'])
-                    #     colctFile = dtDateInfo.strftime(colctFilePattern).format(symbol=symbol)
-                    #     if not os.path.exists(colctFile): continue
-                    #     orgData = pd.read_csv(colctFile)
-                    #     if orgData is None or len(orgData) < 1: continue
-                    #     data = pd.concat([data, orgData], ignore_index=True)
-                    #
-                    # # 문자열을 datetime 형식으로 변환
-                    # data['Open_time'] = pd.to_datetime(data['Open_time'])
-                    #
-                    # # KST TO UTC
-                    # data['Open_time'] = data['Open_time'] - timedelta(hours=9)
-                    #
-                    # data_L1 = data.loc[:, ['Open_time', 'Close', 'trades', 'quote_av', 'tb_quote_av']]
-                    # data_L1['tb_quote_sell'] = data_L1['quote_av'] - data_L1['tb_quote_av']
-                    #
-                    # # 예시 호출
-                    # result = calculate_sum_cv(data_L1, sysOpt['srtDate'], sysOpt['endDate'])
-                    #
-                    # # 그림 생산
-                    # plot_close_and_sum_cv(sysOpt, modelInfo, symbol, result)
-                    #
-                    # # TODO 장시간 소요
-                    # # 병렬 처리 함수 호출
-                    # # data_L2 = process_in_parallel(data_L1, time_range, time_deltas)
-                    # data_L2 = process_in_parallel(data_L1, dtDateList, sysOpt['timeDel'])
-                    # data_L2 = data_L2.sort_values(by='Open_time').reset_index(drop=True)
-                    #
-                    # # 1일 간격
-                    # time_range = pd.date_range(start=dtSrtDate, end=dtEndDate, freq='1D')
-                    #
-                    # # 날짜별로 데이터를 처리하고 CSV로 저장하는 루프
-                    # for single_date in time_range:
-                    #     log.info(f"[CHECK] single_date : {single_date}")
-                    #     save_daily_data_to_csv(sysOpt, modelInfo, symbol, data_L1, single_date, sysOpt['timeDel'])
+                    data = pd.DataFrame()
+                    for dtDateInfo in dtDateList:
+                        colctFilePattern = '{}/{}'.format(modelInfo['colctPath'], modelInfo['colctName'])
+                        colctFile = dtDateInfo.strftime(colctFilePattern).format(symbol=symbol)
+                        if not os.path.exists(colctFile): continue
+                        orgData = pd.read_csv(colctFile)
+                        if orgData is None or len(orgData) < 1: continue
+                        data = pd.concat([data, orgData], ignore_index=True)
+
+                    # 문자열을 datetime 형식으로 변환
+                    data['Open_time'] = pd.to_datetime(data['Open_time'])
+
+                    # KST TO UTC
+                    data['Open_time'] = data['Open_time'] - timedelta(hours=9)
+
+                    data_L1 = data.loc[:, ['Open_time', 'Close', 'trades', 'quote_av', 'tb_quote_av']]
+                    data_L1['tb_quote_sell'] = data_L1['quote_av'] - data_L1['tb_quote_av']
+
+                    # 예시 호출
+                    result = calculate_sum_cv(data_L1, sysOpt['srtDate'], sysOpt['endDate'])
+
+                    # 그림 생산
+                    plot_close_and_sum_cv(sysOpt, modelInfo, symbol, result)
+
+                    # TODO 장시간 소요
+                    # 병렬 처리 함수 호출
+                    # data_L2 = process_in_parallel(data_L1, time_range, time_deltas)
+                    data_L2 = process_in_parallel(data_L1, dtDateList, sysOpt['timeDel'])
+                    data_L2 = data_L2.sort_values(by='Open_time').reset_index(drop=True)
+
+                    # 1일 간격
+                    time_range = pd.date_range(start=dtSrtDate, end=dtEndDate, freq='1D')
+
+                    # 날짜별로 데이터를 처리하고 CSV로 저장하는 루프
+                    for single_date in time_range:
+                        log.info(f"[CHECK] single_date : {single_date}")
+                        save_daily_data_to_csv(sysOpt, modelInfo, symbol, data_L1, single_date, sysOpt['timeDel'])
 
                     # *******************************************************************************************
                     # 3번 : 전처리
@@ -1093,11 +1104,11 @@ class DtaProcess(object):
                     data['Open_time'] = pd.to_datetime(data['Open_time'], errors='coerce')
 
                     # Define start and end dates
-                    start_date = "2024-07-01"
-                    end_date = "2024-10-25"
+                    # start_date = "2024-07-01"
+                    # end_date = "2024-10-25"
 
                     # Generate the date range with daily frequency
-                    date_range = pd.date_range(start=start_date, end=end_date, freq='D')
+                    date_range = pd.date_range(start=sysOpt['srtDate'], end=sysOpt['endDate'], freq='D')
 
                     # Display the list of dates
                     date_range.tolist()
@@ -1106,7 +1117,7 @@ class DtaProcess(object):
                     for i in date_range_str:
                         print(f"Processing date: {i}")
                         train_data = get_train_d(data, i)
-                        test_data = get_test_d(data, i)
+                        # test_data = get_test_d(data, i)
                         valid_data = get_valid_d(data, i)
 
                         # 무시할 피처와 타겟 변수 설정
@@ -1175,8 +1186,49 @@ class DtaProcess(object):
                     # *******************************************************************************************
                     # 6번 : 시각화
                     # Untitled6.ipynb
+                    # 1일 생산 정산 느낌
                     # *******************************************************************************************
+                    def load_data(data_dir):
+                        # 주어진 디렉토리에서 CSV 파일을 읽어 병합
+                        csv_files = [f for f in os.listdir(data_dir) if f.endswith('.csv')]
+                        data_frames = [pd.read_csv(os.path.join(data_dir, f)) for f in csv_files]
+                        data = pd.concat(data_frames, ignore_index=True)
+                        return data
 
+                    # 데이터 로드 및 전처리
+                    data_dir = './FINOUT3/BTC/'  # 주식 데이터가 저장된 디렉토리
+                    data = load_data(data_dir)
+                    data
+
+                    data['min_value_pred'] = data['min_value_pred'] * -1.0
+                    data['min_value'] = data['min_value'] * -1.0
+
+                    start_train_date = "2024-09-16"
+                    end_train_date = "2024-09-18"
+                    test_data = data[(data['Open_time'] >= start_train_date) & (data['Open_time'] < end_train_date)]
+                    test_data
+
+                    plt.figure(figsize=(12, 6))
+
+                    # 왼쪽 축: min_value_pred와 max_value_pred
+                    fig, ax1 = plt.subplots(figsize=(12, 6))
+                    # ax1.plot(test_data['min_value'], label='Min Value', color='blue', alpha=0.7)
+                    # ax1.plot(test_data['max_value'], label='Max Value', color='red', alpha=0.7)
+                    ax1.plot(test_data['min_value_pred'], label='Min Value pred', color='blue', alpha=0.7)
+                    ax1.plot(test_data['max_value_pred'], label='Max Value pred', color='red', alpha=0.7)
+                    ax1.set_xlabel('Index')
+                    ax1.set_ylabel('Min/Max Value')
+                    ax1.grid()
+                    ax1.legend(loc='upper left')
+
+                    # 오른쪽 축: close_value
+                    ax2 = ax1.twinx()
+                    ax2.plot(test_data['close_value'], label='Close Value', color='black', alpha=0.7)
+                    ax2.set_ylabel('Close Value')
+                    ax2.legend(loc='upper right')
+
+                    plt.title('Min Value, Max Value, and Close Value over Time with Dual Axes')
+                    plt.show()
 
                     # *******************************************************************************************
                     # 7번 : 백테스팅 코드
