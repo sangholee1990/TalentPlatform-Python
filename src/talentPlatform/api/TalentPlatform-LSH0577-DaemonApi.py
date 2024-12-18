@@ -8,7 +8,7 @@
 # =================================================
 # 프로그램 시작
 # cd /HDD/SYSTEMS/PROG/PYTHON/IDE/src/talentPlatform/api
-# conda activate py38
+# conda activate py39
 # uvicorn TalentPlatform-LSH0577-DaemonApi:app --reload --host=0.0.0.0 --port=9000
 # nohup uvicorn TalentPlatform-LSH0577-DaemonApi:app --reload --host=0.0.0.0 --port=9000 &
 # tail -f nohup.out
@@ -218,9 +218,8 @@ app = FastAPI(
 
 # CORS 설정
 oriList = [
-    'http://localhost:8300'
-    , 'http://localhost:3000'
-    , 'http://49.247.41.71:8300'
+    'http://localhost:9000'
+    , 'http://49.247.41.71:9000'
 ]
 
 app.add_middleware(
