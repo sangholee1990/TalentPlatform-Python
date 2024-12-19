@@ -8,7 +8,7 @@
 # =================================================
 # 프로그램 시작
 # cd /HDD/SYSTEMS/PROG/PYTHON/IDE/src/talentPlatform/api
-# conda activate py38
+# conda activate py39
 # uvicorn TalentPlatform-LSH0597-DaemonApi:app --reload --host=0.0.0.0 --port=9300
 # nohup uvicorn TalentPlatform-LSH0597-DaemonApi:app --reload --host=0.0.0.0 --port=9300 &
 # tail -f nohup.out
@@ -23,10 +23,8 @@ import warnings
 from datetime import timedelta
 from datetime import datetime
 from fastapi import FastAPI, Depends, HTTPException
-from pydantic import BaseModel
 from fastapi import FastAPI, HTTPException, Depends
 from fastapi.responses import JSONResponse
-from pydantic import BaseModel, Field
 import configparser
 import os
 from urllib.parse import quote_plus
@@ -35,13 +33,11 @@ from fastapi import UploadFile, File
 from fastapi.responses import FileResponse
 import shutil
 from fastapi import FastAPI, UploadFile, File, HTTPException, Depends
-from pydantic import BaseModel
 import os
 import shutil
 # from datetime import datetime
-from pydantic import BaseModel, Field, constr
+from pydantic import BaseModel, Field, constr, validator
 from fastapi import FastAPI, UploadFile, File
-from pydantic import BaseModel
 from fastapi import FastAPI, UploadFile, File, Form
 import argparse
 import glob
@@ -80,6 +76,7 @@ from fastapi import FastAPI, HTTPException, UploadFile, File, Form
 import tempfile
 import os
 from enum import Enum
+from typing import List, Any, Dict, Optional
 
 # ============================================
 # 유틸리티 함수
@@ -207,6 +204,11 @@ app.add_middleware(
 # ============================================
 # 비즈니스 로직
 # ============================================
+class cfgCodeProc(BaseModel):
+    lang: str = Query(default=..., description='프로그래밍 언어', example='python', enum=[
+        "python", "javascript", "java", "c",
+    ])
+    code: str = Field(default=..., description="코드", example="""def hello(): print("Hello, Python!") \n hello()""")
 
 # ============================================
 # API URL 주소
@@ -214,3 +216,48 @@ app.add_middleware(
 @app.get(f"/", include_in_schema=False)
 def redirect_to_docs():
     return RedirectResponse(url="/docs")
+
+# @app.post(f"/api/sel-pdfToTxt", dependencies=[Depends(chkApiKey)])
+@app.post(f"/api/sel-codeProc")
+async def selCodeProc(request: cfgCodeProc = Form(...)):
+    """
+    기능\n
+        프로그래밍 언어 및 소스코드를 통해 코딩 테스트 플랫폼 실행\n
+    테스트\n
+        lang: 프로그래밍 언어 (python, javascript, java, c)\n
+        code: 소스코드\n
+    """
+
+    tmpFileInfo = None
+
+    try:
+        # if cont == None or len(cont) < 1:
+        #     raise HTTPException(status_code=400, detail=resRespone("fail", 400, f"요청사항이 없습니다 ({cont}).", None))
+        #
+        # if file == None:
+        #     raise HTTPException(status_code=400, detail=resRespone("fail", 400, f"PDF 파일이 없습니다 ({file}).", None))
+        #
+        # if file.content_type != 'application/pdf':
+        #     raise HTTPException(status_code=400, detail=resRespone("fail", 400, "PDF 파일 없음", None))
+        # log.info(f"[CHECK] cont : {cont}")
+        #
+        # with tempfile.NamedTemporaryFile(delete=False, suffix=".pdf", dir=globalVar['inpPath']) as tmpFile:
+        #     tmpFile.write(file.file.read())
+        #     tmpFileInfo = tmpFile.name
+        # log.info(f"[CHECK] tmpFileInfo : {tmpFile.name}")
+        #
+        # pdfFile = genai.upload_file(mime_type=file.content_type, path=tmpFileInfo, display_name=tmpFileInfo)
+        # res = model.generate_content([cont, pdfFile])
+        # result = res.candidates[0].content.parts[0].text
+        result = 'succ'
+        log.info(f"[CHECK] result : {result}")
+
+        return resRespone("succ", 200, "처리 완료", len(result), result)
+
+    except Exception as e:
+        log.error(f'Exception : {e}')
+        raise HTTPException(status_code=400, detail=resRespone("fail", 400, "처리 실패",None, str(e)))
+    finally:
+        if tmpFileInfo and os.path.exists(tmpFileInfo):
+            os.remove(tmpFileInfo)
+
