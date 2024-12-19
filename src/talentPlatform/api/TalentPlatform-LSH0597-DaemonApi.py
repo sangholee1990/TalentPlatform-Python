@@ -61,7 +61,7 @@ import asyncio
 from fastapi import FastAPI
 import socket
 import json
-
+import re
 from fastapi.responses import RedirectResponse
 from fastapi import FastAPI, HTTPException, Query, Depends
 from fastapi.middleware.cors import CORSMiddleware
@@ -78,6 +78,7 @@ import os
 from enum import Enum
 from typing import List, Any, Dict, Optional
 import uuid
+import subprocess
 
 # ============================================
 # 유틸리티 함수
@@ -173,29 +174,37 @@ log = initLog(env, ctxPath, prjName)
 
 
 sysOpt = {
-    # 시작/종료 시간
-    # 'srtDate': '2018-01-01'
-    # , 'endDate': '2018-12-31'
+    # 임시 경로
+    'tmpPath': '{outPath}/%Y%m/%d/%H/%M/{uid}/main.{ext}',
 
+    # 실행 시간
+    'timeOut': 10,
+
+    # 실행 정보
     'code': {
         'python': {
-            'exe': '/usr/bin/node',
-            'cmd': '{exe} {fileInfo}',
-        },
-        'javascript': {
+            'ext': 'py',
             'exe': '/HDD/SYSTEMS/LIB/anaconda3/envs/py38/bin/python3.8',
             'cmd': '{exe} {fileInfo}',
         },
+        'javascript': {
+            'ext': 'js',
+            'exe': '/usr/bin/node',
+            'cmd': '{exe} {fileInfo}',
+        },
         'c': {
+            'ext': 'c',
             'exe': '/usr/bin/gcc',
-            'cmd': '{exe} {fileInfo} && {fileInfoNotExt}',
+            'cmd': '{exe} {fileInfo} && {filePath}/a.out',
         },
         'java': {
+            'ext': 'java',
             'cmp': '/usr/bin/javac',
             'exe': '/usr/bin/java',
-            'cmd': '{cmp} {fileInfo} && {exe} -cp {filePath} {mainClass}',
+            'cmd': '{cmp} {fileInfo} && {exe} -cp {filePath} main',
         },
-    }
+    },
+
 }
 
 # "python", "javascript", "java", "c",
@@ -230,7 +239,7 @@ class cfgCodeProc(BaseModel):
     lang: str = Query(default=..., description='프로그래밍 언어', example='python', enum=[
         "python", "javascript", "java", "c",
     ])
-    code: str = Field(default=..., description="코드", example="""def hello(): print("Hello, Python!") \n hello()""")
+    code: str = Field(default=..., description="코드", example="print('Hello, Python!')")
 
 # ============================================
 # API URL 주소
@@ -253,8 +262,6 @@ async def selCodeProc(request: cfgCodeProc = Form(...)):
     tmpFileInfo = None
 
     try:
-        uid = str(uuid.uuid4())
-
         lang = request.lang
         if lang is None or len(lang) < 1:
             raise HTTPException(status_code=400, detail=resRespone("fail", 400, f"프로그래밍 언어를 확인해주세요 ({lang}).", None))
@@ -267,49 +274,48 @@ async def selCodeProc(request: cfgCodeProc = Form(...)):
         if sysInfo is None or len(sysInfo) < 1:
             raise HTTPException(status_code=400, detail=resRespone("fail", 400, f"설정 정보를 확인해주세요 ({sysInfo}).", None))
 
+        # 임시 파일 생성
+        uid = str(uuid.uuid4())
+        fileInfo = datetime.now().strftime(sysOpt['tmpPath']).format(outPath=globalVar['outPath'], exe=sysInfo['exe'], uid=uid, ext=sysInfo['ext'])
+        log.info(f"[CHECK] fileInfo : {fileInfo}")
 
-        # datetime.now().strftime("%Y%m%d")
-        # filePath =
+        filePath = os.path.dirname(fileInfo)
+        log.info(f"[CHECK] filePath : {filePath}")
 
+        cmd = None
+        if re.search('c', lang, re.IGNORECASE):
+            cmd = sysInfo['cmd'].format(exe=sysInfo['exe'], fileInfo=fileInfo, filePath=filePath)
+        elif re.search('java', lang, re.IGNORECASE):
+            cmd = sysInfo['cmd'].format(cmp=sysInfo['cmp'], exe=sysInfo['exe'], fileInfo=fileInfo, filePath=filePath)
+        elif re.search('python', lang, re.IGNORECASE):
+            cmd = sysInfo['cmd'].format(exe=sysInfo['exe'], fileInfo=fileInfo)
+        elif re.search('javascript', lang, re.IGNORECASE):
+            cmd = sysInfo['cmd'].format(exe=sysInfo['exe'], fileInfo=fileInfo)
 
+        if cmd is None or len(cmd) < 1:
+            raise HTTPException(status_code=400, detail=resRespone("fail", 400, f"실행 명령어를 확인해주세요 ({cmd}).", None))
+        log.info(f"[CHECK] cmd : {cmd}")
 
-        # sysInfo['cmd'].format()
-        #
-        # code': {
-        #         'python': {
-        #             'exe': '/usr/bin/node',
-        #             'cmd': '{exe} {fileInfo}',
-        #         },
-        #         'javascript': {
-        #             'exe': '/HDD/SYSTEMS/LIB/anaconda3/envs/py38/bin/python3.8',
-        #             'cmd': '{exe} {fileInfo}',
-        #         },
-        #         'c': {
-        #             'exe': '/usr/bin/gcc',
-        #             'cmd': '{exe} {fileInfo} && {fileInfoNotExt}',
-        #         },
-        #         'java': {
-        #             'cmp': '/usr/bin/javac',
-        #             'exe': '/usr/bin/java',
-        #             'cmd': '{cmp} {fileInfo} && {exe} -cp {filePath} {mainClass}',
-        #         },
+        # 코드 저장
+        os.makedirs(filePath, exist_ok=True)
+        with open(fileInfo, "w") as codeFile:
+            codeFile.write(code)
+            # codeFile.write(code.encode("utf-8").decode("unicode_escape"))
 
+        result = subprocess.run(
+            cmd,
+            stderr=subprocess.PIPE,
+            stdout=subprocess.PIPE,
+            text=True,
+            # shell=True,
+            timeout=sysOpt['timeOut']
+        )
 
-        # filePath =
-
-        # if file.content_type != 'application/pdf':
-        #     raise HTTPException(status_code=400, detail=resRespone("fail", 400, "PDF 파일 없음", None))
-        # log.info(f"[CHECK] cont : {cont}")
-        #
-        # with tempfile.NamedTemporaryFile(delete=False, suffix=".pdf", dir=globalVar['inpPath']) as tmpFile:
-        #     tmpFile.write(file.file.read())
-        #     tmpFileInfo = tmpFile.name
-        # log.info(f"[CHECK] tmpFileInfo : {tmpFile.name}")
-        #
-        # pdfFile = genai.upload_file(mime_type=file.content_type, path=tmpFileInfo, display_name=tmpFileInfo)
-        # res = model.generate_content([cont, pdfFile])
-        # result = res.candidates[0].content.parts[0].text
-        result = 'succ'
+        result = {
+            "stdOut": result.stdout.strip(),
+            "stdErr": result.stderr.strip(),
+            "exitCode": result.returncode
+        }
         log.info(f"[CHECK] result : {result}")
 
         return resRespone("succ", 200, "처리 완료", len(result), result)
@@ -318,6 +324,9 @@ async def selCodeProc(request: cfgCodeProc = Form(...)):
         log.error(f'Exception : {e}')
         raise HTTPException(status_code=400, detail=resRespone("fail", 400, "처리 실패",None, str(e)))
     finally:
-        if tmpFileInfo and os.path.exists(tmpFileInfo):
-            os.remove(tmpFileInfo)
+        if lang == "c" and os.path.exists(os.path.join(filePath, "a.out")):
+            os.remove(os.path.join(filePath, "a.out"))
+        if lang == "java" and os.path.exists(os.path.join(filePath, "main.class")):
+            os.remove(os.path.join(filePath, "main.class"))
+
 
