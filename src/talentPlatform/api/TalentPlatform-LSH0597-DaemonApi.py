@@ -182,7 +182,18 @@ sysOpt = {
 
     # 실행 정보
     'code': {
-        'python': {
+        'c': {
+            'ext': 'c',
+            'exe': '/usr/bin/gcc',
+            'cmd': '{exe} {fileInfo} -o {filePath}/a.out && {filePath}/a.out',
+        },
+        'java': {
+            'ext': 'java',
+            'cmp': '/usr/bin/javac',
+            'exe': '/usr/bin/java',
+            'cmd': '{cmp} {fileInfo} && {exe} -cp {filePath} main',
+        },
+        'python3': {
             'ext': 'py',
             'exe': '/HDD/SYSTEMS/LIB/anaconda3/envs/py38/bin/python3.8',
             'cmd': '{exe} {fileInfo}',
@@ -192,22 +203,9 @@ sysOpt = {
             'exe': '/usr/bin/node',
             'cmd': '{exe} {fileInfo}',
         },
-        'c': {
-            'ext': 'c',
-            'exe': '/usr/bin/gcc',
-            'cmd': '{exe} {fileInfo} && {filePath}/a.out',
-        },
-        'java': {
-            'ext': 'java',
-            'cmp': '/usr/bin/javac',
-            'exe': '/usr/bin/java',
-            'cmd': '{cmp} {fileInfo} && {exe} -cp {filePath} main',
-        },
     },
-
 }
 
-# "python", "javascript", "java", "c",
 app = FastAPI(
     openapi_url='/api'
     , docs_url='/docs'
@@ -236,11 +234,10 @@ app.add_middleware(
 # 비즈니스 로직
 # ============================================
 class cfgCodeProc(BaseModel):
-    lang: str = Query(default=..., description='프로그래밍 언어', example='python', enum=[
-        "python", "javascript", "java", "c",
+    lang: str = Query(default=..., description='프로그래밍 언어', example='python3', enum=[
+        "python3", "c", "java", "javascript"
     ])
-    # code: str = Field(default=..., description="코드", example="print('Hello, Python!')")
-    code: str = Body(default=..., description="코드", example="print('Hello, Python!')")
+    code: str = Field(default=..., description="코드", example="print('Hello, Python!')")
 
 # ============================================
 # API URL 주소
@@ -300,8 +297,7 @@ async def selCodeProc(request: cfgCodeProc = Form(...)):
         # 코드 저장
         os.makedirs(filePath, exist_ok=True)
         with open(fileInfo, "w") as codeFile:
-            # codeFile.write(code)
-            codeFile.write(code.encode("utf-8").decode("unicode_escape"))
+            codeFile.write(code.encode("utf-8").decode("unicode_escape").replace("\r\n", "\n"))
 
         result = subprocess.run(
             cmd,
@@ -313,7 +309,6 @@ async def selCodeProc(request: cfgCodeProc = Form(...)):
         )
 
         result = {
-            "cmd": cmd,
             "stdOut": result.stdout.strip(),
             "stdErr": result.stderr.strip(),
             "exitCode": result.returncode
