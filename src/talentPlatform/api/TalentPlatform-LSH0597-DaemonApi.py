@@ -172,7 +172,6 @@ for key, val in globalVar.items():
 
 log = initLog(env, ctxPath, prjName)
 
-
 sysOpt = {
     # 임시 경로
     'tmpPath': '{outPath}/%Y%m/%d/%H/%M/{uid}/main.{ext}',
@@ -279,17 +278,26 @@ async def selCodeProc(request: cfgCodeProc = Form(...)):
         log.info(f"[CHECK] filePath : {filePath}")
 
         cmd = None
-        if re.search('c', lang, re.IGNORECASE):
-            cmd = sysInfo['cmd'].format(exe=sysInfo['exe'], fileInfo=fileInfo, filePath=filePath)
-        elif re.search('java', lang, re.IGNORECASE):
-            cmd = sysInfo['cmd'].format(cmp=sysInfo['cmp'], exe=sysInfo['exe'], fileInfo=fileInfo, filePath=filePath)
-        elif re.search('python', lang, re.IGNORECASE):
-            cmd = sysInfo['cmd'].format(exe=sysInfo['exe'], fileInfo=fileInfo)
-        elif re.search('javascript', lang, re.IGNORECASE):
-            cmd = sysInfo['cmd'].format(exe=sysInfo['exe'], fileInfo=fileInfo)
-        if cmd is None or len(cmd) < 1:
+        # if re.search('c', lang, re.IGNORECASE):
+        #     cmd = sysInfo['cmd'].format(exe=sysInfo['exe'], fileInfo=fileInfo, filePath=filePath)
+        # elif re.search('java', lang, re.IGNORECASE):
+        #     cmd = sysInfo['cmd'].format(cmp=sysInfo['cmp'], exe=sysInfo['exe'], fileInfo=fileInfo, filePath=filePath)
+        # elif re.search('python', lang, re.IGNORECASE):
+        #     cmd = sysInfo['cmd'].format(exe=sysInfo['exe'], fileInfo=fileInfo)
+        # elif re.search('javascript', lang, re.IGNORECASE):
+        #     cmd = sysInfo['cmd'].format(exe=sysInfo['exe'], fileInfo=fileInfo)
+        # if cmd is None or len(cmd) < 1:
+        #     raise HTTPException(status_code=400, detail=resRespone("fail", 400, f"실행 명령어를 확인해주세요 ({cmd}).", None))
+
+        try:
+            cmd = sysInfo['cmd'].format(
+                fileInfo=fileInfo, filePath=filePath, exe=sysInfo.get('exe'), cmp=sysInfo.get('cmp')
+            )
+        except KeyError:
             raise HTTPException(status_code=400, detail=resRespone("fail", 400, f"실행 명령어를 확인해주세요 ({cmd}).", None))
         log.info(f"[CHECK] cmd : {cmd}")
+
+
 
         # 코드 저장
         os.makedirs(filePath, exist_ok=True)
@@ -297,7 +305,7 @@ async def selCodeProc(request: cfgCodeProc = Form(...)):
             codeFile.write(code.encode("utf-8").decode("unicode_escape").replace("\r\n", "\n"))
 
         # 코드 실행
-        result = subprocess.run(
+        codeProcRun = subprocess.run(
             cmd,
             stderr=subprocess.PIPE,
             stdout=subprocess.PIPE,
@@ -307,17 +315,16 @@ async def selCodeProc(request: cfgCodeProc = Form(...)):
         )
 
         result = {
-            "stdOut": result.stdout.strip(),
-            "stdErr": result.stderr.strip(),
-            "exitCode": result.returncode
+            "stdOut": codeProcRun.stdout.strip(),
+            "stdErr": codeProcRun.stderr.strip(),
+            "exitCode": codeProcRun.returncode
         }
-
         log.info(f"[CHECK] result : {result}")
 
         if result['exitCode'] == 0 and len(result['stdOut']) > 0 and len(result['stdErr']) < 1:
             return resRespone("succ", 200, "처리 완료", len(result), result)
         else:
-            raise HTTPException(status_code=400, detail=resRespone("fail", 400, f"처리 실패 ({cmd}).", None))
+            return resRespone("fail", 400, "처리 실패", None, result)
 
     except Exception as e:
         log.error(f'Exception : {e}')
