@@ -22,7 +22,7 @@ import platform
 import warnings
 from datetime import timedelta
 from datetime import datetime
-from fastapi import FastAPI, Depends, HTTPException
+from fastapi import FastAPI, Depends, HTTPException, Body
 from fastapi import FastAPI, HTTPException, Depends
 from fastapi.responses import JSONResponse
 import configparser
@@ -239,7 +239,8 @@ class cfgCodeProc(BaseModel):
     lang: str = Query(default=..., description='프로그래밍 언어', example='python', enum=[
         "python", "javascript", "java", "c",
     ])
-    code: str = Field(default=..., description="코드", example="print('Hello, Python!')")
+    # code: str = Field(default=..., description="코드", example="print('Hello, Python!')")
+    code: str = Body(default=..., description="코드", example="print('Hello, Python!')")
 
 # ============================================
 # API URL 주소
@@ -299,26 +300,31 @@ async def selCodeProc(request: cfgCodeProc = Form(...)):
         # 코드 저장
         os.makedirs(filePath, exist_ok=True)
         with open(fileInfo, "w") as codeFile:
-            codeFile.write(code)
-            # codeFile.write(code.encode("utf-8").decode("unicode_escape"))
+            # codeFile.write(code)
+            codeFile.write(code.encode("utf-8").decode("unicode_escape"))
 
         result = subprocess.run(
             cmd,
             stderr=subprocess.PIPE,
             stdout=subprocess.PIPE,
             text=True,
-            # shell=True,
+            shell=True,
             timeout=sysOpt['timeOut']
         )
 
         result = {
+            "cmd": cmd,
             "stdOut": result.stdout.strip(),
             "stdErr": result.stderr.strip(),
             "exitCode": result.returncode
         }
+
         log.info(f"[CHECK] result : {result}")
 
-        return resRespone("succ", 200, "처리 완료", len(result), result)
+        if result['exitCode'] == 0 and len(result['stdOut']) > 0 and len(result['stdErr']) < 1:
+            return resRespone("succ", 200, "처리 완료", len(result), result)
+        else:
+            raise HTTPException(status_code=400, detail=resRespone("fail", 400, f"처리 실패 ({cmd}).", None))
 
     except Exception as e:
         log.error(f'Exception : {e}')
