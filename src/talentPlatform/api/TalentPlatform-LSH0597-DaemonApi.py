@@ -77,6 +77,7 @@ import tempfile
 import os
 from enum import Enum
 from typing import List, Any, Dict, Optional
+import uuid
 
 # ============================================
 # 유틸리티 함수
@@ -170,13 +171,34 @@ for key, val in globalVar.items():
 
 log = initLog(env, ctxPath, prjName)
 
-# 옵션 설정
+
 sysOpt = {
     # 시작/종료 시간
     # 'srtDate': '2018-01-01'
     # , 'endDate': '2018-12-31'
+
+    'code': {
+        'python': {
+            'exe': '/usr/bin/node',
+            'cmd': '{exe} {fileInfo}',
+        },
+        'javascript': {
+            'exe': '/HDD/SYSTEMS/LIB/anaconda3/envs/py38/bin/python3.8',
+            'cmd': '{exe} {fileInfo}',
+        },
+        'c': {
+            'exe': '/usr/bin/gcc',
+            'cmd': '{exe} {fileInfo} && {fileInfoNotExt}',
+        },
+        'java': {
+            'cmp': '/usr/bin/javac',
+            'exe': '/usr/bin/java',
+            'cmd': '{cmp} {fileInfo} && {exe} -cp {filePath} {mainClass}',
+        },
+    }
 }
 
+# "python", "javascript", "java", "c",
 app = FastAPI(
     openapi_url='/api'
     , docs_url='/docs'
@@ -231,12 +253,50 @@ async def selCodeProc(request: cfgCodeProc = Form(...)):
     tmpFileInfo = None
 
     try:
-        # if cont == None or len(cont) < 1:
-        #     raise HTTPException(status_code=400, detail=resRespone("fail", 400, f"요청사항이 없습니다 ({cont}).", None))
+        uid = str(uuid.uuid4())
+
+        lang = request.lang
+        if lang is None or len(lang) < 1:
+            raise HTTPException(status_code=400, detail=resRespone("fail", 400, f"프로그래밍 언어를 확인해주세요 ({lang}).", None))
+
+        code = request.code
+        if code is None or len(code) < 1:
+            raise HTTPException(status_code=400, detail=resRespone("fail", 400, f"소스코드를 확인해주세요 ({code}).", None))
+
+        sysInfo = sysOpt['code'][lang]
+        if sysInfo is None or len(sysInfo) < 1:
+            raise HTTPException(status_code=400, detail=resRespone("fail", 400, f"설정 정보를 확인해주세요 ({sysInfo}).", None))
+
+
+        # datetime.now().strftime("%Y%m%d")
+        # filePath =
+
+
+
+        # sysInfo['cmd'].format()
         #
-        # if file == None:
-        #     raise HTTPException(status_code=400, detail=resRespone("fail", 400, f"PDF 파일이 없습니다 ({file}).", None))
-        #
+        # code': {
+        #         'python': {
+        #             'exe': '/usr/bin/node',
+        #             'cmd': '{exe} {fileInfo}',
+        #         },
+        #         'javascript': {
+        #             'exe': '/HDD/SYSTEMS/LIB/anaconda3/envs/py38/bin/python3.8',
+        #             'cmd': '{exe} {fileInfo}',
+        #         },
+        #         'c': {
+        #             'exe': '/usr/bin/gcc',
+        #             'cmd': '{exe} {fileInfo} && {fileInfoNotExt}',
+        #         },
+        #         'java': {
+        #             'cmp': '/usr/bin/javac',
+        #             'exe': '/usr/bin/java',
+        #             'cmd': '{cmp} {fileInfo} && {exe} -cp {filePath} {mainClass}',
+        #         },
+
+
+        # filePath =
+
         # if file.content_type != 'application/pdf':
         #     raise HTTPException(status_code=400, detail=resRespone("fail", 400, "PDF 파일 없음", None))
         # log.info(f"[CHECK] cont : {cont}")
