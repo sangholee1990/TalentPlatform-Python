@@ -253,11 +253,9 @@ async def selCodeProc(request: cfgCodeProc = Form(...)):
     기능\n
         프로그래밍 언어 및 소스코드를 통해 코딩 테스트 플랫폼 실행\n
     테스트\n
-        lang: 프로그래밍 언어 (python, javascript, java, c)\n
+        lang: 프로그래밍 언어 (python3, javascript, java, c)\n
         code: 소스코드\n
     """
-
-    tmpFileInfo = None
 
     try:
         lang = request.lang
@@ -289,7 +287,6 @@ async def selCodeProc(request: cfgCodeProc = Form(...)):
             cmd = sysInfo['cmd'].format(exe=sysInfo['exe'], fileInfo=fileInfo)
         elif re.search('javascript', lang, re.IGNORECASE):
             cmd = sysInfo['cmd'].format(exe=sysInfo['exe'], fileInfo=fileInfo)
-
         if cmd is None or len(cmd) < 1:
             raise HTTPException(status_code=400, detail=resRespone("fail", 400, f"실행 명령어를 확인해주세요 ({cmd}).", None))
         log.info(f"[CHECK] cmd : {cmd}")
@@ -299,6 +296,7 @@ async def selCodeProc(request: cfgCodeProc = Form(...)):
         with open(fileInfo, "w") as codeFile:
             codeFile.write(code.encode("utf-8").decode("unicode_escape").replace("\r\n", "\n"))
 
+        # 코드 실행
         result = subprocess.run(
             cmd,
             stderr=subprocess.PIPE,
