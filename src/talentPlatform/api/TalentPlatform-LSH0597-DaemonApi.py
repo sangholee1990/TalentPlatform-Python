@@ -131,9 +131,9 @@ def initLog(env=None, contextPath=None, prjName=None):
 
 
 # 인증키 검사
-# def chkApiKey(api_key: str = Depends(APIKeyHeader(name="api"))):
-#     if api_key != '20241014.api':
-#         raise HTTPException(status_code=400, detail=resRespone("fail", 400, "인증 실패"))
+def chkApiKey(api_key: str = Depends(APIKeyHeader(name="api"))):
+    if api_key != '20241220-topbds':
+        raise HTTPException(status_code=400, detail="API 인증 실패")
 
 def resResponse(status: str, code: int, message: str, cnt: int = 0, data: Any = None) -> dict:
     return {
@@ -246,7 +246,7 @@ class cfgCodeProc(BaseModel):
     ])
     code: str = Field(default=..., description="코드", example="print('Hello, Python!')")
 
-class cfgCodeProc(BaseModel):
+class cfgCodeHelp(BaseModel):
     cont: str = Field(default=..., description='헬프', example='코드를 수정해줘')
 
 # ============================================
@@ -256,7 +256,7 @@ class cfgCodeProc(BaseModel):
 def redirect_to_docs():
     return RedirectResponse(url="/docs")
 
-# @app.post(f"/api/sel-pdfToTxt", dependencies=[Depends(chkApiKey)])
+# @app.post(f"/api/sel-codeProc", dependencies=[Depends(chkApiKey)])
 @app.post(f"/api/sel-codeProc")
 async def selCodeProc(request: cfgCodeProc = Form(...)):
     """
@@ -347,7 +347,6 @@ async def selCodeProc(request: cfgCodeProc = Form(...)):
                 stdout=subprocess.PIPE,
                 text=True,
                 shell=True,
-                check=False,
                 timeout=sysOpt['timeOut']
             )
         except subprocess.TimeoutExpired as e:
@@ -377,7 +376,7 @@ async def selCodeProc(request: cfgCodeProc = Form(...)):
         if lang == "java" and os.path.exists(os.path.join(filePath, "main.class")):
             os.remove(os.path.join(filePath, "main.class"))
 
-# @app.post(f"/api/sel-blogPost", dependencies=[Depends(chkApiKey)])
+# @app.post(f"/api/sel-codeHelp", dependencies=[Depends(chkApiKey)])
 @app.post(f"/api/sel-codeHelp")
 async def selCodeHelp(request: cfgCodeHelp = Form(...)):
     """

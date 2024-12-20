@@ -169,9 +169,9 @@ def initLog(env=None, contextPath=None, prjName=None):
 
 
 # 인증키 검사
-# def chkApiKey(api_key: str = Depends(APIKeyHeader(name="api"))):
-#     if api_key != '20241014.api':
-#         raise HTTPException(status_code=400, detail=resRespone("fail", 400, "인증 실패"))
+def chkApiKey(api_key: str = Depends(APIKeyHeader(name="api"))):
+    if api_key != '20241014-topbds':
+        raise HTTPException(status_code=400, detail="API 인증 실패")
 
 def resRespone(status: str, code: int, message: str, cnt: int = 0, data: Any = None) -> dict:
     return {
