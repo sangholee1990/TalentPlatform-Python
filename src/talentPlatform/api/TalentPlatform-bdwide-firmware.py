@@ -152,7 +152,7 @@ def getDb():
 async def chkApiKey(api_key: str = Depends(APIKeyHeader(name="api"))):
     # if api_key != "123":
     if api_key != "eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzI1NiJ9.eyJ1c2VyX2FjY291bnQiOjI0fQ.pXluG0rOyeoO8xSvAFYCOrkIaYofUkUR3dIijJOT6xg":
-        raise HTTPException(status_code=401, detail="Invalid API Key")
+        raise HTTPException(status_code=400, detail="API 인증 실패")
 
 def resRespone(status: str, code: int, message: str, cnt: int = 0, data: Any = None) -> dict:
     return {
