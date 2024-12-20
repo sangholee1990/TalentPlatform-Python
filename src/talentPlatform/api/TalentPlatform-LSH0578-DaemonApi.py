@@ -298,13 +298,14 @@ async def selPdfToTxt(
 
     try:
         if cont == None or len(cont) < 1:
-            raise resRespone("fail", 400, f"요청사항이 없습니다 ({cont}).", None)
+            return resRespone("fail", 400, f"요청사항이 없습니다 ({cont}).", None)
 
         if file == None:
-            raise resRespone("fail", 400, f"PDF 파일이 없습니다 ({file}).", None)
+            return resRespone("fail", 400, f"PDF 파일이 없습니다 ({file}).", None)
 
         if file.content_type != 'application/pdf':
-            raise resRespone("fail", 400, "PDF 파일 없음", None)
+            return resRespone("fail", 400, "PDF 파일 없음", None)
+
         log.info(f"[CHECK] cont : {cont}")
 
         with tempfile.NamedTemporaryFile(delete=False, suffix=".pdf", dir=globalVar['inpPath']) as tmpFile:
@@ -341,15 +342,16 @@ async def selBlogTypePost(request: blogTypePostData = Form(...)):
     try:
         type = request.type
         if type == None or len(type) < 1:
-            raise resRespone("fail", 400, f"분야가 없습니다 ({type}).", None)
+            return resRespone("fail", 400, f"분야가 없습니다 ({type}).", None)
 
         cont = request.cont
         if cont == None or len(cont) < 1:
-            raise resRespone("fail", 400, f"요청사항이 없습니다 ({cont}).", None)
+            return resRespone("fail", 400, f"요청사항이 없습니다 ({cont}).", None)
 
         csvDataL1 = csvData.loc[csvData['분야'] == type]
         if csvDataL1.empty:
-            raise resRespone("fail", 400, "템플릿 파일 없음", None)
+            return resRespone("fail", 400, "템플릿 파일 없음", None)
+
         log.info(f"[CHECK] csvDataL1 : {csvDataL1}")
 
         contTemplate = csvDataL1['텍스트 추출'].iloc[0]
@@ -379,7 +381,7 @@ async def selBlogPost(request: blogPostData = Form(...)):
     try:
         cont = request.cont
         if cont == None or len(cont) < 1:
-            raise resRespone("fail", 400, f"요청사항이 없습니다 ({cont}).", None)
+            return resRespone("fail", 400, f"요청사항이 없습니다 ({cont}).", None)
 
         res = model.generate_content(cont)
         result = res.candidates[0].content.parts[0].text

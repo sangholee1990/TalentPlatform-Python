@@ -79,6 +79,7 @@ from enum import Enum
 from typing import List, Any, Dict, Optional
 import uuid
 import subprocess
+import google.generativeai as genai
 
 # ============================================
 # 유틸리티 함수
@@ -233,6 +234,9 @@ app.add_middleware(
     , allow_headers=["*"]
 )
 
+genai.configure(api_key=None)
+model = genai.GenerativeModel('gemini-1.5-pro')
+
 # ============================================
 # 비즈니스 로직
 # ============================================
@@ -241,6 +245,9 @@ class cfgCodeProc(BaseModel):
         "python3", "c", "java", "javascript"
     ])
     code: str = Field(default=..., description="코드", example="print('Hello, Python!')")
+
+class cfgCodeProc(BaseModel):
+    cont: str = Field(default=..., description='헬프', example='코드를 수정해줘')
 
 # ============================================
 # API URL 주소
@@ -369,3 +376,27 @@ async def selCodeProc(request: cfgCodeProc = Form(...)):
             os.remove(os.path.join(filePath, "a.out"))
         if lang == "java" and os.path.exists(os.path.join(filePath, "main.class")):
             os.remove(os.path.join(filePath, "main.class"))
+
+# @app.post(f"/api/sel-blogPost", dependencies=[Depends(chkApiKey)])
+@app.post(f"/api/sel-codeHelp")
+async def selCodeHelp(request: cfgCodeHelp = Form(...)):
+    """
+    기능\n
+        소스코드 및 요청사항을 기반으로 헬퍼\n
+    테스트\n
+        cont: 요청사항\n
+    """
+    try:
+        cont = request.cont
+        if cont == None or len(cont) < 1:
+            return resResponse("fail", 400, f"요청사항이 없습니다 ({cont}).", None)
+
+        res = model.generate_content(cont)
+        result = res.candidates[0].content.parts[0].text
+        log.info(f"[CHECK] result : {result}")
+
+        return resResponse("succ", 200, "처리 완료", len(result), result)
+
+    except Exception as e:
+        log.error(f'Exception : {e}')
+        raise HTTPException(status_code=400, detail=str(e))
