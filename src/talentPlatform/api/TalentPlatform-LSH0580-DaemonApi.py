@@ -298,7 +298,7 @@ def getImg(
 
     except Exception as e:
         log.error(f'Exception : {e}')
-        raise HTTPException(status_code=400, detail=resRespone("fail", 400, "처리 실패", str(e)))
+        raise HTTPException(status_code=400, detail=str(e))
 
 
 @app.get(f"/api/set/img")
@@ -332,4 +332,4 @@ def getImg(
 
     except Exception as e:
         log.error(f'Exception : {e}')
-        raise HTTPException(status_code=400, detail=resRespone("fail", 400, "처리 실패", str(e)))
+        raise HTTPException(status_code=400, detail=str(e))

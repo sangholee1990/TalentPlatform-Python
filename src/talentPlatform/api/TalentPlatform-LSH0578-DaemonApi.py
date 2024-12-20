@@ -254,8 +254,6 @@ csvList = sorted(glob.glob(csvFile))
 csvInfo = csvList[0]
 csvData = pd.read_csv(csvInfo)
 
-# base = declarative_base()
-
 # ============================================
 # 비즈니스 로직
 # ============================================
@@ -300,13 +298,13 @@ async def selPdfToTxt(
 
     try:
         if cont == None or len(cont) < 1:
-            raise HTTPException(status_code=400, detail=resRespone("fail", 400, f"요청사항이 없습니다 ({cont}).", None))
+            raise resRespone("fail", 400, f"요청사항이 없습니다 ({cont}).", None)
 
         if file == None:
-            raise HTTPException(status_code=400, detail=resRespone("fail", 400, f"PDF 파일이 없습니다 ({file}).", None))
+            raise resRespone("fail", 400, f"PDF 파일이 없습니다 ({file}).", None)
 
         if file.content_type != 'application/pdf':
-            raise HTTPException(status_code=400, detail=resRespone("fail", 400, "PDF 파일 없음", None))
+            raise resRespone("fail", 400, "PDF 파일 없음", None)
         log.info(f"[CHECK] cont : {cont}")
 
         with tempfile.NamedTemporaryFile(delete=False, suffix=".pdf", dir=globalVar['inpPath']) as tmpFile:
@@ -323,7 +321,7 @@ async def selPdfToTxt(
 
     except Exception as e:
         log.error(f'Exception : {e}')
-        raise HTTPException(status_code=400, detail=resRespone("fail", 400, "처리 실패",None, str(e)))
+        raise HTTPException(status_code=400, detail=str(e))
     finally:
         if tmpFileInfo and os.path.exists(tmpFileInfo):
             os.remove(tmpFileInfo)
@@ -343,15 +341,15 @@ async def selBlogTypePost(request: blogTypePostData = Form(...)):
     try:
         type = request.type
         if type == None or len(type) < 1:
-            raise HTTPException(status_code=400, detail=resRespone("fail", 400, f"분야가 없습니다 ({type}).", None))
+            raise resRespone("fail", 400, f"분야가 없습니다 ({type}).", None)
 
         cont = request.cont
         if cont == None or len(cont) < 1:
-            raise HTTPException(status_code=400, detail=resRespone("fail", 400, f"요청사항이 없습니다 ({cont}).", None))
+            raise resRespone("fail", 400, f"요청사항이 없습니다 ({cont}).", None)
 
         csvDataL1 = csvData.loc[csvData['분야'] == type]
         if csvDataL1.empty:
-            raise HTTPException(status_code=400, detail=resRespone("fail", 400, "템플릿 파일 없음", None))
+            raise resRespone("fail", 400, "템플릿 파일 없음", None)
         log.info(f"[CHECK] csvDataL1 : {csvDataL1}")
 
         contTemplate = csvDataL1['텍스트 추출'].iloc[0]
@@ -367,7 +365,7 @@ async def selBlogTypePost(request: blogTypePostData = Form(...)):
 
     except Exception as e:
         log.error(f'Exception : {e}')
-        raise HTTPException(status_code=400, detail=resRespone("fail", 400, "처리 실패",None, str(e)))
+        raise HTTPException(status_code=400, detail=str(e))
 
 # @app.post(f"/api/sel-blogPost", dependencies=[Depends(chkApiKey)])
 @app.post(f"/api/sel-blogPost")
@@ -381,7 +379,7 @@ async def selBlogPost(request: blogPostData = Form(...)):
     try:
         cont = request.cont
         if cont == None or len(cont) < 1:
-            raise HTTPException(status_code=400, detail=resRespone("fail", 400, f"요청사항이 없습니다 ({cont}).", None))
+            raise resRespone("fail", 400, f"요청사항이 없습니다 ({cont}).", None)
 
         res = model.generate_content(cont)
         result = res.candidates[0].content.parts[0].text
@@ -391,4 +389,4 @@ async def selBlogPost(request: blogPostData = Form(...)):
 
     except Exception as e:
         log.error(f'Exception : {e}')
-        raise HTTPException(status_code=400, detail=resRespone("fail", 400, "처리 실패",None, str(e)))
+        raise HTTPException(status_code=400, detail=str(e))

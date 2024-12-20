@@ -285,7 +285,7 @@ def file_upload(
 
     except Exception as e:
         log.error(f'Exception : {e}')
-        raise HTTPException(status_code=400, detail=resRespone("fail", 400, "처리 실패", str(e)))
+        raise HTTPException(status_code=400, detail=str(e))
 
 
 # @app.post("/firm/down/", dependencies=[Depends(chkApiKey)])
@@ -307,7 +307,7 @@ async def file_down(file: str):
 
     except Exception as e:
         log.error(f'Exception : {e}')
-        raise HTTPException(status_code=400, detail=resRespone("fail", 400, "처리 실패", str(e)))
+        raise HTTPException(status_code=400, detail=str(e))
 
 
 @app.post("/firm/file_info", dependencies=[Depends(chkApiKey)])
@@ -337,7 +337,7 @@ def file_info(id: int = None, db: Session = Depends(getDb)):
 
     except Exception as e:
         log.error(f'Exception : {e}')
-        raise HTTPException(status_code=400, detail=resRespone("fail", 400, "처리 실패", str(e)))
+        raise HTTPException(status_code=400, detail=str(e))
 
 
 @app.post("/firm/file_list", dependencies=[Depends(chkApiKey)])
@@ -370,7 +370,7 @@ def file_list(page: int = 1, per_page: int = 10, db: Session = Depends(getDb)):
 
     except Exception as e:
         log.error(f'Exception : {e}')
-        raise HTTPException(status_code=400, detail=resRespone("fail", 400, "처리 실패", str(e)))
+        raise HTTPException(status_code=400, detail=str(e))
 
 @app.post("/firm/send_data", dependencies=[Depends(chkApiKey)])
 def send_data(id: int = None, db: Session = Depends(getDb)):
@@ -416,7 +416,7 @@ def send_data(id: int = None, db: Session = Depends(getDb)):
 
     except Exception as e:
         log.error(f'Exception : {e}')
-        raise HTTPException(status_code=400, detail=resRespone("fail", 400, "처리 실패", str(e)))
+        raise HTTPException(status_code=400, detail=str(e))
 
     finally:
         # 소켓 닫기

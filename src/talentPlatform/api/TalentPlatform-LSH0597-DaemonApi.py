@@ -183,22 +183,26 @@ sysOpt = {
     'code': {
         'c': {
             'ext': 'c',
+            'ver': 'gcc (GCC) 11.5.0 20240719 (Red Hat 11.5.0-2)',
             'exe': '/usr/bin/gcc',
             'cmd': '{exe} {fileInfo} -o {filePath}/a.out && {filePath}/a.out',
         },
         'java': {
             'ext': 'java',
+            'ver': 'java 20.0.2 2023-07-18',
             'cmp': '/usr/bin/javac',
             'exe': '/usr/bin/java',
             'cmd': '{cmp} {fileInfo} && {exe} -cp {filePath} main',
         },
         'python3': {
             'ext': 'py',
+            'ver': 'Python 3.8.18 & conda 24.5.0',
             'exe': '/HDD/SYSTEMS/LIB/anaconda3/envs/py38/bin/python3.8',
             'cmd': '{exe} {fileInfo}',
         },
         'javascript': {
             'ext': 'js',
+            'ver': 'v20.17.0',
             'exe': '/usr/bin/node',
             'cmd': '{exe} {fileInfo}',
         },
@@ -252,8 +256,46 @@ async def selCodeProc(request: cfgCodeProc = Form(...)):
     기능\n
         프로그래밍 언어 및 소스코드를 통해 코딩 테스트 플랫폼 실행\n
     테스트\n
-        lang: 프로그래밍 언어 (python3, javascript, java, c)\n
+        lang: 프로그래밍 언어 (c, java, python3, javascript)\n
         code: 소스코드\n
+            - Escape 문자열 처리
+                > # 줄바꿈 -> \\r\\n
+                > " -> \\\"
+                > ' -> \\\'
+                > \\n -> \\\\n
+                > etc
+
+            - c 샘플코드
+                > IDE 편집기
+                    #include<stdio.h>
+                    int main() {
+                        char letter;
+
+                        for (letter = 'A'; letter <= 'Z'; letter++) {
+                            printf("%c", letter);
+                        }
+
+                        printf('\\n');
+                        return 0;
+                    }
+
+                > Escape 문자열 처리
+                    #include <stdio.h>\\r\\nint main() {\\r\\n    char letter;\\r\\n\\r\\n    for (letter = 'A'; letter <= 'Z'; letter++) {\\r\\n        printf("\\%c", letter);\\r\\n    }\\r\\n\\r\\n    printf("\\\\n");\\r\\n    return 0;\\r\\n}\\r\\n
+
+            - java 샘플코드
+                > IDE 편집기
+
+                > Escape 문자열 처리
+
+            - python3 샘플코드
+                > IDE 편집기
+
+                > Escape 문자열 처리
+
+            - javascript 샘플코드
+                > IDE 편집기
+
+                > Escape 문자열 처리
     """
 
     try:
@@ -307,6 +349,7 @@ async def selCodeProc(request: cfgCodeProc = Form(...)):
         result = {
             "file": fileInfo,
             "code": codeData,
+            "sysInfo": sysInfo,
             "stdOut": codeProcRun.stdout.strip(),
             "stdErr": codeProcRun.stderr.strip(),
             "exitCode": codeProcRun.returncode

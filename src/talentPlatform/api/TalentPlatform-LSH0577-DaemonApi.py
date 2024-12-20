@@ -370,7 +370,7 @@ def selStatReal(
 
     except Exception as e:
         log.error(f'Exception : {e}')
-        raise HTTPException(status_code=400, detail=resRespone("fail", 400, "처리 실패", str(e)))
+        raise HTTPException(status_code=400, detail=str(e))
 
 @app.post(f"/api/sel-real", dependencies=[Depends(chkApiKey)])
 # @app.post(f"/api/sel-real")
@@ -464,7 +464,7 @@ def selReal(
 
     except Exception as e:
         log.error(f'Exception : {e}')
-        raise HTTPException(status_code=400, detail=resRespone("fail", 400, "처리 실패", str(e)))
+        raise HTTPException(status_code=400, detail=str(e))
 
 @app.post(f"/api/sel-prd", dependencies=[Depends(chkApiKey)])
 # @app.post(f"/api/sel-prd")
@@ -558,7 +558,7 @@ def selReal(
 
     except Exception as e:
         log.error(f'Exception : {e}')
-        raise HTTPException(status_code=400, detail=resRespone("fail", 400, "처리 실패", str(e)))
+        raise HTTPException(status_code=400, detail=str(e))
 
 
 @app.post(f"/api/sel-infra", dependencies=[Depends(chkApiKey)])
@@ -601,7 +601,7 @@ def selReal(
 
     except Exception as e:
         log.error(f'Exception : {e}')
-        raise HTTPException(status_code=400, detail=resRespone("fail", 400, "처리 실패", str(e)))
+        raise HTTPException(status_code=400, detail=str(e))
 
 @app.post(f"/api/sel-keyword", dependencies=[Depends(chkApiKey)])
 # @app.post(f"/api/sel-keyword")
@@ -643,7 +643,7 @@ def selReal(
 
     except Exception as e:
         log.error(f'Exception : {e}')
-        raise HTTPException(status_code=400, detail=resRespone("fail", 400, "처리 실패", str(e)))
+        raise HTTPException(status_code=400, detail=str(e))
 
 @app.post(f"/api/sel-yearPopTrend", dependencies=[Depends(chkApiKey)])
 # @app.post(f"/api/sel-yearPopTrend")
@@ -685,7 +685,7 @@ def selReal(
 
     except Exception as e:
         log.error(f'Exception : {e}')
-        raise HTTPException(status_code=400, detail=resRespone("fail", 400, "처리 실패", str(e)))
+        raise HTTPException(status_code=400, detail=str(e))
 
 @app.post(f"/api/sel-upComSupply", dependencies=[Depends(chkApiKey)])
 # @app.post(f"/api/sel-upComSupply")
@@ -727,7 +727,7 @@ def selReal(
 
     except Exception as e:
         log.error(f'Exception : {e}')
-        raise HTTPException(status_code=400, detail=resRespone("fail", 400, "처리 실패", str(e)))
+        raise HTTPException(status_code=400, detail=str(e))
 
 @app.post(f"/api/sel-monthPopTrend", dependencies=[Depends(chkApiKey)])
 # @app.post(f"/api/sel-monthPopTrend")
@@ -769,7 +769,7 @@ def selReal(
 
     except Exception as e:
         log.error(f'Exception : {e}')
-        raise HTTPException(status_code=400, detail=resRespone("fail", 400, "처리 실패", str(e)))
+        raise HTTPException(status_code=400, detail=str(e))
 
 @app.post(f"/api/sel-unSoldTrend", dependencies=[Depends(chkApiKey)])
 # @app.post(f"/api/sel-unSoldTrend")
@@ -811,7 +811,7 @@ def selReal(
 
     except Exception as e:
         log.error(f'Exception : {e}')
-        raise HTTPException(status_code=400, detail=resRespone("fail", 400, "처리 실패", str(e)))
+        raise HTTPException(status_code=400, detail=str(e))
 
 @app.post(f"/api/sel-largeComRank", dependencies=[Depends(chkApiKey)])
 # @app.post(f"/api/sel-largeComRank")
@@ -853,4 +853,4 @@ def selReal(
 
     except Exception as e:
         log.error(f'Exception : {e}')
-        raise HTTPException(status_code=400, detail=resRespone("fail", 400, "처리 실패", str(e)))
+        raise HTTPException(status_code=400, detail=str(e))

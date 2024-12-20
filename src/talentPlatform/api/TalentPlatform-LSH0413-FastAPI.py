@@ -665,9 +665,7 @@ async def viedo_upload(
 
     except Exception as e:
         log.error(f'Exception : {e}')
-        raise HTTPException(status_code=400, detail=
-        ("fail", 400, "처리 실패", len(str(e)), str(e)))
-
+        raise HTTPException(status_code=400, detail=str(e))
 
 @app.get("/video/down", dependencies=[Depends(chkApiKey)])
 async def video_down(file: str):
@@ -686,7 +684,7 @@ async def video_down(file: str):
 
     except Exception as e:
         log.error(f'Exception : {e}')
-        raise HTTPException(status_code=400, detail=resRespone("fail", 400, "처리 실패", str(e)))
+        raise HTTPException(status_code=400, detail=str(e))
 
 
 @app.post("/file/upload")
@@ -745,7 +743,7 @@ async def file_upload(
 
     except Exception as e:
         log.error(f'Exception : {e}')
-        raise HTTPException(status_code=400, detail=resRespone("fail", 400, "처리 실패", len(str(e)), str(e)))
+        raise HTTPException(status_code=400, detail=str(e))
 
 
 @app.post("/file/down")
@@ -808,7 +806,7 @@ async def file_down(
 
     except Exception as e:
         log.error(f'Exception : {e}')
-        raise HTTPException(status_code=400, detail=resRespone("fail", 400, "처리 실패", len(str(e)), str(e)))
+        raise HTTPException(status_code=400, detail=str(e))
 
 # @app.post("/geo/down")
 # async def geo_down(
