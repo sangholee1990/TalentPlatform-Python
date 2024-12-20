@@ -134,13 +134,13 @@ def initLog(env=None, contextPath=None, prjName=None):
 #     if api_key != '20241014.api':
 #         raise HTTPException(status_code=400, detail=resRespone("fail", 400, "인증 실패"))
 
-def resRespone(status: str, code: int, message: str, cnt: int = 0, data: Any = None) -> dict:
+def resResponse(status: str, code: int, message: str, cnt: int = 0, data: Any = None) -> dict:
     return {
-        "status": status
-        , "code": code
-        , "message": message
-        , "cnt": cnt
-        , "data": data
+        "status": status,
+        "code": code,
+        "message": message,
+        "cnt": cnt,
+        "data": data,
     }
 
 # ============================================
@@ -176,7 +176,7 @@ sysOpt = {
     # 임시 경로
     'tmpPath': '{outPath}/%Y%m/%d/%H/%M/{uid}/main.{ext}',
 
-    # 실행 시간
+    # 제한 시간
     'timeOut': 10,
 
     # 실행 정보
@@ -259,15 +259,15 @@ async def selCodeProc(request: cfgCodeProc = Form(...)):
     try:
         lang = request.lang
         if lang is None or len(lang) < 1:
-            raise HTTPException(status_code=400, detail=resRespone("fail", 400, f"프로그래밍 언어를 확인해주세요 ({lang}).", None))
+            return resResponse("fail", 400, f"프로그래밍 언어를 확인해주세요 ({lang}).", None)
 
         code = request.code
         if code is None or len(code) < 1:
-            raise HTTPException(status_code=400, detail=resRespone("fail", 400, f"소스코드를 확인해주세요 ({code}).", None))
+            return resResponse("fail", 400, f"소스코드를 확인해주세요 ({code}).", None)
 
         sysInfo = sysOpt['code'][lang]
         if sysInfo is None or len(sysInfo) < 1:
-            raise HTTPException(status_code=400, detail=resRespone("fail", 400, f"설정 정보를 확인해주세요 ({sysInfo}).", None))
+            return resResponse("fail", 400, f"설정 정보를 확인해주세요 ({sysInfo}).", None)
 
         # 임시 파일 생성
         uid = str(uuid.uuid4())
@@ -278,43 +278,35 @@ async def selCodeProc(request: cfgCodeProc = Form(...)):
         log.info(f"[CHECK] filePath : {filePath}")
 
         cmd = None
-        # if re.search('c', lang, re.IGNORECASE):
-        #     cmd = sysInfo['cmd'].format(exe=sysInfo['exe'], fileInfo=fileInfo, filePath=filePath)
-        # elif re.search('java', lang, re.IGNORECASE):
-        #     cmd = sysInfo['cmd'].format(cmp=sysInfo['cmp'], exe=sysInfo['exe'], fileInfo=fileInfo, filePath=filePath)
-        # elif re.search('python', lang, re.IGNORECASE):
-        #     cmd = sysInfo['cmd'].format(exe=sysInfo['exe'], fileInfo=fileInfo)
-        # elif re.search('javascript', lang, re.IGNORECASE):
-        #     cmd = sysInfo['cmd'].format(exe=sysInfo['exe'], fileInfo=fileInfo)
-        # if cmd is None or len(cmd) < 1:
-        #     raise HTTPException(status_code=400, detail=resRespone("fail", 400, f"실행 명령어를 확인해주세요 ({cmd}).", None))
-
         try:
-            cmd = sysInfo['cmd'].format(
-                fileInfo=fileInfo, filePath=filePath, exe=sysInfo.get('exe'), cmp=sysInfo.get('cmp')
-            )
-        except KeyError:
-            raise HTTPException(status_code=400, detail=resRespone("fail", 400, f"실행 명령어를 확인해주세요 ({cmd}).", None))
+            cmd = sysInfo['cmd'].format(fileInfo=fileInfo, filePath=filePath, exe=sysInfo.get('exe'), cmp=sysInfo.get('cmp'))
+        except ValueError as e:
+            return resResponse("fail", 400, f"실행 명령어를 확인해주세요 ({cmd}).", None, str(e))
         log.info(f"[CHECK] cmd : {cmd}")
-
-
 
         # 코드 저장
         os.makedirs(filePath, exist_ok=True)
+        codeData = code.encode("utf-8").decode("unicode_escape").replace("\r\n", "\n")
         with open(fileInfo, "w") as codeFile:
-            codeFile.write(code.encode("utf-8").decode("unicode_escape").replace("\r\n", "\n"))
+            codeFile.write(codeData)
 
         # 코드 실행
-        codeProcRun = subprocess.run(
-            cmd,
-            stderr=subprocess.PIPE,
-            stdout=subprocess.PIPE,
-            text=True,
-            shell=True,
-            timeout=sysOpt['timeOut']
-        )
+        try:
+            codeProcRun = subprocess.run(
+                cmd,
+                stderr=subprocess.PIPE,
+                stdout=subprocess.PIPE,
+                text=True,
+                shell=True,
+                check=False,
+                timeout=sysOpt['timeOut']
+            )
+        except subprocess.TimeoutExpired as e:
+            return resResponse("fail", 400, f"제한시간 {sysOpt['timeOut']} 초를 초과하였습니다.", None, str(e))
 
         result = {
+            "file": fileInfo,
+            "code": codeData,
             "stdOut": codeProcRun.stdout.strip(),
             "stdErr": codeProcRun.stderr.strip(),
             "exitCode": codeProcRun.returncode
@@ -322,17 +314,15 @@ async def selCodeProc(request: cfgCodeProc = Form(...)):
         log.info(f"[CHECK] result : {result}")
 
         if result['exitCode'] == 0 and len(result['stdOut']) > 0 and len(result['stdErr']) < 1:
-            return resRespone("succ", 200, "처리 완료", len(result), result)
+            return resResponse("succ", 200, "처리 완료", len(result), result)
         else:
-            return resRespone("fail", 400, "처리 실패", None, result)
+            return resResponse("fail", 400, "처리 실패", None, result)
 
     except Exception as e:
         log.error(f'Exception : {e}')
-        raise HTTPException(status_code=400, detail=resRespone("fail", 400, "처리 실패",None, str(e)))
+        raise HTTPException(status_code=400, detail=str(e))
     finally:
         if lang == "c" and os.path.exists(os.path.join(filePath, "a.out")):
             os.remove(os.path.join(filePath, "a.out"))
         if lang == "java" and os.path.exists(os.path.join(filePath, "main.class")):
             os.remove(os.path.join(filePath, "main.class"))
-
-
