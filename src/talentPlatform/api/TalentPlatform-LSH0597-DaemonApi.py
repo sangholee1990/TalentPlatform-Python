@@ -193,7 +193,7 @@ sysOpt = {
             'ver': 'java 20.0.2 2023-07-18',
             'cmp': '/usr/bin/javac',
             'exe': '/usr/bin/java',
-            'cmd': '{cmp} -g:none -O {fileInfo} -d {filePath} && {exe} -Xmx512m -XX:+UseG1GC -XX:+OptimizeStringConca -cp {filePath} main',
+            'cmd': '{cmp} -g:none -O {fileInfo} -d {filePath} && {exe} -Xmx512m -XX:+UseG1GC -cp {filePath} main',
         },
         'python3': {
             'ext': 'py',
@@ -262,9 +262,9 @@ async def selCodeProc(request: cfgCodeProc = Form(...)):
     """
     기능\n
         프로그래밍 언어 및 소스코드를 통해 코딩 테스트 플랫폼 실행\n
-    테스트\n
-        lang: 프로그래밍 언어 (c, java, python3, javascript)\n
-        code: 소스코드\n
+    요청 파라미터\n
+        lang 프로그래밍 언어 (c, java, python3, javascript)\n
+        code 소스코드\n
             - Escape 문자열 처리
                 > # 줄바꿈 -> \\r\\n
                 > " -> \\\"
@@ -291,8 +291,18 @@ async def selCodeProc(request: cfgCodeProc = Form(...)):
 
             - java 샘플코드
                 > IDE 편집기
+                    public class main {
+                        public static void main(String[] args) {
+                            for (char letter = 'A'; letter <= 'Z'; letter++) {
+                                System.out.print(letter);
+                            }
+
+                            System.out.println();
+                        }
+                    }
 
                 > Escape 문자열 처리
+                    public class main {\\r\\n    public static void main(String[] args) {\\r\\n        for (char letter = 'A'; letter <= 'Z'; letter++) {\\r\\n            System.out.print(letter);\\r\\n        }\\r\\n        System.out.println();\\r\\n    }\\r\\n}
 
             - python3 샘플코드
                 > IDE 편집기
@@ -303,6 +313,42 @@ async def selCodeProc(request: cfgCodeProc = Form(...)):
                 > IDE 편집기
 
                 > Escape 문자열 처리
+
+    응답 결과\n
+        설명서
+            - status 처리상태 (succ, fail)
+            - code HTTP 응답코드 (성공 200, 그 외)
+            - message 처리 메시지 (처리 완료, 처리 실패, 에러 메시지)
+            - cnt 세부결과 개수
+            - data 세부결과
+                > file 실행파일 위치
+                > code 실행파일 내용
+                > sysInfo 설정정보 (ext 확장자, ver 버전, exe 실행기, cmd 명령어)
+                > stdOut 코드 실행 시 표준출력 (성공 출력결과, 그 외 "")
+                > stdErr 코드 실행 시 에러출력 (에러 출력결과, 그 외 "")
+                > exitCode 코드 실행 시 상태코드 (성공 0, 그 외)
+
+        샘플결과
+            {
+              "status": "succ",
+              "code": 200,
+              "message": "처리 완료",
+              "cnt": 6,
+              "data": {
+                "file": "/DATA/OUTPUT/LSH0597/202412/20/11/40/6d403d14-9efd-4fde-8054-f3b4fadd585d/main.py",
+                "code": "print('Hello, Python!')",
+                "sysInfo": {
+                  "ext": "py",
+                  "ver": "Python 3.8.18 & conda 24.5.0",
+                  "exe": "/HDD/SYSTEMS/LIB/anaconda3/envs/py38/bin/python3.8",
+                  "cmd": "{exe} -O {fileInfo}"
+                },
+                "stdOut": "Hello, Python!",
+                "stdErr": "",
+                "exitCode": 0
+              }
+            }
+
     """
 
     try:
