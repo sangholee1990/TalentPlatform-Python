@@ -306,13 +306,22 @@ async def selCodeProc(request: cfgCodeProc = Form(...)):
 
             - python3 샘플코드
                 > IDE 편집기
+                    for letter in range(ord('A'), ord('Z') + 1):
+                        print(chr(letter), end='')
+                    print()
+
 
                 > Escape 문자열 처리
+                    for letter in range(ord('A'), ord('Z') + 1):\\r\\n    print(chr(letter), end='')\\r\\nprint()\\r\\n
 
             - javascript 샘플코드
                 > IDE 편집기
+                    for (let letter = 'A'.charCodeAt(0); letter <= 'Z'.charCodeAt(0); letter++) {
+                        process.stdout.write(String.fromCharCode(letter));
+                    }
 
                 > Escape 문자열 처리
+                    for (let letter = 'A'.charCodeAt(0); letter <= 'Z'.charCodeAt(0); letter++) {\\r\\n    process.stdout.write(String.fromCharCode(letter));\\r\\n}\\r\\n
 
     응답 결과\n
         설명서
