@@ -724,10 +724,6 @@ def create_model(input_dim, learning_rate=0.001):
 
     return model
 
-
-
-
-
 @retry(stop_max_attempt_number=5)
 def colctTrendVideo(sysOpt, funName):
     print(f"[{datetime.now()}] {funName} : {sysOpt}")
