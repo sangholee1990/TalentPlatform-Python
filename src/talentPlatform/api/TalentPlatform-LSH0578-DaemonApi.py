@@ -285,10 +285,10 @@ async def selPdfToTxt(
     tmpFileInfo = None
 
     try:
-        if cont == None or len(cont) < 1:
+        if cont is None or len(cont) < 1:
             return resRespone("fail", 400, f"요청사항이 없습니다 ({cont}).", None)
 
-        if file == None:
+        if file is None:
             return resRespone("fail", 400, f"PDF 파일이 없습니다 ({file}).", None)
 
         if file.content_type != 'application/pdf':
@@ -329,11 +329,11 @@ async def selBlogTypePost(request: blogTypePostData = Form(...)):
     """
     try:
         type = request.type
-        if type == None or len(type) < 1:
+        if type is None or len(type) < 1:
             return resRespone("fail", 400, f"분야가 없습니다 ({type}).", None)
 
         cont = request.cont
-        if cont == None or len(cont) < 1:
+        if cont is None or len(cont) < 1:
             return resRespone("fail", 400, f"요청사항이 없습니다 ({cont}).", None)
 
         csvDataL1 = csvData.loc[csvData['분야'] == type]
@@ -368,7 +368,7 @@ async def selBlogPost(request: blogPostData = Form(...)):
     """
     try:
         cont = request.cont
-        if cont == None or len(cont) < 1:
+        if cont is None or len(cont) < 1:
             return resRespone("fail", 400, f"요청사항이 없습니다 ({cont}).", None)
 
         res = model.generate_content(cont)

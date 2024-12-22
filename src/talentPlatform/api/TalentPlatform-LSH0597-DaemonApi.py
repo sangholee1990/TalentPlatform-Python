@@ -450,7 +450,7 @@ async def selCodeHelp(request: cfgCodeHelp = Form(...)):
     """
     try:
         cont = request.cont
-        if cont == None or len(cont) < 1:
+        if cont is None or len(cont) < 1:
             return resResponse("fail", 400, f"요청사항이 없습니다 ({cont}).", None)
 
         res = model.generate_content(cont)
