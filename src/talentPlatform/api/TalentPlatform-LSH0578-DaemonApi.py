@@ -10,7 +10,7 @@
 # cd /HDD/SYSTEMS/PROG/PYTHON/IDE/src/talentPlatform/api
 # conda activate py39
 # uvicorn TalentPlatform-LSH0578-DaemonApi:app --reload --host=0.0.0.0 --port=9200
-# nohup uvicorn TalentPlatform-LSH0578-DaemonApi:app --reload --host=0.0.0.0 --port=9200 &
+# nohup uvicorn TalentPlatform-LSH0578-DaemonApi:app --host=0.0.0.0 --port=9200 &
 # tail -f nohup.out
 
 # 프로그램 종료
@@ -51,11 +51,9 @@ from sqlalchemy.orm import sessionmaker
 from datetime import datetime
 from fastapi import FastAPI, Depends, HTTPException
 from sqlalchemy.orm import Session
-from pydantic import BaseModel
 from fastapi import FastAPI, HTTPException, Depends
 from fastapi.responses import JSONResponse
 from sqlalchemy.orm import Session
-from pydantic import BaseModel, Field
 from typing import List, Any, Dict
 import configparser
 import os
@@ -65,15 +63,12 @@ from fastapi import UploadFile, File
 from fastapi.responses import FileResponse
 import shutil
 from fastapi import FastAPI, UploadFile, File, HTTPException, Depends
-from pydantic import BaseModel
 from typing import List
 from sqlalchemy.orm import Session
 import os
 import shutil
 # from datetime import datetime
-from pydantic import BaseModel, Field, constr
 from fastapi import FastAPI, UploadFile, File
-from pydantic import BaseModel
 from fastapi import FastAPI, UploadFile, File, Form
 import argparse
 import glob
@@ -114,10 +109,10 @@ import os
 import shutil
 import os
 from fastapi import FastAPI, HTTPException, UploadFile, File, Form
-from pydantic import BaseModel, Field
 import tempfile
 import os
 from enum import Enum
+from pydantic import BaseModel, Field, constr, validator
 
 # ============================================
 # 유틸리티 함수
@@ -167,7 +162,6 @@ def initLog(env=None, contextPath=None, prjName=None):
 
     return log
 
-
 # 인증키 검사
 def chkApiKey(api_key: str = Depends(APIKeyHeader(name="api"))):
     if api_key != '20241014-topbds':
@@ -213,12 +207,6 @@ log = initLog(env, ctxPath, prjName)
 
 # 옵션 설정
 sysOpt = {
-    # 시작/종료 시간
-    # 'srtDate': '2018-01-01'
-    # , 'endDate': '2018-12-31'
-    # , 'api': {
-    #     'nph-qpf_ana_img': 'https://apihub.kma.go.kr/api/typ03/cgi/dfs/nph-qpf_ana_img?eva=1&tm=%Y%m%d%H%M&qpf=B&ef=360&map=HR&grid=2&legend=1&size=600&zoom_level=0&zoom_x=0000000&zoom_y=0000000&stn=108&x1=470&y1=575&authKey=DMoNuRIXSjSKDbkSF_o0qg'
-    # }
 }
 
 app = FastAPI(

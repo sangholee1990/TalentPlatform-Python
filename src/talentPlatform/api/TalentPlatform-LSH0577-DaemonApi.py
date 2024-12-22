@@ -10,7 +10,7 @@
 # cd /HDD/SYSTEMS/PROG/PYTHON/IDE/src/talentPlatform/api
 # conda activate py39
 # uvicorn TalentPlatform-LSH0577-DaemonApi:app --reload --host=0.0.0.0 --port=9000
-# nohup uvicorn TalentPlatform-LSH0577-DaemonApi:app --reload --host=0.0.0.0 --port=9000 &
+# nohup uvicorn TalentPlatform-LSH0577-DaemonApi:app --host=0.0.0.0 --port=9000 &
 # tail -f nohup.out
 
 # 프로그램 종료

@@ -10,8 +10,16 @@
 # cd /HDD/SYSTEMS/PROG/PYTHON/IDE/src/talentPlatform/api
 # conda activate py39
 # uvicorn TalentPlatform-LSH0597-DaemonApi:app --reload --host=0.0.0.0 --port=9300
-# nohup uvicorn TalentPlatform-LSH0597-DaemonApi:app --reload --host=0.0.0.0 --port=9300 &
+# nohup uvicorn TalentPlatform-LSH0597-DaemonApi:app --host=0.0.0.0 --port=9300 &
 # tail -f nohup.out
+
+# 프로그램 종료
+# ps -ef | grep "TalentPlatform-LSH0597-DaemonApi" | awk '{print $2}' | xargs kill -9
+
+# 포트 종료
+# yum install lsof -y
+# lsof -i :9300
+# lsof -i :9300 | awk '{print $2}' | xargs kill -9
 
 # ============================================
 # 라이브러리
@@ -234,7 +242,8 @@ app.add_middleware(
     , allow_headers=["*"]
 )
 
-genai.configure(api_key=None)
+# genai.configure(api_key=None)
+genai.configure(api_key='AIzaSyCcWX2naC_JeugXS8zt4AsFeAUIFKAMaYQ')
 model = genai.GenerativeModel('gemini-1.5-pro')
 
 # ============================================
