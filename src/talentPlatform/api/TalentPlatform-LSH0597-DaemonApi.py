@@ -255,7 +255,7 @@ class cfgCodeProc(BaseModel):
     code: str = Field(default=..., description="코드", example="print('Hello, Python!')")
 
 class cfgCodeHelp(BaseModel):
-    cont: str = Field(default=..., description='헬프', example='코드를 수정해줘')
+    cont: str = Field(default=..., description='헬프', example='소스코드 ...n표준에러 ...\\n 요청사항 ...')
 
 # ============================================
 # API URL 주소
@@ -444,9 +444,39 @@ async def selCodeProc(request: cfgCodeProc = Form(...)):
 async def selCodeHelp(request: cfgCodeHelp = Form(...)):
     """
     기능\n
-        소스코드 및 요청사항을 기반으로 헬퍼\n
-    테스트\n
-        cont: 요청사항\n
+        chatGPT 요청사항을 기반으로 헬퍼\n
+    요청 파라미터\n
+        cont 요청사항\n
+            - 샘플코드
+                > IDE 편집기
+                    소스코드
+                    print('Hello, Python!')2
+
+                    표준에러
+                    File \\"/DATA/OUTPUT/LSH0597/202412/24/18/23/30b03a92-622b-4958-8edc-64820ee75ecb/main.py\\", line 1\\n    print('Hello, Python!')2\\n                           ^nSyntaxError: invalid syntax
+
+                    요청사항
+                    소스코드 실행 시 표준에러가 발생되고 있어 이를 수정해조
+
+                > 문자열 처리
+                    소스코드\\n             print('Hello, Python!')2\\n              표준에러\\n             File \\"/DATA/OUTPUT/LSH0597/202412/24/18/23/30b03a92-622b-4958-8edc-64820ee75ecb/main.py\\", line 1\\n    print('Hello, Python!')2\\n                           ^\\nSyntaxError: invalid syntax\\n              요청사항\\n             소스코드 실행 시 표준에러가 발생되고 있어 이를 수정해조
+
+    응답 결과\n
+        설명서
+            - status 처리상태 (succ, fail)
+            - code HTTP 응답코드 (성공 200, 그 외)
+            - message 처리 메시지 (처리 완료, 처리 실패, 에러 메시지)
+            - cnt 세부결과 개수
+            - data 세부결과
+
+        샘플결과
+            {
+              "status": "succ",
+              "code": 200,
+              "message": "처리 완료",
+              "cnt": 520,
+              "data": "`print('Hello, Python!')2` 에서 `2`가 문제입니다.  `print()` 함수 호출 뒤에 붙은 `2`는 파이썬 인터프리터가 이해할 수 없는 구문입니다.  아마도 실수로 입력되었을 가능성이 큽니다.\\n\\n다음과 같이 수정하면 됩니다.\\n\\n```python\\nprint('Hello, Python!')\\n```\\n\\n`2`를 제거하고 `print()` 함수만 남겨두면 \\"Hello, Python!\\"이 정상적으로 출력됩니다.\\n\\n\\n만약 2를 곱하기 연산으로 사용하려고 했다면, 문자열과 숫자는 직접 곱할 수 없습니다.  문자열을 반복하려면 다음과 같이 수정해야 합니다.\\n\\n```python\\nprint('Hello, Python!' * 2)\\n```\\n\\n이렇게 수정하면 \\"Hello, Python!Hello, Python!\\"이 출력됩니다.\\n\\n\\n어떤 의도였는지에 따라  `2`를 삭제하거나 곱셈 연산자 `*`를 추가하는 두 가지 방법 중 하나를 선택해야 합니다.  대부분의 경우, 단순히 `2`를 삭제하는 것이 의도에 맞을 것입니다.\\n"
+            }
     """
     try:
         cont = request.cont
