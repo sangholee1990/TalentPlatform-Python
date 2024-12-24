@@ -564,8 +564,8 @@ def selStatReal(
         log.error(f'Exception : {e}')
         raise HTTPException(status_code=400, detail=str(e))
 
-# @app.post(f"/api/sel-real", dependencies=[Depends(chkApiKey)])
-@app.post(f"/api/sel-real")
+@app.post(f"/api/sel-real", dependencies=[Depends(chkApiKey)])
+# @app.post(f"/api/sel-real")
 def selReal(
         sgg: str = Query(None, description="시군구")
         , apt: str = Query(None, description="아파트")
@@ -663,8 +663,8 @@ def selReal(
         log.error(f'Exception : {e}')
         raise HTTPException(status_code=400, detail=str(e))
 
-# @app.post(f"/api/sel-prd", dependencies=[Depends(chkApiKey)])
-@app.post(f"/api/sel-prd")
+@app.post(f"/api/sel-prd", dependencies=[Depends(chkApiKey)])
+# @app.post(f"/api/sel-prd")
 def selReal(
         sgg: str = Query(None, description="시군구")
         , apt: str = Query(None, description="아파트")
