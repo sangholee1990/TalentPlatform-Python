@@ -36,6 +36,9 @@
 # 아파트의 평형별로 구분하여 아파트 랭킹 구성
 # 레퍼런스 : 아실 데이터 https://asil.kr/asil/index.jsp
 
+# 1. 현재 실거래 리스트에서 연도는 선택만으로 가능한 상황인데 여러 연도로 해야할까요? 그렇게 하려면 API에서 여러 연도를 추가해주시면 (시작연도, 끝연도) 작업 가능합니다.
+# 2. 아파트 상세 내용에서 전체 세대수 API가 대부분의 아파트에서 정보가 없습니다. 혹시 세대수를 따로 받을 수 있는 API가 있으면 알려주세요.
+# 3. 시군구데이터에서 현재 최대거래량을 전체 데이트를 가져와서 하나하나 세야 하는 방식입니다. 그래서 시군구별 한개만 선택해서 데이터 산출이 가능한데요. 여러개 선택할 경우 서버 응답 시간이 초과되는 상황입니다. 혹시 API에서 시군구별로 거래량을 산출한 후에 보내주면 여러 시군구별이나 전체 데이터로 가능할 것으로 보이는데 어떠신지요?
 
 # ============================================
 # 라이브러리
@@ -160,7 +163,7 @@ def chkApiKey(api_key: str = Depends(APIKeyHeader(name="api"))):
     if api_key != '20240922-topbds':
         raise HTTPException(status_code=400, detail="API 인증 실패")
 
-def resRespone(status: str, code: int, message: str, allCnt: int = 0, rowCnt: int = 0, data: Any = None) -> dict:
+def resResponse(status: str, code: int, message: str, allCnt: int = 0, rowCnt: int = 0, data: Any = None) -> dict:
     return {
         "status": status
         , "code": code
@@ -245,6 +248,195 @@ client = bigquery.Client(credentials=credentials, project=credentials.project_id
 async def redirect_to_docs():
     return RedirectResponse(url="/docs")
 
+@app.post(f"/api/sel-selStatRealSgg", dependencies=[Depends(chkApiKey)])
+# @app.post(f"/api/sel-statRealSgg")
+def selStatRealSgg(
+        sgg: str = Query(None, description="시군구")
+        , area: str = Query(None, description="평수")
+        , srtYear: int = Query(None, description="시작 연도")
+        , endYear: int = Query(None, description="종료 연도")
+        , limit: int = Query(10, description="1쪽당 개수")
+        , page: int = Query(1, description="현재 쪽")
+        , sort: str = Query(None, description="정렬")
+    ):
+    """
+    기능\n
+        TB_REAL 통계 목록 조회\n
+    테스트\n
+        시군구 (시군구, 시군구, ...): 서울특별시 강남구,서울특별시 금천구\n
+        평수 (평수, 평수, ...): 5평,6평\n
+        시작 연도: \n
+        종료 연도: \n
+        1쪽당 개수: 10\n
+        현재 쪽: 1\n
+        정렬 (컬럼|차순, 컬럼|차순, ...): cnt|desc,max_amount|desc\n
+    """
+
+    try:
+        # 기본 SQL
+        baseSql = f"SELECT sgg, COUNT(*) AS cnt, MAX(amount) AS max_amount FROM `iconic-ruler-239806.DMS01.TB_REAL`"
+
+        # 동적 SQL 파라미터
+        condList = []
+        if sgg:
+            sggList = [s.strip() for s in sgg.split(',')]
+            sggCond = [f"sgg LIKE '%{s}%'" for s in sggList]
+            condList.append(f"({' OR '.join(sggCond)})")
+
+        if area:
+            areaList = [s.strip() for s in area.split(',')]
+            areaCond = [f"area LIKE '%{s}%'" for s in areaList]
+            condList.append(f"({' OR '.join(areaCond)})")
+
+        if srtYear and endYear:
+            condList.append(f"year BETWEEN {srtYear} AND {endYear}")
+
+        if condList:
+            condSql = " WHERE " + " AND ".join(condList)
+            baseSql += condSql
+
+        # 그룹핑
+        grpList = []
+        grpSql = " GROUP BY sgg"
+        baseSql += grpSql
+
+        # 정렬 'year|desc,price|desc'
+        sortList = []
+        if sort:
+            for sortInfo in sort.split(','):
+                sortPart = sortInfo.split('|')
+                if sortPart is None or len(sortPart) != 2: continue
+                sortCol = sortPart[0]
+                sortOrd = sortPart[1].upper() if sortPart[1].upper() in ["ASC", "DESC"] else "ASC"
+                sortList.append(f"{sortCol} {sortOrd}")
+        if sortList:
+            sortSql = " ORDER BY " + ", ".join(sortList)
+            baseSql += sortSql
+        cntSql = baseSql
+
+        # 페이징
+        pageSql = f" LIMIT {limit} OFFSET {(page - 1) * limit}"
+        baseSql += pageSql
+
+        log.info(f"[CHECK] baseSql : {baseSql}")
+        log.info(f"[CHECK] cntSql : {cntSql}")
+
+        # 쿼리 실행
+        baseQuery = client.query(baseSql)
+        baseRes = baseQuery.result()
+        fileList = [dict(row) for row in baseRes]
+        if fileList is None or len(fileList) < 1:
+            return resResponse("fail", 400, f"검색 결과가 없습니다.", None)
+
+        cntQuery = client.query(cntSql)
+        cntRes = cntQuery.result()
+        cntList = [dict(row) for row in cntRes]
+        cnt = len(cntList)
+
+        return resResponse("succ", 200, "처리 완료", cnt, len(fileList), fileList)
+
+    except Exception as e:
+        log.error(f'Exception : {e}')
+        raise HTTPException(status_code=400, detail=str(e))
+
+@app.post(f"/api/sel-statRealSggApt", dependencies=[Depends(chkApiKey)])
+# @app.post(f"/api/sel-statRealSggApt")
+def selStatRealSggApt(
+        sgg: str = Query(None, description="시군구")
+        , apt: str = Query(None, description="아파트")
+        , area: str = Query(None, description="평수")
+        , srtYear: int = Query(None, description="시작 연도")
+        , endYear: int = Query(None, description="종료 연도")
+        , limit: int = Query(10, description="1쪽당 개수")
+        , page: int = Query(1, description="현재 쪽")
+        , sort: str = Query(None, description="정렬")
+    ):
+    """
+    기능\n
+        TB_REAL 통계 목록 조회\n
+    테스트\n
+        시군구 (시군구, 시군구, ...): 서울특별시 강남구,서울특별시 금천구\n
+        아파트 (아파트, 아파트, ...): \n
+        평수 (평수, 평수, ...): 5평,6평\n
+        시작 연도: \n
+        종료 연도: \n
+        1쪽당 개수: 10\n
+        현재 쪽: 1\n
+        정렬 (컬럼|차순, 컬럼|차순, ...): cnt|desc,max_amount|desc\n
+    """
+
+    try:
+        # 기본 SQL
+        baseSql = f"SELECT sgg, apt, COUNT(*) AS cnt, MAX(amount) AS max_amount FROM `iconic-ruler-239806.DMS01.TB_REAL`"
+
+        # 동적 SQL 파라미터
+        condList = []
+        if sgg:
+            sggList = [s.strip() for s in sgg.split(',')]
+            sggCond = [f"sgg LIKE '%{s}%'" for s in sggList]
+            condList.append(f"({' OR '.join(sggCond)})")
+
+        if apt:
+            aptList = [s.strip() for s in apt.split(',')]
+            aptCond = [f"apt LIKE '%{s}%'" for s in aptList]
+            condList.append(f"({' OR '.join(aptCond)})")
+
+        if area:
+            areaList = [s.strip() for s in area.split(',')]
+            areaCond = [f"area LIKE '%{s}%'" for s in areaList]
+            condList.append(f"({' OR '.join(areaCond)})")
+
+        if srtYear and endYear:
+            condList.append(f"year BETWEEN {srtYear} AND {endYear}")
+
+        if condList:
+            condSql = " WHERE " + " AND ".join(condList)
+            baseSql += condSql
+
+        # 그룹핑
+        grpList = []
+        grpSql = " GROUP BY sgg, apt"
+        baseSql += grpSql
+
+        # 정렬 'year|desc,price|desc'
+        sortList = []
+        if sort:
+            for sortInfo in sort.split(','):
+                sortPart = sortInfo.split('|')
+                if sortPart is None or len(sortPart) != 2: continue
+                sortCol = sortPart[0]
+                sortOrd = sortPart[1].upper() if sortPart[1].upper() in ["ASC", "DESC"] else "ASC"
+                sortList.append(f"{sortCol} {sortOrd}")
+        if sortList:
+            sortSql = " ORDER BY " + ", ".join(sortList)
+            baseSql += sortSql
+        cntSql = baseSql
+
+        # 페이징
+        pageSql = f" LIMIT {limit} OFFSET {(page - 1) * limit}"
+        baseSql += pageSql
+
+        log.info(f"[CHECK] baseSql : {baseSql}")
+        log.info(f"[CHECK] cntSql : {cntSql}")
+
+        # 쿼리 실행
+        baseQuery = client.query(baseSql)
+        baseRes = baseQuery.result()
+        fileList = [dict(row) for row in baseRes]
+        if fileList is None or len(fileList) < 1:
+            return resResponse("fail", 400, f"검색 결과가 없습니다.", None)
+
+        cntQuery = client.query(cntSql)
+        cntRes = cntQuery.result()
+        cntList = [dict(row) for row in cntRes]
+        cnt = len(cntList)
+
+        return resResponse("succ", 200, "처리 완료", cnt, len(fileList), fileList)
+
+    except Exception as e:
+        log.error(f'Exception : {e}')
+        raise HTTPException(status_code=400, detail=str(e))
+
 @app.post(f"/api/sel-statReal", dependencies=[Depends(chkApiKey)])
 # @app.post(f"/api/sel-statReal")
 def selStatReal(
@@ -272,7 +464,7 @@ def selStatReal(
 
     try:
         # 기본 SQL
-        sql = """
+        baseSql = """
             WITH MONTHLYAVGPRICES AS (
                 SELECT
                     APT,
@@ -359,26 +551,28 @@ def selStatReal(
 
         # 쿼리 실행
         queryJobCfg = bigquery.QueryJobConfig(query_parameters=queryParam)
-        queryJob = client.query(sql, job_config=queryJobCfg)
+        queryJob = client.query(baseSql, job_config=queryJobCfg)
         results = queryJob.result()
 
         fileList = [dict(row) for row in results]
         if fileList is None or len(fileList) < 1:
-            raise Exception("검색 결과 없음")
+            return resResponse("fail", 400, f"검색 결과가 없습니다.", None)
 
-        return resRespone("succ", 200, "처리 완료", len(fileList), len(fileList), fileList)
+        return resResponse("succ", 200, "처리 완료", len(fileList), len(fileList), fileList)
 
     except Exception as e:
         log.error(f'Exception : {e}')
         raise HTTPException(status_code=400, detail=str(e))
 
-@app.post(f"/api/sel-real", dependencies=[Depends(chkApiKey)])
-# @app.post(f"/api/sel-real")
+# @app.post(f"/api/sel-real", dependencies=[Depends(chkApiKey)])
+@app.post(f"/api/sel-real")
 def selReal(
         sgg: str = Query(None, description="시군구")
         , apt: str = Query(None, description="아파트")
         , area: str = Query(None, description="평수")
-        , year: int = Query(None, description="연도")
+        # , year: int = Query(None, description="연도")
+        , srtYear: int = Query(None, description="시작 연도")
+        , endYear: int = Query(None, description="종료 연도")
         , limit: int = Query(10, description="1쪽당 개수")
         , page: int = Query(1, description="현재 쪽")
         , sort: str = Query(None, description="정렬")
@@ -390,7 +584,8 @@ def selReal(
         시군구 (시군구, 시군구, ...): 서울특별시 강남구,서울특별시 금천구\n
         아파트 (아파트, 아파트, ...): \n
         평수 (평수, 평수, ...): 5평,6평\n
-        연도: \n
+        시작 연도: \n
+        종료 연도: \n
         1쪽당 개수: 10\n
         현재 쪽: 1\n
         정렬 (컬럼|차순, 컬럼|차순, ...): year|asc,area|desc\n
@@ -421,8 +616,10 @@ def selReal(
             areaCond = [f"area LIKE '%{s}%'" for s in areaList]
             condList.append(f"({' OR '.join(areaCond)})")
 
-        if year:
-            condList.append(f"year = {year}")
+        # if year:
+        #     condList.append(f"year = {year}")
+        if srtYear and endYear:
+            condList.append(f"year BETWEEN {srtYear} AND {endYear}")
 
         if condList:
             condSql = " WHERE " + " AND ".join(condList)
@@ -454,25 +651,27 @@ def selReal(
         baseRes = baseQuery.result()
         fileList = [dict(row) for row in baseRes]
         if fileList is None or len(fileList) < 1:
-            raise Exception("검색 결과 없음")
+            return resResponse("fail", 400, f"검색 결과가 없습니다.", None)
 
         cntQuery = client.query(cntSql)
         cntRes = cntQuery.result()
         cnt = next(cntRes)['CNT']
 
-        return resRespone("succ", 200, "처리 완료", cnt, len(fileList), fileList)
+        return resResponse("succ", 200, "처리 완료", cnt, len(fileList), fileList)
 
     except Exception as e:
         log.error(f'Exception : {e}')
         raise HTTPException(status_code=400, detail=str(e))
 
-@app.post(f"/api/sel-prd", dependencies=[Depends(chkApiKey)])
-# @app.post(f"/api/sel-prd")
+# @app.post(f"/api/sel-prd", dependencies=[Depends(chkApiKey)])
+@app.post(f"/api/sel-prd")
 def selReal(
         sgg: str = Query(None, description="시군구")
         , apt: str = Query(None, description="아파트")
         , area: str = Query(None, description="평수")
-        , year: int = Query(None, description="연도")
+        # , year: int = Query(None, description="연도")
+        , srtYear: int = Query(None, description="시작 연도")
+        , endYear: int = Query(None, description="종료 연도")
         , limit: int = Query(10, description="1쪽당 개수")
         , page: int = Query(1, description="현재 쪽")
         , sort: str = Query(None, description="정렬")
@@ -484,7 +683,8 @@ def selReal(
         시군구 (시군구, 시군구, ...): 서울특별시 강남구,서울특별시 금천구\n
         아파트 (아파트, 아파트, ...): \n
         평수 (평수, 평수, ...): 5평,6평\n
-        연도: \n
+        시작 연도: \n
+        종료 연도: \n
         1쪽당 개수: 10\n
         현재 쪽: 1\n
         정렬 (컬럼|차순, 컬럼|차순, ...): year|asc,area|desc\n
@@ -515,8 +715,10 @@ def selReal(
             areaCond = [f"area LIKE '%{s}%'" for s in areaList]
             condList.append(f"({' OR '.join(areaCond)})")
 
-        if year:
-            condList.append(f"year = {year}")
+        # if year:
+        #     condList.append(f"year = {year}")
+        if srtYear and endYear:
+            condList.append(f"year BETWEEN {srtYear} AND {endYear}")
 
         if condList:
             condSql = " WHERE " + " AND ".join(condList)
@@ -548,13 +750,13 @@ def selReal(
         baseRes = baseQuery.result()
         fileList = [dict(row) for row in baseRes]
         if fileList is None or len(fileList) < 1:
-            raise Exception("검색 결과 없음")
+            return resResponse("fail", 400, f"검색 결과가 없습니다.", None)
 
         cntQuery = client.query(cntSql)
         cntRes = cntQuery.result()
         cnt = next(cntRes)['CNT']
 
-        return resRespone("succ", 200, "처리 완료", cnt, len(fileList), fileList)
+        return resResponse("succ", 200, "처리 완료", cnt, len(fileList), fileList)
 
     except Exception as e:
         log.error(f'Exception : {e}')
@@ -595,9 +797,9 @@ def selReal(
 
         fileList = [dict(row) for row in results]
         if fileList is None or len(fileList) < 1:
-            raise Exception("검색 결과 없음")
+            return resResponse("fail", 400, f"검색 결과가 없습니다.", None)
 
-        return resRespone("succ", 200, "처리 완료", len(fileList), len(fileList), fileList)
+        return resResponse("succ", 200, "처리 완료", len(fileList), len(fileList), fileList)
 
     except Exception as e:
         log.error(f'Exception : {e}')
@@ -637,9 +839,9 @@ def selReal(
 
         fileList = [dict(row) for row in results]
         if fileList is None or len(fileList) < 1:
-            raise Exception("검색 결과 없음")
+            return resResponse("fail", 400, f"검색 결과가 없습니다.", None)
 
-        return resRespone("succ", 200, "처리 완료", len(fileList), len(fileList), fileList)
+        return resResponse("succ", 200, "처리 완료", len(fileList), len(fileList), fileList)
 
     except Exception as e:
         log.error(f'Exception : {e}')
@@ -679,9 +881,9 @@ def selReal(
 
         fileList = [dict(row) for row in results]
         if fileList is None or len(fileList) < 1:
-            raise Exception("검색 결과 없음")
+            return resResponse("fail", 400, f"검색 결과가 없습니다.", None)
 
-        return resRespone("succ", 200, "처리 완료", len(fileList), len(fileList), fileList)
+        return resResponse("succ", 200, "처리 완료", len(fileList), len(fileList), fileList)
 
     except Exception as e:
         log.error(f'Exception : {e}')
@@ -721,9 +923,9 @@ def selReal(
 
         fileList = [dict(row) for row in results]
         if fileList is None or len(fileList) < 1:
-            raise Exception("검색 결과 없음")
+            return resResponse("fail", 400, f"검색 결과가 없습니다.", None)
 
-        return resRespone("succ", 200, "처리 완료", len(fileList), len(fileList), fileList)
+        return resResponse("succ", 200, "처리 완료", len(fileList), len(fileList), fileList)
 
     except Exception as e:
         log.error(f'Exception : {e}')
@@ -763,9 +965,9 @@ def selReal(
 
         fileList = [dict(row) for row in results]
         if fileList is None or len(fileList) < 1:
-            raise Exception("검색 결과 없음")
+            return resResponse("fail", 400, f"검색 결과가 없습니다.", None)
 
-        return resRespone("succ", 200, "처리 완료", len(fileList), len(fileList), fileList)
+        return resResponse("succ", 200, "처리 완료", len(fileList), len(fileList), fileList)
 
     except Exception as e:
         log.error(f'Exception : {e}')
@@ -805,9 +1007,9 @@ def selReal(
 
         fileList = [dict(row) for row in results]
         if fileList is None or len(fileList) < 1:
-            raise Exception("검색 결과 없음")
+            return resResponse("fail", 400, f"검색 결과가 없습니다.", None)
 
-        return resRespone("succ", 200, "처리 완료", len(fileList), len(fileList), fileList)
+        return resResponse("succ", 200, "처리 완료", len(fileList), len(fileList), fileList)
 
     except Exception as e:
         log.error(f'Exception : {e}')
@@ -847,9 +1049,9 @@ def selReal(
 
         fileList = [dict(row) for row in results]
         if fileList is None or len(fileList) < 1:
-            raise Exception("검색 결과 없음")
+            return resResponse("fail", 400, f"검색 결과가 없습니다.", None)
 
-        return resRespone("succ", 200, "처리 완료", len(fileList), len(fileList), fileList)
+        return resResponse("succ", 200, "처리 완료", len(fileList), len(fileList), fileList)
 
     except Exception as e:
         log.error(f'Exception : {e}')
