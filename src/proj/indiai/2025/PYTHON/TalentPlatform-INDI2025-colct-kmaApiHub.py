@@ -1,3 +1,15 @@
+# ================================================
+# 요구사항
+# ================================================
+# Python을 이용한 기상청 API 허브 다운로드
+
+# ps -ef | grep "TalentPlatform-INDI2025-colct-kmaApiHub.py" | awk '{print $2}' | xargs kill -9
+
+# cd /vol01/SYSTEMS/INDIAI/PROG/PYTHON
+# /vol01/SYSTEMS/INDIAI/LIB/anaconda3/envs/py38/bin/python TalentPlatform-INDI2025-colct-kmaApiHub.py --modelList 'UMKR' --cpuCoreNum '5' --srtDate '2019-01-01' --endDate '2020-01-01'
+# nohup /vol01/SYSTEMS/INDIAI/LIB/anaconda3/envs/py38/bin/python TalentPlatform-INDI2025-colct-kmaApiHub.py --modelList 'UMKR' --cpuCoreNum '5' --srtDate '2019-01-01' --endDate '2020-01-01' &
+# nohup /vol01/SYSTEMS/INDIAI/LIB/anaconda3/envs/py38/bin/python TalentPlatform-INDI2025-colct-kmaApiHub.py --modelList 'UMKR' --cpuCoreNum '5' --srtDate '2020-01-01' --endDate '2021-01-01' &
+
 import argparse
 import glob
 import logging
@@ -32,7 +44,8 @@ import os
 import re
 from datetime import datetime
 import subprocess
-from viresclient import AeolusRequest
+from isodate import parse_duration
+from pandas.tseries.offsets import DateOffset
 
 # =================================================
 # 사용자 매뉴얼
@@ -177,8 +190,10 @@ def initArgument(globalVar, inParams):
 def colctProc(modelType, modelInfo, dtDateInfo):
     try:
         colctFunList = {
-            'UMKR': colctKmaApiHub,
-            'KIMG': colctKmaApiHub,
+            'UMKR': colctNwp,
+            'KIMG': colctNwp,
+            'ASOS': colctObs,
+            'AWS': colctObs,
         }
 
         colctFun = colctFunList.get(modelType)
@@ -188,8 +203,79 @@ def colctProc(modelType, modelInfo, dtDateInfo):
         log.error(f'Exception : {str(e)}')
         raise e
 
+def parseDateOffset(invDate):
+    unit = invDate[-1]
+    value = int(invDate[:-1])
+
+    if unit == 'y':
+        return DateOffset(years=value)
+    elif unit == 'm':
+        return DateOffset(months=value)
+    elif unit == 'd':
+        return DateOffset(days=value)
+    elif unit == 'h':
+        return DateOffset(hours=value)
+    elif unit == 't':
+        return DateOffset(minutes=value)
+    elif unit == 's':
+        return DateOffset(seconds=value)
+    else:
+        raise ValueError(f"날짜 파싱 오류 : {unit}")
+
 @retry(stop_max_attempt_number=10)
-def colctKmaApiHub(modelInfo, dtDateInfo):
+def colctObs(modelInfo, dtDateInfo):
+    try:
+        procInfo = mp.current_process()
+
+        tmpFileInfo = dtDateInfo.strftime(modelInfo['tmp'])
+        updFileInfo = dtDateInfo.strftime(modelInfo['target'])
+
+        # 파일 검사
+        fileList = sorted(glob.glob(updFileInfo))
+        if len(fileList) > 0: return
+
+        reqUrl = dtDateInfo.strftime(f"{modelInfo['request']['url']}").format(
+            tmfc=dtDateInfo.strftime('%Y%m%d%H%M'),
+            tmfc2=(dtDateInfo + parseDateOffset(modelInfo['request']['invDate']) - parseDateOffset('1s')).strftime('%Y%m%d%H%M'),
+            authKey=modelInfo['request']['authKey']
+        )
+
+        res = requests.get(reqUrl)
+        if not (res.status_code == 200): return
+
+        os.makedirs(os.path.dirname(tmpFileInfo), exist_ok=True)
+        os.makedirs(os.path.dirname(updFileInfo), exist_ok=True)
+
+        if os.path.exists(tmpFileInfo):
+            os.remove(tmpFileInfo)
+
+        cmd = f"curl -s -C - '{reqUrl}' --retry 10 -o {tmpFileInfo}"
+        log.info(f'[CHECK] cmd : {cmd}')
+
+        try:
+            subprocess.run(cmd, shell=True, check=True, executable='/bin/bash')
+        except subprocess.CalledProcessError as e:
+            raise ValueError(f'[ERROR] 실행 프로그램 실패 : {str(e)}')
+
+        if os.path.exists(tmpFileInfo):
+            if os.path.getsize(tmpFileInfo) > 100:
+                shutil.move(tmpFileInfo, updFileInfo)
+                log.info(f'[CHECK] CMD : mv -f {tmpFileInfo} {updFileInfo}')
+            else:
+                os.remove(tmpFileInfo)
+                log.info(f'[CHECK] CMD : rm -f {tmpFileInfo}')
+
+        log.info(f'[END] colctKmaApiHub : {dtDateInfo} / pid : {procInfo.pid}')
+
+    except Exception as e:
+        log.error(f'Exception : {str(e)}')
+        raise e
+    finally:
+        if os.path.exists(tmpFileInfo):
+            os.remove(tmpFileInfo)
+
+@retry(stop_max_attempt_number=10)
+def colctNwp(modelInfo, dtDateInfo):
     try:
         procInfo = mp.current_process()
 
@@ -242,16 +328,6 @@ def colctKmaApiHub(modelInfo, dtDateInfo):
 # 4. 부 프로그램
 # ================================================
 class DtaProcess(object):
-    # ================================================
-    # 요구사항
-    # ================================================
-    # Python을 이용한 기상청 API 허브 다운로드
-
-    # cd /home/hanul/SYSTEMS/KIER/PROG/PYTHON/colct
-    # nohup /home/hanul/anaconda3/envs/py38/bin/python3 TalentPlatform-INDI2025-colct-remssSat.py --modelList SAT-AMSR2 --cpuCoreNum 5 --srtDate 2023-01-01 --endDate 2023-01-03 &
-    # ps -ef | grep "TalentPlatform-INDI2025-colct-remssSat.py" | awk '{print $2}' | xargs kill -9
-
-    # /home/hanul/anaconda3/envs/py38/bin/python3 TalentPlatform-INDI2025-colct-kmaApiHub.py --modelList 'UMKR' --cpuCoreNum '5' --srtDate '2023-01-01' --endDate '2023-01-03'
 
     # ================================================================================================
     # 환경변수 설정
@@ -269,7 +345,7 @@ class DtaProcess(object):
         contextPath = os.getcwd() if env in 'local' else '/vol01/SYSTEMS/KIER/PROG/PYTHON'
 
     prjName = 'test'
-    serviceName = 'INDI2024'
+    serviceName = 'INDI2025'
 
     # 4.1. 환경 변수 설정 (로그 설정)
     log = initLog(env, contextPath, prjName)
@@ -313,29 +389,47 @@ class DtaProcess(object):
 
             # 옵션 설정
             sysOpt = {
-                # 예보시간 시작일, 종료일, 시간 간격 (연 1y, 월 1h, 일 1d, 시간 1h)
+                # 예보시간 시작일, 종료일, 시간 간격 (연 1y, 월 1m, 일 1d, 시간 1h, 분 1t, 초 1s)
                 # 'srtDate': '2019-01-01'
-                # , 'endDate': '2019-01-02'
-                'srtDate': '2023-01-01'
-                , 'endDate': '2023-01-02'
-                # 'srtDate': globalVar['srtDate']
-                # , 'endDate': globalVar['endDate']
-                , 'invDate': '6h'
+                # , 'endDate': '2019-01-03'
+                # 'srtDate': '2023-01-01'
+                # , 'endDate': '2023-01-02'
+                'srtDate': globalVar['srtDate']
+                , 'endDate': globalVar['endDate']
 
                 # 수행 목록
                 # , 'modelList': ['UMKR', 'KIMG']
-                , 'modelList': ['KIMG']
-                # 'modelList': [globalVar['modelList']]
+                # , 'modelList': ['AWS']
+                , 'modelList': [globalVar['modelList']]
 
                 # 비동기 다중 프로세스 개수
                 , 'cpuCoreNum': '5'
                 # , 'cpuCoreNum': globalVar['cpuCoreNum']
 
+                , 'ASOS': {
+                    'request': {
+                        'url': 'https://apihub.kma.go.kr/api/typ01/url/kma_sfctm3.php?tm1={tmfc}&tm2={tmfc2}&stn=0&help=0&authKey={authKey}'
+                        , 'authKey': None
+                        , 'invDate': '1d'
+                    }
+                    , 'tmp': '/DATA/COLCT/OBS/%Y%m/%d/.ASOS_OBS_%Y%m%d%H%M.txt'
+                    , 'target': '/DATA/COLCT/OBS/%Y%m/%d/ASOS_OBS_%Y%m%d%H%M.txt'
+                }
+                , 'AWS': {
+                    'request': {
+                        'url': 'https://apihub.kma.go.kr/api/typ01/cgi-bin/url/nph-aws2_min?tm1={tmfc}&tm2={tmfc2}&stn=0&disp=0&help=0&authKey={authKey}'
+                        , 'authKey': None
+                        , 'invDate': '3h'
+                    }
+                    , 'tmp': '/DATA/COLCT/OBS/%Y%m/%d/.AWS_OBS_%Y%m%d%H%M.txt'
+                    , 'target': '/DATA/COLCT/OBS/%Y%m/%d/AWS_OBS_%Y%m%d%H%M.txt'
+                }
                 , 'UMKR': {
                     'request': {
                         'url': 'https://apihub-org.kma.go.kr/api/typ06/url/nwp_file_down.php?nwp=l015&sub=unis&tmfc={tmfc}&ef={ef}&authKey={authKey}'
                         , 'ef': ['00', '01', '02', '03', '04', '05']
-                        , 'authKey': 'K9T48u1YSleU-PLtWDpXGg'
+                        , 'authKey': None
+                        , 'invDate': '6h'
                     }
                     , 'tmp': '/DATA/COLCT/UMKR/%Y%m/%d/.UMKR_l015_unis_H{ef}_%Y%m%d%H%M.grb2'
                     , 'target': '/DATA/COLCT/UMKR/%Y%m/%d/UMKR_l015_unis_H{ef}_%Y%m%d%H%M.grb2'
@@ -343,9 +437,9 @@ class DtaProcess(object):
                 , 'KIMG': {
                     'request': {
                         'url': 'https://apihub-org.kma.go.kr/api/typ06/url/nwp_file_down.php?nwp=k128&sub=unis&tmfc={tmfc}&ef={ef}&authKey={authKey}'
-                        # , 'ef': ['00', '01', '02', '03', '04', '05']
-                        , 'ef': ['01']
-                        , 'authKey': 'K9T48u1YSleU-PLtWDpXGg'
+                        , 'ef': ['00', '03', '06']
+                        , 'authKey': None
+                        , 'invDate': '6h'
                     }
                     , 'tmp': '/DATA/COLCT/KIMG/%Y%m/%d/.KIMG_k128_unis_H{ef}_%Y%m%d%H%M.grb2'
                     , 'target': '/DATA/COLCT/KIMG/%Y%m/%d/KIMG_k128_unis_H{ef}_%Y%m%d%H%M.grb2'
@@ -358,19 +452,17 @@ class DtaProcess(object):
             # 비동기 다중 프로세스 개수
             pool = Pool(int(sysOpt['cpuCoreNum']))
 
-            # 시작일/종료일 설정
-            dtSrtDate = pd.to_datetime(sysOpt['srtDate'], format='%Y-%m-%d')
-            dtEndDate = pd.to_datetime(sysOpt['endDate'], format='%Y-%m-%d')
-            dtDateList = pd.date_range(start=dtSrtDate, end=dtEndDate, freq=sysOpt['invDate'])
-            for dtDateInfo in dtDateList:
-                log.info(f'[CHECK] dtDateInfo : {dtDateInfo}')
+            for modelType in sysOpt['modelList']:
+                modelInfo = sysOpt.get(modelType)
+                if modelInfo is None: continue
 
-                for modelType in sysOpt['modelList']:
-                    # log.info(f'[CHECK] modelType : {modelType}')
+                # 시작일/종료일 설정
+                dtSrtDate = pd.to_datetime(sysOpt['srtDate'], format='%Y-%m-%d')
+                dtEndDate = pd.to_datetime(sysOpt['endDate'], format='%Y-%m-%d')
+                dtDateList = pd.date_range(start=dtSrtDate, end=dtEndDate, freq=modelInfo['request']['invDate'])
 
-                    modelInfo = sysOpt.get(modelType)
-                    if modelInfo is None: continue
-
+                for dtDateInfo in dtDateList:
+                    # log.info(f'[CHECK] dtDateInfo : {dtDateInfo}')
                     pool.apply_async(colctProc, args=(modelType, modelInfo, dtDateInfo))
 
             pool.close()
