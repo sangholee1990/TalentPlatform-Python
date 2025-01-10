@@ -6,9 +6,16 @@
 # ps -ef | grep "TalentPlatform-INDI2025-colct-kmaApiHub.py" | awk '{print $2}' | xargs kill -9
 
 # cd /vol01/SYSTEMS/INDIAI/PROG/PYTHON
-# /vol01/SYSTEMS/INDIAI/LIB/anaconda3/envs/py38/bin/python TalentPlatform-INDI2025-colct-kmaApiHub.py --modelList 'UMKR' --cpuCoreNum '5' --srtDate '2019-01-01' --endDate '2020-01-01'
-# nohup /vol01/SYSTEMS/INDIAI/LIB/anaconda3/envs/py38/bin/python TalentPlatform-INDI2025-colct-kmaApiHub.py --modelList 'UMKR' --cpuCoreNum '5' --srtDate '2019-01-01' --endDate '2020-01-01' &
-# nohup /vol01/SYSTEMS/INDIAI/LIB/anaconda3/envs/py38/bin/python TalentPlatform-INDI2025-colct-kmaApiHub.py --modelList 'UMKR' --cpuCoreNum '5' --srtDate '2020-01-01' --endDate '2021-01-01' &
+# /vol01/SYSTEMS/INDIAI/LIB/anaconda3/envs/py38/bin/python /vol01/SYSTEMS/INDIAI/PROG/PYTHON/TalentPlatform-INDI2025-colct-kmaApiHub.py --modelList 'UMKR' --cpuCoreNum '5' --srtDate '2019-01-01' --endDate '2020-01-01'
+
+# nohup /vol01/SYSTEMS/INDIAI/LIB/anaconda3/envs/py38/bin/python /vol01/SYSTEMS/INDIAI/PROG/PYTHON/TalentPlatform-INDI2025-colct-kmaApiHub.py --modelList 'UMKR' --cpuCoreNum '5' --srtDate '2019-01-01' --endDate '2020-01-01' &
+# nohup /vol01/SYSTEMS/INDIAI/LIB/anaconda3/envs/py38/bin/python /vol01/SYSTEMS/INDIAI/PROG/PYTHON/TalentPlatform-INDI2025-colct-kmaApiHub.py --modelList 'UMKR' --cpuCoreNum '5' --srtDate '2020-01-01' --endDate '2021-01-01' &
+# nohup /vol01/SYSTEMS/INDIAI/LIB/anaconda3/envs/py38/bin/python /vol01/SYSTEMS/INDIAI/PROG/PYTHON/TalentPlatform-INDI2025-colct-kmaApiHub.py --modelList 'UMKR' --cpuCoreNum '5' --srtDate '2019-07-01' --endDate '2020-01-01' &
+# nohup /vol01/SYSTEMS/INDIAI/LIB/anaconda3/envs/py38/bin/python /vol01/SYSTEMS/INDIAI/PROG/PYTHON/TalentPlatform-INDI2025-colct-kmaApiHub.py --modelList 'UMKR' --cpuCoreNum '5' --srtDate '2020-07-01' --endDate '2021-01-01' &
+
+# nohup /vol01/SYSTEMS/INDIAI/LIB/anaconda3/envs/py38/bin/python /vol01/SYSTEMS/INDIAI/PROG/PYTHON/TalentPlatform-INDI2025-colct-kmaApiHub.py --modelList 'ASOS' --cpuCoreNum '5' --srtDate '2019-01-01' --endDate '2021-01-01' &
+# nohup /vol01/SYSTEMS/INDIAI/LIB/anaconda3/envs/py38/bin/python /vol01/SYSTEMS/INDIAI/PROG/PYTHON/TalentPlatform-INDI2025-colct-kmaApiHub.py --modelList 'AWS' --cpuCoreNum '5' --srtDate '2019-01-01' --endDate '2021-01-01' &
+# nohup /vol01/SYSTEMS/INDIAI/LIB/anaconda3/envs/py38/bin/python /vol01/SYSTEMS/INDIAI/PROG/PYTHON/TalentPlatform-INDI2025-colct-kmaApiHub.py --modelList 'AWS' --cpuCoreNum '10' --srtDate '2020-01-01' --endDate '2021-01-01' &
 
 import argparse
 import glob
@@ -240,8 +247,8 @@ def colctObs(modelInfo, dtDateInfo):
             authKey=modelInfo['request']['authKey']
         )
 
-        res = requests.get(reqUrl)
-        if not (res.status_code == 200): return
+        # res = requests.get(reqUrl)
+        # if not (res.status_code == 200): return
 
         os.makedirs(os.path.dirname(tmpFileInfo), exist_ok=True)
         os.makedirs(os.path.dirname(updFileInfo), exist_ok=True)
@@ -258,7 +265,7 @@ def colctObs(modelInfo, dtDateInfo):
             raise ValueError(f'[ERROR] 실행 프로그램 실패 : {str(e)}')
 
         if os.path.exists(tmpFileInfo):
-            if os.path.getsize(tmpFileInfo) > 100:
+            if os.path.getsize(tmpFileInfo) > 1000:
                 shutil.move(tmpFileInfo, updFileInfo)
                 log.info(f'[CHECK] CMD : mv -f {tmpFileInfo} {updFileInfo}')
             else:
@@ -290,8 +297,8 @@ def colctNwp(modelInfo, dtDateInfo):
             if len(fileList) > 0: return
 
             reqUrl = dtDateInfo.strftime(f"{modelInfo['request']['url']}").format(tmfc=dtDateInfo.strftime('%Y%m%d%H'), ef=ef, authKey=modelInfo['request']['authKey'])
-            res = requests.get(reqUrl)
-            if not (res.status_code == 200): return
+            # res = requests.get(reqUrl)
+            # if not (res.status_code == 200): return
 
             os.makedirs(os.path.dirname(tmpFileInfo), exist_ok=True)
             os.makedirs(os.path.dirname(updFileInfo), exist_ok=True)
@@ -308,7 +315,7 @@ def colctNwp(modelInfo, dtDateInfo):
                 raise ValueError(f'[ERROR] 실행 프로그램 실패 : {str(e)}')
 
             if os.path.exists(tmpFileInfo):
-                if os.path.getsize(tmpFileInfo) > 100:
+                if os.path.getsize(tmpFileInfo) > 1000:
                     shutil.move(tmpFileInfo, updFileInfo)
                     log.info(f'[CHECK] CMD : mv -f {tmpFileInfo} {updFileInfo}')
                 else:
@@ -341,8 +348,7 @@ class DtaProcess(object):
     if platform.system() == 'Windows':
         contextPath = os.getcwd() if env in 'local' else 'E:/04. TalentPlatform/Github/TalentPlatform-Python'
     else:
-        # contextPath = os.getcwd() if env in 'local' else '/SYSTEMS/PROG/PYTHON/PyCharm'
-        contextPath = os.getcwd() if env in 'local' else '/vol01/SYSTEMS/KIER/PROG/PYTHON'
+        contextPath = os.getcwd() if env in 'local' else '/SYSTEMS/PROG/PYTHON/IDE'
 
     prjName = 'test'
     serviceName = 'INDI2025'
@@ -390,23 +396,20 @@ class DtaProcess(object):
             # 옵션 설정
             sysOpt = {
                 # 예보시간 시작일, 종료일, 시간 간격 (연 1y, 월 1m, 일 1d, 시간 1h, 분 1t, 초 1s)
-                # 'srtDate': '2019-01-01'
-                # , 'endDate': '2019-01-03'
-                # 'srtDate': '2023-01-01'
-                # , 'endDate': '2023-01-02'
-                'srtDate': globalVar['srtDate']
-                , 'endDate': globalVar['endDate']
+                # 'srtDate': '2019-01-01',
+                # 'endDate': '2019-01-04',
+                'srtDate': globalVar['srtDate'],
+                'endDate': globalVar['endDate'],
 
                 # 수행 목록
-                # , 'modelList': ['UMKR', 'KIMG']
-                # , 'modelList': ['AWS']
-                , 'modelList': [globalVar['modelList']]
+                # 'modelList': ['AWS', 'ASOS', 'UMKR', 'KIMG'],
+                'modelList': [globalVar['modelList']],
 
                 # 비동기 다중 프로세스 개수
-                , 'cpuCoreNum': '5'
-                # , 'cpuCoreNum': globalVar['cpuCoreNum']
+                # 'cpuCoreNum': '5',
+                'cpuCoreNum': globalVar['cpuCoreNum'],
 
-                , 'ASOS': {
+                'ASOS': {
                     'request': {
                         'url': 'https://apihub.kma.go.kr/api/typ01/url/kma_sfctm3.php?tm1={tmfc}&tm2={tmfc2}&stn=0&help=0&authKey={authKey}'
                         , 'authKey': None
@@ -414,8 +417,8 @@ class DtaProcess(object):
                     }
                     , 'tmp': '/DATA/COLCT/OBS/%Y%m/%d/.ASOS_OBS_%Y%m%d%H%M.txt'
                     , 'target': '/DATA/COLCT/OBS/%Y%m/%d/ASOS_OBS_%Y%m%d%H%M.txt'
-                }
-                , 'AWS': {
+                },
+                'AWS': {
                     'request': {
                         'url': 'https://apihub.kma.go.kr/api/typ01/cgi-bin/url/nph-aws2_min?tm1={tmfc}&tm2={tmfc2}&stn=0&disp=0&help=0&authKey={authKey}'
                         , 'authKey': None
@@ -423,8 +426,8 @@ class DtaProcess(object):
                     }
                     , 'tmp': '/DATA/COLCT/OBS/%Y%m/%d/.AWS_OBS_%Y%m%d%H%M.txt'
                     , 'target': '/DATA/COLCT/OBS/%Y%m/%d/AWS_OBS_%Y%m%d%H%M.txt'
-                }
-                , 'UMKR': {
+                },
+                'UMKR': {
                     'request': {
                         'url': 'https://apihub-org.kma.go.kr/api/typ06/url/nwp_file_down.php?nwp=l015&sub=unis&tmfc={tmfc}&ef={ef}&authKey={authKey}'
                         , 'ef': ['00', '01', '02', '03', '04', '05']
@@ -433,8 +436,8 @@ class DtaProcess(object):
                     }
                     , 'tmp': '/DATA/COLCT/UMKR/%Y%m/%d/.UMKR_l015_unis_H{ef}_%Y%m%d%H%M.grb2'
                     , 'target': '/DATA/COLCT/UMKR/%Y%m/%d/UMKR_l015_unis_H{ef}_%Y%m%d%H%M.grb2'
-                }
-                , 'KIMG': {
+                },
+                'KIMG': {
                     'request': {
                         'url': 'https://apihub-org.kma.go.kr/api/typ06/url/nwp_file_down.php?nwp=k128&sub=unis&tmfc={tmfc}&ef={ef}&authKey={authKey}'
                         , 'ef': ['00', '03', '06']
@@ -443,7 +446,7 @@ class DtaProcess(object):
                     }
                     , 'tmp': '/DATA/COLCT/KIMG/%Y%m/%d/.KIMG_k128_unis_H{ef}_%Y%m%d%H%M.grb2'
                     , 'target': '/DATA/COLCT/KIMG/%Y%m/%d/KIMG_k128_unis_H{ef}_%Y%m%d%H%M.grb2'
-                }
+                },
             }
 
             # **************************************************************************************************************
