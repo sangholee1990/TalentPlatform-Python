@@ -1,21 +1,16 @@
 # ================================================
 # 요구사항
 # ================================================
-# Python을 이용한 기상청 API 허브 다운로드
+# Python을 이용한 태양광 자동화/수동화 모델링
+# pip install optuna lightgbm
+# pip install flaml
+# pip install pycaret[full]
 
 # ps -ef | grep "TalentPlatform-INDI2025-colct-kmaApiHub.py" | awk '{print $2}' | xargs kill -9
 
 # cd /vol01/SYSTEMS/INDIAI/PROG/PYTHON
 # /vol01/SYSTEMS/INDIAI/LIB/anaconda3/envs/py38/bin/python /vol01/SYSTEMS/INDIAI/PROG/PYTHON/TalentPlatform-INDI2025-colct-kmaApiHub.py --modelList 'UMKR' --cpuCoreNum '5' --srtDate '2019-01-01' --endDate '2020-01-01'
-
 # nohup /vol01/SYSTEMS/INDIAI/LIB/anaconda3/envs/py38/bin/python /vol01/SYSTEMS/INDIAI/PROG/PYTHON/TalentPlatform-INDI2025-colct-kmaApiHub.py --modelList 'UMKR' --cpuCoreNum '5' --srtDate '2019-01-01' --endDate '2020-01-01' &
-# nohup /vol01/SYSTEMS/INDIAI/LIB/anaconda3/envs/py38/bin/python /vol01/SYSTEMS/INDIAI/PROG/PYTHON/TalentPlatform-INDI2025-colct-kmaApiHub.py --modelList 'UMKR' --cpuCoreNum '5' --srtDate '2020-01-01' --endDate '2021-01-01' &
-# nohup /vol01/SYSTEMS/INDIAI/LIB/anaconda3/envs/py38/bin/python /vol01/SYSTEMS/INDIAI/PROG/PYTHON/TalentPlatform-INDI2025-colct-kmaApiHub.py --modelList 'UMKR' --cpuCoreNum '5' --srtDate '2019-07-01' --endDate '2020-01-01' &
-# nohup /vol01/SYSTEMS/INDIAI/LIB/anaconda3/envs/py38/bin/python /vol01/SYSTEMS/INDIAI/PROG/PYTHON/TalentPlatform-INDI2025-colct-kmaApiHub.py --modelList 'UMKR' --cpuCoreNum '5' --srtDate '2020-07-01' --endDate '2021-01-01' &
-
-# nohup /vol01/SYSTEMS/INDIAI/LIB/anaconda3/envs/py38/bin/python /vol01/SYSTEMS/INDIAI/PROG/PYTHON/TalentPlatform-INDI2025-colct-kmaApiHub.py --modelList 'ASOS' --cpuCoreNum '5' --srtDate '2019-01-01' --endDate '2021-01-01' &
-# nohup /vol01/SYSTEMS/INDIAI/LIB/anaconda3/envs/py38/bin/python /vol01/SYSTEMS/INDIAI/PROG/PYTHON/TalentPlatform-INDI2025-colct-kmaApiHub.py --modelList 'AWS' --cpuCoreNum '5' --srtDate '2019-01-01' --endDate '2021-01-01' &
-# nohup /vol01/SYSTEMS/INDIAI/LIB/anaconda3/envs/py38/bin/python /vol01/SYSTEMS/INDIAI/PROG/PYTHON/TalentPlatform-INDI2025-colct-kmaApiHub.py --modelList 'AWS' --cpuCoreNum '10' --srtDate '2020-01-01' --endDate '2021-01-01' &
 
 import argparse
 import glob
@@ -42,17 +37,19 @@ import yaml
 from multiprocessing import Pool
 import multiprocessing as mp
 from retrying import retry
-# import cdsapi
 import shutil
 
-import requests
-from bs4 import BeautifulSoup
 import os
 import re
 from datetime import datetime
 import subprocess
 from isodate import parse_duration
 from pandas.tseries.offsets import DateOffset
+import optuna.integration.lightgbm as lgb
+import pickle
+from flaml import AutoML
+from sklearn.model_selection import train_test_split
+from pycaret.regression import *
 
 # =================================================
 # 사용자 매뉴얼
@@ -213,6 +210,166 @@ def parseDateOffset(invDate):
     else:
         raise ValueError(f"날짜 파싱 오류 : {unit}")
 
+
+def makePycaretModel(subOpt=None, xCol=None, yCol=None, inpData=None, modelKey=None, addrCode = None):
+    log.info('[START] {}'.format('makePycaretModel'))
+
+    result = None
+
+    try:
+
+        # saveModel = '{}/{}/{}-{}-{}-{}-{}.model.pkl'.format(globalVar['outPath'], serviceName, modelKey, 'final', 'pycaret', 'act', '*')
+        saveModel = '{}/{}/{}/{}/{}-{}-{}-{}-{}.model.pkl'.format(globalVar['outPath'], serviceName, 'MODEL', addrCode, modelKey, 'final', 'pycaret', 'act', '*')
+        saveModelList = sorted(glob.glob(saveModel), reverse=True)
+        xyCol = xCol.copy()
+        xyCol.append(yCol)
+        # data = inpData[xyCol]
+        data = inpData[xyCol].dropna()
+
+
+        # 학습 모델이 없을 경우
+        if (subOpt['isOverWrite']) or (len(saveModelList) < 1):
+
+            # 7:3에 대한 학습/테스트 분류
+            trainData, validData = train_test_split(data, test_size=0.3)
+            # trainData = inpData
+
+            pyModel = setup(
+                data=trainData
+                , session_id=123
+                , silent=True
+                , target=yCol
+            )
+
+            # 각 모형에 따른 자동 머신러닝
+            modelList = compare_models(sort='RMSE', n_select=3)
+
+            # 앙상블 모형
+            blendModel = blend_models(estimator_list=modelList, fold=10)
+
+            # 앙상블 파라미터 튜닝
+            tuneModel = tune_model(blendModel, fold=10, choose_better=True)
+
+            # 학습 모형
+            fnlModel = finalize_model(tuneModel)
+
+            # 학습 모형 저장
+            saveModel = '{}/{}/{}/{}/{}-{}-{}-{}-{}.model'.format(globalVar['outPath'], serviceName, 'MODEL', addrCode, modelKey, 'final', 'pycaret', 'act', datetime.now().strftime('%Y%m%d'))
+            log.info('[CHECK] saveModel : {}'.format(saveModel))
+            os.makedirs(os.path.dirname(saveModel), exist_ok=True)
+            save_model(fnlModel, saveModel)
+
+        else:
+            saveModel = saveModelList[0]
+            log.info('[CHECK] saveModel : {}'.format(saveModel))
+            fnlModel = load_model(os.path.splitext(saveModel)[0])
+
+        result = {
+            'msg': 'succ'
+            , 'mlModel': fnlModel
+            , 'saveModel': saveModel
+            , 'isExist': os.path.exists(saveModel)
+        }
+
+        return result
+
+    except Exception as e:
+        log.error('Exception : {}'.format(e))
+        return result
+
+    finally:
+        log.info('[END] {}'.format('makePycaretModel'))
+
+# 머신러닝 예측
+def makeFlamlModel(subOpt=None, xCol=None, yCol=None, trainData=None, testData=None):
+
+    log.info('[START] {}'.format('makeFlamlModel'))
+    log.info('[CHECK] subOpt : {}'.format(subOpt))
+
+    result = None
+
+    try:
+        # saveModel = '{}/{}/{}-{}-{}-{}-{}-{}.model'.format(globalVar['outPath'], subOpt['modelKey'], serviceName, subOpt['srvId'], 'final', 'flaml', 'for', '*')
+        # saveModel = '{}/{}/{}-{}-{}-{}-{}.model'.format(globalVar['outPath'], serviceName, subOpt['modelKey'], 'final', 'flaml', 'for', '*')
+        saveModel = '{}/{}/{}-{}-{}-{}.model'.format(globalVar['outPath'], serviceName, subOpt['modelKey'], 'final', 'flaml', 'for')
+        saveModelList = sorted(glob.glob(saveModel), reverse=True)
+        xyCol = xCol.copy()
+        xyCol.append(yCol)
+
+        # trainDataL1 = trainData[xyCol]
+        # testDataL1 = testData[xyCol]
+
+        # 학습 모델이 없을 경우
+        if (subOpt['isOverWrite']) or (len(saveModelList) < 1):
+
+            # 7:3에 대한 학습/테스트 분류
+            # trainData, validData = train_test_split(dataL1, test_size=0.3)
+
+            # 전체 학습 데이터
+            # trainData = dataL1
+
+            # ray.init(num_cpus=12, ignore_reinit_error=True)
+            # ray.init(num_cpus=12)
+
+            flModel = AutoML(
+                # 연속 예측
+                task="regression"
+                , metric='rmse'
+
+                # 이진 분류
+                # task="classification"
+                # , metric='accuracy'
+
+                , ensemble = False
+                # , ensemble = True
+                , seed = 123
+                , time_budget=60
+                # , time_budget=600
+            )
+
+            # 각 모형에 따른 자동 머신러닝
+            flModel.fit(X_train=trainData[xCol], y_train=trainData[yCol])
+            # flModel.fit(X_train=trainData[xCol], y_train=trainData[yCol], n_jobs=12, n_concurrent_trials=4)
+
+            # 학습 모형 저장
+            # saveModel = '{}/{}/{}-{}-{}-{}-{}-{}.model'.format(globalVar['outPath'], subOpt['modelKey'], serviceName, subOpt['srvId'], 'final', 'flaml', 'for', datetime.datetime.now().strftime('%Y%m%d'))
+            # saveModel = '{}/{}/{}-{}-{}-{}-{}.model'.format(globalVar['outPath'], serviceName, subOpt['modelKey'], 'final', 'flaml', 'for', datetime.now().strftime('%Y%m%d'))
+            saveModel = '{}/{}/{}-{}-{}-{}.model'.format(globalVar['outPath'], serviceName, subOpt['modelKey'], 'final', 'flaml', 'for')
+            log.info(f"[CHECK] saveModel : {saveModel}")
+            os.makedirs(os.path.dirname(saveModel), exist_ok=True)
+
+            with open(saveModel, 'wb') as file:
+                pickle.dump(flModel, file, pickle.HIGHEST_PROTOCOL)
+
+        else:
+            saveModel = saveModelList[0]
+            log.info(f"[CHECK] saveModel : {saveModel}")
+
+            with open(saveModel, 'rb') as f:
+                flModel = pickle.load(f)
+
+        result = {
+            'msg': 'succ'
+            , 'mlModel': flModel
+            , 'saveModel': saveModel
+            , 'isExist': os.path.exists(saveModel)
+        }
+
+        return result
+
+    except Exception as e:
+        log.error('Exception : {}'.format(e))
+        return result
+
+    finally:
+        log.info('[END] {}'.format('makeFlamlModel'))
+
+def convStrToDate(row):
+    if '24:00:00' in row:
+        convTime = row.replace('24:00:00', '00:00:00')
+        return pd.to_datetime(convTime) + parseDateOffset('1d')
+    return pd.to_datetime(row)
+
 # ================================================
 # 4. 부 프로그램
 # ================================================
@@ -291,7 +448,6 @@ class DtaProcess(object):
                 # 'cpuCoreNum': '5',
                 # 'cpuCoreNum': globalVar['cpuCoreNum'],
 
-
                 # 설정 파일
                 'CFG': {
                     'siteInfo': {
@@ -311,7 +467,21 @@ class DtaProcess(object):
                         'fileName': 'ulsan_fcst_data.csv',
                     },
                 },
+                'ML': {
+                    'flaml': {
+                        'srvId': serviceName,
+                        'modelKey': 'solar',
+                        'isOverWrite': True,
+                    },
+                },
             }
+
+            #    sysOpt['mlModel'].update(
+            #                 {
+            #                     'srvId': serviceName
+            #                     , 'modelKey': 'solar'
+            #                     , 'isOverWrite': True
+            #                 }
 
             # **************************************************************************************************************
             # 설정 파일 읽기
@@ -331,16 +501,113 @@ class DtaProcess(object):
 
             # 학습모델 생성
             energyData = cfgData['energy'][['time', 'ulsan']]
+            energyData['eneDt'] = energyData['time'].apply(convStrToDate)
 
+
+            # energyData
 
             # 실황 학습모델
-            cfgData['ulsanObs']
+            # cfgData['ulsanObs']
 
             # 예보 학습모델
             ulsanFcstData = cfgData['ulsanFcst']
-
             ulsanFcstData['anaDt'] = pd.to_datetime(ulsanFcstData['Forecast time'])
             ulsanFcstData['forDt'] = ulsanFcstData.apply(lambda row: row['anaDt'] + parseDateOffset(f"{int(row['forecast'])}h"), axis=1)
+
+            # ulsanFcstData['forDt']
+
+
+            # ****************************************************************************
+            # 데이터 병합
+            # ****************************************************************************
+            data = pd.merge(ulsanFcstData, energyData, how='left', left_on='forDt', right_on='eneDt')
+
+            # ****************************************************************************
+            # 인덱스 재 정렬
+            # ****************************************************************************
+            trainData = data[data['anaDt'] <= pd.to_datetime('2019-03-01')].reset_index(drop=True)
+            testData = data[data['anaDt'] > pd.to_datetime('2019-03-01')].reset_index(drop=True)
+            prdData = testData
+
+            # ****************************************************************************
+            # 독립/종속 변수 설정
+            # ****************************************************************************
+            xCol = ['Temperature', 'Humidity', 'WindSpeed', 'WindDirection', 'Cloud']
+            yCol = 'ulsan'
+
+            # ****************************************************************************
+            # 수동 학습 모델링 (lightgbm)
+            # ****************************************************************************
+            lgbTrainData = lgb.Dataset(trainData[xCol], trainData[yCol])
+            lgbTestData = lgb.Dataset(testData[xCol], testData[yCol], reference=lgbTrainData)
+
+            lgbParams = {
+                # 연속 예측
+                'objective': 'regression',
+                'metric': 'rmse',
+
+                # 이진 분류
+                # 'objective': 'binary',
+                # 'metric': 'auc',
+
+                'boosting_type': 'gbdt',
+                'verbosity': -1,
+                'n_jobs': -1,
+                'seed': 123,
+            }
+
+            # 학습
+            # lgbModel = lgb.train(
+            #     params=lgbParams,
+            #     num_boost_round=10000,
+            #     # early_stopping_rounds=1000,
+            #     train_set=lgbTrainData,
+            #     valid_sets=[lgbTrainData, lgbTestData],
+            #     valid_names = ["train", "valid"],
+            #     # verbose_eval=False,
+            # )
+            #
+            # # 학습모형 저장
+            # saveModel = '{}/{}/{}-{}-{}-{}.model'.format(globalVar['outPath'], serviceName, 'solar', 'final', 'lgb', 'for')
+            # os.makedirs(os.path.dirname(saveModel), exist_ok=True)
+            # pickle.dump(lgbModel, open(saveModel, 'wb'))
+            # log.info('[CHECK] saveFile : {}'.format(saveModel))
+            #
+            # # 변수 중요도 저장
+            # try:
+            #     mainTitle = '{}'.format('lgb-importance')
+            #     saveImg = '{}/{}/{}-{}.png'.format(globalVar['figPath'], serviceName, 'solar', mainTitle)
+            #     lgb.plot_importance(lgbModel)
+            #     plt.title(mainTitle)
+            #     plt.tight_layout()
+            #     plt.savefig(saveImg, dpi=600, bbox_inches='tight')
+            #     plt.show()
+            #     plt.close()
+            # except Exception as e:
+            #     log.error('Exception : {}'.format(e))
+            #
+            # # 학습모형 불러오기
+            # lgbModel = pickle.load(open(saveModel, 'rb'))
+            #
+            # # 예측
+            # prdData['ML3'] = lgbModel.predict(data=testData[xCol])
+
+            # ****************************************************************************
+            # 자동 학습 모델링 (flaml)
+            # ****************************************************************************
+            # 머신러닝 불러오기
+            # sysOpt['mlModel'].update(
+            #     {
+            #         'srvId': serviceName
+            #         , 'modelKey': 'solar'
+            #         , 'isOverWrite': True
+            #     }
+            # )
+
+            # resFlaml = makeFlamlModel(sysOpt['mlModel'], xCol, yCol, trainData)
+            resFlaml = makeFlamlModel(sysOpt['ML']['flaml'], xCol, yCol, trainData, testData)
+            log.info('[CHECK] resFlaml : {}'.format(resFlaml))
+
 
         except Exception as e:
             log.error(f"Exception : {e}")
