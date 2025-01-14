@@ -46,6 +46,7 @@ import subprocess
 from isodate import parse_duration
 from pandas.tseries.offsets import DateOffset
 import optuna.integration.lightgbm as lgb
+from lightgbm import early_stopping, log_evaluation
 import pickle
 from flaml import AutoML
 from sklearn.model_selection import train_test_split
@@ -228,7 +229,8 @@ def makeLgbModel(subOpt=None, xCol=None, yCol=None, trainData=None, testData=Non
         saveModelList = sorted(glob.glob(subOpt['saveModelList']), reverse=True)
         xyCol = xCol.copy()
         xyCol.append(yCol)
-        # data = trainData[xyCol].dropna()
+        trainDataL1 = trainData[xyCol].dropna()
+        testDataL1 = testData[xyCol].dropna()
 
         # 학습 모델이 없을 경우
         if (subOpt['isOverWrite']) or (len(saveModelList) < 1):
@@ -248,39 +250,44 @@ def makeLgbModel(subOpt=None, xCol=None, yCol=None, trainData=None, testData=Non
                 'seed': 123,
             }
 
-            lgbTrainData = lgb.Dataset(trainData[xCol], trainData[yCol])
-            lgbTestData = lgb.Dataset(testData[xCol], testData[yCol], reference=lgbTrainData)
+            lgbTrainData = lgb.Dataset(trainDataL1[xCol], trainDataL1[yCol])
+            lgbTestData = lgb.Dataset(testDataL1[xCol], testDataL1[yCol], reference=lgbTrainData)
 
             # 학습
-            lgbModel = lgb.train(
+            fnlModel = lgb.train(
                 params=lgbParams,
                 num_boost_round=10000,
                 # early_stopping_rounds=1000,
                 train_set=lgbTrainData,
                 valid_sets=[lgbTrainData, lgbTestData],
                 valid_names=["train", "valid"],
-                # verbose_eval=False,
+                callbacks=[
+                    early_stopping(stopping_rounds=100),
+                    log_evaluation(period=200),
+                ]
+                # early_stopping_rounds=100,
+                # verbose_eval=200
             )
 
             # 학습 모형 저장
-            saveModel = subOpt['saveModel']
+            saveModel = subOpt['preDt'].strftime(subOpt['saveModel'])
             log.info(f'[CHECK] saveModel : {saveModel}')
             os.makedirs(os.path.dirname(saveModel), exist_ok=True)
             with open(saveModel, 'wb') as file:
-                pickle.dump(lgbModel, file, pickle.HIGHEST_PROTOCOL)
+                pickle.dump(fnlModel, file, pickle.HIGHEST_PROTOCOL)
 
             # 변수 중요도 저장
-            try:
-                mainTitle = '{}'.format('lgb-importnce')
-                saveImg = subOpt['saveImg']
-                lgb.plot_importance(lgbModel)
-                plt.title(mainTitle)
-                plt.tight_layout()
-                plt.savefig(saveImg, dpi=600, bbox_inches='tight')
-                plt.show()
-                plt.close()
-            except Exception as e:
-                pass
+            # try:
+            #     mainTitle = '{}'.format('lgb-importnce')
+            #     saveImg = subOpt['preDt'].strftime(subOpt['saveImg'])
+            #     lgb.plot_importance(fnlModel)
+            #     plt.title(mainTitle)
+            #     plt.tight_layout()
+            #     plt.savefig(saveImg, dpi=600, bbox_inches='tight')
+            #     # plt.show()
+            #     plt.close()
+            # except Exception as e:
+            #     pass
 
         else:
             saveModel = saveModelList[0]
@@ -313,11 +320,12 @@ def makePycaretModel(subOpt=None, xCol=None, yCol=None, trainData=None, testData
     result = None
 
     try:
-
         saveModelList = sorted(glob.glob(subOpt['saveModelList']), reverse=True)
         xyCol = xCol.copy()
         xyCol.append(yCol)
-        # data = trainData[xyCol].dropna()
+        data = trainData[xyCol].dropna()
+        trainDataL1 = trainData[xyCol].dropna()
+        testDataL1 = testData[xyCol].dropna()
 
         # 학습 모델이 없을 경우
         if (subOpt['isOverWrite']) or (len(saveModelList) < 1):
@@ -326,11 +334,21 @@ def makePycaretModel(subOpt=None, xCol=None, yCol=None, trainData=None, testData
             # trainData, validData = train_test_split(data, test_size=0.3)
 
             setup(
-                data=trainData
-                , session_id=123
-                , silent=True
-                , target=yCol
+                data=trainDataL1,
+                session_id=123,
+                target=yCol,
             )
+
+            # trainIdx = trainData.index
+            # testIdx = testData.index
+            #
+            # setup(
+            #     data=pd.concat([trainData, testData]),
+            #     target=yCol,
+            #     session_id=123,
+            #     fold_strategy='custom',
+            #     fold_groups=pd.Series([0 if i in trainIdx else 1 for i in pd.concat([trainData, testData]).index])
+            # )
 
             # 각 모형에 따른 자동 머신러닝
             modelList = compare_models(sort='RMSE', n_select=3)
@@ -345,7 +363,7 @@ def makePycaretModel(subOpt=None, xCol=None, yCol=None, trainData=None, testData
             fnlModel = finalize_model(tuneModel)
 
             # 학습 모형 저장
-            saveModel = subOpt['saveModel']
+            saveModel = subOpt['preDt'].strftime(subOpt['saveModel'])
             log.info(f'[CHECK] saveModel : {saveModel}')
             os.makedirs(os.path.dirname(saveModel), exist_ok=True)
             save_model(fnlModel, saveModel)
@@ -382,6 +400,10 @@ def makeFlamlModel(subOpt=None, xCol=None, yCol=None, trainData=None, testData=N
         saveModelList = sorted(glob.glob(subOpt['saveModelList']), reverse=True)
         xyCol = xCol.copy()
         xyCol.append(yCol)
+        data = trainData[xyCol].dropna()
+        trainDataL1 = trainData[xyCol].dropna()
+        testDataL1 = testData[xyCol].dropna()
+
 
         # 학습 모델이 없을 경우
         if (subOpt['isOverWrite']) or (len(saveModelList) < 1):
@@ -392,7 +414,7 @@ def makeFlamlModel(subOpt=None, xCol=None, yCol=None, trainData=None, testData=N
             # 전체 학습 데이터
             # trainData = dataL1
 
-            flModel = AutoML(
+            fnlModel = AutoML(
                 # 연속 예측
                 task="regression"
                 , metric='rmse'
@@ -409,16 +431,16 @@ def makeFlamlModel(subOpt=None, xCol=None, yCol=None, trainData=None, testData=N
             )
 
             # 각 모형에 따른 자동 머신러닝
-            flModel.fit(X_train=trainData[xCol], y_train=trainData[yCol])
-            # flModel.fit(X_train=trainData[xCol], y_train=trainData[yCol], n_jobs=12, n_concurrent_trials=4)
+            fnlModel.fit(X_train=trainDataL1[xCol], y_train=trainDataL1[yCol])
+            # fnlModel.fit(X_train=trainData[xCol], y_train=trainData[yCol], n_jobs=12, n_concurrent_trials=4)
 
             # 학습 모형 저장
-            saveModel = subOpt['saveModel']
+            saveModel = subOpt['preDt'].strftime(subOpt['saveModel'])
             log.info(f"[CHECK] saveModel : {saveModel}")
             os.makedirs(os.path.dirname(saveModel), exist_ok=True)
 
             with open(saveModel, 'wb') as file:
-                pickle.dump(flModel, file, pickle.HIGHEST_PROTOCOL)
+                pickle.dump(fnlModel, file, pickle.HIGHEST_PROTOCOL)
 
         else:
             saveModel = saveModelList[0]
@@ -507,12 +529,6 @@ class DtaProcess(object):
 
             # 옵션 설정
             sysOpt = {
-                # 예보시간 시작일, 종료일, 시간 간격 (연 1y, 월 1m, 일 1d, 시간 1h, 분 1t, 초 1s)
-                # 'srtDate': '2019-01-01',
-                # 'endDate': '2019-01-04',
-                # 'srtDate': globalVar['srtDate'],
-                # 'endDate': globalVar['endDate'],
-
                 # 설정 파일
                 'CFG': {
                     'siteInfo': {
@@ -534,25 +550,33 @@ class DtaProcess(object):
                 },
 
                 # 자동화/수동화 모델링
-                'ML': {
+                'MODEL': {
                     'lgb': {
                         'saveModelList': f"/DATA/MODEL/*/*/*_solar_final_lgb_for.model",
                         'saveModel': f"/DATA/MODEL/%Y%m/%d/%Y%m%d_solar_final_lgb_for.model",
                         'saveImg': f"/DATA/MODEL/%Y%m/%d/%Y%m%d_solar_final_lgb_for.png",
                         'isOverWrite': True,
+                        'preDt': datetime.now(),
                     },
                     'flaml': {
                         'saveModelList': f"/DATA/MODEL/*/*/*_solar_final_flaml_for.model",
                         'saveModel': f"/DATA/MODEL/%Y%m/%d/%Y%m%d_solar_final_flaml_for.model",
                         'saveImg': f"/DATA/MODEL/%Y%m/%d/%Y%m%d_solar_final_flaml_for.png",
                         'isOverWrite': True,
+                        'preDt': datetime.now(),
                     },
                     'pycaret': {
-                        'saveModelList': f"/DATA/MODEL/*/*/*_solar_final_pycaret_for.model.pki",
+                        'saveModelList': f"/DATA/MODEL/*/*/*_solar_final_pycaret_for.model.pkl",
                         'saveModel': f"/DATA/MODEL/%Y%m/%d/%Y%m%d_solar_final_pycaret_for.model",
                         'saveImg': f"/DATA/MODEL/%Y%m/%d/%Y%m%d_solar_final_pycaret_for.png",
                         'isOverWrite': True,
+                        # 'isOverWrite': False,
+                        'preDt': datetime.now(),
                     },
+                },
+                'FNL': {
+                    'savePath': '/DATA/PROP/SAMPLE',
+                    'saveName': 'ulsan_fcst_data.csv',
                 },
             }
 
@@ -609,28 +633,30 @@ class DtaProcess(object):
             # ****************************************************************************
             # 수동 학습 모델링 (lightgbm)
             # ****************************************************************************
-            resLgb = makeLgbModel(sysOpt['ML']['flaml'], xCol, yCol, trainData, testData)
-            log.info(f'[CHECK] resLgb : {resLgb}')
-
-            prdData['LGB'] = resLgb['mlModel'].predict(data=testData[xCol])
+            # resLgb = makeLgbModel(sysOpt['MODEL']['lgb'], xCol, yCol, trainData, testData)
+            # log.info(f'[CHECK] resLgb : {resLgb}')
+            #
+            # prdData['LGB'] = resLgb['mlModel'].predict(data=testData[xCol])
 
             # ****************************************************************************
             # 자동 학습 모델링 (flaml)
             # ****************************************************************************
-            resFlaml = makeFlamlModel(sysOpt['ML']['flaml'], xCol, yCol, trainData, testData)
-            log.info(f'[CHECK] resFlaml : {resFlaml}')
-
-            prdData['FLAML'] = resFlaml['mlModel'].predict(data=testData[xCol])
+            # resFlaml = makeFlamlModel(sysOpt['MODEL']['flaml'], xCol, yCol, trainData, testData)
+            # log.info(f'[CHECK] resFlaml : {resFlaml}')
+            #
+            # prdData['FLAML'] = resFlaml['mlModel'].predict(prdData)
 
             # ****************************************************************************
             # 자동 학습 모델링 (pycaret)
             # ****************************************************************************
-            resPycaret = makePycaretModel(sysOpt['ML']['flaml'], xCol, yCol, trainData, testData)
-            log.info(f'[CHECK] resPycaret : {resPycaret}')
+            resPycaret = makePycaretModel(sysOpt['MODEL']['pycaret'], xCol, yCol, trainData, testData)
+            # log.info(f'[CHECK] resPycaret : {resPycaret}')
 
-            prdData['PYCARET'] = resPycaret['mlModel'].predict(data=testData[xCol])
+            gg = predict_model(resPycaret['mlModel'], data=prdData[xCol])['Label']
 
+            print(gg)
             print(prdData)
+
 
         except Exception as e:
             log.error(f"Exception : {e}")
