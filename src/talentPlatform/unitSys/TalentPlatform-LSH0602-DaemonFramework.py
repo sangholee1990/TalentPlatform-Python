@@ -214,7 +214,7 @@ class DtaProcess(object):
     # ================================================
     # 요구사항
     # ================================================
-    # Python을 이용한 셀레늄 기반 스타트업 정보 수집 및 추출
+    # Python을 이용한 셀레늄 기반 유니콘팩토리 스타트업 정보 수집 및 추출
 
     # 원도우 X11 (X Window System) 프로토콜 지원
     # xming
@@ -231,6 +231,8 @@ class DtaProcess(object):
     # /DATA/INPUT/LSH0602/chromedriver-linux64/chromedriver --version
     # ChromeDriver 131.0.6778.264 (2d05e31515360f4da764174f7c448b33e36da871-refs/branch-heads/6778@{#4323})
 
+    # cd /SYSTEMS/PROG/PYTHON/IDE/src/talentPlatform/unitSys
+    # nohup /HDD/SYSTEMS/LIB/anaconda3/envs/py38/bin/python /SYSTEMS/PROG/PYTHON/IDE/src/talentPlatform/unitSys/TalentPlatform-LSH0602-DaemonFramework.py &
 
     # ================================================================================================
     # 환경변수 설정
@@ -292,6 +294,7 @@ class DtaProcess(object):
             # 옵션 설정
             sysOpt = {
                 'loginUrl': "https://www.unicornfactory.co.kr/login",
+                'listDefUrl': "https://www.unicornfactory.co.kr/datalab/startup/company-search",
                 'listUrl': "https://www.unicornfactory.co.kr/datalab/startup/company-search?search=&unicorn=on&business=&tech=&cert=&stage=&amount=&location=&revenue=&history=&sort=A&limit={perPage}&page={page}",
                 'listDtlUrl': "https://www.unicornfactory.co.kr/login",
 
@@ -299,7 +302,7 @@ class DtaProcess(object):
                 'chromedriverInfo':"/DATA/INPUT/LSH0602/chromedriver-linux64/chromedriver",
 
                 # 지연 시간
-                'timeout': 10,
+                'timeout': 60,
 
                 # 로그인 기능
                 'loginId': "backjoi@naver.com",
@@ -336,7 +339,7 @@ class DtaProcess(object):
             url = sysOpt['loginUrl']
             driver.get(url)
 
-            # 최대 10초 대기
+            # 최대 timeout 대기
             wait = WebDriverWait(driver, sysOpt['timeout'])
 
             # 이메일 입력
@@ -355,6 +358,9 @@ class DtaProcess(object):
             # ==========================================================================================================
             # 기업정보 수집
             # ==========================================================================================================
+            url = sysOpt['listDefUrl']
+            driver.get(url)
+
             # 최대 개수
             tagCnt = wait.until(EC.presence_of_element_located((By.CLASS_NAME, "total")))
             maxCnt = int(re.search(r'\d+', tagCnt.text).group())
