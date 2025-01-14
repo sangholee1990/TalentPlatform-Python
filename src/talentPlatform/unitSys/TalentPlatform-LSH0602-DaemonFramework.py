@@ -216,6 +216,20 @@ class DtaProcess(object):
     # ================================================
     # Python을 이용한 셀레늄 기반 동적 엑셀 다운로드 및 데이터 가공
 
+    # 원도우 X11 (X Window System) 프로토콜 지원
+    # xming
+
+    # 리눅스 CLI 실행
+    # google-chrome --no-sandbo
+
+    # 크롬 다운로드
+    # https://googlechromelabs.github.io/chrome-for-testing
+
+    # /DATA/INPUT/LSH0602/chrome-linux64/chrome --version
+    # Google Chrome for Testing 131.0.6778.264
+
+    # /DATA/INPUT/LSH0602/chromedriver-linux64/chromedriver --version
+    # ChromeDriver 131.0.6778.264 (2d05e31515360f4da764174f7c448b33e36da871-refs/branch-heads/6778@{#4323})
     # ================================================================================================
     # 환경변수 설정
     # ================================================================================================
@@ -275,539 +289,184 @@ class DtaProcess(object):
 
             # 옵션 설정
             sysOpt = {
-                # 구글맵 상위 주소
-                'rootUrl': 'https://www.google.com/maps'
+                'loginUrl': "https://www.unicornfactory.co.kr/login",
+                'listUrl': "https://www.unicornfactory.co.kr/datalab/startup/company-search?search=&unicorn=on&business=&tech=&cert=&stage=&amount=&location=&revenue=&history=&sort=A&limit={perPage}&page={page}",
+                'listDtlUrl': "https://www.unicornfactory.co.kr/login",
 
-                # 크롬 지연 설정
-                , 'chrDelayOpt': 10
+                'chromeInfo': "/DATA/INPUT/LSH0602/chrome-linux64/chrome",
+                'chromedriverInfo':"/DATA/INPUT/LSH0602/chromedriver-linux64/chromedriver",
 
-                # 인증 초기화 여부
-                , 'isInit': False
+                # 지연 시간
+                'timeout': 10,
 
-                # 수행 목록
-                , 'procList': {
-                    'ConsumptionTrendState': 'Consumption Trend State*.xlsx'
-                    , 'State-wisePetroleumProductsConsumptionTrend': 'State-wise Petroleum Products Consumption Trend (for All States).xlsx'
-                    , 'State-wisePetroleumProductsConsumptionTrend2': 'State-wise Petroleum Products Consumption Trend2 (for All States).xlsx'
-                }
+                # 로그인 기능
+                'loginId': "backjoi@naver.com",
+                'loginPw': "cjswo124!Q",
+
+                # 자료 저장
+                'saveFile': '/DATA/OUTPUT/LSH0602/%Y%m%d_data.csv',
             }
 
-            # 원도우 X11 (X Window System) 프로토콜 지원
-            # xming
-
-            # 리눅스 CLI 실행
-            # google-chrome --no-sandbo
-
-            # 크롬 다운로드
-            # https://googlechromelabs.github.io/chrome-for-testing
-
-            # /DATA/INPUT/LSH0602/chrome-linux64/chrome --version
-            # Google Chrome for Testing 131.0.6778.264
-
-            # /DATA/INPUT/LSH0602/chromedriver-linux64/chromedriver --version
-            # ChromeDriver 131.0.6778.264 (2d05e31515360f4da764174f7c448b33e36da871-refs/branch-heads/6778@{#4323})
-
-
-            # inpFile = '{}/{}/{}'.format(globalVar['inpPath'], serviceName, 'HN_M.csv')
-            # fileList = sorted(glob.glob(inpFile))
-
-            # print('test')
-
-            # # Step 1: URL 설정
-            # url = "https://www.unicornfactory.co.kr/datalab/startup/company-search?search=&unicorn=on&business=&tech=&cert=&stage=&amount=&location=&revenue=&history=&sort=A&limit=20&page=1"
-            #
-            # # Step 2: HTTP GET 요청
-            # # headers = {
-            # #     "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/97.0.4692.99 Safari/537.36"
-            # # }
-            # response = requests.get(url)
-            #
-            # # Step 3: 응답 확인 및 데이터 파싱
-            # if response.status_code == 200:
-            #     soup = BeautifulSoup(response.text, "html.parser")
-            #
-            #     # HTML 구조를 분석하여 데이터 선택
-            #     # 예: 회사 이름, 단계, 지역 등
-            #     companies = soup.find_all("div", class_="company-info")  # div 클래스를 회사 데이터로 대체 필요
-            #     # 테이블 찾기
-            #     table = soup.find('table')
-            #
-            #     # headers = [th.text.strip() for th in table.find('thead').find_all('th')]
-            #
-            #     div = soup.find('div', class_='listarea-contents')
-            #     table = div.find('table') if div else None
-            #
-            #
-            #     for company in companies:
-            #         name = company.find("h3").text.strip()  # 예: 회사 이름
-            #         stage = company.find("span", class_="stage").text.strip()  # 예: 단계
-            #         location = company.find("span", class_="location").text.strip()  # 예: 지역
-            #         print(f"Company Name: {name}, Stage: {stage}, Location: {location}")
-            # else:
-            #     print(f"Failed to retrieve data: {response.status_code}")
-
-            # ======================================================================================================
-            # 데이터 전처리
-            # ======================================================================================================
-
-            # procInfo = 'ConsumptionTrendState'
-            # procInfo = 'State-wisePetroleumProductsConsumptionTrend'
-            # procInfo = 'State-wisePetroleumProductsConsumptionTrend2'
-            # for procInfo in sysOpt['procList']:
-            #     log.info(f'[CHECK] procInfo / {procInfo}')
-            #
-            #     inpFile = '{}/{}/{}'.format(globalVar['inpPath'], serviceName, sysOpt['procList'][procInfo])
-            #     fileList = sorted(glob.glob(inpFile))
-            #
-            #     if fileList is None or len(fileList) < 1:
-            #         # log.error(f'inpFile : {inpFile} / 입력 자료를 확인해주세요')
-            #         continue
-            #
-            #     # fileInfo = fileList[0]
-            #     dataL2 = pd.DataFrame()
-            #     for fileInfo in fileList:
-            #         log.info(f'[CHECK] fileInfo : {fileInfo}')
-            #         data = pd.read_excel(fileInfo)
-            #         dataL1 = data.dropna()
-            #         # fileName = os.path.basename(fileInfo)
-            #
-            #         dataL2 = pd.concat([dataL2, dataL1])
-            #
-            #     # dataL2.columns
-            #     if re.search('ConsumptionTrendState', procInfo, re.IGNORECASE):
-            #         uniqData = dataL2.drop_duplicates().reset_index(drop=True)
-            #         dataL3 = uniqData.pivot_table(index=['State', 'Year'], columns='Sectors', values='Quantity in Million Tonnes').reset_index(drop=False)
-            #     else:
-            #         dataL3 = dataL2[['State', 'Year', 'Quantity (in 000Tonne)']]
-            #
-            #     saveFile = '{}/{}/{}.xlsx'.format(globalVar['outPath'], serviceName, procInfo)
-            #     os.makedirs(os.path.dirname(saveFile), exist_ok=True)
-            #     dataL3.to_excel(saveFile, index=False)
-            #     print(f'[CHECK] saveFile : {saveFile}')
-
-            # ======================================================================================================
-            # 크롤링 전역 설정
-            # ======================================================================================================
-
-
-            # 크롬 설정
+            # ==========================================================================================================
+            # 전역 설정
+            # ==========================================================================================================
+            # 크롬 실행
             options = Options()
             options.headless = False
+            options.binary_location = sysOpt['chromeInfo']
             options.add_argument("--window-size=1920,1080")
-            # options.add_argument("--start-maximized")
-            # options.binary_location = "/usr/bin/google-chrome"
-            options.binary_location = "/DATA/INPUT/LSH0602/chrome-linux64/chrome"
 
+            # 백그라운드
+            options.add_argument("--no-sandbox")
+            options.add_argument("--disable-dev-shm-usage")
+            options.add_argument("--headless")
+            options.add_argument("--remote-debugging-port=9222")
+            options.add_argument("--disable-gpu")
 
-            # 백그라운드 화면 여부
-            # options.add_argument('--headless')
-            # options.add_argument('--no-sandbox')
-            # options.add_argument('--disable-dev-shm-usage')
-
-            options.add_argument("--no-sandbox")  # Sandbox 모드 비활성화
-            options.add_argument("--disable-dev-shm-usage")  # 공유 메모리 사용 비활성화
-            options.add_argument("--headless")  # 필요한 경우 headless 모드 활성화
-            options.add_argument("--remote-debugging-port=9222")  # 디버깅 포트 설정
-            options.add_argument("--disable-gpu")  # GPU 비활성화
-
-
+            # 크롬드라이브 실행
             # service = Service(ChromeDriverManager().install())
-            service = Service("/DATA/INPUT/LSH0602/chromedriver-linux64/chromedriver")
+            service = Service(sysOpt['chromedriverInfo'])
             driver = webdriver.Chrome(service=service, options=options)
-            # driver.quit()
 
-            driver.get("https://www.google.com")
-            print(driver.title)
-
-            # driver.quit()
-
-            # https://www.unicornfactory.co.kr/login
-            url = "https://www.unicornfactory.co.kr/login"
+            # ==========================================================================================================
+            # 로그인 기능
+            # ==========================================================================================================
+            url = sysOpt['loginUrl']
             driver.get(url)
 
-            # soup = BeautifulSoup(driver.page_source, "html.parser")
+            # 최대 10초 대기
+            wait = WebDriverWait(driver, sysOpt['timeout'])
 
-            # WebDriverWait 설정 (최대 10초 대기)
-            wait = WebDriverWait(driver, 10)
+            # 이메일 입력
+            emailTag = wait.until(EC.presence_of_element_located((By.ID, "emailInfo")))
+            emailTag.send_keys(sysOpt['loginId'])
 
-            # 이메일 입력 필드가 로드될 때까지 대기 후 입력
-            email_input = wait.until(EC.presence_of_element_located((By.ID, "email")))
-            email_input.send_keys("backjoi@naver.com")  # 사용할 이메일 입력
+            # 비밀번호 입력
+            tagPassword = wait.until(EC.presence_of_element_located((By.ID, "password")))
+            driver.execute_script("arguments[0].removeAttribute('disabled')", tagPassword)
+            tagPassword.send_keys(sysOpt['loginPw'])
 
-            # 비밀번호 입력 필드가 로드될 때까지 대기 후 disabled 속성 제거 및 입력
-            password_input = wait.until(EC.presence_of_element_located((By.ID, "password")))
-            driver.execute_script("arguments[0].removeAttribute('disabled')", password_input)  # disabled 속성 제거
-            password_input.send_keys("cjswo124!Q")  # 사용할 비밀번호 입력
+            # 로그인 버튼
+            btnLogin = wait.until(EC.element_to_be_clickable((By.ID, "join_submit_btn")))
+            btnLogin.click()
 
-            # 로그인 버튼이 클릭 가능할 때까지 대기 후 클릭
-            login_button = wait.until(EC.element_to_be_clickable((By.ID, "join_submit_btn")))
-            login_button.click()
+            # ==========================================================================================================
+            # 기업정보 수집
+            # ==========================================================================================================
+            # 최대 개수
+            tagCnt = wait.until(EC.presence_of_element_located((By.CLASS_NAME, "total")))
+            maxCnt = int(re.search(r'\d+', tagCnt.text).group())
 
-            # WebDriverWait 설정 (최대 10초 대기)
-            wait = WebDriverWait(driver, 10)
-            span_element = wait.until(EC.presence_of_element_located((By.CLASS_NAME, "total")))
-            # 텍스트 추출
-            span_text = span_element.text
-            maxCnt = int(re.search(r'\d+', span_text).group())
             perPage = 100
             maxPage = (maxCnt + perPage - 1) // perPage
+
+            # 페이지 목록
             pageList = list(range(1, maxPage + 1))
 
-
-
-            # 테이블 데이터 저장용 리스트
-            data = []
+            dataL1 = []
             for page in pageList:
-                print(page)
+                url = sysOpt['listUrl'].format(perPage = perPage, page=page)
+                log.info(f'[CHECK] url : {url}')
 
-                url = f"https://www.unicornfactory.co.kr/datalab/startup/company-search?search=&unicorn=on&business=&tech=&cert=&stage=&amount=&location=&revenue=&history=&sort=A&limit={perPage}&page={page}"
                 driver.get(url)
+                tagTable = wait.until(EC.presence_of_element_located((By.TAG_NAME, "tbody")))
+                itemList = tagTable.find_elements(By.TAG_NAME, "tr")
 
-                # WebDriverWait 설정 (최대 10초 대기)
-                wait = WebDriverWait(driver, 10)
+                for item in itemList:
+                    cols = item.find_elements(By.TAG_NAME, "td")
+                    data = [col.text for col in cols]
+                    href_value = item.find_element(By.TAG_NAME, "a").get_attribute("href")
+                    data.append(href_value)
 
-                # 테이블 본문이 로드될 때까지 대기
-                table_body = wait.until(EC.presence_of_element_located((By.TAG_NAME, "tbody")))
-
-                # 모든 행(tr) 요소 가져오기
-                rows = table_body.find_elements(By.TAG_NAME, "tr")
-
-                # 각 행에서 열(td) 데이터 추출
-                for row in rows:
-                    cols = row.find_elements(By.TAG_NAME, "td")
-                    row_data = [col.text for col in cols]
-                    href_value = row.find_element(By.TAG_NAME, "a").get_attribute("href")
-                    row_data.append(href_value)
-
-                    # 열 데이터를 리스트로 저장
-                    data.append(row_data)
+                    dataL1.append(data)
 
             # 테이블 헤더 가져오기
-            table_head = driver.find_element(By.TAG_NAME, "thead")
-            headers = [th.text for th in table_head.find_elements(By.TAG_NAME, "th")]
-            headers.append('urlDtl')
+            tagTableHead = driver.find_element(By.TAG_NAME, "thead")
+            headList = [th.text for th in tagTableHead.find_elements(By.TAG_NAME, "th")]
+            headList.append('세부URL')
 
-            # Pandas DataFrame 생성
-            df = pd.DataFrame(data, columns=headers)
+            dataL2 = pd.DataFrame(dataL1, columns=headList)
 
-            # 유니콘 팩토리 사이트를 기준으로 기본정보 수집 (회사명, 웹사이트, 주소, 회사 소개, 설립일자)
-            # 해당 회사 웹 사이트로부터 상세정보 추출 (이메일, 연락처)
-            for i, item in df.iterrows():
-                urlDtl = item['urlDtl']
+            # ==========================================================================================================
+            # 기본정보 및 상세정보 추출
+            # ==========================================================================================================
+            for i, item in dataL2.iterrows():
+                urlDtl = item['세부URL']
+                log.info(f'[CHECK] urlDtl : {urlDtl}')
+
                 driver.get(urlDtl)
 
-                wait = WebDriverWait(driver, 10)
-
-                # 기본정보 수집
-                website = driver.find_element(By.CLASS_NAME, "homepage").get_attribute("href")
-                address = driver.find_element(By.CLASS_NAME, "address").text
-                intro = driver.find_element(By.CLASS_NAME, "realtxt").text
-                establishment_date = driver.find_element(By.XPATH,"//strong[text()='설립일자(업력)']/following-sibling::div/p").text
-                business_area = driver.find_element(By.XPATH, "//strong[text()='사업분야']/following-sibling::div/p").text
-
-                item['웹사이트'] = website
-                item['주소'] = address
-                item['회사소개'] = intro
-                item['설립일자'] = establishment_date
-                item['사업분야'] = business_area
-
-                # 웹사이트에 접속하여 이메일, 연락처 수집
-                driver.get(website)
+                # 기본정보 추출
+                try:
+                    text = driver.find_element(By.CLASS_NAME, "homepage").get_attribute("href")
+                    website = None if text is None or len(text) < 1 else text
+                except Exception:
+                    website = None
 
                 try:
-                    page_source = driver.page_source
-                    email_pattern = r'[a-zA-Z0-9_.+-]+@[a-zA-Z0-9-]+\.[a-zA-Z0-9-.]+'
-                    emails = re.findall(email_pattern, page_source)
+                    text = driver.find_element(By.CLASS_NAME, "address").text
+                    address = None if text is None or len(text) < 1 else text
+                except Exception:
+                    address = None
 
-                    email = []
-                    for email in emails:
-                        domain = email.split('@')[1]
+                try:
+                    intro = driver.find_element(By.CLASS_NAME, "realtxt").text
+                    text = None if text is None or len(text) < 1 else text
+                except Exception:
+                    intro = None
+
+                try:
+                    text = driver.find_element(By.XPATH, "//strong[text()='설립일자(업력)']/following-sibling::div/p").text
+                    estDate = None if text is None or len(text) < 1 else text
+                except Exception:
+                    estDate = None
+
+                try:
+                    text = driver.find_element(By.XPATH, "//strong[text()='사업분야']/following-sibling::div/p").text
+                    businArea = None if text is None or len(text) < 1 else text
+                except Exception:
+                    businArea = None
+
+                dataL2.loc[i, '웹사이트'] = website
+                dataL2.loc[i, '주소'] = address
+                dataL2.loc[i, '회사소개'] = intro
+                dataL2.loc[i, '설립일자'] = estDate
+                dataL2.loc[i, '사업분야'] = businArea
+
+                # 상세정보 추출
+                try:
+                    driver.get(website)
+                    pageSrc = driver.page_source
+                    emailPattern = r'[a-zA-Z0-9_.+-]+@[a-zA-Z0-9-]+\.[a-zA-Z0-9-.]+'
+                    emailList = re.findall(emailPattern, pageSrc)
+
+                    emailInfo = []
+                    for emailInfo in emailList:
+                        domain = emailInfo.split('@')[1]
                         if domain.count('.') < 3:
-                            email.append(email)
+                            emailInfo.append(emailInfo)
+
+                    email = None if emailInfo is None or len(emailInfo) < 1 else emailInfo
                 except Exception:
                     email = None
 
                 try:
-                    phone_pattern = r'\d{2,3}-\d{3,4}-\d{4}'
-                    phone = re.findall(phone_pattern, page_source)
+                    phonePattern = r'\d{2,3}-\d{3,4}-\d{4}'
+                    text = re.findall(phonePattern, pageSrc)
+                    phone = None if text is None or len(text) < 1 else text
                 except Exception:
                     phone = None
 
-                item['이메일'] = email
-                item['연락처'] = phone
+                dataL2.loc[i, '이메일'] = email
+                dataL2.loc[i, '연락처'] = phone
 
-
-            #
-            #
-            #
-            # try:
-            #     # 웹 페이지 열기
-            #     url = "https://example.com"  # 대상 URL로 변경
-            #     driver.get(url)
-            #
-            #     # 페이지 로딩 대기 (최대 10초)
-            #     WebDriverWait(driver, 10).until(
-            #         EC.presence_of_element_located((By.CLASS_NAME, "listarea-contents"))  # 적절한 요소로 변경
-            #     )
-            #
-            #     # BeautifulSoup으로 HTML 파싱
-            #     soup = BeautifulSoup(driver.page_source, "html.parser")
-            #
-            #     # 원하는 데이터 추출
-            #     div = soup.find('div', class_='listarea-contents')
-            #     if div:
-            #         table = div.find('table')
-            #         if table:
-            #             # 헤더 추출
-            #             headers = [th.text.strip() for th in table.find('thead').find_all('th')]
-            #             print("Headers:", headers)
-            #
-            #             # 테이블 데이터 추출
-            #             rows = table.find('tbody').find_all('tr')
-            #             for row in rows:
-            #                 cols = [td.text.strip() for td in row.find_all('td')]
-            #                 print("Row:", cols)
-            #         else:
-            #             print("Table not found within the div.")
-            #     else:
-            #         print("Div with class 'listarea-contents' not found.")
-            # finally:
-            #     # 브라우저 닫기
-            #     driver.quit()
-
-            # ======================================================================================================
-            # 크롤링 1번
-            # ======================================================================================================
-            # try:
-            #     urlInfo = 'https://iced.niti.gov.in/energy/fuel-sources/coal/consumption#state'
-            #     driver.implicitly_wait(sysOpt['chrDelayOpt'])
-            #     driver.get(urlInfo)
-            #
-            #     WebDriverWait(driver, sysOpt['chrDelayOpt']).until(
-            #         EC.element_to_be_clickable((By.XPATH, '/html/body/app-root/div/app-consumption/section/div/div/div[1]/app-fuel-sources-accordion/accordion/accordion-group[5]/div/div[2]/div/p[3]'))
-            #     ).click()
-            #
-            #     selTag = Select(driver.find_element(By.XPATH,'//*[@id="download-consumption-trend-state-section"]/div[1]/div/div/select'))
-            #     for i, opt in  enumerate(selTag.options):
-            #         # if i < 24: continue
-            #         value = opt.get_attribute('value')
-            #         log.info(f'[CHECK] i / {i} / text : {opt.text} / value : {value}')
-            #
-            #         # State 선택
-            #         selTag.select_by_value(value)
-            #
-            #         time.sleep(2)
-            #
-            #         # 엑셀 아이콘 선택
-            #         WebDriverWait(driver, sysOpt['chrDelayOpt']).until(
-            #             EC.element_to_be_clickable((By.XPATH, '//*[@id="download-consumption-trend-state-section"]/div[1]/div/div/div/li[2]/a/img'))
-            #         ).click()
-            #
-            #         if (sysOpt['isInit'] == False):
-            #             nameEle = driver.find_element(By.ID, 'name')
-            #             nameEle.clear()
-            #             nameEle.send_keys('test')
-            #
-            #             emailEle = driver.find_element(By.ID, 'email')
-            #             emailEle.clear()
-            #             emailEle.send_keys('test@gmail.com')
-            #
-            #             orgEle = driver.find_element(By.ID, 'organization')
-            #             orgEle.clear()
-            #             orgEle.send_keys('test')
-            #
-            #             # 리캡차 프레임으로 전환
-            #             frames = driver.find_elements(By.TAG_NAME, 'iframe')
-            #             for frame in frames:
-            #                 if 'recaptcha' in frame.get_attribute('src'):
-            #                     driver.switch_to.frame(frame)
-            #                     break
-            #
-            #             # 리캡차 체크박스 클릭
-            #             WebDriverWait(driver, 10).until(
-            #                 EC.element_to_be_clickable((By.CLASS_NAME, 'recaptcha-checkbox-border'))
-            #             ).click()
-            #
-            #             # 프레임 밖으로 전환
-            #             driver.switch_to.default_content()
-            #
-            #             sysOpt['isInit'] = True
-            #
-            #         time.sleep(1)
-            #
-            #         # 다운로드 요청
-            #         WebDriverWait(driver, sysOpt['chrDelayOpt']).until(
-            #             EC.element_to_be_clickable((By.XPATH, '//*[@id="enquiry-form"]/div[4]/div/button'))
-            #         ).click()
-            #
-            #         time.sleep(1)
-            #
-            #         # 다운로드 완료
-            #         WebDriverWait(driver, sysOpt['chrDelayOpt']).until(
-            #             EC.element_to_be_clickable((By.XPATH, '/html/body/div[3]/div/div[6]/button[1]'))
-            #         ).click()
-            #
-            # except Exception as e:
-            #     log.error(f"Exception : {str(e)}")
-            #
-            # finally:
-            #     driver.quit()
-
-            # ======================================================================================================
-            # 크롤링 2번
-            # ======================================================================================================
-            # try:
-            #     urlInfo = 'https://iced.niti.gov.in/energy/fuel-sources/oil/consumption'
-            #     driver.implicitly_wait(sysOpt['chrDelayOpt'])
-            #     driver.get(urlInfo)
-            #
-            #     selEle = driver.find_element(By.XPATH, '//*[@id="download-state-wise-cons-trend-section"]/app-chart-option-menu-strip/div/div/div[1]/select')
-            #     driver.execute_script("arguments[0].scrollIntoView({block: 'center'});", selEle)
-            #     selTag = Select(selEle)
-            #     for i, opt in  enumerate(selTag.options):
-            #         if i > 0: continue
-            #         value = opt.get_attribute('value')
-            #         log.info(f'[CHECK] i / {i} / text : {opt.text} / value : {value}')
-            #
-            #         # State 선택
-            #         selTag.select_by_value(value)
-            #
-            #         time.sleep(2)
-            #
-            #         # 엑셀 아이콘 선택
-            #         WebDriverWait(driver, sysOpt['chrDelayOpt']).until(
-            #             EC.element_to_be_clickable((By.XPATH, '//*[@id="download-state-wise-cons-trend-section"]/app-chart-option-menu-strip/div/div/div[2]/li[2]/a/img'))
-            #         ).click()
-            #
-            #         if (sysOpt['isInit'] == False):
-            #             nameEle = driver.find_element(By.ID, 'name')
-            #             nameEle.clear()
-            #             nameEle.send_keys('test')
-            #
-            #             emailEle = driver.find_element(By.ID, 'email')
-            #             emailEle.clear()
-            #             emailEle.send_keys('test@gmail.com')
-            #
-            #             orgEle = driver.find_element(By.ID, 'organization')
-            #             orgEle.clear()
-            #             orgEle.send_keys('test')
-            #
-            #             # 리캡차 프레임으로 전환
-            #             frames = driver.find_elements(By.TAG_NAME, 'iframe')
-            #             for frame in frames:
-            #                 if 'recaptcha' in frame.get_attribute('src'):
-            #                     driver.switch_to.frame(frame)
-            #                     break
-            #
-            #             # 리캡차 체크박스 클릭
-            #             WebDriverWait(driver, 10).until(
-            #                 EC.element_to_be_clickable((By.CLASS_NAME, 'recaptcha-checkbox-border'))
-            #             ).click()
-            #
-            #             # 프레임 밖으로 전환
-            #             driver.switch_to.default_content()
-            #
-            #             sysOpt['isInit'] = True
-            #
-            #         time.sleep(1)
-            #
-            #         # 다운로드 요청
-            #         WebDriverWait(driver, sysOpt['chrDelayOpt']).until(
-            #             EC.element_to_be_clickable((By.XPATH, '//*[@id="enquiry-form"]/div[4]/div/button'))
-            #         ).click()
-            #
-            #         time.sleep(1)
-            #
-            #         # 다운로드 완료
-            #         WebDriverWait(driver, sysOpt['chrDelayOpt']).until(
-            #             EC.element_to_be_clickable((By.XPATH, '/html/body/div[3]/div/div[6]/button[1]'))
-            #         ).click()
-            #
-            # except Exception as e:
-            #     log.error(f"Exception : {str(e)}")
-            #
-            # finally:
-            #     driver.quit()
-
-            # ======================================================================================================
-            # 크롤링 3번
-            # ======================================================================================================
-            # try:
-            #     urlInfo = 'https://iced.niti.gov.in/energy/fuel-sources/oil/consumption'
-            #     driver.implicitly_wait(sysOpt['chrDelayOpt'])
-            #     driver.get(urlInfo)
-            #
-            #     WebDriverWait(driver, sysOpt['chrDelayOpt']).until(
-            #         EC.element_to_be_clickable((By.XPATH, '/html/body/app-root/div/app-consumption/section/div/div/div[1]/app-fuel-sources-accordion/accordion/accordion-group[5]/div/div[2]/div/p[2]'))
-            #     ).click()
-            #
-            #     selEle = driver.find_element(By.XPATH, '//*[@id="download-sector-wise-cons-trend-section"]/app-chart-option-menu-strip/div/div/div[1]/select')
-            #     driver.execute_script("arguments[0].scrollIntoView({block: 'center'});", selEle)
-            #     selTag = Select(selEle)
-            #     for i, opt in  enumerate(selTag.options):
-            #         if i > 0: continue
-            #         value = opt.get_attribute('value')
-            #         log.info(f'[CHECK] i / {i} / text : {opt.text} / value : {value}')
-            #
-            #         # State 선택
-            #         selTag.select_by_value(value)
-            #
-            #         time.sleep(2)
-            #
-            #         # 엑셀 아이콘 선택
-            #         WebDriverWait(driver, sysOpt['chrDelayOpt']).until(
-            #             EC.element_to_be_clickable((By.XPATH, '//*[@id="download-sector-wise-cons-trend-section"]/app-chart-option-menu-strip/div/div/div[2]/li[2]/a/img'))
-            #         ).click()
-            #
-            #         if (sysOpt['isInit'] == False):
-            #             nameEle = driver.find_element(By.ID, 'name')
-            #             nameEle.clear()
-            #             nameEle.send_keys('test')
-            #
-            #             emailEle = driver.find_element(By.ID, 'email')
-            #             emailEle.clear()
-            #             emailEle.send_keys('test@gmail.com')
-            #
-            #             orgEle = driver.find_element(By.ID, 'organization')
-            #             orgEle.clear()
-            #             orgEle.send_keys('test')
-            #
-            #             # 리캡차 프레임으로 전환
-            #             frames = driver.find_elements(By.TAG_NAME, 'iframe')
-            #             for frame in frames:
-            #                 if 'recaptcha' in frame.get_attribute('src'):
-            #                     driver.switch_to.frame(frame)
-            #                     break
-            #
-            #             # 리캡차 체크박스 클릭
-            #             WebDriverWait(driver, 10).until(
-            #                 EC.element_to_be_clickable((By.CLASS_NAME, 'recaptcha-checkbox-border'))
-            #             ).click()
-            #
-            #             # 프레임 밖으로 전환
-            #             driver.switch_to.default_content()
-            #
-            #             sysOpt['isInit'] = True
-            #
-            #         time.sleep(1)
-            #
-            #         # 다운로드 요청
-            #         WebDriverWait(driver, sysOpt['chrDelayOpt']).until(
-            #             EC.element_to_be_clickable((By.XPATH, '//*[@id="enquiry-form"]/div[4]/div/button'))
-            #         ).click()
-            #
-            #         time.sleep(1)
-            #
-            #         # 다운로드 완료
-            #         WebDriverWait(driver, sysOpt['chrDelayOpt']).until(
-            #             EC.element_to_be_clickable((By.XPATH, '/html/body/div[3]/div/div[6]/button[1]'))
-            #         ).click()
-            #
-            # except Exception as e:
-            #     log.error(f"Exception : {str(e)}")
-            #
-            # finally:
-            #     driver.quit()
+            # ==========================================================================================================
+            # 자료 저장
+            # ==========================================================================================================
+            saveFile = datetime.now().strftime(sysOpt['saveFile'])
+            os.makedirs(os.path.dirname(saveFile), exist_ok=True)
+            dataL2.to_csv(saveFile, index=False)
+            log.info(f'[CHECK] saveFile : {saveFile}')
 
         except Exception as e:
             log.error(f"Exception : {str(e)}")
