@@ -302,7 +302,7 @@ class DtaProcess(object):
                 'chromedriverInfo':"/DATA/INPUT/LSH0602/chromedriver-linux64/chromedriver",
 
                 # 지연 시간
-                'timeout': 60,
+                'timeout': 20,
 
                 # 로그인 기능
                 'loginId': "backjoi@naver.com",
