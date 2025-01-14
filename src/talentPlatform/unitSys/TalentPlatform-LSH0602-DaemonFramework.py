@@ -235,6 +235,8 @@ class DtaProcess(object):
     # nohup /HDD/SYSTEMS/LIB/anaconda3/envs/py38/bin/python /SYSTEMS/PROG/PYTHON/IDE/src/talentPlatform/unitSys/TalentPlatform-LSH0602-DaemonFramework.py &
     # tail -f nohup.out
 
+    # ps -ef | grep "TalentPlatform-LSH0602-DaemonFramework" | awk '{print $2}' | xargs kill -9
+
     # ================================================================================================
     # 환경변수 설정
     # ================================================================================================
@@ -308,6 +310,7 @@ class DtaProcess(object):
                 'pageTimeout': 10,
                 'loadTimeout': 30,
                 'defTimeout': 5,
+                'reqTimeout': 10,
 
                 # 로그인 기능
                 'loginId': "backjoi@naver.com",
@@ -414,6 +417,7 @@ class DtaProcess(object):
                 log.info(f'[CHECK] urlDtl : {urlDtl}')
 
                 driver.get(urlDtl)
+                time.sleep(sysOpt['defTimeout'])
 
                 # 기본정보 추출
                 try:
@@ -459,26 +463,29 @@ class DtaProcess(object):
 
                 # 상세정보 추출
                 try:
-                    driver.get(website)
-                    pageSrc = driver.page_source
+                    # driver.get(website)
+                    # time.sleep(sysOpt['defTimeout'])
+                    # pageSrc = driver.page_source
+
+                    response = requests.get(website, timeout=sysOpt['reqTimeout'])
+                    soup = BeautifulSoup(response.text, 'html.parser')
+                    pageSrc = soup.get_text()
+                except Exception:
+                    pageSrc = None
+
+                try:
                     emailPattern = r'[a-zA-Z0-9_.+-]+@[a-zA-Z0-9-]+\.[a-zA-Z0-9-.]+'
                     emailList = re.findall(emailPattern, pageSrc)
 
-                    emailInfo = []
-                    for emailInfo in emailList:
-                        domain = emailInfo.split('@')[1]
-                        if domain.count('.') < 3:
-                            emailInfo.append(emailInfo)
-
-                    email = None if emailInfo is None or len(emailInfo) < 1 else emailInfo[len(emailInfo) - 1]
+                    email = None if emailList is None or len(emailList) < 1 else emailList[len(emailList) - 1]
                 except Exception:
                     email = None
                 log.info(f'[CHECK] email : {email}')
 
                 try:
-                    phonePattern = r'\d{2,3}-\d{3,4}-\d{4}'
-                    text = re.findall(phonePattern, pageSrc)
-                    phone = None if text is None or len(text) < 1 else text
+                    phonePattern = r'\d{2,3}\s*-\s*\d{3,4}\s*-\s*\d{4}'
+                    phoneList = re.findall(phonePattern, pageSrc)
+                    phone = None if phoneList is None or len(phoneList) < 1 else phoneList[len(phoneList) - 1]
                 except Exception:
                     phone = None
                 log.info(f'[CHECK] phone : {phone}')
