@@ -214,7 +214,7 @@ class DtaProcess(object):
     # ================================================
     # 요구사항
     # ================================================
-    # Python을 이용한 셀레늄 기반 동적 엑셀 다운로드 및 데이터 가공
+    # Python을 이용한 셀레늄 기반 스타트업 정보 수집 및 추출
 
     # 원도우 X11 (X Window System) 프로토콜 지원
     # xming
@@ -230,6 +230,8 @@ class DtaProcess(object):
 
     # /DATA/INPUT/LSH0602/chromedriver-linux64/chromedriver --version
     # ChromeDriver 131.0.6778.264 (2d05e31515360f4da764174f7c448b33e36da871-refs/branch-heads/6778@{#4323})
+
+
     # ================================================================================================
     # 환경변수 설정
     # ================================================================================================
@@ -338,7 +340,7 @@ class DtaProcess(object):
             wait = WebDriverWait(driver, sysOpt['timeout'])
 
             # 이메일 입력
-            emailTag = wait.until(EC.presence_of_element_located((By.ID, "emailInfo")))
+            emailTag = wait.until(EC.presence_of_element_located((By.ID, "email")))
             emailTag.send_keys(sysOpt['loginId'])
 
             # 비밀번호 입력
