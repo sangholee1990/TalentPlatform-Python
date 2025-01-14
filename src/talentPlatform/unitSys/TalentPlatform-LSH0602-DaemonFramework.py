@@ -302,7 +302,7 @@ class DtaProcess(object):
                 'chromedriverInfo':"/DATA/INPUT/LSH0602/chromedriver-linux64/chromedriver",
 
                 # 지연 시간
-                'timeout': 20,
+                'timeout': 60,
 
                 # 로그인 기능
                 'loginId': "backjoi@naver.com",
@@ -358,10 +358,13 @@ class DtaProcess(object):
             # ==========================================================================================================
             # 기업정보 수집
             # ==========================================================================================================
+            # 최대 개수
             url = sysOpt['listDefUrl']
             driver.get(url)
+            wait = WebDriverWait(driver, sysOpt['timeout'])
 
-            # 최대 개수
+            time.sleep(1)
+
             tagCnt = wait.until(EC.presence_of_element_located((By.CLASS_NAME, "total")))
             maxCnt = int(re.search(r'\d+', tagCnt.text).group())
 
@@ -375,8 +378,9 @@ class DtaProcess(object):
             for page in pageList:
                 url = sysOpt['listUrl'].format(perPage = perPage, page=page)
                 log.info(f'[CHECK] url : {url}')
-
                 driver.get(url)
+
+                wait = WebDriverWait(driver, sysOpt['timeout'])
                 tagTable = wait.until(EC.presence_of_element_located((By.TAG_NAME, "tbody")))
                 itemList = tagTable.find_elements(By.TAG_NAME, "tr")
 
