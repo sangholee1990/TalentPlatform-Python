@@ -52,6 +52,17 @@ from urllib import parse
 import time
 from urllib.parse import quote_plus, urlencode
 
+from selenium import webdriver
+from selenium.webdriver.chrome.service import Service
+from selenium.webdriver.common.by import By
+from selenium.webdriver.support.ui import WebDriverWait
+from selenium.webdriver.support import expected_conditions as EC
+from bs4 import BeautifulSoup
+import time
+
+import time
+from selenium import webdriver
+
 # =================================================
 # 사용자 매뉴얼
 # =================================================
@@ -281,43 +292,59 @@ class DtaProcess(object):
                 }
             }
 
+            # 원도우 X11 (X Window System) 프로토콜 지원
+            # xming
+
+            # 리눅스 CLI 실행
+            # google-chrome --no-sandbo
+
+            # 크롬 다운로드
+            # https://googlechromelabs.github.io/chrome-for-testing
+
+            # /DATA/INPUT/LSH0602/chrome-linux64/chrome --version
+            # Google Chrome for Testing 131.0.6778.264
+
+            # /DATA/INPUT/LSH0602/chromedriver-linux64/chromedriver --version
+            # ChromeDriver 131.0.6778.264 (2d05e31515360f4da764174f7c448b33e36da871-refs/branch-heads/6778@{#4323})
+
+
             # inpFile = '{}/{}/{}'.format(globalVar['inpPath'], serviceName, 'HN_M.csv')
             # fileList = sorted(glob.glob(inpFile))
 
-            print('test')
+            # print('test')
 
-            # Step 1: URL 설정
-            url = "https://www.unicornfactory.co.kr/datalab/startup/company-search?search=&unicorn=on&business=&tech=&cert=&stage=&amount=&location=&revenue=&history=&sort=A&limit=20&page=1"
-
-            # Step 2: HTTP GET 요청
-            # headers = {
-            #     "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/97.0.4692.99 Safari/537.36"
-            # }
-            response = requests.get(url)
-
-            # Step 3: 응답 확인 및 데이터 파싱
-            if response.status_code == 200:
-                soup = BeautifulSoup(response.text, "html.parser")
-
-                # HTML 구조를 분석하여 데이터 선택
-                # 예: 회사 이름, 단계, 지역 등
-                companies = soup.find_all("div", class_="company-info")  # div 클래스를 회사 데이터로 대체 필요
-                # 테이블 찾기
-                table = soup.find('table')
-
-                # headers = [th.text.strip() for th in table.find('thead').find_all('th')]
-
-                div = soup.find('div', class_='listarea-contents')
-                table = div.find('table') if div else None
-
-
-                for company in companies:
-                    name = company.find("h3").text.strip()  # 예: 회사 이름
-                    stage = company.find("span", class_="stage").text.strip()  # 예: 단계
-                    location = company.find("span", class_="location").text.strip()  # 예: 지역
-                    print(f"Company Name: {name}, Stage: {stage}, Location: {location}")
-            else:
-                print(f"Failed to retrieve data: {response.status_code}")
+            # # Step 1: URL 설정
+            # url = "https://www.unicornfactory.co.kr/datalab/startup/company-search?search=&unicorn=on&business=&tech=&cert=&stage=&amount=&location=&revenue=&history=&sort=A&limit=20&page=1"
+            #
+            # # Step 2: HTTP GET 요청
+            # # headers = {
+            # #     "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/97.0.4692.99 Safari/537.36"
+            # # }
+            # response = requests.get(url)
+            #
+            # # Step 3: 응답 확인 및 데이터 파싱
+            # if response.status_code == 200:
+            #     soup = BeautifulSoup(response.text, "html.parser")
+            #
+            #     # HTML 구조를 분석하여 데이터 선택
+            #     # 예: 회사 이름, 단계, 지역 등
+            #     companies = soup.find_all("div", class_="company-info")  # div 클래스를 회사 데이터로 대체 필요
+            #     # 테이블 찾기
+            #     table = soup.find('table')
+            #
+            #     # headers = [th.text.strip() for th in table.find('thead').find_all('th')]
+            #
+            #     div = soup.find('div', class_='listarea-contents')
+            #     table = div.find('table') if div else None
+            #
+            #
+            #     for company in companies:
+            #         name = company.find("h3").text.strip()  # 예: 회사 이름
+            #         stage = company.find("span", class_="stage").text.strip()  # 예: 단계
+            #         location = company.find("span", class_="location").text.strip()  # 예: 지역
+            #         print(f"Company Name: {name}, Stage: {stage}, Location: {location}")
+            # else:
+            #     print(f"Failed to retrieve data: {response.status_code}")
 
             # ======================================================================================================
             # 데이터 전처리
@@ -361,65 +388,192 @@ class DtaProcess(object):
             # ======================================================================================================
             # 크롤링 전역 설정
             # ======================================================================================================
+
+
             # 크롬 설정
             options = Options()
             options.headless = False
             options.add_argument("--window-size=1920,1080")
+            # options.add_argument("--start-maximized")
+            # options.binary_location = "/usr/bin/google-chrome"
+            options.binary_location = "/DATA/INPUT/LSH0602/chrome-linux64/chrome"
+
 
             # 백그라운드 화면 여부
-            options.add_argument('--headless')
-            options.add_argument('--no-sandbox')
-            options.add_argument('--disable-dev-shm-usage')
+            # options.add_argument('--headless')
+            # options.add_argument('--no-sandbox')
+            # options.add_argument('--disable-dev-shm-usage')
+
+            options.add_argument("--no-sandbox")  # Sandbox 모드 비활성화
+            options.add_argument("--disable-dev-shm-usage")  # 공유 메모리 사용 비활성화
+            options.add_argument("--headless")  # 필요한 경우 headless 모드 활성화
+            options.add_argument("--remote-debugging-port=9222")  # 디버깅 포트 설정
+            options.add_argument("--disable-gpu")  # GPU 비활성화
 
 
-            from selenium import webdriver
-            from selenium.webdriver.chrome.service import Service
-            from selenium.webdriver.common.by import By
-            from selenium.webdriver.support.ui import WebDriverWait
-            from selenium.webdriver.support import expected_conditions as EC
-            from bs4 import BeautifulSoup
-            import time
+            # service = Service(ChromeDriverManager().install())
+            service = Service("/DATA/INPUT/LSH0602/chromedriver-linux64/chromedriver")
+            driver = webdriver.Chrome(service=service, options=options)
+            # driver.quit()
 
-            driver = webdriver.Chrome(service=Service(ChromeDriverManager().install()), options=options)
+            driver.get("https://www.google.com")
+            print(driver.title)
 
-            # ChromeDriver 경로 설정
-            service = Service("path_to_chromedriver")  # ChromeDriver 실행 파일 경로
-            driver = webdriver.Chrome(service=service)
+            # driver.quit()
 
-            try:
-                # 웹 페이지 열기
-                url = "https://example.com"  # 대상 URL로 변경
+            # https://www.unicornfactory.co.kr/login
+            url = "https://www.unicornfactory.co.kr/login"
+            driver.get(url)
+
+            # soup = BeautifulSoup(driver.page_source, "html.parser")
+
+            # WebDriverWait 설정 (최대 10초 대기)
+            wait = WebDriverWait(driver, 10)
+
+            # 이메일 입력 필드가 로드될 때까지 대기 후 입력
+            email_input = wait.until(EC.presence_of_element_located((By.ID, "email")))
+            email_input.send_keys("backjoi@naver.com")  # 사용할 이메일 입력
+
+            # 비밀번호 입력 필드가 로드될 때까지 대기 후 disabled 속성 제거 및 입력
+            password_input = wait.until(EC.presence_of_element_located((By.ID, "password")))
+            driver.execute_script("arguments[0].removeAttribute('disabled')", password_input)  # disabled 속성 제거
+            password_input.send_keys("cjswo124!Q")  # 사용할 비밀번호 입력
+
+            # 로그인 버튼이 클릭 가능할 때까지 대기 후 클릭
+            login_button = wait.until(EC.element_to_be_clickable((By.ID, "join_submit_btn")))
+            login_button.click()
+
+            # WebDriverWait 설정 (최대 10초 대기)
+            wait = WebDriverWait(driver, 10)
+            span_element = wait.until(EC.presence_of_element_located((By.CLASS_NAME, "total")))
+            # 텍스트 추출
+            span_text = span_element.text
+            maxCnt = int(re.search(r'\d+', span_text).group())
+            perPage = 100
+            maxPage = (maxCnt + perPage - 1) // perPage
+            pageList = list(range(1, maxPage + 1))
+
+
+
+            # 테이블 데이터 저장용 리스트
+            data = []
+            for page in pageList:
+                print(page)
+
+                url = f"https://www.unicornfactory.co.kr/datalab/startup/company-search?search=&unicorn=on&business=&tech=&cert=&stage=&amount=&location=&revenue=&history=&sort=A&limit={perPage}&page={page}"
                 driver.get(url)
 
-                # 페이지 로딩 대기 (최대 10초)
-                WebDriverWait(driver, 10).until(
-                    EC.presence_of_element_located((By.CLASS_NAME, "listarea-contents"))  # 적절한 요소로 변경
-                )
+                # WebDriverWait 설정 (최대 10초 대기)
+                wait = WebDriverWait(driver, 10)
 
-                # BeautifulSoup으로 HTML 파싱
-                soup = BeautifulSoup(driver.page_source, "html.parser")
+                # 테이블 본문이 로드될 때까지 대기
+                table_body = wait.until(EC.presence_of_element_located((By.TAG_NAME, "tbody")))
 
-                # 원하는 데이터 추출
-                div = soup.find('div', class_='listarea-contents')
-                if div:
-                    table = div.find('table')
-                    if table:
-                        # 헤더 추출
-                        headers = [th.text.strip() for th in table.find('thead').find_all('th')]
-                        print("Headers:", headers)
+                # 모든 행(tr) 요소 가져오기
+                rows = table_body.find_elements(By.TAG_NAME, "tr")
 
-                        # 테이블 데이터 추출
-                        rows = table.find('tbody').find_all('tr')
-                        for row in rows:
-                            cols = [td.text.strip() for td in row.find_all('td')]
-                            print("Row:", cols)
-                    else:
-                        print("Table not found within the div.")
-                else:
-                    print("Div with class 'listarea-contents' not found.")
-            finally:
-                # 브라우저 닫기
-                driver.quit()
+                # 각 행에서 열(td) 데이터 추출
+                for row in rows:
+                    cols = row.find_elements(By.TAG_NAME, "td")
+                    row_data = [col.text for col in cols]
+                    href_value = row.find_element(By.TAG_NAME, "a").get_attribute("href")
+                    row_data.append(href_value)
+
+                    # 열 데이터를 리스트로 저장
+                    data.append(row_data)
+
+            # 테이블 헤더 가져오기
+            table_head = driver.find_element(By.TAG_NAME, "thead")
+            headers = [th.text for th in table_head.find_elements(By.TAG_NAME, "th")]
+            headers.append('urlDtl')
+
+            # Pandas DataFrame 생성
+            df = pd.DataFrame(data, columns=headers)
+
+            # 유니콘 팩토리 사이트를 기준으로 기본정보 수집 (회사명, 웹사이트, 주소, 회사 소개, 설립일자)
+            # 해당 회사 웹 사이트로부터 상세정보 추출 (이메일, 연락처)
+            for i, item in df.iterrows():
+                urlDtl = item['urlDtl']
+                driver.get(urlDtl)
+
+                wait = WebDriverWait(driver, 10)
+
+                # 기본정보 수집
+                website = driver.find_element(By.CLASS_NAME, "homepage").get_attribute("href")
+                address = driver.find_element(By.CLASS_NAME, "address").text
+                intro = driver.find_element(By.CLASS_NAME, "realtxt").text
+                establishment_date = driver.find_element(By.XPATH,"//strong[text()='설립일자(업력)']/following-sibling::div/p").text
+                business_area = driver.find_element(By.XPATH, "//strong[text()='사업분야']/following-sibling::div/p").text
+
+                item['웹사이트'] = website
+                item['주소'] = address
+                item['회사소개'] = intro
+                item['설립일자'] = establishment_date
+                item['사업분야'] = business_area
+
+                # 웹사이트에 접속하여 이메일, 연락처 수집
+                driver.get(website)
+
+                try:
+                    page_source = driver.page_source
+                    email_pattern = r'[a-zA-Z0-9_.+-]+@[a-zA-Z0-9-]+\.[a-zA-Z0-9-.]+'
+                    emails = re.findall(email_pattern, page_source)
+
+                    email = []
+                    for email in emails:
+                        domain = email.split('@')[1]
+                        if domain.count('.') < 3:
+                            email.append(email)
+                except Exception:
+                    email = None
+
+                try:
+                    phone_pattern = r'\d{2,3}-\d{3,4}-\d{4}'
+                    phone = re.findall(phone_pattern, page_source)
+                except Exception:
+                    phone = None
+
+                item['이메일'] = email
+                item['연락처'] = phone
+
+
+            #
+            #
+            #
+            # try:
+            #     # 웹 페이지 열기
+            #     url = "https://example.com"  # 대상 URL로 변경
+            #     driver.get(url)
+            #
+            #     # 페이지 로딩 대기 (최대 10초)
+            #     WebDriverWait(driver, 10).until(
+            #         EC.presence_of_element_located((By.CLASS_NAME, "listarea-contents"))  # 적절한 요소로 변경
+            #     )
+            #
+            #     # BeautifulSoup으로 HTML 파싱
+            #     soup = BeautifulSoup(driver.page_source, "html.parser")
+            #
+            #     # 원하는 데이터 추출
+            #     div = soup.find('div', class_='listarea-contents')
+            #     if div:
+            #         table = div.find('table')
+            #         if table:
+            #             # 헤더 추출
+            #             headers = [th.text.strip() for th in table.find('thead').find_all('th')]
+            #             print("Headers:", headers)
+            #
+            #             # 테이블 데이터 추출
+            #             rows = table.find('tbody').find_all('tr')
+            #             for row in rows:
+            #                 cols = [td.text.strip() for td in row.find_all('td')]
+            #                 print("Row:", cols)
+            #         else:
+            #             print("Table not found within the div.")
+            #     else:
+            #         print("Div with class 'listarea-contents' not found.")
+            # finally:
+            #     # 브라우저 닫기
+            #     driver.quit()
 
             # ======================================================================================================
             # 크롤링 1번
