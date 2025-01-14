@@ -569,14 +569,14 @@ class DtaProcess(object):
                         'saveModelList': f"/DATA/MODEL/*/*/*_solar_final_pycaret_for.model.pkl",
                         'saveModel': f"/DATA/MODEL/%Y%m/%d/%Y%m%d_solar_final_pycaret_for.model",
                         'saveImg': f"/DATA/MODEL/%Y%m/%d/%Y%m%d_solar_final_pycaret_for.png",
-                        'isOverWrite': True,
-                        # 'isOverWrite': False,
+                        # 'isOverWrite': True,
+                        'isOverWrite': False,
                         'preDt': datetime.now(),
                     },
                 },
                 'FNL': {
-                    'savePath': '/DATA/PROP/SAMPLE',
-                    'saveName': 'ulsan_fcst_data.csv',
+                    'saveFile': '/DATA/FNL/%Y%m/%d/%Y%m%d_solar_final_prd_for.csv',
+                    'preDt': datetime.now(),
                 },
             }
 
@@ -631,20 +631,20 @@ class DtaProcess(object):
             yCol = 'ulsan'
 
             # ****************************************************************************
-            # 수동 학습 모델링 (lightgbm)
+            # 수동 학습 모델링 (lgb)
             # ****************************************************************************
-            # resLgb = makeLgbModel(sysOpt['MODEL']['lgb'], xCol, yCol, trainData, testData)
+            resLgb = makeLgbModel(sysOpt['MODEL']['lgb'], xCol, yCol, trainData, testData)
             # log.info(f'[CHECK] resLgb : {resLgb}')
-            #
-            # prdData['LGB'] = resLgb['mlModel'].predict(data=testData[xCol])
+
+            prdData['prd-lgb'] = resLgb['mlModel'].predict(data=testData[xCol])
 
             # ****************************************************************************
             # 자동 학습 모델링 (flaml)
             # ****************************************************************************
-            # resFlaml = makeFlamlModel(sysOpt['MODEL']['flaml'], xCol, yCol, trainData, testData)
+            resFlaml = makeFlamlModel(sysOpt['MODEL']['flaml'], xCol, yCol, trainData, testData)
             # log.info(f'[CHECK] resFlaml : {resFlaml}')
-            #
-            # prdData['FLAML'] = resFlaml['mlModel'].predict(prdData)
+
+            prdData['prd-flaml'] = resFlaml['mlModel'].predict(prdData)
 
             # ****************************************************************************
             # 자동 학습 모델링 (pycaret)
@@ -652,11 +652,16 @@ class DtaProcess(object):
             resPycaret = makePycaretModel(sysOpt['MODEL']['pycaret'], xCol, yCol, trainData, testData)
             # log.info(f'[CHECK] resPycaret : {resPycaret}')
 
-            gg = predict_model(resPycaret['mlModel'], data=prdData[xCol])['Label']
+            prdData['prd-pycaret'] = predict_model(resPycaret['mlModel'], data=prdData[xCol])['prediction_label']
 
-            print(gg)
-            print(prdData)
-
+            # ****************************************************************************
+            # 자료 저장
+            # ****************************************************************************
+            subOpt = sysOpt['FNL']
+            saveFile = subOpt['preDt'].strftime(subOpt['saveFile'])
+            os.makedirs(os.path.dirname(saveFile), exist_ok=True)
+            prdData.to_csv(saveFile, index=False)
+            log.info(f'[CHECK] saveFile : {saveFile}')
 
         except Exception as e:
             log.error(f"Exception : {e}")
