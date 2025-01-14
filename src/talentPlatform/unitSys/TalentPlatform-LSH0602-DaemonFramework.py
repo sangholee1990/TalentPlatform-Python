@@ -233,6 +233,7 @@ class DtaProcess(object):
 
     # cd /SYSTEMS/PROG/PYTHON/IDE/src/talentPlatform/unitSys
     # nohup /HDD/SYSTEMS/LIB/anaconda3/envs/py38/bin/python /SYSTEMS/PROG/PYTHON/IDE/src/talentPlatform/unitSys/TalentPlatform-LSH0602-DaemonFramework.py &
+    # tail -f nohup.out
 
     # ================================================================================================
     # 환경변수 설정
@@ -301,8 +302,12 @@ class DtaProcess(object):
                 'chromeInfo': "/DATA/INPUT/LSH0602/chrome-linux64/chrome",
                 'chromedriverInfo':"/DATA/INPUT/LSH0602/chromedriver-linux64/chromedriver",
 
+                'perPage': 100,
+
                 # 지연 시간
-                'timeout': 60,
+                'pageTimeout': 10,
+                'loadTimeout': 30,
+                'defTimeout': 5,
 
                 # 로그인 기능
                 'loginId': "backjoi@naver.com",
@@ -332,6 +337,7 @@ class DtaProcess(object):
             # service = Service(ChromeDriverManager().install())
             service = Service(sysOpt['chromedriverInfo'])
             driver = webdriver.Chrome(service=service, options=options)
+            driver.set_page_load_timeout(sysOpt['pageTimeout'])
 
             # ==========================================================================================================
             # 로그인 기능
@@ -340,7 +346,7 @@ class DtaProcess(object):
             driver.get(url)
 
             # 최대 timeout 대기
-            wait = WebDriverWait(driver, sysOpt['timeout'])
+            wait = WebDriverWait(driver, sysOpt['loadTimeout'])
 
             # 이메일 입력
             emailTag = wait.until(EC.presence_of_element_located((By.ID, "email")))
@@ -354,6 +360,7 @@ class DtaProcess(object):
             # 로그인 버튼
             btnLogin = wait.until(EC.element_to_be_clickable((By.ID, "join_submit_btn")))
             btnLogin.click()
+            time.sleep(sysOpt['defTimeout'])
 
             # ==========================================================================================================
             # 기업정보 수집
@@ -361,18 +368,18 @@ class DtaProcess(object):
             # 최대 개수
             url = sysOpt['listDefUrl']
             driver.get(url)
-            wait = WebDriverWait(driver, sysOpt['timeout'])
+            time.sleep(sysOpt['defTimeout'])
 
-            time.sleep(1)
-
+            wait = WebDriverWait(driver, sysOpt['loadTimeout'])
             tagCnt = wait.until(EC.presence_of_element_located((By.CLASS_NAME, "total")))
             maxCnt = int(re.search(r'\d+', tagCnt.text).group())
 
-            perPage = 100
+            perPage = sysOpt['perPage']
             maxPage = (maxCnt + perPage - 1) // perPage
 
             # 페이지 목록
             pageList = list(range(1, maxPage + 1))
+            # pageList = list(range(1, 2))
 
             dataL1 = []
             for page in pageList:
@@ -380,7 +387,7 @@ class DtaProcess(object):
                 log.info(f'[CHECK] url : {url}')
                 driver.get(url)
 
-                wait = WebDriverWait(driver, sysOpt['timeout'])
+                wait = WebDriverWait(driver, sysOpt['loadTimeout'])
                 tagTable = wait.until(EC.presence_of_element_located((By.TAG_NAME, "tbody")))
                 itemList = tagTable.find_elements(By.TAG_NAME, "tr")
 
@@ -414,30 +421,35 @@ class DtaProcess(object):
                     website = None if text is None or len(text) < 1 else text
                 except Exception:
                     website = None
+                log.info(f'[CHECK] website : {website}')
 
                 try:
                     text = driver.find_element(By.CLASS_NAME, "address").text
                     address = None if text is None or len(text) < 1 else text
                 except Exception:
                     address = None
+                log.info(f'[CHECK] address : {address}')
 
                 try:
                     intro = driver.find_element(By.CLASS_NAME, "realtxt").text
                     text = None if text is None or len(text) < 1 else text
                 except Exception:
                     intro = None
+                log.info(f'[CHECK] intro : {intro}')
 
                 try:
                     text = driver.find_element(By.XPATH, "//strong[text()='설립일자(업력)']/following-sibling::div/p").text
                     estDate = None if text is None or len(text) < 1 else text
                 except Exception:
                     estDate = None
+                log.info(f'[CHECK] estDate : {estDate}')
 
                 try:
                     text = driver.find_element(By.XPATH, "//strong[text()='사업분야']/following-sibling::div/p").text
                     businArea = None if text is None or len(text) < 1 else text
                 except Exception:
                     businArea = None
+                log.info(f'[CHECK] businArea : {businArea}')
 
                 dataL2.loc[i, '웹사이트'] = website
                 dataL2.loc[i, '주소'] = address
@@ -458,9 +470,10 @@ class DtaProcess(object):
                         if domain.count('.') < 3:
                             emailInfo.append(emailInfo)
 
-                    email = None if emailInfo is None or len(emailInfo) < 1 else emailInfo
+                    email = None if emailInfo is None or len(emailInfo) < 1 else emailInfo[len(emailInfo) - 1]
                 except Exception:
                     email = None
+                log.info(f'[CHECK] email : {email}')
 
                 try:
                     phonePattern = r'\d{2,3}-\d{3,4}-\d{4}'
@@ -468,6 +481,7 @@ class DtaProcess(object):
                     phone = None if text is None or len(text) < 1 else text
                 except Exception:
                     phone = None
+                log.info(f'[CHECK] phone : {phone}')
 
                 dataL2.loc[i, '이메일'] = email
                 dataL2.loc[i, '연락처'] = phone
@@ -475,10 +489,11 @@ class DtaProcess(object):
             # ==========================================================================================================
             # 자료 저장
             # ==========================================================================================================
-            saveFile = datetime.now().strftime(sysOpt['saveFile'])
-            os.makedirs(os.path.dirname(saveFile), exist_ok=True)
-            dataL2.to_csv(saveFile, index=False)
-            log.info(f'[CHECK] saveFile : {saveFile}')
+            if len(dataL2) > 0:
+                saveFile = datetime.now().strftime(sysOpt['saveFile'])
+                os.makedirs(os.path.dirname(saveFile), exist_ok=True)
+                dataL2.to_csv(saveFile, index=False)
+                log.info(f'[CHECK] saveFile : {saveFile}')
 
         except Exception as e:
             log.error(f"Exception : {str(e)}")
