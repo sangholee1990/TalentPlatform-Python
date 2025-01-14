@@ -231,11 +231,14 @@ class DtaProcess(object):
     # /DATA/INPUT/LSH0602/chromedriver-linux64/chromedriver --version
     # ChromeDriver 131.0.6778.264 (2d05e31515360f4da764174f7c448b33e36da871-refs/branch-heads/6778@{#4323})
 
+    # 프로그램 실행
     # cd /SYSTEMS/PROG/PYTHON/IDE/src/talentPlatform/unitSys
     # nohup /HDD/SYSTEMS/LIB/anaconda3/envs/py38/bin/python /SYSTEMS/PROG/PYTHON/IDE/src/talentPlatform/unitSys/TalentPlatform-LSH0602-DaemonFramework.py &
     # tail -f nohup.out
 
+    # 프로그램 종료
     # ps -ef | grep "TalentPlatform-LSH0602-DaemonFramework" | awk '{print $2}' | xargs kill -9
+    # ps -ef | grep "chrome" | awk '{print $2}' | xargs kill -9
 
     # ================================================================================================
     # 환경변수 설정
