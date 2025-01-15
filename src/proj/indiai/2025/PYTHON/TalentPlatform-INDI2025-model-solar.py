@@ -51,6 +51,7 @@ import pickle
 from flaml import AutoML
 from sklearn.model_selection import train_test_split
 from pycaret.regression import *
+import pvlib
 
 # =================================================
 # 사용자 매뉴얼
@@ -404,7 +405,6 @@ def makeFlamlModel(subOpt=None, xCol=None, yCol=None, trainData=None, testData=N
         trainDataL1 = trainData[xyCol].dropna()
         testDataL1 = testData[xyCol].dropna()
 
-
         # 학습 모델이 없을 경우
         if (subOpt['isOverWrite']) or (len(saveModelList) < 1):
 
@@ -556,6 +556,7 @@ class DtaProcess(object):
                         'saveModel': f"/DATA/MODEL/%Y%m/%d/%Y%m%d_solar_final_lgb_for.model",
                         'saveImg': f"/DATA/MODEL/%Y%m/%d/%Y%m%d_solar_final_lgb_for.png",
                         'isOverWrite': True,
+                        # 'isOverWrite': False,
                         'preDt': datetime.now(),
                     },
                     'flaml': {
@@ -563,6 +564,7 @@ class DtaProcess(object):
                         'saveModel': f"/DATA/MODEL/%Y%m/%d/%Y%m%d_solar_final_flaml_for.model",
                         'saveImg': f"/DATA/MODEL/%Y%m/%d/%Y%m%d_solar_final_flaml_for.png",
                         'isOverWrite': True,
+                        # 'isOverWrite': False,
                         'preDt': datetime.now(),
                     },
                     'pycaret': {
@@ -600,9 +602,6 @@ class DtaProcess(object):
             energyData = cfgData['energy'][['time', 'ulsan']]
             energyData['eneDt'] = energyData['time'].apply(convStrToDate)
 
-
-            # energyData
-
             # 실황 학습모델
             # cfgData['ulsanObs']
 
@@ -611,11 +610,34 @@ class DtaProcess(object):
             ulsanFcstData['anaDt'] = pd.to_datetime(ulsanFcstData['Forecast time'])
             ulsanFcstData['forDt'] = ulsanFcstData.apply(lambda row: row['anaDt'] + parseDateOffset(f"{int(row['forecast'])}h"), axis=1)
 
-            # ulsanFcstData['forDt']
             # ****************************************************************************
             # 데이터 병합
             # ****************************************************************************
             data = pd.merge(ulsanFcstData, energyData, how='left', left_on='forDt', right_on='eneDt')
+
+            # ****************************************************************************
+            # 유의미한 변수 추가
+            # ****************************************************************************
+            posInfo = cfgData['siteInfo'][cfgData['siteInfo']['Id'] == '울산태양광']
+            posLat = posInfo['Latitude'].item()
+            posLon = posInfo['Longitude'].item()
+
+            data['forDtUtc'] = pd.to_datetime(data['forDt']).dt.tz_localize('Asia/Seoul').dt.tz_convert('UTC')
+
+            solPosInfo = pvlib.solarposition.get_solarposition(time=pd.to_datetime(data['forDtUtc'].values), latitude=posLat, longitude=posLon, temperature=data['Temperature'].values, method='nrel_numpy')
+            data['sza'] = solPosInfo['apparent_zenith'].values
+            data['aza'] = solPosInfo['azimuth'].values
+            data['et'] = solPosInfo['equation_of_time'].values
+
+            site = pvlib.location.Location(posLat, posLon, tz='Asia/Seoul')
+            clearInsInfo = site.get_clearsky(pd.to_datetime(data['forDtUtc'].values))
+            data['ghiClr'] = clearInsInfo['ghi'].values
+            data['dniClr'] = clearInsInfo['dni'].values
+            data['dhiClr'] = clearInsInfo['dhi'].values
+
+            # 혼탁도
+            turbidity = pvlib.clearsky.lookup_linke_turbidity(pd.to_datetime(data['forDtUtc'].values), posLat, posLon, interp_turbidity=True)
+            data['turb'] = turbidity.values
 
             # ****************************************************************************
             # 인덱스 재 정렬
@@ -627,7 +649,8 @@ class DtaProcess(object):
             # ****************************************************************************
             # 독립/종속 변수 설정
             # ****************************************************************************
-            xCol = ['Temperature', 'Humidity', 'WindSpeed', 'WindDirection', 'Cloud']
+            # xCol = ['Temperature', 'Humidity', 'WindSpeed', 'WindDirection', 'Cloud']
+            xCol = ['Temperature', 'Humidity', 'WindSpeed', 'WindDirection', 'Cloud', 'sza', 'aza', 'et', 'ghiClr', 'dniClr', 'dhiClr', 'turb']
             yCol = 'ulsan'
 
             # ****************************************************************************
