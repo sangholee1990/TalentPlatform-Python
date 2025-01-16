@@ -630,6 +630,7 @@ class DtaProcess(object):
             data['sza'] = solPosInfo['apparent_zenith'].values
             data['aza'] = solPosInfo['azimuth'].values
             data['et'] = solPosInfo['equation_of_time'].values
+            data['extRad'] = pvlib.irradiance.get_extra_radiation(solPosInfo.index.dayofyear)
 
             site = pvlib.location.Location(posLat, posLon, tz='Asia/Seoul')
             clearInsInfo = site.get_clearsky(pd.to_datetime(data['forDtUtc'].values))
@@ -652,7 +653,8 @@ class DtaProcess(object):
             # 독립/종속 변수 설정
             # ****************************************************************************
             # xCol = ['Temperature', 'Humidity', 'WindSpeed', 'WindDirection', 'Cloud']
-            xCol = ['Temperature', 'Humidity', 'WindSpeed', 'WindDirection', 'Cloud', 'sza', 'aza', 'et', 'ghiClr', 'dniClr', 'dhiClr', 'turb']
+            # xCol = ['Temperature', 'Humidity', 'WindSpeed', 'WindDirection', 'Cloud', 'sza', 'aza', 'et', 'ghiClr', 'dniClr', 'dhiClr', 'turb']
+            xCol = ['Temperature', 'Humidity', 'WindSpeed', 'WindDirection', 'Cloud', 'sza', 'aza', 'et', 'ghiClr', 'dniClr', 'dhiClr', 'turb', 'extRad']
             yCol = 'ulsan'
 
             # ****************************************************************************
