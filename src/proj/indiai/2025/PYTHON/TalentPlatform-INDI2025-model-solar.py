@@ -240,14 +240,24 @@ def makeLgbModel(subOpt=None, xCol=None, yCol=None, trainData=None, testData=Non
 
             lgbParams = {
                 # 연속 예측
-                'objective': 'regression',
-                'metric': 'rmse',
+                'objective': 'regression', # 회귀/분류 선택
+                'metric': 'rmse', # 평가 지표
 
                 # 이진 분류
                 # 'objective': 'binary',
                 # 'metric': 'auc',
 
                 'boosting_type': 'gbdt',
+                "learning_rate": 0.01,  # 낮은 학습률로 성능 안정화
+                "num_leaves": 31,  # 트리 복잡도 제어
+                "max_depth": -1,  # 깊이 제한 (-1: 제한 없음)
+                "feature_fraction": 0.8,  # 랜덤하게 80%의 특성을 사용
+                "bagging_fraction": 0.8,  # 샘플링 비율
+                "bagging_freq": 5,  # 매 5회 학습마다 샘플링 수행
+                "lambda_l1": 0.1,  # L1 정규화
+                "lambda_l2": 0.1,  # L2 정규화
+                "min_data_in_leaf": 20,  # 최소 잎사귀 데이터 수
+                "verbose": -1 , # 로그 출력 수준
                 'verbosity': -1,
                 'n_jobs': -1,
                 'seed': 123,
@@ -260,12 +270,11 @@ def makeLgbModel(subOpt=None, xCol=None, yCol=None, trainData=None, testData=Non
             fnlModel = lgb.train(
                 params=lgbParams,
                 num_boost_round=10000,
-                # early_stopping_rounds=1000,
                 train_set=lgbTrainData,
                 valid_sets=[lgbTrainData, lgbTestData],
                 valid_names=["train", "valid"],
                 callbacks=[
-                    early_stopping(stopping_rounds=100),
+                    early_stopping(stopping_rounds=10000),
                     log_evaluation(period=200),
                 ]
                 # early_stopping_rounds=100,
