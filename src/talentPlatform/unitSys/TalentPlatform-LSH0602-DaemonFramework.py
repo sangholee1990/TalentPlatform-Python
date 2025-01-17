@@ -62,6 +62,7 @@ import time
 
 import time
 from selenium import webdriver
+import chardet
 
 # =================================================
 # 사용자 매뉴얼
@@ -320,6 +321,7 @@ class DtaProcess(object):
                 'loginPw': "cjswo124!Q",
 
                 # 자료 저장
+                'saveFileList': '/DATA/OUTPUT/LSH0602/*_data.csv',
                 'saveFile': '/DATA/OUTPUT/LSH0602/%Y%m%d_data.csv',
             }
 
@@ -464,37 +466,106 @@ class DtaProcess(object):
                 dataL2.loc[i, '설립일자'] = estDate
                 dataL2.loc[i, '사업분야'] = businArea
 
-                # 상세정보 추출
-                try:
-                    # driver.get(website)
-                    # time.sleep(sysOpt['defTimeout'])
-                    # pageSrc = driver.page_source
 
-                    response = requests.get(website, timeout=sysOpt['reqTimeout'])
-                    soup = BeautifulSoup(response.text, 'html.parser')
-                    pageSrc = soup.get_text()
-                except Exception:
-                    pageSrc = None
+            # 상세정보 추출
+            try:
+                # driver.get(website)
+                # time.sleep(sysOpt['defTimeout'])
+                # pageSrc = driver.page_source
 
-                try:
-                    emailPattern = r'[a-zA-Z0-9_.+-]+@[a-zA-Z0-9-]+\.[a-zA-Z0-9-.]+'
-                    emailList = re.findall(emailPattern, pageSrc)
+                response = requests.get(website, timeout=sysOpt['reqTimeout'])
+                encoding = chardet.detect(response.content)['encoding']
+                htmlInfo = response.content.decode(encoding)
+                soup = BeautifulSoup(htmlInfo, 'html.parser')
+                pageSrc = soup.prettify()
+                pageSrcText = soup.get_text()
+            except Exception:
+                pageSrc = None
 
-                    email = None if emailList is None or len(emailList) < 1 else emailList[len(emailList) - 1]
-                except Exception:
-                    email = None
-                log.info(f'[CHECK] email : {email}')
+            try:
+                emailPattern = r"""
+                    [a-zA-Z0-9._%+-]+    # 이메일의 로컬 부분 (아이디)
+                    @                    # "@" 구분자
+                    [a-zA-Z0-9.-]+       # 도메인 이름
+                    \.[a-zA-Z]{2,}       # 최상위 도메인 (예: .com, .org 등)
+                """
+                emailList = re.findall(emailPattern, pageSrc, re.VERBOSE)
+                # emailList = re.findall(emailPattern, pageSrcText, re.VERBOSE)
+                email = None if emailList is None or len(emailList) < 1 else emailList[-1]
+            except Exception:
+                email = None
+            log.info(f'[CHECK] email : {email}')
 
-                try:
-                    phonePattern = r'\d{2,3}\s*-\s*\d{3,4}\s*-\s*\d{4}'
-                    phoneList = re.findall(phonePattern, pageSrc)
-                    phone = None if phoneList is None or len(phoneList) < 1 else phoneList[len(phoneList) - 1]
-                except Exception:
-                    phone = None
-                log.info(f'[CHECK] phone : {phone}')
+            try:
+                phonePattern = r"""
+                    (?:(?:\+?\d{1,4}[-.\s]?)?               # 국가 코드 (예: +82, +1)
+                    (?:\(?\d{2,4}\)?[-.\s]?)?)              # 지역 번호 (예: (02), 031)
+                    \d{3,4}[-.\s]?\d{4}                     # 주요 번호 (예: 123-4567, 1234-5678)
+                    (?:\s?(?:x|ext|내선|엑스)\s?\d{1,5})?   # 내선 번호 (예: ext 123, x456)
+                """
+                phoneList = re.findall(phonePattern, pageSrcText, re.VERBOSE)
+                phone = None if phoneList is None or len(phoneList) < 1 else phoneList[-1]
+            except Exception:
+                phone = None
+            log.info(f'[CHECK] phone : {phone}')
 
-                dataL2.loc[i, '이메일'] = email
-                dataL2.loc[i, '연락처'] = phone
+            dataL2.loc[i, '이메일'] = email
+            dataL2.loc[i, '연락처'] = phone
+
+            # ==========================================================================================================
+            # 상세정보 추출 개선
+            # ==========================================================================================================
+            # saveFileList = sorted(glob.glob(sysOpt['saveFileList']), reverse=True)
+            # dataL2 = pd.read_csv(saveFileList[0])
+            #
+            # for i, item in dataL2.iterrows():
+            #     website = item['웹사이트']
+            #     log.info(f'[CHECK] website : {website}')
+            #
+            #     # 상세정보 추출
+            #     try:
+            #         # driver.get(website)
+            #         # time.sleep(sysOpt['defTimeout'])
+            #         # pageSrc = driver.page_source
+            #
+            #         response = requests.get(website, timeout=sysOpt['reqTimeout'])
+            #         encoding = chardet.detect(response.content)['encoding']
+            #         htmlInfo = response.content.decode(encoding)
+            #         soup = BeautifulSoup(htmlInfo, 'html.parser')
+            #         pageSrc = soup.prettify()
+            #         pageSrcText = soup.get_text()
+            #     except Exception:
+            #         pageSrc = None
+            #
+            #     try:
+            #         emailPattern = r"""
+            #             [a-zA-Z0-9._%+-]+    # 이메일의 로컬 부분 (아이디)
+            #             @                    # "@" 구분자
+            #             [a-zA-Z0-9.-]+       # 도메인 이름
+            #             \.[a-zA-Z]{2,}       # 최상위 도메인 (예: .com, .org 등)
+            #         """
+            #         emailList = re.findall(emailPattern, pageSrc, re.VERBOSE)
+            #         # emailList = re.findall(emailPattern, pageSrcText, re.VERBOSE)
+            #         email = None if emailList is None or len(emailList) < 1 else emailList[-1]
+            #     except Exception:
+            #         email = None
+            #     log.info(f'[CHECK] email : {email}')
+            #
+            #     try:
+            #         phonePattern = r"""
+            #             (?:(?:\+?\d{1,4}[-.\s]?)?               # 국가 코드 (예: +82, +1)
+            #             (?:\(?\d{2,4}\)?[-.\s]?)?)              # 지역 번호 (예: (02), 031)
+            #             \d{3,4}[-.\s]?\d{4}                     # 주요 번호 (예: 123-4567, 1234-5678)
+            #             (?:\s?(?:x|ext|내선|엑스)\s?\d{1,5})?   # 내선 번호 (예: ext 123, x456)
+            #         """
+            #         phoneList = re.findall(phonePattern, pageSrcText, re.VERBOSE)
+            #         phone = None if phoneList is None or len(phoneList) < 1 else phoneList[-1]
+            #     except Exception:
+            #         phone = None
+            #     log.info(f'[CHECK] phone : {phone}')
+            #
+            #     dataL2.loc[i, '이메일'] = email
+            #     dataL2.loc[i, '연락처'] = phone
 
             # ==========================================================================================================
             # 자료 저장
