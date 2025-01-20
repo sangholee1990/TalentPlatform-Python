@@ -1,7 +1,7 @@
 # ================================================
 # 요구사항
 # ================================================
-# Python을 이용한 기상청 API 허브 다운로드
+# Python을 이용한
 
 # ps -ef | grep "TalentPlatform-INDI2025-colct-kmaApiHub.py" | awk '{print $2}' | xargs kill -9
 
@@ -454,22 +454,12 @@ class DtaProcess(object):
                 },
                 'ACT': {
                     'ASOS': {
-                        'request': {
-                            'url': 'https://apihub.kma.go.kr/api/typ01/url/kma_sfctm3.php?tm1={tmfc}&tm2={tmfc2}&stn=0&help=0&authKey={authKey}'
-                            , 'authKey': 'aqv2zysIQ4mr9s8rCCOJOQ'
-                            , 'invDate': '1d'
-                        }
-                        , 'tmp': '/DATA/COLCT/OBS/%Y%m/%d/.ASOS_OBS_%Y%m%d%H%M.txt'
-                        , 'target': '/DATA/COLCT/OBS/%Y%m/%d/ASOS_OBS_%Y%m%d%H%M.txt'
+                        'searchFileList': f"/DATA/COLCT/UMKR/%Y%m/%d/UMKR_l015_unis_H*_%Y%m%d%H%M.grb2",
+                        'invDate': '6h',
                     },
                     'AWS': {
-                        'request': {
-                            'url': 'https://apihub.kma.go.kr/api/typ01/cgi-bin/url/nph-aws2_min?tm1={tmfc}&tm2={tmfc2}&stn=0&disp=0&help=0&authKey={authKey}'
-                            , 'authKey': 'hQDU-t1aQHaA1PrdWvB2eA'
-                            , 'invDate': '3h'
-                        }
-                        , 'tmp': '/DATA/COLCT/OBS/%Y%m/%d/.AWS_OBS_%Y%m%d%H%M.txt'
-                        , 'target': '/DATA/COLCT/OBS/%Y%m/%d/AWS_OBS_%Y%m%d%H%M.txt'
+                        'searchFileList': f"/DATA/COLCT/UMKR/%Y%m/%d/UMKR_l015_unis_H*_%Y%m%d%H%M.grb2",
+                        'invDate': '6h',
                     },
                 },
 
