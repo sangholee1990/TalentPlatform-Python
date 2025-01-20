@@ -46,6 +46,7 @@ from datetime import datetime
 import subprocess
 from isodate import parse_duration
 from pandas.tseries.offsets import DateOffset
+from sklearn.neighbors import BallTree
 
 # =================================================
 # 사용자 매뉴얼
@@ -186,7 +187,6 @@ def initArgument(globalVar, inParams):
 
     return globalVar
 
-
 def propProc(modelType, modelInfo, dtDateInfo):
     try:
         propFunList = {
@@ -268,30 +268,20 @@ def propNwp(dataInfo, dtDateInfo):
         raise e
 
 
-def matchStnRadar(sysOpt, modelInfo, code, dtDateList):
-
+def matchStnFor(subOpt, subData):
+    
     try:
         # ==========================================================================================================
         # 융합 ASOS/AWS 지상 관측소을 기준으로 최근접 레이더 가공파일 화소 찾기 (posRow, posCol, posLat, posLon, posDistKm)
         # ==========================================================================================================
-        # 매 5분 순간마다 가공파일 검색/병합
-        procFilePattern = '{}/{}'.format(modelInfo['procPath'], modelInfo['procName'])
-        # dtHourList = pd.date_range(start=dtSrtDate, end=dtEndDate, freq=sysOpt['invHour'])
+        umkrFileInfo = subOpt['umkrFileInfo']
 
-        searchList = []
-        for dtDateInfo in dtDateList:
-            procFile = dtDateInfo.strftime(procFilePattern).format(code)
-            fileList = sorted(glob.glob(procFile))
-            if fileList is None or len(fileList) < 1: continue
-            searchList.append(fileList[0])
-            break
-
-        if searchList is None or len(searchList) < 1:
-            log.error(f"[ERROR] procFilePattern : {procFilePattern} / 가공파일을 확인해주세요.")
+        if umkrFileInfo is None or len(umkrFileInfo) < 1:
+            log.error(f"[ERROR] umkrFileInfo : {umkrFileInfo} / 가공파일을 확인해주세요.")
             return
 
         # 레이더 가공 파일 일부
-        fileInfo = searchList[0]
+        fileInfo = umkrFileInfo
         cfgData = xr.open_dataset(fileInfo)
         cfgDataL1 = cfgData.to_dataframe().reset_index(drop=False)
 
@@ -339,7 +329,7 @@ def matchStnRadar(sysOpt, modelInfo, code, dtDateList):
         # log.info(f"[CHECK] allStnDataL2 : {allStnDataL2}")
 
         saveFilePattern = '{}/{}'.format(sysOpt['stnInfo']['matchPath'], sysOpt['stnInfo']['matchName'])
-        saveFile = dtDateInfo.strftime(saveFilePattern).format(code)
+        # saveFile = dtDateInfo.strftime(saveFilePattern).format(code)
         os.makedirs(os.path.dirname(saveFile), exist_ok=True)
         allStnDataL2.to_csv(saveFile, index=False)
         log.info(f"[CHECK] saveFile : {saveFile}")
@@ -428,6 +418,7 @@ class DtaProcess(object):
                 # 설정 파일
                 'CFG': {
                     'siteInfo': {
+                        'umkrFileInfo': '/DATA/COLCT/UMKR/201901/01/UMKR_l015_unis_H00_201901011200.grb2',
                         'filePath': '/DATA/PROP/SAMPLE',
                         'fileName': 'site_info.csv',
                     },
@@ -462,8 +453,6 @@ class DtaProcess(object):
                         'invDate': '6h',
                     },
                 },
-
-
             }
 
             # **************************************************************************************************************
@@ -481,6 +470,10 @@ class DtaProcess(object):
                 data = pd.read_csv(fileList[0])
 
                 cfgData[key] = data
+
+            cfgDataL1 = matchStnFor(sysOpt['CFG'][key], cfgData[key])
+
+
 
             # **************************************************************************************************************
             # 비동기 다중 프로세스 수행
