@@ -412,7 +412,7 @@ class DtaProcess(object):
 
                         keyword = f'{cityMat} {sector} {key}'
 
-                        saveFilePattern = sysOpt['saveFileList'].format(keyword)
+                        saveFilePattern = sysOpt['saveFileList'].format(keyword=keyword)
                         saveFileList = sorted(glob.glob(saveFilePattern), reverse=True)
 
                         # 파일 존재
