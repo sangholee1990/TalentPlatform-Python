@@ -392,7 +392,7 @@ class DtaProcess(object):
             # 기본정보 수집
             # ==========================================================================================================
             for i, item in cfgData.iterrows():
-                if i > 1: break
+                # if i > 1: break
 
                 city = item['City_Column_1']
                 cityMat = item['Matching_City_Column_2']
@@ -514,7 +514,7 @@ class DtaProcess(object):
                 if len(data) > 0:
                     saveFile = datetime.now().strftime(sysOpt['saveFile']).format(cityMat=cityMat)
                     os.makedirs(os.path.dirname(saveFile), exist_ok=True)
-                    data.to_csv(saveFile, index=False)
+                    data.to_excel(saveFile, index=False)
                     log.info(f'[CHECK] saveFile : {saveFile}')
 
         except Exception as e:
