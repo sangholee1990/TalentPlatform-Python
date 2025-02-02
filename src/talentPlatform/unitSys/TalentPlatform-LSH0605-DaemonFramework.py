@@ -302,19 +302,15 @@ class DtaProcess(object):
             # 옵션 설정
             sysOpt = {
                 'loginUrl': "https://www.pkulaw.com/login",
-                # 'listDefUrl': "https://www.unicornfactory.co.kr/datalab/startup/company-search",
                 'listUrl': "https://www.pkulaw.com",
-                # 'listDtlUrl': "https://www.unicornfactory.co.kr/login",
 
                 'chromeInfo': "/DATA/INPUT/LSH0602/chrome-linux64/chrome",
                 'chromedriverInfo':"/DATA/INPUT/LSH0602/chromedriver-linux64/chromedriver",
-                # 'perPage': 100,
 
                 # 지연 시간
-                'pageTimeout': 10,
-                'loadTimeout': 30,
-                'defTimeout': 5,
-                'reqTimeout': 10,
+                'pageTimeout': 120,
+                'loadTimeout': 60,
+                'defTimeout': 30,
 
                 # 로그인 기능
                 'loginId': "18333208671",
@@ -325,8 +321,8 @@ class DtaProcess(object):
                 'keyList': ["碳排放", "低碳", "减碳", "温室气体", "节能", "能源效率", "能源消耗", "产能过剩", "碳中和", "可再生能源", "清洁能源", "绿色能源", "能源转型", "减排", "绿色建筑", "非化石能源", "碳足迹"],
 
                 # 자료 저장
-                'saveFileList': '/DATA/OUTPUT/LSH0605/*_{keyword}.xlsx',
-                'saveFile': '/DATA/OUTPUT/LSH0605/%Y%m%d_{keyword}.xlsx',
+                'saveFileList': '/DATA/OUTPUT/LSH0605/*_{cityMat}.xlsx',
+                'saveFile': '/DATA/OUTPUT/LSH0605/%Y%m%d_{cityMat}.xlsx',
             }
 
             # ==========================================================================================================
@@ -395,7 +391,6 @@ class DtaProcess(object):
             # ==========================================================================================================
             # 기본정보 수집
             # ==========================================================================================================
-            # patDate = r"\d{4}\.\d{2}\.\d{2}"
             for i, item in cfgData.iterrows():
                 if i > 1: break
 
@@ -407,94 +402,96 @@ class DtaProcess(object):
                 # sector = sysOpt['sectorList'][0]
                 # key = sysOpt['keyList'][0]
 
+                saveFilePattern = sysOpt['saveFileList'].format(cityMat=cityMat)
+                saveFileList = sorted(glob.glob(saveFilePattern), reverse=True)
+
+                # 파일 존재
+                if len(saveFileList) > 0: continue
+
                 data = pd.DataFrame()
                 for j, sector in enumerate(sysOpt['sectorList']):
                     for k, key in enumerate(sysOpt['keyList']):
 
-                        keyword = f'{cityMat} {sector} {key}'
+                        try:
+                            keyword = f'{cityMat} {sector} {key}'
+                            log.info(f'[CHECK] keyword : {keyword}')
 
-                        saveFilePattern = sysOpt['saveFileList'].format(keyword=keyword)
-                        saveFileList = sorted(glob.glob(saveFilePattern), reverse=True)
+                            # 검색 화면
+                            url = sysOpt['listUrl']
+                            driver.get(url)
+                            time.sleep(sysOpt['defTimeout'])
 
-                        # 파일 존재
-                        if len(saveFileList) > 0: continue
+                            # 검색어 입력
+                            inputId = wait.until(EC.presence_of_element_located((By.ID, "txtSearch")))
+                            inputId.send_keys(keyword)
 
-                        log.info(f'[CHECK] keyword : {keyword}')
+                            # 검색어 버튼
+                            btnId = wait.until(EC.element_to_be_clickable((By.ID, "btnSearch")))
+                            btnId.click()
+                            time.sleep(sysOpt['defTimeout'])
 
-                        # 검색 화면
-                        url = sysOpt['listUrl']
-                        driver.get(url)
-                        time.sleep(sysOpt['defTimeout'])
+                            # eleList = wait.until(EC.presence_of_all_elements_located((By.CSS_SELECTOR, ".accompanying-wrap > .item")))
+                            eleList = wait.until(EC.presence_of_all_elements_located((By.CSS_SELECTOR, ".grouping-title, .accompanying-wrap > .item")))
 
-                        # 검색어 입력
-                        inputId = wait.until(EC.presence_of_element_located((By.ID, "txtSearch")))
-                        inputId.send_keys(keyword)
+                            # ele = eleList[0]
+                            for index, ele in enumerate(eleList):
+                                clsName = ele.get_attribute('class')
 
-                        # 검색어 버튼
-                        btnId = wait.until(EC.element_to_be_clickable((By.ID, "btnSearch")))
-                        btnId.click()
-                        time.sleep(sysOpt['defTimeout'])
+                                # 정책 분류
+                                if re.search('grouping-title', clsName, re.IGNORECASE):
+                                    try:
+                                        text = ele.text.strip()
+                                        polType = re.sub(r'（\d+）', '', text) if text else None
+                                    except Exception:
+                                        polType = None
+                                    continue
+                                # log.info(f'[CHECK] polType : {polType}')
 
-                        # eleList = wait.until(EC.presence_of_all_elements_located((By.CSS_SELECTOR, ".accompanying-wrap > .item")))
-                        eleList = wait.until(EC.presence_of_all_elements_located((By.CSS_SELECTOR, ".grouping-title, .accompanying-wrap > .item")))
-
-                        # ele = eleList[0]
-                        for index, ele in enumerate(eleList):
-                            clsName = ele.get_attribute('class')
-
-                            # 정책 분류
-                            if re.search('grouping-title', clsName, re.IGNORECASE):
+                                # Starting_year, Ending_year
                                 try:
-                                    text = ele.text.strip()
-                                    polType = re.sub(r'（\d+）', '', text) if text else None
+                                    yearList = ele.find_elements(By.CSS_SELECTOR, ".info .text")
+                                    for year in yearList:
+                                        text = year.text.strip()
+                                        if re.search('公布', text, re.IGNORECASE):
+                                            srtYear = re.sub(r'公布', '', text) if text else None
+                                        elif re.search('施行', text, re.IGNORECASE):
+                                            endYear = re.sub(r'施行', '', text) if text else None
+                                        else:
+                                            continue
                                 except Exception:
-                                    polType = None
-                                continue
-                            log.info(f'[CHECK] polType : {polType}')
+                                    srtYear = None
+                                    endYear = None
+                                # log.info(f'[CHECK] srtYear : {srtYear}')
+                                # log.info(f'[CHECK] endYear : {endYear}')
 
-                            # Starting_year, Ending_year
-                            try:
-                                yearList = ele.find_elements(By.CSS_SELECTOR, ".info .text")
-                                for year in yearList:
-                                    text = year.text.strip()
-                                    if re.search('公布', text, re.IGNORECASE):
-                                        srtYear = re.sub(r'公布', '', text) if text else None
-                                    elif re.search('施行', text, re.IGNORECASE):
-                                        endYear = re.sub(r'施行', '', text) if text else None
-                                    else:
-                                        continue
-                            except Exception:
-                                srtYear = None
-                                endYear = None
-                            log.info(f'[CHECK] srtYear : {srtYear}')
-                            log.info(f'[CHECK] endYear : {endYear}')
+                                # Policy_title, Web_link
+                                try:
+                                    tagCss = ele.find_element(By.CSS_SELECTOR, "h4 a")
+                                    polTitle = tagCss.text.strip() if tagCss else None
+                                    webLink = tagCss.get_attribute("href") if tagCss else None
+                                except Exception:
+                                    polTitle = None
+                                    webLink = None
+                                # log.info(f'[CHECK] polTitle : {polTitle}')
+                                # log.info(f'[CHECK] webLink : {webLink}')
 
-                            # Policy_title, Web_link
-                            try:
-                                tagCss = ele.find_element(By.CSS_SELECTOR, "h4 a")
-                                polTitle = tagCss.text.strip() if tagCss else None
-                                webLink = tagCss.get_attribute("href") if tagCss else None
-                            except Exception:
-                                polTitle = None
-                                webLink = None
-                            log.info(f'[CHECK] polTitle : {polTitle}')
-                            log.info(f'[CHECK] webLink : {webLink}')
+                                dict = {
+                                    'City_Column_1': [city],
+                                    'Matching_City_Column_2': [cityMat],
+                                    'Sector': [sector],
+                                    'key': [key],
+                                    'keyword': [keyword],
+                                    'Starting_year': [srtYear],
+                                    'Ending_year': [endYear],
+                                    'Policy_title': [polTitle],
+                                    'Policy_type': [polType],
+                                    'Web_link': [webLink],
+                                    'Full_Article': [None],
+                                }
 
-                            dict = {
-                                'City_Column_1': [city],
-                                'Matching_City_Column_2': [cityMat],
-                                'Sector': [sector],
-                                'key': [key],
-                                'keyword': [keyword],
-                                'Starting_year': [srtYear],
-                                'Ending_year': [endYear],
-                                'Policy_title': [polTitle],
-                                'Policy_type': [polType],
-                                'Web_link': [webLink],
-                                'Full_Article': [None],
-                            }
-
-                            data = pd.concat([data, pd.DataFrame.from_dict(dict)], ignore_index=True)
+                                data = pd.concat([data, pd.DataFrame.from_dict(dict)], ignore_index=True)
+                        except Exception as e:
+                            log.error(f"Exception : {str(e)}")
 
                 # ==========================================================================================================
                 # 상세정보 추출
@@ -509,13 +506,13 @@ class DtaProcess(object):
                     except Exception:
                         fullArt = None
                     data.loc[idx, 'Full_Article'] = fullArt
-                    log.info(f'[CHECK] fullArt : {len(fullArt)}')
+                    # log.info(f'[CHECK] fullArt : {len(fullArt)}')
 
                 # ==========================================================================================================
                 # 자료 저장
                 # ==========================================================================================================
                 if len(data) > 0:
-                    saveFile = datetime.now().strftime(sysOpt['saveFile']).format(keyword=keyword)
+                    saveFile = datetime.now().strftime(sysOpt['saveFile']).format(cityMat=cityMat)
                     os.makedirs(os.path.dirname(saveFile), exist_ok=True)
                     data.to_csv(saveFile, index=False)
                     log.info(f'[CHECK] saveFile : {saveFile}')
