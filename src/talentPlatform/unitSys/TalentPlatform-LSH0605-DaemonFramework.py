@@ -234,6 +234,7 @@ class DtaProcess(object):
 
     # 프로그램 실행
     # cd /SYSTEMS/PROG/PYTHON/IDE/src/talentPlatform/unitSys
+    # /HDD/SYSTEMS/LIB/anaconda3/envs/py38/bin/python /SYSTEMS/PROG/PYTHON/IDE/src/talentPlatform/unitSys/TalentPlatform-LSH0605-DaemonFramework.py
     # nohup /HDD/SYSTEMS/LIB/anaconda3/envs/py38/bin/python /SYSTEMS/PROG/PYTHON/IDE/src/talentPlatform/unitSys/TalentPlatform-LSH0605-DaemonFramework.py &
     # tail -f nohup.out
 
