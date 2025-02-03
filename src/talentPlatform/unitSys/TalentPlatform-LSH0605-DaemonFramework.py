@@ -402,6 +402,7 @@ class DtaProcess(object):
             inpFile = '{}/{}/{}'.format(globalVar['inpPath'], serviceName, 'city_matched.xlsx')
             fileList = sorted(glob.glob(inpFile))
             cfgData = pd.read_excel(fileList[0])
+            cfgDataL1 = cfgData.drop_duplicates(subset=['Matching_City_Column_2']).reset_index(drop=True)
 
             # ==========================================================================================================
             # 전역 설정
@@ -418,12 +419,12 @@ class DtaProcess(object):
             # ==========================================================================================================
             # 기본정보 수집
             # ==========================================================================================================
-            for i, item in cfgData.iterrows():
+            for i, item in cfgDataL1.iterrows():
                 # if i > 1: break
 
                 city = item['City_Column_1']
                 cityMat = item['Matching_City_Column_2']
-                per = round(i / len(cfgData) * 100, 0)
+                per = round(i / len(cfgDataL1) * 100, 0)
                 log.info(f'[CHECK] cityMat : {cityMat} / {per}%')
 
                 # sector = sysOpt['sectorList'][0]
