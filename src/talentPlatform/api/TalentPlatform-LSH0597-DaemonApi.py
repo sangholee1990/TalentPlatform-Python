@@ -21,6 +21,9 @@
 # lsof -i :9300
 # lsof -i :9300 | awk '{print $2}' | xargs kill -9
 
+# nohup uvicorn TalentPlatform-LSH0597-DaemonApi:app --reload --host=0.0.0.0 --port=9400 &
+# lsof -i :9400 | awk '{print $2}' | xargs kill -9
+
 # ============================================
 # 라이브러리
 # ============================================
@@ -186,7 +189,7 @@ sysOpt = {
     'tmpPath': '{outPath}/%Y%m/%d/%H/%M/{uid}/main.{ext}',
 
     # 제한 시간
-    'timeOut': 10,
+    # 'timeOut': 10,
 
     # 실행 정보
     'code': {
@@ -229,8 +232,10 @@ app = FastAPI(
 
 # CORS 설정
 oriList = [
-    'http://localhost:9300'
-    , 'http://49.247.41.71:9300'
+    'http://localhost:9300',
+    'http://49.247.41.71:9300',
+    'http://localhost:9400',
+    'http://49.247.41.71:9400',
 ]
 
 app.add_middleware(
@@ -242,7 +247,8 @@ app.add_middleware(
     , allow_headers=["*"]
 )
 
-genai.configure(api_key=None)
+# genai.configure(api_key=None)
+genai.configure(api_key='AIzaSyCcWX2naC_JeugXS8zt4AsFeAUIFKAMaYQ')
 model = genai.GenerativeModel('gemini-1.5-pro')
 
 # ============================================
@@ -254,6 +260,13 @@ class cfgCodeProc(BaseModel):
     ])
     code: str = Field(default=..., description="코드", example="print('Hello, Python!')")
 
+class cfgCodeDtlProc(BaseModel):
+    lang: str = Query(default=..., description='프로그래밍 언어', example="c", enum=["python3", "c", "java", "javascript"])
+    code: str = Field(default=..., description="코드", example="#include <stdio.h>\\r\\n\\r\\nint main() {\\r\\n    char start;\\r\\n\\r\\n    scanf(\"%c\", &start);\\r\\n\\r\\n    for (char letter = start; letter <= 'Z'; letter++) {\\r\\n        printf(\"%c\", letter);\\r\\n    }\\r\\n\\r\\n    printf(\"\\\\n\");\\r\\n    return 0;\\r\\n}")
+    inpList: Optional[List[str]] = Field(default=None, description="입력 목록", example=["C", "X", "A"])
+    expList: Optional[List[str]] = Field(default=None, description="예상 출력 목록", example=["CDEFGHIJKLMNOPQRSTUVWXYZ", "XYZ", "ABCDEFGHIJKLMNOPQRSTUVWXYZ"])
+    timeOut: Optional[int] = Field(default=5, description="제한 시간 (초)", example=5)
+
 class cfgCodeHelp(BaseModel):
     cont: str = Field(default=..., description='헬프', example='소스코드 ...n표준에러 ...\\n 요청사항 ...')
 
@@ -263,6 +276,224 @@ class cfgCodeHelp(BaseModel):
 @app.get(f"/", include_in_schema=False)
 def redirect_to_docs():
     return RedirectResponse(url="/docs")
+
+# @app.post(f"/api/sel-codeDtlProc", dependencies=[Depends(chkApiKey)])
+@app.post(f"/api/sel-codeDtlProc")
+async def codeDtlProc(request: cfgCodeDtlProc = Form(...)):
+    """
+    기능\n
+        프로그래밍 언어 및 소스코드를 통해 코딩 테스트 플랫폼 실행\n
+    요청 파라미터\n
+        lang 프로그래밍 언어 (c, java, python3, javascript)\n
+        inpList 입력 목록 ["C", "X", "A"]
+        expList 예상 출력 목록 ["CDEFGHIJKLMNOPQRSTUVWXYZ", "XYZ", "ABCDEFGHIJKLMNOPQRSTUVWXYZ"]
+        code 소스코드\n
+            - Escape 문자열 처리
+                > # 줄바꿈 -> \\r\\n
+                > " -> \\\"
+                > ' -> \\\'
+                > \\n -> \\\\n
+                > etc
+
+            - c 샘플코드
+                > IDE 편집기
+                    #include <stdio.h>
+
+                    int main() {
+                        char start;
+
+                        // 사용자 입력 받기
+                        scanf("%c", &start);
+
+                        for (char letter = start; letter <= 'Z'; letter++) {
+                            printf("%c", letter);
+                        }
+
+                        printf('\\n');
+                        return 0;
+                    }
+
+                > Escape 문자열 처리
+                    #include <stdio.h>\\r\\n\\r\\nint main() {\\r\\n    char start;\\r\\n\\r\\n    scanf(\"%c\", &start);\\r\\n\\r\\n    for (char letter = start; letter <= 'Z'; letter++) {\\r\\n        printf(\"%c\", letter);\\r\\n    }\\r\\n\\r\\n    printf("\n");\\r\\n    return 0;\\r\\n}
+
+            - java 샘플코드
+                > IDE 편집기
+                    public class main {
+                        public static void main(String[] args) {
+                            for (char letter = 'A'; letter <= 'Z'; letter++) {
+                                System.out.print(letter);
+                            }
+
+                            System.out.println();
+                        }
+                    }
+
+                > Escape 문자열 처리
+                    public class main {\\r\\n    public static void main(String[] args) {\\r\\n        for (char letter = 'A'; letter <= 'Z'; letter++) {\\r\\n            System.out.print(letter);\\r\\n        }\\r\\n        System.out.println();\\r\\n    }\\r\\n}
+
+            - python3 샘플코드
+                > IDE 편집기
+                    for letter in range(ord('A'), ord('Z') + 1):
+                        print(chr(letter), end='')
+                    print()
+
+
+                > Escape 문자열 처리
+                    for letter in range(ord('A'), ord('Z') + 1):\\r\\n    print(chr(letter), end='')\\r\\nprint()\\r\\n
+
+            - javascript 샘플코드
+                > IDE 편집기
+                    for (let letter = 'A'.charCodeAt(0); letter <= 'Z'.charCodeAt(0); letter++) {
+                        process.stdout.write(String.fromCharCode(letter));
+                    }
+
+                > Escape 문자열 처리
+                    for (let letter = 'A'.charCodeAt(0); letter <= 'Z'.charCodeAt(0); letter++) {\\r\\n    process.stdout.write(String.fromCharCode(letter));\\r\\n}\\r\\n
+
+    응답 결과\n
+        설명서
+            - status 처리상태 (succ, fail)
+            - code HTTP 응답코드 (성공 200, 그 외)
+            - message 처리 메시지 (처리 완료, 처리 실패, 에러 메시지)
+            - cnt 세부결과 개수
+            - data 세부결과
+                > file 실행파일 위치
+                > code 실행파일 내용
+                > sysInfo 설정정보 (ext 확장자, ver 버전, exe 실행기, cmd 명령어)
+                > stdOut 코드 실행 시 표준출력 (성공 출력결과, 그 외 "")
+                > stdErr 코드 실행 시 에러출력 (에러 출력결과, 그 외 "")
+                > exitCode 코드 실행 시 상태코드 (성공 0, 그 외)
+
+        샘플결과
+            {
+              "status": "succ",
+              "code": 200,
+              "message": "처리 완료",
+              "cnt": 6,
+              "data": {
+                "file": "/DATA/OUTPUT/LSH0597/202412/20/11/40/6d403d14-9efd-4fde-8054-f3b4fadd585d/main.py",
+                "code": "print('Hello, Python!')",
+                "sysInfo": {
+                  "ext": "py",
+                  "ver": "Python 3.8.18 & conda 24.5.0",
+                  "exe": "/HDD/SYSTEMS/LIB/anaconda3/envs/py38/bin/python3.8",
+                  "cmd": "{exe} -O {fileInfo}"
+                },
+                "stdOut": "Hello, Python!",
+                "stdErr": "",
+                "exitCode": 0
+              }
+            }
+
+    """
+
+    try:
+        lang = request.lang
+        if lang is None or len(lang) < 1:
+            return resResponse("fail", 400, f"프로그래밍 언어를 확인해주세요 ({lang}).", None)
+
+        code = request.code
+        if code is None or len(code) < 1:
+            return resResponse("fail", 400, f"소스코드를 확인해주세요 ({code}).", None)
+
+        timeOut = request.timeOut
+        if timeOut is None:
+            return resResponse("fail", 400, f"소스코드를 확인해주세요 ({timeOut}).", None)
+
+        inpList = request.inpList or []
+        expList = request.expList or []
+
+        sysInfo = sysOpt['code'][lang]
+        if sysInfo is None or len(sysInfo) < 1:
+            return resResponse("fail", 400, f"설정 정보를 확인해주세요 ({sysInfo}).", None)
+
+        # 임시 파일 생성
+        uid = str(uuid.uuid4())
+        fileInfo = datetime.now().strftime(sysOpt['tmpPath']).format(outPath=globalVar['outPath'], exe=sysInfo['exe'], uid=uid, ext=sysInfo['ext'])
+        log.info(f"[CHECK] fileInfo : {fileInfo}")
+
+        filePath = os.path.dirname(fileInfo)
+        log.info(f"[CHECK] filePath : {filePath}")
+
+        cmd = None
+        try:
+            cmd = sysInfo['cmd'].format(fileInfo=fileInfo, filePath=filePath, exe=sysInfo.get('exe'), cmp=sysInfo.get('cmp'))
+        except ValueError as e:
+            return resResponse("fail", 400, f"실행 명령어를 확인해주세요 ({cmd}).", None, str(e))
+        log.info(f"[CHECK] cmd : {cmd}")
+
+        # 코드 저장
+        os.makedirs(filePath, exist_ok=True)
+        codeData = code.encode("utf-8").decode("unicode_escape").replace("\r\n", "\n")
+        with open(fileInfo, "w") as codeFile:
+            codeFile.write(codeData)
+
+        codeResList = []
+        for i, inpInfo in enumerate(inpList):
+
+            # 코드 실행
+            try:
+                codeProcRun = subprocess.run(
+                    cmd,
+                    input=inpInfo,
+                    stderr=subprocess.PIPE,
+                    stdout=subprocess.PIPE,
+                    text=True,
+                    shell=True,
+                    # timeout=sysOpt['timeOut']
+                    timeout=timeOut
+                )
+
+                stdOut = codeProcRun.stdout.strip()
+                stdErr = codeProcRun.stderr.strip()
+                exitCode = codeProcRun.returncode
+
+                out = "succ" if (
+                        exitCode == 0 and  # 실행 성공 (exitCode 0)
+                        len(stdOut) > 0 and  # 출력이 존재
+                        len(stdErr) < 1 and  # 오류 출력 없음
+                        stdOut == expList[i]  # 예상 출력과 일치
+                ) else "fail"
+
+                codeResult = {
+                    "stdOut": stdOut,
+                    "stdErr": stdErr,
+                    "exitCode": exitCode,
+                    "inp": inpList[i],
+                    "exp": expList[i],
+                    "out": out,
+                }
+
+                log.info(f"[CHECK] codeResult : {codeResult}")
+                codeResList.append(codeResult)
+
+            except subprocess.TimeoutExpired as e:
+                return resResponse("fail", 400, f"제한시간 {timeOut} 초를 초과하였습니다.", None, str(e))
+
+            # 최종 결과
+            isFlag = "succ" if all(codeResInfo["out"] == "succ" for codeResInfo in codeResList) else "fail"
+
+            result = {
+                "file": fileInfo,
+                "code": codeData,
+                "sysInfo": sysInfo,
+                "codeResult": codeResList,
+                "isFlag": isFlag,
+            }
+
+        if isFlag is "succ":
+            return resResponse("succ", 200, "처리 완료", len(result), result)
+        else:
+            return resResponse("fail", 400, "처리 실패", None, result)
+
+    except Exception as e:
+        log.error(f'Exception : {e}')
+        raise HTTPException(status_code=400, detail=str(e))
+    finally:
+        if lang == "c" and os.path.exists(os.path.join(filePath, "a.out")):
+            os.remove(os.path.join(filePath, "a.out"))
+        if lang == "java" and os.path.exists(os.path.join(filePath, "main.class")):
+            os.remove(os.path.join(filePath, "main.class"))
 
 # @app.post(f"/api/sel-codeProc", dependencies=[Depends(chkApiKey)])
 @app.post(f"/api/sel-codeProc")
