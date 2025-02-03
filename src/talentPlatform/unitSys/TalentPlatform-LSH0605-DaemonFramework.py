@@ -63,6 +63,7 @@ import time
 import time
 from selenium import webdriver
 import chardet
+from selenium.common.exceptions import NoSuchWindowException
 
 # =================================================
 # 사용자 매뉴얼
@@ -207,6 +208,71 @@ def initArgument(globalVar, inParams):
 
     return globalVar
 
+def initDriver(sysOpt):
+    # Chrome 옵션 설정
+    options = Options()
+    options.headless = False  # 창을 띄우도록 설정 (True로 하면 백그라운드 실행)
+    options.binary_location = sysOpt['chromeInfo']  # 사용자 지정 Chrome 경로
+    options.add_argument("--window-size=1920,1080")  # 창 크기 설정
+    options.add_experimental_option("detach", True)  # 실행 후 브라우저 종료 방지
+
+    # 백그라운드 실행 관련 옵션
+    options.add_argument("--no-sandbox")  # 샌드박스 비활성화 (Linux 환경에서 필수)
+    options.add_argument("--disable-dev-shm-usage")  # /dev/shm 메모리 제한 방지
+    options.add_argument("--headless")  # 브라우저를 백그라운드에서 실행 (UI 없음)
+    options.add_argument("--remote-debugging-port=9222")  # 원격 디버깅 포트 설정
+    options.add_argument("--disable-gpu")  # GPU 비활성화 (Linux 환경에서 필요)
+
+    # User-Agent 설정 (봇 감지 우회)
+    options.add_argument(
+        "user-agent=Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 "
+        "(KHTML, like Gecko) Chrome/131.0.6778.264 Safari/537.36"
+    )
+
+    # ChromeDriver 서비스 설정
+    service = Service(sysOpt['chromedriverInfo'])  # 사용자 지정 ChromeDriver 경로 사용
+
+    # WebDriver 실행
+    driver = webdriver.Chrome(service=service, options=options)
+
+    # 페이지 로드 타임아웃 설정
+    driver.set_page_load_timeout(sysOpt['pageTimeout'])
+
+    return driver
+
+def initLogin(driver, sysOpt):
+
+    # 로그인 페이지 이동
+    url = sysOpt['loginUrl']
+    driver.get(url)
+
+    # driver.save_screenshot("/tmp/screenshot.png")
+
+    # 최대 timeout 대기
+    wait = WebDriverWait(driver, sysOpt['loadTimeout'])
+
+    # 회원 활성화 버튼
+    btnId = wait.until(EC.presence_of_element_located((By.ID, "zhanghaodenglu")))
+    btnId.click()
+
+    # 계정 활성화 버튼
+    btnId = wait.until(EC.presence_of_element_located((By.ID, "userPasswordDiv")))
+    btnId.click()
+
+    # 이메일/아이디 입력
+    emailId = wait.until(EC.presence_of_element_located((By.ID, "email-phone")))
+    emailId.send_keys(sysOpt['loginId'])
+
+    # 비밀번호 입력
+    passId = wait.until(EC.presence_of_element_located((By.ID, "passwordFront")))
+    driver.execute_script("arguments[0].removeAttribute('disabled')", passId)
+    passId.send_keys(sysOpt['loginPw'])
+
+    # 로그인 버튼
+    btnId = wait.until(EC.element_to_be_clickable((By.ID, "loginByUserName")))
+    btnId.click()
+    time.sleep(sysOpt['defTimeout'])
+
 # ================================================
 # 4. 부 프로그램
 # ================================================
@@ -335,58 +401,14 @@ class DtaProcess(object):
             # ==========================================================================================================
             # 전역 설정
             # ==========================================================================================================
-            # 크롬 실행
-            options = Options()
-            options.headless = False
-            options.binary_location = sysOpt['chromeInfo']
-            options.add_argument("--window-size=1920,1080")
-
-            # 백그라운드
-            options.add_argument("--no-sandbox")
-            options.add_argument("--disable-dev-shm-usage")
-            options.add_argument("--headless")
-            options.add_argument("--remote-debugging-port=9222")
-            options.add_argument("--disable-gpu")
-            options.add_argument("user-agent=Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.6778.264 Safari/537.36")
-
-            # 크롬드라이브 실행
-            # service = Service(ChromeDriverManager().install())
-            service = Service(sysOpt['chromedriverInfo'])
-            driver = webdriver.Chrome(service=service, options=options)
-            driver.set_page_load_timeout(sysOpt['pageTimeout'])
+            # 크롬드라이브 초기화
+            driver = initDriver(sysOpt)
+            wait = WebDriverWait(driver, sysOpt['loadTimeout'])
 
             # ==========================================================================================================
             # 로그인 기능
             # ==========================================================================================================
-            url = sysOpt['loginUrl']
-            driver.get(url)
-
-            # driver.save_screenshot("/tmp/screenshot.png")
-
-            # 최대 timeout 대기
-            wait = WebDriverWait(driver, sysOpt['loadTimeout'])
-
-            # 회원 활성화 버튼
-            btnId = wait.until(EC.presence_of_element_located((By.ID, "zhanghaodenglu")))
-            btnId.click()
-
-            # 계정 활성화 버튼
-            btnId = wait.until(EC.presence_of_element_located((By.ID, "userPasswordDiv")))
-            btnId.click()
-
-            # 이메일/아이디 입력
-            emailId = wait.until(EC.presence_of_element_located((By.ID, "email-phone")))
-            emailId.send_keys(sysOpt['loginId'])
-
-            # 비밀번호 입력
-            passId = wait.until(EC.presence_of_element_located((By.ID, "passwordFront")))
-            driver.execute_script("arguments[0].removeAttribute('disabled')", passId)
-            passId.send_keys(sysOpt['loginPw'])
-
-            # 로그인 버튼
-            btnId = wait.until(EC.element_to_be_clickable((By.ID, "loginByUserName")))
-            btnId.click()
-            time.sleep(sysOpt['defTimeout'])
+            initLogin(driver, sysOpt)
 
             # ==========================================================================================================
             # 기본정보 수집
@@ -414,7 +436,7 @@ class DtaProcess(object):
 
                         try:
                             keyword = f'{cityMat} {sector} {key}'
-                            log.info(f'[CHECK] keyword : {keyword}')
+                            # log.info(f'[CHECK] keyword : {keyword}')
 
                             # 검색 화면
                             url = sysOpt['listUrl']
@@ -490,6 +512,10 @@ class DtaProcess(object):
                                 }
 
                                 data = pd.concat([data, pd.DataFrame.from_dict(dict)], ignore_index=True)
+                        except NoSuchWindowException as e:
+                            log.error(f"NoSuchWindowException : {str(e)}")
+                            driver = initDriver(sysOpt)
+                            initLogin(driver, sysOpt)
                         except Exception as e:
                             log.error(f"Exception : {str(e)}")
 
@@ -503,6 +529,11 @@ class DtaProcess(object):
                         driver.get(webLink)
                         divId = wait.until(EC.presence_of_element_located((By.ID, "divFullText")))
                         fullArt = divId.text if divId else None
+                    except NoSuchWindowException as e:
+                        log.error(f"NoSuchWindowException : {str(e)}")
+                        driver = initDriver(sysOpt)
+                        wait = WebDriverWait(driver, sysOpt['loadTimeout'])
+                        initLogin(driver, sysOpt)
                     except Exception:
                         fullArt = None
                     data.loc[idx, 'Full_Article'] = fullArt
