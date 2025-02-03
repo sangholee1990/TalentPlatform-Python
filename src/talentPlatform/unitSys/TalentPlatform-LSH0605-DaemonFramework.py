@@ -273,6 +273,11 @@ def initLogin(driver, sysOpt):
     btnId.click()
     time.sleep(sysOpt['defTimeout'])
 
+def textProp(text):
+    text = re.sub(r'[\x00-\x1F\x7F-\x9F]', '', text)  # ASCII 제어 문자 제거
+    text = text.replace('\xa0', ' ')  # Non-breaking space 제거
+    return text.strip()
+
 # ================================================
 # 4. 부 프로그램
 # ================================================
@@ -528,7 +533,7 @@ class DtaProcess(object):
                     try:
                         driver.get(webLink)
                         divId = wait.until(EC.presence_of_element_located((By.ID, "divFullText")))
-                        fullArt = divId.text if divId else None
+                        fullArt = textProp(divId.text) if divId else None
                     except NoSuchWindowException as e:
                         log.error(f"NoSuchWindowException : {str(e)}")
                         driver = initDriver(sysOpt)
