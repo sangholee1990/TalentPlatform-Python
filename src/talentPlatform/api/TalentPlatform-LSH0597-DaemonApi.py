@@ -261,12 +261,10 @@ class cfgCodeProc(BaseModel):
 
 class cfgCodeDtlProc(BaseModel):
     lang: str = Query(default=..., description='프로그래밍 언어', example="c", enum=["c", "python3", "java", "javascript"])
-    code: str = Field(default=..., description="코드", example="#include <stdio.h>\\r\\n\\r\\nint main() {\\r\\n    char start;\\r\\n\\r\\n    scanf(\"%c\", &start);\\r\\n\\r\\n    for (char letter = start; letter <= 'Z'; letter++) {\\r\\n        printf(\"%c\", letter);\\r\\n    }\\r\\n\\r\\n    printf(\"\\\\n\");\\r\\n    return 0;\\r\\n}")
-    # inpList: Optional[List[str]] = Field(default=None, description="입력 목록", example=["C", "X", "A"])
-    # expList: Optional[List[str]] = Field(default=None, description="예상 출력 목록", example=["CDEFGHIJKLMNOPQRSTUVWXYZ", "XYZ", "ABCDEFGHIJKLMNOPQRSTUVWXYZ"])
-    # inpList: Optional[List[List[str]]] = Field(default=None, description="입력 목록", example='[["C"], ["X"], ["A"]])
-    # expList: Optional[List[List[str]]] = Field(default=None, description="예상 출력 목록", example='[["CDEFGHIJKLMNOPQRSTUVWXYZ"], ["XYZ"], ["ABCDEFGHIJKLMNOPQRSTUVWXYZ"]]')
-    inpList: str = Field(default=None, description="입력 목록", example='[["C"], ["X"], ["A"]]')
+    # code: str = Field(default=..., description="코드", example="#include <stdio.h>\\r\\n\\r\\nint main() {\\r\\n    char start;\\r\\n\\r\\n    scanf(\"%c\", &start);\\r\\n\\r\\n    for (char letter = start; letter <= 'Z'; letter++) {\\r\\n        printf(\"%c\", letter);\\r\\n    }\\r\\n\\r\\n    printf(\"\\\\n\");\\r\\n    return 0;\\r\\n}")
+    code: str = Field(default=..., description="코드", example="#include <stdio.h>\\r\\n\\r\\nint main() {\\r\\n    char start, end;\\r\\n\\r\\n    scanf(\"%c %c\", &start, &end);\\r\\n\\r\\n    for (char letter = start; letter <= end; letter++) {\\r\\n        printf(\"%c\", letter);\\r\\n    }\\r\\n\\r\\n    printf(\"\\\\n\");\\r\\n    return 0;\\r\\n}")
+    # inpList: str = Field(default=None, description="입력 목록", example='[["C"], ["X"], ["A"]]')
+    inpList: str = Field(default=None, description="입력 목록", example='[["C", "Z"], ["X", "Z"], ["A", "Z"]]')
     expList: str = Field(default=None, description="예상 출력 목록", example='[["CDEFGHIJKLMNOPQRSTUVWXYZ"], ["XYZ"], ["ABCDEFGHIJKLMNOPQRSTUVWXYZ"]]')
     timeOut: Optional[int] = Field(default=5, description="제한 시간 (초)", example=5)
 
@@ -305,19 +303,19 @@ async def codeDtlProc(request: cfgCodeDtlProc = Form(...)):
                     int main() {
                         char start, end;
 
-                        // 사용자 입력 받기
-                        scanf("%c", &start);
+                        scanf("%c %c", &start, &end);
 
-                        for (char letter = start; letter <= 'Z'; letter++) {
+                        for (char letter = start; letter <= end; letter++) {
                             printf("%c", letter);
                         }
 
-                        printf('\\n');
+                        printf("\n");
                         return 0;
                     }
 
                 > Escape 문자열 처리
                     #include <stdio.h>\\r\\n\\r\\nint main() {\\r\\n    char start;\\r\\n\\r\\n    scanf(\"%c\", &start);\\r\\n\\r\\n    for (char letter = start; letter <= 'Z'; letter++) {\\r\\n        printf(\"%c\", letter);\\r\\n    }\\r\\n\\r\\n    printf("\n");\\r\\n    return 0;\\r\\n}
+                    #include <stdio.h>\\r\\n\\r\\nint main() {\\r\\n    char start, end;\\r\\n\\r\\n    scanf(\"%c %c\", &start, &end);\\r\\n\\r\\n    for (char letter = start; letter <= end; letter++) {\\r\\n        printf(\"%c\", letter);\\r\\n    }\\r\\n\\r\\n    printf(\"\\\\n\");\\r\\n    return 0;\\r\\n}
 
             - java 샘플코드
                 > IDE 편집기
@@ -403,25 +401,18 @@ async def codeDtlProc(request: cfgCodeDtlProc = Form(...)):
         if timeOut is None:
             return resResponse("fail", 400, f"소스코드를 확인해주세요 ({timeOut}).", None)
 
-        # inpList = list(request.inpList)
-        log.info(request.inpList)
-        # log.info(request.inpList[0][0])
-        # log.info(request.inpList[1])
-
-        inpList = json.loads(request.inpList)
+        try:
+            inpList = json.loads(request.inpList)
+        except Exception:
+            inpList = None
         if inpList is None or len(inpList) < 1:
             return resResponse("fail", 400, f"소스코드를 확인해주세요 ({inpList}).", None)
         log.info(f"[CHECK] inpList : {inpList}")
 
-        log.info(inpList[0])
-        log.info(inpList[0][0])
-        log.info(inpList[0][1])
-        log.info(inpList[1])
-        log.info(inpList[2])
-
-        return None
-
-        expList = request.expList
+        try:
+            expList = json.loads(request.expList)
+        except Exception:
+            expList = None
         if expList is None or len(expList) < 1:
             return resResponse("fail", 400, f"소스코드를 확인해주세요 ({expList}).", None)
         log.info(f"[CHECK] expList : {expList}")
@@ -453,18 +444,18 @@ async def codeDtlProc(request: cfgCodeDtlProc = Form(...)):
 
         codeResList = []
         for i, inpInfo in enumerate(inpList):
-            log.info(f"[CHECK] inpInfo : {inpInfo}")
+            inpInfoPar = ' '.join(inpInfo)
+            log.info(f"[CHECK] inpInfoPar : {inpInfoPar}")
 
             # 코드 실행
             try:
                 codeProcRun = subprocess.run(
                     cmd,
-                    input=inpInfo,
+                    input=inpInfoPar,
                     stderr=subprocess.PIPE,
                     stdout=subprocess.PIPE,
                     text=True,
                     shell=True,
-                    # timeout=sysOpt['timeOut']
                     timeout=timeOut
                 )
 
@@ -476,15 +467,15 @@ async def codeDtlProc(request: cfgCodeDtlProc = Form(...)):
                         exitCode == 0 and  # 실행 성공 (exitCode 0)
                         len(stdOut) > 0 and  # 출력이 존재
                         len(stdErr) < 1 and  # 오류 출력 없음
-                        stdOut == expList[i]  # 예상 출력과 일치
+                        stdOut == expList[i][0]  # 예상 출력과 일치
                 ) else "fail"
 
                 codeResult = {
                     "stdOut": stdOut,
                     "stdErr": stdErr,
                     "exitCode": exitCode,
-                    "inp": inpList[i],
-                    "exp": expList[i],
+                    "inp": inpInfo[0],
+                    "exp": expList[i][0],
                     "flag": flag,
                 }
 
@@ -498,9 +489,14 @@ async def codeDtlProc(request: cfgCodeDtlProc = Form(...)):
             codeFlag = "succ" if all(codeResInfo["flag"] == "succ" for codeResInfo in codeResList) else "fail"
 
             result = {
-                "file": fileInfo,
-                "code": codeData,
-                "sysInfo": sysInfo,
+                "codeRun": {
+                    "file": fileInfo,
+                    "code": codeData,
+                    "inpList": inpList,
+                    "expList": expList,
+                    "timeOut": timeOut,
+                    "sysInfo": sysInfo,
+                },
                 "codeResult": codeResList,
                 "codeFlag": codeFlag,
             }
