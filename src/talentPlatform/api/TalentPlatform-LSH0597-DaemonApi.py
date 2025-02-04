@@ -189,9 +189,6 @@ sysOpt = {
     # 임시 경로
     'tmpPath': '{outPath}/%Y%m/%d/%H/%M/{uid}/main.{ext}',
 
-    # 제한 시간
-    # 'timeOut': 10,
-
     # 실행 정보
     'code': {
         'c': {
@@ -256,14 +253,12 @@ model = genai.GenerativeModel('gemini-1.5-pro')
 # 비즈니스 로직
 # ============================================
 class cfgCodeProc(BaseModel):
-    lang: str = Query(default=..., description='프로그래밍 언어', example='c', enum=["c", "python3", "java", "javascript"])
+    lang: str = Query(default=..., description='프로그래밍 언어', example='python3', enum=["python3", "javascript", "c", "java"])
     code: str = Field(default=..., description="코드", example="print('Hello, Python!')")
 
 class cfgCodeDtlProc(BaseModel):
-    lang: str = Query(default=..., description='프로그래밍 언어', example="java", enum=["java", "c", "python3", "javascript"])
-    # code: str = Field(default=..., description="코드", example="#include <stdio.h>\\r\\n\\r\\nint main() {\\r\\n    char start;\\r\\n\\r\\n    scanf(\"%c\", &start);\\r\\n\\r\\n    for (char letter = start; letter <= 'Z'; letter++) {\\r\\n        printf(\"%c\", letter);\\r\\n    }\\r\\n\\r\\n    printf(\"\\\\n\");\\r\\n    return 0;\\r\\n}")
-    code: str = Field(default=..., description="코드", example="import java.util.Scanner;\r\n\r\npublic class main {\r\n    public static void main(String[] args) {\r\n        Scanner scanner = new Scanner(System.in);\r\n\r\n        char start = scanner.next().charAt(0);\r\n        char end = scanner.next().charAt(0);\r\n\r\n        for (char letter = start; letter <= end; letter++) {\r\n            System.out.print(letter);\r\n        }\r\n\r\n        System.out.println();\r\n        scanner.close();\r\n    }\r\n}")
-    # inpList: str = Field(default=None, description="입력 목록", example='[["C"], ["X"], ["A"]]')
+    lang: str = Query(default=..., description='프로그래밍 언어', example="python3", enum=["python3", "c", "java", "javascript"])
+    code: str = Field(default=..., description="코드", example='start, end = input().split()\\r\\n\\r\\nfor letter in range(ord(start), ord(end) + 1):\\r\\n    print(chr(letter), end="")\\r\\nprint()\\r\\n')
     inpList: str = Field(default=None, description="입력 목록", example='[["C", "Z"], ["X", "Z"], ["A", "Z"]]')
     expList: str = Field(default=None, description="예상 출력 목록", example='[["CDEFGHIJKLMNOPQRSTUVWXYZ"], ["XYZ"], ["ABCDEFGHIJKLMNOPQRSTUVWXYZ"]]')
     timeOut: Optional[int] = Field(default=5, description="제한 시간 (초)", example=5)
@@ -285,12 +280,18 @@ async def codeDtlProc(request: cfgCodeDtlProc = Form(...)):
     기능\n
         프로그래밍 언어 및 소스코드를 통해 코딩 테스트 플랫폼 실행\n
     요청 파라미터\n
-        lang 프로그래밍 언어 (c, java, python3, javascript)\n
-        inpList 입력 목록 ["C", "X", "A"]
-        expList 예상 출력 목록 ["CDEFGHIJKLMNOPQRSTUVWXYZ", "XYZ", "ABCDEFGHIJKLMNOPQRSTUVWXYZ"]
-        code 소스코드\n
+        lang 프로그래밍 언어 (python3, c, java, javascript)\n
+        inpList 입력 목록 [["C", "Z"], ["X", "Z"], ["A", "Z"]]
+            - 입력1 ["C", "Z"] -> C Z
+            - 입력2 ["X", "Z"] -> X Z
+            - 입력3 ["A", "Z"] -> A Z\n
+        expList 예상 출력 목록 [["CDEFGHIJKLMNOPQRSTUVWXYZ"], ["XYZ"], ["ABCDEFGHIJKLMNOPQRSTUVWXYZ"]]
+            - 예상 출력1 ["CDEFGHIJKLMNOPQRSTUVWXYZ"] -> CDEFGHIJKLMNOPQRSTUVWXYZ
+            - 예상 출력2 ["XYZ"] -> XYZ
+            - 예상 출력3 ["ABCDEFGHIJKLMNOPQRSTUVWXYZ"] -> ABCDEFGHIJKLMNOPQRSTUVWXYZ\n
+        code 소스코드
             - Escape 문자열 처리
-                > # 줄바꿈 -> \\r\\n
+                > 줄바꿈 -> \\r\\n
                 > " -> \\\"
                 > ' -> \\\'
                 > \\n -> \\\\n
@@ -337,65 +338,122 @@ async def codeDtlProc(request: cfgCodeDtlProc = Form(...)):
                     }
 
                 > Escape 문자열 처리
-                    import java.util.Scanner;\r\n\r\npublic class main {\r\n    public static void main(String[] args) {\r\n        Scanner scanner = new Scanner(System.in);\r\n\r\n        char start = scanner.next().charAt(0);\r\n        char end = scanner.next().charAt(0);\r\n\r\n        for (char letter = start; letter <= end; letter++) {\r\n            System.out.print(letter);\r\n        }\r\n\r\n        System.out.println();\r\n        scanner.close();\r\n    }\r\n}
+                    import java.util.Scanner;\\r\\n\\r\\npublic class main {\\r\\n    public static void main(String[] args) {\\r\\n        Scanner scanner = new Scanner(System.in);\\r\\n\\r\\n        char start = scanner.next().charAt(0);\\r\\n        char end = scanner.next().charAt(0);\\r\\n\\r\\n        for (char letter = start; letter <= end; letter++) {\\r\\n            System.out.print(letter);\\r\\n        }\\r\\n\\r\\n        System.out.println();\\r\\n        scanner.close();\\r\\n    }\\r\\n}
 
             - python3 샘플코드
                 > IDE 편집기
-                    for letter in range(ord('A'), ord('Z') + 1):
-                        print(chr(letter), end='')
+                    start, end = input().split()
+
+                    for letter in range(ord(start), ord(end) + 1):
+                        print(chr(letter), end="")
                     print()
 
-
                 > Escape 문자열 처리
-                    for letter in range(ord('A'), ord('Z') + 1):\\r\\n    print(chr(letter), end='')\\r\\nprint()\\r\\n
+                    start, end = input().split()\\r\\n\\r\\nfor letter in range(ord(start), ord(end) + 1):\\r\\n    print(chr(letter), end="")\\r\\nprint()\\r\\n
 
             - javascript 샘플코드
                 > IDE 편집기
-                    for (let letter = 'A'.charCodeAt(0); letter <= 'Z'.charCodeAt(0); letter++) {
-                        process.stdout.write(String.fromCharCode(letter));
-                    }
+                    process.stdin.setEncoding("utf8");
+
+                    process.stdin.on("data", (data) => {
+                        const [startChar, endChar] = data.trim().split(" ");
+
+                        for (let letter = startChar.charCodeAt(0); letter <= endChar.charCodeAt(0); letter++) {
+                            process.stdout.write(String.fromCharCode(letter));
+                        }
+
+                        console.log();
+                        process.exit();
+                    });
 
                 > Escape 문자열 처리
-                    for (let letter = 'A'.charCodeAt(0); letter <= 'Z'.charCodeAt(0); letter++) {\\r\\n    process.stdout.write(String.fromCharCode(letter));\\r\\n}\\r\\n
+                    process.stdin.setEncoding("utf8");\\r\\n\\r\\nprocess.stdin.on("data", (data) => {\\r\\n    const [startChar, endChar] = data.trim().split(" ");\\r\\n\\r\\n    for (let letter = startChar.charCodeAt(0); letter <= endChar.charCodeAt(0); letter++) {\\r\\n        process.stdout.write(String.fromCharCode(letter));\\r\\n    }\\r\\n\\r\\n   console.log();\\r\\n    process.exit();\\r\\n});
 
     응답 결과\n
         설명서
             - status 처리상태 (succ, fail)
             - code HTTP 응답코드 (성공 200, 그 외)
-            - message 처리 메시지 (처리 완료, 처리 실패, 에러 메시지)
+            - message 처리 메시지 (처리 완료, 처리 실패, 기타)
             - cnt 세부결과 개수
             - data 세부결과
-                > file 실행파일 위치
-                > code 실행파일 내용
-                > sysInfo 설정정보 (ext 확장자, ver 버전, exe 실행기, cmd 명령어)
-                > stdOut 코드 실행 시 표준출력 (성공 출력결과, 그 외 "")
-                > stdErr 코드 실행 시 에러출력 (에러 출력결과, 그 외 "")
-                > exitCode 코드 실행 시 상태코드 (성공 0, 그 외)
+                codeRun 코드실행 명령어
+                    > file 실행파일 위치
+                    > code 실행파일 내용
+                    > timeOut 제한시간 (초)
+                    > sysInfo 설정정보 (ext 확장자, ver 버전, exe 실행기, cmd 명령어 패턴)
+
+                codeResult 코드실행 결과
+                    [
+                        {
+                            > stdOut 표준출력 (성공 출력결과, 그 외 "")
+                            > stdErr 에러출력 (에러 출력결과, 그 외 "")
+                            > exitCode 상태코드 (성공 0, 그 외)
+                            > cmd 코드실행 시 명령어
+                            > inp 코드실행 시 입력 정보
+                            > exp 코드실행 시 출력 정보
+                            > flag 단위검사 (성공 succ, 실패 fail)
+                        },
+                        {
+                            ...
+                        },
+                    ]
+
+                codeFlag 코드실행 통합검사 (성공 succ, 실패 fail)
 
         샘플결과
             {
               "status": "succ",
               "code": 200,
               "message": "처리 완료",
-              "cnt": 6,
+              "cnt": 3,
               "data": {
-                "file": "/DATA/OUTPUT/LSH0597/202412/20/11/40/6d403d14-9efd-4fde-8054-f3b4fadd585d/main.py",
-                "code": "print('Hello, Python!')",
-                "sysInfo": {
-                  "ext": "py",
-                  "ver": "Python 3.8.18 & conda 24.5.0",
-                  "exe": "/HDD/SYSTEMS/LIB/anaconda3/envs/py38/bin/python3.8",
-                  "cmd": "{exe} -O {fileInfo}"
+                "codeRun": {
+                  "file": "/DATA/OUTPUT/LSH0597/202502/05/04/41/70b43a31-bea2-46a4-9759-9c60edac1837/main.py",
+                  "code": "start, end = input().split() ...",
+                  "timeOut": 5,
+                  "sysInfo": {
+                    "ext": "py",
+                    "ver": "Python 3.8.18 & conda 24.5.0",
+                    "exe": "/HDD/SYSTEMS/LIB/anaconda3/envs/py38/bin/python3.8",
+                    "cmd": "{exe} -O {fileInfo}"
+                  }
                 },
-                "stdOut": "Hello, Python!",
-                "stdErr": "",
-                "exitCode": 0
+                "codeResult": [
+                  {
+                    "stdOut": "CDEFGHIJKLMNOPQRSTUVWXYZ",
+                    "stdErr": "",
+                    "exitCode": 0,
+                    "cmd": "/HDD/SYSTEMS/LIB/anaconda3/envs/py38/bin/python3.8 -O /DATA/OUTPUT/LSH0597/202502/05/04/41/70b43a31-bea2-46a4-9759-9c60edac1837/main.py",
+                    "inp": "C Z",
+                    "exp": "CDEFGHIJKLMNOPQRSTUVWXYZ",
+                    "flag": "succ"
+                  },
+                  {
+                    "stdOut": "XYZ",
+                    "stdErr": "",
+                    "exitCode": 0,
+                    "cmd": "/HDD/SYSTEMS/LIB/anaconda3/envs/py38/bin/python3.8 -O /DATA/OUTPUT/LSH0597/202502/05/04/41/70b43a31-bea2-46a4-9759-9c60edac1837/main.py",
+                    "inp": "X Z",
+                    "exp": "XYZ",
+                    "flag": "succ"
+                  },
+                  {
+                    "stdOut": "ABCDEFGHIJKLMNOPQRSTUVWXYZ",
+                    "stdErr": "",
+                    "exitCode": 0,
+                    "cmd": "/HDD/SYSTEMS/LIB/anaconda3/envs/py38/bin/python3.8 -O /DATA/OUTPUT/LSH0597/202502/05/04/41/70b43a31-bea2-46a4-9759-9c60edac1837/main.py",
+                    "inp": "A Z",
+                    "exp": "ABCDEFGHIJKLMNOPQRSTUVWXYZ",
+                    "flag": "succ"
+                  }
+                ],
+                "codeFlag": "succ"
               }
             }
-
     """
 
     try:
+        # log.info(f"[CHECK] request : {request}")
         lang = request.lang
         if lang is None or len(lang) < 1:
             return resResponse("fail", 400, f"프로그래밍 언어를 확인해주세요 ({lang}).", None)
@@ -434,14 +492,9 @@ async def codeDtlProc(request: cfgCodeDtlProc = Form(...)):
         log.info(f"[CHECK] fileInfo : {fileInfo}")
 
         filePath = os.path.dirname(fileInfo)
+        if filePath is None or len(filePath) < 1:
+            return resResponse("fail", 400, f"임시 파일을 확인해주세요 ({filePath}).", None)
         log.info(f"[CHECK] filePath : {filePath}")
-
-        cmd = None
-        try:
-            cmd = sysInfo['cmd'].format(fileInfo=fileInfo, filePath=filePath, exe=sysInfo.get('exe'), cmp=sysInfo.get('cmp'))
-        except ValueError as e:
-            return resResponse("fail", 400, f"실행 명령어를 확인해주세요 ({cmd}).", None, str(e))
-        log.info(f"[CHECK] cmd : {cmd}")
 
         # 코드 저장
         os.makedirs(filePath, exist_ok=True)
@@ -449,10 +502,20 @@ async def codeDtlProc(request: cfgCodeDtlProc = Form(...)):
         with open(fileInfo, "w") as codeFile:
             codeFile.write(codeData)
 
+        try:
+            cmd = sysInfo['cmd'].format(fileInfo=fileInfo, filePath=filePath, exe=sysInfo.get('exe'), cmp=sysInfo.get('cmp'))
+        except ValueError as e:
+            cmd = None
+        if cmd is None or len(cmd) < 1:
+            return resResponse("fail", 400, f"코드 실행 명령어를 확인해주세요 ({cmd}).", None)
+        log.info(f"[CHECK] cmd : {cmd}")
+
         codeResList = []
         for i, inpInfo in enumerate(inpList):
             inpInfoPar = ' '.join(inpInfo)
+            expInfo = expList[i][0]
             log.info(f"[CHECK] inpInfoPar : {inpInfoPar}")
+            log.info(f"[CHECK] expInfo : {expInfo}")
 
             # 코드 실행
             try:
@@ -474,15 +537,16 @@ async def codeDtlProc(request: cfgCodeDtlProc = Form(...)):
                         exitCode == 0 and  # 실행 성공 (exitCode 0)
                         len(stdOut) > 0 and  # 출력이 존재
                         len(stdErr) < 1 and  # 오류 출력 없음
-                        stdOut == expList[i][0]  # 예상 출력과 일치
+                        stdOut == expInfo  # 예상 출력과 일치
                 ) else "fail"
 
                 codeResult = {
                     "stdOut": stdOut,
                     "stdErr": stdErr,
                     "exitCode": exitCode,
-                    "inp": inpInfo[0],
-                    "exp": expList[i][0],
+                    "cmd": cmd,
+                    "inp": inpInfoPar,
+                    "exp": expInfo,
                     "flag": flag,
                 }
 
@@ -491,6 +555,8 @@ async def codeDtlProc(request: cfgCodeDtlProc = Form(...)):
 
             except subprocess.TimeoutExpired as e:
                 return resResponse("fail", 400, f"제한시간 {timeOut} 초를 초과하였습니다.", None, str(e))
+            except Exception as e:
+                return resResponse("fail", 400, f"코드 실행을 실패하였습니다.", None, str(e))
 
             # 최종 결과
             codeFlag = "succ" if all(codeResInfo["flag"] == "succ" for codeResInfo in codeResList) else "fail"
@@ -499,8 +565,6 @@ async def codeDtlProc(request: cfgCodeDtlProc = Form(...)):
                 "codeRun": {
                     "file": fileInfo,
                     "code": codeData,
-                    "inpList": inpList,
-                    "expList": expList,
                     "timeOut": timeOut,
                     "sysInfo": sysInfo,
                 },
@@ -521,6 +585,61 @@ async def codeDtlProc(request: cfgCodeDtlProc = Form(...)):
             os.remove(os.path.join(filePath, "a.out"))
         if lang == "java" and os.path.exists(os.path.join(filePath, "main.class")):
             os.remove(os.path.join(filePath, "main.class"))
+
+# @app.post(f"/api/sel-codeHelp", dependencies=[Depends(chkApiKey)])
+@app.post(f"/api/sel-codeHelp")
+async def selCodeHelp(request: cfgCodeHelp = Form(...)):
+    """
+    기능\n
+        chatGPT 요청사항을 기반으로 헬퍼\n
+    요청 파라미터\n
+        cont 요청사항\n
+            - 샘플코드
+                > IDE 편집기
+                    소스코드
+                    print('Hello, Python!')2
+
+                    표준에러
+                    File \\"/DATA/OUTPUT/LSH0597/202412/24/18/23/30b03a92-622b-4958-8edc-64820ee75ecb/main.py\\", line 1\\n    print('Hello, Python!')2\\n                           ^nSyntaxError: invalid syntax
+
+                    요청사항
+                    소스코드 실행 시 표준에러가 발생되고 있어 이를 수정해조
+
+                > 문자열 처리
+                    소스코드\\n             print('Hello, Python!')2\\n              표준에러\\n             File \\"/DATA/OUTPUT/LSH0597/202412/24/18/23/30b03a92-622b-4958-8edc-64820ee75ecb/main.py\\", line 1\\n    print('Hello, Python!')2\\n                           ^\\nSyntaxError: invalid syntax\\n              요청사항\\n             소스코드 실행 시 표준에러가 발생되고 있어 이를 수정해조
+
+    응답 결과\n
+        설명서
+            - status 처리상태 (succ, fail)
+            - code HTTP 응답코드 (성공 200, 그 외)
+            - message 처리 메시지 (처리 완료, 처리 실패, 에러 메시지)
+            - cnt 세부결과 개수
+            - data 세부결과
+
+        샘플결과
+            {
+              "status": "succ",
+              "code": 200,
+              "message": "처리 완료",
+              "cnt": 520,
+              "data": "`print('Hello, Python!')2` 에서 `2`가 문제입니다.  `print()` 함수 호출 뒤에 붙은 `2`는 파이썬 인터프리터가 이해할 수 없는 구문입니다.  아마도 실수로 입력되었을 가능성이 큽니다.\\n\\n다음과 같이 수정하면 됩니다.\\n\\n```python\\nprint('Hello, Python!')\\n```\\n\\n`2`를 제거하고 `print()` 함수만 남겨두면 \\"Hello, Python!\\"이 정상적으로 출력됩니다.\\n\\n\\n만약 2를 곱하기 연산으로 사용하려고 했다면, 문자열과 숫자는 직접 곱할 수 없습니다.  문자열을 반복하려면 다음과 같이 수정해야 합니다.\\n\\n```python\\nprint('Hello, Python!' * 2)\\n```\\n\\n이렇게 수정하면 \\"Hello, Python!Hello, Python!\\"이 출력됩니다.\\n\\n\\n어떤 의도였는지에 따라  `2`를 삭제하거나 곱셈 연산자 `*`를 추가하는 두 가지 방법 중 하나를 선택해야 합니다.  대부분의 경우, 단순히 `2`를 삭제하는 것이 의도에 맞을 것입니다.\\n"
+            }
+    """
+    try:
+        cont = request.cont
+        if cont is None or len(cont) < 1:
+            return resResponse("fail", 400, f"요청사항이 없습니다 ({cont}).", None)
+
+        res = model.generate_content(cont)
+        result = res.candidates[0].content.parts[0].text
+        log.info(f"[CHECK] result : {result}")
+
+        return resResponse("succ", 200, "처리 완료", len(result), result)
+
+    except Exception as e:
+        log.error(f'Exception : {e}')
+        raise HTTPException(status_code=400, detail=str(e))
+
 
 # @app.post(f"/api/sel-codeProc", dependencies=[Depends(chkApiKey)])
 @app.post(f"/api/sel-codeProc")
@@ -696,57 +815,3 @@ async def selCodeProc(request: cfgCodeProc = Form(...)):
             os.remove(os.path.join(filePath, "a.out"))
         if lang == "java" and os.path.exists(os.path.join(filePath, "main.class")):
             os.remove(os.path.join(filePath, "main.class"))
-
-# @app.post(f"/api/sel-codeHelp", dependencies=[Depends(chkApiKey)])
-@app.post(f"/api/sel-codeHelp")
-async def selCodeHelp(request: cfgCodeHelp = Form(...)):
-    """
-    기능\n
-        chatGPT 요청사항을 기반으로 헬퍼\n
-    요청 파라미터\n
-        cont 요청사항\n
-            - 샘플코드
-                > IDE 편집기
-                    소스코드
-                    print('Hello, Python!')2
-
-                    표준에러
-                    File \\"/DATA/OUTPUT/LSH0597/202412/24/18/23/30b03a92-622b-4958-8edc-64820ee75ecb/main.py\\", line 1\\n    print('Hello, Python!')2\\n                           ^nSyntaxError: invalid syntax
-
-                    요청사항
-                    소스코드 실행 시 표준에러가 발생되고 있어 이를 수정해조
-
-                > 문자열 처리
-                    소스코드\\n             print('Hello, Python!')2\\n              표준에러\\n             File \\"/DATA/OUTPUT/LSH0597/202412/24/18/23/30b03a92-622b-4958-8edc-64820ee75ecb/main.py\\", line 1\\n    print('Hello, Python!')2\\n                           ^\\nSyntaxError: invalid syntax\\n              요청사항\\n             소스코드 실행 시 표준에러가 발생되고 있어 이를 수정해조
-
-    응답 결과\n
-        설명서
-            - status 처리상태 (succ, fail)
-            - code HTTP 응답코드 (성공 200, 그 외)
-            - message 처리 메시지 (처리 완료, 처리 실패, 에러 메시지)
-            - cnt 세부결과 개수
-            - data 세부결과
-
-        샘플결과
-            {
-              "status": "succ",
-              "code": 200,
-              "message": "처리 완료",
-              "cnt": 520,
-              "data": "`print('Hello, Python!')2` 에서 `2`가 문제입니다.  `print()` 함수 호출 뒤에 붙은 `2`는 파이썬 인터프리터가 이해할 수 없는 구문입니다.  아마도 실수로 입력되었을 가능성이 큽니다.\\n\\n다음과 같이 수정하면 됩니다.\\n\\n```python\\nprint('Hello, Python!')\\n```\\n\\n`2`를 제거하고 `print()` 함수만 남겨두면 \\"Hello, Python!\\"이 정상적으로 출력됩니다.\\n\\n\\n만약 2를 곱하기 연산으로 사용하려고 했다면, 문자열과 숫자는 직접 곱할 수 없습니다.  문자열을 반복하려면 다음과 같이 수정해야 합니다.\\n\\n```python\\nprint('Hello, Python!' * 2)\\n```\\n\\n이렇게 수정하면 \\"Hello, Python!Hello, Python!\\"이 출력됩니다.\\n\\n\\n어떤 의도였는지에 따라  `2`를 삭제하거나 곱셈 연산자 `*`를 추가하는 두 가지 방법 중 하나를 선택해야 합니다.  대부분의 경우, 단순히 `2`를 삭제하는 것이 의도에 맞을 것입니다.\\n"
-            }
-    """
-    try:
-        cont = request.cont
-        if cont is None or len(cont) < 1:
-            return resResponse("fail", 400, f"요청사항이 없습니다 ({cont}).", None)
-
-        res = model.generate_content(cont)
-        result = res.candidates[0].content.parts[0].text
-        log.info(f"[CHECK] result : {result}")
-
-        return resResponse("succ", 200, "처리 완료", len(result), result)
-
-    except Exception as e:
-        log.error(f'Exception : {e}')
-        raise HTTPException(status_code=400, detail=str(e))
