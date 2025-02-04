@@ -260,9 +260,9 @@ class cfgCodeProc(BaseModel):
     code: str = Field(default=..., description="코드", example="print('Hello, Python!')")
 
 class cfgCodeDtlProc(BaseModel):
-    lang: str = Query(default=..., description='프로그래밍 언어', example="c", enum=["c", "python3", "java", "javascript"])
+    lang: str = Query(default=..., description='프로그래밍 언어', example="java", enum=["java", "c", "python3", "javascript"])
     # code: str = Field(default=..., description="코드", example="#include <stdio.h>\\r\\n\\r\\nint main() {\\r\\n    char start;\\r\\n\\r\\n    scanf(\"%c\", &start);\\r\\n\\r\\n    for (char letter = start; letter <= 'Z'; letter++) {\\r\\n        printf(\"%c\", letter);\\r\\n    }\\r\\n\\r\\n    printf(\"\\\\n\");\\r\\n    return 0;\\r\\n}")
-    code: str = Field(default=..., description="코드", example="#include <stdio.h>\\r\\n\\r\\nint main() {\\r\\n    char start, end;\\r\\n\\r\\n    scanf(\"%c %c\", &start, &end);\\r\\n\\r\\n    for (char letter = start; letter <= end; letter++) {\\r\\n        printf(\"%c\", letter);\\r\\n    }\\r\\n\\r\\n    printf(\"\\\\n\");\\r\\n    return 0;\\r\\n}")
+    code: str = Field(default=..., description="코드", example="import java.util.Scanner;\r\n\r\npublic class main {\r\n    public static void main(String[] args) {\r\n        Scanner scanner = new Scanner(System.in);\r\n\r\n        char start = scanner.next().charAt(0);\r\n        char end = scanner.next().charAt(0);\r\n\r\n        for (char letter = start; letter <= end; letter++) {\r\n            System.out.print(letter);\r\n        }\r\n\r\n        System.out.println();\r\n        scanner.close();\r\n    }\r\n}")
     # inpList: str = Field(default=None, description="입력 목록", example='[["C"], ["X"], ["A"]]')
     inpList: str = Field(default=None, description="입력 목록", example='[["C", "Z"], ["X", "Z"], ["A", "Z"]]')
     expList: str = Field(default=None, description="예상 출력 목록", example='[["CDEFGHIJKLMNOPQRSTUVWXYZ"], ["XYZ"], ["ABCDEFGHIJKLMNOPQRSTUVWXYZ"]]')
@@ -309,28 +309,35 @@ async def codeDtlProc(request: cfgCodeDtlProc = Form(...)):
                             printf("%c", letter);
                         }
 
-                        printf("\n");
+                        printf("\\n");
                         return 0;
                     }
 
                 > Escape 문자열 처리
-                    #include <stdio.h>\\r\\n\\r\\nint main() {\\r\\n    char start;\\r\\n\\r\\n    scanf(\"%c\", &start);\\r\\n\\r\\n    for (char letter = start; letter <= 'Z'; letter++) {\\r\\n        printf(\"%c\", letter);\\r\\n    }\\r\\n\\r\\n    printf("\n");\\r\\n    return 0;\\r\\n}
                     #include <stdio.h>\\r\\n\\r\\nint main() {\\r\\n    char start, end;\\r\\n\\r\\n    scanf(\"%c %c\", &start, &end);\\r\\n\\r\\n    for (char letter = start; letter <= end; letter++) {\\r\\n        printf(\"%c\", letter);\\r\\n    }\\r\\n\\r\\n    printf(\"\\\\n\");\\r\\n    return 0;\\r\\n}
 
             - java 샘플코드
                 > IDE 편집기
+                    import java.util.Scanner;
+
                     public class main {
                         public static void main(String[] args) {
-                            for (char letter = 'A'; letter <= 'Z'; letter++) {
+                            Scanner scanner = new Scanner(System.in);
+
+                            char start = scanner.next().charAt(0);
+                            char end = scanner.next().charAt(0);
+
+                            for (char letter = start; letter <= end; letter++) {
                                 System.out.print(letter);
                             }
 
                             System.out.println();
+                            scanner.close();
                         }
                     }
 
                 > Escape 문자열 처리
-                    public class main {\\r\\n    public static void main(String[] args) {\\r\\n        for (char letter = 'A'; letter <= 'Z'; letter++) {\\r\\n            System.out.print(letter);\\r\\n        }\\r\\n        System.out.println();\\r\\n    }\\r\\n}
+                    import java.util.Scanner;\r\n\r\npublic class main {\r\n    public static void main(String[] args) {\r\n        Scanner scanner = new Scanner(System.in);\r\n\r\n        char start = scanner.next().charAt(0);\r\n        char end = scanner.next().charAt(0);\r\n\r\n        for (char letter = start; letter <= end; letter++) {\r\n            System.out.print(letter);\r\n        }\r\n\r\n        System.out.println();\r\n        scanner.close();\r\n    }\r\n}
 
             - python3 샘플코드
                 > IDE 편집기
