@@ -289,6 +289,7 @@ async def codeDtlProc(request: cfgCodeDtlProc = Form(...)):
             - 예상 출력1 ["CDEFGHIJKLMNOPQRSTUVWXYZ"] -> CDEFGHIJKLMNOPQRSTUVWXYZ
             - 예상 출력2 ["XYZ"] -> XYZ
             - 예상 출력3 ["ABCDEFGHIJKLMNOPQRSTUVWXYZ"] -> ABCDEFGHIJKLMNOPQRSTUVWXYZ\n
+        timeOut 제한 시간 (초)\n
         code 소스코드
             - Escape 문자열 처리
                 > 줄바꿈 -> \\r\\n
