@@ -87,10 +87,11 @@ from fastapi import FastAPI, HTTPException, UploadFile, File, Form
 import tempfile
 import os
 from enum import Enum
-from typing import List, Any, Dict, Optional
+from typing import List, Any, Dict, Optional, Union
 import uuid
 import subprocess
 import google.generativeai as genai
+import json
 
 # ============================================
 # 유틸리티 함수
@@ -255,16 +256,18 @@ model = genai.GenerativeModel('gemini-1.5-pro')
 # 비즈니스 로직
 # ============================================
 class cfgCodeProc(BaseModel):
-    lang: str = Query(default=..., description='프로그래밍 언어', example='python3', enum=[
-        "python3", "c", "java", "javascript"
-    ])
+    lang: str = Query(default=..., description='프로그래밍 언어', example='c', enum=["c", "python3", "java", "javascript"])
     code: str = Field(default=..., description="코드", example="print('Hello, Python!')")
 
 class cfgCodeDtlProc(BaseModel):
-    lang: str = Query(default=..., description='프로그래밍 언어', example="c", enum=["python3", "c", "java", "javascript"])
+    lang: str = Query(default=..., description='프로그래밍 언어', example="c", enum=["c", "python3", "java", "javascript"])
     code: str = Field(default=..., description="코드", example="#include <stdio.h>\\r\\n\\r\\nint main() {\\r\\n    char start;\\r\\n\\r\\n    scanf(\"%c\", &start);\\r\\n\\r\\n    for (char letter = start; letter <= 'Z'; letter++) {\\r\\n        printf(\"%c\", letter);\\r\\n    }\\r\\n\\r\\n    printf(\"\\\\n\");\\r\\n    return 0;\\r\\n}")
-    inpList: Optional[List[str]] = Field(default=None, description="입력 목록", example=["C", "X", "A"])
-    expList: Optional[List[str]] = Field(default=None, description="예상 출력 목록", example=["CDEFGHIJKLMNOPQRSTUVWXYZ", "XYZ", "ABCDEFGHIJKLMNOPQRSTUVWXYZ"])
+    # inpList: Optional[List[str]] = Field(default=None, description="입력 목록", example=["C", "X", "A"])
+    # expList: Optional[List[str]] = Field(default=None, description="예상 출력 목록", example=["CDEFGHIJKLMNOPQRSTUVWXYZ", "XYZ", "ABCDEFGHIJKLMNOPQRSTUVWXYZ"])
+    # inpList: Optional[List[List[str]]] = Field(default=None, description="입력 목록", example='[["C"], ["X"], ["A"]])
+    # expList: Optional[List[List[str]]] = Field(default=None, description="예상 출력 목록", example='[["CDEFGHIJKLMNOPQRSTUVWXYZ"], ["XYZ"], ["ABCDEFGHIJKLMNOPQRSTUVWXYZ"]]')
+    inpList: str = Field(default=None, description="입력 목록", example='[["C"], ["X"], ["A"]]')
+    expList: str = Field(default=None, description="예상 출력 목록", example='[["CDEFGHIJKLMNOPQRSTUVWXYZ"], ["XYZ"], ["ABCDEFGHIJKLMNOPQRSTUVWXYZ"]]')
     timeOut: Optional[int] = Field(default=5, description="제한 시간 (초)", example=5)
 
 class cfgCodeHelp(BaseModel):
@@ -300,7 +303,7 @@ async def codeDtlProc(request: cfgCodeDtlProc = Form(...)):
                     #include <stdio.h>
 
                     int main() {
-                        char start;
+                        char start, end;
 
                         // 사용자 입력 받기
                         scanf("%c", &start);
@@ -400,8 +403,28 @@ async def codeDtlProc(request: cfgCodeDtlProc = Form(...)):
         if timeOut is None:
             return resResponse("fail", 400, f"소스코드를 확인해주세요 ({timeOut}).", None)
 
-        inpList = request.inpList or []
-        expList = request.expList or []
+        # inpList = list(request.inpList)
+        log.info(request.inpList)
+        # log.info(request.inpList[0][0])
+        # log.info(request.inpList[1])
+
+        inpList = json.loads(request.inpList)
+        if inpList is None or len(inpList) < 1:
+            return resResponse("fail", 400, f"소스코드를 확인해주세요 ({inpList}).", None)
+        log.info(f"[CHECK] inpList : {inpList}")
+
+        log.info(inpList[0])
+        log.info(inpList[0][0])
+        log.info(inpList[0][1])
+        log.info(inpList[1])
+        log.info(inpList[2])
+
+        return None
+
+        expList = request.expList
+        if expList is None or len(expList) < 1:
+            return resResponse("fail", 400, f"소스코드를 확인해주세요 ({expList}).", None)
+        log.info(f"[CHECK] expList : {expList}")
 
         sysInfo = sysOpt['code'][lang]
         if sysInfo is None or len(sysInfo) < 1:
@@ -430,6 +453,7 @@ async def codeDtlProc(request: cfgCodeDtlProc = Form(...)):
 
         codeResList = []
         for i, inpInfo in enumerate(inpList):
+            log.info(f"[CHECK] inpInfo : {inpInfo}")
 
             # 코드 실행
             try:
@@ -448,7 +472,7 @@ async def codeDtlProc(request: cfgCodeDtlProc = Form(...)):
                 stdErr = codeProcRun.stderr.strip()
                 exitCode = codeProcRun.returncode
 
-                out = "succ" if (
+                flag = "succ" if (
                         exitCode == 0 and  # 실행 성공 (exitCode 0)
                         len(stdOut) > 0 and  # 출력이 존재
                         len(stdErr) < 1 and  # 오류 출력 없음
@@ -461,7 +485,7 @@ async def codeDtlProc(request: cfgCodeDtlProc = Form(...)):
                     "exitCode": exitCode,
                     "inp": inpList[i],
                     "exp": expList[i],
-                    "out": out,
+                    "flag": flag,
                 }
 
                 log.info(f"[CHECK] codeResult : {codeResult}")
@@ -471,17 +495,17 @@ async def codeDtlProc(request: cfgCodeDtlProc = Form(...)):
                 return resResponse("fail", 400, f"제한시간 {timeOut} 초를 초과하였습니다.", None, str(e))
 
             # 최종 결과
-            isFlag = "succ" if all(codeResInfo["out"] == "succ" for codeResInfo in codeResList) else "fail"
+            codeFlag = "succ" if all(codeResInfo["flag"] == "succ" for codeResInfo in codeResList) else "fail"
 
             result = {
                 "file": fileInfo,
                 "code": codeData,
                 "sysInfo": sysInfo,
                 "codeResult": codeResList,
-                "isFlag": isFlag,
+                "codeFlag": codeFlag,
             }
 
-        if isFlag is "succ":
+        if codeFlag == "succ":
             return resResponse("succ", 200, "처리 완료", len(result), result)
         else:
             return resResponse("fail", 400, "처리 실패", None, result)
