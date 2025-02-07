@@ -424,7 +424,7 @@ class DtaProcess(object):
 
                 city = item['City_Column_1']
                 cityMat = item['Matching_City_Column_2']
-                per = round(i / len(cfgDataL1) * 100, 0)
+                per = round(i / len(cfgDataL1) * 100, 1)
                 log.info(f'[CHECK] cityMat : {cityMat} / {per}%')
 
                 # sector = sysOpt['sectorList'][0]
@@ -475,21 +475,33 @@ class DtaProcess(object):
                                     continue
                                 # log.info(f'[CHECK] polType : {polType}')
 
-                                # Starting_year, Ending_year
+                                # 公布日期=공표날짜=Announcement_Year
+                                # 施行日期=실행날짜=Starting_Year
                                 try:
                                     yearList = ele.find_elements(By.CSS_SELECTOR, ".info .text")
                                     for year in yearList:
                                         text = year.text.strip()
                                         if re.search('公布', text, re.IGNORECASE):
-                                            srtYear = re.sub(r'公布', '', text) if text else None
+                                            annYear = re.sub(r'公布', '', text) if text else None
                                         elif re.search('施行', text, re.IGNORECASE):
-                                            endYear = re.sub(r'施行', '', text) if text else None
+                                            srtYear = re.sub(r'施行', '', text) if text else None
                                         else:
                                             continue
                                 except Exception:
+                                    annYear = None
                                     srtYear = None
-                                    endYear = None
+                                # log.info(f'[CHECK] annYear : {annYear}')
                                 # log.info(f'[CHECK] srtYear : {srtYear}')
+
+                                # 时效性=실효성=Ending_year （만약 값이 现行有效이면 현재까지 유효한 거이므로 Active를 넣어주면 좋을 거 같습니다)
+                                try:
+                                    tagList = ele.find_elements(By.CSS_SELECTOR, ".info > a")
+                                    for idx, tag in enumerate(tagList):
+                                        if idx > 0: continue
+                                        text = tag.text.strip()
+                                        endYear = "Active" if re.search('现行有效', text, re.IGNORECASE) else text
+                                except Exception:
+                                    endYear = None
                                 # log.info(f'[CHECK] endYear : {endYear}')
 
                                 # Policy_title, Web_link
@@ -509,7 +521,8 @@ class DtaProcess(object):
                                     'Sector': [sector],
                                     'key': [key],
                                     'keyword': [keyword],
-                                    'Starting_year': [srtYear],
+                                    'Announcement_Year': [annYear],
+                                    'Starting_Year': [srtYear],
                                     'Ending_year': [endYear],
                                     'Policy_title': [polTitle],
                                     'Policy_type': [polType],
@@ -540,6 +553,7 @@ class DtaProcess(object):
                         driver = initDriver(sysOpt)
                         wait = WebDriverWait(driver, sysOpt['loadTimeout'])
                         initLogin(driver, sysOpt)
+                        fullArt = None
                     except Exception:
                         fullArt = None
                     data.loc[idx, 'Full_Article'] = fullArt
