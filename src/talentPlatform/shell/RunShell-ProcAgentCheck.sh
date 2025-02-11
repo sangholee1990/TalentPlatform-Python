@@ -39,11 +39,19 @@ echo
 #========================================
 for key in "${!metaData[@]}"; do
   val="${metaData[$key]}"
-#  echo "[$(date +"%Y-%m-%d %H:%M:%S")] [CHECK] key : $key / val : $val"
+  #echo "[$(date +"%Y-%m-%d %H:%M:%S")] [CHECK] key : $key / val : $val"
 
   procId=$(pgrep -f "$key")
 
-  if [ -z "${procId}" ]; then
+  if [ -z "${procId}" ]; then 
+      case "$key" in
+        "TalentPlatform-LSH0605-DaemonFramework")
+		      ps -ef | grep "chrome" | awk '{print $2}' | xargs kill -9
+		      ;;
+	      *)
+		      ;;
+      esac
+
       echo "[$(date +"%Y-%m-%d %H:%M:%S")] [CHECK] Process is not running : $key"
       echo "[$(date +"%Y-%m-%d %H:%M:%S")] [CHECK] Process is not running : $key" >> ${LOG_PATH}/${LOG_NAME}
       nohup $val >> ${LOG_PATH}/${LOG_NAME} 2>&1 &
