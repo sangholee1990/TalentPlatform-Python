@@ -68,6 +68,12 @@ import requests
 from bs4 import BeautifulSoup
 import pytz
 from pytrends.request import TrendReq
+import re
+from typing import List, Dict, Set
+import re
+from collections import defaultdict
+from pathlib import Path
+
 
 # =================================================
 # 사용자 매뉴얼
@@ -219,6 +225,55 @@ def initArgument(globalVar, inParams):
 # ================================================
 # 4. 부 프로그램
 # ================================================
+class BwFilter:
+    FORBIDDEN_WORDS = [
+        "시신", "거지", "야사", "의사", "자지", "보지", "아다", "씹고", "음탕",
+        "후장", "병원", "환자", "진단", "증상", "증세", "재발", "방지", "시술",
+        "본원", "상담", "고자", "충동", "후회", "고비", "인내", "참아", "자살",
+        "음부", "고환", "오빠가", "후다", "니미", "애널", "에널", "해적", "몰래",
+        "재생", "유발", "만족", "무시", "네요", "하더라", "품절", "매진", "마감",
+        "의아", "의문", "의심", "가격", "정가", "구매", "판매", "매입", "지저분함",
+        "요가", "체형", "등빨", "탈출"
+    ]
+
+    def __init__(self):
+        self.violated_words = defaultdict(int)
+        self.key_words = defaultdict(int)
+
+    def scan_text(self, text):
+        """ 입력된 텍스트에서 금지어 및 키워드 빈도를 분석 """
+        for line in text.split("\n"):  # 줄 단위로 분리
+            self._check_forbidden_words(line)
+            self._count_keywords(line)
+
+        self._print_output()
+
+    def _check_forbidden_words(self, text_line):
+        """ 금지어 검사 및 카운트 """
+        cleaned_text = re.sub(r"\s+", "", text_line)  # 공백 제거
+        for word in self.FORBIDDEN_WORDS:
+            if word in cleaned_text:
+                self.violated_words[word] += 1
+
+    def _count_keywords(self, text_line):
+        """ 키워드 개수 카운트 (길이가 1보다 큰 단어만 저장) """
+        words = re.split(r"\s+", text_line)
+        for word in words:
+            if len(word) > 1:
+                self.key_words[word] += 1
+
+    def _print_output(self):
+        """ 분석 결과 출력 """
+        print("\n### 금지어 감지 결과 ###")
+        for word, count in self.violated_words.items():
+            print(f"{word}: {count}")
+
+        print("\n### 키워드 빈도수 ###")
+        sorted_keywords = sorted(self.key_words.items(), key=lambda x: x[1], reverse=True)
+        for word, count in sorted_keywords:
+            if count > 1:
+                print(f"{word}: {count}")
+
 class DtaProcess(object):
 
     # ================================================
@@ -325,10 +380,65 @@ class DtaProcess(object):
                 'saveFile': '/DATA/OUTPUT/LSH0605/%Y%m%d_{cityMat}.xlsx',
             }
 
+
+            # ==========================================================================================================
+            # 블로그 지수에 영향을 주는 금지어 위반 목록 찾기
+            # https://github.com/keunyop/BadWordCheck
+            # ==========================================================================================================
+            # 파일 대신 텍스트 입력
+            text = """
+요즘 몸도 힘들고 마음도 힘들고 이래저래 기운없는 나날들을 보내고 있어요. 몸이 피곤하니 마음도 기분도 울적한가 봐요. 뒤늦게 가을을 타는 걸까요?
+하고 싶은 제 머리는 아니지만 오늘을 딸의 생애 첫 커트에 대한 간단한 일기를 포스팅하겠습니다.
+
+지난주 금요일 오후,
+함께 누워있던 딸아이가
+갑자기 '엄마, 나 머리카락이 너무 귀찮아요...
+나 이제 머리카락 자르고 싶어요.'라고 해서
+(무려 4년 만에... 우리 딸 4살!!)
+
+그 말과 동시에
+주섬주섬 옷을 입고
+미용실로 직행!! 했습니다.
+
+무려 4년 만에 자르는 것이라
+작년부터 부쩍 길어진 머리에
+아침마다 빗질도, 묶는 것도 일이기에
+조금만 자르자고 꼬셔도
+절대 안 자르겠다고,
+아빠랑 오빠 미용실에 따라가서도
+절대 안 자른다고 해왔어서
+머리를 자른다는 말이
+너무너무 반가웠어요. :)
+
+미리 예약을 하고 간 것이
+아니라 정말 급하게 왔더니
+역시나 대기가 있었습니다.
+
+아들은 아빠랑 아무데나 가서
+커트를 하지만,
+딸은 그래도 여자아이고
+첫 커트니 만큼 예쁘게 잘라주고 싶은
+마음에 제가 이용하는 미용실로 데리고 갔어요.
+ㅎㅎㅎ
+            """
+
+            try:
+                BwFilter().scan_text(text)
+            except Exception as e:
+                print(f"오류 발생: {e}")
+
+            input("Press Enter to exit...")
+
+
             # ==========================================================================================================
             # 구글 트렌드 기반 실시간 검색어 웹
             # 동적 크롤링
-            # https://trends.google.co.kr/trending?geo=KR
+            # ==========================================================================================================
+
+
+            # ==========================================================================================================
+            # 구글 트렌드 기반 실시간 검색어 웹
+            # 동적 크롤링
             # ==========================================================================================================
             dataL1 = pd.DataFrame()
 
