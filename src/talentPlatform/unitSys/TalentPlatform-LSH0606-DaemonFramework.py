@@ -379,243 +379,6 @@ class DtaProcess(object):
                 'saveFileList': '/DATA/OUTPUT/LSH0605/*_{cityMat}.xlsx',
                 'saveFile': '/DATA/OUTPUT/LSH0605/%Y%m%d_{cityMat}.xlsx',
             }
-
-            # ==========================================================================================================
-            # 무료 GPT
-            # ==========================================================================================================
-            # GPT4All	로컬에서 실행 가능한 경량 GPT	✅ 무료
-            # from gpt4all import GPT4All
-            #
-            # # GPT 모델 로드
-            # # model = GPT4All("ggml-model-gpt4all-falcon-q4_0.bin")  # deprecated
-            # # model = GPT4All("orca-mini-3b-gguf2-q4_0.gguf") # 좀 더 가벼운 모델
-            # model = GPT4All("mistral-7b-instruct-v0.1.Q4_0.gguf")  # 추천: 빠르고 성능 좋은 모델
-            #
-            # # 한번에 여러 메시지 처리 (챗봇 모드).  n_predict 조절
-            # def generate_responses(messages, model, n_predict=128):
-            #     with model.chat_session():
-            #         responses = []
-            #         for message in messages:
-            #             response = model.generate(message, max_tokens=n_predict)
-            #             responses.append(response)
-            #     return responses
-            #
-            # #  대화 예제 (챗봇)
-            # messages = [
-            #     # "안녕, 넌 누구니?",
-            #     # "한국의 수도는 어디야?",
-            #     # "오늘 날씨 어때?",
-            #     "금지어 목록을 알려줘",
-            #     "금지어가 포함된 문장 예시를 만들어줘",
-            # ]
-            #
-            # responses = generate_responses(messages, model)
-            #
-            # print("\n-- 챗봇 대화 --")
-            # for i, (message, response) in enumerate(zip(messages, responses)):
-            #     print(f"User {i + 1}: {message}")
-            #     print(f"Bot  {i + 1}: {response}")
-            #     print("-" * 20)
-            #
-            # # 단일 프롬프트 생성 (일반 모드)
-            # prompt = "금지어 필터링 시스템을 만드는 방법에 대한 파이썬 코드를 작성해줘. "
-            # prompt += "scikit-learn, konlpy를 사용하고, "
-            # prompt += "금지어 목록은 ['바보', '멍청이', '나쁜놈']으로 해줘."
-            #
-            # print("\n-- 단일 프롬프트 생성 --")
-            # output = model.generate(prompt, max_tokens=1024)  # max_tokens: 최대 생성 길이
-            # print(output)
-            #
-            # #  금지어 필터링 (챗봇 모드 활용)
-            # def filter_text(text, model):
-            #     with model.chat_session():
-            #         system_template = "You are a helpful assistant that filters forbidden words.  If the text contains a forbidden word, respond with 'Filtered', otherwise respond with 'OK'."  # system prompt
-            #
-            #         response = model.generate(f"{system_template}\nUser: {text}", max_tokens=10)
-            #
-            #     if "Filtered" in response:
-            #         return "Filtered"
-            #     else:
-            #         return "OK"
-            #
-            # print("\n-- 금지어 필터링 --")
-            #
-            # test_sentences = [
-            #     "이것은 테스트 문장입니다.",
-            #     "저 녀석은 정말 나쁜놈이야.",
-            #     "바보는 아니지만, 조금 멍청이 같아.",
-            #     "좋은 하루 되세요!",
-            # ]
-            #
-            # for sentence in test_sentences:
-            #     result = filter_text(sentence, model)
-            #     print(f"'{sentence}' -> {result}")
-
-
-
-            # LLaMA (Meta AI)	Facebook AI에서 제공하는 LLM	✅ 무료
-            # from transformers import AutoTokenizer, AutoModelForCausalLM
-            # import torch
-
-            from transformers import pipeline
-
-            messages = [
-                {"role": "user", "content": "Who are you?"},
-            ]
-            pipe = pipeline("text-generation", model="meta-llama/Llama-2-7b-chat-hf")
-            pipe(messages)
-
-            hugFaceToken = None
-            # 모델 및 토크나이저 로드
-            # tokenizer = AutoTokenizer.from_pretrained("meta-llama/Llama-2-7b-chat-hf", token=hugFaceToken)
-            # model = AutoModelForCausalLM.from_pretrained("meta-llama/Llama-2-7b-chat-hf", token=hugFaceToken)
-
-            # Load model directly
-            from transformers import AutoTokenizer, AutoModelForCausalLM
-
-            tokenizer = AutoTokenizer.from_pretrained("meta-llama/Llama-2-7b-chat-hf", token=hugFaceToken)
-            model = AutoModelForCausalLM.from_pretrained("meta-llama/Llama-2-7b-chat-hf", token=hugFaceToken)
-
-            # 금지어 필터링 함수
-            def predict_llama(text):
-                prompt = f"이 텍스트가 금지어를 포함하는지 판단해줘. 금지어 포함 시 '🚨 금지어 포함', 포함되지 않으면 '✅ 정상 텍스트'라고 답변해.\n\n{text}"
-                inputs = tokenizer(prompt, return_tensors="pt")
-                with torch.no_grad():
-                    outputs = model.generate(**inputs)
-                return tokenizer.decode(outputs[0])
-
-            # 테스트 실행
-            print(predict_llama("이거 완전 사기야!"))
-            print(predict_llama("좋은 제품이네요!"))
-            from transformers import AutoTokenizer, AutoModelForCausalLM, pipeline
-            import torch
-
-            # 모델 및 토크나이저 로드 (GPU 사용 가능하면 자동 사용)
-            model_name = "EleutherAI/polyglot-ko-1.3b"  # 작은 모델.  더 큰 모델: EleutherAI/polyglot-ko-5.8b, EleutherAI/polyglot-ko-12.8b
-            # model_name = "beomi/kollama-12.8b-v2"  # KoLLaMA (한국어, LLaMA 기반)
-            # model_name = "mistralai/Mistral-7B-Instruct-v0.2"  # Mistral (영어, 한국어도 일부 가능)
-
-            try:
-                tokenizer = AutoTokenizer.from_pretrained(model_name)
-                model = AutoModelForCausalLM.from_pretrained(
-                    model_name,
-                    device_map="auto",  # GPU 사용 가능하면 자동으로 사용, 없으면 CPU
-                    # torch_dtype=torch.float16,  # FP16 사용 (GPU 메모리 절약, 속도 향상) - transformers 버전에 따라 지원 안될 수 있음.
-                    low_cpu_mem_usage=True,
-                )
-
-            except Exception as e:
-                print(f"모델 로드 중 오류 발생: {e}")
-                print("모델 이름이 정확한지, transformers, torch, accelerate, sentencepiece 라이브러리가 설치되어 있는지 확인하세요.")
-                exit()
-
-            # 프롬프트 생성 (예시)
-            def generate_prompt(instruction, input_text=""):
-                # 한국어 모델에 맞는 프롬프트 템플릿 사용 (모델마다 다름)
-                if "polyglot-ko" in model_name.lower():  # polyglot
-                    prompt = f"### 질문: {instruction}\n\n### 답변:"
-                    if input_text:
-                        prompt = f"### 질문: {instruction}\n\n### 입력: {input_text}\n\n### 답변:"
-                elif "kollama" in model_name.lower():  # KoLLaMA
-                    prompt = f"""아래는 작업을 설명하는 명령어입니다. 요청을 적절히 완료하는 응답을 작성하세요.
-
-            ### 명령어:
-            {instruction}
-            ### 응답:"""
-                    if input_text:
-                        prompt = f"""아래는 작업을 설명하는 명령어와 컨텍스트로 구성된 입력입니다. 요청을 적절히 완료하는 응답을 작성하세요.
-
-            ### 명령어:
-            {instruction}
-
-            ### 입력:
-            {input_text}
-
-            ### 응답:"""
-
-                elif "mistral" in model_name.lower():  # Mistral
-                    prompt = f"[INST] {instruction} [/INST]"
-                    if input_text:
-                        prompt = f"[INST] {instruction}\n\n{input_text} [/INST]"  # input 예시
-
-                else:
-                    # 기본 템플릿 (영어 모델에 적합)
-                    prompt = f"Below is an instruction that describes a task. Write a response that appropriately completes the request.\n\n### Instruction:\n{instruction}\n\n### Response:"
-                    if input_text:
-                        prompt = f"Below is an instruction that describes a task, paired with an input that provides further context. Write a response that appropriately completes the request.\n\n### Instruction:\n{instruction}\n\n### Input:\n{input_text}\n\n### Response:"
-
-                return prompt
-
-            # 텍스트 생성 함수
-            def generate_text(instruction, input_text="", max_new_tokens=128, temperature=0.7, top_p=0.9,
-                              repetition_penalty=1.2):
-
-                prompt = generate_prompt(instruction, input_text)
-
-                inputs = tokenizer(prompt, return_tensors="pt").to(model.device)
-
-                with torch.no_grad():  # Gradient 계산 비활성화 (메모리 절약, 속도 향상)
-                    generated_ids = model.generate(
-                        **inputs,
-                        max_new_tokens=max_new_tokens,  # 생성할 최대 토큰 수
-                        temperature=temperature,  # 높을수록 다양한 결과, 낮을수록 결정론적 결과
-                        top_p=top_p,  # Nucleus Sampling: 확률이 높은 토큰 중에서 선택
-                        repetition_penalty=repetition_penalty,  # 반복 감소 (값이 클수록 반복 줄어듬)
-                        do_sample=True,  # 샘플링 기반 생성
-                        pad_token_id=tokenizer.eos_token_id,  # 패딩 토큰
-                        # eos_token_id=tokenizer.eos_token_id, # <eos>토큰이 생성되면, 생성 종료. (모델에 따라 설정)
-                        # early_stopping=True,  # eos 토큰 나오면 생성 early stop
-
-                    )
-
-                generated_text = tokenizer.decode(generated_ids[0], skip_special_tokens=True)
-
-                # 프롬프트 이후의 텍스트만 반환 (모델에 따라 조정 필요)
-                answer = generated_text[len(prompt):]
-
-                return answer
-
-            # --- 사용 예시 ---
-
-            # 1. 간단한 질문-답변
-            instruction = "한국의 수도는 어디인가요?"
-            response = generate_text(instruction)
-            print(f"질문: {instruction}\n답변: {response}\n")
-
-            # 2. 텍스트 요약
-            instruction = "다음 텍스트를 요약해 주세요."
-            input_text = """
-            인공지능(AI)은 21세기 가장 혁신적인 기술 중 하나로, ... (긴 텍스트) ...
-            """
-            response = generate_text(instruction, input_text)
-            print(f"요약:\n{response}\n")
-
-            # 3. 텍스트 생성 (스토리, 시 등)
-            instruction = "바닷가에서 해질녘 풍경을 묘사하는 시를 써 주세요."
-            response = generate_text(instruction, max_new_tokens=256)  # max_new_tokens 늘림
-            print(f"시:\n{response}\n")
-
-            # 4. 번역 (한국어 -> 영어)
-            instruction = "다음 문장을 영어로 번역해 주세요."
-            input_text = "오늘 날씨가 정말 좋습니다."
-            response = generate_text(instruction, input_text)
-            print(f"번역: {response}\n")
-
-            # 5. 코드 생성
-            instruction = "파이썬으로 간단한 웹 서버를 만드는 코드를 작성해 주세요."
-            response = generate_text(instruction, max_new_tokens=512)  # 코드 생성이므로 max_new_tokens을 늘림
-            print(f"코드:\n{response}\n")
-
-            # 6. 금지어 필터링 (분류)
-            instruction = "다음 문장에 욕설이나 비속어가 포함되어 있는지 판별해 주세요. 포함되어 있다면 '유해함', 포함되어 있지 않다면 '안전함'이라고 출력하세요."
-            input_text = "이 서비스는 정말 최고예요!"
-            response = generate_text(instruction, input_text, max_new_tokens=10)  # 짧은 응답이므로 max_tokens 줄임
-            print(f"'{input_text}' 판별: {response}")
-
-            input_text = "이 서비스는 정말 개쓰레기같아요."  # 욕설 포함
-            response = generate_text(instruction, input_text, max_new_tokens=10)
-            print(f"'{input_text}' 판별: {response}")
-
             # ==========================================================================================================
             # 블로그 지수에 영향을 주는 금지어 위반 목록 찾기
             # https://github.com/keunyop/BadWordCheck
@@ -669,10 +432,42 @@ class DtaProcess(object):
 
 
             # ==========================================================================================================
-            # 구글 트렌드 기반 실시간 검색어 웹
+            # 네이버 트렌드 기반 실시간 검색어 (분야 선택 필연)
             # 동적 크롤링
+            # https://datalab.naver.com
             # ==========================================================================================================
+            import os
+            import sys
+            import urllib.request
 
+            url = "https://openapi.naver.com/v1/datalab/search"
+            # body = "{\"startDate\":\"2017-01-01\",\"endDate\":\"2017-04-30\",\"timeUnit\":\"month\",\"keywordGroups\":[{\"groupName\":\"한글\",\"keywords\":[\"한글\",\"korean\"]},{\"groupName\":\"영어\",\"keywords\":[\"영어\",\"english\"]}],\"device\":\"pc\",\"ages\":[\"1\",\"2\"],\"gender\":\"f\"}"
+            bodyPar = {
+                "startDate": "2017-01-01",
+                "endDate": "2017-04-30",
+                "timeUnit": "month",
+                "keywordGroups": [
+                    {"groupName": "한글", "keywords": ["한글", "korean"]},
+                    {"groupName": "영어", "keywords": ["영어", "english"]},
+                ],
+                "device": "pc",
+                "ages": ["1", "2"],
+                "gender": "f",
+            }
+
+            bodyData = json.dumps(bodyPar, ensure_ascii=False).encode("utf-8")
+
+            request = urllib.request.Request(url)
+            request.add_header("X-Naver-Client-Id", client_id)
+            request.add_header("X-Naver-Client-Secret", client_secret)
+            request.add_header("Content-Type", "application/json")
+            response = urllib.request.urlopen(request, data=bodyData)
+            rescode = response.getcode()
+            if (rescode == 200):
+                response_body = response.read()
+                print(response_body.decode('utf-8'))
+            else:
+                print("Error Code:" + rescode)
 
             # ==========================================================================================================
             # 구글 트렌드 기반 실시간 검색어 웹
@@ -832,3 +627,316 @@ if __name__ == '__main__':
 
     finally:
         print('[END] {}'.format("main"))
+
+# ==========================================================================================================
+# pipeline
+# ==========================================================================================================
+# import transformers
+# import torch
+#
+# model_id = "MLP-KTLim/llama-3-Korean-Bllossom-8B"
+#
+# pipeline = transformers.pipeline(
+#     "text-generation",
+#     model=model_id,
+#     model_kwargs={"torch_dtype": torch.bfloat16},
+#     device_map="auto",
+# )
+#
+# PROMPT = '''You are a helpful AI assistant. Please answer the user's questions kindly. 당신은 유능한 AI 어시스턴트 입니다. 사용자의 질문에 대해 친절하게 한국어로 답변해주세요.'''
+# instruction = "대한민국의 역사 소개해줘 "
+#
+# messages = [
+#     {"role": "system", "content": f"{PROMPT}"},
+#     {"role": "user", "content": f"{instruction[:2000]}"}
+# ]
+#
+# prompt = pipeline.tokenizer.apply_chat_template(
+#     messages,
+#     tokenize=False,
+#     add_generation_prompt=True
+# )
+#
+# terminators = [
+#     pipeline.tokenizer.eos_token_id,
+#     pipeline.tokenizer.convert_tokens_to_ids("<|eot_id|>")
+# ]
+#
+# outputs = pipeline(
+#     prompt,
+#     max_new_tokens=2048,
+#     eos_token_id=terminators,
+#     do_sample=True,
+#     temperature=0.6,
+#     top_p=0.9
+# )
+#
+# print(outputs[0]["generated_text"][len(prompt):])
+#
+# # ==========================================================================================================
+# # 무료 GPT
+# # ==========================================================================================================
+# # # GPT4All	로컬에서 실행 가능한 경량 GPT	✅ 무료
+# from gpt4all import GPT4All
+# #
+# # # GPT 모델 로드
+# # # model = GPT4All("ggml-model-gpt4all-falcon-q4_0.bin")  # deprecated
+# # # model = GPT4All("orca-mini-3b-gguf2-q4_0.gguf") # 좀 더 가벼운 모델
+# model = GPT4All("mistral-7b-instruct-v0.1.Q4_0.gguf")  # 추천: 빠르고 성능 좋은 모델
+# # model2 = GPT4All("Meta-Llama-3-8B-Instruct.Q4_0.gguf")
+#
+# for token in model.generate("Tell me a story.", streaming=True):
+#     print(token, end="", flush=True)
+#
+# # with model.chat_session():
+# #     print(model.generate("quadratic formula"))
+# #
+# # with model2.chat_session():
+# #     print(model2.generate("quadratic formula"))
+# #
+# # # 한번에 여러 메시지 처리 (챗봇 모드).  n_predict 조절
+# # def generate_responses(messages, model, n_predict=128):
+# #     with model.chat_session():
+# #         responses = []
+# #         for message in messages:
+# #             response = model.generate(message, max_tokens=n_predict)
+# #             responses.append(response)
+# #     return responses
+# #
+# # #  대화 예제 (챗봇)
+# # messages = [
+# #     # "안녕, 넌 누구니?",
+# #     # "한국의 수도는 어디야?",
+# #     # "오늘 날씨 어때?",
+# #     "금지어 목록을 알려줘",
+# #     "금지어가 포함된 문장 예시를 만들어줘",
+# # ]
+# #
+# # responses = generate_responses(messages, model)
+# #
+# # print("\n-- 챗봇 대화 --")
+# # for i, (message, response) in enumerate(zip(messages, responses)):
+# #     print(f"User {i + 1}: {message}")
+# #     print(f"Bot  {i + 1}: {response}")
+# #     print("-" * 20)
+# #
+# # # 단일 프롬프트 생성 (일반 모드)
+# # prompt = "금지어 필터링 시스템을 만드는 방법에 대한 파이썬 코드를 작성해줘. "
+# # prompt += "scikit-learn, konlpy를 사용하고, "
+# # prompt += "금지어 목록은 ['바보', '멍청이', '나쁜놈']으로 해줘."
+# #
+# # print("\n-- 단일 프롬프트 생성 --")
+# # output = model.generate(prompt, max_tokens=1024)  # max_tokens: 최대 생성 길이
+# # print(output)
+# #
+# # #  금지어 필터링 (챗봇 모드 활용)
+# # def filter_text(text, model):
+# #     with model.chat_session():
+# #         system_template = "You are a helpful assistant that filters forbidden words.  If the text contains a forbidden word, respond with 'Filtered', otherwise respond with 'OK'."  # system prompt
+# #
+# #         response = model.generate(f"{system_template}\nUser: {text}", max_tokens=10)
+# #
+# #     if "Filtered" in response:
+# #         return "Filtered"
+# #     else:
+# #         return "OK"
+# #
+# # print("\n-- 금지어 필터링 --")
+# #
+# # test_sentences = [
+# #     "이것은 테스트 문장입니다.",
+# #     "저 녀석은 정말 나쁜놈이야.",
+# #     "바보는 아니지만, 조금 멍청이 같아.",
+# #     "좋은 하루 되세요!",
+# # ]
+# #
+# # for sentence in test_sentences:
+# #     result = filter_text(sentence, model)
+# #     print(f"'{sentence}' -> {result}")
+#
+#
+#
+# # LLaMA (Meta AI)	Facebook AI에서 제공하는 LLM	✅ 무료
+# from transformers import AutoTokenizer, AutoModelForCausalLM
+# import torch
+#
+# from transformers import pipeline
+#
+# # messages = [
+# #     {"role": "user", "content": "Who are you?"},
+# # ]
+# # pipe = pipeline("text-generation", model="meta-llama/Llama-2-7b-chat-hf")
+# # pipe(messages)
+#
+#
+# # 모델 및 토크나이저 로드
+# # tokenizer = AutoTokenizer.from_pretrained("meta-llama/Llama-2-7b-chat-hf", token=hugFaceToken)
+# # model = AutoModelForCausalLM.from_pretrained("meta-llama/Llama-2-7b-chat-hf", token=hugFaceToken)
+#
+# # hugFaceToken = None
+#
+# # Load model directly
+# from transformers import AutoTokenizer, AutoModelForCausalLM
+#
+#
+#
+# import os
+# from huggingface_hub import constants
+#
+# # 방법 2: huggingface_hub 라이브러리 상수 사용 (더 안정적)
+# print(constants.HF_HUB_CACHE)
+# print(constants.HUGGINGFACE_HUB_CACHE)  # 이전 버전과의 호환성을 위해 존재
+#
+#
+# tokenizer = AutoTokenizer.from_pretrained("meta-llama/Llama-2-7b-chat-hf", token=hugFaceToken)
+# # model = AutoModelForCausalLM.from_pretrained("meta-llama/Llama-2-7b-chat-hf", token=hugFaceToken)
+# model = AutoModelForCausalLM.from_pretrained("TheBloke/Llama-2-7B-Chat-GGM", token=hugFaceToken)
+#
+# # tokenizer = AutoTokenizer.from_pretrained("meta-llama/Llama-2-7b-chat-hf", token=hugFaceToken)
+# # model = AutoModelForCausalLM.from_pretrained(
+# #     "meta-llama/Llama-2-7b-chat-hf",
+# #     token=hugFaceToken,
+# #     device_map="auto",
+# #     load_in_4bit=True,
+# #     low_cpu_mem_usage=True,
+# # )
+#
+# # 금지어 필터링 함수
+# def predict_llama(text):
+#     prompt = f"이 텍스트가 금지어를 포함하는지 판단해줘. 금지어 포함 시 '🚨 금지어 포함', 포함되지 않으면 '✅ 정상 텍스트'라고 답변해.\n\n{text}"
+#     inputs = tokenizer(prompt, return_tensors="pt")
+#     with torch.no_grad():
+#         outputs = model.generate(**inputs)
+#     return tokenizer.decode(outputs[0])
+#
+# # 테스트 실행
+# print(predict_llama("이거 완전 사기야!"))
+# print(predict_llama("좋은 제품이네요!"))
+# from transformers import AutoTokenizer, AutoModelForCausalLM, pipeline
+# import torch
+#
+# # 모델 및 토크나이저 로드 (GPU 사용 가능하면 자동 사용)
+# model_name = "EleutherAI/polyglot-ko-1.3b"  # 작은 모델.  더 큰 모델: EleutherAI/polyglot-ko-5.8b, EleutherAI/polyglot-ko-12.8b
+# # model_name = "beomi/kollama-12.8b-v2"  # KoLLaMA (한국어, LLaMA 기반)
+# # model_name = "mistralai/Mistral-7B-Instruct-v0.2"  # Mistral (영어, 한국어도 일부 가능)
+#
+# try:
+#     tokenizer = AutoTokenizer.from_pretrained(model_name)
+#     model = AutoModelForCausalLM.from_pretrained(
+#         model_name,
+#         device_map="auto",  # GPU 사용 가능하면 자동으로 사용, 없으면 CPU
+#         # torch_dtype=torch.float16,  # FP16 사용 (GPU 메모리 절약, 속도 향상) - transformers 버전에 따라 지원 안될 수 있음.
+#         low_cpu_mem_usage=True,
+#     )
+#
+# except Exception as e:
+#     print(f"모델 로드 중 오류 발생: {e}")
+#     print("모델 이름이 정확한지, transformers, torch, accelerate, sentencepiece 라이브러리가 설치되어 있는지 확인하세요.")
+#     exit()
+#
+# # 프롬프트 생성 (예시)
+# def generate_prompt(instruction, input_text=""):
+#     # 한국어 모델에 맞는 프롬프트 템플릿 사용 (모델마다 다름)
+#     if "polyglot-ko" in model_name.lower():  # polyglot
+#         prompt = f"### 질문: {instruction}\n\n### 답변:"
+#         if input_text:
+#             prompt = f"### 질문: {instruction}\n\n### 입력: {input_text}\n\n### 답변:"
+#     elif "kollama" in model_name.lower():  # KoLLaMA
+#         prompt = f"""아래는 작업을 설명하는 명령어입니다. 요청을 적절히 완료하는 응답을 작성하세요.
+#
+# ### 명령어:
+# {instruction}
+# ### 응답:"""
+#         if input_text:
+#             prompt = f"""아래는 작업을 설명하는 명령어와 컨텍스트로 구성된 입력입니다. 요청을 적절히 완료하는 응답을 작성하세요.
+#
+# ### 명령어:
+# {instruction}
+#
+# ### 입력:
+# {input_text}
+#
+# ### 응답:"""
+#
+#     elif "mistral" in model_name.lower():  # Mistral
+#         prompt = f"[INST] {instruction} [/INST]"
+#         if input_text:
+#             prompt = f"[INST] {instruction}\n\n{input_text} [/INST]"  # input 예시
+#
+#     else:
+#         # 기본 템플릿 (영어 모델에 적합)
+#         prompt = f"Below is an instruction that describes a task. Write a response that appropriately completes the request.\n\n### Instruction:\n{instruction}\n\n### Response:"
+#         if input_text:
+#             prompt = f"Below is an instruction that describes a task, paired with an input that provides further context. Write a response that appropriately completes the request.\n\n### Instruction:\n{instruction}\n\n### Input:\n{input_text}\n\n### Response:"
+#
+#     return prompt
+#
+# # 텍스트 생성 함수
+# def generate_text(instruction, input_text="", max_new_tokens=128, temperature=0.7, top_p=0.9,
+#                   repetition_penalty=1.2):
+#
+#     prompt = generate_prompt(instruction, input_text)
+#
+#     inputs = tokenizer(prompt, return_tensors="pt").to(model.device)
+#
+#     with torch.no_grad():  # Gradient 계산 비활성화 (메모리 절약, 속도 향상)
+#         generated_ids = model.generate(
+#             **inputs,
+#             max_new_tokens=max_new_tokens,  # 생성할 최대 토큰 수
+#             temperature=temperature,  # 높을수록 다양한 결과, 낮을수록 결정론적 결과
+#             top_p=top_p,  # Nucleus Sampling: 확률이 높은 토큰 중에서 선택
+#             repetition_penalty=repetition_penalty,  # 반복 감소 (값이 클수록 반복 줄어듬)
+#             do_sample=True,  # 샘플링 기반 생성
+#             pad_token_id=tokenizer.eos_token_id,  # 패딩 토큰
+#             # eos_token_id=tokenizer.eos_token_id, # <eos>토큰이 생성되면, 생성 종료. (모델에 따라 설정)
+#             # early_stopping=True,  # eos 토큰 나오면 생성 early stop
+#
+#         )
+#
+#     generated_text = tokenizer.decode(generated_ids[0], skip_special_tokens=True)
+#
+#     # 프롬프트 이후의 텍스트만 반환 (모델에 따라 조정 필요)
+#     answer = generated_text[len(prompt):]
+#
+#     return answer
+#
+# # --- 사용 예시 ---
+#
+# # 1. 간단한 질문-답변
+# instruction = "한국의 수도는 어디인가요?"
+# response = generate_text(instruction)
+# print(f"질문: {instruction}\n답변: {response}\n")
+#
+# # 2. 텍스트 요약
+# instruction = "다음 텍스트를 요약해 주세요."
+# input_text = """
+# 인공지능(AI)은 21세기 가장 혁신적인 기술 중 하나로, ... (긴 텍스트) ...
+# """
+# response = generate_text(instruction, input_text)
+# print(f"요약:\n{response}\n")
+#
+# # 3. 텍스트 생성 (스토리, 시 등)
+# instruction = "바닷가에서 해질녘 풍경을 묘사하는 시를 써 주세요."
+# response = generate_text(instruction, max_new_tokens=256)  # max_new_tokens 늘림
+# print(f"시:\n{response}\n")
+#
+# # 4. 번역 (한국어 -> 영어)
+# instruction = "다음 문장을 영어로 번역해 주세요."
+# input_text = "오늘 날씨가 정말 좋습니다."
+# response = generate_text(instruction, input_text)
+# print(f"번역: {response}\n")
+#
+# # 5. 코드 생성
+# instruction = "파이썬으로 간단한 웹 서버를 만드는 코드를 작성해 주세요."
+# response = generate_text(instruction, max_new_tokens=512)  # 코드 생성이므로 max_new_tokens을 늘림
+# print(f"코드:\n{response}\n")
+#
+# # 6. 금지어 필터링 (분류)
+# instruction = "다음 문장에 욕설이나 비속어가 포함되어 있는지 판별해 주세요. 포함되어 있다면 '유해함', 포함되어 있지 않다면 '안전함'이라고 출력하세요."
+# input_text = "이 서비스는 정말 최고예요!"
+# response = generate_text(instruction, input_text, max_new_tokens=10)  # 짧은 응답이므로 max_tokens 줄임
+# print(f"'{input_text}' 판별: {response}")
+#
+# input_text = "이 서비스는 정말 개쓰레기같아요."  # 욕설 포함
+# response = generate_text(instruction, input_text, max_new_tokens=10)
+# print(f"'{input_text}' 판별: {response}")
