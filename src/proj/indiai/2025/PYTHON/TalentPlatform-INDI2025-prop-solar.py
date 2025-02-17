@@ -272,7 +272,7 @@ def matchStnFor(subOpt, subData):
     
     try:
         # ==========================================================================================================
-        # 융합 ASOS/AWS 지상 관측소을 기준으로 최근접 레이더 가공파일 화소 찾기 (posRow, posCol, posLat, posLon, posDistKm)
+        # 지상 관측소을 기준으로 최근접 가공파일 화소 찾기 (posRow, posCol, posLat, posLon, posDistKm)
         # ==========================================================================================================
         umkrFileInfo = subOpt['umkrFileInfo']
 
@@ -282,57 +282,48 @@ def matchStnFor(subOpt, subData):
 
         # 레이더 가공 파일 일부
         fileInfo = umkrFileInfo
-        cfgData = xr.open_dataset(fileInfo)
-        cfgDataL1 = cfgData.to_dataframe().reset_index(drop=False)
+        cfgData = xr.open_dataset(fileInfo, decode_times=True, engine='pynio')
+        cfgDataL1 = cfgData[['TMP_P0_L1_GLC0']]
+        cfgDataL2 = cfgDataL1.to_dataframe().reset_index(drop=False)
+        cfgDataL3 = cfgDataL2.rename(
+            columns={
+                'ygrid_0': 'row'
+                , 'xgrid_0': 'col'
+                , 'gridlat_0': 'lat'
+                , 'gridlon_0': 'lon'
+            }
+        )
 
-        # ASOS/AWS 융합 지상관측소
-        inpFilePattern = '{}/{}'.format(sysOpt['stnInfo']['filePath'], sysOpt['stnInfo']['fileName'])
-        fileList = sorted(glob.glob(inpFilePattern))
-        if fileList is None or len(fileList) < 1:
-            log.error(f"[ERROR] inpFilePattern : {inpFilePattern} / 융합 지상관측소를 확인해주세요.")
-            return
-
-        fileInfo = fileList[0]
-        allStnData = pd.read_csv(fileInfo)
-        allStnDataL1 = allStnData[['STN', 'STN_KO', 'LON', 'LAT']]
+        # 지상관측소
+        allStnData = subData
+        allStnDataL1 = subData[['Id', 'Latitude', 'Longitude']]
 
         # 2024.10.24 수정
         # allStnDataL2 = allStnDataL1[allStnDataL1['STN'].isin(sysOpt['stnInfo']['list'])]
         allStnDataL2 = allStnDataL1
 
-        # 융합 ASOS/AWS 지상 관측소을 기준으로 최근접 레이더 가공파일 화소 찾기 (posRow, posCol, posLat, posLon, posDistKm)
-        #      STN STN_KO        LON       LAT  ...  posCol      posLat     posLon  posDistKm
-        # 0     90     속초  128.56473  38.25085  ...   456.0  128.565921  38.251865   0.024091
-        # 10   104    북강릉  128.85535  37.80456  ...   482.0  128.850344  37.805816   0.072428
-        # 11   105     강릉  128.89099  37.75147  ...   486.0  128.894198  37.750990   0.045061
-        # 12   106     동해  129.12433  37.50709  ...   507.0  129.124659  37.503421   0.064192
-        # 289  520    설악동  128.51818  38.16705  ...   452.0  128.518319  38.171507   0.077807
-        # 292  523    주문진  128.82139  37.89848  ...   479.0  128.818774  37.896447   0.050570
-        # 424  661     현내  128.40191  38.54251  ...   441.0  128.401035  38.542505   0.011947
-        # 432  670     양양  128.62954  38.08874  ...   462.0  128.630338  38.088726   0.010963
-        # 433  671     청호  128.59360  38.19091  ...   459.0  128.598611  38.188309   0.082373
-        baTree = BallTree(np.deg2rad(cfgDataL1[['lat', 'lon']].values), metric='haversine')
+        # 지상 관측소을 기준으로 최근접 가공파일 화소 찾기 (posRow, posCol, posLat, posLon, posDistKm)
+        #           Id   Latitude   Longitude  ...     posLat      posLon  posDistKm
+        # 0    당진수상태양광  37.050753  126.510299  ...  37.054657  126.508148   0.074440
+        # 1  당진자재창고태양광  37.050753  126.510299  ...  37.054657  126.508148   0.074440
+        # 2      당진태양광  37.050753  126.510299  ...  37.054657  126.508148   0.074440
+        # 3      울산태양광  35.477651  129.380778  ...  35.480633  129.386398   0.095255
+        baTree = BallTree(np.deg2rad(cfgDataL3[['lat', 'lon']].values), metric='haversine')
         for i, posInfo in allStnDataL2.iterrows():
-            if (pd.isna(posInfo['LAT']) or pd.isna(posInfo['LON'])): continue
+            if (pd.isna(posInfo['Latitude']) or pd.isna(posInfo['Longitude'])): continue
 
-            closest = baTree.query(np.deg2rad(np.c_[posInfo['LAT'], posInfo['LON']]), k=1)
+            closest = baTree.query(np.deg2rad(np.c_[posInfo['Latitude'], posInfo['Longitude']]), k=1)
             cloDist = closest[0][0][0] * 1000.0
             cloIdx = closest[1][0][0]
-            cfgInfo = cfgDataL1.loc[cloIdx]
+            cfgInfo = cfgDataL3.loc[cloIdx]
 
             allStnDataL2.loc[i, 'posRow'] = cfgInfo['row']
             allStnDataL2.loc[i, 'posCol'] = cfgInfo['col']
-            allStnDataL2.loc[i, 'posLat'] = cfgInfo['lon']
-            allStnDataL2.loc[i, 'posLon'] = cfgInfo['lat']
+            allStnDataL2.loc[i, 'posLat'] = cfgInfo['lat']
+            allStnDataL2.loc[i, 'posLon'] = cfgInfo['lon']
             allStnDataL2.loc[i, 'posDistKm'] = cloDist
 
-        # log.info(f"[CHECK] allStnDataL2 : {allStnDataL2}")
-
-        saveFilePattern = '{}/{}'.format(sysOpt['stnInfo']['matchPath'], sysOpt['stnInfo']['matchName'])
-        # saveFile = dtDateInfo.strftime(saveFilePattern).format(code)
-        os.makedirs(os.path.dirname(saveFile), exist_ok=True)
-        allStnDataL2.to_csv(saveFile, index=False)
-        log.info(f"[CHECK] saveFile : {saveFile}")
+        return allStnDataL2
 
     except Exception as e:
         log.error(f'Exception : {str(e)}')
@@ -404,12 +395,13 @@ class DtaProcess(object):
                 # 예보시간 시작일, 종료일, 시간 간격 (연 1y, 월 1m, 일 1d, 시간 1h, 분 1t, 초 1s)
                 'srtDate': '2019-01-01',
                 'endDate': '2019-01-04',
+                # 'invDate': '1d',
                 # 'srtDate': globalVar['srtDate'],
                 # 'endDate': globalVar['endDate'],
 
                 # 수행 목록
                 # 'modelList': ['ACT', 'FOR'],
-                'modelList': ['FOR'],
+                'modelList': ['UMKR'],
                 # 'modelList': [globalVar['modelList']],
 
                 # 비동기 다중 프로세스 개수
@@ -417,11 +409,8 @@ class DtaProcess(object):
                 # 'cpuCoreNum': globalVar['cpuCoreNum'],
                 # 설정 파일
                 'CFG': {
-                    'siteInfo': {
-                        'umkrFileInfo': '/DATA/COLCT/UMKR/201901/01/UMKR_l015_unis_H00_201901011200.grb2',
-                        'filePath': '/DATA/PROP/SAMPLE',
-                        'fileName': 'site_info.csv',
-                    },
+                    'siteInfo': '/DATA/PROP/SAMPLE/site_info.csv',
+                    'umkrFileInfo': '/DATA/COLCT/UMKR/201901/01/UMKR_l015_unis_H00_201901011200.grb2',
                     # 'energy': {
                     #     'filePath': '/DATA/PROP/SAMPLE',
                     #     'fileName': 'energy.csv',
@@ -436,69 +425,279 @@ class DtaProcess(object):
                     # },
                 },
 
-                'FOR': {
-                    'UMKR': {
-                        'searchFileList': f"/DATA/COLCT/UMKR/%Y%m/%d/UMKR_l015_unis_H*_%Y%m%d%H%M.grb2",
-                        'invDate': '6h',
-                        # , 'saveFile': '/DATA/PROP/%Y%m/%d/UMKR_l015_unis_H{ef}_%Y%m%d%H%M.grb2'
-                    },
+                'UMKR': {
+                    'searchFileList': f"/DATA/COLCT/UMKR/%Y%m/%d/UMKR_l015_unis_H*_%Y%m%d*.grb2",
+                    'type': 'FOR',
+                    'invDate': '1d',
                 },
-                'ACT': {
-                    'ASOS': {
-                        'searchFileList': f"/DATA/COLCT/UMKR/%Y%m/%d/UMKR_l015_unis_H*_%Y%m%d%H%M.grb2",
-                        'invDate': '6h',
-                    },
-                    'AWS': {
-                        'searchFileList': f"/DATA/COLCT/UMKR/%Y%m/%d/UMKR_l015_unis_H*_%Y%m%d%H%M.grb2",
-                        'invDate': '6h',
-                    },
-                },
+                # 'ACT': {
+                #     'ASOS': {
+                #         'searchFileList': f"/DATA/COLCT/UMKR/%Y%m/%d/UMKR_l015_unis_H*_%Y%m%d%H%M.grb2",
+                #         'invDate': '6h',
+                #     },
+                #     'AWS': {
+                #         'searchFileList': f"/DATA/COLCT/UMKR/%Y%m/%d/UMKR_l015_unis_H*_%Y%m%d%H%M.grb2",
+                #         'invDate': '6h',
+                #     },
+                # },
             }
 
             # **************************************************************************************************************
             # 설정 파일 읽기
             # **************************************************************************************************************
-            cfgData = {}
-            for key, item in sysOpt['CFG'].items():
-                log.info(f"[CHECK] key : {key}")
+            filePattern = sysOpt['CFG']['siteInfo']
+            fileList = sorted(glob.glob(filePattern))
+            if fileList is None or len(fileList) < 1:
+                log.error(f"[ERROR] filePattern : {filePattern} / 파일을 확인해주세요.")
+                raise Exception(f"[ERROR] filePattern : {filePattern} / 파일을 확인해주세요.")
+            cfgData = pd.read_csv(fileList[0])
+            cfgDataL1 = matchStnFor(sysOpt['CFG'], cfgData)
 
-                filePattern = '{}/{}'.format(sysOpt['CFG'][key]['filePath'], sysOpt['CFG'][key]['fileName'])
-                fileList = sorted(glob.glob(filePattern))
-                if fileList is None or len(fileList) < 1:
-                    log.error(f"[ERROR] filePattern : {filePattern} / 파일을 확인해주세요.")
-                    raise Exception(f"[ERROR] filePattern : {filePattern} / 파일을 확인해주세요.")
-                data = pd.read_csv(fileList[0])
+            # print('asdfasdf')
 
-                cfgData[key] = data
+            # cfgDataL1['posRow']
+            # cfgDataL1['posCol']
 
-            cfgDataL1 = matchStnFor(sysOpt['CFG'][key], cfgData[key])
+            # posDataL2 = cfgDataL1
+            # for kk, posInfo in posDataL2.iterrows():
+            #     posId = posInfo['Id']
+            #     posLat = posInfo['Latitude']
+            #     posLon = posInfo['Longitude']
 
 
-
-            # **************************************************************************************************************
-            # 비동기 다중 프로세스 수행
-            # **************************************************************************************************************
-            # 비동기 다중 프로세스 개수
-            pool = Pool(int(sysOpt['cpuCoreNum']))
 
             for modelType in sysOpt['modelList']:
                 modelInfo = sysOpt.get(modelType)
                 if modelInfo is None: continue
 
-                for dataType in modelInfo.keys():
-                    dataInfo = modelInfo.get(dataType)
+                # 시작일/종료일 설정
+                dtSrtDate = pd.to_datetime(sysOpt['srtDate'], format='%Y-%m-%d')
+                dtEndDate = pd.to_datetime(sysOpt['endDate'], format='%Y-%m-%d')
+                dtDateList = pd.date_range(start=dtSrtDate, end=dtEndDate, freq=modelInfo['invDate'])
 
-                    # 시작일/종료일 설정
-                    dtSrtDate = pd.to_datetime(sysOpt['srtDate'], format='%Y-%m-%d')
-                    dtEndDate = pd.to_datetime(sysOpt['endDate'], format='%Y-%m-%d')
-                    dtDateList = pd.date_range(start=dtSrtDate, end=dtEndDate, freq=dataInfo['invDate'])
+                for dtDateInfo in dtDateList:
+                    log.info(f'[CHECK] dtDateInfo : {dtDateInfo}')
 
-                    for dtDateInfo in dtDateList:
-                        # log.info(f'[CHECK] dtDateInfo : {dtDateInfo}')
-                        pool.apply_async(propProc, args=(dataType, dataInfo, dtDateInfo))
+                    filePattern = dtDateInfo.strftime(modelInfo['searchFileList'])
+                    fileList = sorted(glob.glob(filePattern))
+                    if len(fileList) < 1: continue
 
-            pool.close()
-            pool.join()
+                    for fileInfo in fileList:
+                        log.info(f'[CHECK] fileInfo : {fileInfo}')
+                        data = xr.open_dataset(fileInfo, engine='pynio')
+
+
+
+
+                    #   LDAPS-1.5K_UNIS:
+                    #     varName:
+                    #       - name: 'UGRD_P0_L103_GLC0'
+                    #         level: [ '-1' ]
+                    #         colName: [ 'U' ]
+                    #       - name: 'VGRD_P0_L103_GLC0'
+                    #         level: [ '-1' ]
+                    #         colName: [ 'V' ]
+                    #       - name: 'DSWRF_P8_L1_GLC0_avg1h'
+                    #         level: [ '-1' ]
+                    #         colName: [ 'SW_NET' ]
+                    #       - name: 'CSUSF_P8_L103_GLC0_avg1h'
+                    #         level: [ '-1' ]
+                    #         colName: [ 'SW_DDNI' ]
+                    #       - name: 'VBDSF_P8_L1_GLC0_avg1h'
+                    #         level: [ '-1' ]
+                    #         colName: [ 'SW_D' ]
+                    #       - name: 'CFNSF_P8_L103_GLC0_avg1h'
+                    #         level: [ '-1' ]
+                    #         colName: [ 'SW_DDIF' ]
+                    #       - name: 'TMP_P0_L1_GLC0'
+                    #         level: [ '-1' ]
+                    #         colName: [ 'TM' ]
+                    #       - name: 'RH_P0_L103_GLC0'
+                    #         level: [ '-1' ]
+                    #         colName: [ 'RH' ]
+                    #       - name: 'PRES_P0_L1_GLC0'
+                    #         level: [ '-1' ]
+                    #         colName: [ 'PRE' ]
+                    #       - name: 'SNFALB_P0_L103_GLC0'
+                    #         level: [ '-1' ]
+                    #         colName: [ 'ALB' ]
+                    #
+                    #
+                    # dbData['LON_SFC'] = data['XLONG'].values.tolist() if len(data['XLONG'].values) > 0 else None
+                    # dbData['LAT_SFC'] = data['XLAT'].values.tolist() if len(data['XLAT'].values) > 0 else None
+                    #
+                    #
+                    #
+                    #         tmpADate = gribApp.getAttrValue(self.varNameLists[0]['name'], 'initial_time')
+                    #         analDate = datetime.datetime.strptime(tmpADate, '%m/%d/%Y (%H:%M)')
+                    #         tmpFDate = gribApp.getAttrValue(self.varNameLists[0]['name'], 'forecast_time')
+                    #         tmpFHour = tmpFDate[0]
+                    #         forcDate = analDate + datetime.timedelta(hours=int(tmpFHour))
+                    #         common.logger.info(f'[CHECK] anaDate : {analDate} / forDate : {forcDate}')
+                    #
+                    #         # DB 등록/수정
+                    #         self.dbData['ANA_DT'] = analDate
+                    #         self.dbData['FOR_DT'] = forcDate
+                    #         self.dbData['MODEL_TYPE'] = self.modelName
+                    #
+                    #         for vlist in self.varNameLists:
+                    #             for idx, level in enumerate(vlist['level'], 0):
+                    #                 try:
+                    #                     if level == '-1':
+                    #                         if len(gribApp.getVariable(vlist['name'])) < 1: continue
+                    #                         self.dbData[vlist['colName'][idx]] = self.convFloatToIntList(gribApp.getVariable(vlist['name']))
+                    #                     else:
+                    #                         if len(gribApp.getVariable31(vlist['name'], idx)) < 1: continue
+                    #                         self.dbData[vlist['colName'][idx]] = self.convFloatToIntList(gribApp.getVariable31(vlist['name'], idx))
+                    #
+                    #                 except Exception as e:
+                    #                     common.logger.error(f'Exception : {e}')
+
+
+
+                    # reqUrl = dtDateInfo.strftime(f"{modelInfo['request']['url']}").format(
+                    #     tmfc=dtDateInfo.strftime('%Y%m%d%H'), ef=ef, authKey=modelInfo['request']['authKey'])
+                    # res = requests.get(reqUrl)
+
+
+
+
+                #     pool.apply_async(colctProc, args=(modelType, modelInfo, dtDateInfo))
+
+
+
+            # # 시작일/종료일 설정
+            # dtSrtDate = pd.to_datetime(sysOpt['srtDate'], format='%Y-%m-%d')
+            # dtEndDate = pd.to_datetime(sysOpt['endDate'], format='%Y-%m-%d')
+            # dtDateList = pd.date_range(start=dtSrtDate, end=dtEndDate, freq=modelInfo['invDate'])
+            #
+            # for dtDateInfo in dtDateList:
+            #     for time in range(0, 88):
+            #         ftime = f'{time:03}'
+            #         log.info(f'[CHECK] dtDateInfo : {dtDateInfo} / ftime : {ftime}')
+            #         pool.apply_async(subColct, args=(modelInfo, dtDateInfo, ftime))
+            #
+            #
+            #
+            # # log.info("[CHECK] posId (posLon, posLat) : {} ({}. {})".format(posId, posLon, posLat))
+            # umData = dsDataL1
+            # dtanaDateInfo = umData['anaDate'].values
+            # # log.info("[CHECK] dtanaDateInfo : {}".format(dtanaDateInfo))
+            #
+            # try:
+            #     umDataL2 = umData.sel(lat=posLat, lon=posLon, anaDate=dtanaDateInfo)
+            #     umDataL3 = umDataL2.to_dataframe().dropna().reset_index(drop=True)
+            #     # umDataL3['dtDate'] = pd.to_datetime(dtanaDateInfo) + (umDataL3.index.values * datetime.timedelta(hours=1))
+            #     umDataL3['DATE_TIME'] = pd.to_datetime(dtanaDateInfo) + (validIdx * datetime.timedelta(hours=1))
+            #     # umDataL3['dtDateKst'] = umDataL3.index.tz_localize(tzUtc).tz_convert(tzKst)
+            #     umDataL3['DATE_TIME_KST'] = umDataL3['DATE_TIME'] + dtKst
+            #     umDataL4 = umDataL3.rename({'SS': 'SWR'}, axis='columns')
+            #     umDataL5 = umDataL4[
+            #         ['DATE_TIME_KST', 'DATE_TIME', 'CA_TOT', 'HM', 'PA', 'TA', 'TD', 'WD', 'WS', 'SWR']]
+            #     umDataL5['SRV'] = 'SRV{:05d}'.format(posId)
+            #     umDataL5['TA'] = umDataL5['TA'] - 273.15
+            #     umDataL5['TD'] = umDataL5['TD'] - 273.15
+            #     umDataL5['PA'] = umDataL5['PA'] / 100.0
+            #     umDataL5['CA_TOT'] = np.where(umDataL5['CA_TOT'] < 0, 0, umDataL5['CA_TOT'])
+            #     umDataL5['CA_TOT'] = np.where(umDataL5['CA_TOT'] > 1, 1, umDataL5['CA_TOT'])
+            #
+            #     solPosInfo = pvlib.solarposition.get_solarposition(pd.to_datetime(umDataL5['DATE_TIME'].values),
+            #                                                        posLat, posLon,
+            #                                                        pressure=umDataL5['PA'].values * 100.0,
+            #                                                        temperature=umDataL5['TA'].values,
+            #                                                        method='nrel_numpy')
+            #     umDataL5['SZA'] = solPosInfo['apparent_zenith'].values
+            #     umDataL5['AZA'] = solPosInfo['azimuth'].values
+            #     umDataL5['ET'] = solPosInfo['equation_of_time'].values
+            #     umDataL5['ANA_DATE'] = pd.to_datetime(dtanaDateInfo)
+            #
+            #     # pvlib.location.Location.get_clearsky()
+            #     site = location.Location(posLat, posLon, tz='Asia/Seoul')
+            #     clearInsInfo = site.get_clearsky(pd.to_datetime(umDataL5['DATE_TIME'].values))
+            #     umDataL5['GHI_CLR'] = clearInsInfo['ghi'].values
+            #     umDataL5['DNI_CLR'] = clearInsInfo['dni'].values
+            #     umDataL5['DHI_CLR'] = clearInsInfo['dhi'].values
+            #
+            #     # poaInsInfo = irradiance.get_total_irradiance(
+            #     #     surface_tilt=posSza,
+            #     #     surface_azimuth=posAza,
+            #     #     dni=clearInsInfo['dni'],
+            #     #     ghi=clearInsInfo['ghi'],
+            #     #     dhi=clearInsInfo['dhi'],
+            #     #     solar_zenith=solPosInfo['apparent_zenith'].values,
+            #     #     solar_azimuth=solPosInfo['azimuth'].values
+            #     # )
+            #
+            #     # umDataL5['GHI_POA'] = poaInsInfo['poa_global'].values
+            #     # umDataL5['DNI_POA'] = poaInsInfo['poa_direct'].values
+            #     # umDataL5['DHI_POA'] = poaInsInfo['poa_diffuse'].values
+            #
+            #     # 혼탁도
+            #     turbidity = pvlib.clearsky.lookup_linke_turbidity(pd.to_datetime(umDataL5['DATE_TIME'].values),
+            #                                                       posLat, posLon, interp_turbidity=True)
+            #     umDataL5['TURB'] = turbidity.values
+
+
+
+
+
+            #   LDAPS-1.5K_UNIS:
+            #     varName:
+            #       - name: 'UGRD_P0_L103_GLC0'
+            #         level: [ '-1' ]
+            #         colName: [ 'U' ]
+            #       - name: 'VGRD_P0_L103_GLC0'
+            #         level: [ '-1' ]
+            #         colName: [ 'V' ]
+            #       - name: 'DSWRF_P8_L1_GLC0_avg1h'
+            #         level: [ '-1' ]
+            #         colName: [ 'SW_NET' ]
+            #       - name: 'CSUSF_P8_L103_GLC0_avg1h'
+            #         level: [ '-1' ]
+            #         colName: [ 'SW_DDNI' ]
+            #       - name: 'VBDSF_P8_L1_GLC0_avg1h'
+            #         level: [ '-1' ]
+            #         colName: [ 'SW_D' ]
+            #       - name: 'CFNSF_P8_L103_GLC0_avg1h'
+            #         level: [ '-1' ]
+            #         colName: [ 'SW_DDIF' ]
+            #       - name: 'TMP_P0_L1_GLC0'
+            #         level: [ '-1' ]
+            #         colName: [ 'TM' ]
+            #       - name: 'RH_P0_L103_GLC0'
+            #         level: [ '-1' ]
+            #         colName: [ 'RH' ]
+            #       - name: 'PRES_P0_L1_GLC0'
+            #         level: [ '-1' ]
+            #         colName: [ 'PRE' ]
+            #       - name: 'SNFALB_P0_L103_GLC0'
+            #         level: [ '-1' ]
+            #         colName: [ 'ALB' ]
+
+            # **************************************************************************************************************
+            # 비동기 다중 프로세스 수행
+            # **************************************************************************************************************
+            # # 비동기 다중 프로세스 개수
+            # pool = Pool(int(sysOpt['cpuCoreNum']))
+            #
+            # for modelType in sysOpt['modelList']:
+            #     modelInfo = sysOpt.get(modelType)
+            #     if modelInfo is None: continue
+            #
+            #     for dataType in modelInfo.keys():
+            #         dataInfo = modelInfo.get(dataType)
+            #
+            #         # 시작일/종료일 설정
+            #         dtSrtDate = pd.to_datetime(sysOpt['srtDate'], format='%Y-%m-%d')
+            #         dtEndDate = pd.to_datetime(sysOpt['endDate'], format='%Y-%m-%d')
+            #         dtDateList = pd.date_range(start=dtSrtDate, end=dtEndDate, freq=dataInfo['invDate'])
+            #
+            #         for dtDateInfo in dtDateList:
+            #             # log.info(f'[CHECK] dtDateInfo : {dtDateInfo}')
+            #             pool.apply_async(propProc, args=(dataType, dataInfo, dtDateInfo))
+            #
+            # pool.close()
+            # pool.join()
 
         except Exception as e:
             log.error(f"Exception : {e}")
