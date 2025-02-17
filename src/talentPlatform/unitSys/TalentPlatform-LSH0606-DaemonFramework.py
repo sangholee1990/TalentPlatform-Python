@@ -232,55 +232,6 @@ def initArgument(globalVar, inParams):
 # ================================================
 # 4. 부 프로그램
 # ================================================
-class BwFilter:
-    FORBIDDEN_WORDS = [
-        "시신", "거지", "야사", "의사", "자지", "보지", "아다", "씹고", "음탕",
-        "후장", "병원", "환자", "진단", "증상", "증세", "재발", "방지", "시술",
-        "본원", "상담", "고자", "충동", "후회", "고비", "인내", "참아", "자살",
-        "음부", "고환", "오빠가", "후다", "니미", "애널", "에널", "해적", "몰래",
-        "재생", "유발", "만족", "무시", "네요", "하더라", "품절", "매진", "마감",
-        "의아", "의문", "의심", "가격", "정가", "구매", "판매", "매입", "지저분함",
-        "요가", "체형", "등빨", "탈출"
-    ]
-
-    def __init__(self):
-        self.violated_words = defaultdict(int)
-        self.key_words = defaultdict(int)
-
-    def scan_text(self, text):
-        """ 입력된 텍스트에서 금지어 및 키워드 빈도를 분석 """
-        for line in text.split("\n"):  # 줄 단위로 분리
-            self._check_forbidden_words(line)
-            self._count_keywords(line)
-
-        self._print_output()
-
-    def _check_forbidden_words(self, text_line):
-        """ 금지어 검사 및 카운트 """
-        cleaned_text = re.sub(r"\s+", "", text_line)  # 공백 제거
-        for word in self.FORBIDDEN_WORDS:
-            if word in cleaned_text:
-                self.violated_words[word] += 1
-
-    def _count_keywords(self, text_line):
-        """ 키워드 개수 카운트 (길이가 1보다 큰 단어만 저장) """
-        words = re.split(r"\s+", text_line)
-        for word in words:
-            if len(word) > 1:
-                self.key_words[word] += 1
-
-    def _print_output(self):
-        """ 분석 결과 출력 """
-        print("\n### 금지어 감지 결과 ###")
-        for word, count in self.violated_words.items():
-            print(f"{word}: {count}")
-
-        print("\n### 키워드 빈도수 ###")
-        sorted_keywords = sorted(self.key_words.items(), key=lambda x: x[1], reverse=True)
-        for word, count in sorted_keywords:
-            if count > 1:
-                print(f"{word}: {count}")
-
 class DtaProcess(object):
 
     # ================================================
