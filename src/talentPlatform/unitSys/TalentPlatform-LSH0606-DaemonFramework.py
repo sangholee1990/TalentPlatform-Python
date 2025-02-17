@@ -73,7 +73,14 @@ from typing import List, Dict, Set
 import re
 from collections import defaultdict
 from pathlib import Path
+import os
+import sys
+import urllib.request
+from urllib.parse import urlencode
 
+from konlpy.tag import Okt
+from collections import Counter
+import re
 
 # =================================================
 # 사용자 매뉴얼
@@ -375,6 +382,8 @@ class DtaProcess(object):
                 'sectorList': ['交通', '住宅', '建筑', '电力', '工业'],
                 'keyList': ["碳排放", "低碳", "减碳", "温室气体", "节能", "能源效率", "能源消耗", "产能过剩", "碳中和", "可再生能源", "清洁能源", "绿色能源", "能源转型", "减排", "绿色建筑", "非化石能源", "碳足迹"],
 
+                'stopWordFileInfo': '/SYSTEMS/PROG/PYTHON/IDE/resources/config/word/stopwords-ko.txt',
+
                 # 자료 저장
                 'saveFileList': '/DATA/OUTPUT/LSH0605/*_{cityMat}.xlsx',
                 'saveFile': '/DATA/OUTPUT/LSH0605/%Y%m%d_{cityMat}.xlsx',
@@ -383,8 +392,6 @@ class DtaProcess(object):
             # 블로그 지수에 영향을 주는 금지어 위반 목록 찾기
             # https://github.com/keunyop/BadWordCheck
             # ==========================================================================================================
-
-
 
             # 파일 대신 텍스트 입력
             text = """
@@ -422,59 +429,113 @@ class DtaProcess(object):
 마음에 제가 이용하는 미용실로 데리고 갔어요.
 ㅎㅎㅎ
             """
+            import nltk
+            from nltk.corpus import stopwords
+            # nltk.download('stopwords')
 
-            # try:
-            #     BwFilter().scan_text(text)
-            # except Exception as e:
-            #     print(f"오류 발생: {e}")
-            #
-            # input("Press Enter to exit...")
+            # 불용어 목록
+            fileList = sorted(glob.glob(sysOpt['stopWordFileInfo']))
+            stopWordData = pd.read_csv(fileList[0])
+            stopWordList = stopWordData['word'].tolist()
+
+            # 금지어 목록
+            forbidWordList = ["시신", "거지", "야사", "의사", "자지", "보지", "아다", "씹고", "음탕", "후장", "병원", "환자", "진단",
+                              "증상", "증세", "재발", "방지", "시술", "본원", "상담", "고자", "충동", "후회", "고비", "인내", "참아", "자살", "음부",
+                              "고환", "오빠가", "후다",
+                              "니미", "애널", "에널", "해적", "몰래", "재생", "유발", "만족", "무시", "네요", "하더라", "품절", "매진", "마감", "의아",
+                              "의문", "의심", "가격",
+                              "정가", "구매", "판매", "매입", "지저분함", "요가", "체형", "등빨", "탈출"]
+
+            okt = Okt()
+            pos_tags = okt.pos(text, stem=True)
+
+            # 명사 추출
+            keywords = [word for word, pos in pos_tags if pos in ['Noun']]
+            # print(stopwords.words('english'))
+
+            # 불용어 제거
+            keywordList = [word for word in keywords if word not in stopWordList and len(word) > 1]
+
+            # 빈도수 계산
+            keywordCnt = Counter(keywordList)
+            data = pd.DataFrame(keywordCnt.items(), columns=['keyword', 'cnt'])
+
+            pattern = re.compile("|".join(forbidWordList))
+            data['type'] = data['keyword'].apply(lambda x: '금지어' if pattern.search(x) else '일반')
+
+
+            forbid_list = data[data['type'] == '금지어']['keyword'].tolist()
+            normal_list = data[data['type'] == '일반']['keyword'].tolist()
+
+            print(f"금지어 목록: {len(forbid_list)} : {forbid_list}")
+            print(f"일반 키워드 목록: {len(normal_list)} : {normal_list}")
 
 
             # ==========================================================================================================
             # 네이버 트렌드 기반 실시간 검색어 (분야 선택 필연)
-            # 동적 크롤링
+            # 정적 크롤링
             # https://datalab.naver.com
-            # ==========================================================================================================
-            import os
-            import sys
-            import urllib.request
 
-            url = "https://openapi.naver.com/v1/datalab/search"
-            # body = "{\"startDate\":\"2017-01-01\",\"endDate\":\"2017-04-30\",\"timeUnit\":\"month\",\"keywordGroups\":[{\"groupName\":\"한글\",\"keywords\":[\"한글\",\"korean\"]},{\"groupName\":\"영어\",\"keywords\":[\"영어\",\"english\"]}],\"device\":\"pc\",\"ages\":[\"1\",\"2\"],\"gender\":\"f\"}"
-            bodyPar = {
-                "startDate": "2017-01-01",
-                "endDate": "2017-04-30",
-                "timeUnit": "month",
-                "keywordGroups": [
-                    {"groupName": "한글", "keywords": ["한글", "korean"]},
-                    {"groupName": "영어", "keywords": ["영어", "english"]},
-                ],
-                "device": "pc",
-                "ages": ["1", "2"],
-                "gender": "f",
+            # 통합 검색어 트렌드 https://openapi.naver.com/v1/datalab/search
+            # 쇼핑인사이트 https://openapi.naver.com/v1/datalab/shopping/categories
+            # ==========================================================================================================
+            dataL1 = pd.DataFrame()
+
+            baseUrl = "https://datalab.naver.com/shoppingInsight/getKeywordRank.naver"
+            cateList = [
+                {"name": "패션의류", "param": ["50000000"]},
+                {"name": "패션잡화", "param": ["50000001"]},
+                {"name": "화장품/미용", "param": ["50000002"]},
+                {"name": "디지털/가전", "param": ["50000003"]},
+                {"name": "가구/인테리어", "param": ["50000004"]},
+                {"name": "출산/육아", "param": ["50000005"]},
+                {"name": "식품", "param": ["50000006"]},
+                {"name": "스포츠/레저", "param": ["50000007"]},
+                {"name": "생활/건강", "param": ["50000008"]},
+                {"name": "여가/생활편의", "param": ["50000009"]},
+                {"name": "도서", "param": ["50005542"]},
+            ]
+
+            headers = {
+                "Content-Type": "application/x-www-form-urlencoded",
+                "Referer": "https://datalab.naver.com/",
+                "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
             }
 
-            bodyData = json.dumps(bodyPar, ensure_ascii=False).encode("utf-8")
 
-            request = urllib.request.Request(url)
-            request.add_header("X-Naver-Client-Id", client_id)
-            request.add_header("X-Naver-Client-Secret", client_secret)
-            request.add_header("Content-Type", "application/json")
-            response = urllib.request.urlopen(request, data=bodyData)
-            rescode = response.getcode()
-            if (rescode == 200):
-                response_body = response.read()
-                print(response_body.decode('utf-8'))
-            else:
-                print("Error Code:" + rescode)
+            for idx, cateInfo in enumerate(cateList):
+                params = {
+                    "timeUnit": "date",
+                    "cid": cateInfo['param'][0],
+                }
+
+                queryStr = urlencode(params)
+                url = f"{baseUrl}?{queryStr}"
+
+                response = requests.post(url, headers=headers)
+                if not (response.status_code == 200): continue
+
+                resData = response.json()
+                resDataL1 = resData[-1]
+
+                orgData = pd.DataFrame(resDataL1['ranks']).rename(
+                    columns={
+                        'rank': 'no'
+                    }
+                )
+
+                orgData['type'] = 'naver'
+                orgData['cate'] = cateInfo['name']
+                orgData['dateTime'] = pd.to_datetime(resDataL1['date']).tz_localize('Asia/Seoul')
+                data = orgData[['type', 'cate', 'dateTime', 'no', 'keyword']]
+
+                if len(data) > 0:
+                    dataL1 = pd.concat([dataL1, data])
 
             # ==========================================================================================================
             # 구글 트렌드 기반 실시간 검색어 웹
             # 동적 크롤링
             # ==========================================================================================================
-            dataL1 = pd.DataFrame()
-
             pytrends = TrendReq(hl='ko-KR', tz=540)
             orgData = pytrends.trending_searches(pn='south_korea')
 
@@ -482,8 +543,9 @@ class DtaProcess(object):
             orgDataL1['no'] = orgDataL1.index + 1
             orgDataL1['dateTime'] = datetime.now(tz=tzKst)
             orgDataL1['type'] = 'google'
+            orgDataL1['cate'] = '전체'
 
-            data = orgDataL1[['type', 'dateTime', 'no', 'keyword']]
+            data = orgDataL1[['type', 'cate', 'dateTime', 'no', 'keyword']]
             if len(data) > 0:
                 dataL1 = pd.concat([dataL1, data])
 
@@ -523,6 +585,7 @@ class DtaProcess(object):
 
                     dict = {
                         'type': ['whereispost'],
+                        'cate': '전체',
                         'dateTime': [dtDateTime],
                         'no': [no],
                         'keyword': [keyword],
@@ -571,6 +634,7 @@ class DtaProcess(object):
 
                     dict = {
                         'type': ['ezme'],
+                        'cate': '전체',
                         'dateTime': [dtDateTime],
                         'no': [no],
                         'keyword': [keyword],
@@ -583,14 +647,11 @@ class DtaProcess(object):
             if len(data) > 0:
                 dataL1 = pd.concat([dataL1, data])
 
-
-            print(dataL1)
-
-            dataL2 = dataL1.reset_index(drop=True)
-
             # ==========================================================================================================
             # 자료 저장
             # ==========================================================================================================
+            dataL2 = dataL1.reset_index(drop=True)
+
             # if len(data) > 0:
             #     saveFile = datetime.now().strftime(sysOpt['saveFile']).format(cityMat=cityMat)
             #     os.makedirs(os.path.dirname(saveFile), exist_ok=True)
