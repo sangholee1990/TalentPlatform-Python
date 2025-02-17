@@ -484,7 +484,15 @@ class DtaProcess(object):
 
                     for fileInfo in fileList:
                         log.info(f'[CHECK] fileInfo : {fileInfo}')
-                        data = xr.open_dataset(fileInfo, engine='pynio')
+                        umData = xr.open_dataset(fileInfo, engine='pynio')
+
+                        umDataL2 = umData.sel(ygrid_0=cfgDataL1['posRow'].astype(int).tolist(), xgrid_0=cfgDataL1['posCol'].astype(int).tolist())
+
+                        umDataL2['UGRD_P0_L103_GLC0'].plot()
+                        plt.show()
+
+                        # umDataL2 = umData.sel(ygrid_0= cfgDataL1['posRow'].tolist(), xgrid_0= cfgDataL1['posCol'].tolist())
+                        # umDataL3 = umDataL2.to_dataframe().dropna().reset_index(drop=True)
 
 
 
