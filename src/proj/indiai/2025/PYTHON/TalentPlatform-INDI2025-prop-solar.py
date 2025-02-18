@@ -426,10 +426,13 @@ class DtaProcess(object):
                 },
 
                 'UMKR': {
-                    'searchFileList': f"/DATA/COLCT/UMKR/%Y%m/%d/UMKR_l015_unis_H*_%Y%m%d*.grb2",
+                    'fileList': f"/DATA/COLCT/UMKR/%Y%m/%d/UMKR_l015_unis_H*_%Y%m%d*.grb2",
                     'type': 'FOR',
                     'invDate': '1d',
+                    'varList': ['gridlat_0', 'gridlon_0', 'TMP_P0_L1_GLC0', 'RH_P0_L103_GLC0', 'UGRD_P0_L103_GLC0', 'VGRD_P0_L103_GLC0', 'VBDSF_P8_L1_GLC0_avg1h', 'LCDC_P0_L200_GLC0', 'MCDC_P0_L200_GLC0', 'HCDC_P0_L200_GLC0'],
+                    'procList': ['lat', 'lon', 'TM', 'RH', 'U', 'V', 'SW_D', 'LCDC', 'MCDC', 'HCDC'],
                 },
+
                 # 'ACT': {
                 #     'ASOS': {
                 #         'searchFileList': f"/DATA/COLCT/UMKR/%Y%m/%d/UMKR_l015_unis_H*_%Y%m%d%H%M.grb2",
@@ -478,23 +481,100 @@ class DtaProcess(object):
                 for dtDateInfo in dtDateList:
                     log.info(f'[CHECK] dtDateInfo : {dtDateInfo}')
 
-                    filePattern = dtDateInfo.strftime(modelInfo['searchFileList'])
+                    filePattern = dtDateInfo.strftime(modelInfo['fileList'])
                     fileList = sorted(glob.glob(filePattern))
                     if len(fileList) < 1: continue
 
+                    dsData = xr.Dataset()
                     for fileInfo in fileList:
-                        log.info(f'[CHECK] fileInfo : {fileInfo}')
-                        umData = xr.open_dataset(fileInfo, engine='pynio')
+                        try:
+                            umData = xr.open_dataset(fileInfo, engine='pynio')
+                            if len(umData) < 1: continue
+                            log.info(f'[CHECK] fileInfo : {fileInfo}')
 
-                        umDataL2 = umData.sel(ygrid_0=cfgDataL1['posRow'].astype(int).tolist(), xgrid_0=cfgDataL1['posCol'].astype(int).tolist())
+                            attrInfo = umData[list(umData.dtypes)[0]].attrs
+                            anaDate = pd.to_datetime(attrInfo['initial_time'], format="%m/%d/%Y (%H:%M)")
+                            forDate = anaDate + pd.DateOffset(hours=int(attrInfo['forecast_time'][0]))
 
-                        umDataL2['UGRD_P0_L103_GLC0'].plot()
-                        plt.show()
+                            import pygrib
+                            grb = pygrib.open(fileInfo)
+
+
+
+                            umDataL1 = umData.isel(ygrid_0=cfgDataL1['posRow'].astype(int).tolist(), xgrid_0=cfgDataL1['posCol'].astype(int).tolist())
+                            umDataL2 = umDataL1[modelInfo['varList']]
+
+                            umDataL3 = umDataL2.rename_dims({'ygrid_0': 'row', 'xgrid_0': 'col'})
+                            renameItem = dict(zip(modelInfo['varList'], modelInfo['procList']))
+                            umDataL4 = umDataL3.rename_vars(renameItem)
+
+                            umDataL1['ygrid_0'].values
+                            umDataL1['xgrid_0'].values
+                            umDataL4['row'].values
+                            umDataL4['col'].values
+
+                            dsDataL1 = xr.Dataset(
+                                {
+                                    'uVec': (
+                                    ('anaDate', 'time', 'lat', 'lon'), (uVec).reshape(1, 1, len(lat1D), len(lon1D)))
+                                    , 'vVec': (
+                                ('anaDate', 'forDate', 'lat', 'lon'), (vVec).reshape(1, 1, len(lat1D), len(lon1D)))
+                                    , 'WD': (
+                                ('anaDate', 'forDate', 'lat', 'lon'), (WD).reshape(1, 1, len(lat1D), len(lon1D)))
+                                    , 'WS': (
+                                ('anaDate', 'forDate', 'lat', 'lon'), (WS).reshape(1, 1, len(lat1D), len(lon1D)))
+                                    , 'PA': (
+                                ('anaDate', 'forDate', 'lat', 'lon'), (PA).reshape(1, 1, len(lat1D), len(lon1D)))
+                                    , 'TA': (
+                                ('anaDate', 'forDate', 'lat', 'lon'), (TA).reshape(1, 1, len(lat1D), len(lon1D)))
+                                    , 'TD': (
+                                ('anaDate', 'forDate', 'lat', 'lon'), (TD).reshape(1, 1, len(lat1D), len(lon1D)))
+                                    , 'HM': (
+                                ('anaDate', 'forDate', 'lat', 'lon'), (HM).reshape(1, 1, len(lat1D), len(lon1D)))
+                                    , 'lowCA': (
+                                ('anaDate', 'forDate', 'lat', 'lon'), (lowCA).reshape(1, 1, len(lat1D), len(lon1D)))
+                                    , 'medCA': (
+                                ('anaDate', 'forDate', 'lat', 'lon'), (medCA).reshape(1, 1, len(lat1D), len(lon1D)))
+                                    , 'higCA': (
+                                ('anaDate', 'forDate', 'lat', 'lon'), (higCA).reshape(1, 1, len(lat1D), len(lon1D)))
+                                    , 'CA_TOT': (
+                                ('anaDate', 'forDate', 'lat', 'lon'), (CA_TOT).reshape(1, 1, len(lat1D), len(lon1D)))
+                                    , 'SS': (
+                                ('anaDate', 'forDate', 'lat', 'lon'), (SS).reshape(1, 1, len(lat1D), len(lon1D)))
+                                }
+                                , coords={
+                                    'anaDate': pd.date_range(anaDate, periods=1)
+                                    , 'forDate': pd.date_range(forDate, periods=1)
+                                    , 'lat': lat1D
+                                    , 'lon': lon1D
+                                }
+                            )
+
+                            dsData = xr.merge([dsData, umDataL4])
+                        except Exception as e:
+                            log.error(f'[ERROR] Exception : {str(e)}')
+
+
+                        # for varName, procName in zip(modelInfo['varList'], modelInfo['procList']):
+                        #     log.info(f'[CHECK] varName: {varName}, / procName : {procName}')
+
+                        # varList = list(umDataL1.data_vars)
+                        # for varInfo in varList:
+                        #     log.info(f'[CHECK] varInfo : {varInfo} / {umDataL1[varInfo].long_name}')
+
+
+
+
+
+
+
+
+
+                        # umDataL2['UGRD_P0_L103_GLC0'].plot()
+                        # plt.show()
 
                         # umDataL2 = umData.sel(ygrid_0= cfgDataL1['posRow'].tolist(), xgrid_0= cfgDataL1['posCol'].tolist())
                         # umDataL3 = umDataL2.to_dataframe().dropna().reset_index(drop=True)
-
-
 
 
                     #   LDAPS-1.5K_UNIS:
