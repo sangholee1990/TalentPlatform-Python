@@ -47,6 +47,7 @@ import subprocess
 from isodate import parse_duration
 from pandas.tseries.offsets import DateOffset
 from sklearn.neighbors import BallTree
+import pygrib
 
 # =================================================
 # 사용자 매뉴얼
@@ -267,6 +268,16 @@ def propNwp(dataInfo, dtDateInfo):
         log.error(f'Exception : {str(e)}')
         raise e
 
+def cartesian(latitude, longitude, elevation=0):
+    latitude = latitude * (math.pi / 180)
+    longitude = longitude * (math.pi / 180)
+
+    R = 6371
+    X = R * math.cos(latitude) * math.cos(longitude)
+    Y = R * math.cos(latitude) * math.sin(longitude)
+    Z = R * math.sin(latitude)
+
+    return (X, Y, Z)
 
 def matchStnFor(subOpt, subData):
     
@@ -274,21 +285,25 @@ def matchStnFor(subOpt, subData):
         # ==========================================================================================================
         # 지상 관측소을 기준으로 최근접 가공파일 화소 찾기 (posRow, posCol, posLat, posLon, posDistKm)
         # ==========================================================================================================
-        umkrFileInfo = subOpt['umkrFileInfo']
+        fileInfo = subOpt['umkrFileInfo']
 
-        if umkrFileInfo is None or len(umkrFileInfo) < 1:
-            log.error(f"[ERROR] umkrFileInfo : {umkrFileInfo} / 가공파일을 확인해주세요.")
+        if fileInfo is None or len(fileInfo) < 1:
+            log.error(f"[ERROR] fileInfo : {fileInfo} / 가공파일을 확인해주세요.")
             return
 
-        # 레이더 가공 파일 일부
-        fileInfo = umkrFileInfo
-        cfgData = xr.open_dataset(fileInfo, decode_times=True, engine='pynio')
+        # 가공 파일 일부
+        # grb = pygrib.open(fileInfo)
+        # grbInfo = grb.select(name='Temperature')[0]
+        # lat2D, lon2D = grbInfo.latlons()
+        # cfgDataL3 = pd.DataFrame({'lat': lat2D.flatten(), 'lon': lon2D.flatten()})
+
+        cfgData = xr.open_dataset(fileInfo, engine='pynio')
         cfgDataL1 = cfgData[['TMP_P0_L1_GLC0']]
         cfgDataL2 = cfgDataL1.to_dataframe().reset_index(drop=False)
         cfgDataL3 = cfgDataL2.rename(
             columns={
-                'ygrid_0': 'row'
-                , 'xgrid_0': 'col'
+                'ygrid_0': 'col'
+                , 'xgrid_0': 'row'
                 , 'gridlat_0': 'lat'
                 , 'gridlon_0': 'lon'
             }
@@ -302,12 +317,11 @@ def matchStnFor(subOpt, subData):
         # allStnDataL2 = allStnDataL1[allStnDataL1['STN'].isin(sysOpt['stnInfo']['list'])]
         allStnDataL2 = allStnDataL1
 
-        # 지상 관측소을 기준으로 최근접 가공파일 화소 찾기 (posRow, posCol, posLat, posLon, posDistKm)
-        #           Id   Latitude   Longitude  ...     posLat      posLon  posDistKm
-        # 0    당진수상태양광  37.050753  126.510299  ...  37.054657  126.508148   0.074440
-        # 1  당진자재창고태양광  37.050753  126.510299  ...  37.054657  126.508148   0.074440
-        # 2      당진태양광  37.050753  126.510299  ...  37.054657  126.508148   0.074440
-        # 3      울산태양광  35.477651  129.380778  ...  35.480633  129.386398   0.095255
+        # 지상 관측소를 기준으로 최근접 가공파일 화소 찾기 (posRow, posCol, posLat, posLon, posDistKm)
+        # 0, 당진수상태양광, 37.0507527, 126.5102993, 288.0, 343.0, 37.054656982421875, 126.50814819335938, 0.07443994101426843
+        # 1, 당진자재창고태양광, 37.0507527, 126.5102993, 288.0, 343.0, 37.054656982421875, 126.50814819335938, 0.07443994101426843
+        # 2, 당진태양광, 37.0507527, 126.5102993, 288.0, 343.0, 37.054656982421875, 126.50814819335938, 0.07443994101426843
+        # 3, 울산태양광, 35.47765089999999, 129.380778, 459.0, 233.0, 35.48063278198242, 129.3863983154297, 0.09525458282421134
         baTree = BallTree(np.deg2rad(cfgDataL3[['lat', 'lon']].values), metric='haversine')
         for i, posInfo in allStnDataL2.iterrows():
             if (pd.isna(posInfo['Latitude']) or pd.isna(posInfo['Longitude'])): continue
@@ -486,69 +500,203 @@ class DtaProcess(object):
                     if len(fileList) < 1: continue
 
                     dsData = xr.Dataset()
+                    fileInfo = fileList[5]
                     for fileInfo in fileList:
                         try:
-                            umData = xr.open_dataset(fileInfo, engine='pynio')
-                            if len(umData) < 1: continue
-                            log.info(f'[CHECK] fileInfo : {fileInfo}')
+                            # umData = xr.open_dataset(fileInfo, engine='pynio')
+                            # umData = xr.open_dataset(fileInfo, engine='pynio')
+                            # if len(umData) < 1: continue
+                            # log.info(f'[CHECK] fileInfo : {fileInfo}')
 
-                            attrInfo = umData[list(umData.dtypes)[0]].attrs
-                            anaDate = pd.to_datetime(attrInfo['initial_time'], format="%m/%d/%Y (%H:%M)")
-                            forDate = anaDate + pd.DateOffset(hours=int(attrInfo['forecast_time'][0]))
+                            # attrInfo = umData[list(umData.dtypes)[0]].attrs
+                            # anaDate = pd.to_datetime(attrInfo['initial_time'], format="%m/%d/%Y (%H:%M)")
+                            # forDate = anaDate + pd.DateOffset(hours=int(attrInfo['forecast_time'][0]))
 
-                            import pygrib
+
+
                             grb = pygrib.open(fileInfo)
+                            grbInfo = grb.select(name='Temperature')[0]
+
+                            anaDate = grbInfo.analDate
+                            forDate = grbInfo.validDate
+
+                            target_lats = [35.5, 36.0, 36.5]
+                            target_lons = [127.5, 128.0, 128.5]
+
+                            target_lats = cfgDataL1['posLat'].tolist()
+                            target_lons = cfgDataL1['posLon'].tolist()
+
+
+                            lats, lons = grbInfo.latlons()
+                            # 가장 가까운 좌표 찾기
+                            indices = [
+                                np.unravel_index(np.argmin(np.sqrt((lats - lat) ** 2 + (lons - lon) ** 2)), lats.shape)
+                                for lat, lon in zip(target_lats, target_lons)]
+
+
+                            # 좌표 변환
+                            row2D, col2D = zip(*indices)
 
 
 
-                            umDataL1 = umData.isel(ygrid_0=cfgDataL1['posRow'].astype(int).tolist(), xgrid_0=cfgDataL1['posCol'].astype(int).tolist())
-                            umDataL2 = umDataL1[modelInfo['varList']]
+                            # g = grb.select(name='10 metre U wind component')[0].values
+                            # 781 x 602
 
-                            umDataL3 = umDataL2.rename_dims({'ygrid_0': 'row', 'xgrid_0': 'col'})
-                            renameItem = dict(zip(modelInfo['varList'], modelInfo['procList']))
-                            umDataL4 = umDataL3.rename_vars(renameItem)
+                            validIdx = int(re.findall('H\d{3}', fileInfo)[0].replace('H', ''))
 
-                            umDataL1['ygrid_0'].values
-                            umDataL1['xgrid_0'].values
-                            umDataL4['row'].values
-                            umDataL4['col'].values
+                            uVec = grb.select(name='10 metre U wind component')[0].values[row2D, col2D]
+                            vVec = grb.select(name='10 metre V wind component')[0].values[row2D, col2D]
+                            WD = (270 - np.rad2deg(np.arctan2(vVec, uVec))) % 360
+                            WS = np.sqrt(np.square(uVec) + np.square(vVec))
+                            PA = grb.select(name='Surface pressure')[0].values[row2D, col2D]
+                            TA = grbInfo.values[row2D, col2D]
+                            TD = grb.select(name='Dew point temperature')[0].values[row2D, col2D]
+                            HM = grb.select(name='Relative humidity')[0].values[row2D, col2D]
+                            lowCA = grb.select(name='Low cloud cover')[0].values[row2D, col2D]
+                            medCA = grb.select(name='Medium cloud cover')[0].values[row2D, col2D]
+                            higCA = grb.select(name='High cloud cover')[0].values[row2D, col2D]
+                            CA_TOT = np.mean([lowCA, medCA, higCA], axis=0)
+                            SS = grb.select(name='unknown')[0].values[row2D, col2D]
 
                             dsDataL1 = xr.Dataset(
                                 {
                                     'uVec': (
                                     ('anaDate', 'time', 'lat', 'lon'), (uVec).reshape(1, 1, len(lat1D), len(lon1D)))
                                     , 'vVec': (
-                                ('anaDate', 'forDate', 'lat', 'lon'), (vVec).reshape(1, 1, len(lat1D), len(lon1D)))
+                                ('anaDate', 'time', 'lat', 'lon'), (vVec).reshape(1, 1, len(lat1D), len(lon1D)))
                                     , 'WD': (
-                                ('anaDate', 'forDate', 'lat', 'lon'), (WD).reshape(1, 1, len(lat1D), len(lon1D)))
+                                ('anaDate', 'time', 'lat', 'lon'), (WD).reshape(1, 1, len(lat1D), len(lon1D)))
                                     , 'WS': (
-                                ('anaDate', 'forDate', 'lat', 'lon'), (WS).reshape(1, 1, len(lat1D), len(lon1D)))
+                                ('anaDate', 'time', 'lat', 'lon'), (WS).reshape(1, 1, len(lat1D), len(lon1D)))
                                     , 'PA': (
-                                ('anaDate', 'forDate', 'lat', 'lon'), (PA).reshape(1, 1, len(lat1D), len(lon1D)))
+                                ('anaDate', 'time', 'lat', 'lon'), (PA).reshape(1, 1, len(lat1D), len(lon1D)))
                                     , 'TA': (
-                                ('anaDate', 'forDate', 'lat', 'lon'), (TA).reshape(1, 1, len(lat1D), len(lon1D)))
+                                ('anaDate', 'time', 'lat', 'lon'), (TA).reshape(1, 1, len(lat1D), len(lon1D)))
                                     , 'TD': (
-                                ('anaDate', 'forDate', 'lat', 'lon'), (TD).reshape(1, 1, len(lat1D), len(lon1D)))
+                                ('anaDate', 'time', 'lat', 'lon'), (TD).reshape(1, 1, len(lat1D), len(lon1D)))
                                     , 'HM': (
-                                ('anaDate', 'forDate', 'lat', 'lon'), (HM).reshape(1, 1, len(lat1D), len(lon1D)))
+                                ('anaDate', 'time', 'lat', 'lon'), (HM).reshape(1, 1, len(lat1D), len(lon1D)))
                                     , 'lowCA': (
-                                ('anaDate', 'forDate', 'lat', 'lon'), (lowCA).reshape(1, 1, len(lat1D), len(lon1D)))
+                                ('anaDate', 'time', 'lat', 'lon'), (lowCA).reshape(1, 1, len(lat1D), len(lon1D)))
                                     , 'medCA': (
-                                ('anaDate', 'forDate', 'lat', 'lon'), (medCA).reshape(1, 1, len(lat1D), len(lon1D)))
+                                ('anaDate', 'time', 'lat', 'lon'), (medCA).reshape(1, 1, len(lat1D), len(lon1D)))
                                     , 'higCA': (
-                                ('anaDate', 'forDate', 'lat', 'lon'), (higCA).reshape(1, 1, len(lat1D), len(lon1D)))
+                                ('anaDate', 'time', 'lat', 'lon'), (higCA).reshape(1, 1, len(lat1D), len(lon1D)))
                                     , 'CA_TOT': (
-                                ('anaDate', 'forDate', 'lat', 'lon'), (CA_TOT).reshape(1, 1, len(lat1D), len(lon1D)))
+                                ('anaDate', 'time', 'lat', 'lon'), (CA_TOT).reshape(1, 1, len(lat1D), len(lon1D)))
                                     , 'SS': (
-                                ('anaDate', 'forDate', 'lat', 'lon'), (SS).reshape(1, 1, len(lat1D), len(lon1D)))
+                                ('anaDate', 'time', 'lat', 'lon'), (SS).reshape(1, 1, len(lat1D), len(lon1D)))
                                 }
                                 , coords={
-                                    'anaDate': pd.date_range(anaDate, periods=1)
-                                    , 'forDate': pd.date_range(forDate, periods=1)
+                                    'anaDate': pd.date_range(dtAnalDate, periods=1)
+                                    , 'time': pd.date_range(dtValidDate, periods=1)
                                     , 'lat': lat1D
                                     , 'lon': lon1D
                                 }
                             )
+
+
+
+
+                            grb = pygrib.open(fileInfo)
+
+                            umDataL1 = umData.sel(gridlat_0=35.477651, gridlon_0=129.380778)
+
+                            #           Id   Latitude   Longitude  ...     posLat      posLon  posDistKm
+                            # 0    당진수상태양광  37.050753  126.510299  ...  37.054657  126.508148   0.074440
+                            # 1  당진자재창고태양광  37.050753  126.510299  ...  37.054657  126.508148   0.074440
+                            # 2      당진태양광  37.050753  126.510299  ...  37.054657  126.508148   0.074440
+                            # 3      울산태양광  35.477651  129.380778  ...  35.480633  129.386398   0.095255
+
+                            # 35.47765089999999,129.380778,233.0,459.0,35.48063278198242,129.3863983154297,0.09525458282421134
+                            #  [(343, 288), (343, 288), (343, 288), (233, 459)]
+
+                            nearest_points = umData.sel(
+                                gridlat_0=xr.DataArray([35.477651], dims="points"),
+                                gridlon_0=xr.DataArray([129.380778], dims="points"),
+                                method="nearest"
+                            )
+
+                            # posCol, posRow
+
+
+
+                            # umDataL1 = umData.sel(ygrid_0=233, xgrid_0=459)
+                            umDataL1 = umData.sel(gridlat_0=35.477651, gridlon_0=129.380778)
+                            umDataL1 = umData.interp(gridlat_0=35.477651, gridlon_0=129.380778, method="linear")
+
+                            umDataL1.interp(gridlat_0=35.477651, gridlon_0=129.380778, method="nearest")
+                            # umDataL1['gridlat_0'].values
+                            # umDataL1['gridlon_0'].values
+
+                            # umDataL1['posRow']
+                            #
+                            # umDataL1 = umData.sel(ygrid_0=cfgDataL1['posRow'].astype(int).tolist(), xgrid_0=cfgDataL1['posCol'].astype(int).tolist())
+                            umDataL1 = umData
+                            umDataL2 = umDataL1[modelInfo['varList']]
+
+                            umDataL3 = umDataL2.rename_dims({'ygrid_0': 'row', 'xgrid_0': 'col'})
+                            renameItem = dict(zip(modelInfo['varList'], modelInfo['procList']))
+                            umDataL4 = umDataL3.rename_vars(renameItem)
+
+                            row_coords = cfgDataL1['posRow'].astype(int).tolist()
+                            col_coords = cfgDataL1['posCol'].astype(int).tolist()
+
+                            new_index = pd.MultiIndex.from_product([row_coords, col_coords], names=['ygrid_0', 'xgrid_0'])
+                            # stacked = umData.stack(y_x=['ygrid_0', 'xgrid_0'])
+                            # reindexed = stacked.reindex(y_x=new_index)
+                            # reindexed = stacked.reindex(y_x=new_index)
+
+                            y_pos = cfgDataL1['posRow'].astype(int).tolist()  # [343, 343, 343, 233]
+                            x_pos = cfgDataL1['posCol'].astype(int).tolist()  # [288, 288, 288, 459]
+
+                            # umDataL1 = umData.sel(ygrid_0=xr.DataArray(y_pos, dims="points"),
+                            #                       xgrid_0=xr.DataArray(x_pos, dims="points"))
+
+                            umDataL1['points'].values
+
+                            umDataL1['ygrid_0'].values
+                            umDataL1['xgrid_0'].values
+                            # umDataL4['row'].values
+                            # umDataL4['col'].values
+
+                            # dsDataL1 = xr.Dataset(
+                            #     {
+                            #         'uVec': (
+                            #         ('anaDate', 'time', 'lat', 'lon'), (
+                            #         ).reshape(1, 1, len(lat1D), len(lon1D)))
+                            #         , 'vVec': (
+                            #     ('anaDate', 'forDate', 'lat', 'lon'), (vVec).reshape(1, 1, len(lat1D), len(lon1D)))
+                            #         , 'WD': (
+                            #     ('anaDate', 'forDate', 'lat', 'lon'), (WD).reshape(1, 1, len(lat1D), len(lon1D)))
+                            #         , 'WS': (
+                            #     ('anaDate', 'forDate', 'lat', 'lon'), (WS).reshape(1, 1, len(lat1D), len(lon1D)))
+                            #         , 'PA': (
+                            #     ('anaDate', 'forDate', 'lat', 'lon'), (PA).reshape(1, 1, len(lat1D), len(lon1D)))
+                            #         , 'TA': (
+                            #     ('anaDate', 'forDate', 'lat', 'lon'), (TA).reshape(1, 1, len(lat1D), len(lon1D)))
+                            #         , 'TD': (
+                            #     ('anaDate', 'forDate', 'lat', 'lon'), (TD).reshape(1, 1, len(lat1D), len(lon1D)))
+                            #         , 'HM': (
+                            #     ('anaDate', 'forDate', 'lat', 'lon'), (HM).reshape(1, 1, len(lat1D), len(lon1D)))
+                            #         , 'lowCA': (
+                            #     ('anaDate', 'forDate', 'lat', 'lon'), (lowCA).reshape(1, 1, len(lat1D), len(lon1D)))
+                            #         , 'medCA': (
+                            #     ('anaDate', 'forDate', 'lat', 'lon'), (medCA).reshape(1, 1, len(lat1D), len(lon1D)))
+                            #         , 'higCA': (
+                            #     ('anaDate', 'forDate', 'lat', 'lon'), (higCA).reshape(1, 1, len(lat1D), len(lon1D)))
+                            #         , 'CA_TOT': (
+                            #     ('anaDate', 'forDate', 'lat', 'lon'), (CA_TOT).reshape(1, 1, len(lat1D), len(lon1D)))
+                            #         , 'SS': (
+                            #     ('anaDate', 'forDate', 'lat', 'lon'), (SS).reshape(1, 1, len(lat1D), len(lon1D)))
+                            #     }
+                            #     , coords={
+                            #         'anaDate': pd.date_range(anaDate, periods=1)
+                            #         , 'forDate': pd.date_range(forDate, periods=1)
+                            #         , 'lat': lat1D
+                            #         , 'lon': lon1D
+                            #     }
+                            # )
 
                             dsData = xr.merge([dsData, umDataL4])
                         except Exception as e:
@@ -573,8 +721,8 @@ class DtaProcess(object):
                         # umDataL2['UGRD_P0_L103_GLC0'].plot()
                         # plt.show()
 
-                        # umDataL2 = umData.sel(ygrid_0= cfgDataL1['posRow'].tolist(), xgrid_0= cfgDataL1['posCol'].tolist())
-                        # umDataL3 = umDataL2.to_dataframe().dropna().reset_index(drop=True)
+                        umDataL2 = umData.sel(ygrid_0= cfgDataL1['posRow'].tolist(), xgrid_0= cfgDataL1['posCol'].tolist())
+                        umDataL3 = umDataL2.to_dataframe().dropna().reset_index(drop=True)
 
 
                     #   LDAPS-1.5K_UNIS:
