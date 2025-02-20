@@ -6,11 +6,11 @@
 # pip install flaml
 # pip install pycaret[full]
 
-# ps -ef | grep "TalentPlatform-INDI2025-model-solar.py" | awk '{print $2}' | xargs kill -9
+# ps -ef | grep "TalentPlatform-INDI2025-model-test.py" | awk '{print $2}' | xargs kill -9
 
 # cd /vol01/SYSTEMS/INDIAI/PROG/PYTHON
-# /vol01/SYSTEMS/INDIAI/LIB/anaconda3/envs/py38/bin/python /vol01/SYSTEMS/INDIAI/PROG/PYTHON/TalentPlatform-INDI2025-model-solar.py
-# nohup /vol01/SYSTEMS/INDIAI/LIB/anaconda3/envs/py38/bin/python /vol01/SYSTEMS/INDIAI/PROG/PYTHON/TalentPlatform-INDI2025-model-solar.py &
+# /vol01/SYSTEMS/INDIAI/LIB/anaconda3/envs/py38/bin/python /vol01/SYSTEMS/INDIAI/PROG/PYTHON/TalentPlatform-INDI2025-model-test.py
+# nohup /vol01/SYSTEMS/INDIAI/LIB/anaconda3/envs/py38/bin/python /vol01/SYSTEMS/INDIAI/PROG/PYTHON/TalentPlatform-INDI2025-model-test.py &
 
 import argparse
 import glob
@@ -560,35 +560,40 @@ class DtaProcess(object):
                     },
                 },
 
+                # 전처리 파일
+                'UMKR': {
+                    'fileList': '/DATA/PROP/UMKR/%Y%m/UMKR_FOR_%Y%m%d.nc',
+                },
+
                 # 자동화/수동화 모델링
                 'MODEL': {
                     'lgb': {
-                        'saveModelList': f"/DATA/MODEL/*/*/*_solar_final_lgb_for.model",
-                        'saveModel': f"/DATA/MODEL/%Y%m/%d/%Y%m%d_solar_final_lgb_for.model",
-                        'saveImg': f"/DATA/MODEL/%Y%m/%d/%Y%m%d_solar_final_lgb_for.png",
-                        'isOverWrite': True,
-                        # 'isOverWrite': False,
+                        'saveModelList': f"/DATA/MODEL/*/*/*_solar_test_lgb_for.model",
+                        'saveModel': f"/DATA/MODEL/%Y%m/%d/%Y%m%d_solar_test_lgb_for.model",
+                        'saveImg': f"/DATA/MODEL/%Y%m/%d/%Y%m%d_solar_test_lgb_for.png",
+                        # 'isOverWrite': True,
+                        'isOverWrite': False,
                         'preDt': datetime.now(),
                     },
                     'flaml': {
-                        'saveModelList': f"/DATA/MODEL/*/*/*_solar_final_flaml_for.model",
-                        'saveModel': f"/DATA/MODEL/%Y%m/%d/%Y%m%d_solar_final_flaml_for.model",
-                        'saveImg': f"/DATA/MODEL/%Y%m/%d/%Y%m%d_solar_final_flaml_for.png",
-                        'isOverWrite': True,
-                        # 'isOverWrite': False,
+                        'saveModelList': f"/DATA/MODEL/*/*/*_solar_test_flaml_for.model",
+                        'saveModel': f"/DATA/MODEL/%Y%m/%d/%Y%m%d_solar_test_flaml_for.model",
+                        'saveImg': f"/DATA/MODEL/%Y%m/%d/%Y%m%d_solar_test_flaml_for.png",
+                        # 'isOverWrite': True,
+                        'isOverWrite': False,
                         'preDt': datetime.now(),
                     },
                     'pycaret': {
-                        'saveModelList': f"/DATA/MODEL/*/*/*_solar_final_pycaret_for.model.pkl",
-                        'saveModel': f"/DATA/MODEL/%Y%m/%d/%Y%m%d_solar_final_pycaret_for.model",
-                        'saveImg': f"/DATA/MODEL/%Y%m/%d/%Y%m%d_solar_final_pycaret_for.png",
-                        'isOverWrite': True,
-                        # 'isOverWrite': False,
+                        'saveModelList': f"/DATA/MODEL/*/*/*_solar_test_pycaret_for.model.pkl",
+                        'saveModel': f"/DATA/MODEL/%Y%m/%d/%Y%m%d_solar_test_pycaret_for.model",
+                        'saveImg': f"/DATA/MODEL/%Y%m/%d/%Y%m%d_solar_test_pycaret_for.png",
+                        # 'isOverWrite': True,
+                        'isOverWrite': False,
                         'preDt': datetime.now(),
                     },
                 },
                 'FNL': {
-                    'saveFile': '/DATA/FNL/%Y%m/%d/%Y%m%d_solar_final_prd_for.csv',
+                    'saveFile': '/DATA/FNL/%Y%m/%d/%Y%m%d_solar_test_prd_for.csv',
                     'preDt': datetime.now(),
                 },
             }
@@ -609,7 +614,7 @@ class DtaProcess(object):
 
                 cfgData[key] = data
 
-            # 학습모델 생성
+            # 실측 데이터
             energyData = cfgData['energy'][['time', 'ulsan']]
             energyData['eneDt'] = energyData['time'].apply(convStrToDate)
 
@@ -654,8 +659,10 @@ class DtaProcess(object):
             # ****************************************************************************
             # 인덱스 재 정렬
             # ****************************************************************************
-            trainData = data[data['anaDt'] <= pd.to_datetime('2019-03-01')].reset_index(drop=True)
-            testData = data[data['anaDt'] > pd.to_datetime('2019-03-01')].reset_index(drop=True)
+            # trainData = data[data['anaDt'] <= pd.to_datetime('2019-03-01')].reset_index(drop=True)
+            # testData = data[data['anaDt'] > pd.to_datetime('2019-03-01')].reset_index(drop=True)
+            trainData = data[data['forDt'] < pd.to_datetime('2020-01-01')].reset_index(drop=True)
+            testData = data[data['forDt'] >= pd.to_datetime('2020-01-01')].reset_index(drop=True)
             prdData = testData
 
             # ****************************************************************************

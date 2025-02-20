@@ -9,8 +9,8 @@
 # ps -ef | grep "TalentPlatform-INDI2025-model-solar.py" | awk '{print $2}' | xargs kill -9
 
 # cd /vol01/SYSTEMS/INDIAI/PROG/PYTHON
-# /vol01/SYSTEMS/INDIAI/LIB/anaconda3/envs/py38/bin/python /vol01/SYSTEMS/INDIAI/PROG/PYTHON/TalentPlatform-INDI2025-model-solar.py
-# nohup /vol01/SYSTEMS/INDIAI/LIB/anaconda3/envs/py38/bin/python /vol01/SYSTEMS/INDIAI/PROG/PYTHON/TalentPlatform-INDI2025-model-solar.py &
+# /vol01/SYSTEMS/INDIAI/LIB/anaconda3/envs/py38/bin/python /vol01/SYSTEMS/INDIAI/PROG/PYTHON/TalentPlatform-INDI2025-model-real.py
+# nohup /vol01/SYSTEMS/INDIAI/LIB/anaconda3/envs/py38/bin/python /vol01/SYSTEMS/INDIAI/PROG/PYTHON/TalentPlatform-INDI2025-model-real.py &
 
 import argparse
 import glob
@@ -560,35 +560,40 @@ class DtaProcess(object):
                     },
                 },
 
+                # 전처리 파일
+                'UMKR': {
+                    'fileList': '/DATA/PROP/UMKR/*/UMKR_FOR_*.nc',
+                },
+
                 # 자동화/수동화 모델링
                 'MODEL': {
                     'lgb': {
-                        'saveModelList': f"/DATA/MODEL/*/*/*_solar_final_lgb_for.model",
-                        'saveModel': f"/DATA/MODEL/%Y%m/%d/%Y%m%d_solar_final_lgb_for.model",
-                        'saveImg': f"/DATA/MODEL/%Y%m/%d/%Y%m%d_solar_final_lgb_for.png",
-                        'isOverWrite': True,
-                        # 'isOverWrite': False,
+                        'saveModelList': f"/DATA/MODEL/*/*/*_solar_real_lgb_for.model",
+                        'saveModel': f"/DATA/MODEL/%Y%m/%d/%Y%m%d_solar_real_lgb_for.model",
+                        'saveImg': f"/DATA/MODEL/%Y%m/%d/%Y%m%d_solar_real_lgb_for.png",
+                        # 'isOverWrite': True,
+                        'isOverWrite': False,
                         'preDt': datetime.now(),
                     },
                     'flaml': {
-                        'saveModelList': f"/DATA/MODEL/*/*/*_solar_final_flaml_for.model",
-                        'saveModel': f"/DATA/MODEL/%Y%m/%d/%Y%m%d_solar_final_flaml_for.model",
-                        'saveImg': f"/DATA/MODEL/%Y%m/%d/%Y%m%d_solar_final_flaml_for.png",
-                        'isOverWrite': True,
-                        # 'isOverWrite': False,
+                        'saveModelList': f"/DATA/MODEL/*/*/*_solar_real_flaml_for.model",
+                        'saveModel': f"/DATA/MODEL/%Y%m/%d/%Y%m%d_solar_real_flaml_for.model",
+                        'saveImg': f"/DATA/MODEL/%Y%m/%d/%Y%m%d_solar_real_flaml_for.png",
+                        # 'isOverWrite': True,
+                        'isOverWrite': False,
                         'preDt': datetime.now(),
                     },
                     'pycaret': {
-                        'saveModelList': f"/DATA/MODEL/*/*/*_solar_final_pycaret_for.model.pkl",
-                        'saveModel': f"/DATA/MODEL/%Y%m/%d/%Y%m%d_solar_final_pycaret_for.model",
-                        'saveImg': f"/DATA/MODEL/%Y%m/%d/%Y%m%d_solar_final_pycaret_for.png",
-                        'isOverWrite': True,
-                        # 'isOverWrite': False,
+                        'saveModelList': f"/DATA/MODEL/*/*/*_solar_real_pycaret_for.model.pkl",
+                        'saveModel': f"/DATA/MODEL/%Y%m/%d/%Y%m%d_solar_real_pycaret_for.model",
+                        'saveImg': f"/DATA/MODEL/%Y%m/%d/%Y%m%d_solar_real_pycaret_for.png",
+                        # 'isOverWrite': True,
+                        'isOverWrite': False,
                         'preDt': datetime.now(),
                     },
                 },
                 'FNL': {
-                    'saveFile': '/DATA/FNL/%Y%m/%d/%Y%m%d_solar_final_prd_for.csv',
+                    'saveFile': '/DATA/FNL/%Y%m/%d/%Y%m%d_solar_real_prd_for.csv',
                     'preDt': datetime.now(),
                 },
             }
@@ -609,33 +614,36 @@ class DtaProcess(object):
 
                 cfgData[key] = data
 
-            # 학습모델 생성
+            # 실측 데이터
             energyData = cfgData['energy'][['time', 'ulsan']]
             energyData['eneDt'] = energyData['time'].apply(convStrToDate)
 
-            # 실황 학습모델
-            # cfgData['ulsanObs']
-
             # 예보 학습모델
-            ulsanFcstData = cfgData['ulsanFcst']
-            ulsanFcstData['anaDt'] = pd.to_datetime(ulsanFcstData['Forecast time'])
-            ulsanFcstData['forDt'] = ulsanFcstData.apply(lambda row: row['anaDt'] + parseDateOffset(f"{int(row['forecast'])}h"), axis=1)
+            # fcstData = cfgData['ulsanFcst']
+            # fcstData['anaDt'] = pd.to_datetime(fcstData['Forecast time'])
+            # fcstData['forDt'] = fcstData.apply(lambda row: row['anaDt'] + parseDateOffset(f"{int(row['forecast'])}h"), axis=1)
 
-            # ****************************************************************************
-            # 데이터 병합
-            # ****************************************************************************
-            data = pd.merge(ulsanFcstData, energyData, how='left', left_on='forDt', right_on='eneDt')
-
-            # ****************************************************************************
-            # 유의미한 변수 추가
-            # ****************************************************************************
             posInfo = cfgData['siteInfo'][cfgData['siteInfo']['Id'] == '울산태양광']
             posLat = posInfo['Latitude'].item()
             posLon = posInfo['Longitude'].item()
 
-            data['forDtUtc'] = pd.to_datetime(data['forDt']).dt.tz_localize('Asia/Seoul').dt.tz_convert('UTC')
+            filePattern = sysOpt['UMKR']['fileList']
+            fileList = sorted(glob.glob(filePattern))
+            orgData = xr.open_mfdataset(fileList)
+            orgDataL1 = orgData.sel(lat=posLat, lon=posLon, method='nearest')
+            fcstData = orgDataL1.to_dataframe().reset_index()
+            fcstData['forDt'] = fcstData['forDate'] + parseDateOffset('9h')
 
-            solPosInfo = pvlib.solarposition.get_solarposition(time=pd.to_datetime(data['forDtUtc'].values), latitude=posLat, longitude=posLon, temperature=data['Temperature'].values, method='nrel_numpy')
+            # ****************************************************************************
+            # 데이터 병합
+            # ****************************************************************************
+            data = pd.merge(fcstData, energyData, how='left', left_on='forDt', right_on='eneDt')
+
+            # ****************************************************************************
+            # 유의미한 변수 추가
+            # ****************************************************************************
+            data['forDtUtc'] = pd.to_datetime(data['forDt']).dt.tz_localize('Asia/Seoul').dt.tz_convert('UTC')
+            solPosInfo = pvlib.solarposition.get_solarposition(time=pd.to_datetime(data['forDtUtc'].values), latitude=posLat, longitude=posLon, temperature=data['TA'].values, method='nrel_numpy')
             data['sza'] = solPosInfo['apparent_zenith'].values
             data['aza'] = solPosInfo['azimuth'].values
             data['et'] = solPosInfo['equation_of_time'].values
@@ -654,16 +662,22 @@ class DtaProcess(object):
             # ****************************************************************************
             # 인덱스 재 정렬
             # ****************************************************************************
-            trainData = data[data['anaDt'] <= pd.to_datetime('2019-03-01')].reset_index(drop=True)
-            testData = data[data['anaDt'] > pd.to_datetime('2019-03-01')].reset_index(drop=True)
+            # trainData = data[data['anaDt'] <= pd.to_datetime('2019-03-01')].reset_index(drop=True)
+            # testData = data[data['anaDt'] > pd.to_datetime('2019-03-01')].reset_index(drop=True)
+            trainData = data[data['forDt'] < pd.to_datetime('2020-01-01')].reset_index(drop=True)
+            testData = data[data['forDt'] >= pd.to_datetime('2020-01-01')].reset_index(drop=True)
             prdData = testData
 
             # ****************************************************************************
             # 독립/종속 변수 설정
             # ****************************************************************************
+            # 테스트 변수
             # xCol = ['Temperature', 'Humidity', 'WindSpeed', 'WindDirection', 'Cloud']
             # xCol = ['Temperature', 'Humidity', 'WindSpeed', 'WindDirection', 'Cloud', 'sza', 'aza', 'et', 'ghiClr', 'dniClr', 'dhiClr', 'turb']
-            xCol = ['Temperature', 'Humidity', 'WindSpeed', 'WindDirection', 'Cloud', 'sza', 'aza', 'et', 'ghiClr', 'dniClr', 'dhiClr', 'turb', 'extRad']
+            # xCol = ['Temperature', 'Humidity', 'WindSpeed', 'WindDirection', 'Cloud', 'sza', 'aza', 'et', 'ghiClr', 'dniClr', 'dhiClr', 'turb', 'extRad']
+
+            # 실전 변수
+            xCol = ['TA', 'HM', 'WS', 'WD', 'lowCA', 'medCA', 'higCA', 'TDSWS', 'sza', 'aza', 'et', 'ghiClr', 'dniClr', 'dhiClr', 'turb', 'extRad']
             yCol = 'ulsan'
 
             # ****************************************************************************
