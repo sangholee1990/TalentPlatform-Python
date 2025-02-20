@@ -173,8 +173,7 @@ def initArgument(globalVar, inParams):
             parser.add_argument(argv)
 
         inParInfo = vars(parser.parse_args())
-
-    log.info("[CHECK] inParInfo : {}".format(inParInfo))
+    log.info(f"[CHECK] inParInfo : {inParInfo}")
 
     for key, val in inParInfo.items():
         if val is None: continue
@@ -470,7 +469,7 @@ class DtaProcess(object):
                 # 'srtDate': globalVar['srtDate'],
                 # 'endDate': globalVar['endDate'],
                 'srtDate': '2019-01-01',
-                'endDate': '2019-01-04',
+                'endDate': '2011-01-01',
                 'invDate': '1d',
 
                 # 수행 목록
@@ -509,8 +508,8 @@ class DtaProcess(object):
             filePattern = sysOpt['CFG']['siteInfo']
             fileList = sorted(glob.glob(filePattern))
             if fileList is None or len(fileList) < 1:
-                log.error(f"[ERROR] filePattern : {filePattern} / 파일을 확인해주세요.")
-                raise Exception(f"[ERROR] filePattern : {filePattern} / 파일을 확인해주세요.")
+                log.error(f"filePattern : {filePattern} / 파일을 확인해주세요.")
+                raise Exception(f"filePattern : {filePattern} / 파일을 확인해주세요.")
             cfgData = pd.read_csv(fileList[0])
             cfgDataL1 = matchStnFor(sysOpt['CFG'], cfgData)
 
