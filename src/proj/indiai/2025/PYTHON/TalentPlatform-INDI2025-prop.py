@@ -278,8 +278,8 @@ def propUmkr(modelInfo, cfgDataL1, dtDateInfo):
 
         # 저장 파일 검사
         saveFile = dtDateInfo.strftime(modelInfo['saveFile'])
-        fileList = sorted(glob.glob(saveFile))
-        if len(fileList) > 0: return
+        saveFileList = sorted(glob.glob(saveFile))
+        if len(saveFileList) > 0: return
 
         # 입력 파일 검사
         filePattern = dtDateInfo.strftime(modelInfo['fileList'])
