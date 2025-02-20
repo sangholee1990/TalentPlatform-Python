@@ -7,7 +7,7 @@
 
 # cd /vol01/SYSTEMS/INDIAI/PROG/PYTHON
 # /vol01/SYSTEMS/INDIAI/LIB/anaconda3/envs/py38/bin/python /vol01/SYSTEMS/INDIAI/PROG/PYTHON/TalentPlatform-INDI2025-prop.py --modelList 'UMKR' --cpuCoreNum '5' --srtDate '2019-01-01' --endDate '2021-01-01'
-# nohup /vol01/SYSTEMS/INDIAI/LIB/anaconda3/envs/py38/bin/python /vol01/SYSTEMS/INDIAI/PROG/PYTHON/TalentPlatform-INDI2025-prop.py --modelList 'UMKR' --cpuCoreNum '5' --srtDate '2019-01-01' --endDate '2021-01-01' &
+# nohup /vol01/SYSTEMS/INDIAI/LIB/anaconda3/envs/py38/bin/python /vol01/SYSTEMS/INDIAI/PROG/PYTHON/TalentPlatform-INDI2025-prop.py --modelList 'UMKR' --cpuCoreNum '10' --srtDate '2019-01-01' --endDate '2021-01-01' &
 
 import argparse
 import glob
@@ -276,6 +276,12 @@ def propUmkr(modelInfo, cfgDataL1, dtDateInfo):
     try:
         procInfo = mp.current_process()
 
+        # 저장 파일 검사
+        saveFile = dtDateInfo.strftime(modelInfo['saveFile'])
+        fileList = sorted(glob.glob(saveFile))
+        if len(fileList) > 0: return
+
+        # 입력 파일 검사
         filePattern = dtDateInfo.strftime(modelInfo['fileList'])
         fileList = sorted(glob.glob(filePattern))
         if len(fileList) < 1: return
@@ -383,7 +389,6 @@ def propUmkr(modelInfo, cfgDataL1, dtDateInfo):
                 log.error(f'Exception : {e}')
 
         if len(dsDataL1) > 0:
-            saveFile = dtDateInfo.strftime(modelInfo['saveFile'])
             os.makedirs(os.path.dirname(saveFile), exist_ok=True)
             dsDataL1.to_netcdf(saveFile)
             log.info('[CHECK] saveFile : {}'.format(saveFile))
