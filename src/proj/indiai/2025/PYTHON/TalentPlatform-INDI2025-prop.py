@@ -467,19 +467,19 @@ class DtaProcess(object):
             # 옵션 설정
             sysOpt = {
                 # 예보시간 시작일, 종료일, 시간 간격 (연 1y, 월 1m, 일 1d, 시간 1h, 분 1t, 초 1s)
-                # 'srtDate': '2019-01-01',
-                # 'endDate': '2019-01-04',
-                'srtDate': globalVar['srtDate'],
-                'endDate': globalVar['endDate'],
+                # 'srtDate': globalVar['srtDate'],
+                # 'endDate': globalVar['endDate'],
+                'srtDate': '2019-01-01',
+                'endDate': '2019-01-04',
                 'invDate': '1d',
 
                 # 수행 목록
-                'modelList': [globalVar['modelList']],
-                # 'modelList': ['UMKR'],
+                # 'modelList': [globalVar['modelList']],
+                'modelList': ['UMKR'],
 
                 # 비동기 다중 프로세스 개수
-                'cpuCoreNum': globalVar['cpuCoreNum'],
-                # 'cpuCoreNum': '5',
+                # 'cpuCoreNum': globalVar['cpuCoreNum'],
+                'cpuCoreNum': '5',
 
                 # 설정 파일
                 'CFG': {
