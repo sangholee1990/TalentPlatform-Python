@@ -231,10 +231,12 @@ def colctProc(sysOpt, modelInfo, dtDateInfo):
             match = re.search(r'(\d{8})_(\d{4})', urlDtl)
             saveFileDt = pd.to_datetime(match.group(1) + match.group(2), format="%Y%m%d%H%M") if match else None
             saveFile = saveFileDt.strftime(modelInfo['saveFile'])
+            saveHtml = saveFileDt.strftime(modelInfo['saveHtml'])
 
             # 파일 검사
-            saveFileList = sorted(glob.glob(saveFile))
-            if len(saveFileList) > 0: continue
+            # saveFileList = sorted(glob.glob(saveFile))
+            # if len(saveFileList) > 0: continue
+            if os.path.exists(saveFile) and os.path.exists(saveHtml): continue
 
             # urlDtl = 'https://www.ospo.noaa.gov//data/messages/2019/01/MSG_20190102_1324.html'
             # urlDtl = 'https://www.ospo.noaa.gov//data/messages/2020/06/MSG_20200601_1554.html'
@@ -246,8 +248,6 @@ def colctProc(sysOpt, modelInfo, dtDateInfo):
 
             soupDtl = BeautifulSoup(respDtl.text, 'html.parser')
             if soupDtl is None or len(soupDtl) < 1: continue
-
-            textDtl = soupDtl.text.strip()
 
             tagDtlList = (
                     (soupDtl.findAll('font', {'size': '2'}) + soupDtl.findAll('p', {'class': 'MsoNormal'}))
@@ -282,6 +282,14 @@ def colctProc(sysOpt, modelInfo, dtDateInfo):
                 os.makedirs(os.path.dirname(saveFile), exist_ok=True)
                 dataL1.to_csv(saveFile, index=False)
                 log.info(f'[CHECK] saveFile : {saveFile} : {dataL1.shape}')
+
+
+            htmlDtl = soupDtl.prettify()
+            if len(htmlDtl) > 0:
+                os.makedirs(os.path.dirname(saveHtml), exist_ok=True)
+                with open(saveHtml, "w", encoding="utf-8") as file:
+                    file.write(htmlDtl)
+                log.info(f'[CHECK] saveHtml : {saveHtml}')
 
         log.info(f'[END] colctProc : {dtDateInfo} / pid : {procInfo.pid}')
 
@@ -380,6 +388,7 @@ class DtaProcess(object):
                     'urlPattern': '{rootUrl}/data/messages/%Y/%Y-%m-include.html',
                     'urlDtl': '{rootUrl}/{href}',
                     'saveFile': '/DATA/COLCT/NOAA/%Y%m/%d/NOAA_MSG_%Y%m%d_%H%M.csv',
+                    'saveHtml': '/DATA/COLCT/NOAA/%Y%m/%d/NOAA_MSG_%Y%m%d_%H%M.html',
                 },
             }
 
