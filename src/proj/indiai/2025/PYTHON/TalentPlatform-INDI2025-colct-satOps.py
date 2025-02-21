@@ -51,6 +51,8 @@ import urllib.request
 from urllib.parse import urlencode
 from bs4 import BeautifulSoup
 from lxml import etree
+import re
+from urllib.parse import unquote
 
 # =================================================
 # 사용자 매뉴얼
@@ -190,40 +192,105 @@ def initArgument(globalVar, inParams):
 
     return globalVar
 
-def parseNoaaDtl(textDtl):
 
-    result = None
-
+@retry(stop_max_attempt_number=10)
+def colctProc(sysOpt, modelInfo, dtDateInfo):
     try:
-        pattern = re.compile(
-            r"Topic:\s*(?P<Topic>.*?)\s*Date/Time Issued:\s*(?P<Issued>.*?)\s*"
-            r"Product\(s\) or Data Impacted:\s*(?P<Product>.*?)\s*Requested Center Point:\s*(?P<CenterPoint>.*?)\s*"
-            r"Date/Time Initial Impact:\s*(?P<InitialImpact>.*?)\s*J/DAY\s*(?P<InitialImpact_JDAY>\d+)\s*"
-            r"Date/Time of Expected End:\s*(?P<ExpectedEnd>.*?)\s*J/DAY\s*(?P<ExpectedEnd_JDAY>\d+)\s*"
-            r"Length of Event:\s*(?P<Length>.*?)\s*Requester:\s*(?P<Requester>.*?)\s*"
-            r"Priority:\s*(?P<Priority>.*?)\s*Details/Specifics:\s*(?P<Details>.*?)\s*"
-            r"Web Site\(s\) for Applicable Information:\s*(?P<WebSite>.*)",
-            re.DOTALL | re.MULTILINE
-        )
+        procInfo = mp.current_process()
 
-        match = pattern.search(textDtl)
+        urlPattern = modelInfo['urlPattern'].format(rootUrl=modelInfo['rootUrl'])
+        url = dtDateInfo.strftime(urlPattern)
 
-        if match:
-            grpItem = match.groupdict()
+        response = requests.get(url, headers=sysOpt['headers'])
+        if not (response.status_code == 200): return
 
-            for key, val in grpItem.items():
-                if not key in ['Issued', 'InitialImpact', 'ExpectedEnd']: continue
-                try:
-                    grpItem[key] = pd.to_datetime(grpItem[key], errors='coerce')
-                except ValueError:
-                    pass
+        soup = BeautifulSoup(response.text, 'html.parser')
+        if soup is None or len(soup) < 1: return
 
-            result = grpItem
+        tagId = soup.find('div', {'id': 'msg-list'})
+        if tagId is None or len(tagId) < 1: return
+
+        tagList = tagId.find_all('a')
+        for tagInfo in tagList:
+            # log.info(f'[CHECK] tagInfo : {tagInfo}')
+            try:
+                title = None if tagInfo is None or len(tagInfo) < 1 else tagInfo.text.strip()
+                href = None if tagInfo is None or len(tagInfo.get('href')) < 1 else tagInfo.get('href')
+            except Exception as e:
+                title = None
+                href = None
+            # log.info(f'[CHECK] title : {title}')
+            # log.info(f'[CHECK] href : {href}')
+
+            urlDtl = modelInfo['urlDtl'].format(rootUrl=modelInfo['rootUrl'], href=href)
+
+            # partList = urlDtl.split('/')
+            # fileName, fileExt = os.path.splitext(partList[-1])
+
+            match = re.search(r'(\d{8})_(\d{4})', urlDtl)
+            saveFileDt = pd.to_datetime(match.group(1) + match.group(2), format="%Y%m%d%H%M") if match else None
+            saveFile = saveFileDt.strftime(modelInfo['saveFile'])
+
+            # 파일 검사
+            saveFileList = sorted(glob.glob(saveFile))
+            if len(saveFileList) > 0: continue
+
+            urlDtl = 'https://www.ospo.noaa.gov//data/messages/2020/06/MSG_20200601_1554.html'
+
+            data = pd.DataFrame({
+                'title': [title],
+                'url': [url],
+                'urlDtl': [urlDtl],
+            })
+
+            respDtl = requests.get(urlDtl, headers=sysOpt['headers'])
+            if not (respDtl.status_code == 200): return
+
+            soupDtl = BeautifulSoup(respDtl.text, 'html.parser')
+            if soupDtl is None or len(soupDtl) < 1: continue
+
+            dictDtl = {}
+            tagDtlList = soupDtl.findAll('font', {'size': '2'}) + soupDtl.findAll('p', {'class': 'MsoNormal'})
+            for textDtlInfo in tagDtlList:
+                textDtlInfo = textDtlInfo.text.strip().replace('\xa0', ' ')
+                if textDtlInfo is None or len(textDtlInfo) < 1: continue
+                if re.search('This message was sent by ESPC.Notification@noaa.gov.', textDtlInfo, re.IGNORECASE): continue
+
+                partList = textDtlInfo.split(':', 1)
+                if len(partList) != 2: continue
+
+                key, val = partList[0].strip(), partList[1].strip()
+                valStr = ' '.join(line.strip() for line in val.split('\n')).strip()
+                dictDtl[key] = valStr if valStr else None
+
+            # dictDtl = {}
+            # textDtl = soupDtl.text.strip()
+            # textDtlList = textDtl.split('\n\n')
+            # for textDtlInfo in textDtlList:
+            #     textDtlInfo = textDtlInfo.strip()
+            #     if not textDtlInfo: continue
+            #     if re.search('This message was sent by ESPC.Notification@noaa.gov.', textDtlInfo, re.IGNORECASE): continue
+            #
+            #     partList = textDtlInfo.split(':', 1)
+            #     if len(partList) != 2: continue
+            #
+            #     key, val = partList[0].strip(), partList[1].strip()
+            #     valStr = ' '.join(line.strip() for line in val.split('\n')).strip()
+            #     dictDtl[key] = valStr if valStr else None
+
+            dataL1 = pd.concat([data, pd.DataFrame.from_dict([dictDtl])], axis=1)
+
+            # 파일 저장
+            if len(dataL1) > 0:
+                os.makedirs(os.path.dirname(saveFile), exist_ok=True)
+                dataL1.to_csv(saveFile, index=False)
+                log.info(f'[CHECK] saveFile : {saveFile} : {dataL1.shape}')
+
+        log.info(f'[END] colctProc : {dtDateInfo} / pid : {procInfo.pid}')
 
     except Exception as e:
-        log.error(f'Exception : {e}')
-
-    return result
+        log.error(f'Exception : {str(e)}')
+        raise e
 
 # ================================================
 # 4. 부 프로그램
@@ -296,178 +363,49 @@ class DtaProcess(object):
                 'endDate': '2025-03-01',
                 'invDate': '1m',
 
-                # 수행 목록
-                # 'modelList': [globalVar['modelList']],
-                'modelList': ['UMKR'],
-
                 # 비동기 다중 프로세스 개수
                 # 'cpuCoreNum': globalVar['cpuCoreNum'],
                 'cpuCoreNum': '5',
 
+                'headers': {
+                    "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/123.0.0.0 Safari/537.36"
+                },
+
+                # 수행 목록
+                # 'modelList': [globalVar['modelList']],
+                'modelList': ['NOAA'],
+                # 'modelList': ['EUMETSAT'],
+
                 # 설정 파일
-                'CFG': {
-                    'siteInfo': '/DATA/PROP/SAMPLE/site_info.csv',
-                    'umkrFileInfo': '/DATA/COLCT/UMKR/201901/01/UMKR_l015_unis_H00_201901011200.grb2',
+                'NOAA': {
+                    'rootUrl': 'https://www.ospo.noaa.gov',
+                    'urlPattern': '{rootUrl}/data/messages/%Y/%Y-%m-include.html',
+                    'urlDtl': '{rootUrl}/{href}',
+                    'saveFile': '/DATA/COLCT/NOAA/%Y%m/%d/NOAA_MSG_%Y%m%d_%H%M.csv',
                 },
-
-                'UMKR': {
-                    'fileList': '/DATA/COLCT/UMKR/%Y%m/%d/UMKR_l015_unis_H*_%Y%m%d*.grb2',
-                    'saveFile': '/DATA/PROP/UMKR/%Y%m/UMKR_FOR_%Y%m%d.nc',
-                },
-                # 'ACT': {
-                #     'ASOS': {
-                #         'searchFileList': f"/DATA/COLCT/UMKR/%Y%m/%d/UMKR_l015_unis_H*_%Y%m%d%H%M.grb2",
-                #         'invDate': '6h',
-                #     },
-                #     'AWS': {
-                #         'searchFileList': f"/DATA/COLCT/UMKR/%Y%m/%d/UMKR_l015_unis_H*_%Y%m%d%H%M.grb2",
-                #         'invDate': '6h',
-                #     },
-                # },
             }
 
             # **************************************************************************************************************
-            # NOAA 운영공지
+            # 비동기 다중 프로세스 수행
             # **************************************************************************************************************
-            # 시작일/종료일 설정
-            dtSrtDate = pd.to_datetime(sysOpt['srtDate'], format='%Y-%m-%d')
-            dtEndDate = pd.to_datetime(sysOpt['endDate'], format='%Y-%m-%d')
-            dtDateList = pd.date_range(start=dtSrtDate, end=dtEndDate, freq=sysOpt['invDate'])
+            # 비동기 다중 프로세스 개수
+            pool = Pool(int(sysOpt['cpuCoreNum']))
 
-            rootUrl = 'https://www.ospo.noaa.gov'
-            headers = {
-                "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/123.0.0.0 Safari/537.36"
-            }
+            for modelType in sysOpt['modelList']:
+                modelInfo = sysOpt.get(modelType)
+                if modelInfo is None: continue
 
-            for dtDateInfo in dtDateList:
-                log.info(f'[CHECK] dtDateInfo : {dtDateInfo}')
+                # 시작일/종료일 설정
+                dtSrtDate = pd.to_datetime(sysOpt['srtDate'], format='%Y-%m-%d')
+                dtEndDate = pd.to_datetime(sysOpt['endDate'], format='%Y-%m-%d')
+                dtDateList = pd.date_range(start=dtSrtDate, end=dtEndDate, freq=sysOpt['invDate'])
 
-                urlPattern = f"{rootUrl}/data/messages/%Y/%Y-%m-include.html"
-                url = dtDateInfo.strftime(urlPattern)
+                for dtDateInfo in dtDateList:
+                    # log.info(f'[CHECK] dtDateInfo : {dtDateInfo}')
+                    pool.apply_async(colctProc, args=(sysOpt, modelInfo, dtDateInfo))
 
-                response = requests.get(url, headers=headers)
-                if not (response.status_code == 200): return
-
-                soup = BeautifulSoup(response.text, 'html.parser')
-
-                tagList = soup.find('div', {'id': 'msg-list'}).find_all('a')
-                for tagInfo in tagList:
-                    # log.info(f'[CHECK] tagInfo : {tagInfo}')
-
-                    try:
-                        title = None if tagInfo is None or len(tagInfo) < 1 else tagInfo.text.strip()
-                        href = None if tagInfo is None or len(tagInfo.get('href')) < 1 else tagInfo.get('href')
-                    except Exception:
-                        title = None
-                        href = None
-                    # log.info(f'[CHECK] title : {title}')
-                    # log.info(f'[CHECK] href : {href}')
-
-                    urlDtl = f"{rootUrl}/{href}"
-                    response = requests.get(urlDtl, headers=headers)
-                    if not (response.status_code == 200): return
-
-                    soupDtl = BeautifulSoup(response.text, 'html.parser')
-                    textDtl = soupDtl.text.strip()
-
-                    data = pd.DataFrame({
-                        'title': [title],
-                        'url': [url],
-                        'urlDtl': [urlDtl],
-                    })
-
-                    dictDtl = parseNoaaDtl(textDtl)
-                    dataL1 = pd.concat([data, pd.DataFrame.from_dict([dictDtl])], axis=1)
-
-                    from urllib.parse import urlparse
-
-                    # aa = 'https://www.ospo.noaa.gov//data/messages/2025/02/MSG_20250201_1427.html'
-
-                    parsed_url = urlparse(url)
-                    path_parts = parsed_url.path.split('/')
-                    filename = path_parts[-1]
-
-
-
-
-                    # dictDtl['title'] = [title]
-                    # dictDtl['url'] = [url]
-                    # dictDtl['urlDtl'] = [urlDtl]
-
-                    data = pd.DataFrame(dictDtl)
-
-
-                    # https://www.ospo.noaa.gov/data/messages/2025/02/MSG_20250201_1427.html
-                    # lxml = etree.HTML(str(soup))
-
-                # try:
-                #     tag = lxml.xpath('/html/body/content/div/div/div/div[1]/text()')[0]
-                #     match = re.search(r'\d{4}-\d{2}-\d{2} \d{2}:\d{2}', tag.strip())
-                #     sDateTime = None if match is None else match.group(0)
-                #     dtDateTime = pd.to_datetime(sDateTime).tz_localize('Asia/Seoul')
-                # except Exception:
-                #     dtDateTime = None
-                # log.info(f'[CHECK] dtDateTime : {dtDateTime}')
-                #
-                # noList = soup.find('ul', {'class': 'list-group bg-white'}).find_all("span", {'class': 'rank daum_color'})
-                # keywordList = soup.find('ul', {'class': 'list-group bg-white'}).find_all("span", {'class': 'keyword'})
-                #
-                # data = pd.DataFrame()
-                # for noInfo, keywordInfo in zip(noList, keywordList):
-                #     try:
-                #         no = None if noInfo is None or len(noInfo) < 1 else noInfo.text.strip()
-                #         keyword = None if keywordInfo is None or len(keywordInfo) < 1 else keywordInfo.text.strip()
-                #
-                #         dict = {
-                #             'type': ['whereispost'],
-                #             'cate': '전체',
-                #             'dateTime': [dtDateTime],
-                #             'no': [no],
-                #             'keyword': [keyword],
-                #         }
-                #
-                #         data = pd.concat([data, pd.DataFrame.from_dict(dict)])
-                #
-                #     except Exception:
-                #         pass
-                #
-                # if len(data) > 0:
-                #     dataL1 = pd.concat([dataL1, data])
-
-            # **************************************************************************************************************
-            # EUMETSAT 운영공지
-            # **************************************************************************************************************
-
-
-            # filePattern = sysOpt['CFG']['siteInfo']
-            # fileList = sorted(glob.glob(filePattern))
-            # if fileList is None or len(fileList) < 1:
-            #     log.error(f"filePattern : {filePattern} / 파일을 확인해주세요.")
-            #     raise Exception(f"filePattern : {filePattern} / 파일을 확인해주세요.")
-            # cfgData = pd.read_csv(fileList[0])
-            # cfgDataL1 = matchStnFor(sysOpt['CFG'], cfgData)
-            #
-            # # **************************************************************************************************************
-            # # 비동기 다중 프로세스 수행
-            # # **************************************************************************************************************
-            # # 비동기 다중 프로세스 개수
-            # pool = Pool(int(sysOpt['cpuCoreNum']))
-            #
-            # for modelType in sysOpt['modelList']:
-            #     modelInfo = sysOpt.get(modelType)
-            #     if modelInfo is None: continue
-            #
-            #     # 시작일/종료일 설정
-            #     dtSrtDate = pd.to_datetime(sysOpt['srtDate'], format='%Y-%m-%d')
-            #     dtEndDate = pd.to_datetime(sysOpt['endDate'], format='%Y-%m-%d')
-            #     dtDateList = pd.date_range(start=dtSrtDate, end=dtEndDate, freq=sysOpt['invDate'])
-            #
-            #     for dtDateInfo in dtDateList:
-            #         # log.info(f'[CHECK] dtDateInfo : {dtDateInfo}')
-            #         pool.apply_async(propUmkr, args=(modelInfo, cfgDataL1, dtDateInfo))
-            #
-            #     pool.close()
-            #     pool.join()
+            pool.close()
+            pool.join()
 
         except Exception as e:
             log.error(f"Exception : {e}")
