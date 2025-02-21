@@ -53,6 +53,7 @@ from bs4 import BeautifulSoup
 from lxml import etree
 import re
 from urllib.parse import unquote
+from bs4.element import Tag, NavigableString
 
 # =================================================
 # 사용자 매뉴얼
@@ -235,13 +236,10 @@ def colctProc(sysOpt, modelInfo, dtDateInfo):
             saveFileList = sorted(glob.glob(saveFile))
             if len(saveFileList) > 0: continue
 
-            urlDtl = 'https://www.ospo.noaa.gov//data/messages/2020/06/MSG_20200601_1554.html'
-
-            data = pd.DataFrame({
-                'title': [title],
-                'url': [url],
-                'urlDtl': [urlDtl],
-            })
+            # urlDtl = 'https://www.ospo.noaa.gov//data/messages/2019/01/MSG_20190102_1324.html'
+            # urlDtl = 'https://www.ospo.noaa.gov//data/messages/2020/06/MSG_20200601_1554.html'
+            # urlDtl = 'https://www.ospo.noaa.gov//data/messages/2019/05/MSG_20190502_1544.html'
+            # urlDtl = 'https://www.ospo.noaa.gov//data/messages/2019/05/MSG_20190502_1634.html'
 
             respDtl = requests.get(urlDtl, headers=sysOpt['headers'])
             if not (respDtl.status_code == 200): return
@@ -249,10 +247,17 @@ def colctProc(sysOpt, modelInfo, dtDateInfo):
             soupDtl = BeautifulSoup(respDtl.text, 'html.parser')
             if soupDtl is None or len(soupDtl) < 1: continue
 
+            textDtl = soupDtl.text.strip()
+
+            tagDtlList = (
+                    (soupDtl.findAll('font', {'size': '2'}) + soupDtl.findAll('p', {'class': 'MsoNormal'}))
+                    or soupDtl.text.strip().split('\n\n')
+            )
+
             dictDtl = {}
-            tagDtlList = soupDtl.findAll('font', {'size': '2'}) + soupDtl.findAll('p', {'class': 'MsoNormal'})
             for textDtlInfo in tagDtlList:
-                textDtlInfo = textDtlInfo.text.strip().replace('\xa0', ' ')
+                textDtlInfo = textDtlInfo.text.strip().replace('\xa0', ' ') if isinstance(textDtlInfo, Tag) else textDtlInfo.strip().replace('\xa0', ' ')
+
                 if textDtlInfo is None or len(textDtlInfo) < 1: continue
                 if re.search('This message was sent by ESPC.Notification@noaa.gov.', textDtlInfo, re.IGNORECASE): continue
 
@@ -263,20 +268,12 @@ def colctProc(sysOpt, modelInfo, dtDateInfo):
                 valStr = ' '.join(line.strip() for line in val.split('\n')).strip()
                 dictDtl[key] = valStr if valStr else None
 
-            # dictDtl = {}
-            # textDtl = soupDtl.text.strip()
-            # textDtlList = textDtl.split('\n\n')
-            # for textDtlInfo in textDtlList:
-            #     textDtlInfo = textDtlInfo.strip()
-            #     if not textDtlInfo: continue
-            #     if re.search('This message was sent by ESPC.Notification@noaa.gov.', textDtlInfo, re.IGNORECASE): continue
-            #
-            #     partList = textDtlInfo.split(':', 1)
-            #     if len(partList) != 2: continue
-            #
-            #     key, val = partList[0].strip(), partList[1].strip()
-            #     valStr = ' '.join(line.strip() for line in val.split('\n')).strip()
-            #     dictDtl[key] = valStr if valStr else None
+            data = pd.DataFrame({
+                'title': [title],
+                'url': [url],
+                'urlDtl': [urlDtl],
+                # 'textDtl': [textDtl],
+            })
 
             dataL1 = pd.concat([data, pd.DataFrame.from_dict([dictDtl])], axis=1)
 
@@ -359,7 +356,8 @@ class DtaProcess(object):
                 # 예보시간 시작일, 종료일, 시간 간격 (연 1y, 월 1m, 일 1d, 시간 1h, 분 1t, 초 1s)
                 # 'srtDate': globalVar['srtDate'],
                 # 'endDate': globalVar['endDate'],
-                'srtDate': '2019-01-01',
+                # 'srtDate': '2019-01-01',
+                'srtDate': '2025-01-01',
                 'endDate': '2025-03-01',
                 'invDate': '1m',
 
