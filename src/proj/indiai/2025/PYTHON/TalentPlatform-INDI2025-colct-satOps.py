@@ -283,7 +283,6 @@ def colctProc(sysOpt, modelInfo, dtDateInfo):
                 dataL1.to_csv(saveFile, index=False)
                 log.info(f'[CHECK] saveFile : {saveFile} : {dataL1.shape}')
 
-
             htmlDtl = soupDtl.prettify()
             if len(htmlDtl) > 0:
                 os.makedirs(os.path.dirname(saveHtml), exist_ok=True)
