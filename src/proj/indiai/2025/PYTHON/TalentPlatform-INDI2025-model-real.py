@@ -571,24 +571,24 @@ class DtaProcess(object):
                         'saveModelList': f"/DATA/MODEL/*/*/*_solar_real_lgb_for.model",
                         'saveModel': f"/DATA/MODEL/%Y%m/%d/%Y%m%d_solar_real_lgb_for.model",
                         'saveImg': f"/DATA/MODEL/%Y%m/%d/%Y%m%d_solar_real_lgb_for.png",
-                        # 'isOverWrite': True,
-                        'isOverWrite': False,
+                        'isOverWrite': True,
+                        # 'isOverWrite': False,
                         'preDt': datetime.now(),
                     },
                     'flaml': {
                         'saveModelList': f"/DATA/MODEL/*/*/*_solar_real_flaml_for.model",
                         'saveModel': f"/DATA/MODEL/%Y%m/%d/%Y%m%d_solar_real_flaml_for.model",
                         'saveImg': f"/DATA/MODEL/%Y%m/%d/%Y%m%d_solar_real_flaml_for.png",
-                        # 'isOverWrite': True,
-                        'isOverWrite': False,
+                        'isOverWrite': True,
+                        # 'isOverWrite': False,
                         'preDt': datetime.now(),
                     },
                     'pycaret': {
                         'saveModelList': f"/DATA/MODEL/*/*/*_solar_real_pycaret_for.model.pkl",
                         'saveModel': f"/DATA/MODEL/%Y%m/%d/%Y%m%d_solar_real_pycaret_for.model",
                         'saveImg': f"/DATA/MODEL/%Y%m/%d/%Y%m%d_solar_real_pycaret_for.png",
-                        # 'isOverWrite': True,
-                        'isOverWrite': False,
+                        'isOverWrite': True,
+                        # 'isOverWrite': False,
                         'preDt': datetime.now(),
                     },
                 },
@@ -668,6 +668,9 @@ class DtaProcess(object):
             testData = data[data['forDt'] >= pd.to_datetime('2020-01-01')].reset_index(drop=True)
             prdData = testData
 
+            # ulsan > 0인 경우
+            trainDataL1 = trainData[trainData['ulsan'] > 0].reset_index(drop=True)
+
             # ****************************************************************************
             # 독립/종속 변수 설정
             # ****************************************************************************
@@ -683,26 +686,32 @@ class DtaProcess(object):
             # ****************************************************************************
             # 수동 학습 모델링 (lgb)
             # ****************************************************************************
-            resLgb = makeLgbModel(sysOpt['MODEL']['lgb'], xCol, yCol, trainData, testData)
+            # resLgb = makeLgbModel(sysOpt['MODEL']['lgb'], xCol, yCol, trainData, testData)
+            resLgb = makeLgbModel(sysOpt['MODEL']['lgb'], xCol, yCol, trainDataL1, testData)
             # log.info(f'[CHECK] resLgb : {resLgb}')
 
-            prdData['prd-lgb'] = resLgb['mlModel'].predict(data=testData[xCol])
+            # prdData['prd-lgb'] = resLgb['mlModel'].predict(data=prdData[xCol])
+            prdData['prd-lgb'] = np.where(prdData['ulsan'] > 0, resLgb['mlModel'].predict(data=prdData[xCol]), 0)
 
             # ****************************************************************************
             # 자동 학습 모델링 (flaml)
             # ****************************************************************************
-            resFlaml = makeFlamlModel(sysOpt['MODEL']['flaml'], xCol, yCol, trainData, testData)
+            # resFlaml = makeFlamlModel(sysOpt['MODEL']['flaml'], xCol, yCol, trainData, testData)
+            resFlaml = makeFlamlModel(sysOpt['MODEL']['flaml'], xCol, yCol, trainDataL1, testData)
             # log.info(f'[CHECK] resFlaml : {resFlaml}')
 
-            prdData['prd-flaml'] = resFlaml['mlModel'].predict(prdData)
+            # prdData['prd-flaml'] = resFlaml['mlModel'].predict(prdData)
+            prdData['prd-flaml'] = np.where(prdData['ulsan'] > 0, resFlaml['mlModel'].predict(prdData), 0)
 
             # ****************************************************************************
             # 자동 학습 모델링 (pycaret)
             # ****************************************************************************
-            resPycaret = makePycaretModel(sysOpt['MODEL']['pycaret'], xCol, yCol, trainData, testData)
+            # resPycaret = makePycaretModel(sysOpt['MODEL']['pycaret'], xCol, yCol, trainData, testData)
+            resPycaret = makePycaretModel(sysOpt['MODEL']['pycaret'], xCol, yCol, trainDataL1, testData)
             # log.info(f'[CHECK] resPycaret : {resPycaret}')
 
-            prdData['prd-pycaret'] = predict_model(resPycaret['mlModel'], data=prdData[xCol])['prediction_label']
+            # prdData['prd-pycaret'] = predict_model(resPycaret['mlModel'], data=prdData[xCol])['prediction_label']
+            prdData['prd-pycaret'] = np.where(prdData['ulsan'] > 0, predict_model(resPycaret['mlModel'], data=prdData[xCol])['prediction_label'], 0)
 
             # ****************************************************************************
             # 자료 저장
