@@ -62,10 +62,10 @@ import time
 
 import time
 from selenium import webdriver
-import chardet
 from selenium.common.exceptions import NoSuchWindowException
 from selenium.common.exceptions import TimeoutException
 from selenium.common.exceptions import NoSuchElementException
+import undetected_chromedriver as uc
 
 # =================================================
 # 사용자 매뉴얼
@@ -212,31 +212,39 @@ def initArgument(globalVar, inParams):
 
 def initDriver(sysOpt):
 
-    # Chrome 옵션 설정
-    options = Options()
-    options.headless = False  # 창을 띄우도록 설정 (True로 하면 백그라운드 실행)
-    options.binary_location = sysOpt['chromeInfo']  # 사용자 지정 Chrome 경로
-    options.add_argument("--window-size=1920,1080")  # 창 크기 설정
-    options.add_experimental_option("detach", True)  # 실행 후 브라우저 종료 방지
-
-    # 백그라운드 실행 관련 옵션
-    options.add_argument("--no-sandbox")  # 샌드박스 비활성화 (Linux 환경에서 필수)
-    options.add_argument("--disable-dev-shm-usage")  # /dev/shm 메모리 제한 방지
-    options.add_argument("--headless")  # 브라우저를 백그라운드에서 실행 (UI 없음)
-    options.add_argument("--remote-debugging-port=9222")  # 원격 디버깅 포트 설정
-    options.add_argument("--disable-gpu")  # GPU 비활성화 (Linux 환경에서 필요)
-
-    # User-Agent 설정 (봇 감지 우회)
-    options.add_argument(
-        "user-agent=Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 "
-        "(KHTML, like Gecko) Chrome/131.0.6778.264 Safari/537.36"
-    )
-
+    # # Chrome 옵션 설정
+    # options = Options()
+    # options.headless = False  # 창을 띄우도록 설정 (True로 하면 백그라운드 실행)
+    # options.binary_location = sysOpt['chromeInfo']  # 사용자 지정 Chrome 경로
+    # options.add_argument("--window-size=1920,1080")  # 창 크기 설정
+    # options.add_experimental_option("detach", True)  # 실행 후 브라우저 종료 방지
+    #
+    # # 백그라운드 실행 관련 옵션
+    # options.add_argument("--no-sandbox")  # 샌드박스 비활성화 (Linux 환경에서 필수)
+    # options.add_argument("--disable-dev-shm-usage")  # /dev/shm 메모리 제한 방지
+    # options.add_argument("--headless")  # 브라우저를 백그라운드에서 실행 (UI 없음)
+    # options.add_argument("--remote-debugging-port=9222")  # 원격 디버깅 포트 설정
+    # options.add_argument("--disable-gpu")  # GPU 비활성화 (Linux 환경에서 필요)
+    # options.add_argument("--disable-blink-features=AutomationControlled")
+    #
+    # # User-Agent 설정 (봇 감지 우회)
+    # options.add_argument(
+    #     "user-agent=Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 "
+    #     "(KHTML, like Gecko) Chrome/131.0.6778.264 Safari/537.36"
+    # )
+    #
     # ChromeDriver 서비스 설정
-    service = Service(sysOpt['chromedriverInfo'])  # 사용자 지정 ChromeDriver 경로 사용
+    # service = Service(sysOpt['chromedriverInfo'])
+    #
+    # # WebDriver 실행
+    # driver = webdriver.Chrome(service=service, options=options)
 
-    # WebDriver 실행
-    driver = webdriver.Chrome(service=service, options=options)
+    # uc.Chrome 옵션 설정
+    options = uc.ChromeOptions()
+    options.headless = True
+    options.binary_location = sysOpt['chromeInfo']
+
+    driver = uc.Chrome(options=options)
 
     # 페이지 로드 타임아웃 설정
     driver.set_page_load_timeout(sysOpt['pageTimeout'])
@@ -433,8 +441,8 @@ class DtaProcess(object):
             # os.system("pkill -f chromedriver")
             # os.system("pkill -f chrome")
 
-            os.system("ps -ef | grep 'chrome' | grep -v 'grep' | awk '{print $2}' | xargs kill -9")
-            os.system("ps -ef | grep 'chrome' | grep -v 'grep' | awk '{print $2}' | xargs kill -9")
+            # os.system("ps -ef | grep 'chrome' | grep -v 'grep' | awk '{print $2}' | xargs kill -9")
+            # os.system("ps -ef | grep 'chrome' | grep -v 'grep' | awk '{print $2}' | xargs kill -9")
 
             # ==========================================================================================================
             # 전역 설정
@@ -483,8 +491,9 @@ class DtaProcess(object):
                     for k, key in enumerate(sysOpt['keyList']):
 
                         try:
+                            # keyword = f'广东省 茂名市 交通 碳排放'
                             keyword = f'{cityMat} {sector} {key}'
-                            log.info(f'[CHECK] keyword : {keyword}')
+                            log.info(f'[START] keyword : {keyword}')
 
                             # 검색 화면
                             url = sysOpt['listUrl']
@@ -499,6 +508,8 @@ class DtaProcess(object):
                                     btnId.click()
                             except Exception as e:
                                 pass
+
+                            driver.save_screenshot("/tmp/screenshot.png")
 
                             # 검색어 입력
                             inputId = wait.until(EC.presence_of_element_located((By.ID, "txtSearch")))
@@ -583,6 +594,8 @@ class DtaProcess(object):
                                 # log.info(f'[CHECK] dict : {dict}')
 
                                 data = pd.concat([data, pd.DataFrame.from_dict(dict)], ignore_index=True)
+
+                            log.info(f'[END] keyword : {keyword} : {len(data)}')
 
                         except NoSuchWindowException as e:
                             log.error(f"NoSuchWindowException : {e}")
