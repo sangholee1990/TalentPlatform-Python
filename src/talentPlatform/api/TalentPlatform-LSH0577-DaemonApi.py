@@ -1,7 +1,7 @@
 # ============================================
 # 요구사항
 # ============================================
-# LSH0577. Python을 이용한 빅쿼리 기반으로 API 배포체계
+# LSH0577. Python을 이용한 빅쿼리 기반으로 API 자료서비스
 
 # =================================================
 # 도움말
@@ -183,30 +183,26 @@ prjName = 'test'
 ctxPath = os.getcwd()
 # ctxPath = f"/SYSTEMS/PROG/PYTHON/IDE"
 
-globalVar = {
-    'ctxPath': f"{ctxPath}"
-    , 'inpPath': f"/DATA/INPUT/{serviceName}"
-    , 'outPath': f"/DATA/OUTPUT/{serviceName}"
-    , 'figPath': f"/DATA/FIG/{serviceName}"
-    , 'cfgPath': f"/SYSTEMS/PROG/PYTHON/IDE/resources/config"
-}
-
-for key, val in globalVar.items():
-    if key.__contains__('Path'):
-        os.makedirs(val, exist_ok=True)
-        print(f"[CHECK] {key} : {val}")
+log = initLog(env, ctxPath, prjName)
 
 # 작업 경로 설정
-# os.chdir(f"{globalVar['ctxPath']}")
-# print(f"[CHECK] getcwd : {os.getcwd()}")
-
-log = initLog(env, ctxPath, prjName)
+# os.chdir(f"{ctxPath}")
+# log.info(f"[CHECK] getcwd : {os.getcwd()}")
 
 # 옵션 설정
 sysOpt = {
     # 시작/종료 시간
-    # 'srtDate': '2018-01-01'
-    # , 'endDate': '2018-12-31'
+    # 'srtDate': '2018-01-01',
+    # 'endDate': '2018-12-31',
+
+    # 빅쿼리 설정 정보
+    'jsonFile': '/SYSTEMS/PROG/PYTHON/IDE/resources/config/iconic-ruler-239806-7f6de5759012.json',
+
+    # CORS 설정
+    'oriList': [
+        'http://localhost:9000'
+        , 'http://49.247.41.71:9000'
+    ],
 }
 
 
@@ -219,27 +215,29 @@ app = FastAPI(
 # 공유 설정
 # app.mount('/UPLOAD', StaticFiles(directory='/DATA/UPLOAD'), name='/DATA/UPLOAD')
 
-# CORS 설정
-oriList = [
-    'http://localhost:9000'
-    , 'http://49.247.41.71:9000'
-]
-
 app.add_middleware(
     CORSMiddleware
     # , allow_origins=["*"]
-    , allow_origins=oriList
+    , allow_origins=sysOpt['oriList']
     , allow_credentials=True
     , allow_methods=["*"]
     , allow_headers=["*"]
 )
 
-jsonFile = '{}/{}'.format(globalVar['cfgPath'], 'iconic-ruler-239806-7f6de5759012.json')
+jsonFile = sysOpt['jsonFile']
 jsonList = sorted(glob.glob(jsonFile))
+if jsonList is None or len(jsonList) < 1:
+    log.error(f'jsonFile : {jsonFile} / 설정 파일 검색 실패')
+    exit(1)
+
 jsonInfo = jsonList[0]
 
-credentials = service_account.Credentials.from_service_account_file(jsonInfo)
-client = bigquery.Client(credentials=credentials, project=credentials.project_id)
+try:
+    credentials = service_account.Credentials.from_service_account_file(jsonInfo)
+    client = bigquery.Client(credentials=credentials, project=credentials.project_id)
+except Exception as e:
+    log.error(f'Exception : {e} / 빅쿼리 연결 실패')
+    exit(1)
 
 # ============================================
 # 비즈니스 로직
