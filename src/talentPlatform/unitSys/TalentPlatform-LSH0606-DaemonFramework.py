@@ -416,10 +416,10 @@ class DtaProcess(object):
             # 금지어 목록
             forbidWordList = sysOpt['filter']['forbidWordList']
             okt = Okt()
-            pos_tags = okt.pos(text, stem=True)
+            posTagList = okt.pos(text, stem=True)
 
             # 명사 추출
-            keywordList = [word for word, pos in pos_tags if pos in ['Noun']]
+            keywordList = [word for word, pos in posTagList if pos in ['Noun']]
 
             # 불용어 제거
             keywordList = [word for word in keywordList if word not in stopWordList and len(word) > 1]
