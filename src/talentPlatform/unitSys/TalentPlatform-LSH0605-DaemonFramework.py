@@ -496,8 +496,8 @@ class DtaProcess(object):
                         try:
                             # keyword = f'广东省 茂名市 交通 碳排放'
                             keyword = f'{cityMat} {sector} {key}'
-                            # log.info(f'[START] keyword : {keyword}')
-                            print(f'[START] keyword : {keyword}')
+                            # log.info(f'[CHECK] keyword : {keyword}')
+                            # print(f'[CHECK] keyword : {keyword}')
 
                             # 검색 화면
                             url = sysOpt['listUrl']
@@ -599,8 +599,8 @@ class DtaProcess(object):
 
                                 data = pd.concat([data, pd.DataFrame.from_dict(dict)], ignore_index=True)
 
-                            # log.info(f'[END] keyword : {keyword} : {len(data)}')
-                            print(f'[END] keyword : {keyword} : {len(data)}')
+                            # log.info(f'[CHECK] keyword : {keyword} : {len(data)}')
+                            print(f'[CHECK] keyword : {keyword} : {len(data)}')
 
                         except NoSuchWindowException as e:
                             log.error(f"NoSuchWindowException : {e}")
@@ -638,11 +638,11 @@ class DtaProcess(object):
                     data.to_excel(saveFile, index=False)
                     log.info(f'[CHECK] saveFile : {saveFile}')
 
-                if driver:
-                    driver.quit()
-                    driver.service.stop()
+                # if driver:
+                #     driver.quit()
+                #     driver.service.stop()
 
-                sys.exit(0)
+                # sys.exit(0)
 
         except Exception as e:
             log.error(f"Exception : {str(e)}")
