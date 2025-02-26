@@ -442,9 +442,9 @@ class DtaProcess(object):
             # ==========================================================================================================
             # 크롬드라이브 삭제
             # ==========================================================================================================
-            if platform.system() == 'Linux':
-                os.system("ps -ef | grep 'chrome' | grep -v 'grep' | awk '{print $2}' | xargs kill -9")
-                os.system("ps -ef | grep 'chrome' | grep -v 'grep' | awk '{print $2}' | xargs kill -9")
+            # if platform.system() == 'Linux':
+            #     os.system("ps -ef | grep 'chrome' | grep -v 'grep' | awk '{print $2}' | xargs kill -9")
+            #     os.system("ps -ef | grep 'chrome' | grep -v 'grep' | awk '{print $2}' | xargs kill -9")
 
             # ==========================================================================================================
             # 전역 설정
@@ -467,7 +467,8 @@ class DtaProcess(object):
                 city = item['City_Column_1']
                 cityMat = item['Matching_City_Column_2']
                 per = round(i / len(cfgDataL1) * 100, 1)
-                log.info(f'[CHECK] cityMat : {cityMat} / {per}%')
+                # log.info(f'[CHECK] cityMat : {cityMat} / {per}%')
+                print(f'[CHECK] cityMat : {cityMat} / {per}%')
 
                 # sector = sysOpt['sectorList'][0]
                 # key = sysOpt['keyList'][0]
@@ -495,7 +496,8 @@ class DtaProcess(object):
                         try:
                             # keyword = f'广东省 茂名市 交通 碳排放'
                             keyword = f'{cityMat} {sector} {key}'
-                            log.info(f'[START] keyword : {keyword}')
+                            # log.info(f'[START] keyword : {keyword}')
+                            print(f'[START] keyword : {keyword}')
 
                             # 검색 화면
                             url = sysOpt['listUrl']
@@ -597,7 +599,8 @@ class DtaProcess(object):
 
                                 data = pd.concat([data, pd.DataFrame.from_dict(dict)], ignore_index=True)
 
-                            log.info(f'[END] keyword : {keyword} : {len(data)}')
+                            # log.info(f'[END] keyword : {keyword} : {len(data)}')
+                            print(f'[END] keyword : {keyword} : {len(data)}')
 
                         except NoSuchWindowException as e:
                             log.error(f"NoSuchWindowException : {e}")
