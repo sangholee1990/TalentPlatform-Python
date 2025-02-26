@@ -310,7 +310,9 @@ tzKst = pytz.timezone('Asia/Seoul')
 tzUtc = pytz.timezone('UTC')
 
 # Gemini Advanced
-genai.configure(api_key=None)
+# genai.configure(api_key=None)
+# genai.configure(api_key='AIzaSyCcWX2naC_JeugXS8zt4AsFeAUIFKAMaYQ')
+genai.configure(api_key='AIzaSyCf8gpB1bI0sqdUhQ_TNtQnUUEHEroahoA')
 model = genai.GenerativeModel('gemini-1.5-pro')
 
 # 설정 파일
@@ -361,7 +363,7 @@ class blogPostData(BaseModel):
     cont: str = Field(default=..., example='대표 블로그를 이용하여 필수 키워드 (알잘딱깔센)를 포함하여 블로그 포스팅을 작성해줘', description='요청사항')
 
 class blogPostChkData(BaseModel):
-    forbidWord: str = Field(default=..., example='시신|거지|야사|의사|자지|보지|아다|씹고|음탕|후장|병원|환자|진단|증상|증세|재발|방지|시술|본원|상담|고자|충동|후회|고비|인내|참아|자살|음부|고환|오빠가|후다|니미|애널|에널|해적|몰래|재생|유발|만족|무시|네요|하더라|품절|매진|마감|의아|의문|의심|가격|정가|구매|판매|매입|지저분함|요가|체형|등빨|탈출', description='금지어 키워드')
+    forbidWord: str = Field(default=..., example='만병통치약|기적의 치료|스폰서|후원|쿠팡파트너스|제휴 마케팅|도배성 홍보 문구|클릭하세요|구독해주세요|불법사이트|도박||폭력|해킹|불법|토렌트|인종|짱깨|쪽바리|깜둥이|성별|지역 비하|김치녀|한남충|맘충|틀딱|비하|정신병자|장애인|욕설|비하|시신|거지|야사|자지|보지|아다|씹고|음탕|후장|고자|충동|후회|고비|인내|참아|자살|음부|고환|후다|니미|애널|에널|해적|몰래|재생|유발|만족|무시|지저분함|등빨|탈출|살인|혐오|발언|폭력|성범죄|잠지|좆|씹|보짓물|질|음경|클리|유두|젖꼭지|가슴|엉덩이|사타구니|불알|정액|난자|월경|생리|섹스|정사|교미|성교|윤간|강간|성폭행|성추행|자위|ㄸㄸㅇ|ㅍㅍㅅㅅ|ㅇㅆ|ㅅㅅ|ㅈㅈ|ㅂㅈ|성관계|유사성행위|오랄|펠라|쿤니|애무|전희|후희|삽입|사정|절정|오르가즘|썅년|창녀|걸레|창놈|호빠|보빨|자빨|좆물|씹물|개씹|개좆|씹창|좆같다|쎅쓰|떡치다|따먹다|박다|쑤시다|조건|만남|출장|안마|오피|키스방|풀싸롱|하드코어|포르노|야동|야설|폰섹|영섹|딸감|품번|2차|노콘|노팬티|살해|폭행|구타|린치|칼빵|조폭|일진|학폭|왕따|도둑|절도|강도|사기|협박|납치|감금|살인미수|공갈|씨발|좆까|씹새끼|개새끼|미친놈|미친년|병신|찐따|retard|카지노|바카라|블랙잭|룰렛|슬롯머신|경마|경륜|경정|토토|프로토|사다리|파워볼|배팅|잭팟|올인|탕진|빚|도박중독|에이즈|임질|매독|헤르페스|불임|난임|기적|완치|즉효|특효|부작용|100%|효과|단기간|최저가|최고|비법|비밀|보장|대마초|필로폰|코카인|헤로인|LSD|엑스터시|마리화나|뽕|히로뽕|떨|은어|복수|대박|초대박|한정|긴급|서두르세요|로또|지랄|꺼져|닥쳐|엿 먹어|썅|개소리|또라이|성행위|구강성교|항문성교|음란물|나체|누드|성기|노골적|변태|AV|에이브이|AIDS|낙태|임신중절|자해|발기부전|조루증|정력제|흥분제|불치병|난치병|비아그라', description='금지어 키워드')
     cont: str = Field(default=..., example="""요즘 몸도 힘들고 마음도 힘들고 이래저래 기운없는 나날들을 보내고 있어요. 몸이 피곤하니 마음도 기분도 울적한가 봐요. 뒤늦게 가을을 타는 걸까요?
 하고 싶은 제 머리는 아니지만 오늘을 딸의 생애 첫 커트에 대한 간단한 일기를 포스팅하겠습니다.
 
@@ -549,9 +551,10 @@ async def blogPostChk(request: blogPostChkData = Form(...)):
     try:
         # 금지어 목록
         forbidWord = request.forbidWord
-        forbidWordList = forbidWord.split("|")
+        forbidWordList = list(filter(None, forbidWord.split("|")))
         if forbidWord is None or len(forbidWord) < 1 or forbidWordList is None or len(forbidWordList) < 1:
             return resResponse("fail", 400, f"금지어 키워드를 확인해주세요 : {forbidWord}", None)
+        # log.info(f"[CHECK] forbidWordList : {forbidWordList}")
 
         cont = request.cont
         if cont is None or len(cont) < 1:
@@ -565,22 +568,28 @@ async def blogPostChk(request: blogPostChkData = Form(...)):
 
         # 불용어 제거
         keywordList = [word for word in keywordList if word not in stopWordList and len(word) > 1]
+        log.info(f"[CHECK] keywordList : {keywordList}")
 
         # 빈도수 계산
         keywordCnt = Counter(keywordList)
         data = pd.DataFrame(keywordCnt.items(), columns=['keyword', 'cnt'])
 
-        pattern = re.compile("|".join(forbidWordList))
-        data['type'] = data['keyword'].apply(lambda x: '금지어' if pattern.search(x) else '일반어')
-        dataL1 = data.sort_values(by=['type', 'cnt'], ascending=False)
+        pattern = re.compile(r"\b(?:{})\b".format("|".join(map(re.escape, forbidWordList))))
+        # log.info(f"[CHECK] forbidWordList : {len(forbidWordList)} : {forbidWordList}")
 
-        forbidData = data[data['type'] == '금지어'].sort_values(by='cnt', ascending=False)
-        normalData = data[data['type'] == '일반어'].sort_values(by='cnt', ascending=False)
-        forbidList = forbidData['keyword'].tolist()
-        normalList = normalData['keyword'].tolist()
+        # data['type'] = data['keyword'].apply(lambda x: '금지어' if pattern.search(str(x)) else '일반어')
+        data['type'] = '일반어'
+        data.loc[data['keyword'].str.contains(pattern, na=False, regex=True), 'type'] = '금지어'
 
-        # log.info(f"[CHECK] 금지어 목록: {len(forbidList)} : {forbidList}")
-        # log.info(f"[CHECK] 일반어 목록: {len(normalList)} : {normalList}")
+        dataL1 = data.sort_values(by=['type', 'cnt'], ascending=[False, False])
+
+        forbidData = dataL1[dataL1['type'] == '금지어']
+        normalData = dataL1[dataL1['type'] == '일반어']
+        # forbidList = forbidData['keyword'].tolist()
+        # normalList = normalData['keyword'].tolist()
+
+        # log.info(f"[CHECK] 금지어 목록 : {len(forbidList)} : {forbidList}")
+        # log.info(f"[CHECK] 일반어 목록 : {len(normalList)} : {normalList}")
 
         # result = {
         #     'forbid' : {
