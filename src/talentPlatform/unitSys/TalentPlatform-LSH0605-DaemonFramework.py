@@ -606,7 +606,6 @@ class DtaProcess(object):
                         # driver = initDriver(sysOpt)
                         # wait = WebDriverWait(driver, sysOpt['loadTimeout'])
                         # initLogin(driver, sysOpt)
-                        fullArt = None
                     except Exception:
                         fullArt = None
                     data.loc[idx, 'Full_Article'] = fullArt
