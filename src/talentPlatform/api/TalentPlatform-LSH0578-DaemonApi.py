@@ -310,9 +310,7 @@ tzKst = pytz.timezone('Asia/Seoul')
 tzUtc = pytz.timezone('UTC')
 
 # Gemini Advanced
-# genai.configure(api_key=None)
-# genai.configure(api_key='AIzaSyCcWX2naC_JeugXS8zt4AsFeAUIFKAMaYQ')
-genai.configure(api_key='AIzaSyCf8gpB1bI0sqdUhQ_TNtQnUUEHEroahoA')
+genai.configure(api_key=None)
 model = genai.GenerativeModel('gemini-1.5-pro')
 
 # 설정 파일
