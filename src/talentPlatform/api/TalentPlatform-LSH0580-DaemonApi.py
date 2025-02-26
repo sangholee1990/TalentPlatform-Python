@@ -172,33 +172,27 @@ prjName = 'test'
 ctxPath = os.getcwd()
 # ctxPath = f"/SYSTEMS/PROG/PYTHON/IDE"
 
-globalVar = {
-    'ctxPath': f"{ctxPath}"
-    , 'inpPath': f"/DATA/INPUT/{serviceName}"
-    , 'outPath': f"/DATA/OUTPUT/{serviceName}"
-    , 'figPath': f"/DATA/FIG/{serviceName}"
-    , 'cfgPath': f"/SYSTEMS/PROG/PYTHON/IDE/resources/config"
-}
-
-for key, val in globalVar.items():
-    if key.__contains__('Path'):
-        os.makedirs(val, exist_ok=True)
-        print(f"[CHECK] {key} : {val}")
+log = initLog(env, ctxPath, prjName)
 
 # 작업 경로 설정
-# os.chdir(f"{globalVar['ctxPath']}")
-# print(f"[CHECK] getcwd : {os.getcwd()}")
-
-log = initLog(env, ctxPath, prjName)
+# os.chdir(f"{ctxPath}")
+# log.info(f"[CHECK] getcwd : {os.getcwd()}")
 
 # 옵션 설정
 sysOpt = {
     # 시작/종료 시간
-    'srtDate': '2018-01-01'
-    , 'endDate': '2018-12-31'
-    , 'api': {
-        'nph-qpf_ana_img': 'https://apihub.kma.go.kr/api/typ03/cgi/dfs/nph-qpf_ana_img?eva=1&tm=%Y%m%d%H%M&qpf=B&ef=360&map=HR&grid=2&legend=1&size=600&zoom_level=0&zoom_x=0000000&zoom_y=0000000&stn=108&x1=470&y1=575&authKey=DMoNuRIXSjSKDbkSF_o0qg'
-    }
+    'srtDate': '2018-01-01',
+    'endDate': '2018-12-31',
+    'api': {
+        'nph-qpf_ana_img': 'https://apihub.kma.go.kr/api/typ03/cgi/dfs/nph-qpf_ana_img?eva=1&tm=%Y%m%d%H%M&qpf=B&ef=360&map=HR&grid=2&legend=1&size=600&zoom_level=0&zoom_x=0000000&zoom_y=0000000&stn=108&x1=470&y1=575&authKey=DMoNuRIXSjSKDbkSF_o0qg',
+    },
+
+    # CORS 설정
+    'oriList': [
+        'http://localhost:8300',
+        'http://localhost:3000',
+        'http://49.247.41.71:8300',
+    ],
 }
 
 app = FastAPI(
@@ -210,29 +204,14 @@ app = FastAPI(
 # 공유 설정
 # app.mount('/UPLOAD', StaticFiles(directory='/DATA/UPLOAD'), name='/DATA/UPLOAD')
 
-# CORS 설정
-oriList = [
-    'http://localhost:8300'
-    , 'http://localhost:3000'
-    , 'http://49.247.41.71:8300'
-]
-
 app.add_middleware(
     CORSMiddleware
     # , allow_origins=["*"]
-    , allow_origins=oriList
+    , allow_origins=sysOpt['oriList']
     , allow_credentials=True
     , allow_methods=["*"]
     , allow_headers=["*"]
 )
-
-
-# jsonFile = '{}/{}'.format(globalVar['cfgPath'], 'iconic-ruler-239806-7f6de5759012.json')
-# jsonList = sorted(glob.glob(jsonFile))
-# jsonInfo = jsonList[0]
-
-# credentials = service_account.Credentials.from_service_account_file(jsonInfo)
-# client = bigquery.Client(credentials=credentials, project=credentials.project_id)
 
 # base = declarative_base()
 

@@ -81,6 +81,9 @@ from urllib.parse import urlencode
 from konlpy.tag import Okt
 from collections import Counter
 import re
+import nltk
+from nltk.corpus import stopwords
+# nltk.download('stopwords')
 
 # =================================================
 # 사용자 매뉴얼
@@ -314,31 +317,55 @@ class DtaProcess(object):
 
             # 옵션 설정
             sysOpt = {
-                'loginUrl': "https://www.pkulaw.com/login",
-                'listUrl': "https://www.pkulaw.com",
+                # 수집 설정
+                'colct': {
+                    'naver': {
+                        'baseUrl': "https://datalab.naver.com/shoppingInsight/getKeywordRank.naver",
+                        'cateList': [
+                            {"name": "패션의류", "param": ["50000000"]},
+                            {"name": "패션잡화", "param": ["50000001"]},
+                            {"name": "화장품/미용", "param": ["50000002"]},
+                            {"name": "디지털/가전", "param": ["50000003"]},
+                            {"name": "가구/인테리어", "param": ["50000004"]},
+                            {"name": "출산/육아", "param": ["50000005"]},
+                            {"name": "식품", "param": ["50000006"]},
+                            {"name": "스포츠/레저", "param": ["50000007"]},
+                            {"name": "생활/건강", "param": ["50000008"]},
+                            {"name": "여가/생활편의", "param": ["50000009"]},
+                            {"name": "도서", "param": ["50005542"]},
+                        ],
+                        'headers': {
+                            "Content-Type": "application/x-www-form-urlencoded",
+                            "Referer": "https://datalab.naver.com",
+                            "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
+                        },
+                    },
 
-                'chromeInfo': "/DATA/INPUT/LSH0602/chrome-linux64/chrome",
-                'chromedriverInfo':"/DATA/INPUT/LSH0602/chromedriver-linux64/chromedriver",
+                    'whereispost': {
+                        'baseUrl': "https://whereispost.com/hot",
+                        'headers': {
+                            "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/123.0.0.0 Safari/537.36"
+                        },
+                    },
+                    'ezme': {
+                        'baseUrl': "https://rank.ezme.net",
+                        'headers': {
+                            "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/123.0.0.0 Safari/537.36"
+                        },
+                    },
+                },
 
-                # 지연 시간
-                'pageTimeout': 120,
-                'loadTimeout': 60,
-                'defTimeout': 30,
-
-                # 로그인 기능
-                'loginId': "18333208671",
-                'loginPw': "world&peace",
-
-                # 검색 목록
-                'sectorList': ['交通', '住宅', '建筑', '电力', '工业'],
-                'keyList': ["碳排放", "低碳", "减碳", "温室气体", "节能", "能源效率", "能源消耗", "产能过剩", "碳中和", "可再生能源", "清洁能源", "绿色能源", "能源转型", "减排", "绿色建筑", "非化石能源", "碳足迹"],
-
-                'stopWordFileInfo': '/SYSTEMS/PROG/PYTHON/IDE/resources/config/word/stopwords-ko.txt',
-
-                # 자료 저장
-                'saveFileList': '/DATA/OUTPUT/LSH0605/*_{cityMat}.xlsx',
-                'saveFile': '/DATA/OUTPUT/LSH0605/%Y%m%d_{cityMat}.xlsx',
+                # 가공 설정
+                'filter': {
+                    'stopWordFileInfo': '/SYSTEMS/PROG/PYTHON/IDE/resources/config/word/stopwords-ko.txt',
+                    'forbidWordList': ["시신", "거지", "야사", "의사", "자지", "보지", "아다", "씹고", "음탕", "후장", "병원", "환자", "진단",
+                                       "증상", "증세", "재발", "방지", "시술", "본원", "상담", "고자", "충동", "후회", "고비", "인내", "참아",
+                                       "자살", "음부", "고환", "오빠가", "후다", "니미", "애널", "에널", "해적", "몰래", "재생", "유발", "만족",
+                                       "무시", "네요", "하더라", "품절", "매진", "마감", "의아", "의문", "의심", "가격", "정가", "구매", "판매",
+                                       "매입", "지저분함", "요가", "체형", "등빨", "탈출"]
+                },
             }
+
             # ==========================================================================================================
             # 블로그 지수에 영향을 주는 금지어 위반 목록 찾기
             # https://github.com/keunyop/BadWordCheck
@@ -380,47 +407,37 @@ class DtaProcess(object):
 마음에 제가 이용하는 미용실로 데리고 갔어요.
 ㅎㅎㅎ
             """
-            import nltk
-            from nltk.corpus import stopwords
-            # nltk.download('stopwords')
 
             # 불용어 목록
-            fileList = sorted(glob.glob(sysOpt['stopWordFileInfo']))
+            fileList = sorted(glob.glob(sysOpt['filter']['stopWordFileInfo']))
             stopWordData = pd.read_csv(fileList[0])
             stopWordList = stopWordData['word'].tolist()
 
             # 금지어 목록
-            forbidWordList = ["시신", "거지", "야사", "의사", "자지", "보지", "아다", "씹고", "음탕", "후장", "병원", "환자", "진단",
-                              "증상", "증세", "재발", "방지", "시술", "본원", "상담", "고자", "충동", "후회", "고비", "인내", "참아", "자살", "음부",
-                              "고환", "오빠가", "후다",
-                              "니미", "애널", "에널", "해적", "몰래", "재생", "유발", "만족", "무시", "네요", "하더라", "품절", "매진", "마감", "의아",
-                              "의문", "의심", "가격",
-                              "정가", "구매", "판매", "매입", "지저분함", "요가", "체형", "등빨", "탈출"]
-
+            forbidWordList = sysOpt['filter']['forbidWordList']
             okt = Okt()
-            pos_tags = okt.pos(text, stem=True)
+            posTagList = okt.pos(text, stem=True)
 
             # 명사 추출
-            keywords = [word for word, pos in pos_tags if pos in ['Noun']]
-            # print(stopwords.words('english'))
+            keywordList = [word for word, pos in posTagList if pos in ['Noun']]
 
             # 불용어 제거
-            keywordList = [word for word in keywords if word not in stopWordList and len(word) > 1]
+            keywordList = [word for word in keywordList if word not in stopWordList and len(word) > 1]
 
             # 빈도수 계산
             keywordCnt = Counter(keywordList)
             data = pd.DataFrame(keywordCnt.items(), columns=['keyword', 'cnt'])
 
             pattern = re.compile("|".join(forbidWordList))
-            data['type'] = data['keyword'].apply(lambda x: '금지어' if pattern.search(x) else '일반')
+            data['type'] = data['keyword'].apply(lambda x: '금지어' if pattern.search(x) else '일반어')
 
+            forbidData = data[data['type'] == '금지어'].sort_values(by='cnt', ascending=False)
+            normalData = data[data['type'] == '일반어'].sort_values(by='cnt', ascending=False)
+            forbidList = forbidData['keyword'].tolist()
+            normalList = normalData['keyword'].tolist()
 
-            forbid_list = data[data['type'] == '금지어']['keyword'].tolist()
-            normal_list = data[data['type'] == '일반']['keyword'].tolist()
-
-            print(f"금지어 목록: {len(forbid_list)} : {forbid_list}")
-            print(f"일반 키워드 목록: {len(normal_list)} : {normal_list}")
-
+            log.info(f"[CHECK] 금지어 목록: {len(forbidList)} : {forbidList}")
+            log.info(f"[CHECK] 일반어 목록: {len(normalList)} : {normalList}")
 
             # ==========================================================================================================
             # 네이버 트렌드 기반 실시간 검색어 (분야 선택 필연)
@@ -430,187 +447,159 @@ class DtaProcess(object):
             # 통합 검색어 트렌드 https://openapi.naver.com/v1/datalab/search
             # 쇼핑인사이트 https://openapi.naver.com/v1/datalab/shopping/categories
             # ==========================================================================================================
-            dataL1 = pd.DataFrame()
-
-            baseUrl = "https://datalab.naver.com/shoppingInsight/getKeywordRank.naver"
-            cateList = [
-                {"name": "패션의류", "param": ["50000000"]},
-                {"name": "패션잡화", "param": ["50000001"]},
-                {"name": "화장품/미용", "param": ["50000002"]},
-                {"name": "디지털/가전", "param": ["50000003"]},
-                {"name": "가구/인테리어", "param": ["50000004"]},
-                {"name": "출산/육아", "param": ["50000005"]},
-                {"name": "식품", "param": ["50000006"]},
-                {"name": "스포츠/레저", "param": ["50000007"]},
-                {"name": "생활/건강", "param": ["50000008"]},
-                {"name": "여가/생활편의", "param": ["50000009"]},
-                {"name": "도서", "param": ["50005542"]},
-            ]
-
-            headers = {
-                "Content-Type": "application/x-www-form-urlencoded",
-                "Referer": "https://datalab.naver.com/",
-                "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
-            }
-
-
-            for idx, cateInfo in enumerate(cateList):
-                params = {
-                    "timeUnit": "date",
-                    "cid": cateInfo['param'][0],
-                }
-
-                queryStr = urlencode(params)
-                url = f"{baseUrl}?{queryStr}"
-
-                response = requests.post(url, headers=headers)
-                if not (response.status_code == 200): continue
-
-                resData = response.json()
-                resDataL1 = resData[-1]
-
-                orgData = pd.DataFrame(resDataL1['ranks']).rename(
-                    columns={
-                        'rank': 'no'
+            try:
+                dataL1 = pd.DataFrame()
+                for idx, cateInfo in enumerate(sysOpt['colct']['naver']['cateList']):
+                    params = {
+                        "timeUnit": "date",
+                        "cid": cateInfo['param'][0],
                     }
-                )
 
-                orgData['type'] = 'naver'
-                orgData['cate'] = cateInfo['name']
-                orgData['dateTime'] = pd.to_datetime(resDataL1['date']).tz_localize('Asia/Seoul')
-                data = orgData[['type', 'cate', 'dateTime', 'no', 'keyword']]
+                    queryStr = urlencode(params)
+                    url = f"{sysOpt['colct']['naver']['baseUrl']}?{queryStr}"
 
-                if len(data) > 0:
-                    dataL1 = pd.concat([dataL1, data])
+                    response = requests.post(url, headers=sysOpt['colct']['naver']['headers'])
+                    if not (response.status_code == 200): continue
+
+                    resData = response.json()
+                    resDataL1 = resData[-1]
+
+                    orgData = pd.DataFrame(resDataL1['ranks']).rename(
+                        columns={
+                            'rank': 'no'
+                        }
+                    )
+
+                    orgData['type'] = 'naver'
+                    orgData['cate'] = cateInfo['name']
+                    orgData['dateTime'] = pd.to_datetime(resDataL1['date']).tz_localize('Asia/Seoul')
+                    data = orgData[['type', 'cate', 'dateTime', 'no', 'keyword']]
+
+                    if len(data) > 0:
+                        dataL1 = pd.concat([dataL1, data])
+            except Exception as e:
+                log.error(f"네이버 검색어 수집 실패 : {e}")
 
             # ==========================================================================================================
             # 구글 트렌드 기반 실시간 검색어 웹
             # 동적 크롤링
+            # https://trends.google.co.kr/trending?geo=KR&hl=ko
             # ==========================================================================================================
-            pytrends = TrendReq(hl='ko-KR', tz=540)
-            orgData = pytrends.trending_searches(pn='south_korea')
+            try:
+                pytrends = TrendReq(geo='ko-KR', tz=540)
+                orgData = pytrends.trending_searches(pn='south_korea')
 
-            orgDataL1 = orgData.rename(columns={0: 'keyword'})
-            orgDataL1['no'] = orgDataL1.index + 1
-            orgDataL1['dateTime'] = datetime.now(tz=tzKst)
-            orgDataL1['type'] = 'google'
-            orgDataL1['cate'] = '전체'
+                orgDataL1 = orgData.rename(columns={0: 'keyword'})
+                orgDataL1['no'] = orgDataL1.index + 1
+                orgDataL1['dateTime'] = datetime.now(tz=tzKst)
+                orgDataL1['type'] = 'google'
+                orgDataL1['cate'] = '전체'
 
-            data = orgDataL1[['type', 'cate', 'dateTime', 'no', 'keyword']]
-            if len(data) > 0:
-                dataL1 = pd.concat([dataL1, data])
+                data = orgDataL1[['type', 'cate', 'dateTime', 'no', 'keyword']]
+                if len(data) > 0:
+                    dataL1 = pd.concat([dataL1, data])
+            except Exception as e:
+                log.error(f"구글 검색어 수집 실패 : {e}")
 
             # ==========================================================================================================
             # 웨어이즈포스트 기반 실시간 검색어
             # 정적 크롤링
             # ==========================================================================================================
-            url = "https://whereispost.com/hot"
-
-            headers = {
-                "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/123.0.0.0 Safari/537.36"
-            }
-
-            response = requests.get(url, headers=headers)
-            response.raise_for_status()
-
-            soup = BeautifulSoup(response.text, 'html.parser')
-            lxml = etree.HTML(str(soup))
-
             try:
-                tag = lxml.xpath('/html/body/content/div/div/div/div[1]/text()')[0]
-                match = re.search(r'\d{4}-\d{2}-\d{2} \d{2}:\d{2}', tag.strip())
-                sDateTime = None if match is None else match.group(0)
-                dtDateTime = pd.to_datetime(sDateTime).tz_localize('Asia/Seoul')
-            except Exception:
-                dtDateTime = None
-            log.info(f'[CHECK] dtDateTime : {dtDateTime}')
+                response = requests.get(sysOpt['colct']['whereispost']['baseUrl'], headers=sysOpt['colct']['whereispost']['headers'])
+                response.raise_for_status()
 
-            noList = soup.find('ul', {'class': 'list-group bg-white'}).find_all("span", {'class': 'rank daum_color'})
-            keywordList = soup.find('ul', {'class': 'list-group bg-white'}).find_all("span", {'class': 'keyword'})
+                soup = BeautifulSoup(response.text, 'html.parser')
+                lxml = etree.HTML(str(soup))
 
-            data = pd.DataFrame()
-            for noInfo, keywordInfo in zip(noList, keywordList):
                 try:
-                    no = None if noInfo is None or len(noInfo) < 1 else noInfo.text.strip()
-                    keyword = None if keywordInfo is None or len(keywordInfo) < 1 else keywordInfo.text.strip()
-
-                    dict = {
-                        'type': ['whereispost'],
-                        'cate': '전체',
-                        'dateTime': [dtDateTime],
-                        'no': [no],
-                        'keyword': [keyword],
-                    }
-
-                    data = pd.concat([data, pd.DataFrame.from_dict(dict)])
-
+                    tag = lxml.xpath('/html/body/content/div/div/div/div[1]/text()')[0]
+                    match = re.search(r'\d{4}-\d{2}-\d{2} \d{2}:\d{2}', tag.strip())
+                    sDateTime = None if match is None else match.group(0)
+                    dtDateTime = pd.to_datetime(sDateTime).tz_localize('Asia/Seoul')
                 except Exception:
-                    pass
+                    dtDateTime = None
+                log.info(f'[CHECK] dtDateTime : {dtDateTime}')
 
-            if len(data) > 0:
-                dataL1 = pd.concat([dataL1, data])
+                noList = soup.find('ul', {'class': 'list-group bg-white'}).find_all("span", {'class': 'rank daum_color'})
+                keywordList = soup.find('ul', {'class': 'list-group bg-white'}).find_all("span", {'class': 'keyword'})
+
+                data = pd.DataFrame()
+                for noInfo, keywordInfo in zip(noList, keywordList):
+                    try:
+                        no = None if noInfo is None or len(noInfo) < 1 else noInfo.text.strip()
+                        keyword = None if keywordInfo is None or len(keywordInfo) < 1 else keywordInfo.text.strip()
+
+                        dict = {
+                            'type': ['whereispost'],
+                            'cate': '전체',
+                            'dateTime': [dtDateTime],
+                            'no': [no],
+                            'keyword': [keyword],
+                        }
+
+                        data = pd.concat([data, pd.DataFrame.from_dict(dict)])
+
+                    except Exception:
+                        pass
+
+                if len(data) > 0:
+                    dataL1 = pd.concat([dataL1, data])
+
+            except Exception as e:
+                log.error(f"웨어이즈포스트 검색어 수집 실패 : {e}")
 
             # ==========================================================================================================
             # 이지미넷 기반 실시간 검색어
             # 정적 크롤링
             # ==========================================================================================================
-            url = "https://rank.ezme.net"
-
-            headers = {
-                "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/123.0.0.0 Safari/537.36"
-            }
-
-            response = requests.get(url, headers=headers)
-            response.raise_for_status()
-
-            soup = BeautifulSoup(response.text, 'html.parser')
-
             try:
-                tag = soup.find('div', {'id': 'content'}).find('small')
-                sDateTime = None if tag is None or len(tag) < 1 else tag.text.strip()
-                dtDateTime = pd.to_datetime(sDateTime).tz_localize('Asia/Seoul')
-            except Exception:
-                dtDateTime = None
-            log.info(f'[CHECK] dtDateTime : {dtDateTime}')
+                response = requests.get(sysOpt['colct']['ezme']['baseUrl'], headers=sysOpt['colct']['ezme']['headers'])
+                response.raise_for_status()
 
+                soup = BeautifulSoup(response.text, 'html.parser')
 
-            noList = soup.find('div', {'id': 'content'}).find_all("span", {'class': 'rank_no'})
-            keywordList = soup.find('div', {'id': 'content'}).find_all("span", {'class': 'rank_word'})
-
-            data = pd.DataFrame()
-            for noInfo, keywordInfo in zip(noList, keywordList):
                 try:
-                    no = None if noInfo is None or len(noInfo) < 1 else noInfo.text.strip(".").strip()
-                    keyword = None if keywordInfo is None or len(keywordInfo) < 1 else keywordInfo.find('a').text.strip()
-
-                    dict = {
-                        'type': ['ezme'],
-                        'cate': '전체',
-                        'dateTime': [dtDateTime],
-                        'no': [no],
-                        'keyword': [keyword],
-                    }
-
-                    data = pd.concat([data, pd.DataFrame.from_dict(dict)])
+                    tag = soup.find('div', {'id': 'content'}).find('small')
+                    sDateTime = None if tag is None or len(tag) < 1 else tag.text.strip()
+                    dtDateTime = pd.to_datetime(sDateTime).tz_localize('Asia/Seoul')
                 except Exception:
-                    pass
+                    dtDateTime = None
+                log.info(f'[CHECK] dtDateTime : {dtDateTime}')
 
-            if len(data) > 0:
-                dataL1 = pd.concat([dataL1, data])
+                noList = soup.find('div', {'id': 'content'}).find_all("span", {'class': 'rank_no'})
+                keywordList = soup.find('div', {'id': 'content'}).find_all("span", {'class': 'rank_word'})
+
+                data = pd.DataFrame()
+                for noInfo, keywordInfo in zip(noList, keywordList):
+                    try:
+                        no = None if noInfo is None or len(noInfo) < 1 else noInfo.text.strip(".").strip()
+                        keyword = None if keywordInfo is None or len(keywordInfo) < 1 else keywordInfo.find('a').text.strip()
+
+                        dict = {
+                            'type': ['ezme'],
+                            'cate': '전체',
+                            'dateTime': [dtDateTime],
+                            'no': [no],
+                            'keyword': [keyword],
+                        }
+
+                        data = pd.concat([data, pd.DataFrame.from_dict(dict)])
+                    except Exception:
+                        pass
+
+                if len(data) > 0:
+                    dataL1 = pd.concat([dataL1, data])
+            except Exception as e:
+                log.error(f"이지미넷 검색어 수집 실패 : {e}")
 
             # ==========================================================================================================
             # 자료 저장
             # ==========================================================================================================
             dataL2 = dataL1.reset_index(drop=True)
 
-            # if len(data) > 0:
-            #     saveFile = datetime.now().strftime(sysOpt['saveFile']).format(cityMat=cityMat)
-            #     os.makedirs(os.path.dirname(saveFile), exist_ok=True)
-            #     data.to_excel(saveFile, index=False)
-            #     log.info(f'[CHECK] saveFile : {saveFile}')
-
         except Exception as e:
-            log.error(f"Exception : {str(e)}")
+            log.error(f"Exception : {e}")
             raise e
         finally:
             log.info('[END] {}'.format("exec"))
