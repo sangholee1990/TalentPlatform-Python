@@ -532,11 +532,11 @@ class DtaProcess(object):
 
                                 data = pd.concat([data, pd.DataFrame.from_dict(dict)], ignore_index=True)
                         except NoSuchWindowException as e:
-                            log.error(f"NoSuchWindowException : {str(e)}")
+                            log.error(f"NoSuchWindowException : {e}")
                             driver = initDriver(sysOpt)
                             initLogin(driver, sysOpt)
                         except Exception as e:
-                            log.error(f"Exception : {str(e)}")
+                            log.error(f"Exception : {e}")
 
                 # ==========================================================================================================
                 # 상세정보 추출
