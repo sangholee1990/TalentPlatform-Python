@@ -64,6 +64,8 @@ import time
 from selenium import webdriver
 import chardet
 from selenium.common.exceptions import NoSuchWindowException
+from selenium.common.exceptions import TimeoutException
+from selenium.common.exceptions import NoSuchElementException
 
 # =================================================
 # 사용자 매뉴얼
@@ -243,45 +245,50 @@ def initDriver(sysOpt):
 
 def initLogin(driver, sysOpt):
 
-    # 로그인 페이지 이동
-    url = sysOpt['loginUrl']
-    driver.get(url)
-
-    # driver.save_screenshot("/tmp/screenshot.png")
-
-    # 최대 timeout 대기
-    wait = WebDriverWait(driver, sysOpt['loadTimeout'])
-
-    # 광고 삭제
     try:
-        isId = driver.find_element("id", "layui-layer1")
-        if isId:
-            btnId = wait.until(EC.element_to_be_clickable((By.CLASS_NAME, "layui-layer-close2")))
-            btnId.click()
+        # 로그인 페이지 이동
+        url = sysOpt['loginUrl']
+        driver.get(url)
+
+        # driver.save_screenshot("/tmp/screenshot.png")
+
+        # 최대 timeout 대기
+        wait = WebDriverWait(driver, sysOpt['loadTimeout'])
+
+        # 회원 활성화 버튼
+        btnId = wait.until(EC.presence_of_element_located((By.ID, "zhanghaodenglu")))
+        btnId.click()
+
+        # 계정 활성화 버튼
+        btnId = wait.until(EC.presence_of_element_located((By.ID, "userPasswordDiv")))
+        btnId.click()
+
+        # 이메일/아이디 입력
+        emailId = wait.until(EC.presence_of_element_located((By.ID, "email-phone")))
+        emailId.send_keys(sysOpt['loginId'])
+
+        # 비밀번호 입력
+        passId = wait.until(EC.presence_of_element_located((By.ID, "passwordFront")))
+        driver.execute_script("arguments[0].removeAttribute('disabled')", passId)
+        passId.send_keys(sysOpt['loginPw'])
+
+        # 로그인 버튼
+        btnId = wait.until(EC.element_to_be_clickable((By.ID, "loginByUserName")))
+        btnId.click()
+        time.sleep(sysOpt['defTimeout'])
+
+        # 광고 삭제
+        try:
+            isId = driver.find_element("id", "layui-layer1")
+            if isId:
+                btnId = wait.until(EC.element_to_be_clickable((By.CLASS_NAME, "layui-layer-close2")))
+                btnId.click()
+        except NoSuchElementException:
+            pass
+
     except Exception as e:
-        pass
+        log.error(f"Exception : {e}")
 
-    # 회원 활성화 버튼
-    btnId = wait.until(EC.presence_of_element_located((By.ID, "zhanghaodenglu")))
-    btnId.click()
-
-    # 계정 활성화 버튼
-    btnId = wait.until(EC.presence_of_element_located((By.ID, "userPasswordDiv")))
-    btnId.click()
-
-    # 이메일/아이디 입력
-    emailId = wait.until(EC.presence_of_element_located((By.ID, "email-phone")))
-    emailId.send_keys(sysOpt['loginId'])
-
-    # 비밀번호 입력
-    passId = wait.until(EC.presence_of_element_located((By.ID, "passwordFront")))
-    driver.execute_script("arguments[0].removeAttribute('disabled')", passId)
-    passId.send_keys(sysOpt['loginPw'])
-
-    # 로그인 버튼
-    btnId = wait.until(EC.element_to_be_clickable((By.ID, "loginByUserName")))
-    btnId.click()
-    time.sleep(sysOpt['defTimeout'])
 
 def textProp(text):
     text = re.sub(r'[\x00-\x1F\x7F-\x9F]', '', text)  # ASCII 제어 문자 제거
@@ -323,8 +330,8 @@ class DtaProcess(object):
     # * * * * * bash /SYSTEMS/PROG/SHELL/PROC/RunShell-ProcAgentCheck.sh
 
     # 프로그램 종료
-    # ps -ef | grep "TalentPlatform-LSH0605-DaemonFramework" | awk '{print $2}' | xargs kill -9
-    # ps -ef | grep "chrome" | awk '{print $2}' | xargs kill -9
+    # ps -ef | grep "TalentPlatform-LSH0605-DaemonFramework" | grep -v "grep" | awk '{print $2}' | xargs kill -9
+    # ps -ef | grep "chrome" | grep -v "grep" | awk '{print $2}' | xargs kill -9
 
     # ================================================================================================
     # 환경변수 설정
@@ -421,6 +428,15 @@ class DtaProcess(object):
             cfgDataL1 = cfgData.drop_duplicates(subset=['Matching_City_Column_2']).reset_index(drop=True)
 
             # ==========================================================================================================
+            # 크롬드라이브 삭제
+            # ==========================================================================================================
+            # os.system("pkill -f chromedriver")
+            # os.system("pkill -f chrome")
+
+            os.system("ps -ef | grep 'chrome' | grep -v 'grep' | awk '{print $2}' | xargs kill -9")
+            os.system("ps -ef | grep 'chrome' | grep -v 'grep' | awk '{print $2}' | xargs kill -9")
+
+            # ==========================================================================================================
             # 전역 설정
             # ==========================================================================================================
             # 크롬드라이브 초기화
@@ -452,13 +468,23 @@ class DtaProcess(object):
                 # 파일 존재
                 if len(saveFileList) > 0: continue
 
+                # os.system("pkill -f chromedriver")
+                # os.system("pkill -f chrome")
+
+                # 크롬드라이브 초기화
+                # driver = initDriver(sysOpt)
+                # wait = WebDriverWait(driver, sysOpt['loadTimeout'])
+
+                # 로그인
+                # initLogin(driver, sysOpt)
+
                 data = pd.DataFrame()
                 for j, sector in enumerate(sysOpt['sectorList']):
                     for k, key in enumerate(sysOpt['keyList']):
 
                         try:
                             keyword = f'{cityMat} {sector} {key}'
-                            # log.info(f'[CHECK] keyword : {keyword}')
+                            log.info(f'[CHECK] keyword : {keyword}')
 
                             # 검색 화면
                             url = sysOpt['listUrl']
@@ -557,10 +583,11 @@ class DtaProcess(object):
                                 # log.info(f'[CHECK] dict : {dict}')
 
                                 data = pd.concat([data, pd.DataFrame.from_dict(dict)], ignore_index=True)
+
                         except NoSuchWindowException as e:
                             log.error(f"NoSuchWindowException : {e}")
-                            driver = initDriver(sysOpt)
-                            initLogin(driver, sysOpt)
+                            # driver = initDriver(sysOpt)
+                            # initLogin(driver, sysOpt)
                         except Exception as e:
                             log.error(f"Exception : {e}")
 
@@ -576,9 +603,9 @@ class DtaProcess(object):
                         fullArt = textProp(divId.text) if divId else None
                     except NoSuchWindowException as e:
                         log.error(f"NoSuchWindowException : {str(e)}")
-                        driver = initDriver(sysOpt)
-                        wait = WebDriverWait(driver, sysOpt['loadTimeout'])
-                        initLogin(driver, sysOpt)
+                        # driver = initDriver(sysOpt)
+                        # wait = WebDriverWait(driver, sysOpt['loadTimeout'])
+                        # initLogin(driver, sysOpt)
                         fullArt = None
                     except Exception:
                         fullArt = None
@@ -593,6 +620,12 @@ class DtaProcess(object):
                     os.makedirs(os.path.dirname(saveFile), exist_ok=True)
                     data.to_excel(saveFile, index=False)
                     log.info(f'[CHECK] saveFile : {saveFile}')
+
+                if driver:
+                    driver.quit()
+                    driver.service.stop()
+
+                sys.exit(0)
 
         except Exception as e:
             log.error(f"Exception : {str(e)}")
