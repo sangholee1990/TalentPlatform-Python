@@ -82,8 +82,8 @@ from sklearn.model_selection import PredefinedSplit
 
 import pandas as pd
 import numpy as np
-# import tensorflow as tf
-# from tensorflow.keras import layers, models, regularizers
+import tensorflow as tf
+from tensorflow.keras import layers, models, regularizers
 from sklearn.preprocessing import StandardScaler
 from sklearn.metrics import mean_squared_error
 import matplotlib.pyplot as plt
@@ -386,13 +386,20 @@ def process_single_time(end_time, data_L1, time_deltas):
 # 병렬 처리 적용
 def process_in_parallel(data_L1, time_range, time_deltas):
     final_results = []
-    with concurrent.futures.ThreadPoolExecutor() as executor:
+    maxWorker = min(32, len(time_deltas))
+    with concurrent.futures.ThreadPoolExecutor(max_workers=maxWorker) as executor:
         futures = [executor.submit(process_single_time, end_time, data_L1, time_deltas) for end_time in time_range]
         for future in concurrent.futures.as_completed(futures):
-            final_results.append(future.result())
+            try:
+                result = future.result()
+                if result is None or len(result) < 1: continue
+                final_results.append(result)
+            except Exception as e:
+                pass
 
     # 행 병합
     final_data = pd.concat(final_results, axis=0).reset_index(drop=True)
+
     return final_data
 
 
@@ -439,6 +446,9 @@ def save_daily_data_to_csv(sysOpt, modelInfo, symbol, data_L1, date, time_deltas
     saveFilePattern = '{}/{}'.format(modelInfo['procPath'], modelInfo['procName'])
     saveFile = start_of_day.strftime(saveFilePattern).format(symbol=symbol)
     # if os.path.exists(saveFile): return
+
+    # 2024-01-10 00:00:00
+    # 2024-01-17 00:00:00
 
     # 해당 날짜의 데이터 처리
     daily_data = process_in_parallel(data_L1, time_range_day, time_deltas)
@@ -607,7 +617,7 @@ def get_train(data, target_date):
     train_data = train_data.reset_index(drop=True)
     test_data = test_data.reset_index(drop=True)
 
-    return train_data;
+    return train_data
 
 
 def get_test(data, target_date):
@@ -673,8 +683,7 @@ def get_valid_d(data, target_date):
     train_data = train_data.reset_index(drop=True)
     valid_data = valid_data.reset_index(drop=True)
 
-    return valid_data;
-
+    return valid_data
 
 def create_model(input_dim, learning_rate=0.001):
     model = models.Sequential()
@@ -850,12 +859,12 @@ class DtaProcess(object):
                 # , 'endDate': '2024-01-20 23:59'
                 , 'invDate': '1t'
                 , 'timeDel': [
-                    timedelta(days=7)   # 1주일 전
-                    , timedelta(days=1) # 하루 전
-                    , timedelta(hours=4)    # 4시간 전
-                    , timedelta(hours=1)    # 1시간 전
-                    , timedelta(minutes=15) # 15분 전
-                    , timedelta(minutes=5)  # 5분 전
+                    timedelta(days=7),
+                    timedelta(days=1),
+                    timedelta(hours=4),
+                    timedelta(hours=1),
+                    timedelta(minutes=15),
+                    timedelta(minutes=5),
                 ]
 
                 # 비동기 다중 프로세스 개수
@@ -926,14 +935,10 @@ class DtaProcess(object):
             # **************************************************************************************************************
             # 테스트
             # **************************************************************************************************************
-            # endDate = datetime.now()
-
             cfgData = cfgProc(sysOpt)
             if cfgData is None or len(cfgData) < 1:
-                log.error(f"[ERROR] cfgData['cfgUrl'] : {cfgData['cfgUrl']} / 설정 정보 URL을 확인해주세요.")
+                log.error(f"[ERROR] cfgUrl : {cfgData['cfgUrl']} / 설정 정보 URL을 확인해주세요.")
                 raise Exception("오류 발생")
-
-            # int(kst.localize(dtDateList[0]).timestamp() * 1000)
 
             for modelType in sysOpt['modelList']:
                 log.info(f'[CHECK] modelType : {modelType}')
@@ -1016,13 +1021,13 @@ class DtaProcess(object):
                     result = calculate_sum_cv(data_L1, sysOpt['srtDate'], sysOpt['endDate'])
 
                     # 그림 생산
-                    plot_close_and_sum_cv(sysOpt, modelInfo, symbol, result)
+                    # plot_close_and_sum_cv(sysOpt, modelInfo, symbol, result)
 
-                    # TODO 장시간 소요
+                    # TODO 장시간 소요 사용 안함
                     # 병렬 처리 함수 호출
                     # data_L2 = process_in_parallel(data_L1, time_range, time_deltas)
-                    data_L2 = process_in_parallel(data_L1, dtDateList, sysOpt['timeDel'])
-                    data_L2 = data_L2.sort_values(by='Open_time').reset_index(drop=True)
+                    # data_L2 = process_in_parallel(data_L1, dtDateList, sysOpt['timeDel'])
+                    # data_L2 = data_L2.sort_values(by='Open_time').reset_index(drop=True)
 
                     # 1일 간격
                     time_range = pd.date_range(start=dtSrtDate, end=dtEndDate, freq='1D')
@@ -1031,6 +1036,7 @@ class DtaProcess(object):
                     for single_date in time_range:
                         log.info(f"[CHECK] single_date : {single_date}")
                         save_daily_data_to_csv(sysOpt, modelInfo, symbol, data_L1, single_date, sysOpt['timeDel'])
+
 
                     # *******************************************************************************************
                     # 3번 : 전처리
