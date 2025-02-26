@@ -209,6 +209,7 @@ def initArgument(globalVar, inParams):
     return globalVar
 
 def initDriver(sysOpt):
+
     # Chrome 옵션 설정
     options = Options()
     options.headless = False  # 창을 띄우도록 설정 (True로 하면 백그라운드 실행)
@@ -250,6 +251,15 @@ def initLogin(driver, sysOpt):
 
     # 최대 timeout 대기
     wait = WebDriverWait(driver, sysOpt['loadTimeout'])
+
+    # 광고 삭제
+    try:
+        isId = driver.find_element("id", "layui-layer1")
+        if isId:
+            btnId = wait.until(EC.element_to_be_clickable((By.CLASS_NAME, "layui-layer-close2")))
+            btnId.click()
+    except Exception as e:
+        pass
 
     # 회원 활성화 버튼
     btnId = wait.until(EC.presence_of_element_located((By.ID, "zhanghaodenglu")))
@@ -308,6 +318,9 @@ class DtaProcess(object):
     # /HDD/SYSTEMS/LIB/anaconda3/envs/py38/bin/python /SYSTEMS/PROG/PYTHON/IDE/src/talentPlatform/unitSys/TalentPlatform-LSH0605-DaemonFramework.py
     # nohup /HDD/SYSTEMS/LIB/anaconda3/envs/py38/bin/python /SYSTEMS/PROG/PYTHON/IDE/src/talentPlatform/unitSys/TalentPlatform-LSH0605-DaemonFramework.py &
     # tail -f nohup.out
+
+    # 프로그램 실행 자동화
+    # * * * * * bash /SYSTEMS/PROG/SHELL/PROC/RunShell-ProcAgentCheck.sh
 
     # 프로그램 종료
     # ps -ef | grep "TalentPlatform-LSH0605-DaemonFramework" | awk '{print $2}' | xargs kill -9
@@ -379,9 +392,12 @@ class DtaProcess(object):
                 'chromedriverInfo':"/DATA/INPUT/LSH0602/chromedriver-linux64/chromedriver",
 
                 # 지연 시간
-                'pageTimeout': 120,
-                'loadTimeout': 60,
-                'defTimeout': 30,
+                # 'pageTimeout': 120,
+                # 'loadTimeout': 60,
+                # 'defTimeout': 30,
+                'pageTimeout': 60,
+                'loadTimeout': 30,
+                'defTimeout': 15,
 
                 # 로그인 기능
                 'loginId': "18333208671",
@@ -448,6 +464,15 @@ class DtaProcess(object):
                             url = sysOpt['listUrl']
                             driver.get(url)
                             time.sleep(sysOpt['defTimeout'])
+
+                            # 광고 삭제
+                            try:
+                                isId = driver.find_element("id", "layui-layer1")
+                                if isId:
+                                    btnId = wait.until(EC.element_to_be_clickable((By.CLASS_NAME, "layui-layer-close2")))
+                                    btnId.click()
+                            except Exception as e:
+                                pass
 
                             # 검색어 입력
                             inputId = wait.until(EC.presence_of_element_located((By.ID, "txtSearch")))
@@ -529,6 +554,7 @@ class DtaProcess(object):
                                     'Web_link': [webLink],
                                     'Full_Article': [None],
                                 }
+                                # log.info(f'[CHECK] dict : {dict}')
 
                                 data = pd.concat([data, pd.DataFrame.from_dict(dict)], ignore_index=True)
                         except NoSuchWindowException as e:
