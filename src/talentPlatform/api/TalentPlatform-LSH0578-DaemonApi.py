@@ -7,7 +7,6 @@
 # 도움말
 # =================================================
 # 프로그램 시작
-
 # cd /HDD/SYSTEMS/PROG/PYTHON/IDE/src/talentPlatform/api
 # conda activate py39
 
@@ -125,6 +124,17 @@ import re
 import nltk
 from nltk.corpus import stopwords
 # nltk.download('stopwords')
+from urllib import parse
+import time
+from urllib.parse import quote_plus, urlencode
+import pytz
+from pytrends.request import TrendReq
+from bs4 import BeautifulSoup
+from lxml import etree
+import xml.etree.ElementTree as et
+from pytrends.request import TrendReq
+from fastapi.responses import StreamingResponse
+from io import BytesIO
 
 # ============================================
 # 유틸리티 함수
@@ -179,7 +189,7 @@ def chkApiKey(api_key: str = Depends(APIKeyHeader(name="api"))):
     if api_key != '20241014-topbds':
         raise HTTPException(status_code=400, detail="API 인증 실패")
 
-def resRespone(status: str, code: int, message: str, cnt: int = 0, data: Any = None) -> dict:
+def resResponse(status: str, code: int, message: str, cnt: Any = None, data: Any = None) -> dict:
     return {
         "status": status
         , "code": code
@@ -187,6 +197,20 @@ def resRespone(status: str, code: int, message: str, cnt: int = 0, data: Any = N
         , "cnt": cnt
         , "data": data
     }
+
+async def streamExcel(dataframes: dict[str, pd.DataFrame]):
+    output = BytesIO()
+    with pd.ExcelWriter(output, engine='xlsxwriter') as writer:
+        for sheet_name, df in dataframes.items():
+            df.to_excel(writer, sheet_name=sheet_name, index=False)
+    output.seek(0)
+    while True:
+        chunk = output.read(4096)
+        if not chunk:
+            break
+        yield chunk
+        await asyncio.sleep(0)
+
 
 # ============================================
 # 주요 설정
@@ -217,6 +241,9 @@ sysOpt = {
         'http://49.247.41.71:9400',
     ],
 
+    # 입력 자료
+    'inpPath': '/DATA/INPUT/LSH0578',
+
     # 수집 설정
     'colct': {
         'naver': {
@@ -240,7 +267,6 @@ sysOpt = {
                 "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
             },
         },
-
         'whereispost': {
             'baseUrl': "https://whereispost.com/hot",
             'headers': {
@@ -278,6 +304,10 @@ app.add_middleware(
     , allow_methods=["*"]
     , allow_headers=["*"]
 )
+
+# 타임존 설정
+tzKst = pytz.timezone('Asia/Seoul')
+tzUtc = pytz.timezone('UTC')
 
 # Gemini Advanced
 genai.configure(api_key=None)
@@ -392,17 +422,17 @@ async def selPdfToTxt(
 
     try:
         if cont is None or len(cont) < 1:
-            return resRespone("fail", 400, f"요청사항이 없습니다 ({cont}).", None)
+            return resResponse("fail", 400, f"요청사항이 없습니다 : {cont}")
 
         if file is None:
-            return resRespone("fail", 400, f"PDF 파일이 없습니다 ({file}).", None)
+            return resResponse("fail", 400, f"PDF 파일이 없습니다 : {file}")
 
         if file.content_type != 'application/pdf':
-            return resRespone("fail", 400, "PDF 파일 없음", None)
+            return resResponse("fail", 400, "PDF 파일 없음")
 
         log.info(f"[CHECK] cont : {cont}")
 
-        with tempfile.NamedTemporaryFile(delete=False, suffix=".pdf", dir=globalVar['inpPath']) as tmpFile:
+        with tempfile.NamedTemporaryFile(delete=False, suffix=".pdf", dir=sysOpt['inpPath']) as tmpFile:
             tmpFile.write(file.file.read())
             tmpFileInfo = tmpFile.name
         log.info(f"[CHECK] tmpFileInfo : {tmpFile.name}")
@@ -410,9 +440,12 @@ async def selPdfToTxt(
         pdfFile = genai.upload_file(mime_type=file.content_type, path=tmpFileInfo, display_name=tmpFileInfo)
         res = model.generate_content([cont, pdfFile])
         result = res.candidates[0].content.parts[0].text
-        log.info(f"[CHECK] result : {result}")
+        # log.info(f"[CHECK] result : {result}")
 
-        return resRespone("succ", 200, "처리 완료", len(result), result)
+        if result is None or len(result) < 1:
+            return resResponse("fail", 400, "처리 실패")
+
+        return resResponse("succ", 200, "처리 완료", len(result), result)
 
     except Exception as e:
         log.error(f'Exception : {e}')
@@ -429,22 +462,23 @@ async def selBlogTypePost(request: blogTypePostData = Form(...)):
         분야별 템플릿 및 요청사항을 기반으로 블로그 포스팅 대필\n
     테스트\n
         type: 분야\n
-            20241103_13개 분야 별로 대표 템플릿 생성형 AI 4종 결과\n
-            https://docs.google.com/spreadsheets/d/1KMVTWiPQ6AZA1F3CqBLv2tw3TvG8kOLcOL3ISnFBQLk/edit?gid=472867053#gid=472867053 \n
+            - 20241103_13개 분야 별로 대표 템플릿 생성형 AI 4종 결과
+
+            - https://docs.google.com/spreadsheets/d/1KMVTWiPQ6AZA1F3CqBLv2tw3TvG8kOLcOL3ISnFBQLk/edit?gid=472867053#gid=472867053
         cont: 요청사항\n
     """
     try:
         type = request.type
         if type is None or len(type) < 1:
-            return resRespone("fail", 400, f"분야가 없습니다 ({type}).", None)
+            return resResponse("fail", 400, f"분야가 없습니다 : {type}")
 
         cont = request.cont
         if cont is None or len(cont) < 1:
-            return resRespone("fail", 400, f"요청사항이 없습니다 ({cont}).", None)
+            return resResponse("fail", 400, f"요청사항이 없습니다 : {cont}")
 
         csvDataL1 = csvData.loc[csvData['분야'] == type]
         if csvDataL1.empty:
-            return resRespone("fail", 400, "템플릿 파일 없음", None)
+            return resResponse("fail", 400, "템플릿 파일 없음")
 
         log.info(f"[CHECK] csvDataL1 : {csvDataL1}")
 
@@ -455,9 +489,12 @@ async def selBlogTypePost(request: blogTypePostData = Form(...)):
 
         res = model.generate_content(contL1)
         result = res.candidates[0].content.parts[0].text
-        log.info(f"[CHECK] result : {result}")
+        # log.info(f"[CHECK] result : {result}")
 
-        return resRespone("succ", 200, "처리 완료", len(result), result)
+        if result is None or len(result) < 1:
+            return resResponse("fail", 400, "처리 실패")
+
+        return resResponse("succ", 200, "처리 완료", len(result), result)
 
     except Exception as e:
         log.error(f'Exception : {e}')
@@ -475,13 +512,16 @@ async def selBlogPost(request: blogPostData = Form(...)):
     try:
         cont = request.cont
         if cont is None or len(cont) < 1:
-            return resRespone("fail", 400, f"요청사항이 없습니다 ({cont}).", None)
+            return resResponse("fail", 400, f"요청사항이 없습니다 : {cont}")
 
         res = model.generate_content(cont)
         result = res.candidates[0].content.parts[0].text
-        log.info(f"[CHECK] result : {result}")
+        # log.info(f"[CHECK] result : {result}")
 
-        return resRespone("succ", 200, "처리 완료", len(result), result)
+        if result is None or len(result) < 1:
+            return resResponse("fail", 400, "처리 실패")
+
+        return resResponse("succ", 200, "처리 완료", len(result), result)
 
     except Exception as e:
         log.error(f'Exception : {e}')
@@ -496,54 +536,26 @@ async def blogPostChk(request: blogPostChkData = Form(...)):
         금지어 키워드 목록을 기반으로 블로그 포스팅 금지어 검사\n
     요청 파라미터\n
         forbidWord: 금지어 키워드 목록
-
         cont: 블로그 포스팅 내용
     응답 결과\n
-        설명서
-            - status 처리상태 (succ, fail)
-            - code HTTP 응답코드 (성공 200, 그 외)
-            - message 처리 메시지 (처리 완료, 처리 실패, 에러 메시지)
-            - cnt 세부결과 개수
-            - data 세부결과
-
         샘플 결과
-            {
-              "status": "succ",
-              "code": 200,
-              "message": "처리 완료",
-              "cnt": 2,
-               "data": {
-                    "forbid": {
-                        "cnt": 0,   # 금지어 개수
-                        "data": []  # 금지어 데이터
-                    },
-                    "normal": {
-                        "cnt": 45,  # 일반어 개수
-                        "data": [   # 일반어 데이터
-                            {
-                              "keyword": "마음",  # 명사 키워드
-                              "cnt": 3,          # 빈도수
-                              "type": "일반어"    # 종류 (일반어 또는 금지어)
-                            },
-                            ...
-                        ]
-                    }
-                }
-            }
-
+            엑셀 파일 %Y%m%d%H%M_blogPostChk.xlsx
+            세부 시트
+                - forbid 금지어
+                - normal 일반어
     참조\n
-        https://github.com/keunyop/BadWordCheck\n
+        소스코드 https://github.com/keunyop/BadWordCheck
     """
     try:
         # 금지어 목록
         forbidWord = request.forbidWord
         forbidWordList = forbidWord.split("|")
         if forbidWord is None or len(forbidWord) < 1 or forbidWordList is None or len(forbidWordList) < 1:
-            return resRespone("fail", 400, f"금지어 키워드를 확인해주세요 : {forbidWord}", None)
+            return resResponse("fail", 400, f"금지어 키워드를 확인해주세요 : {forbidWord}", None)
 
         cont = request.cont
         if cont is None or len(cont) < 1:
-            return resRespone("fail", 400, f"블로그 포스팅 내용을 확인해주세요 : {cont}", None)
+            return resResponse("fail", 400, f"블로그 포스팅 내용을 확인해주세요 : {cont}", None)
 
         okt = Okt()
         posTagList = okt.pos(cont, stem=True)
@@ -560,6 +572,7 @@ async def blogPostChk(request: blogPostChkData = Form(...)):
 
         pattern = re.compile("|".join(forbidWordList))
         data['type'] = data['keyword'].apply(lambda x: '금지어' if pattern.search(x) else '일반어')
+        dataL1 = data.sort_values(by=['type', 'cnt'], ascending=False)
 
         forbidData = data[data['type'] == '금지어'].sort_values(by='cnt', ascending=False)
         normalData = data[data['type'] == '일반어'].sort_values(by='cnt', ascending=False)
@@ -569,21 +582,241 @@ async def blogPostChk(request: blogPostChkData = Form(...)):
         # log.info(f"[CHECK] 금지어 목록: {len(forbidList)} : {forbidList}")
         # log.info(f"[CHECK] 일반어 목록: {len(normalList)} : {normalList}")
 
-        result = {
-            'forbid' : {
-                'cnt': len(forbidList),
-                # 'list': forbidList,
-                'data': forbidData.to_dict(orient='records'),
-            },
-            'normal' : {
-                'cnt': len(normalList),
-                # 'list': normalList,
-                'data': normalData.to_dict(orient='records'),
-            },
-        }
-        log.info(f"[CHECK] result : {result}")
+        # result = {
+        #     'forbid' : {
+        #         'cnt': len(forbidList),
+        #         # 'list': forbidList,
+        #         'data': forbidData.to_dict(orient='records'),
+        #     },
+        #     'normal' : {
+        #         'cnt': len(normalList),
+        #         # 'list': normalList,
+        #         'data': normalData.to_dict(orient='records'),
+        #     },
+        # }
 
-        return resRespone("succ", 200, "처리 완료", len(result), result)
+        result = {
+            'forbid' : forbidData,
+            'normal' : normalData,
+        }
+        # log.info(f"[CHECK] result : {result}")
+
+        if result is None or len(result) < 1:
+            return resResponse("fail", 400, "처리 실패")
+
+        # return resResponse("succ", 200, "처리 완료", len(result), result)
+
+        return StreamingResponse(
+            streamExcel(result),
+            media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+            headers={"Content-Disposition": f"attachment; filename={datetime.now(tz=tzKst).strftime('%Y%m%d%H%M')}_blogPostChk.xlsx"}
+        )
+
+    except Exception as e:
+        log.error(f'blogPostChk 실패 : {e}')
+        raise HTTPException(status_code=400, detail=str(e))
+
+# @app.post(f"/api/sel-searchKeyword", dependencies=[Depends(chkApiKey)])
+@app.post(f"/api/sel-searchKeyword")
+async def searchKeyword():
+    """
+    기능\n
+        네이버/구글/웨어이즈포스트/이지미넷 사이트로부터 실시간 검색어\n
+    요청 파라미터\n
+        해당 없음
+    응답 결과\n
+        엑셀 파일 %Y%m%d%H%M_searchKeyword.xlsx
+        세부 시트
+            - naver 네이버
+            - google 구글 (2025.02.26 비공식 API 장애 발생 중)
+            - whereispost 웨어이즈포스트
+            - ezme 이지미넷
+
+    참조\n
+        네이버 쇼핑인사이트 검색어 https://datalab.naver.com
+        네이버 통합검색어 API https://openapi.naver.com/v1/datalab/search
+        네이버 쇼핑인사이트 API https://openapi.naver.com/v1/datalab/shopping/categories
+        구글 트렌드 검색어 https://trends.google.co.kr/trending?geo=KR&hl=ko
+        웨어이즈포스트 검색어 https://whereispost.com/hot
+        이지미넷 검색어 https://rank.ezme.net
+    """
+    try:
+        dataL1 = pd.DataFrame()
+
+        # ==========================================================================================================
+        # 네이버 쇼핑인사이트 검색어
+        # ==========================================================================================================
+        try:
+            for idx, cateInfo in enumerate(sysOpt['colct']['naver']['cateList']):
+                params = {
+                    "timeUnit": "date",
+                    "cid": cateInfo['param'][0],
+                }
+
+                queryStr = urlencode(params)
+                url = f"{sysOpt['colct']['naver']['baseUrl']}?{queryStr}"
+
+                response = requests.post(url, headers=sysOpt['colct']['naver']['headers'])
+                if not (response.status_code == 200): continue
+
+                resData = response.json()
+                resDataL1 = resData[-1]
+
+                orgData = pd.DataFrame(resDataL1['ranks']).rename(
+                    columns={
+                        'rank': 'no'
+                    }
+                )
+
+                orgData['type'] = 'naver'
+                orgData['cate'] = cateInfo['name']
+                orgData['dateTime'] = pd.to_datetime(resDataL1['date']).tz_localize('Asia/Seoul').strftime('%Y-%m-%d %H:%M')
+                data = orgData[['type', 'cate', 'dateTime', 'no', 'keyword']]
+
+                if len(data) > 0:
+                    dataL1 = pd.concat([dataL1, data])
+        except Exception as e:
+            log.error(f"네이버 검색어 수집 실패 : {e}")
+
+        # ==========================================================================================================
+        # 구글
+        # ==========================================================================================================
+        try:
+            pytrends = TrendReq(geo='ko-KR', tz=540)
+            orgData = pytrends.trending_searches(pn='south_korea')
+
+            orgDataL1 = orgData.rename(columns={0: 'keyword'})
+            orgDataL1['no'] = orgDataL1.index + 1
+            orgDataL1['dateTime'] = datetime.now(tz=tzKst).strftime('%Y-%m-%d %H:%M')
+            orgDataL1['type'] = 'google'
+            orgDataL1['cate'] = '전체'
+
+            data = orgDataL1[['type', 'cate', 'dateTime', 'no', 'keyword']]
+            if len(data) > 0:
+                dataL1 = pd.concat([dataL1, data])
+        except Exception as e:
+            log.error(f"구글 검색어 수집 실패 : {e}")
+
+        # ==========================================================================================================
+        # 웨어이즈포스트 검색어
+        # ==========================================================================================================
+        try:
+            response = requests.get(sysOpt['colct']['whereispost']['baseUrl'], headers=sysOpt['colct']['whereispost']['headers'])
+            response.raise_for_status()
+
+            soup = BeautifulSoup(response.text, 'html.parser')
+            lxml = etree.HTML(str(soup))
+
+            try:
+                tag = lxml.xpath('/html/body/content/div/div/div/div[1]/text()')[0]
+                match = re.search(r'\d{4}-\d{2}-\d{2} \d{2}:\d{2}', tag.strip())
+                sDateTime = None if match is None else match.group(0)
+                dtDateTime = pd.to_datetime(sDateTime).tz_localize('Asia/Seoul')
+            except Exception:
+                dtDateTime = None
+            # log.info(f'[CHECK] dtDateTime : {dtDateTime}')
+
+            noList = soup.find('ul', {'class': 'list-group bg-white'}).find_all("span", {'class': 'rank daum_color'})
+            keywordList = soup.find('ul', {'class': 'list-group bg-white'}).find_all("span", {'class': 'keyword'})
+
+            data = pd.DataFrame()
+            for noInfo, keywordInfo in zip(noList, keywordList):
+                try:
+                    no = None if noInfo is None or len(noInfo) < 1 else noInfo.text.strip()
+                    keyword = None if keywordInfo is None or len(keywordInfo) < 1 else keywordInfo.text.strip()
+
+                    dict = {
+                        'type': ['whereispost'],
+                        'cate': '전체',
+                        'dateTime': [dtDateTime.strftime('%Y-%m-%d %H:%M')],
+                        'no': [no],
+                        'keyword': [keyword],
+                    }
+
+                    data = pd.concat([data, pd.DataFrame.from_dict(dict)])
+
+                except Exception:
+                    pass
+
+            if len(data) > 0:
+                dataL1 = pd.concat([dataL1, data])
+
+        except Exception as e:
+            log.error(f"웨어이즈포스트 검색어 수집 실패 : {e}")
+
+        # ==========================================================================================================
+        # 이지미넷 검색어
+        # ==========================================================================================================
+        try:
+            response = requests.get(sysOpt['colct']['ezme']['baseUrl'], headers=sysOpt['colct']['ezme']['headers'])
+            response.raise_for_status()
+
+            soup = BeautifulSoup(response.text, 'html.parser')
+
+            try:
+                tag = soup.find('div', {'id': 'content'}).find('small')
+                sDateTime = None if tag is None or len(tag) < 1 else tag.text.strip()
+                dtDateTime = pd.to_datetime(sDateTime).tz_localize('Asia/Seoul')
+            except Exception:
+                dtDateTime = None
+            # log.info(f'[CHECK] dtDateTime : {dtDateTime}')
+
+            noList = soup.find('div', {'id': 'content'}).find_all("span", {'class': 'rank_no'})
+            keywordList = soup.find('div', {'id': 'content'}).find_all("span", {'class': 'rank_word'})
+
+            data = pd.DataFrame()
+            for noInfo, keywordInfo in zip(noList, keywordList):
+                try:
+                    no = None if noInfo is None or len(noInfo) < 1 else noInfo.text.strip(".").strip()
+                    keyword = None if keywordInfo is None or len(keywordInfo) < 1 else keywordInfo.find('a').text.strip()
+
+                    dict = {
+                        'type': ['ezme'],
+                        'cate': '전체',
+                        'dateTime': [dtDateTime.strftime('%Y-%m-%d %H:%M')],
+                        'no': [no],
+                        'keyword': [keyword],
+                    }
+
+                    data = pd.concat([data, pd.DataFrame.from_dict(dict)])
+                except Exception:
+                    pass
+
+            if len(data) > 0:
+                dataL1 = pd.concat([dataL1, data])
+        except Exception as e:
+            log.error(f"이지미넷 검색어 수집 실패 : {e}")
+
+        # ==========================================================================================================
+        # 통합 데이터
+        # ==========================================================================================================
+        dataL2 = dataL1.reset_index(drop=True)
+        if dataL2 is None or len(dataL2) < 1:
+            return resResponse("fail", 400, "처리 실패")
+
+        # result = {
+        #     'cnt': len(dataL2),
+        #     'data': dataL2.to_dict(orient='records'),
+        # }
+
+        result = {
+            'naver': dataL2[dataL2['type'].isin(['naver'])],
+            'google': dataL2[dataL2['type'].isin(['google'])],
+            'whereispost': dataL2[dataL2['type'].isin(['whereispost'])],
+            'ezme': dataL2[dataL2['type'].isin(['ezme'])],
+        }
+        # log.info(f"[CHECK] result : {result}")
+
+        if result is None or len(result) < 1:
+            return resResponse("fail", 400, "처리 실패")
+
+        # return resResponse("succ", 200, "처리 완료", len(result), result)
+
+        return StreamingResponse(
+            streamExcel(result),
+            media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+            headers={"Content-Disposition": f"attachment; filename={datetime.now(tz=tzKst).strftime('%Y%m%d%H%M')}_searchKeyword.xlsx"}
+        )
 
     except Exception as e:
         log.error(f'blogPostChk 실패 : {e}')
