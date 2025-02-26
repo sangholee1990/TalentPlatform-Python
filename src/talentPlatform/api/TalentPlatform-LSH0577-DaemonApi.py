@@ -200,8 +200,8 @@ sysOpt = {
 
     # CORS 설정
     'oriList': [
-        'http://localhost:9000'
-        , 'http://49.247.41.71:9000'
+        'http://localhost:9000',
+        'http://49.247.41.71:9000',
     ],
 }
 

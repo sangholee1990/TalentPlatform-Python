@@ -186,27 +186,23 @@ prjName = 'test'
 ctxPath = os.getcwd()
 # ctxPath = f"/SYSTEMS/PROG/PYTHON/IDE"
 
-globalVar = {
-    'ctxPath': f"{ctxPath}"
-    , 'inpPath': f"/DATA/INPUT/{serviceName}"
-    , 'outPath': f"/DATA/OUTPUT/{serviceName}"
-    , 'figPath': f"/DATA/FIG/{serviceName}"
-    , 'cfgPath': f"/SYSTEMS/PROG/PYTHON/IDE/resources/config"
-}
-
-for key, val in globalVar.items():
-    if key.__contains__('Path'):
-        os.makedirs(val, exist_ok=True)
-        print(f"[CHECK] {key} : {val}")
+log = initLog(env, ctxPath, prjName)
 
 # 작업 경로 설정
-# os.chdir(f"{globalVar['ctxPath']}")
-# print(f"[CHECK] getcwd : {os.getcwd()}")
-
-log = initLog(env, ctxPath, prjName)
+# os.chdir(f"{ctxPath}")
+# log.info(f"[CHECK] getcwd : {os.getcwd()}")
 
 # 옵션 설정
 sysOpt = {
+    # 설정 파일
+    'csvFile': '/DATA/INPUT/LSH0578/20241103_13개 분야 별로 대표 템플릿 생성형 AI 4종 결과 - 최종.csv',
+
+    # CORS 설정
+    'oriList': [
+        'http://localhost:8300',
+        'http://localhost:3000',
+        'http://49.247.41.71:8300',
+    ],
 }
 
 app = FastAPI(
@@ -218,17 +214,10 @@ app = FastAPI(
 # 공유 설정
 # app.mount('/UPLOAD', StaticFiles(directory='/DATA/UPLOAD'), name='/DATA/UPLOAD')
 
-# CORS 설정
-oriList = [
-    'http://localhost:8300'
-    , 'http://localhost:3000'
-    , 'http://49.247.41.71:8300'
-]
-
 app.add_middleware(
     CORSMiddleware
     # , allow_origins=["*"]
-    , allow_origins=oriList
+    , allow_origins=sysOpt['oriList']
     , allow_credentials=True
     , allow_methods=["*"]
     , allow_headers=["*"]
@@ -237,10 +226,18 @@ app.add_middleware(
 genai.configure(api_key=None)
 model = genai.GenerativeModel('gemini-1.5-pro')
 
-csvFile = '{}/{}'.format(globalVar['inpPath'], '20241103_13개 분야 별로 대표 템플릿 생성형 AI 4종 결과 - 최종.csv')
+csvFile = sysOpt['csvFile']
 csvList = sorted(glob.glob(csvFile))
-csvInfo = csvList[0]
-csvData = pd.read_csv(csvInfo)
+if csvList is None or len(csvList) < 1:
+    log.error(f'csvFile : {csvFile} / 설정 파일 검색 실패')
+    exit(1)
+
+try:
+    csvInfo = csvList[0]
+    csvData = pd.read_csv(csvInfo)
+except Exception as e:
+    log.error(f'Exception : {e} / 설정 파일 읽기 실패')
+    exit(1)
 
 # ============================================
 # 비즈니스 로직
