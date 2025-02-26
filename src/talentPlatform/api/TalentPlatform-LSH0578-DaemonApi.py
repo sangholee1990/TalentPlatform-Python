@@ -568,7 +568,7 @@ async def blogPostChk(request: blogPostChkData = Form(...)):
 
         # 불용어 제거
         keywordList = [word for word in keywordList if word not in stopWordList and len(word) > 1]
-        log.info(f"[CHECK] keywordList : {keywordList}")
+        # log.info(f"[CHECK] keywordList : {keywordList}")
 
         # 빈도수 계산
         keywordCnt = Counter(keywordList)
