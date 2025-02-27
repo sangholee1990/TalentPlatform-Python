@@ -113,31 +113,24 @@ def initLog(env=None, contextPath=None, prjName=None):
         , datetime.now().strftime("%Y%m%d")
     )
 
-    if not os.path.exists(os.path.dirname(saveLogFile)):
-        os.makedirs(os.path.dirname(saveLogFile))
+    os.makedirs(os.path.dirname(saveLogFile), exist_ok=True)
 
-    # logger instance 생성
     log = logging.getLogger(prjName)
 
     if len(log.handlers) > 0:
         return log
 
-    # format 생성
     format = logging.Formatter('%(asctime)s [%(name)s | %(lineno)d | %(filename)s] [%(levelname)-5.5s] %(message)s')
 
-    # handler 생성
     streamHandler = logging.StreamHandler()
-    fileHandler = logging.FileHandler(saveLogFile)
+    fileHandler = logging.FileHandler(saveLogFile, encoding='utf-8')
 
-    # logger instance에 format 설정
     streamHandler.setFormatter(format)
     fileHandler.setFormatter(format)
 
-    # logger instance에 handler 설정
     log.addHandler(streamHandler)
     log.addHandler(fileHandler)
 
-    # logger instance로 log 기록
     log.setLevel(level=logging.INFO)
 
     return log
@@ -467,8 +460,8 @@ class DtaProcess(object):
                 city = item['City_Column_1']
                 cityMat = item['Matching_City_Column_2']
                 per = round(i / len(cfgDataL1) * 100, 1)
-                # log.info(f'[CHECK] cityMat : {cityMat} / {per}%')
-                print(f'[CHECK] cityMat : {cityMat} / {per}%')
+                log.info(f'[CHECK] cityMat : {cityMat} / {per}%')
+                # print(f'[CHECK] cityMat : {cityMat} / {per}%')
 
                 # sector = sysOpt['sectorList'][0]
                 # key = sysOpt['keyList'][0]
@@ -599,8 +592,8 @@ class DtaProcess(object):
 
                                 data = pd.concat([data, pd.DataFrame.from_dict(dict)], ignore_index=True)
 
-                            # log.info(f'[CHECK] keyword : {keyword} : {len(data)}')
-                            print(f'[CHECK] keyword : {keyword} : {len(data)}')
+                            log.info(f'[CHECK] keyword : {keyword} : {len(data)}')
+                            # print(f'[CHECK] keyword : {keyword} : {len(data)}')
 
                         except NoSuchWindowException as e:
                             log.error(f"NoSuchWindowException : {e}")
