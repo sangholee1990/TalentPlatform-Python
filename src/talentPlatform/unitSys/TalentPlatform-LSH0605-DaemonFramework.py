@@ -167,24 +167,26 @@ def initGlobalVar(env=None, contextPath=None, prjName=None):
 
 #  초기 전달인자 설정
 def initArgument(globalVar, inParams):
+
     # 원도우 또는 맥 환경
-    if globalVar['sysOs'] in 'Windows' or globalVar['sysOs'] in 'Darwin':
-        inParInfo = inParams
+    # if globalVar['sysOs'] in 'Windows' or globalVar['sysOs'] in 'Darwin':
+    #     inParInfo = inParams
 
     # 리눅스 환경
-    if globalVar['sysOs'] in 'Linux':
-        parser = argparse.ArgumentParser()
+    # if globalVar['sysOs'] in 'Linux':
 
-        for i, argv in enumerate(sys.argv[1:]):
-            if not argv.__contains__('--'): continue
-            parser.add_argument(argv)
+    parser = argparse.ArgumentParser()
 
-        inParInfo = vars(parser.parse_args())
+    for i, argv in enumerate(sys.argv[1:]):
+        if not argv.__contains__('--'): continue
+        parser.add_argument(argv)
 
-        # 글꼴 설정
-        # fontList = glob.glob('{}/{}'.format(globalVar['fontPath'], '*.ttf'))
-        # fontName = font_manager.FontProperties(fname=fontList[0]).get_name()
-        # plt.rcParams['font.family'] = fontName
+    inParInfo = vars(parser.parse_args())
+
+    # 글꼴 설정
+    # fontList = glob.glob('{}/{}'.format(globalVar['fontPath'], '*.ttf'))
+    # fontName = font_manager.FontProperties(fname=fontList[0]).get_name()
+    # plt.rcParams['font.family'] = fontName
 
     log.info(f"[CHECK] inParInfo : {inParInfo}")
 
@@ -210,8 +212,13 @@ def initDriver(sysOpt):
         # 자동 설치
         chromedriver_autoinstaller.install()
 
+        # Chrome 옵션 설정
+        options = Options()
+        # options.add_argument('--headless')
+        options.add_argument('--disable-gpu')
+
         # WebDriver 실행
-        driver = webdriver.Chrome()
+        driver = webdriver.Chrome(options=options)
     else:
         # Chrome 옵션 설정
         options = Options()
@@ -297,6 +304,22 @@ def textProp(text):
     text = text.replace('\xa0', ' ')  # Non-breaking space 제거
     return text.strip()
 
+def getSplitData(df, splitNum=5):
+    n = len(df)
+    partSize = n // splitNum
+    remainder = n % splitNum
+
+    result = []
+    start = 0
+    for i in range(splitNum):
+        end = start + partSize
+        if i < remainder:
+            end += 1
+        result.append(df.iloc[start:end])
+        start = end
+
+    return result
+
 # ================================================
 # 4. 부 프로그램
 # ================================================
@@ -334,6 +357,13 @@ class DtaProcess(object):
     # 프로그램 종료
     # ps -ef | grep "TalentPlatform-LSH0605-DaemonFramework" | grep -v "grep" | awk '{print $2}' | xargs kill -9
     # ps -ef | grep "chrome" | grep -v "grep" | awk '{print $2}' | xargs kill -9
+
+    # 원도우 환경
+    # C:\Users\sangh\.conda\envs\py38\python.exe C:\SYSTEMS\PROG\PYTHON\TalentPlatform-Python\src\talentPlatform\unitSys\TalentPlatform-LSH0605-DaemonFramework.py --selIdx 0 --splitNum 5
+    # C:\Users\sangh\.conda\envs\py38\python.exe C:\SYSTEMS\PROG\PYTHON\TalentPlatform-Python\src\talentPlatform\unitSys\TalentPlatform-LSH0605-DaemonFramework.py --selIdx 1 --splitNum 5
+    # C:\Users\sangh\.conda\envs\py38\python.exe C:\SYSTEMS\PROG\PYTHON\TalentPlatform-Python\src\talentPlatform\unitSys\TalentPlatform-LSH0605-DaemonFramework.py --selIdx 2 --splitNum 5
+    # C:\Users\sangh\.conda\envs\py38\python.exe C:\SYSTEMS\PROG\PYTHON\TalentPlatform-Python\src\talentPlatform\unitSys\TalentPlatform-LSH0605-DaemonFramework.py --selIdx 3 --splitNum 5
+    # C:\Users\sangh\.conda\envs\py38\python.exe C:\SYSTEMS\PROG\PYTHON\TalentPlatform-Python\src\talentPlatform\unitSys\TalentPlatform-LSH0605-DaemonFramework.py --selIdx 4 --splitNum 5
 
     # ================================================================================================
     # 환경변수 설정
@@ -408,6 +438,11 @@ class DtaProcess(object):
                 'loadTimeout': 30,
                 'defTimeout': 15,
 
+                # 'selIdx': 0,
+                # 'splitNum': 5,
+                'selIdx': int(globalVar['selIdx']),
+                'splitNum': int(globalVar['splitNum']),
+
                 # 로그인 기능
                 'loginId': "18333208671",
                 'loginPw': "world&peace",
@@ -432,6 +467,9 @@ class DtaProcess(object):
             cfgData = pd.read_excel(fileList[0])
             cfgDataL1 = cfgData.drop_duplicates(subset=['Matching_City_Column_2']).reset_index(drop=True)
 
+            splitData = getSplitData(cfgDataL1, splitNum=sysOpt['splitNum'])
+            cfgDataL2 = splitData[sysOpt['selIdx']].reset_index(drop=True)
+
             # ==========================================================================================================
             # 크롬드라이브 삭제
             # ==========================================================================================================
@@ -454,13 +492,12 @@ class DtaProcess(object):
             # ==========================================================================================================
             # 기본정보 수집
             # ==========================================================================================================
-            # for i, item in cfgDataL1.iterrows():
-            for i, item in cfgDataL1.iterrows():
+            for i, item in cfgDataL2.iterrows():
                 # if i > 1: break
 
                 city = item['City_Column_1']
                 cityMat = item['Matching_City_Column_2']
-                per = round(i / len(cfgDataL1) * 100, 1)
+                per = round(i / len(cfgDataL2) * 100, 1)
                 log.info(f'[CHECK] cityMat : {cityMat} / {per}%')
                 # print(f'[CHECK] cityMat : {cityMat} / {per}%')
 
@@ -596,10 +633,6 @@ class DtaProcess(object):
                             log.info(f'[CHECK] keyword : {keyword} : {len(data)}')
                             # print(f'[CHECK] keyword : {keyword} : {len(data)}')
 
-                        except NoSuchWindowException as e:
-                            log.error(f"NoSuchWindowException : {e}")
-                            # driver = initDriver(sysOpt)
-                            # initLogin(driver, sysOpt)
                         except Exception as e:
                             log.error(f"Exception : {e}")
 
@@ -613,11 +646,6 @@ class DtaProcess(object):
                         driver.get(webLink)
                         divId = wait.until(EC.presence_of_element_located((By.ID, "divFullText")))
                         fullArt = textProp(divId.text) if divId else None
-                    except NoSuchWindowException as e:
-                        log.error(f"NoSuchWindowException : {str(e)}")
-                        # driver = initDriver(sysOpt)
-                        # wait = WebDriverWait(driver, sysOpt['loadTimeout'])
-                        # initLogin(driver, sysOpt)
                     except Exception:
                         fullArt = None
                     data.loc[idx, 'Full_Article'] = fullArt
