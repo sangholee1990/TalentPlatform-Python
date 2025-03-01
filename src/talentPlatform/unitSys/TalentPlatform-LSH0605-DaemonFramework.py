@@ -359,11 +359,14 @@ class DtaProcess(object):
     # ps -ef | grep "chrome" | grep -v "grep" | awk '{print $2}' | xargs kill -9
 
     # 원도우 환경
-    # C:\Users\sangh\.conda\envs\py38\python.exe C:\SYSTEMS\PROG\PYTHON\TalentPlatform-Python\src\talentPlatform\unitSys\TalentPlatform-LSH0605-DaemonFramework.py --selIdx 0 --splitNum 5
-    # C:\Users\sangh\.conda\envs\py38\python.exe C:\SYSTEMS\PROG\PYTHON\TalentPlatform-Python\src\talentPlatform\unitSys\TalentPlatform-LSH0605-DaemonFramework.py --selIdx 1 --splitNum 5
-    # C:\Users\sangh\.conda\envs\py38\python.exe C:\SYSTEMS\PROG\PYTHON\TalentPlatform-Python\src\talentPlatform\unitSys\TalentPlatform-LSH0605-DaemonFramework.py --selIdx 2 --splitNum 5
-    # C:\Users\sangh\.conda\envs\py38\python.exe C:\SYSTEMS\PROG\PYTHON\TalentPlatform-Python\src\talentPlatform\unitSys\TalentPlatform-LSH0605-DaemonFramework.py --selIdx 3 --splitNum 5
-    # C:\Users\sangh\.conda\envs\py38\python.exe C:\SYSTEMS\PROG\PYTHON\TalentPlatform-Python\src\talentPlatform\unitSys\TalentPlatform-LSH0605-DaemonFramework.py --selIdx 4 --splitNum 5
+    # C:\Users\sangh\.conda\envs\py38\python.exe C:\SYSTEMS\PROG\PYTHON\TalentPlatform-Python\src\talentPlatform\unitSys\TalentPlatform-LSH0605-DaemonFramework.py --selIdx 0 --splitNum 8
+    # C:\Users\sangh\.conda\envs\py38\python.exe C:\SYSTEMS\PROG\PYTHON\TalentPlatform-Python\src\talentPlatform\unitSys\TalentPlatform-LSH0605-DaemonFramework.py --selIdx 1 --splitNum 8
+    # C:\Users\sangh\.conda\envs\py38\python.exe C:\SYSTEMS\PROG\PYTHON\TalentPlatform-Python\src\talentPlatform\unitSys\TalentPlatform-LSH0605-DaemonFramework.py --selIdx 2 --splitNum 8
+    # C:\Users\sangh\.conda\envs\py38\python.exe C:\SYSTEMS\PROG\PYTHON\TalentPlatform-Python\src\talentPlatform\unitSys\TalentPlatform-LSH0605-DaemonFramework.py --selIdx 3 --splitNum 8
+    # C:\Users\sangh\.conda\envs\py38\python.exe C:\SYSTEMS\PROG\PYTHON\TalentPlatform-Python\src\talentPlatform\unitSys\TalentPlatform-LSH0605-DaemonFramework.py --selIdx 4 --splitNum 8
+    # C:\Users\sangh\.conda\envs\py38\python.exe C:\SYSTEMS\PROG\PYTHON\TalentPlatform-Python\src\talentPlatform\unitSys\TalentPlatform-LSH0605-DaemonFramework.py --selIdx 5 --splitNum 8
+    # C:\Users\sangh\.conda\envs\py38\python.exe C:\SYSTEMS\PROG\PYTHON\TalentPlatform-Python\src\talentPlatform\unitSys\TalentPlatform-LSH0605-DaemonFramework.py --selIdx 6 --splitNum 8
+    # C:\Users\sangh\.conda\envs\py38\python.exe C:\SYSTEMS\PROG\PYTHON\TalentPlatform-Python\src\talentPlatform\unitSys\TalentPlatform-LSH0605-DaemonFramework.py --selIdx 7 --splitNum 8
 
     # ================================================================================================
     # 환경변수 설정
@@ -426,6 +429,7 @@ class DtaProcess(object):
             sysOpt = {
                 'loginUrl': "https://www.pkulaw.com/login",
                 'listUrl': "https://www.pkulaw.com",
+                'verfUrl': "https://www.pkulaw.com/VerificationCode/Index?IsBlack=true",
 
                 'chromeInfo': "/DATA/INPUT/LSH0602/chrome-linux64/chrome",
                 'chromedriverInfo':"/DATA/INPUT/LSH0602/chromedriver-linux64/chromedriver",
@@ -644,6 +648,11 @@ class DtaProcess(object):
 
                     try:
                         driver.get(webLink)
+
+                        if driver.current_url == sysOpt['verfUrl']:
+                            initLogin(driver, sysOpt)
+                            driver.get(webLink)
+
                         divId = wait.until(EC.presence_of_element_located((By.ID, "divFullText")))
                         fullArt = textProp(divId.text) if divId else None
                     except Exception:
