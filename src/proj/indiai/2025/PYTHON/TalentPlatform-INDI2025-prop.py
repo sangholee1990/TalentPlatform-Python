@@ -300,7 +300,9 @@ def propUmkr(modelInfo, cfgDataL1, dtDateInfo):
             # log.info(f'[CHECK] fileInfo : {fileInfo}')
 
             try:
+                # ******************************************************************************************************
                 # xarray 기반 자료처리
+                # ******************************************************************************************************
                 # umData = xr.open_dataset(fileInfo, engine='pynio')
                 # if len(umData) < 1: continue
                 # log.info(f'[CHECK] fileInfo : {fileInfo}')
@@ -309,7 +311,9 @@ def propUmkr(modelInfo, cfgDataL1, dtDateInfo):
                 # anaDate = pd.to_datetime(attrInfo['initial_time'], format="%m/%d/%Y (%H:%M)")
                 # forDate = anaDate + pd.DateOffset(hours=int(attrInfo['forecast_time'][0]))
 
+                # ******************************************************************************************************
                 # pygrib 기반 자료처리
+                # ******************************************************************************************************
                 grb = pygrib.open(fileInfo)
                 grbInfo = grb.select(name='Temperature')[0]
 

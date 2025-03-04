@@ -1,13 +1,16 @@
 # ================================================
 # 요구사항
 # ================================================
-# Python을 이용한 NOAA/EUMETSAT 운영공지 수집
+# Python을 이용한 태양광 자동화/수동화 모델링
+# pip install optuna-integration[lightgbm]
+# pip install flaml
+# pip install pycaret[full]
 
-# ps -ef | grep "TalentPlatform-INDI2025-colct-kmaApiHub.py" | awk '{print $2}' | xargs kill -9
+# ps -ef | grep "TalentPlatform-INDI2025-model-solar.py" | awk '{print $2}' | xargs kill -9
 
 # cd /vol01/SYSTEMS/INDIAI/PROG/PYTHON
-# /vol01/SYSTEMS/INDIAI/LIB/anaconda3/envs/py38/bin/python /vol01/SYSTEMS/INDIAI/PROG/PYTHON/TalentPlatform-INDI2025-prop.py --modelList 'UMKR' --cpuCoreNum '5' --srtDate '2019-01-01' --endDate '2021-01-01'
-# nohup /vol01/SYSTEMS/INDIAI/LIB/anaconda3/envs/py38/bin/python /vol01/SYSTEMS/INDIAI/PROG/PYTHON/TalentPlatform-INDI2025-prop.py --modelList 'UMKR' --cpuCoreNum '10' --srtDate '2019-01-01' --endDate '2021-01-01' &
+# /vol01/SYSTEMS/INDIAI/LIB/anaconda3/envs/py38/bin/python /vol01/SYSTEMS/INDIAI/PROG/PYTHON/TalentPlatform-INDI2025-model-real.py
+# nohup /vol01/SYSTEMS/INDIAI/LIB/anaconda3/envs/py38/bin/python /vol01/SYSTEMS/INDIAI/PROG/PYTHON/TalentPlatform-INDI2025-model-real.py &
 
 import argparse
 import glob
@@ -34,26 +37,22 @@ import yaml
 from multiprocessing import Pool
 import multiprocessing as mp
 from retrying import retry
-# import cdsapi
 import shutil
 
-import requests
-from bs4 import BeautifulSoup
 import os
 import re
 from datetime import datetime
 import subprocess
 from isodate import parse_duration
 from pandas.tseries.offsets import DateOffset
-from sklearn.neighbors import BallTree
-from matplotlib import font_manager, rc
-import urllib.request
-from urllib.parse import urlencode
-from bs4 import BeautifulSoup
-from lxml import etree
-import re
-from urllib.parse import unquote
-from bs4.element import Tag, NavigableString
+import optuna.integration.lightgbm as lgb
+from lightgbm import early_stopping, log_evaluation
+import pickle
+from flaml import AutoML
+from sklearn.model_selection import train_test_split
+from pycaret.regression import *
+import pvlib
+from sklearn.metrics import mean_squared_error
 
 # =================================================
 # 사용자 매뉴얼
@@ -162,6 +161,7 @@ def initGlobalVar(env=None, contextPath=None, prjName=None):
 
     return globalVar
 
+
 #  초기 전달인자 설정
 def initArgument(globalVar, inParams):
     # 원도우 또는 맥 환경
@@ -177,7 +177,8 @@ def initArgument(globalVar, inParams):
             parser.add_argument(argv)
 
         inParInfo = vars(parser.parse_args())
-    log.info(f"[CHECK] inParInfo : {inParInfo}")
+
+    log.info("[CHECK] inParInfo : {}".format(inParInfo))
 
     for key, val in inParInfo.items():
         if val is None: continue
@@ -193,108 +194,19 @@ def initArgument(globalVar, inParams):
 
     return globalVar
 
+def calcRmse(grpData, actCol, prdColList):
+    result = {}
+    for prdCol in prdColList:
+        grpDataL1 = grpData[[actCol, prdCol]].dropna()
+        if len(grpDataL1) < 1:
+            result[f'{prdCol}_RMSE'] = np.nan
+            continue
 
-@retry(stop_max_attempt_number=10)
-def colctProc(sysOpt, modelInfo, dtDateInfo):
-    try:
-        procInfo = mp.current_process()
+        actData = grpDataL1[actCol]
+        prdData = grpDataL1[prdCol]
+        result[f'{prdCol}_RMSE'] = np.sqrt(mean_squared_error(actData, prdData))
 
-        urlPattern = modelInfo['urlPattern'].format(rootUrl=modelInfo['rootUrl'])
-        url = dtDateInfo.strftime(urlPattern)
-
-        response = requests.get(url, headers=sysOpt['headers'])
-        if not (response.status_code == 200): return
-
-        soup = BeautifulSoup(response.text, 'html.parser')
-        if soup is None or len(soup) < 1: return
-
-        tagId = soup.find('div', {'id': 'msg-list'})
-        if tagId is None or len(tagId) < 1: return
-
-        tagList = tagId.find_all('a')
-        for tagInfo in tagList:
-            # log.info(f'[CHECK] tagInfo : {tagInfo}')
-            try:
-                title = None if tagInfo is None or len(tagInfo) < 1 else tagInfo.text.strip()
-                href = None if tagInfo is None or len(tagInfo.get('href')) < 1 else tagInfo.get('href')
-            except Exception as e:
-                title = None
-                href = None
-            # log.info(f'[CHECK] title : {title}')
-            # log.info(f'[CHECK] href : {href}')
-
-            urlDtl = modelInfo['urlDtl'].format(rootUrl=modelInfo['rootUrl'], href=href)
-
-            # partList = urlDtl.split('/')
-            # fileName, fileExt = os.path.splitext(partList[-1])
-
-            match = re.search(r'(\d{8})_(\d{4})', urlDtl)
-            saveFileDt = pd.to_datetime(match.group(1) + match.group(2), format="%Y%m%d%H%M") if match else None
-            saveFile = saveFileDt.strftime(modelInfo['saveFile'])
-            saveHtml = saveFileDt.strftime(modelInfo['saveHtml'])
-
-            # 파일 검사
-            # saveFileList = sorted(glob.glob(saveFile))
-            # if len(saveFileList) > 0: continue
-            if os.path.exists(saveFile) and os.path.exists(saveHtml): continue
-
-            # urlDtl = 'https://www.ospo.noaa.gov/data/messages/2019/01/MSG_20190102_1324.html'
-            # urlDtl = 'https://www.ospo.noaa.gov/data/messages/2020/06/MSG_20200601_1554.html'
-            # urlDtl = 'https://www.ospo.noaa.gov/data/messages/2019/05/MSG_20190502_1544.html'
-            # urlDtl = 'https://www.ospo.noaa.gov/data/messages/2019/05/MSG_20190502_1634.html'
-
-            respDtl = requests.get(urlDtl, headers=sysOpt['headers'])
-            if not (respDtl.status_code == 200): return
-
-            soupDtl = BeautifulSoup(respDtl.text, 'html.parser')
-            if soupDtl is None or len(soupDtl) < 1: continue
-
-            tagDtlList = (
-                    (soupDtl.findAll('font', {'size': '2'}) + soupDtl.findAll('p', {'class': 'MsoNormal'}))
-                    or soupDtl.text.strip().split('\n\n')
-            )
-
-            dictDtl = {}
-            for textDtlInfo in tagDtlList:
-                textDtlInfo = textDtlInfo.text.strip().replace('\xa0', ' ') if isinstance(textDtlInfo, Tag) else textDtlInfo.strip().replace('\xa0', ' ')
-
-                if textDtlInfo is None or len(textDtlInfo) < 1: continue
-                if re.search('This message was sent by ESPC.Notification@noaa.gov.', textDtlInfo, re.IGNORECASE): continue
-
-                partList = textDtlInfo.split(':', 1)
-                if len(partList) != 2: continue
-
-                key, val = partList[0].strip(), partList[1].strip()
-                valStr = ' '.join(line.strip() for line in val.split('\n')).strip()
-                dictDtl[key] = valStr if valStr else None
-
-            data = pd.DataFrame({
-                'title': [title],
-                'url': [url],
-                'urlDtl': [urlDtl],
-                # 'textDtl': [textDtl],
-            })
-
-            dataL1 = pd.concat([data, pd.DataFrame.from_dict([dictDtl])], axis=1)
-
-            # 파일 저장
-            if len(dataL1) > 0:
-                os.makedirs(os.path.dirname(saveFile), exist_ok=True)
-                dataL1.to_csv(saveFile, index=False)
-                log.info(f'[CHECK] saveFile : {saveFile} : {dataL1.shape}')
-
-            htmlDtl = soupDtl.prettify()
-            if len(htmlDtl) > 0:
-                os.makedirs(os.path.dirname(saveHtml), exist_ok=True)
-                with open(saveHtml, "w", encoding="utf-8") as file:
-                    file.write(htmlDtl)
-                log.info(f'[CHECK] saveHtml : {saveHtml}')
-
-        log.info(f'[END] colctProc : {dtDateInfo} / pid : {procInfo.pid}')
-
-    except Exception as e:
-        log.error(f'Exception : {str(e)}')
-        raise e
+    return result
 
 # ================================================
 # 4. 부 프로그램
@@ -360,58 +272,60 @@ class DtaProcess(object):
 
             # 옵션 설정
             sysOpt = {
-                # 예보시간 시작일, 종료일, 시간 간격 (연 1y, 월 1m, 일 1d, 시간 1h, 분 1t, 초 1s)
-                # 'srtDate': globalVar['srtDate'],
-                # 'endDate': globalVar['endDate'],
-                # 'srtDate': '2019-01-01',
-                'srtDate': '2025-01-01',
-                'endDate': '2025-03-01',
-                'invDate': '1m',
-
-                # 비동기 다중 프로세스 개수
-                # 'cpuCoreNum': globalVar['cpuCoreNum'],
-                'cpuCoreNum': '5',
-
-                'headers': {
-                    "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/123.0.0.0 Safari/537.36"
-                },
-
-                # 수행 목록
-                # 'modelList': [globalVar['modelList']],
-                'modelList': ['NOAA'],
-                # 'modelList': ['EUMETSAT'],
-
-                # 설정 파일
-                'NOAA': {
-                    'rootUrl': 'https://www.ospo.noaa.gov',
-                    'urlPattern': '{rootUrl}/data/messages/%Y/%Y-%m-include.html',
-                    'urlDtl': '{rootUrl}/{href}',
-                    'saveFile': '/DATA/COLCT/NOAA/%Y%m/%d/NOAA_MSG_%Y%m%d_%H%M.csv',
-                    'saveHtml': '/DATA/COLCT/NOAA/%Y%m/%d/NOAA_MSG_%Y%m%d_%H%M.html',
-                },
             }
 
             # **************************************************************************************************************
-            # 비동기 다중 프로세스 수행
+            # 설정 파일 읽기
             # **************************************************************************************************************
-            # 비동기 다중 프로세스 개수
-            pool = Pool(int(sysOpt['cpuCoreNum']))
+            filePattern = '{}/{}'.format('/DATA/FNL/202502/21', '20250221_solar_test_prd_for.csv')
+            fileList = sorted(glob.glob(filePattern))
+            if fileList is None or len(fileList) < 1:
+                raise Exception(f"[ERROR] filePattern : {filePattern} / 파일을 확인해주세요.")
+            testData = pd.read_csv(fileList[0])
+            # testData.columns
 
-            for modelType in sysOpt['modelList']:
-                modelInfo = sysOpt.get(modelType)
-                if modelInfo is None: continue
+            filePattern = '{}/{}'.format('/DATA/FNL/202502/21', '20250221_solar_real_prd_for.csv')
+            fileList = sorted(glob.glob(filePattern))
+            if fileList is None or len(fileList) < 1:
+                raise Exception(f"[ERROR] filePattern : {filePattern} / 파일을 확인해주세요.")
+            realData = pd.read_csv(fileList[0])
+            # realData.columns
 
-                # 시작일/종료일 설정
-                dtSrtDate = pd.to_datetime(sysOpt['srtDate'], format='%Y-%m-%d')
-                dtEndDate = pd.to_datetime(sysOpt['endDate'], format='%Y-%m-%d')
-                dtDateList = pd.date_range(start=dtSrtDate, end=dtEndDate, freq=sysOpt['invDate'])
+            # ****************************************************************************
+            # 데이터 병합
+            # ****************************************************************************
+            mergeColList = ['forDt', 'forDtUtc', 'ulsan']
+            data = pd.merge(testData, realData, how='left', left_on=mergeColList, right_on=mergeColList)
+            dataL1 = data[data['ulsan'] > 0].reset_index(drop=False)
+            dataL2 = dataL1[['forDt', 'ulsan', 'prd-lgb_x', 'prd-flaml_x', 'prd-pycaret_x', 'prd-lgb_y', 'prd-flaml_y', 'prd-pycaret_y']]
 
-                for dtDateInfo in dtDateList:
-                    # log.info(f'[CHECK] dtDateInfo : {dtDateInfo}')
-                    pool.apply_async(colctProc, args=(sysOpt, modelInfo, dtDateInfo))
+            # 편향 계산
+            diffColList = ['prd-lgb_x', 'prd-flaml_x', 'prd-pycaret_x', 'prd-lgb_y', 'prd-flaml_y', 'prd-pycaret_y']
+            for diffCol in diffColList:
+                dataL2[f'{diffCol}_diff'] = dataL2['ulsan'] - dataL2[f'{diffCol}']
 
-            pool.close()
-            pool.join()
+            # 일별 검증
+            dataL2['dtDate'] = pd.to_datetime(dataL2['forDt']).dt.date
+            grpData = dataL2.groupby('dtDate')
+
+            prdColList = ['prd-lgb_x', 'prd-flaml_x', 'prd-pycaret_x', 'prd-lgb_y', 'prd-flaml_y', 'prd-pycaret_y']
+            rmseByDate = grpData.apply(calcRmse, actCol='ulsan', prdColList=prdColList).apply(pd.Series)
+            log.info(f'[CHECK] rmseByDate : {rmseByDate}')
+
+            rmseByDateL1 = rmseByDate.mean().to_frame(name='mean')
+            log.info(f'[CHECK] rmseByDateL1 : {rmseByDateL1}')
+
+            dataL3 = dataL2.mean().to_frame(name='mean')
+            log.info(f'[CHECK] dataL3 : {dataL3}')
+
+            # ****************************************************************************
+            # 자료 저장
+            # ****************************************************************************
+            saveFilePattern = '{}/{}'.format('/DATA/FNL/202502/21', '20250221_solar_merge_prd_for.csv')
+            saveFile = saveFilePattern
+            os.makedirs(os.path.dirname(saveFile), exist_ok=True)
+            dataL2.to_csv(saveFile, index=False)
+            log.info(f'[CHECK] saveFile : {saveFile}')
 
         except Exception as e:
             log.error(f"Exception : {e}")
