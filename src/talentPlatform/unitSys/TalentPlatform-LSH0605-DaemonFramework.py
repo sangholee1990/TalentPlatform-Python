@@ -66,7 +66,10 @@ from selenium.common.exceptions import NoSuchWindowException
 from selenium.common.exceptions import TimeoutException
 from selenium.common.exceptions import NoSuchElementException
 # import undetected_chromedriver as uc
-import chromedriver_autoinstaller
+from pathlib import Path
+
+if platform.system() == 'Windows':
+    import chromedriver_autoinstaller
 
 # =================================================
 # 사용자 매뉴얼
@@ -166,15 +169,7 @@ def initGlobalVar(env=None, contextPath=None, prjName=None):
 
 
 #  초기 전달인자 설정
-def initArgument(globalVar, inParams):
-
-    # 원도우 또는 맥 환경
-    # if globalVar['sysOs'] in 'Windows' or globalVar['sysOs'] in 'Darwin':
-    #     inParInfo = inParams
-
-    # 리눅스 환경
-    # if globalVar['sysOs'] in 'Linux':
-
+def initArgument(globalVar):
     parser = argparse.ArgumentParser()
 
     for i, argv in enumerate(sys.argv[1:]):
@@ -182,27 +177,14 @@ def initArgument(globalVar, inParams):
         parser.add_argument(argv)
 
     inParInfo = vars(parser.parse_args())
-
-    # 글꼴 설정
-    # fontList = glob.glob('{}/{}'.format(globalVar['fontPath'], '*.ttf'))
-    # fontName = font_manager.FontProperties(fname=fontList[0]).get_name()
-    # plt.rcParams['font.family'] = fontName
-
     log.info(f"[CHECK] inParInfo : {inParInfo}")
 
     # 전역 변수에 할당
     for key, val in inParInfo.items():
         if val is None: continue
+        if env not in 'local' and key.__contains__('Path'):
+            os.makedirs(val, exist_ok=True)
         globalVar[key] = val
-
-    # 전역 변수
-    for key, val in globalVar.items():
-        if env not in 'local' and key.__contains__('Path') and env and not os.path.exists(val):
-            os.makedirs(val)
-
-        globalVar[key] = val.replace('\\', '/')
-
-        log.info(f"[CHECK] {key} : {val}")
 
     return globalVar
 
@@ -394,14 +376,14 @@ class DtaProcess(object):
     # ================================================================================================
     # 4.3. 초기 변수 (Argument, Option) 설정
     # ================================================================================================
-    def __init__(self, inParams):
+    def __init__(self):
 
         log.info('[START] {}'.format("init"))
 
         try:
             # 초기 전달인자 설정 (파이썬 실행 시)
             # pyhton3 *.py argv1 argv2 argv3 ...
-            initArgument(globalVar, inParams)
+            initArgument(globalVar)
 
         except Exception as e:
             log.error(f"Exception : {str(e)}")
@@ -442,10 +424,10 @@ class DtaProcess(object):
                 'loadTimeout': 30,
                 'defTimeout': 15,
 
-                # 'selIdx': 0,
-                # 'splitNum': 5,
-                'selIdx': int(globalVar['selIdx']),
-                'splitNum': int(globalVar['splitNum']),
+                'selIdx': 4,
+                'splitNum': 5,
+                # 'selIdx': int(globalVar['selIdx']),
+                # 'splitNum': int(globalVar['splitNum']),
 
                 # 로그인 기능
                 'loginId': "18333208671",
@@ -456,8 +438,10 @@ class DtaProcess(object):
                 'keyList': ["碳排放", "低碳", "减碳", "温室气体", "节能", "能源效率", "能源消耗", "产能过剩", "碳中和", "可再生能源", "清洁能源", "绿色能源", "能源转型", "减排", "绿色建筑", "非化石能源", "碳足迹"],
 
                 # 자료 저장
-                'saveFileList': '/DATA/OUTPUT/LSH0605/*_{cityMat}.xlsx',
-                'saveFile': '/DATA/OUTPUT/LSH0605/%Y%m%d_{cityMat}.xlsx',
+                # 'saveFileList': '/DATA/OUTPUT/LSH0605/*_{cityMat}.xlsx',
+                # 'saveFile': '/DATA/OUTPUT/LSH0605/%Y%m%d_{cityMat}.xlsx',
+                'saveFileList': 'G:/내 드라이브/shlee/04. TalentPlatform/[재능플랫폼] 최종납품/[완료] LSH0605. Python을 이용한 중국 빅데이터 사이트 조사 및 셀레늄 기반 로그인, 기본 및 부가정보 수집 및 추출/20250302_결과/*_{cityMat}.xlsx',
+                'saveFile': 'G:/내 드라이브/shlee/04. TalentPlatform/[재능플랫폼] 최종납품/[완료] LSH0605. Python을 이용한 중국 빅데이터 사이트 조사 및 셀레늄 기반 로그인, 기본 및 부가정보 수집 및 추출/20250302_결과/%Y%m%d_{cityMat}.xlsx',
             }
 
             # ==========================================================================================================
@@ -485,13 +469,13 @@ class DtaProcess(object):
             # 전역 설정
             # ==========================================================================================================
             # 크롬드라이브 초기화
-            driver = initDriver(sysOpt)
-            wait = WebDriverWait(driver, sysOpt['loadTimeout'])
+            # driver = initDriver(sysOpt)
+            # wait = WebDriverWait(driver, sysOpt['loadTimeout'])
 
             # ==========================================================================================================
             # 로그인 기능
             # ==========================================================================================================
-            initLogin(driver, sysOpt)
+            # initLogin(driver, sysOpt)
 
             # ==========================================================================================================
             # 기본정보 수집
@@ -509,7 +493,8 @@ class DtaProcess(object):
                 # key = sysOpt['keyList'][0]
 
                 saveFilePattern = sysOpt['saveFileList'].format(cityMat=cityMat)
-                saveFileList = sorted(glob.glob(saveFilePattern), reverse=True)
+                # saveFileList = sorted(glob.glob(str(Path(saveFilePattern))), reverse=True)
+                saveFileList = list(Path(os.path.dirname(saveFilePattern)).glob(os.path.basename(saveFilePattern)))
 
                 # 파일 존재
                 if len(saveFileList) > 0: continue
@@ -689,14 +674,8 @@ if __name__ == '__main__':
     print('[START] {}'.format("main"))
 
     try:
-
-        # 파이썬 실행 시 전달인자를 초기 환경변수 설정
-        inParams = { }
-        print("[CHECK] inParams : {}".format(inParams))
-
         # 부 프로그램 호출
-        subDtaProcess = DtaProcess(inParams)
-
+        subDtaProcess = DtaProcess()
         subDtaProcess.exec()
 
     except Exception as e:
