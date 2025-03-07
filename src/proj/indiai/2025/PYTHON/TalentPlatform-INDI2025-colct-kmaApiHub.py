@@ -306,7 +306,8 @@ def colctNwp(modelInfo, dtDateInfo):
             if os.path.exists(tmpFileInfo):
                 os.remove(tmpFileInfo)
 
-            cmd = f"curl -s -C - '{reqUrl}' --retry 10 -o {tmpFileInfo}"
+            # cmd = f"curl -s -C - '{reqUrl}' --retry 10 -o {tmpFileInfo}"
+            cmd = modelInfo['request'].format(reqUrl=reqUrl, tmpFileInfo=tmpFileInfo)
             log.info(f'[CHECK] cmd : {cmd}')
 
             try:
@@ -396,18 +397,18 @@ class DtaProcess(object):
             # 옵션 설정
             sysOpt = {
                 # 예보시간 시작일, 종료일, 시간 간격 (연 1y, 월 1m, 일 1d, 시간 1h, 분 1t, 초 1s)
-                # 'srtDate': '2019-01-01',
-                # 'endDate': '2019-01-04',
-                'srtDate': globalVar['srtDate'],
-                'endDate': globalVar['endDate'],
+                'srtDate': '2019-02-01',
+                'endDate': '2019-02-04',
+                # 'srtDate': globalVar['srtDate'],
+                # 'endDate': globalVar['endDate'],
 
                 # 수행 목록
-                # 'modelList': ['AWS', 'ASOS', 'UMKR', 'KIMG'],
-                'modelList': [globalVar['modelList']],
+                'modelList': ['AWS', 'ASOS', 'UMKR', 'KIMG'],
+                # 'modelList': [globalVar['modelList']],
 
                 # 비동기 다중 프로세스 개수
-                # 'cpuCoreNum': '5',
-                'cpuCoreNum': globalVar['cpuCoreNum'],
+                'cpuCoreNum': '5',
+                # 'cpuCoreNum': globalVar['cpuCoreNum'],
 
                 'ASOS': {
                     'request': {
@@ -415,6 +416,7 @@ class DtaProcess(object):
                         , 'authKey': None
                         , 'invDate': '1d'
                     }
+                    , 'cmd': 'curl -s -C - {reqUrl} --retry 10 -o {tmpFileInfo}'
                     , 'tmp': '/DATA/COLCT/OBS/%Y%m/%d/.ASOS_OBS_%Y%m%d%H%M.txt'
                     , 'target': '/DATA/COLCT/OBS/%Y%m/%d/ASOS_OBS_%Y%m%d%H%M.txt'
                 },
@@ -424,6 +426,7 @@ class DtaProcess(object):
                         , 'authKey': None
                         , 'invDate': '3h'
                     }
+                    , 'cmd': 'curl -s -C - {reqUrl} --retry 10 -o {tmpFileInfo}'
                     , 'tmp': '/DATA/COLCT/OBS/%Y%m/%d/.AWS_OBS_%Y%m%d%H%M.txt'
                     , 'target': '/DATA/COLCT/OBS/%Y%m/%d/AWS_OBS_%Y%m%d%H%M.txt'
                 },
@@ -434,6 +437,7 @@ class DtaProcess(object):
                         , 'authKey': None
                         , 'invDate': '6h'
                     }
+                    , 'cmd': 'curl -s -C - {reqUrl} --retry 10 -o {tmpFileInfo}'
                     , 'tmp': '/DATA/COLCT/UMKR/%Y%m/%d/.UMKR_l015_unis_H{ef}_%Y%m%d%H%M.grb2'
                     , 'target': '/DATA/COLCT/UMKR/%Y%m/%d/UMKR_l015_unis_H{ef}_%Y%m%d%H%M.grb2'
                 },
@@ -444,6 +448,7 @@ class DtaProcess(object):
                         , 'authKey': None
                         , 'invDate': '6h'
                     }
+                    , 'cmd': 'curl -s -C - {reqUrl} --retry 10 -o {tmpFileInfo}'
                     , 'tmp': '/DATA/COLCT/KIMG/%Y%m/%d/.KIMG_k128_unis_H{ef}_%Y%m%d%H%M.grb2'
                     , 'target': '/DATA/COLCT/KIMG/%Y%m/%d/KIMG_k128_unis_H{ef}_%Y%m%d%H%M.grb2'
                 },
