@@ -54,6 +54,18 @@ from lxml import etree
 import re
 from urllib.parse import unquote
 from bs4.element import Tag, NavigableString
+import re
+import nltk
+from collections import Counter
+from nltk.tokenize import word_tokenize
+from nltk.corpus import stopwords
+
+# NLTK 데이터 다운로드
+nltk.download('punkt')
+nltk.download('averaged_perceptron_tagger')
+nltk.download('stopwords')
+nltk.download('punkt_tab')
+nltk.download('averaged_perceptron_tagger_eng')
 
 # =================================================
 # 사용자 매뉴얼
@@ -163,7 +175,7 @@ def initGlobalVar(env=None, contextPath=None, prjName=None):
     return globalVar
 
 #  초기 전달인자 설정
-def initArgument(globalVar):
+def initArgument(globalVar, inParams):
     parser = argparse.ArgumentParser()
 
     for i, argv in enumerate(sys.argv[1:]):
@@ -182,108 +194,6 @@ def initArgument(globalVar):
 
     return globalVar
 
-
-@retry(stop_max_attempt_number=10)
-def colctProc(sysOpt, modelInfo, dtDateInfo):
-    try:
-        procInfo = mp.current_process()
-
-        urlPattern = modelInfo['urlPattern'].format(rootUrl=modelInfo['rootUrl'])
-        url = dtDateInfo.strftime(urlPattern)
-
-        response = requests.get(url, headers=sysOpt['headers'])
-        if not (response.status_code == 200): return
-
-        soup = BeautifulSoup(response.text, 'html.parser')
-        if soup is None or len(soup) < 1: return
-
-        tagId = soup.find('div', {'id': 'msg-list'})
-        if tagId is None or len(tagId) < 1: return
-
-        tagList = tagId.find_all('a')
-        for tagInfo in tagList:
-            # log.info(f'[CHECK] tagInfo : {tagInfo}')
-            try:
-                title = None if tagInfo is None or len(tagInfo) < 1 else tagInfo.text.strip()
-                href = None if tagInfo is None or len(tagInfo.get('href')) < 1 else tagInfo.get('href')
-            except Exception as e:
-                title = None
-                href = None
-            # log.info(f'[CHECK] title : {title}')
-            # log.info(f'[CHECK] href : {href}')
-
-            urlDtl = modelInfo['urlDtl'].format(rootUrl=modelInfo['rootUrl'], href=href)
-
-            # partList = urlDtl.split('/')
-            # fileName, fileExt = os.path.splitext(partList[-1])
-
-            match = re.search(r'(\d{8})_(\d{4})', urlDtl)
-            saveFileDt = pd.to_datetime(match.group(1) + match.group(2), format="%Y%m%d%H%M") if match else None
-            saveFile = saveFileDt.strftime(modelInfo['saveFile'])
-            saveHtml = saveFileDt.strftime(modelInfo['saveHtml'])
-
-            # 파일 검사
-            # saveFileList = sorted(glob.glob(saveFile))
-            # if len(saveFileList) > 0: continue
-            if os.path.exists(saveFile) and os.path.exists(saveHtml): continue
-
-            # urlDtl = 'https://www.ospo.noaa.gov/data/messages/2019/01/MSG_20190102_1324.html'
-            # urlDtl = 'https://www.ospo.noaa.gov/data/messages/2020/06/MSG_20200601_1554.html'
-            # urlDtl = 'https://www.ospo.noaa.gov/data/messages/2019/05/MSG_20190502_1544.html'
-            # urlDtl = 'https://www.ospo.noaa.gov/data/messages/2019/05/MSG_20190502_1634.html'
-
-            respDtl = requests.get(urlDtl, headers=sysOpt['headers'])
-            if not (respDtl.status_code == 200): return
-
-            soupDtl = BeautifulSoup(respDtl.text, 'html.parser')
-            if soupDtl is None or len(soupDtl) < 1: continue
-
-            tagDtlList = (
-                    (soupDtl.findAll('font', {'size': '2'}) + soupDtl.findAll('p', {'class': 'MsoNormal'}))
-                    or soupDtl.text.strip().split('\n\n')
-            )
-
-            dictDtl = {}
-            for textDtlInfo in tagDtlList:
-                textDtlInfo = textDtlInfo.text.strip().replace('\xa0', ' ') if isinstance(textDtlInfo, Tag) else textDtlInfo.strip().replace('\xa0', ' ')
-
-                if textDtlInfo is None or len(textDtlInfo) < 1: continue
-                if re.search('This message was sent by ESPC.Notification@noaa.gov.', textDtlInfo, re.IGNORECASE): continue
-
-                partList = textDtlInfo.split(':', 1)
-                if len(partList) != 2: continue
-
-                key, val = partList[0].strip(), partList[1].strip()
-                valStr = ' '.join(line.strip() for line in val.split('\n')).strip()
-                dictDtl[key] = valStr if valStr else None
-
-            data = pd.DataFrame({
-                'title': [title],
-                'url': [url],
-                'urlDtl': [urlDtl],
-                # 'textDtl': [textDtl],
-            })
-
-            dataL1 = pd.concat([data, pd.DataFrame.from_dict([dictDtl])], axis=1)
-
-            # 파일 저장
-            if len(dataL1) > 0:
-                os.makedirs(os.path.dirname(saveFile), exist_ok=True)
-                dataL1.to_csv(saveFile, index=False)
-                log.info(f'[CHECK] saveFile : {saveFile} : {dataL1.shape}')
-
-            htmlDtl = soupDtl.prettify()
-            if len(htmlDtl) > 0:
-                os.makedirs(os.path.dirname(saveHtml), exist_ok=True)
-                with open(saveHtml, "w", encoding="utf-8") as file:
-                    file.write(htmlDtl)
-                log.info(f'[CHECK] saveHtml : {saveHtml}')
-
-        log.info(f'[END] colctProc : {dtDateInfo} / pid : {procInfo.pid}')
-
-    except Exception as e:
-        log.error(f'Exception : {str(e)}')
-        raise e
 
 # ================================================
 # 4. 부 프로그램
@@ -383,24 +293,64 @@ class DtaProcess(object):
             # **************************************************************************************************************
             # 비동기 다중 프로세스 수행
             # **************************************************************************************************************
+            data = pd.read_csv('/DATA/COLCT/NOAA/202502/20/NOAA_MSG_20250220_2005.csv')
+
+            # 불용어 목록 로드
+            # fileList = sorted(glob.glob(sysOpt['filter']['stopWordFileInfo']))
+            # stopWordData = pd.read_csv(fileList[0])
+            # stopWordList = set(stopWordData['word'].tolist())
+
+            # 금지어 목록
+            # forbidWordList = sysOpt['filter']['forbidWordList']
+
+            # 텍스트 입력
+            # text = "Natural Language Processing (NLP) is an exciting field of AI."
+            # text = data['Correction']
+            text = data['Correction'][0]
+            # text = data['title'][0]
+
+            # 단어 토큰화
+            tokens = word_tokenize(text)
+
+            # 품사 태깅
+            posTagList = nltk.pos_tag(tokens)
+
+            # 명사(NN)만 추출
+            keywordList = [word for word, pos in posTagList if pos in ['NN', 'NNS', 'NNP', 'NNPS']]
+
+            # 불용어 제거 (기본 + 추가)
+            stop_words = set(stopwords.words('english'))
+            keywordList = [word.lower() for word in keywordList if word.lower() not in stop_words and len(word) > 1]
+
+            # 빈도수 계산
+            keywordCnt = Counter(keywordList)
+            dataL1 = pd.DataFrame(keywordCnt.items(), columns=['keyword', 'cnt']).sort_values(by='cnt', ascending=False)
+            print(dataL1)
+
+            # 금지어 필터링
+            # pattern = re.compile("|".join(forbidWordList))
+            # data['type'] = data['keyword'].apply(lambda x: '금지어' if pattern.search(x) else '일반어')
+
+            # /DATA/COLCT/NOAA/202502/20/NOAA_MSG_20250220_2005.csv
+
             # 비동기 다중 프로세스 개수
-            pool = Pool(int(sysOpt['cpuCoreNum']))
-
-            for modelType in sysOpt['modelList']:
-                modelInfo = sysOpt.get(modelType)
-                if modelInfo is None: continue
-
-                # 시작일/종료일 설정
-                dtSrtDate = pd.to_datetime(sysOpt['srtDate'], format='%Y-%m-%d')
-                dtEndDate = pd.to_datetime(sysOpt['endDate'], format='%Y-%m-%d')
-                dtDateList = pd.date_range(start=dtSrtDate, end=dtEndDate, freq=sysOpt['invDate'])
-
-                for dtDateInfo in dtDateList:
-                    # log.info(f'[CHECK] dtDateInfo : {dtDateInfo}')
-                    pool.apply_async(colctProc, args=(sysOpt, modelInfo, dtDateInfo))
-
-            pool.close()
-            pool.join()
+            # pool = Pool(int(sysOpt['cpuCoreNum']))
+            #
+            # for modelType in sysOpt['modelList']:
+            #     modelInfo = sysOpt.get(modelType)
+            #     if modelInfo is None: continue
+            #
+            #     # 시작일/종료일 설정
+            #     dtSrtDate = pd.to_datetime(sysOpt['srtDate'], format='%Y-%m-%d')
+            #     dtEndDate = pd.to_datetime(sysOpt['endDate'], format='%Y-%m-%d')
+            #     dtDateList = pd.date_range(start=dtSrtDate, end=dtEndDate, freq=sysOpt['invDate'])
+            #
+            #     for dtDateInfo in dtDateList:
+            #         # log.info(f'[CHECK] dtDateInfo : {dtDateInfo}')
+            #         pool.apply_async(colctProc, args=(sysOpt, modelInfo, dtDateInfo))
+            #
+            # pool.close()
+            # pool.join()
 
         except Exception as e:
             log.error(f"Exception : {e}")
@@ -418,8 +368,8 @@ if __name__ == '__main__':
     print(f'[START] main')
 
     try:
+        # 부 프로그램 호출
         subDtaProcess = DtaProcess()
-
         subDtaProcess.exec()
 
     except Exception as e:

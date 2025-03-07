@@ -163,35 +163,24 @@ def initGlobalVar(env=None, contextPath=None, prjName=None):
 
 #  초기 전달인자 설정
 def initArgument(globalVar, inParams):
-    # 원도우 또는 맥 환경
-    if globalVar['sysOs'] in 'Windows' or globalVar['sysOs'] in 'Darwin':
-        inParInfo = inParams
+    parser = argparse.ArgumentParser()
 
-    # 리눅스 환경
-    if globalVar['sysOs'] in 'Linux':
-        parser = argparse.ArgumentParser()
+    for i, argv in enumerate(sys.argv[1:]):
+        if not argv.__contains__('--'): continue
+        parser.add_argument(argv)
 
-        for i, argv in enumerate(sys.argv[1:]):
-            if not argv.__contains__('--'): continue
-            parser.add_argument(argv)
+    inParInfo = vars(parser.parse_args())
+    log.info(f"[CHECK] inParInfo : {inParInfo}")
 
-        inParInfo = vars(parser.parse_args())
-
-    log.info("[CHECK] inParInfo : {}".format(inParInfo))
-
+    # 전역 변수에 할당
     for key, val in inParInfo.items():
         if val is None: continue
-        # 전역 변수에 할당
+        if env not in 'local' and key.__contains__('Path'):
+            os.makedirs(val, exist_ok=True)
         globalVar[key] = val
 
-    # 전역 변수
-    for key, val in globalVar.items():
-        if env not in 'local' and key.__contains__('Path') and env and not os.path.exists(val):
-            os.makedirs(val)
-
-        globalVar[key] = val.replace('\\', '/')
-
     return globalVar
+
 
 def parseDateOffset(invDate):
 
@@ -351,17 +340,6 @@ def makePycaretModel(subOpt=None, xCol=None, yCol=None, trainData=None, testData
                 target=yCol,
             )
 
-            # trainIdx = trainData.index
-            # testIdx = testData.index
-            #
-            # setup(
-            #     data=pd.concat([trainData, testData]),
-            #     target=yCol,
-            #     session_id=123,
-            #     fold_strategy='custom',
-            #     fold_groups=pd.Series([0 if i in trainIdx else 1 for i in pd.concat([trainData, testData]).index])
-            # )
-
             # 각 모형에 따른 자동 머신러닝
             modelList = compare_models(sort='RMSE', n_select=3)
 
@@ -507,14 +485,14 @@ class DtaProcess(object):
     # ================================================================================================
     # 4.3. 초기 변수 (Argument, Option) 설정
     # ================================================================================================
-    def __init__(self, inParams):
+    def __init__(self):
 
         log.info(f"[START] __init__ : init")
 
         try:
             # 초기 전달인자 설정 (파이썬 실행 시)
             # pyhton3 *.py argv1 argv2 argv3 ...
-            initArgument(globalVar, inParams)
+            initArgument(globalVar)
 
         except Exception as e:
             log.error("Exception : {}".format(e))
@@ -608,7 +586,6 @@ class DtaProcess(object):
                 filePattern = '{}/{}'.format(sysOpt['CFG'][key]['filePath'], sysOpt['CFG'][key]['fileName'])
                 fileList = sorted(glob.glob(filePattern))
                 if fileList is None or len(fileList) < 1:
-                    log.error(f"[ERROR] filePattern : {filePattern} / 파일을 확인해주세요.")
                     raise Exception(f"[ERROR] filePattern : {filePattern} / 파일을 확인해주세요.")
                 data = pd.read_csv(fileList[0])
 
@@ -732,15 +709,8 @@ if __name__ == '__main__':
     print(f'[START] main')
 
     try:
-
-        # 파이썬 실행 시 전달인자를 초기 환경변수 설정
-        inParams = {}
-
-        print("[CHECK] inParams : {}".format(inParams))
-
         # 부 프로그램 호출
-        subDtaProcess = DtaProcess(inParams)
-
+        subDtaProcess = DtaProcess()
         subDtaProcess.exec()
 
     except Exception as e:
