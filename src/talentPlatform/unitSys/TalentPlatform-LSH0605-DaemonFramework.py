@@ -424,10 +424,10 @@ class DtaProcess(object):
                 'loadTimeout': 30,
                 'defTimeout': 15,
 
-                'selIdx': 4,
-                'splitNum': 5,
-                # 'selIdx': int(globalVar['selIdx']),
-                # 'splitNum': int(globalVar['splitNum']),
+                # 'selIdx': 4,
+                # 'splitNum': 5,
+                'selIdx': int(globalVar['selIdx']),
+                'splitNum': int(globalVar['splitNum']),
 
                 # 로그인 기능
                 'loginId': "18333208671",
@@ -469,13 +469,13 @@ class DtaProcess(object):
             # 전역 설정
             # ==========================================================================================================
             # 크롬드라이브 초기화
-            # driver = initDriver(sysOpt)
-            # wait = WebDriverWait(driver, sysOpt['loadTimeout'])
+            driver = initDriver(sysOpt)
+            wait = WebDriverWait(driver, sysOpt['loadTimeout'])
 
             # ==========================================================================================================
             # 로그인 기능
             # ==========================================================================================================
-            # initLogin(driver, sysOpt)
+            initLogin(driver, sysOpt)
 
             # ==========================================================================================================
             # 기본정보 수집
@@ -498,16 +498,6 @@ class DtaProcess(object):
 
                 # 파일 존재
                 if len(saveFileList) > 0: continue
-
-                # os.system("pkill -f chromedriver")
-                # os.system("pkill -f chrome")
-
-                # 크롬드라이브 초기화
-                # driver = initDriver(sysOpt)
-                # wait = WebDriverWait(driver, sysOpt['loadTimeout'])
-
-                # 로그인
-                # initLogin(driver, sysOpt)
 
                 data = pd.DataFrame()
                 for j, sector in enumerate(sysOpt['sectorList']):
