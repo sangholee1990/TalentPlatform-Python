@@ -163,7 +163,7 @@ def initGlobalVar(env=None, contextPath=None, prjName=None):
 
 
 #  초기 전달인자 설정
-def initArgument(globalVar, inParams):
+def initArgument(globalVar):
     parser = argparse.ArgumentParser()
 
     for i, argv in enumerate(sys.argv[1:]):
