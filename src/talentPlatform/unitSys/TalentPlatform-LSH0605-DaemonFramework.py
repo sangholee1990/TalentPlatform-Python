@@ -67,6 +67,7 @@ from selenium.common.exceptions import TimeoutException
 from selenium.common.exceptions import NoSuchElementException
 # import undetected_chromedriver as uc
 from pathlib import Path
+from selenium.webdriver.common.proxy import Proxy, ProxyType
 
 if platform.system() == 'Windows':
     import chromedriver_autoinstaller
@@ -194,13 +195,23 @@ def initDriver(sysOpt):
         # 자동 설치
         chromedriver_autoinstaller.install()
 
+        # 무료 프록시
+        # https://geonode.com/free-proxy-list
+        # proxy = "207.180.234.234:3128"
+        # proxyInfo = Proxy()
+        # proxyInfo.proxy_type = ProxyType.MANUAL
+        # proxyInfo.http_proxy = proxy
+        # proxyInfo.ssl_proxy = proxy
+
         # Chrome 옵션 설정
         options = Options()
         # options.add_argument('--headless')
         options.add_argument('--disable-gpu')
+        # options.add_argument(f'--proxy-server={proxyInfo}')
 
         # WebDriver 실행
         driver = webdriver.Chrome(options=options)
+
     else:
         # Chrome 옵션 설정
         options = Options()
