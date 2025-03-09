@@ -486,7 +486,7 @@ class DtaProcess(object):
             # ==========================================================================================================
             # 로그인 기능
             # ==========================================================================================================
-            initLogin(driver, sysOpt)
+            # initLogin(driver, sysOpt)
 
             # ==========================================================================================================
             # 기본정보 수집
@@ -629,22 +629,22 @@ class DtaProcess(object):
                 # ==========================================================================================================
                 # 상세정보 추출
                 # ==========================================================================================================
-                for idx, info in data.iterrows():
-                    webLink = info['Web_link']
-
-                    try:
-                        driver.get(webLink)
-
-                        if driver.current_url == sysOpt['verfUrl']:
-                            initLogin(driver, sysOpt)
-                            driver.get(webLink)
-
-                        divId = wait.until(EC.presence_of_element_located((By.ID, "divFullText")))
-                        fullArt = textProp(divId.text) if divId else None
-                    except Exception:
-                        fullArt = None
-                    data.loc[idx, 'Full_Article'] = fullArt
-                    # log.info(f'[CHECK] fullArt : {len(fullArt)}')
+                # for idx, info in data.iterrows():
+                #     webLink = info['Web_link']
+                #
+                #     try:
+                #         driver.get(webLink)
+                #
+                #         if driver.current_url == sysOpt['verfUrl']:
+                #             initLogin(driver, sysOpt)
+                #             driver.get(webLink)
+                #
+                #         divId = wait.until(EC.presence_of_element_located((By.ID, "divFullText")))
+                #         fullArt = textProp(divId.text) if divId else None
+                #     except Exception:
+                #         fullArt = None
+                #     data.loc[idx, 'Full_Article'] = fullArt
+                #     # log.info(f'[CHECK] fullArt : {len(fullArt)}')
 
                 # ==========================================================================================================
                 # 자료 저장
