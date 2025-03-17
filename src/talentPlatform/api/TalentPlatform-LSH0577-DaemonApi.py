@@ -16,6 +16,11 @@
 # 프로그램 종료
 # ps -ef | grep "TalentPlatform-LSH0577-DaemonApi" | awk '{print $2}' | xargs kill -9
 
+# 테스트 서버
+# uvicorn TalentPlatform-LSH0577-DaemonApi:app --reload --host=0.0.0.0 --port=9400
+# nohup uvicorn TalentPlatform-LSH0597-DaemonApi:app --reload --host=0.0.0.0 --port=9400 &
+# lsof -i :9400 | awk '{print $2}' | xargs kill -9
+
 # 포트 종료
 # yum install lsof -y
 # lsof -i :9000
@@ -246,9 +251,9 @@ except Exception as e:
 async def redirect_to_docs():
     return RedirectResponse(url="/docs")
 
-@app.post(f"/api/sel-selStatRealSgg", dependencies=[Depends(chkApiKey)])
-# @app.post(f"/api/sel-statRealSgg")
-def selStatRealSgg(
+@app.post(f"/api/sel-statRealMeanBySggDong", dependencies=[Depends(chkApiKey)])
+# @app.post(f"/api/sel-statRealMeanBySggDong")
+def selStatRealSggApt(
         sgg: str = Query(None, description="시군구")
         , area: str = Query(None, description="평수")
         , srtYear: int = Query(None, description="시작 연도")
@@ -259,7 +264,500 @@ def selStatRealSgg(
     ):
     """
     기능\n
-        TB_REAL 통계 목록 조회\n
+        TB_REAL 아파트 시군구 법정동 별로 평균가 API 구성\n
+        검색조건 시군구, 지역, 거래년도, 평수\n
+    테스트\n
+        시군구 (시군구, 시군구, ...): 서울특별시 강남구,서울특별시 금천구\n
+        평수 (평수, 평수, ...): 5평,6평\n
+        시작 연도: \n
+        종료 연도: \n
+        1쪽당 개수: 10\n
+        현재 쪽: 1\n
+        정렬 (컬럼|차순, 컬럼|차순, ...): cnt|desc,mean_amount|desc\n
+    """
+
+    try:
+        # 기본 SQL
+        baseSql = f"SELECT sgg, dong, COUNT(*) AS cnt, AVG(amount) AS mean_amount FROM `iconic-ruler-239806.DMS01.TB_REAL`"
+
+        # 동적 SQL 파라미터
+        condList = []
+        if sgg:
+            sggList = [s.strip() for s in sgg.split(',')]
+            sggCond = [f"sgg LIKE '%{s}%'" for s in sggList]
+            condList.append(f"({' OR '.join(sggCond)})")
+
+        if area:
+            areaList = [s.strip() for s in area.split(',')]
+            areaCond = [f"area LIKE '%{s}%'" for s in areaList]
+            condList.append(f"({' OR '.join(areaCond)})")
+
+        if srtYear and endYear:
+            condList.append(f"year BETWEEN {srtYear} AND {endYear}")
+
+        if condList:
+            condSql = " WHERE " + " AND ".join(condList)
+            baseSql += condSql
+
+        # 그룹핑
+        grpList = []
+        grpSql = " GROUP BY sgg, dong"
+        baseSql += grpSql
+
+        # 정렬 'year|desc,price|desc'
+        sortList = []
+        if sort:
+            for sortInfo in sort.split(','):
+                sortPart = sortInfo.split('|')
+                if sortPart is None or len(sortPart) != 2: continue
+                sortCol = sortPart[0]
+                sortOrd = sortPart[1].upper() if sortPart[1].upper() in ["ASC", "DESC"] else "ASC"
+                sortList.append(f"{sortCol} {sortOrd}")
+        if sortList:
+            sortSql = " ORDER BY " + ", ".join(sortList)
+            baseSql += sortSql
+        cntSql = baseSql
+
+        # 페이징
+        pageSql = f" LIMIT {limit} OFFSET {(page - 1) * limit}"
+        baseSql += pageSql
+
+        log.info(f"[CHECK] baseSql : {baseSql}")
+        log.info(f"[CHECK] cntSql : {cntSql}")
+
+        # 쿼리 실행
+        baseQuery = client.query(baseSql)
+        baseRes = baseQuery.result()
+        fileList = [dict(row) for row in baseRes]
+        if fileList is None or len(fileList) < 1:
+            return resResponse("fail", 400, f"검색 결과가 없습니다.", None)
+
+        cntQuery = client.query(cntSql)
+        cntRes = cntQuery.result()
+        cntList = [dict(row) for row in cntRes]
+        cnt = len(cntList)
+
+        return resResponse("succ", 200, "처리 완료", cnt, len(fileList), fileList)
+
+    except Exception as e:
+        log.error(f'Exception : {e}')
+        raise HTTPException(status_code=400, detail=str(e))
+
+@app.post(f"/api/sel-statRealSearchBySgg", dependencies=[Depends(chkApiKey)])
+# @app.post(f"/api/sel-statRealSearchBySgg")
+def statRealSearch(
+        sgg: str = Query(None, description="시군구")
+        , apt: str = Query(None, description="아파트")
+        , area: str = Query(None, description="평수")
+        , srtYear: int = Query(None, description="시작 연도")
+        , endYear: int = Query(None, description="종료 연도")
+        , limit: int = Query(10, description="1쪽당 개수")
+        , page: int = Query(1, description="현재 쪽")
+        , sort: str = Query(None, description="정렬")
+    ):
+    """
+    기능\n
+        TB_REAL 아파트 지역 시도와 시군구로 구분한 API 구성\n
+        맞집 좌측 검색조건 지역 참조
+    테스트\n
+        시군구 (시군구, 시군구, ...): 서울특별시 강남구,서울특별시 금천구\n
+        아파트 (아파트, 아파트, ...): \n
+        평수 (평수, 평수, ...): 5평,6평\n
+        시작 연도: \n
+        종료 연도: \n
+        1쪽당 개수: 10\n
+        현재 쪽: 1\n
+        정렬 (컬럼|차순, 컬럼|차순, ...): cnt|desc,max_amount|desc\n
+    """
+
+    try:
+        # 기본 SQL
+        baseSql = f"SELECT sgg, COUNT(*) AS cnt FROM `iconic-ruler-239806.DMS01.TB_REAL`"
+
+        # 동적 SQL 파라미터
+        condList = []
+        if sgg:
+            sggList = [s.strip() for s in sgg.split(',')]
+            sggCond = [f"sgg LIKE '%{s}%'" for s in sggList]
+            condList.append(f"({' OR '.join(sggCond)})")
+
+        if area:
+            areaList = [s.strip() for s in area.split(',')]
+            areaCond = [f"area LIKE '%{s}%'" for s in areaList]
+            condList.append(f"({' OR '.join(areaCond)})")
+
+        if apt:
+            aptList = [s.strip() for s in apt.split(',')]
+            aptCond = [f"apt LIKE '%{s}%'" for s in aptList]
+            condList.append(f"({' OR '.join(aptCond)})")
+
+
+        if srtYear and endYear:
+            condList.append(f"year BETWEEN {srtYear} AND {endYear}")
+
+        if condList:
+            condSql = " WHERE " + " AND ".join(condList)
+            baseSql += condSql
+
+        # 그룹핑
+        grpList = []
+        grpSql = " GROUP BY sgg"
+        baseSql += grpSql
+
+        # 정렬 'year|desc,price|desc'
+        sortList = []
+        if sort:
+            for sortInfo in sort.split(','):
+                sortPart = sortInfo.split('|')
+                if sortPart is None or len(sortPart) != 2: continue
+                sortCol = sortPart[0]
+                sortOrd = sortPart[1].upper() if sortPart[1].upper() in ["ASC", "DESC"] else "ASC"
+                sortList.append(f"{sortCol} {sortOrd}")
+        if sortList:
+            sortSql = " ORDER BY " + ", ".join(sortList)
+            baseSql += sortSql
+        cntSql = baseSql
+
+        # 페이징
+        pageSql = f" LIMIT {limit} OFFSET {(page - 1) * limit}"
+        baseSql += pageSql
+
+        log.info(f"[CHECK] baseSql : {baseSql}")
+        log.info(f"[CHECK] cntSql : {cntSql}")
+
+        # 쿼리 실행
+        baseQuery = client.query(baseSql)
+        baseRes = baseQuery.result()
+        fileList = [dict(row) for row in baseRes]
+        if fileList is None or len(fileList) < 1:
+            return resResponse("fail", 400, f"검색 결과가 없습니다.", None)
+
+        cntQuery = client.query(cntSql)
+        cntRes = cntQuery.result()
+        cntList = [dict(row) for row in cntRes]
+        cnt = len(cntList)
+
+        return resResponse("succ", 200, "처리 완료", cnt, len(fileList), fileList)
+
+    except Exception as e:
+        log.error(f'Exception : {e}')
+        raise HTTPException(status_code=400, detail=str(e))
+
+@app.post(f"/api/sel-statRealSearchByYear", dependencies=[Depends(chkApiKey)])
+# @app.post(f"/api/sel-statRealSearchByYear")
+def statRealSearch(
+        sgg: str = Query(None, description="시군구")
+        , apt: str = Query(None, description="아파트")
+        , area: str = Query(None, description="평수")
+        , srtYear: int = Query(None, description="시작 연도")
+        , endYear: int = Query(None, description="종료 연도")
+        , limit: int = Query(10, description="1쪽당 개수")
+        , page: int = Query(1, description="현재 쪽")
+        , sort: str = Query(None, description="정렬")
+    ):
+    """
+    기능\n
+        TB_REAL 아파트 건축년도 표기 API 구성\n
+        맞집 좌측 검색조건 거래년도 참조
+    테스트\n
+        시군구 (시군구, 시군구, ...): 서울특별시 강남구,서울특별시 금천구\n
+        아파트 (아파트, 아파트, ...): \n
+        평수 (평수, 평수, ...): 5평,6평\n
+        시작 연도: \n
+        종료 연도: \n
+        1쪽당 개수: 10\n
+        현재 쪽: 1\n
+        정렬 (컬럼|차순, 컬럼|차순, ...): cnt|desc,max_amount|desc\n
+    """
+
+    try:
+        # 기본 SQL
+        baseSql = f"SELECT year, COUNT(*) AS cnt FROM `iconic-ruler-239806.DMS01.TB_REAL`"
+
+        # 동적 SQL 파라미터
+        condList = []
+        if sgg:
+            sggList = [s.strip() for s in sgg.split(',')]
+            sggCond = [f"sgg LIKE '%{s}%'" for s in sggList]
+            condList.append(f"({' OR '.join(sggCond)})")
+
+        if area:
+            areaList = [s.strip() for s in area.split(',')]
+            areaCond = [f"area LIKE '%{s}%'" for s in areaList]
+            condList.append(f"({' OR '.join(areaCond)})")
+
+        if apt:
+            aptList = [s.strip() for s in apt.split(',')]
+            aptCond = [f"apt LIKE '%{s}%'" for s in aptList]
+            condList.append(f"({' OR '.join(aptCond)})")
+
+
+        if srtYear and endYear:
+            condList.append(f"year BETWEEN {srtYear} AND {endYear}")
+
+        if condList:
+            condSql = " WHERE " + " AND ".join(condList)
+            baseSql += condSql
+
+        # 그룹핑
+        grpList = []
+        grpSql = " GROUP BY year"
+        baseSql += grpSql
+
+        # 정렬 'year|desc,price|desc'
+        sortList = []
+        if sort:
+            for sortInfo in sort.split(','):
+                sortPart = sortInfo.split('|')
+                if sortPart is None or len(sortPart) != 2: continue
+                sortCol = sortPart[0]
+                sortOrd = sortPart[1].upper() if sortPart[1].upper() in ["ASC", "DESC"] else "ASC"
+                sortList.append(f"{sortCol} {sortOrd}")
+        if sortList:
+            sortSql = " ORDER BY " + ", ".join(sortList)
+            baseSql += sortSql
+        cntSql = baseSql
+
+        # 페이징
+        pageSql = f" LIMIT {limit} OFFSET {(page - 1) * limit}"
+        baseSql += pageSql
+
+        log.info(f"[CHECK] baseSql : {baseSql}")
+        log.info(f"[CHECK] cntSql : {cntSql}")
+
+        # 쿼리 실행
+        baseQuery = client.query(baseSql)
+        baseRes = baseQuery.result()
+        fileList = [dict(row) for row in baseRes]
+        if fileList is None or len(fileList) < 1:
+            return resResponse("fail", 400, f"검색 결과가 없습니다.", None)
+
+        cntQuery = client.query(cntSql)
+        cntRes = cntQuery.result()
+        cntList = [dict(row) for row in cntRes]
+        cnt = len(cntList)
+
+        return resResponse("succ", 200, "처리 완료", cnt, len(fileList), fileList)
+
+    except Exception as e:
+        log.error(f'Exception : {e}')
+        raise HTTPException(status_code=400, detail=str(e))
+
+@app.post(f"/api/sel-statRealSearchByArea", dependencies=[Depends(chkApiKey)])
+# @app.post(f"/api/sel-statRealSearchByArea")
+def statRealSearch(
+        sgg: str = Query(None, description="시군구")
+        , apt: str = Query(None, description="아파트")
+        , area: str = Query(None, description="평수")
+        , srtYear: int = Query(None, description="시작 연도")
+        , endYear: int = Query(None, description="종료 연도")
+        , limit: int = Query(10, description="1쪽당 개수")
+        , page: int = Query(1, description="현재 쪽")
+        , sort: str = Query(None, description="정렬")
+    ):
+    """
+    기능\n
+        TB_REAL 아파트 평수 리스트 API 구성\n
+        맞집 좌측 검색조건 평수 참조
+    테스트\n
+        시군구 (시군구, 시군구, ...): 서울특별시 강남구,서울특별시 금천구\n
+        아파트 (아파트, 아파트, ...): \n
+        평수 (평수, 평수, ...): 5평,6평\n
+        시작 연도: \n
+        종료 연도: \n
+        1쪽당 개수: 10\n
+        현재 쪽: 1\n
+        정렬 (컬럼|차순, 컬럼|차순, ...): cnt|desc,max_amount|desc\n
+    """
+
+    try:
+        # 기본 SQL
+        baseSql = f"SELECT area, COUNT(*) AS cnt FROM `iconic-ruler-239806.DMS01.TB_REAL`"
+
+        # 동적 SQL 파라미터
+        condList = []
+        if sgg:
+            sggList = [s.strip() for s in sgg.split(',')]
+            sggCond = [f"sgg LIKE '%{s}%'" for s in sggList]
+            condList.append(f"({' OR '.join(sggCond)})")
+
+        if area:
+            areaList = [s.strip() for s in area.split(',')]
+            areaCond = [f"area LIKE '%{s}%'" for s in areaList]
+            condList.append(f"({' OR '.join(areaCond)})")
+
+        if apt:
+            aptList = [s.strip() for s in apt.split(',')]
+            aptCond = [f"apt LIKE '%{s}%'" for s in aptList]
+            condList.append(f"({' OR '.join(aptCond)})")
+
+
+        if srtYear and endYear:
+            condList.append(f"year BETWEEN {srtYear} AND {endYear}")
+
+        if condList:
+            condSql = " WHERE " + " AND ".join(condList)
+            baseSql += condSql
+
+        # 그룹핑
+        grpList = []
+        grpSql = " GROUP BY area"
+        baseSql += grpSql
+
+        # 정렬 'year|desc,price|desc'
+        sortList = []
+        if sort:
+            for sortInfo in sort.split(','):
+                sortPart = sortInfo.split('|')
+                if sortPart is None or len(sortPart) != 2: continue
+                sortCol = sortPart[0]
+                sortOrd = sortPart[1].upper() if sortPart[1].upper() in ["ASC", "DESC"] else "ASC"
+                sortList.append(f"{sortCol} {sortOrd}")
+        if sortList:
+            sortSql = " ORDER BY " + ", ".join(sortList)
+            baseSql += sortSql
+        cntSql = baseSql
+
+        # 페이징
+        pageSql = f" LIMIT {limit} OFFSET {(page - 1) * limit}"
+        baseSql += pageSql
+
+        log.info(f"[CHECK] baseSql : {baseSql}")
+        log.info(f"[CHECK] cntSql : {cntSql}")
+
+        # 쿼리 실행
+        baseQuery = client.query(baseSql)
+        baseRes = baseQuery.result()
+        fileList = [dict(row) for row in baseRes]
+        if fileList is None or len(fileList) < 1:
+            return resResponse("fail", 400, f"검색 결과가 없습니다.", None)
+
+        cntQuery = client.query(cntSql)
+        cntRes = cntQuery.result()
+        cntList = [dict(row) for row in cntRes]
+        cnt = len(cntList)
+
+        return resResponse("succ", 200, "처리 완료", cnt, len(fileList), fileList)
+
+    except Exception as e:
+        log.error(f'Exception : {e}')
+        raise HTTPException(status_code=400, detail=str(e))
+
+@app.post(f"/api/sel-statRealSearchByApt", dependencies=[Depends(chkApiKey)])
+# @app.post(f"/api/sel-statRealSearchByApt")
+def statRealSearch(
+        sgg: str = Query(None, description="시군구")
+        , apt: str = Query(None, description="아파트")
+        , area: str = Query(None, description="평수")
+        , srtYear: int = Query(None, description="시작 연도")
+        , endYear: int = Query(None, description="종료 연도")
+        , limit: int = Query(10, description="1쪽당 개수")
+        , page: int = Query(1, description="현재 쪽")
+        , sort: str = Query(None, description="정렬")
+    ):
+    """
+    기능\n
+        TB_REAL 아파트명 리스트 API 구성\n
+        맞집 좌측 검색조건 아파트명 참조
+    테스트\n
+        시군구 (시군구, 시군구, ...): 서울특별시 강남구,서울특별시 금천구\n
+        아파트 (아파트, 아파트, ...): \n
+        평수 (평수, 평수, ...): 5평,6평\n
+        시작 연도: \n
+        종료 연도: \n
+        1쪽당 개수: 10\n
+        현재 쪽: 1\n
+        정렬 (컬럼|차순, 컬럼|차순, ...): cnt|desc,max_amount|desc\n
+    """
+
+    try:
+        # 기본 SQL
+        baseSql = f"SELECT apt, COUNT(*) AS cnt FROM `iconic-ruler-239806.DMS01.TB_REAL`"
+
+        # 동적 SQL 파라미터
+        condList = []
+        if sgg:
+            sggList = [s.strip() for s in sgg.split(',')]
+            sggCond = [f"sgg LIKE '%{s}%'" for s in sggList]
+            condList.append(f"({' OR '.join(sggCond)})")
+
+        if area:
+            areaList = [s.strip() for s in area.split(',')]
+            areaCond = [f"area LIKE '%{s}%'" for s in areaList]
+            condList.append(f"({' OR '.join(areaCond)})")
+
+        if apt:
+            aptList = [s.strip() for s in apt.split(',')]
+            aptCond = [f"apt LIKE '%{s}%'" for s in aptList]
+            condList.append(f"({' OR '.join(aptCond)})")
+
+
+        if srtYear and endYear:
+            condList.append(f"year BETWEEN {srtYear} AND {endYear}")
+
+        if condList:
+            condSql = " WHERE " + " AND ".join(condList)
+            baseSql += condSql
+
+        # 그룹핑
+        grpList = []
+        grpSql = " GROUP BY apt"
+        baseSql += grpSql
+
+        # 정렬 'year|desc,price|desc'
+        sortList = []
+        if sort:
+            for sortInfo in sort.split(','):
+                sortPart = sortInfo.split('|')
+                if sortPart is None or len(sortPart) != 2: continue
+                sortCol = sortPart[0]
+                sortOrd = sortPart[1].upper() if sortPart[1].upper() in ["ASC", "DESC"] else "ASC"
+                sortList.append(f"{sortCol} {sortOrd}")
+        if sortList:
+            sortSql = " ORDER BY " + ", ".join(sortList)
+            baseSql += sortSql
+        cntSql = baseSql
+
+        # 페이징
+        pageSql = f" LIMIT {limit} OFFSET {(page - 1) * limit}"
+        baseSql += pageSql
+
+        log.info(f"[CHECK] baseSql : {baseSql}")
+        log.info(f"[CHECK] cntSql : {cntSql}")
+
+        # 쿼리 실행
+        baseQuery = client.query(baseSql)
+        baseRes = baseQuery.result()
+        fileList = [dict(row) for row in baseRes]
+        if fileList is None or len(fileList) < 1:
+            return resResponse("fail", 400, f"검색 결과가 없습니다.", None)
+
+        cntQuery = client.query(cntSql)
+        cntRes = cntQuery.result()
+        cntList = [dict(row) for row in cntRes]
+        cnt = len(cntList)
+
+        return resResponse("succ", 200, "처리 완료", cnt, len(fileList), fileList)
+
+    except Exception as e:
+        log.error(f'Exception : {e}')
+        raise HTTPException(status_code=400, detail=str(e))
+
+@app.post(f"/api/sel-statRealMaxBySgg", dependencies=[Depends(chkApiKey)])
+# @app.post(f"/api/sel-statRealMaxBySgg")
+def selStatRealMaxBySgg(
+        sgg: str = Query(None, description="시군구")
+        , area: str = Query(None, description="평수")
+        , srtYear: int = Query(None, description="시작 연도")
+        , endYear: int = Query(None, description="종료 연도")
+        , limit: int = Query(10, description="1쪽당 개수")
+        , page: int = Query(1, description="현재 쪽")
+        , sort: str = Query(None, description="정렬")
+    ):
+    """
+    기능\n
+        TB_REAL 아파트 시군구 별로 최대값 API 구성\n
+        검색조건 시군구, 지역, 거래년도, 평수\n
     테스트\n
         시군구 (시군구, 시군구, ...): 서울특별시 강남구,서울특별시 금천구\n
         평수 (평수, 평수, ...): 5평,6평\n
@@ -337,9 +835,9 @@ def selStatRealSgg(
         log.error(f'Exception : {e}')
         raise HTTPException(status_code=400, detail=str(e))
 
-@app.post(f"/api/sel-statRealSggApt", dependencies=[Depends(chkApiKey)])
-# @app.post(f"/api/sel-statRealSggApt")
-def selStatRealSggApt(
+@app.post(f"/api/sel-statRealMaxBySggApt", dependencies=[Depends(chkApiKey)])
+# @app.post(f"/api/sel-statRealMaxBySggApt")
+def selStatRealMaxBySggApt(
         sgg: str = Query(None, description="시군구")
         , apt: str = Query(None, description="아파트")
         , area: str = Query(None, description="평수")
@@ -351,7 +849,8 @@ def selStatRealSggApt(
     ):
     """
     기능\n
-        TB_REAL 통계 목록 조회\n
+        TB_REAL 아파트 시군구 아파트명 별로 최대값 API 구성\n
+        검색조건 시군구, 아파트명, 지역, 거래년도, 평수\n
     테스트\n
         시군구 (시군구, 시군구, ...): 서울특별시 강남구,서울특별시 금천구\n
         아파트 (아파트, 아파트, ...): \n
