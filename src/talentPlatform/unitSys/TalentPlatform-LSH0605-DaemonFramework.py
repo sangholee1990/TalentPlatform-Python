@@ -437,6 +437,8 @@ class DtaProcess(object):
 
                 # 'selIdx': 4,
                 # 'splitNum': 5,
+                # 'isRev': False,
+                'isRev': globalVar['isRev'] == 'True',
                 'selIdx': int(globalVar['selIdx']),
                 'splitNum': int(globalVar['splitNum']),
 
@@ -467,7 +469,7 @@ class DtaProcess(object):
             cfgDataL1 = cfgData.drop_duplicates(subset=['Matching_City_Column_2']).reset_index(drop=True)
 
             splitData = getSplitData(cfgDataL1, splitNum=sysOpt['splitNum'])
-            cfgDataL2 = splitData[sysOpt['selIdx']].reset_index(drop=True)
+            cfgDataL2 = splitData[sysOpt['selIdx']].sort_index(ascending=sysOpt['isRev']).reset_index(drop=True)
 
             # ==========================================================================================================
             # 크롬드라이브 삭제
