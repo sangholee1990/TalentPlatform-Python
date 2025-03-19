@@ -218,29 +218,33 @@ class DtaProcess(object):
             }
 
             inpFile = '{}/{}/{}'.format(globalVar['inpPath'], serviceName, '20250316_ydgDBF/ydg*.dbf')
+            # inpFile = '{}/{}/{}'.format(globalVar['inpPath'], serviceName, '20250316_ydgDBF/ydg2013.dbf')
             fileList = sorted(glob.glob(inpFile))
 
             # fileInfo = fileList[0]
-            dataL2 = pd.DataFrame()
-            for fileInfo in fileList:
+            # dataL3 = pd.DataFrame()
+            # for fileInfo in fileList:
+            for i, fileInfo in enumerate(fileList):
                 log.info(f"[CHECK] fileInfo : {fileInfo}")
 
                 data = DBF(fileInfo, encoding='euc-kr', char_decode_errors='ignore', ignore_missing_memofile=True)
                 dataL1 = pd.DataFrame(data)
-                dataL2 = pd.concat([dataL2, dataL1], ignore_index=True)
+                dataL2 =  dataL1.drop(['_NullFlags'], axis=1, errors='ignore')
+                # dataL3 = pd.concat([dataL3, dataL2], ignore_index=True)
 
                 fileName = os.path.basename(fileInfo)
                 fileNameNotExt = fileName.split(".")[0]
+                isHeader = True if i == 0 else False
 
                 saveFile = '{}/{}/{}.csv'.format(globalVar['outPath'], serviceName, fileNameNotExt)
                 os.makedirs(os.path.dirname(saveFile), exist_ok=True)
-                dataL1.to_csv(saveFile, index=False)
+                dataL2.to_csv(saveFile, index=False, header=isHeader)
                 log.info(f"[CHECK] saveFile : {saveFile}")
 
-            saveFile = '{}/{}/{}_{}.csv'.format(globalVar['outPath'], serviceName, datetime.now().strftime("%Y%m%d"), 'ydg_2007_2025')
-            os.makedirs(os.path.dirname(saveFile), exist_ok=True)
-            dataL2.to_csv(saveFile, index=False)
-            log.info(f"[CHECK] saveFile : {saveFile}")
+            # saveFile = '{}/{}/{}_{}.csv'.format(globalVar['outPath'], serviceName, datetime.now().strftime("%Y%m%d"), 'ydg_2007_2025')
+            # os.makedirs(os.path.dirname(saveFile), exist_ok=True)
+            # dataL3.to_csv(saveFile, index=False)
+            # log.info(f"[CHECK] saveFile : {saveFile}")
 
         except Exception as e:
             log.error(f"Exception : {str(e)}")
