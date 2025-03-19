@@ -229,8 +229,15 @@ class DtaProcess(object):
                 dataL1 = pd.DataFrame(data)
                 dataL2 = pd.concat([dataL2, dataL1], ignore_index=True)
 
-            # CSV 생성
-            saveFile = '{}/{}/{}_{}.csv'.format(globalVar['outPath'], serviceName, datetime.now().strftime("%Y%m%d"), 'ydg_2007_2025.csv')
+                fileName = os.path.basename(fileInfo)
+                fileNameNotExt = fileName.split(".")[0]
+
+                saveFile = '{}/{}/{}.csv'.format(globalVar['outPath'], serviceName, fileNameNotExt)
+                os.makedirs(os.path.dirname(saveFile), exist_ok=True)
+                dataL1.to_csv(saveFile, index=False)
+                log.info(f"[CHECK] saveFile : {saveFile}")
+
+            saveFile = '{}/{}/{}_{}.csv'.format(globalVar['outPath'], serviceName, datetime.now().strftime("%Y%m%d"), 'ydg_2007_2025')
             os.makedirs(os.path.dirname(saveFile), exist_ok=True)
             dataL2.to_csv(saveFile, index=False)
             log.info(f"[CHECK] saveFile : {saveFile}")
