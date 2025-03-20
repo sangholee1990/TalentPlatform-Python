@@ -217,6 +217,20 @@ class DtaProcess(object):
                 # , 'endDate': '2023-01-01'
             }
 
+            inpFile = '{}/{}/{}'.format(globalVar['outPath'], serviceName, '20250320_ydg2007-2025.csv')
+            fileList = sorted(glob.glob(inpFile))
+            fileInfo = fileList[0]
+            data = pd.read_csv(fileInfo)
+            # data.dtypes
+
+            dataL1 = data.astype(str)
+            dataL1.dtypes
+
+            # PROJECT_ID = "my_proejct_id"
+            # table_id = "my_dataset.new_table"
+            #
+            # pd.gbq.to_gbq(data, table_id, PROJECT_ID)
+
             inpFile = '{}/{}/{}'.format(globalVar['inpPath'], serviceName, '20250316_ydgDBF/ydg*.dbf')
             # inpFile = '{}/{}/{}'.format(globalVar['inpPath'], serviceName, '20250316_ydgDBF/ydg2013.dbf')
             fileList = sorted(glob.glob(inpFile))
