@@ -210,21 +210,18 @@ class DtaProcess(object):
                 globalVar['outPath'] = '/DATA/OUTPUT'
                 globalVar['figPath'] = '/DATA/FIG'
 
+            from google.cloud import bigquery
+            from google.oauth2 import service_account
+
             # 옵션 설정
             sysOpt = {
                 # 시작/종료 시간
                 # 'srtDate': '2019-01-01'
                 # , 'endDate': '2023-01-01'
-            }
 
-            # inpFile = '{}/{}/{}'.format(globalVar['outPath'], serviceName, '20250320_ydg2007-2025.csv')
-            # fileList = sorted(glob.glob(inpFile))
-            # fileInfo = fileList[0]
-            # data = pd.read_csv(fileInfo)
-            # # data.dtypes
-            #
-            # dataL1 = data.astype(str)
-            # dataL1.dtypes
+                # 빅쿼리 설정 정보
+                'jsonFile': '/SYSTEMS/PROG/PYTHON/IDE/resources/config/iconic-ruler-239806-7f6de5759012.json',
+            }
 
             inpFile = '{}/{}/{}'.format(globalVar['inpPath'], serviceName, '20250316_ydgDBF/ydg*.dbf')
             # inpFile = '{}/{}/{}'.format(globalVar['inpPath'], serviceName, '20250316_ydgDBF/ydg2013.dbf')
@@ -238,12 +235,15 @@ class DtaProcess(object):
 
                 data = DBF(fileInfo, encoding='euc-kr', char_decode_errors='ignore', ignore_missing_memofile=True)
                 dataL1 = pd.DataFrame(data)
-                dataL2 =  dataL1.drop(['_NullFlags'], axis=1, errors='ignore')
+                # dataL2 =  dataL1.drop(['_NullFlags'], axis=1, errors='ignore')
+                dataL2 =  dataL1.drop(['_NullFlags', 'MEMO'], axis=1, errors='ignore')
                 # dataL3 = pd.concat([dataL3, dataL2], ignore_index=True)
 
                 fileName = os.path.basename(fileInfo)
                 fileNameNotExt = fileName.split(".")[0]
                 isHeader = True if i == 0 else False
+
+                dataL2['YEAR_DATE'] = pd.to_datetime(dataL2['REG_DATE'], format='%Y-%m-%d').dt.strftime('%Y')
 
                 saveFile = '{}/{}/{}.csv'.format(globalVar['outPath'], serviceName, fileNameNotExt)
                 os.makedirs(os.path.dirname(saveFile), exist_ok=True)
@@ -254,6 +254,60 @@ class DtaProcess(object):
             # os.makedirs(os.path.dirname(saveFile), exist_ok=True)
             # dataL3.to_csv(saveFile, index=False)
             # log.info(f"[CHECK] saveFile : {saveFile}")
+
+            # 빅쿼리 업로드
+            jsonFile = sysOpt['jsonFile']
+            jsonList = sorted(glob.glob(jsonFile))
+            if jsonList is None or len(jsonList) < 1:
+                log.error(f'jsonFile : {jsonFile} / 설정 파일 검색 실패')
+                exit(1)
+
+            jsonInfo = jsonList[0]
+
+            try:
+                credentials = service_account.Credentials.from_service_account_file(jsonInfo)
+                client = bigquery.Client(credentials=credentials, project=credentials.project_id)
+            except Exception as e:
+                log.error(f'Exception : {e} / 빅쿼리 연결 실패')
+                exit(1)
+
+            inpFile = '{}/{}/{}'.format(globalVar['outPath'], serviceName, '20250320_ydg2007-2025.csv')
+            fileList = sorted(glob.glob(inpFile))
+            fileInfo = fileList[0]
+            data = pd.read_csv(fileInfo)
+
+            # data['DEPART'].unique()
+            # data['YEAR_DATE'].unique()
+
+            jobCfg = bigquery.LoadJobConfig(
+                source_format=bigquery.SourceFormat.CSV,
+                skip_leading_rows=1,
+                autodetect=True,
+                # autodetect=False,
+                # schema=[  # BigQuery 테이블 스키마 정의 (열 이름, 데이터 타입)
+                #     bigquery.SchemaField("Y_NO", "INTEGER"),
+                #     bigquery.SchemaField("DEPART", "STRING"),
+                #     bigquery.SchemaField("DEPART_NO", "STRING"),
+                #     bigquery.SchemaField("SECTION", "STRING"),
+                #     bigquery.SchemaField("SUBJECT", "STRING"),
+                #     bigquery.SchemaField("NAME", "STRING"),
+                #     bigquery.SchemaField("YEAR", "STRING"),
+                #     bigquery.SchemaField("PUBLIC", "STRING"),
+                #     bigquery.SchemaField("RC_DATE", "DATE"),
+                #     bigquery.SchemaField("REG_DATE", "DATE"),
+                #     bigquery.SchemaField("SIZE", "INTEGER"),
+                # ],
+                write_disposition=bigquery.WriteDisposition.WRITE_TRUNCATE,
+                max_bad_records=10000, # 최대 오류 허용
+            )
+
+            tableId = f"{credentials.project_id}.DMS01.TB_YDG"
+            with open(fileInfo, "rb") as file:
+                job = client.load_table_from_file(file, tableId, job_config=jobCfg)
+            job.result()
+
+            # dataL1 = data.astype(str)
+            # dataL1.dtypes
 
         except Exception as e:
             log.error(f"Exception : {str(e)}")
