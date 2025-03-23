@@ -361,6 +361,9 @@ class DtaProcess(object):
     # C:\Users\sangh\.conda\envs\py38\python.exe C:\SYSTEMS\PROG\PYTHON\TalentPlatform-Python\src\talentPlatform\unitSys\TalentPlatform-LSH0605-DaemonFramework.py --selIdx 6 --splitNum 8
     # C:\Users\sangh\.conda\envs\py38\python.exe C:\SYSTEMS\PROG\PYTHON\TalentPlatform-Python\src\talentPlatform\unitSys\TalentPlatform-LSH0605-DaemonFramework.py --selIdx 7 --splitNum 8
 
+    # C:\Users\indi\anaconda3\envs\py38\python.exe C:\SYSTEMS\PROG\PYTHON\TalentPlatform-Python\src\talentPlatform\unitSys\TalentPlatform-LSH0605-DaemonFramework.py --selIdx 0 --isRev True  --splitNum 1
+    # C:\Users\indi\anaconda3\envs\py38\python.exe C:\SYSTEMS\PROG\PYTHON\TalentPlatform-Python\src\talentPlatform\unitSys\TalentPlatform-LSH0605-DaemonFramework.py --selIdx 0 --isRev False  --splitNum 1
+
     # ================================================================================================
     # 환경변수 설정
     # ================================================================================================
