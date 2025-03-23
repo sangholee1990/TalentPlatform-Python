@@ -1,4 +1,49 @@
-# -*- coding: utf-8 -*-
+# ================================================
+# 요구사항
+# ================================================
+# Python을 이용한 중국 빅데이터 사이트 조사 및 셀레늄 기반 로그인, 기본 및 부가정보 수집 및 추출
+
+# 원도우 X11 (X Window System) 프로토콜 지원
+# xming
+
+# 리눅스 CLI 실행
+# google-chrome --no-sandbo
+
+# 크롬 다운로드
+# https://googlechromelabs.github.io/chrome-for-testing
+
+# /DATA/INPUT/LSH0605/chrome-linux64/chrome --version
+# Google Chrome for Testing 131.0.6778.264
+
+# /DATA/INPUT/LSH0605/chromedriver-linux64/chromedriver --version
+# ChromeDriver 131.0.6778.264 (2d05e31515360f4da764174f7c448b33e36da871-refs/branch-heads/6778@{#4323})
+
+# 프로그램 실행
+# cd /SYSTEMS/PROG/PYTHON/IDE/src/talentPlatform/unitSys
+# /HDD/SYSTEMS/LIB/anaconda3/envs/py38/bin/python /SYSTEMS/PROG/PYTHON/IDE/src/talentPlatform/unitSys/TalentPlatform-LSH0605-DaemonFramework.py
+# nohup /HDD/SYSTEMS/LIB/anaconda3/envs/py38/bin/python /SYSTEMS/PROG/PYTHON/IDE/src/talentPlatform/unitSys/TalentPlatform-LSH0605-DaemonFramework.py &
+# tail -f nohup.out
+
+# 프로그램 실행 자동화
+# * * * * * bash /SYSTEMS/PROG/SHELL/PROC/RunShell-ProcAgentCheck.sh
+
+# 프로그램 종료
+# ps -ef | grep "TalentPlatform-LSH0605-DaemonFramework" | grep -v "grep" | awk '{print $2}' | xargs kill -9
+# ps -ef | grep "chrome" | grep -v "grep" | awk '{print $2}' | xargs kill -9
+
+# 원도우 환경
+# C:\Users\sangh\.conda\envs\py38\python.exe C:\SYSTEMS\PROG\PYTHON\TalentPlatform-Python\src\talentPlatform\unitSys\TalentPlatform-LSH0605-DaemonFramework.py --selIdx 0 --splitNum 8
+# C:\Users\sangh\.conda\envs\py38\python.exe C:\SYSTEMS\PROG\PYTHON\TalentPlatform-Python\src\talentPlatform\unitSys\TalentPlatform-LSH0605-DaemonFramework.py --selIdx 1 --splitNum 8
+# C:\Users\sangh\.conda\envs\py38\python.exe C:\SYSTEMS\PROG\PYTHON\TalentPlatform-Python\src\talentPlatform\unitSys\TalentPlatform-LSH0605-DaemonFramework.py --selIdx 2 --splitNum 8
+# C:\Users\sangh\.conda\envs\py38\python.exe C:\SYSTEMS\PROG\PYTHON\TalentPlatform-Python\src\talentPlatform\unitSys\TalentPlatform-LSH0605-DaemonFramework.py --selIdx 3 --splitNum 8
+# C:\Users\sangh\.conda\envs\py38\python.exe C:\SYSTEMS\PROG\PYTHON\TalentPlatform-Python\src\talentPlatform\unitSys\TalentPlatform-LSH0605-DaemonFramework.py --selIdx 4 --splitNum 8
+# C:\Users\sangh\.conda\envs\py38\python.exe C:\SYSTEMS\PROG\PYTHON\TalentPlatform-Python\src\talentPlatform\unitSys\TalentPlatform-LSH0605-DaemonFramework.py --selIdx 5 --splitNum 8
+# C:\Users\sangh\.conda\envs\py38\python.exe C:\SYSTEMS\PROG\PYTHON\TalentPlatform-Python\src\talentPlatform\unitSys\TalentPlatform-LSH0605-DaemonFramework.py --selIdx 6 --splitNum 8
+# C:\Users\sangh\.conda\envs\py38\python.exe C:\SYSTEMS\PROG\PYTHON\TalentPlatform-Python\src\talentPlatform\unitSys\TalentPlatform-LSH0605-DaemonFramework.py --selIdx 7 --splitNum 8
+
+# C:\Users\indi\anaconda3\envs\py38\python.exe C:\SYSTEMS\PROG\PYTHON\TalentPlatform-Python\src\talentPlatform\unitSys\TalentPlatform-LSH0605-DaemonFramework.py --selIdx 0 --isRev True  --splitNum 1
+# C:\Users\indi\anaconda3\envs\py38\python.exe C:\SYSTEMS\PROG\PYTHON\TalentPlatform-Python\src\talentPlatform\unitSys\TalentPlatform-LSH0605-DaemonFramework.py --selIdx 0 --isRev False  --splitNum 1
+
 import argparse
 import glob
 import logging
@@ -318,52 +363,6 @@ def getSplitData(df, splitNum=5):
 # ================================================
 class DtaProcess(object):
 
-    # ================================================
-    # 요구사항
-    # ================================================
-    # Python을 이용한 중국 빅데이터 사이트 조사 및 셀레늄 기반 로그인, 기본 및 부가정보 수집 및 추출
-
-    # 원도우 X11 (X Window System) 프로토콜 지원
-    # xming
-
-    # 리눅스 CLI 실행
-    # google-chrome --no-sandbo
-
-    # 크롬 다운로드
-    # https://googlechromelabs.github.io/chrome-for-testing
-
-    # /DATA/INPUT/LSH0605/chrome-linux64/chrome --version
-    # Google Chrome for Testing 131.0.6778.264
-
-    # /DATA/INPUT/LSH0605/chromedriver-linux64/chromedriver --version
-    # ChromeDriver 131.0.6778.264 (2d05e31515360f4da764174f7c448b33e36da871-refs/branch-heads/6778@{#4323})
-
-    # 프로그램 실행
-    # cd /SYSTEMS/PROG/PYTHON/IDE/src/talentPlatform/unitSys
-    # /HDD/SYSTEMS/LIB/anaconda3/envs/py38/bin/python /SYSTEMS/PROG/PYTHON/IDE/src/talentPlatform/unitSys/TalentPlatform-LSH0605-DaemonFramework.py
-    # nohup /HDD/SYSTEMS/LIB/anaconda3/envs/py38/bin/python /SYSTEMS/PROG/PYTHON/IDE/src/talentPlatform/unitSys/TalentPlatform-LSH0605-DaemonFramework.py &
-    # tail -f nohup.out
-
-    # 프로그램 실행 자동화
-    # * * * * * bash /SYSTEMS/PROG/SHELL/PROC/RunShell-ProcAgentCheck.sh
-
-    # 프로그램 종료
-    # ps -ef | grep "TalentPlatform-LSH0605-DaemonFramework" | grep -v "grep" | awk '{print $2}' | xargs kill -9
-    # ps -ef | grep "chrome" | grep -v "grep" | awk '{print $2}' | xargs kill -9
-
-    # 원도우 환경
-    # C:\Users\sangh\.conda\envs\py38\python.exe C:\SYSTEMS\PROG\PYTHON\TalentPlatform-Python\src\talentPlatform\unitSys\TalentPlatform-LSH0605-DaemonFramework.py --selIdx 0 --splitNum 8
-    # C:\Users\sangh\.conda\envs\py38\python.exe C:\SYSTEMS\PROG\PYTHON\TalentPlatform-Python\src\talentPlatform\unitSys\TalentPlatform-LSH0605-DaemonFramework.py --selIdx 1 --splitNum 8
-    # C:\Users\sangh\.conda\envs\py38\python.exe C:\SYSTEMS\PROG\PYTHON\TalentPlatform-Python\src\talentPlatform\unitSys\TalentPlatform-LSH0605-DaemonFramework.py --selIdx 2 --splitNum 8
-    # C:\Users\sangh\.conda\envs\py38\python.exe C:\SYSTEMS\PROG\PYTHON\TalentPlatform-Python\src\talentPlatform\unitSys\TalentPlatform-LSH0605-DaemonFramework.py --selIdx 3 --splitNum 8
-    # C:\Users\sangh\.conda\envs\py38\python.exe C:\SYSTEMS\PROG\PYTHON\TalentPlatform-Python\src\talentPlatform\unitSys\TalentPlatform-LSH0605-DaemonFramework.py --selIdx 4 --splitNum 8
-    # C:\Users\sangh\.conda\envs\py38\python.exe C:\SYSTEMS\PROG\PYTHON\TalentPlatform-Python\src\talentPlatform\unitSys\TalentPlatform-LSH0605-DaemonFramework.py --selIdx 5 --splitNum 8
-    # C:\Users\sangh\.conda\envs\py38\python.exe C:\SYSTEMS\PROG\PYTHON\TalentPlatform-Python\src\talentPlatform\unitSys\TalentPlatform-LSH0605-DaemonFramework.py --selIdx 6 --splitNum 8
-    # C:\Users\sangh\.conda\envs\py38\python.exe C:\SYSTEMS\PROG\PYTHON\TalentPlatform-Python\src\talentPlatform\unitSys\TalentPlatform-LSH0605-DaemonFramework.py --selIdx 7 --splitNum 8
-
-    # C:\Users\indi\anaconda3\envs\py38\python.exe C:\SYSTEMS\PROG\PYTHON\TalentPlatform-Python\src\talentPlatform\unitSys\TalentPlatform-LSH0605-DaemonFramework.py --selIdx 0 --isRev True  --splitNum 1
-    # C:\Users\indi\anaconda3\envs\py38\python.exe C:\SYSTEMS\PROG\PYTHON\TalentPlatform-Python\src\talentPlatform\unitSys\TalentPlatform-LSH0605-DaemonFramework.py --selIdx 0 --isRev False  --splitNum 1
-
     # ================================================================================================
     # 환경변수 설정
     # ================================================================================================
@@ -423,10 +422,12 @@ class DtaProcess(object):
 
             # 옵션 설정
             sysOpt = {
+                # URL 정보
                 'loginUrl': "https://www.pkulaw.com/login",
                 'listUrl': "https://www.pkulaw.com",
                 'verfUrl': "https://www.pkulaw.com/VerificationCode/Index?IsBlack=true",
 
+                # 크롬 정보
                 'chromeInfo': "/DATA/INPUT/LSH0602/chrome-linux64/chrome",
                 'chromedriverInfo':"/DATA/INPUT/LSH0602/chromedriver-linux64/chromedriver",
 
