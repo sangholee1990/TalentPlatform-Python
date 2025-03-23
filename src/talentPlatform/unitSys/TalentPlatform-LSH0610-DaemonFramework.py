@@ -3,6 +3,9 @@
 # ================================================
 # Python, Looker Studio을 이용한 19년간 공개 생산문서 대시보드
 
+# rm -f 20250320_ydg2007-2025.csv
+# cat *.csv > 20250320_ydg2007-2025.csv
+
 import argparse
 import glob
 import logging
@@ -12,7 +15,6 @@ import platform
 import sys
 import traceback
 import warnings
-from _ast import expr
 from datetime import datetime
 
 import matplotlib as mpl
@@ -24,6 +26,9 @@ from dbfread import DBF, FieldParser
 import csv
 import os
 import pandas as pd
+from google.cloud import bigquery
+from google.oauth2 import service_account
+import re
 
 # =================================================
 # 사용자 매뉴얼
@@ -210,9 +215,6 @@ class DtaProcess(object):
                 globalVar['outPath'] = '/DATA/OUTPUT'
                 globalVar['figPath'] = '/DATA/FIG'
 
-            from google.cloud import bigquery
-            from google.oauth2 import service_account
-
             # 옵션 설정
             sysOpt = {
                 # 시작/종료 시간
@@ -223,6 +225,9 @@ class DtaProcess(object):
                 'jsonFile': '/SYSTEMS/PROG/PYTHON/IDE/resources/config/iconic-ruler-239806-7f6de5759012.json',
             }
 
+            # =================================================================
+            # csv 파일 변환
+            # =================================================================
             inpFile = '{}/{}/{}'.format(globalVar['inpPath'], serviceName, '20250316_ydgDBF/ydg*.dbf')
             # inpFile = '{}/{}/{}'.format(globalVar['inpPath'], serviceName, '20250316_ydgDBF/ydg2013.dbf')
             fileList = sorted(glob.glob(inpFile))
@@ -243,7 +248,10 @@ class DtaProcess(object):
                 fileNameNotExt = fileName.split(".")[0]
                 isHeader = True if i == 0 else False
 
-                dataL2['YEAR_DATE'] = pd.to_datetime(dataL2['REG_DATE'], format='%Y-%m-%d').dt.strftime('%Y')
+                dataL2['YEAR_DATE'] = pd.to_datetime(dataL2['RC_DATE'], format='%Y-%m-%d').dt.strftime('%Y')
+                dataL2['DEPART'] = dataL2['DEPART'].str.replace(r'[\n\r\x0f\x06\x14\x0e\|]', '', regex=True).str.strip()
+
+                # dataL2['DEPART'].unique()
 
                 saveFile = '{}/{}/{}.csv'.format(globalVar['outPath'], serviceName, fileNameNotExt)
                 os.makedirs(os.path.dirname(saveFile), exist_ok=True)
@@ -255,7 +263,9 @@ class DtaProcess(object):
             # dataL3.to_csv(saveFile, index=False)
             # log.info(f"[CHECK] saveFile : {saveFile}")
 
+            # =================================================================
             # 빅쿼리 업로드
+            # =================================================================
             jsonFile = sysOpt['jsonFile']
             jsonList = sorted(glob.glob(jsonFile))
             if jsonList is None or len(jsonList) < 1:
@@ -273,8 +283,12 @@ class DtaProcess(object):
 
             inpFile = '{}/{}/{}'.format(globalVar['outPath'], serviceName, '20250320_ydg2007-2025.csv')
             fileList = sorted(glob.glob(inpFile))
+            if fileList is None or len(fileList) < 1:
+                log.error(f'inpFile : {inpFile} / 파일 검색 실패')
+                exit(1)
+
             fileInfo = fileList[0]
-            data = pd.read_csv(fileInfo)
+            # data = pd.read_csv(fileInfo)
 
             # data['DEPART'].unique()
             # data['YEAR_DATE'].unique()
@@ -292,19 +306,21 @@ class DtaProcess(object):
                 #     bigquery.SchemaField("SUBJECT", "STRING"),
                 #     bigquery.SchemaField("NAME", "STRING"),
                 #     bigquery.SchemaField("YEAR", "STRING"),
+                #     bigquery.SchemaField("YEAR_DATE", "STRING"),
                 #     bigquery.SchemaField("PUBLIC", "STRING"),
                 #     bigquery.SchemaField("RC_DATE", "DATE"),
                 #     bigquery.SchemaField("REG_DATE", "DATE"),
                 #     bigquery.SchemaField("SIZE", "INTEGER"),
                 # ],
                 write_disposition=bigquery.WriteDisposition.WRITE_TRUNCATE,
-                max_bad_records=10000, # 최대 오류 허용
+                max_bad_records=1000, # 최대 오류 허용
             )
 
             tableId = f"{credentials.project_id}.DMS01.TB_YDG"
             with open(fileInfo, "rb") as file:
                 job = client.load_table_from_file(file, tableId, job_config=jobCfg)
             job.result()
+            log.info(f"[CHECK] tableId : {tableId}")
 
             # dataL1 = data.astype(str)
             # dataL1.dtypes
