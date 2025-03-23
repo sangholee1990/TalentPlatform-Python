@@ -322,8 +322,8 @@ def selStatRealSggApt(
         pageSql = f" LIMIT {limit} OFFSET {(page - 1) * limit}"
         baseSql += pageSql
 
-        log.info(f"[CHECK] baseSql : {baseSql}")
-        log.info(f"[CHECK] cntSql : {cntSql}")
+        # log.info(f"[CHECK] baseSql : {baseSql}")
+        # log.info(f"[CHECK] cntSql : {cntSql}")
 
         # 쿼리 실행
         baseQuery = client.query(baseSql)
@@ -422,8 +422,8 @@ def statRealSearch(
         pageSql = f" LIMIT {limit} OFFSET {(page - 1) * limit}"
         baseSql += pageSql
 
-        log.info(f"[CHECK] baseSql : {baseSql}")
-        log.info(f"[CHECK] cntSql : {cntSql}")
+        # log.info(f"[CHECK] baseSql : {baseSql}")
+        # log.info(f"[CHECK] cntSql : {cntSql}")
 
         # 쿼리 실행
         baseQuery = client.query(baseSql)
@@ -522,8 +522,8 @@ def statRealSearch(
         pageSql = f" LIMIT {limit} OFFSET {(page - 1) * limit}"
         baseSql += pageSql
 
-        log.info(f"[CHECK] baseSql : {baseSql}")
-        log.info(f"[CHECK] cntSql : {cntSql}")
+        # log.info(f"[CHECK] baseSql : {baseSql}")
+        # log.info(f"[CHECK] cntSql : {cntSql}")
 
         # 쿼리 실행
         baseQuery = client.query(baseSql)
@@ -622,8 +622,8 @@ def statRealSearch(
         pageSql = f" LIMIT {limit} OFFSET {(page - 1) * limit}"
         baseSql += pageSql
 
-        log.info(f"[CHECK] baseSql : {baseSql}")
-        log.info(f"[CHECK] cntSql : {cntSql}")
+        # log.info(f"[CHECK] baseSql : {baseSql}")
+        # log.info(f"[CHECK] cntSql : {cntSql}")
 
         # 쿼리 실행
         baseQuery = client.query(baseSql)
@@ -722,8 +722,8 @@ def statRealSearch(
         pageSql = f" LIMIT {limit} OFFSET {(page - 1) * limit}"
         baseSql += pageSql
 
-        log.info(f"[CHECK] baseSql : {baseSql}")
-        log.info(f"[CHECK] cntSql : {cntSql}")
+        # log.info(f"[CHECK] baseSql : {baseSql}")
+        # log.info(f"[CHECK] cntSql : {cntSql}")
 
         # 쿼리 실행
         baseQuery = client.query(baseSql)
@@ -814,8 +814,8 @@ def selStatRealMaxBySgg(
         pageSql = f" LIMIT {limit} OFFSET {(page - 1) * limit}"
         baseSql += pageSql
 
-        log.info(f"[CHECK] baseSql : {baseSql}")
-        log.info(f"[CHECK] cntSql : {cntSql}")
+        # log.info(f"[CHECK] baseSql : {baseSql}")
+        # log.info(f"[CHECK] cntSql : {cntSql}")
 
         # 쿼리 실행
         baseQuery = client.query(baseSql)
@@ -913,8 +913,8 @@ def selStatRealMaxBySggApt(
         pageSql = f" LIMIT {limit} OFFSET {(page - 1) * limit}"
         baseSql += pageSql
 
-        log.info(f"[CHECK] baseSql : {baseSql}")
-        log.info(f"[CHECK] cntSql : {cntSql}")
+        # log.info(f"[CHECK] baseSql : {baseSql}")
+        # log.info(f"[CHECK] cntSql : {cntSql}")
 
         # 쿼리 실행
         baseQuery = client.query(baseSql)
@@ -1140,8 +1140,8 @@ def selReal(
         pageSql = f" LIMIT {limit} OFFSET {(page - 1) * limit}"
         baseSql += pageSql
 
-        log.info(f"[CHECK] baseSql : {baseSql}")
-        log.info(f"[CHECK] cntSql : {cntSql}")
+        # log.info(f"[CHECK] baseSql : {baseSql}")
+        # log.info(f"[CHECK] cntSql : {cntSql}")
 
         # 쿼리 실행
         baseQuery = client.query(baseSql)
@@ -1162,7 +1162,7 @@ def selReal(
 
 @app.post(f"/api/sel-prd", dependencies=[Depends(chkApiKey)])
 # @app.post(f"/api/sel-prd")
-def selReal(
+def selPrd(
         sgg: str = Query(None, description="시군구")
         , apt: str = Query(None, description="아파트")
         , area: str = Query(None, description="평수")
@@ -1239,8 +1239,8 @@ def selReal(
         pageSql = f" LIMIT {limit} OFFSET {(page - 1) * limit}"
         baseSql += pageSql
 
-        log.info(f"[CHECK] baseSql : {baseSql}")
-        log.info(f"[CHECK] cntSql : {cntSql}")
+        # log.info(f"[CHECK] baseSql : {baseSql}")
+        # log.info(f"[CHECK] cntSql : {cntSql}")
 
         # 쿼리 실행
         baseQuery = client.query(baseSql)
@@ -1262,41 +1262,93 @@ def selReal(
 
 @app.post(f"/api/sel-infra", dependencies=[Depends(chkApiKey)])
 # @app.post(f"/api/sel-infra")
-def selReal(
-        sgg: str = Query(None, description="시군구")
+def selInfra(
+        lon: float = Query(127.10, description="특정 경도")
+        , lat: float = Query(37.46, description="특정 위도")
+        , distKm: float = Query(0.1, description="특정 경위도를 기준으로 거리 km")
         , limit: int = Query(10, description="1쪽당 개수")
         , page: int = Query(1, description="현재 쪽")
+        , sort: str = Query(None, description="정렬")
     ):
     """
     기능\n
         TB_INFRA 목록 조회\n
+        즉 특정 경도/위도 (아파트 위치 또는 관심지역 위치 등)를 기준으로 반경 km 주변 인프라 (편의시설, 교육, 주거환경, 교통) 조회
     테스트\n
-        시군구: 서울특별시 강남구\n
+        특정 경도: 127.10\n
+        특정 위도: 37.46\n
+        특정 경위도를 기준으로 거리 km: 0.1 km = 100 m\n
         1쪽당 개수: 10\n
         현재 쪽: 1\n
+        정렬 (컬럼|차순, 컬럼|차순, ...): distKm|desc\n
     """
 
     try:
         # 기본 SQL
-        sql = f"SELECT * FROM `iconic-ruler-239806.DMS01.TB_INFRA`"
+        baseSql = f"""
+            SELECT
+                *,
+                ST_DISTANCE(ST_GEOGPOINT(p_x, p_y), ST_GEOGPOINT({lon}, {lat})) / 1000 AS distKm
+            FROM
+                `iconic-ruler-239806.DMS01.TB_INFRA`
+        """
 
         # 동적 SQL 파라미터
         condList = []
-        if sgg: condList.append(f"sgg LIKE '%{sgg}%'")
-        if condList: sql += " WHERE " + " AND ".join(condList)
+        # if sgg:
+        #     sggList = [s.strip() for s in sgg.split(',')]
+        #     sggCond = [f"sgg LIKE '%{s}%'" for s in sggList]
+        #     condList.append(f"({' OR '.join(sggCond)})")
 
-        sql += f" LIMIT {limit} OFFSET {(page - 1) * limit}"
-        log.info(f"[CHECK] sql : {sql}")
+        if lon and lat and distKm:
+            condList.append(f"ST_DISTANCE(ST_GEOGPOINT(p_x, p_y), ST_GEOGPOINT({lon}, {lat})) <= {distKm * 1000}")
+
+        if condList:
+            condSql = " WHERE " + " AND ".join(condList)
+            baseSql += condSql
+
+        # 그룹핑
+        # grpList = []
+        # grpSql = " GROUP BY sgg"
+        # baseSql += grpSql
+
+        # 정렬 'year|desc,price|desc'
+        sortList = []
+        if sort:
+            for sortInfo in sort.split(','):
+                sortPart = sortInfo.split('|')
+                if sortPart is None or len(sortPart) != 2: continue
+                sortCol = sortPart[0]
+                sortOrd = sortPart[1].upper() if sortPart[1].upper() in ["ASC", "DESC"] else "ASC"
+                sortList.append(f"{sortCol} {sortOrd}")
+
+        if sortList:
+            sortSql = " ORDER BY " + ", ".join(sortList)
+            baseSql += sortSql
+
+        cntSql = f"SELECT COUNT(*) AS cnt FROM ({baseSql})"
+
+        # 페이징
+        pageSql = f" LIMIT {limit} OFFSET {(page - 1) * limit}"
+        baseSql += pageSql
+        cntSql += pageSql
+
+        # log.info(f"[CHECK] baseSql : {baseSql}")
+        # log.info(f"[CHECK] cntSql : {cntSql}")
 
         # 쿼리 실행
-        query_job = client.query(sql)
-        results = query_job.result()
-
-        fileList = [dict(row) for row in results]
+        baseQuery = client.query(baseSql)
+        baseRes = baseQuery.result()
+        fileList = [dict(row) for row in baseRes]
         if fileList is None or len(fileList) < 1:
             return resResponse("fail", 400, f"검색 결과가 없습니다.", None)
 
-        return resResponse("succ", 200, "처리 완료", len(fileList), len(fileList), fileList)
+        cntQuery = client.query(cntSql)
+        cntRes = cntQuery.result()
+        cntList = [dict(row) for row in cntRes]
+        cnt = cntList[0]['cnt']
+
+        return resResponse("succ", 200, "처리 완료", cnt, len(fileList), fileList)
 
     except Exception as e:
         log.error(f'Exception : {e}')
@@ -1304,7 +1356,7 @@ def selReal(
 
 @app.post(f"/api/sel-keyword", dependencies=[Depends(chkApiKey)])
 # @app.post(f"/api/sel-keyword")
-def selReal(
+def selKeyword(
         sgg: str = Query(None, description="시군구")
         , limit: int = Query(10, description="1쪽당 개수")
         , page: int = Query(1, description="현재 쪽")
@@ -1331,10 +1383,10 @@ def selReal(
         log.info(f"[CHECK] sql : {sql}")
 
         # 쿼리 실행
-        query_job = client.query(sql)
-        results = query_job.result()
+        baseQuery = client.query(sql)
+        baseRes = baseQuery.result()
 
-        fileList = [dict(row) for row in results]
+        fileList = [dict(row) for row in baseRes]
         if fileList is None or len(fileList) < 1:
             return resResponse("fail", 400, f"검색 결과가 없습니다.", None)
 
@@ -1346,7 +1398,7 @@ def selReal(
 
 @app.post(f"/api/sel-yearPopTrend", dependencies=[Depends(chkApiKey)])
 # @app.post(f"/api/sel-yearPopTrend")
-def selReal(
+def selYearPopTrend(
         sgg: str = Query(None, description="시군구")
         , limit: int = Query(10, description="1쪽당 개수")
         , page: int = Query(1, description="현재 쪽")
@@ -1373,10 +1425,10 @@ def selReal(
         log.info(f"[CHECK] sql : {sql}")
 
         # 쿼리 실행
-        query_job = client.query(sql)
-        results = query_job.result()
+        baseQuery = client.query(sql)
+        baseRes = baseQuery.result()
 
-        fileList = [dict(row) for row in results]
+        fileList = [dict(row) for row in baseRes]
         if fileList is None or len(fileList) < 1:
             return resResponse("fail", 400, f"검색 결과가 없습니다.", None)
 
@@ -1388,7 +1440,7 @@ def selReal(
 
 @app.post(f"/api/sel-upComSupply", dependencies=[Depends(chkApiKey)])
 # @app.post(f"/api/sel-upComSupply")
-def selReal(
+def selUpComSupply(
         sgg: str = Query(None, description="시군구")
         , limit: int = Query(10, description="1쪽당 개수")
         , page: int = Query(1, description="현재 쪽")
@@ -1415,10 +1467,10 @@ def selReal(
         log.info(f"[CHECK] sql : {sql}")
 
         # 쿼리 실행
-        query_job = client.query(sql)
-        results = query_job.result()
+        baseQuery = client.query(sql)
+        baseRes = baseQuery.result()
 
-        fileList = [dict(row) for row in results]
+        fileList = [dict(row) for row in baseRes]
         if fileList is None or len(fileList) < 1:
             return resResponse("fail", 400, f"검색 결과가 없습니다.", None)
 
@@ -1430,7 +1482,7 @@ def selReal(
 
 @app.post(f"/api/sel-monthPopTrend", dependencies=[Depends(chkApiKey)])
 # @app.post(f"/api/sel-monthPopTrend")
-def selReal(
+def selMonthPopTrend(
         sgg: str = Query(None, description="시군구")
         , limit: int = Query(10, description="1쪽당 개수")
         , page: int = Query(1, description="현재 쪽")
@@ -1457,10 +1509,10 @@ def selReal(
         log.info(f"[CHECK] sql : {sql}")
 
         # 쿼리 실행
-        query_job = client.query(sql)
-        results = query_job.result()
+        baseQuery = client.query(sql)
+        baseRes = baseQuery.result()
 
-        fileList = [dict(row) for row in results]
+        fileList = [dict(row) for row in baseRes]
         if fileList is None or len(fileList) < 1:
             return resResponse("fail", 400, f"검색 결과가 없습니다.", None)
 
@@ -1472,7 +1524,7 @@ def selReal(
 
 @app.post(f"/api/sel-unSoldTrend", dependencies=[Depends(chkApiKey)])
 # @app.post(f"/api/sel-unSoldTrend")
-def selReal(
+def selUnSoldTrend(
         sgg: str = Query(None, description="시군구")
         , limit: int = Query(10, description="1쪽당 개수")
         , page: int = Query(1, description="현재 쪽")
@@ -1499,10 +1551,10 @@ def selReal(
         log.info(f"[CHECK] sql : {sql}")
 
         # 쿼리 실행
-        query_job = client.query(sql)
-        results = query_job.result()
+        baseQuery = client.query(sql)
+        baseRes = baseQuery.result()
 
-        fileList = [dict(row) for row in results]
+        fileList = [dict(row) for row in baseRes]
         if fileList is None or len(fileList) < 1:
             return resResponse("fail", 400, f"검색 결과가 없습니다.", None)
 
@@ -1514,7 +1566,7 @@ def selReal(
 
 @app.post(f"/api/sel-largeComRank", dependencies=[Depends(chkApiKey)])
 # @app.post(f"/api/sel-largeComRank")
-def selReal(
+def selLargeComRank(
         sgg: str = Query(None, description="시군구")
         , limit: int = Query(10, description="1쪽당 개수")
         , page: int = Query(1, description="현재 쪽")
@@ -1541,10 +1593,10 @@ def selReal(
         log.info(f"[CHECK] sql : {sql}")
 
         # 쿼리 실행
-        query_job = client.query(sql)
-        results = query_job.result()
+        baseQuery = client.query(sql)
+        baseRes = baseQuery.result()
 
-        fileList = [dict(row) for row in results]
+        fileList = [dict(row) for row in baseRes]
         if fileList is None or len(fileList) < 1:
             return resResponse("fail", 400, f"검색 결과가 없습니다.", None)
 
