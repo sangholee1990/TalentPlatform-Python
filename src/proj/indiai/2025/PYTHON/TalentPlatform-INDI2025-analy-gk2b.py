@@ -290,6 +290,7 @@ class DtaProcess(object):
 
             # data.var()
             geoData = xr.open_dataset(fileList[0], group='Geolocation Fields')
+            # geoData = xr.open_mfdataset(fileList, group='Geolocation Fields')
             # geoDataL1 = geoData[['Latitude', 'Longitude', 'Pressure']]
             # geoDataL1 = geoData[['Latitude', 'Longitude', 'Pressure']]
             geoDataL1 = geoData[['Latitude', 'Longitude', 'Altitude']]
@@ -336,17 +337,95 @@ class DtaProcess(object):
 
             # sel_df = data[(data['spatial'] == 71) & (data['image'].between(35, 42))]
             sel_df = data[(data['spatial'].between(50, 71)) & (data['image'].between(35, 42))]
+            # sel_df = data[(data['spatial'].between(70, 70)) & (data['image'].between(42, 42))]
             sel_df
 
             # pip install PyBresenham
             import pybresenham
-            start_point = (50, 35)
-            end_point = (71, 42)
+            # start_point = (50, 35)
+            # end_point = (71, 42)
 
             # line_coordinates = list(pybresenham(start_point[0], start_point[1], end_point[0], end_point[1]))
 
             bresenham_points = list(pybresenham.line(50, 35, 71, 42))
-            sel_df = data[data.apply(lambda row: (row['spatial'], row['image']) in bresenham_points, axis=1)]
+            # sel_df = data[data.apply(lambda row: (row['spatial'], row['image']) in bresenham_points, axis=1)]
+
+            bresenham_points_set = set(bresenham_points)
+            # filtered_data = data[data.apply(lambda row: (row['spatial'], row['image']) in bresenham_points_set, axis=1)]
+            idx = pd.MultiIndex.from_arrays([data['spatial'], data['image']])
+            # sel_df = data[idx.isin(bresenham_points_set)].sort_values(by=['spatial', 'image'], ascending=[False, False])
+            sel_df = data[idx.isin(bresenham_points_set)]
+
+            # Latitude   Longitude   Altitude
+            # from scipy.interpolate import griddata
+            # import matplotlib.pyplot as plt
+            #
+            # data = sel_df
+            # grid_lon = np.linspace(data['Longitude'].min(), data['Longitude'].max(), 100)
+            # grid_lat = np.linspace(data['Latitude'].min(), data['Latitude'].max(), 100)
+            # grid_x, grid_y = np.meshgrid(grid_lon, grid_lat)
+            #
+            # # Altitude 값을 그리드에 보간
+            # grid_z = griddata(
+            #     (data['Longitude'], data['Latitude']),
+            #     data['Altitude'],
+            #     (grid_x, grid_y),
+            #     method='cubic'  # linear, cubic, nearest 가능
+            # )
+            #
+            # # 등치선 그리기
+            # plt.figure(figsize=(8, 6))
+            # contour = plt.contourf(grid_x, grid_y, grid_z, cmap='viridis')
+            # plt.colorbar(contour, label='Altitude (m)')
+            # plt.xlabel('Longitude')
+            # plt.ylabel('Latitude')
+            # plt.title('2D Altitude Contour')
+            # plt.show()
+
+            # import matplotlib.pyplot as plt
+            #
+            # plt.plot(sel_df['O3'], sel_df['Altitude'], marker='o')
+            # plt.xlabel('O3 농도 (ppb)')
+            # plt.ylabel('고도 (m)')
+            # plt.title('특정 지점 고도별 O3 농도 프로파일')
+            # # plt.gca().invert_yaxis()  # 고도가 위로 높아지게
+            # plt.show()
+
+            import plotly.graph_objects as go
+
+            fig = go.Figure()
+
+            fig.add_trace(go.Scatter(
+                x=sel_df['O3'],
+                y=sel_df['Altitude'],
+                mode='markers+lines',
+                marker=dict(
+                    size=14,
+                    color=sel_df['O3'],  # 농도 컬러 매핑
+                    colorscale='Plasma',  # 컬러맵
+                    colorbar=dict(title='O3 농도 (ppb)', thickness=20),
+                    line=dict(width=1, color='DarkSlateGrey')
+                ),
+                line=dict(color='gray', width=2),
+                name='O3 Profile'
+            ))
+
+            fig.update_layout(
+                title='특정 지점 고도별 O₃ 농도 연직 프로파일',
+                xaxis_title='O₃ 농도 (ppb)',
+                yaxis_title='고도 (m)',
+                # yaxis=dict(autorange='reversed', showgrid=True, gridwidth=1, gridcolor='lightgray'),
+                yaxis=dict(showgrid=True, gridwidth=1, gridcolor='lightgray'),
+                xaxis=dict(showgrid=True, gridwidth=1, gridcolor='lightgray'),
+                plot_bgcolor='white',
+                # width=600,
+                # height=800,
+                template='plotly_white',
+                font=dict(size=14)
+            )
+
+            fig.show()
+
 
 
 
@@ -428,7 +507,13 @@ class DtaProcess(object):
             #
             # plt.show()
 
+            theta_deg = 45*3
+            theta_rad = np.deg2rad(theta_deg)
 
+            r = 3  # 카메라 거리 (조절 가능)
+            eye_x = r * np.cos(theta_rad)
+            eye_y = r * np.sin(theta_rad)
+            eye_z = 1  # 고도는 원하는 대로
 
 
             # Mesh3d 사용
@@ -438,56 +523,92 @@ class DtaProcess(object):
                 # z=sel_df['Pressure'],
                 z=sel_df['Altitude'],
                 intensity=sel_df['O3'],
-                # colorscale='Viridis',
-                colorbar_title='O3 농도',
+                colorscale='Viridis',
+                colorbar_title='농도',
                 alphahull=0,  # 알파 쉘 알고리즘을 사용하여 메쉬 생성
-                opacity=1
+                opacity=1,
             )])
 
             fig.update_layout(
                 title='3D 오존 농도 메쉬 플롯',
                 scene=dict(
-                    xaxis_title='Longitude (경도)',
-                    yaxis_title='Latitude (위도)',
-                    zaxis_title='ncolumns (층)'
+                    xaxis_title='경도',
+                    yaxis_title='위도',
+                    zaxis_title='고도',
+                ),
+                scene_camera = dict(
+                    eye=dict(x=eye_x, y=eye_y, z=eye_z)
                 )
             )
 
             fig.show()
 
-            # 3D 산점도 생성
-            fig = go.Figure(data=[go.Scatter3d(
-                x=sel_df['Longitude'],
-                y=sel_df['Latitude'],
-                z=sel_df['Pressure'],
-                mode='markers',
-                marker=dict(
-                    size=5,
-                    color=sel_df['O3'],
-                    colorscale='Viridis',
-                    colorbar=dict(title='O3 농도'),
-                    opacity=0.8
-                )
+            fig = go.Figure(data=[go.Mesh3d(
+                x=data['Longitude'],
+                y=data['Latitude'],
+                # z=sel_df['Pressure'],
+                z=data['Altitude'],
+                intensity=sel_df['O3'],
+                colorscale='Viridis',
+                colorbar_title='농도',
+                alphahull=0,  # 알파 쉘 알고리즘을 사용하여 메쉬 생성
+                opacity=1,
             )])
 
-            # 레이아웃 업데이트
             fig.update_layout(
-                title='3D 오존 농도 산점도',
+                title='3D 오존 농도 메쉬 플롯',
                 scene=dict(
-                    xaxis_title='Longitude (경도)',
-                    yaxis_title='Latitude (위도)',
-                    zaxis_title='ncolumns (층)'
-                )
+                    xaxis_title='경도',
+                    yaxis_title='위도',
+                    zaxis_title='고도',
+                ),
+                # scene_camera=dict(
+                #     eye=dict(x=eye_x, y=eye_y, z=eye_z)
+                # )
             )
 
             fig.show()
+
+            #
+            #
+            #
+            #
+            # # 3D 산점도 생성
+            # fig = go.Figure(data=[go.Scatter3d(
+            #     x=data['Longitude'],
+            #     y=data['Latitude'],
+            #     # z=data['Pressure'],
+            #     z=data['Altitude'],
+            #     mode='markers',
+            #     marker=dict(
+            #         size=5,
+            #         color=data['O3'],
+            #         colorscale='Viridis',
+            #         colorbar=dict(title='O3 농도'),
+            #         opacity=0.8
+            #     )
+            # )])
+            #
+            # # 레이아웃 업데이트
+            # fig.update_layout(
+            #     title='3D 오존 농도 산점도',
+            #     scene=dict(
+            #         xaxis_title='Longitude (경도)',
+            #         yaxis_title='Latitude (위도)',
+            #         zaxis_title='ncolumns (층)'
+            #     )
+            # )
+            #
+            # fig.show()
+
+
 
             import plotly.express as px
             import pandas as pd
 
             # Plotly Express를 사용한 3D 산점도 생성
             fig = px.scatter_3d(
-                sel_df,
+                data,
                 x='Longitude',
                 y='Latitude',
                 z='ncolumns',
@@ -498,43 +619,6 @@ class DtaProcess(object):
 
             fig.show()
 
-            import plotly.graph_objects as go
-
-            # 빈 Figure 생성
-            fig = go.Figure()
-
-            # 고유한 ncolumns 값에 대해 반복
-            for ncol in sel_df['ncolumns'].unique():
-                # 해당 ncolumns 값에 대한 데이터 필터링
-                filtered_df = sel_df[sel_df['ncolumns'] == ncol]
-
-                # Scatter3d 트레이스 추가
-                fig.add_trace(go.Scatter3d(
-                    x=filtered_df['Longitude'],
-                    y=filtered_df['Latitude'],
-                    z=[ncol] * len(filtered_df),  # ncolumns 값을 z축에 사용
-                    mode='markers',
-                    marker=dict(
-                        size=5,
-                        color=filtered_df['ColumnAmountO3'],  # 오존 농도를 색상에 매핑
-                        colorscale='Viridis',
-                        colorbar=dict(title='ColumnAmountO3')
-                    ),
-                    name=f'ncolumns={ncol}'
-                ))
-
-            # 레이아웃 업데이트
-            fig.update_layout(
-                title='각 ncolumns에 대한 3D 시각화',
-                scene=dict(
-                    xaxis_title='Longitude (경도)',
-                    yaxis_title='Latitude (위도)',
-                    zaxis_title='ncolumns (층)'
-                )
-            )
-
-            # 그래프 표시
-            fig.show()
 
 
 
