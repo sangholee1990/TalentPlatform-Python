@@ -349,8 +349,8 @@ class DtaProcess(object):
                 # valDataL1 = valData['ColumnAmountO3']
                 valDataL1 = valData['ColumnAmountO3'].sel(spatial = nearest_point.spatial, image = nearest_point.image)
                 val = valDataL1.values
-                # if np.isnan(val): continue
-                val = None if np.isnan(val) else val
+                if np.isnan(val): continue
+                # val = None if np.isnan(val) else val
 
                 print(dtDateInfo, fileInfo, geoData['Latitude'].shape, val, nearest_point.spatial, nearest_point.image, nearest_point.Longitude, nearest_point.Latitude)
 
@@ -372,14 +372,15 @@ class DtaProcess(object):
             date_series = pd.Series(dtDateList, name='date')
             df = pd.DataFrame(date_series)
 
-            dataL2 = pd.merge(df, dataL1, left_on=['date'], right_on=['date'], how='left')
+            # dataL2 = pd.merge(df, dataL1, left_on=['date'], right_on=['date'], how='left')
+            dataL2 = pd.merge(df, dataL1, left_on=['date'], right_on=['date'], how='inner')
             # dataL2['val'] = dataL2['val'].where(pd.notnull(dataL2['val']), None)
-            dataL2['val'] = dataL2['val'].where(pd.notnull(dataL2['val']), np.nan)
+            # dataL2['val'] = dataL2['val'].where(pd.notnull(dataL2['val']), np.nan)
 
             # dataL2['val'] = dataL2['val'].where(pd.notnull(dataL2['val']), np.nan)
             # filtered = dataL2.dropna(subset=['val'])
-            dataL2['val'] = pd.to_numeric(dataL2['val'], errors='coerce')
-            dataL2['date'] = dataL2['date'].astype(str)
+            # dataL2['val'] = pd.to_numeric(dataL2['val'], errors='coerce')
+            # dataL2['date'] = dataL2['date'].astype(str)
 
             # dataL2['val'].to
 
@@ -411,70 +412,71 @@ class DtaProcess(object):
 
             # fig = px.scatter(dataL2, x='date', y='val', title="Default Display with Gaps")
             # fig.show()
-
-            import matplotlib.pyplot as plt
-            import numpy as np
-            import pandas as pd  # pandas 예시를 위해 임포트
+            #
+            # import matplotlib.pyplot as plt
+            # import numpy as np
+            # import pandas as pd  # pandas 예시를 위해 임포트
 
             # --- 데이터 준비 (Plotly 예시와 동일) ---
             # 1. Python 리스트 예시
-            dates_list = pd.to_datetime(
-                ['2024-11-01 01:00', '2024-11-01 02:00', '2024-11-01 03:00', '2024-11-01 04:00', '2024-11-01 05:00'])
-            values_with_none = [10, 20, None, 40, None]  # None 포함 데이터
-
-            # None을 np.nan으로 변환
-            values_with_nan_list = [np.nan if v is None else v for v in values_with_none]
-
-            # 2. pandas Series 예시
-            s_dates = pd.to_datetime(
-                ['2024-11-01 01:00', '2024-11-01 02:00', '2024-11-01 03:00', '2024-11-01 04:00', '2024-11-01 05:00'])
-            s_values_with_none = pd.Series([10, 20, None, 40, None])
-
-            # None을 np.nan으로 변환
-            s_values_with_nan = s_values_with_none.fillna(np.nan)
-            # 또는 pd.to_numeric 사용
-            # s_values_with_nan = pd.to_numeric(s_values_with_none, errors='coerce')
-            # --- 데이터 준비 완료 ---
-
-            # --- Matplotlib 그래프 그리기 ---
-            plt.figure(figsize=(10, 5))
-
-            # np.nan으로 변환된 데이터 사용
-            plt.plot(s_dates,  # x축 데이터 (pandas datetime Series)
-                     s_values_with_nan,  # y축 데이터 (np.nan 포함된 pandas Series)
-                     marker='o',  # 각 데이터 포인트에 마커 표시
-                     linestyle='-',  # 선 스타일
-                     label='Value')  # 범례 레이블
-
-            # 그래프 제목 및 라벨 설정
-            plt.title('Handling None/NaN in Matplotlib')
-            plt.xlabel('Date')
-            plt.ylabel('Value')
-
-            # x축 눈금 레이블 회전 (선택 사항)
-            plt.xticks(rotation=45)
-
-            # 범례 표시
-            plt.legend()
-
-            # 그리드 추가 (선택 사항)
-            plt.grid(True)
-
-            # 레이아웃 조정
-            plt.tight_layout()
-
-            # 그래프 보여주기
-            plt.show()
+            # dates_list = pd.to_datetime(
+            #     ['2024-11-01 01:00', '2024-11-01 02:00', '2024-11-01 03:00', '2024-11-01 04:00', '2024-11-01 05:00'])
+            # values_with_none = [10, 20, None, 40, None]  # None 포함 데이터
+            #
+            # # None을 np.nan으로 변환
+            # values_with_nan_list = [np.nan if v is None else v for v in values_with_none]
+            #
+            # # 2. pandas Series 예시
+            # s_dates = pd.to_datetime(
+            #     ['2024-11-01 01:00', '2024-11-01 02:00', '2024-11-01 03:00', '2024-11-01 04:00', '2024-11-01 05:00'])
+            # s_values_with_none = pd.Series([10, 20, None, 40, None])
+            #
+            # # None을 np.nan으로 변환
+            # s_values_with_nan = s_values_with_none.fillna(np.nan)
+            # # 또는 pd.to_numeric 사용
+            # # s_values_with_nan = pd.to_numeric(s_values_with_none, errors='coerce')
+            # # --- 데이터 준비 완료 ---
+            #
+            # # --- Matplotlib 그래프 그리기 ---
+            # plt.figure(figsize=(10, 5))
+            #
+            # # np.nan으로 변환된 데이터 사용
+            # plt.plot(s_dates,  # x축 데이터 (pandas datetime Series)
+            #          s_values_with_nan,  # y축 데이터 (np.nan 포함된 pandas Series)
+            #          marker='o',  # 각 데이터 포인트에 마커 표시
+            #          linestyle='-',  # 선 스타일
+            #          label='Value')  # 범례 레이블
+            #
+            # # 그래프 제목 및 라벨 설정
+            # plt.title('Handling None/NaN in Matplotlib')
+            # plt.xlabel('Date')
+            # plt.ylabel('Value')
+            #
+            # # x축 눈금 레이블 회전 (선택 사항)
+            # plt.xticks(rotation=45)
+            #
+            # # 범례 표시
+            # plt.legend()
+            #
+            # # 그리드 추가 (선택 사항)
+            # plt.grid(True)
+            #
+            # # 레이아웃 조정
+            # plt.tight_layout()
+            #
+            # # 그래프 보여주기
+            # plt.show()
 
             fig = go.Figure()
 
             fig.add_trace(go.Scatter(
                 x=dataL2['date'],
                 y=dataL2['val'],
-                mode='lines+markers',
+                # mode='lines+markers',
                 # mode='markers',
                 name='Value',
-                connectgaps = True,
+                # connectgaps = True,
+                # connectgaps = True,
             ))
 
             fig.update_layout(
