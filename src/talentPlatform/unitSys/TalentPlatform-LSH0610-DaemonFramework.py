@@ -223,45 +223,49 @@ class DtaProcess(object):
 
                 # 빅쿼리 설정 정보
                 'jsonFile': '/SYSTEMS/PROG/PYTHON/IDE/resources/config/iconic-ruler-239806-7f6de5759012.json',
+
+                # 'saveFile': '/DATA/OUTPUT/LSH0610/sectionData.csv',
+                'sectGrpFile': '/DATA/INPUT/LSH0610/sectionGrpData.csv',
+                'saveFile': '/DATA/OUTPUT/LSH0610/20250328_ydg2007-2025.csv',
             }
 
             # =================================================================
             # csv 파일 변환
             # =================================================================
-            inpFile = '{}/{}/{}'.format(globalVar['inpPath'], serviceName, '20250316_ydgDBF/ydg*.dbf')
-            # inpFile = '{}/{}/{}'.format(globalVar['inpPath'], serviceName, '20250316_ydgDBF/ydg2013.dbf')
-            fileList = sorted(glob.glob(inpFile))
-
-            # fileInfo = fileList[0]
-            # dataL3 = pd.DataFrame()
-            # for fileInfo in fileList:
-            for i, fileInfo in enumerate(fileList):
-                log.info(f"[CHECK] fileInfo : {fileInfo}")
-
-                data = DBF(fileInfo, encoding='euc-kr', char_decode_errors='ignore', ignore_missing_memofile=True)
-                dataL1 = pd.DataFrame(data)
-                # dataL2 =  dataL1.drop(['_NullFlags'], axis=1, errors='ignore')
-                dataL2 =  dataL1.drop(['_NullFlags', 'MEMO'], axis=1, errors='ignore')
-                # dataL3 = pd.concat([dataL3, dataL2], ignore_index=True)
-
-                fileName = os.path.basename(fileInfo)
-                fileNameNotExt = fileName.split(".")[0]
-                isHeader = True if i == 0 else False
-
-                dataL2['YEAR_DATE'] = pd.to_datetime(dataL2['RC_DATE'], format='%Y-%m-%d').dt.strftime('%Y')
-                dataL2['DEPART'] = dataL2['DEPART'].str.replace(r'[\n\r\x0f\x06\x14\x0e\|]', '', regex=True).str.strip()
-
-                # dataL2['DEPART'].unique()
-
-                saveFile = '{}/{}/{}.csv'.format(globalVar['outPath'], serviceName, fileNameNotExt)
-                os.makedirs(os.path.dirname(saveFile), exist_ok=True)
-                dataL2.to_csv(saveFile, index=False, header=isHeader)
-                log.info(f"[CHECK] saveFile : {saveFile}")
-
-            # saveFile = '{}/{}/{}_{}.csv'.format(globalVar['outPath'], serviceName, datetime.now().strftime("%Y%m%d"), 'ydg_2007_2025')
-            # os.makedirs(os.path.dirname(saveFile), exist_ok=True)
-            # dataL3.to_csv(saveFile, index=False)
-            # log.info(f"[CHECK] saveFile : {saveFile}")
+            # inpFile = '{}/{}/{}'.format(globalVar['inpPath'], serviceName, '20250316_ydgDBF/ydg*.dbf')
+            # # inpFile = '{}/{}/{}'.format(globalVar['inpPath'], serviceName, '20250316_ydgDBF/ydg2013.dbf')
+            # fileList = sorted(glob.glob(inpFile))
+            #
+            # # fileInfo = fileList[0]
+            # # dataL3 = pd.DataFrame()
+            # # for fileInfo in fileList:
+            # for i, fileInfo in enumerate(fileList):
+            #     log.info(f"[CHECK] fileInfo : {fileInfo}")
+            #
+            #     data = DBF(fileInfo, encoding='euc-kr', char_decode_errors='ignore', ignore_missing_memofile=True)
+            #     dataL1 = pd.DataFrame(data)
+            #     # dataL2 =  dataL1.drop(['_NullFlags'], axis=1, errors='ignore')
+            #     dataL2 =  dataL1.drop(['_NullFlags', 'MEMO'], axis=1, errors='ignore')
+            #     # dataL3 = pd.concat([dataL3, dataL2], ignore_index=True)
+            #
+            #     fileName = os.path.basename(fileInfo)
+            #     fileNameNotExt = fileName.split(".")[0]
+            #     isHeader = True if i == 0 else False
+            #
+            #     dataL2['YEAR_DATE'] = pd.to_datetime(dataL2['RC_DATE'], format='%Y-%m-%d').dt.strftime('%Y')
+            #     dataL2['DEPART'] = dataL2['DEPART'].str.replace(r'[\n\r\x0f\x06\x14\x0e\|]', '', regex=True).str.strip()
+            #
+            #     # dataL2['DEPART'].unique()
+            #
+            #     saveFile = '{}/{}/{}.csv'.format(globalVar['outPath'], serviceName, fileNameNotExt)
+            #     os.makedirs(os.path.dirname(saveFile), exist_ok=True)
+            #     dataL2.to_csv(saveFile, index=False, header=isHeader)
+            #     log.info(f"[CHECK] saveFile : {saveFile}")
+            #
+            # # saveFile = '{}/{}/{}_{}.csv'.format(globalVar['outPath'], serviceName, datetime.now().strftime("%Y%m%d"), 'ydg_2007_2025')
+            # # os.makedirs(os.path.dirname(saveFile), exist_ok=True)
+            # # dataL3.to_csv(saveFile, index=False)
+            # # log.info(f"[CHECK] saveFile : {saveFile}")
 
             # =================================================================
             # 빅쿼리 업로드
@@ -288,10 +292,33 @@ class DtaProcess(object):
                 exit(1)
 
             fileInfo = fileList[0]
-            # data = pd.read_csv(fileInfo)
+            data = pd.read_csv(fileInfo)
 
+            # 데이터 병합
+            sectGrpData = pd.read_csv(sysOpt['sectGrpFile'])
+            mrgData = pd.merge(left=data, right=sectGrpData, how='left', left_on=['SECTION'], right_on=['SECTION'])
+            mrgData.loc[mrgData['GROUP'].isna(), 'GROUP'] = '미분류'
+
+            saveFile = sysOpt['saveFile']
+            os.makedirs(os.path.dirname(saveFile), exist_ok=True)
+            mrgData.to_csv(saveFile, index=False)
+            log.info(f'[CHECK] saveFile : {saveFile}')
+
+            # mrgDataL1 = mrgData[mrgData['GROUP'].isna()]
+            # mrgData['SECTION'].unique()
+            # mrgData['GROUP'].unique()
             # data['DEPART'].unique()
             # data['YEAR_DATE'].unique()
+
+            # 단위업무 중복제거
+            # sectionList = data['SECTION'].unique()
+            # sectionData = pd.DataFrame(sectionList, columns=["SECTION"])
+
+            # saveFile = sysOpt['saveFile']
+            # os.makedirs(os.path.dirname(saveFile), exist_ok=True)
+            # sectionData.to_csv(saveFile, index=False)
+            # log.info(f'[CHECK] saveFile : {saveFile}')
+            # sys.exit(1)
 
             jobCfg = bigquery.LoadJobConfig(
                 source_format=bigquery.SourceFormat.CSV,
@@ -317,7 +344,8 @@ class DtaProcess(object):
             )
 
             tableId = f"{credentials.project_id}.DMS01.TB_YDG"
-            with open(fileInfo, "rb") as file:
+            # with open(fileInfo, "rb") as file:
+            with open(saveFile, "rb") as file:
                 job = client.load_table_from_file(file, tableId, job_config=jobCfg)
             job.result()
             log.info(f"[CHECK] tableId : {tableId}")
