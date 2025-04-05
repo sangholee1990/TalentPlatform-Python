@@ -404,33 +404,33 @@ class DtaProcess(object):
                     ))
                     session.commit()
 
-                    for k, dbInfo in dbData.iterrows():
-
-                        # 테이블 PK키를 통해 삽입/수정
-                        session.execute(text(
-                            """
-                            INSERT INTO `{}` (PRODUCT_SERIAL_NUMBER, DATE_TIME, TEMP, HMDTY, PM25, PM10, MVMNT, TVOC, HCHO, CO2, CO, BENZO, RADON, REG_DATE, MOD_DATE)
-                            VALUES ('{}', '{}', '{}', '{}', '{}', '{}', '{}', '{}', '{}', '{}', '{}', '{}', '{}', '{}', '{}')
-                            ON DUPLICATE KEY UPDATE
-                                PRODUCT_SERIAL_NUMBER = VALUES(PRODUCT_SERIAL_NUMBER)
-                                , TEMP = VALUES(TEMP)
-                                , HMDTY = VALUES(HMDTY)
-                                , PM25 = VALUES(PM25)
-                                , PM10 = VALUES(PM10)
-                                , MVMNT = VALUES(MVMNT)
-                                , TVOC = VALUES(TVOC)
-                                , HCHO = VALUES(HCHO)
-                                , CO2 = VALUES(CO2)
-                                , CO = VALUES(CO)
-                                , BENZO = VALUES(BENZO)
-                                , RADON = VALUES(RADON)
-                                , MOD_DATE = VALUES(MOD_DATE)
-                                ;
-                                """.format(selDbTable, dbInfo['PRODUCT_SERIAL_NUMBER'], dbInfo['DATE_TIME'], dbInfo['TEMP'], dbInfo['HMDTY'], dbInfo['PM25'], dbInfo['PM10']
-                                      , dbInfo['MVMNT'], dbInfo['TVOC'], dbInfo['HCHO'], dbInfo['CO2'], dbInfo['CO'], dbInfo['BENZO'], dbInfo['RADON'], dbInfo['REG_DATE'], dbInfo['MOD_DATE'])
-                        ))
-
-                        session.commit()
+                    # for k, dbInfo in dbData.iterrows():
+                    #
+                    #     # 테이블 PK키를 통해 삽입/수정
+                    #     session.execute(text(
+                    #         """
+                    #         INSERT INTO `{}` (PRODUCT_SERIAL_NUMBER, DATE_TIME, TEMP, HMDTY, PM25, PM10, MVMNT, TVOC, HCHO, CO2, CO, BENZO, RADON, REG_DATE, MOD_DATE)
+                    #         VALUES ('{}', '{}', '{}', '{}', '{}', '{}', '{}', '{}', '{}', '{}', '{}', '{}', '{}', '{}', '{}')
+                    #         ON DUPLICATE KEY UPDATE
+                    #             PRODUCT_SERIAL_NUMBER = VALUES(PRODUCT_SERIAL_NUMBER)
+                    #             , TEMP = VALUES(TEMP)
+                    #             , HMDTY = VALUES(HMDTY)
+                    #             , PM25 = VALUES(PM25)
+                    #             , PM10 = VALUES(PM10)
+                    #             , MVMNT = VALUES(MVMNT)
+                    #             , TVOC = VALUES(TVOC)
+                    #             , HCHO = VALUES(HCHO)
+                    #             , CO2 = VALUES(CO2)
+                    #             , CO = VALUES(CO)
+                    #             , BENZO = VALUES(BENZO)
+                    #             , RADON = VALUES(RADON)
+                    #             , MOD_DATE = VALUES(MOD_DATE)
+                    #             ;
+                    #             """.format(selDbTable, dbInfo['PRODUCT_SERIAL_NUMBER'], dbInfo['DATE_TIME'], dbInfo['TEMP'], dbInfo['HMDTY'], dbInfo['PM25'], dbInfo['PM10']
+                    #                   , dbInfo['MVMNT'], dbInfo['TVOC'], dbInfo['HCHO'], dbInfo['CO2'], dbInfo['CO'], dbInfo['BENZO'], dbInfo['RADON'], dbInfo['REG_DATE'], dbInfo['MOD_DATE'])
+                    #     ))
+                    #
+                    #     session.commit()
 
                 # ********************************************************************************
                 # TB_OUTPUT_DATA 생성
