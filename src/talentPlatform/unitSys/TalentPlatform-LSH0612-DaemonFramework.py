@@ -33,6 +33,9 @@ from newspaper import Article
 import json
 from datetime import datetime, timedelta
 from googlenewsdecoder import gnewsdecoder
+from konlpy.tag import Okt
+from collections import Counter
+import pytz
 
 # =================================================
 # 사용자 매뉴얼
@@ -59,6 +62,9 @@ plt.rc('axes', unicode_minus=False)
 # 그래프에서 마이너스 글꼴 깨지는 문제에 대한 대처
 mpl.rcParams['axes.unicode_minus'] = False
 
+# 타임존 설정
+tzKst = pytz.timezone('Asia/Seoul')
+tzUtc = pytz.timezone('UTC')
 
 # =================================================
 # 2. 유틸리티 함수
@@ -273,13 +279,16 @@ class DtaProcess(object):
                 'keywordList': ['청소년 게임 중독'],
 
                 # 저장 경로
-                'saveFile': '/DATA/OUTPUT/LSH0612/gnews_%Y%m%d.csv',
+                'saveCsvFile': '/DATA/OUTPUT/LSH0612/gnews_%Y%m%d.csv',
+                'saveXlsxFile': '/DATA/OUTPUT/LSH0612/gnews_%Y%m%d.xlsx',
             }
 
             # =================================================================
             # from gnews import GNews
             # from newspaper import Article
             # =================================================================
+            okt = Okt()
+
             unitGoogleNews = GNews(language='ko', country='KR')
             searchList = unitGoogleNews.get_news('청소년 게임 중독')
             log.info(f'[CHECK] searchList : {len(searchList)}')
@@ -298,94 +307,87 @@ class DtaProcess(object):
                 flatList.append(flatData)
 
             data = pd.DataFrame.from_dict(flatList)
-
-            # title                                    [기획] 청소년 게임중독 문제 심각 - 매일일보
             # description                               [기획] 청소년 게임중독 문제 심각  매일일보
             # publishedDate                         Thu, 30 May 2024 07:00:00 GMT
             # url               https://news.google.com/rss/articles/CBMiZEFVX...
             # publisherTitle                                                 매일일보
             # publisherHref                                    https://www.m-i.kr
 
+            # i = 16
             for i, row in data.iterrows():
-                log.info(f'[CHECK] i : {i}')
 
-                # https://www.m-i.kr/news/articleView.html?idxno=1125607
-                decInfo = gnewsdecoder(row['url'])
-                if not (decInfo['status'] == True): continue
+                per = round(i / len(data) * 100, 1)
+                log.info(f'[CHECK] i : {i} / {per}%')
 
-                articleInfo = Article(decInfo['decoded_url'], language='ko')
+                try:
+                    # https://www.m-i.kr/news/articleView.html?idxno=1125607
+                    # decInfo = gnewsdecoder(row['url'])
+                    decInfo = gnewsdecoder(data.loc[i, f'url'])
+                    if not (decInfo['status'] == True): continue
 
-                # 뉴스 다운로드/파싱/자연어 처리
-                articleInfo.download()
-                articleInfo.parse()
-                articleInfo.nlp()
+                    articleInfo = Article(decInfo['decoded_url'], language='ko')
 
-                from konlpy.tag import Okt
-                okt = Okt()
+                    #날짜 변환
+                    dtUtcPubDate = tzUtc.localize(datetime.strptime(data.loc[i, f'publishedDate'][:-4], '%a, %d %b %Y %H:%M:%S'))
+                    sKstPubDate = dtUtcPubDate.astimezone(tzKst).strftime('%Y-%m-%d %H:%M:%S')
 
-                keywordList = None if articleInfo.keywords is None or len(articleInfo.keywords) < 1 else articleInfo.keywords
-                nouns_in_phrase = okt.nouns(set(keywordList))
+                    # 뉴스 다운로드/파싱/자연어 처리
+                    articleInfo.download()
+                    articleInfo.parse()
+                    articleInfo.nlp()
 
-                nouns_only_list = []  #
-                for word in keywordList:
-                    # 각 단어(또는 구)의 품사 태깅 시도
-                        pos_tags = okt.pos(word, stem=False, norm=True)
+                    # 명사/동사/형용사 추출
+                    text = articleInfo.text
+                    if text is None or len(text) < 1: continue
+                    posTagList = okt.pos(text, stem=True)
 
-                        # 품사 태깅 결과가 있고, 첫 번째 태그가 'Noun'(명사)이면
-                        if pos_tags and pos_tags[0][1] == 'Noun':
-                            nouns_only_list.append(word)
-                            # print(f"   >> 명사로 판단됨: '{word}'")
+                    # i = 0
+                    keyData = {}
+                    keyList = ['Noun', 'Verb', 'Adjective']
+                    for keyInfo in keyList:
+                        # log.info(f'[CHECK] keyInfo : {keyInfo}')
 
-                from collections import Counter
-                okt = Okt()
-                text = None if articleInfo.text is None or len(articleInfo.text) < 1 else articleInfo.text
-                posTagList = okt.pos(text, stem=True)
+                        keywordList = [word for word, pos in posTagList if pos in keyInfo]
 
-                # 명사/동사/형용사 추출
-                keyList = ['Noun', 'Verb', 'Adjective']
-                for keyInfo in keyList:
-                    log.info(f'[CHECK] keyInfo : {keyInfo}')
+                        # 불용어 제거
+                        # keywordList = [word for word in keywordList if word not in stopWordList and len(word) > 1]
 
-                    keywordList = [word for word, pos in posTagList if pos in keyInfo]
+                        # 빈도수 계산
+                        keywordCnt = Counter(keywordList).most_common(20)
+                        keywordData = pd.DataFrame(keywordCnt, columns=['keyword', 'cnt']).sort_values(by='cnt', ascending=False)
+                        keywordDataL1 = keywordData[keywordData['keyword'].str.len() >= 2].reset_index(drop=True)
+                        keyCnt = keywordDataL1['cnt'].astype(str) + " " + keywordDataL1['keyword']
+                        keyData.update({keyInfo : keyCnt.values.tolist()})
 
-                    # 불용어 제거
-                    # keywordList = [word for word in keywordList if word not in stopWordList and len(word) > 1]
+                    # log.info(f"[CHECK] keyData['Noun'] : {keyData['Noun']}")
+                    # log.info(f"[CHECK] keyData['Verb'] : {keyData['Verb']}")
+                    # log.info(f"[CHECK] keyData['Adjective'] : {keyData['Adjective']}")
 
-                    # 빈도수 계산
-                    keywordCnt = Counter(keywordList).most_common(20)
-                    keywordData = pd.DataFrame(keywordCnt.items(), columns=['keyword', 'cnt']).sort_values(by='cnt', ascending=False)
-                    keywordDataL1 = keywordData[keywordData['keyword'].str.len() >= 2].reset_index(drop=True)
-                    keywordDataL1['keyCnt'] = ''
+                    data.loc[i, f'decUrl'] = None if decInfo['decoded_url'] is None or len(decInfo['decoded_url']) < 1 else str(decInfo['decoded_url'])
+                    data.loc[i, f'text'] = text
+                    data.loc[i, f'summary'] = None if articleInfo.summary is None or len(articleInfo.summary) < 1 else str(articleInfo.summary)
+                    data.loc[i, f'keywordNoun'] = None if keyData['Noun'] is None or len(keyData['Noun']) < 1 else str(keyData['Noun'])
+                    data.loc[i, f'keywordVerb'] = None if keyData['Verb'] is None or len(keyData['Verb']) < 1 else str(keyData['Verb'])
+                    data.loc[i, f'keywordAdjective'] = None if keyData['Adjective'] is None or len(keyData['Adjective']) < 1 else str(keyData['Adjective'])
+                    data.loc[i, f'authors'] = None if articleInfo.authors is None or len(articleInfo.authors) < 1 else str(articleInfo.authors)
+                    data.loc[i, f'publishedKstDate'] = None if sKstPubDate is None or len(sKstPubDate) < 1 else str(sKstPubDate)
+                    data.loc[i, f'top_image'] = None if articleInfo.top_image is None or len(articleInfo.top_image) < 1 else str(articleInfo.top_image)
+                    data.loc[i, f'images'] = None if articleInfo.images is None or len(articleInfo.images) < 1 else str(articleInfo.images)
+                except Exception as e:
+                    log.error(f"Exception : {str(e)}")
 
+            # 'saveFile': '/DATA/OUTPUT/LSH0612/gnews_%Y%m%d.csv',
 
-                list_of_lists = keywordDataL1.values.tolist()
-                # list_of_dicts = keywordDataL1.to_dict(orient='records')
+            if len(data) > 0:
+                saveCsvFile = datetime.now().strftime(sysOpt['saveCsvFile'])
+                os.makedirs(os.path.dirname(saveCsvFile), exist_ok=True)
+                data.to_csv(saveCsvFile, index=False)
+                log.info(f'[CHECK] saveCsvFile : {saveCsvFile}')
 
-
-
-                data.loc[i, f'text'] = None if articleInfo.text is None or len(articleInfo.text) < 1 else articleInfo.text
-                data.loc[i, f'summary'] = None if articleInfo.summary is None or len(articleInfo.summary) < 1 else articleInfo.summary
-                data.loc[i, f'keywords'] = None if articleInfo.keywords is None or len(articleInfo.keywords) < 1 else articleInfo.keywords
-                data.loc[i, f'authors'] = None if articleInfo.authors is None or len(articleInfo.authors) < 1 else articleInfo.authors
-                data.loc[i, f'publish_date'] = None if articleInfo.publish_date is None or len(articleInfo.publish_date) < 1 else articleInfo.publish_date
-                data.loc[i, f'top_image'] = None if articleInfo.top_image is None or len(articleInfo.top_image) < 1 else articleInfo.top_image
-                data.loc[i, f'images'] = None if articleInfo.images is None or len(articleInfo.images) < 1 else articleInfo.images
-
-                # articleInfo.title
-                # articleInfo.text
-                # articleInfo.images
-                # articleInfo.authors
-                # articleInfo.publish_date
-                # articleInfo.top_image
-                # articleInfo.movies
-                # articleInfo.keywords
-                # articleInfo.summary
-
-
-
-
-                # matDataL1.loc[i, f'tas-dist-{j}'] = cloDist
-
+                saveXlsxFile = datetime.now().strftime(sysOpt['saveXlsxFile'])
+                os.makedirs(os.path.dirname(saveXlsxFile), exist_ok=True)
+                data.to_excel(saveXlsxFile, index=False)
+                log.info(f'[CHECK] saveXlsxFile : {saveXlsxFile}')
 
             # =================================================================
             # from GoogleNews import GoogleNews
