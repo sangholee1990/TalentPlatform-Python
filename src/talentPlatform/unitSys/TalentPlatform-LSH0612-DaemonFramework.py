@@ -18,19 +18,21 @@ import matplotlib as mpl
 import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
-from matplotlib import font_manager, rc
-from dbfread import DBF, FieldParser
+# from matplotlib import font_manager, rc
+# from dbfread import DBF, FieldParser
 import csv
 import os
 import pandas as pd
 from google.cloud import bigquery
 from google.oauth2 import service_account
 import re
-from GoogleNews import GoogleNews
-# from newspaper import Article
-# from newspaper import Config
+# from GoogleNews import GoogleNews
+from gnews import GNews
+from newspaper import Article
+
 import json
 from datetime import datetime, timedelta
+from googlenewsdecoder import gnewsdecoder
 
 # =================================================
 # 사용자 매뉴얼
@@ -268,33 +270,143 @@ class DtaProcess(object):
                 'country': 'KR',
 
                 # 키워드 설정
-                'keywordList': ['게임 중독'],
+                'keywordList': ['청소년 게임 중독'],
 
                 # 저장 경로
                 'saveFile': '/DATA/OUTPUT/LSH0612/gnews_%Y%m%d.csv',
             }
 
             # =================================================================
-            # csv 파일 변환
+            # from gnews import GNews
+            # from newspaper import Article
             # =================================================================
-            # import_or_install('newspaper')
+            unitGoogleNews = GNews(language='ko', country='KR')
+            searchList = unitGoogleNews.get_news('청소년 게임 중독')
+            log.info(f'[CHECK] searchList : {len(searchList)}')
 
+            flatList = []
+            for data in searchList:
+                flatData = {
+                    'title': data['title'],
+                    'description': data['description'],
+                    'publishedDate': data['published date'],
+                    'url': data['url'],
+                    'publisherTitle': data['publisher']['title'],
+                    'publisherHref': data['publisher']['href']
+                }
+
+                flatList.append(flatData)
+
+            data = pd.DataFrame.from_dict(flatList)
+
+            # title                                    [기획] 청소년 게임중독 문제 심각 - 매일일보
+            # description                               [기획] 청소년 게임중독 문제 심각  매일일보
+            # publishedDate                         Thu, 30 May 2024 07:00:00 GMT
+            # url               https://news.google.com/rss/articles/CBMiZEFVX...
+            # publisherTitle                                                 매일일보
+            # publisherHref                                    https://www.m-i.kr
+
+            for i, row in data.iterrows():
+                log.info(f'[CHECK] i : {i}')
+
+                # https://www.m-i.kr/news/articleView.html?idxno=1125607
+                decInfo = gnewsdecoder(row['url'])
+                if not (decInfo['status'] == True): continue
+
+                articleInfo = Article(decInfo['decoded_url'], language='ko')
+
+                # 뉴스 다운로드/파싱/자연어 처리
+                articleInfo.download()
+                articleInfo.parse()
+                articleInfo.nlp()
+
+                from konlpy.tag import Okt
+                okt = Okt()
+
+                keywordList = None if articleInfo.keywords is None or len(articleInfo.keywords) < 1 else articleInfo.keywords
+                nouns_in_phrase = okt.nouns(set(keywordList))
+
+                nouns_only_list = []  #
+                for word in keywordList:
+                    # 각 단어(또는 구)의 품사 태깅 시도
+                        pos_tags = okt.pos(word, stem=False, norm=True)
+
+                        # 품사 태깅 결과가 있고, 첫 번째 태그가 'Noun'(명사)이면
+                        if pos_tags and pos_tags[0][1] == 'Noun':
+                            nouns_only_list.append(word)
+                            # print(f"   >> 명사로 판단됨: '{word}'")
+
+                from collections import Counter
+                okt = Okt()
+                text = None if articleInfo.text is None or len(articleInfo.text) < 1 else articleInfo.text
+                posTagList = okt.pos(text, stem=True)
+
+                # 명사/동사/형용사 추출
+                keyList = ['Noun', 'Verb', 'Adjective']
+                for keyInfo in keyList:
+                    log.info(f'[CHECK] keyInfo : {keyInfo}')
+
+                    keywordList = [word for word, pos in posTagList if pos in keyInfo]
+
+                    # 불용어 제거
+                    # keywordList = [word for word in keywordList if word not in stopWordList and len(word) > 1]
+
+                    # 빈도수 계산
+                    keywordCnt = Counter(keywordList).most_common(20)
+                    keywordData = pd.DataFrame(keywordCnt.items(), columns=['keyword', 'cnt']).sort_values(by='cnt', ascending=False)
+                    keywordDataL1 = keywordData[keywordData['keyword'].str.len() >= 2].reset_index(drop=True)
+                    keywordDataL1['keyCnt'] = ''
+
+
+                list_of_lists = keywordDataL1.values.tolist()
+                # list_of_dicts = keywordDataL1.to_dict(orient='records')
+
+
+
+                data.loc[i, f'text'] = None if articleInfo.text is None or len(articleInfo.text) < 1 else articleInfo.text
+                data.loc[i, f'summary'] = None if articleInfo.summary is None or len(articleInfo.summary) < 1 else articleInfo.summary
+                data.loc[i, f'keywords'] = None if articleInfo.keywords is None or len(articleInfo.keywords) < 1 else articleInfo.keywords
+                data.loc[i, f'authors'] = None if articleInfo.authors is None or len(articleInfo.authors) < 1 else articleInfo.authors
+                data.loc[i, f'publish_date'] = None if articleInfo.publish_date is None or len(articleInfo.publish_date) < 1 else articleInfo.publish_date
+                data.loc[i, f'top_image'] = None if articleInfo.top_image is None or len(articleInfo.top_image) < 1 else articleInfo.top_image
+                data.loc[i, f'images'] = None if articleInfo.images is None or len(articleInfo.images) < 1 else articleInfo.images
+
+                # articleInfo.title
+                # articleInfo.text
+                # articleInfo.images
+                # articleInfo.authors
+                # articleInfo.publish_date
+                # articleInfo.top_image
+                # articleInfo.movies
+                # articleInfo.keywords
+                # articleInfo.summary
+
+
+
+
+                # matDataL1.loc[i, f'tas-dist-{j}'] = cloDist
+
+
+            # =================================================================
+            # from GoogleNews import GoogleNews
+            # =================================================================
+            # from GoogleNews import GoogleNews
             # 시작일/종료일 설정
-            dtSrtDate = pd.to_datetime(sysOpt['srtDate'], format='%Y-%m-%d %H:%M')
-            dtEndDate = pd.to_datetime(sysOpt['endDate'], format='%Y-%m-%d %H:%M')
-            dtDateList = pd.date_range(start=dtSrtDate, end=dtEndDate, freq=sysOpt['invDate'])
-            for dtDateInfo in dtDateList:
-                log.info(f'[CHECK] dtDateInfo : {dtDateInfo}')
-
-                unitGoogleNews = GoogleNews(
-                    lang=sysOpt['language'],
-                    region=sysOpt['country'],
-                    start=dtDateInfo.strftime('%m/%d/%Y'),
-                    end=(dtDateInfo + timedelta(days=1)).strftime('%m/%d/%Y'),
-                    encode='UTF-8'
-                )
-
-                searchGoogleNews(unitGoogleNews, sysOpt, dtDateInfo)
+            # dtSrtDate = pd.to_datetime(sysOpt['srtDate'], format='%Y-%m-%d %H:%M')
+            # dtEndDate = pd.to_datetime(sysOpt['endDate'], format='%Y-%m-%d %H:%M')
+            # dtDateList = pd.date_range(start=dtSrtDate, end=dtEndDate, freq=sysOpt['invDate'])
+            # for dtDateInfo in dtDateList:
+            #     log.info(f'[CHECK] dtDateInfo : {dtDateInfo}')
+            #
+            #     unitGoogleNews = GoogleNews(
+            #         lang=sysOpt['language'],
+            #         region=sysOpt['country'],
+            #         start=dtDateInfo.strftime('%m/%d/%Y'),
+            #         end=(dtDateInfo + timedelta(days=1)).strftime('%m/%d/%Y'),
+            #         encode='UTF-8'
+            #     )
+            #
+            #     searchGoogleNews(unitGoogleNews, sysOpt, dtDateInfo)
 
         except Exception as e:
             log.error(f"Exception : {str(e)}")
