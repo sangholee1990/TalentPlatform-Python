@@ -23,24 +23,17 @@ import pandas as pd
 import csv
 import os
 import pandas as pd
-from google.cloud import bigquery
-from google.oauth2 import service_account
 import re
-# from GoogleNews import GoogleNews
-from gnews import GNews
-from newspaper import Article
 
 import json
 from datetime import datetime, timedelta
-from googlenewsdecoder import gnewsdecoder
 from konlpy.tag import Okt
 from collections import Counter
 import pytz
-
+from wordcloud import WordCloud
 import io
 import re
 import os
-from rdflib import Graph, URIRef, Literal, Namespace, RDF, RDFS, OWL
 
 # =================================================
 # 사용자 매뉴얼
@@ -235,32 +228,115 @@ class DtaProcess(object):
 
             # 옵션 설정
             sysOpt = {
-                # 시작/종료 시간
-                'srtDate': '2025-01-01',
-                'endDate': '2025-01-05',
-                'invDate': '1d',
-                'searchMaxPage': 99,
+                # 입력 파일
+                'colctFile': '/DATA/OUTPUT/LSH0612/20250409_구글뉴스 수집.xlsx',
+                'chatgptFile': '/DATA/OUTPUT/LSH0612/20250409_구글뉴스 수집 및 chatgpt 온톨로지 구축.xlsx',
+                'geminiFile': '/DATA/OUTPUT/LSH0612/20250409_구글뉴스 수집 및 gemini 온톨로지 구축.xlsx',
 
-                # 언어 설정
-                # , 'language' : 'en'
-                'language': 'ko',
+                # 저장 파일
+                'saveFile': '/DATA/OUTPUT/LSH0612/20250409_{key}_빈도분포_{type}.xlsx',
+                'saveImg': '/DATA/OUTPUT/LSH0612/20250409_구글뉴스 수집_단어구름_{type}.png',
 
-                # 국가 설정
-                # , 'country' : 'US'
-                'country': 'KR',
+                # 폰트
+                'fontInfo': '/SYSTEMS/PROG/PYTHON/IDE/resources/config/fontInfo/malgun.ttf',
 
-                # 키워드 설정
-                'keywordList': ['청소년 게임 중독'],
-
-                # 저장 경로
-                'saveCsvFile': '/DATA/OUTPUT/LSH0612/gnews_%Y%m%d.csv',
-                'saveXlsxFile': '/DATA/OUTPUT/LSH0612/gnews_%Y%m%d.xlsx',
+                'itemList': {
+                    'title': '제목',
+                    'text': '본문',
+                    'summary': '요약',
+                }
             }
 
             # =================================================================
-            # 구글 Gemini 온톨로지 생성
+            # 공통 설정
             # =================================================================
+            okt = Okt()
 
+            # =================================================================
+            # [구글뉴스 수집] 제목/본문/요약 명사 추출, 단어구름 시각화, 빈도분포 저장
+            # =================================================================
+            fileList = sorted(glob.glob(sysOpt['colctFile']))
+            data = pd.read_excel(fileList[0])
+
+            keywordDataL2 = pd.DataFrame()
+            for key, name in sysOpt['itemList'].items():
+                log.info(f'[CHECK] {key} : {name}')
+
+                textList = data[key].astype(str).tolist()
+                text = '\n'.join(textList)
+                if text is None or len(text) < 1: continue
+
+                posTagList = okt.pos(text, stem=True)
+                keywordList = [word for word, pos in posTagList if pos in ['Noun']]
+
+                keywordOrder = 50
+                keywordCnt = Counter(keywordList)
+                keywordData = pd.DataFrame(keywordCnt.items(), columns=['keyword', 'cnt']).sort_values(by='cnt', ascending=False)
+                keywordDataL1 = keywordData[keywordData['keyword'].str.len() >= 2].reset_index(drop=True).head(keywordOrder)
+                keywordDataL1['rat'] = keywordDataL1['cnt'] / keywordDataL1['cnt'].sum() * 100
+                keywordDataL1[type] = name
+
+                keywordDataL2 = pd.concat([keywordDataL2, keywordDataL1], axis=0)
+
+                # 단어구름 시각화
+                saveImg = sysOpt['saveImg'].format(type=name)
+                os.makedirs(os.path.dirname(saveImg), exist_ok=True)
+
+                wordcloud = WordCloud(
+                    width=1500,
+                    height=1500,
+                    background_color=None,
+                    mode='RGBA',
+                    font_path=sysOpt['fontInfo'],
+                ).generate_from_frequencies(keywordDataL1.set_index('keyword')['cnt'].to_dict())
+
+                plt.imshow(wordcloud, interpolation='bilinear')
+                plt.axis('off')
+                plt.tight_layout()
+                plt.savefig(saveImg, dpi=600, bbox_inches='tight', transparent=True)
+                # plt.show()
+                plt.close()
+                log.info(f'[CHECK] saveImg : {saveImg}')
+
+            # 빈도분포 저장
+            saveFile = sysOpt['saveFile'].format(key='구글뉴스 수집', type='전체')
+            os.makedirs(os.path.dirname(saveFile), exist_ok=True)
+            keywordDataL2.to_excel(saveFile, index=False)
+            log.info(f'[CHECK] saveFile : {saveFile}')
+
+            # =================================================================
+            # [구글뉴스 수집 및 chatgpt 온톨로지 구축] 빈도분포 저장
+            # =================================================================
+            fileList = sorted(glob.glob(sysOpt['chatgptFile']))
+            data = pd.read_excel(fileList[0])
+
+            grpData = data.groupby(['대분류', '중분류', '소분류']).size()
+            grpDataL1 = grpData.reset_index(name='cnt')
+            grpDataL1['rat'] = (grpDataL1['cnt'] / grpDataL1['cnt'].sum()) * 100
+            grpDataL2 = grpDataL1.sort_values(by='cnt', ascending=False)
+
+            # 빈도분포 저장
+            saveFile = sysOpt['saveFile'].format(key='구글뉴스 수집 및 chatgpt 온톨로지 구축', type='전체')
+            os.makedirs(os.path.dirname(saveFile), exist_ok=True)
+            grpDataL2.to_excel(saveFile, index=False)
+            log.info(f'[CHECK] saveFile : {saveFile}')
+
+            # =================================================================
+            # [구글뉴스 수집 및 gemini 온톨로지 구축] 빈도분포 저장
+            # =================================================================
+            fileList = sorted(glob.glob(sysOpt['geminiFile']))
+            data = pd.read_excel(fileList[0])
+
+            grpData = data.groupby(['대분류', '중분류', '소분류']).size()
+            grpDataL1 = grpData.reset_index(name='cnt')
+            grpDataL1['rat'] = (grpDataL1['cnt'] / grpDataL1['cnt'].sum()) * 100
+            grpDataL2 = grpDataL1.sort_values(by='cnt', ascending=False)
+
+            # 빈도분포 저장
+            saveFile = sysOpt['saveFile'].format(key='구글뉴스 수집 및 gemini 온톨로지 구축', type='전체')
+            os.makedirs(os.path.dirname(saveFile), exist_ok=True)
+            grpDataL2.to_excel(saveFile, index=False)
+            log.info(f'[CHECK] saveFile : {saveFile}')
 
         except Exception as e:
             log.error(f"Exception : {str(e)}")
