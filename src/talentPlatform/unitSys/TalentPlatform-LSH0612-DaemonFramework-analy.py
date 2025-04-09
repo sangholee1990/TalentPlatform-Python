@@ -269,12 +269,12 @@ class DtaProcess(object):
                 posTagList = okt.pos(text, stem=True)
                 keywordList = [word for word, pos in posTagList if pos in ['Noun']]
 
-                keywordOrder = 50
+                keywordOrder = 100
                 keywordCnt = Counter(keywordList)
                 keywordData = pd.DataFrame(keywordCnt.items(), columns=['keyword', 'cnt']).sort_values(by='cnt', ascending=False)
                 keywordDataL1 = keywordData[keywordData['keyword'].str.len() >= 2].reset_index(drop=True).head(keywordOrder)
                 keywordDataL1['rat'] = keywordDataL1['cnt'] / keywordDataL1['cnt'].sum() * 100
-                keywordDataL1[type] = name
+                keywordDataL1['type'] = name
 
                 keywordDataL2 = pd.concat([keywordDataL2, keywordDataL1], axis=0)
 
@@ -288,6 +288,7 @@ class DtaProcess(object):
                     background_color=None,
                     mode='RGBA',
                     font_path=sysOpt['fontInfo'],
+                    max_words=keywordOrder
                 ).generate_from_frequencies(keywordDataL1.set_index('keyword')['cnt'].to_dict())
 
                 plt.imshow(wordcloud, interpolation='bilinear')
