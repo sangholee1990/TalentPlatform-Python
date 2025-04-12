@@ -375,8 +375,6 @@ class DtaProcess(object):
                 except Exception as e:
                     log.error(f"Exception : {str(e)}")
 
-            # 'saveFile': '/DATA/OUTPUT/LSH0612/gnews_%Y%m%d.csv',
-
             if len(data) > 0:
                 saveCsvFile = datetime.now().strftime(sysOpt['saveCsvFile'])
                 os.makedirs(os.path.dirname(saveCsvFile), exist_ok=True)
