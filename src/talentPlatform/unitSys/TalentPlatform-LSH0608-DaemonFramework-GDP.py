@@ -1,3 +1,8 @@
+# ================================================
+# 요구사항
+# ================================================
+# Python 이용한 NetCDF 파일 처리 및 3종 증발산량 (Penman, Hargreaves, Thornthwaite) 계산
+
 # -*- coding: utf-8 -*-
 import argparse
 import glob
@@ -20,7 +25,13 @@ import rioxarray as rio
 import cftime
 import subprocess
 from global_land_mask import globe
+from pyproj import Proj
+import rioxarray as rio
+import cftime
+import subprocess
+from global_land_mask import globe
 import gc
+
 
 # =================================================
 # 사용자 매뉴얼
@@ -47,12 +58,12 @@ plt.rc('axes', unicode_minus=False)
 # 그래프에서 마이너스 글꼴 깨지는 문제에 대한 대처
 mpl.rcParams['axes.unicode_minus'] = False
 
-
 # =================================================
 # 2. 유틸리티 함수
 # =================================================
 # 로그 설정
 def initLog(env=None, contextPath=None, prjName=None):
+
     if env is None: env = 'local'
     if contextPath is None: contextPath = os.getcwd()
     if prjName is None: prjName = 'test'
@@ -125,53 +136,30 @@ def initGlobalVar(env=None, contextPath=None, prjName=None):
 
     return globalVar
 
-
 #  초기 전달인자 설정
-def initArgument(globalVar, inParams):
-    # 원도우 또는 맥 환경
-    if globalVar['sysOs'] in 'Windows' or globalVar['sysOs'] in 'Darwin':
-        inParInfo = inParams
+def initArgument(globalVar):
+    parser = argparse.ArgumentParser()
 
-    # 리눅스 환경
-    if globalVar['sysOs'] in 'Linux':
-        parser = argparse.ArgumentParser()
+    for i, argv in enumerate(sys.argv[1:]):
+        if not argv.__contains__('--'): continue
+        parser.add_argument(argv)
 
-        for i, argv in enumerate(sys.argv[1:]):
-            if not argv.__contains__('--'): continue
-            parser.add_argument(argv)
+    inParInfo = vars(parser.parse_args())
+    log.info(f"[CHECK] inParInfo : {inParInfo}")
 
-        inParInfo = vars(parser.parse_args())
-
-    log.info("[CHECK] inParInfo : {}".format(inParInfo))
-
+    # 전역 변수에 할당
     for key, val in inParInfo.items():
         if val is None: continue
-        # 전역 변수에 할당
+        if env not in 'local' and key.__contains__('Path'):
+            os.makedirs(val, exist_ok=True)
         globalVar[key] = val
 
-    # 전역 변수
-    for key, val in globalVar.items():
-        if env not in 'local' and key.__contains__('Path') and env and not os.path.exists(val):
-            os.makedirs(val)
-
-        globalVar[key] = val.replace('\\', '/')
-
-        log.info("[CHECK] {} : {}".format(key, val))
-
-        # self 변수에 할당
-        # setattr(self, key, val)
-
     return globalVar
-
 
 # ================================================
 # 4. 부 프로그램
 # ================================================
 class DtaProcess(object):
-    # ================================================
-    # 요구사항
-    # ================================================
-    # Python 이용한 NetCDF 파일 처리 및 3종 증발산량 (Penman, Hargreaves, Thornthwaite) 계산
 
     # ================================================================================================
     # 환경변수 설정
@@ -179,7 +167,7 @@ class DtaProcess(object):
     global env, contextPath, prjName, serviceName, log, globalVar
 
     # env = 'local'  # 로컬 : 원도우 환경, 작업환경 (현재 소스 코드 환경 시 .) 설정
-    env = 'dev'  # 개발 : 원도우 환경, 작업환경 (사용자 환경 시 contextPath) 설정
+    env = 'dev'      # 개발 : 원도우 환경, 작업환경 (사용자 환경 시 contextPath) 설정
     # env = 'oper'  # 운영 : 리눅스 환경, 작업환경 (사용자 환경 시 contextPath) 설정
 
     if (platform.system() == 'Windows'):
@@ -199,14 +187,14 @@ class DtaProcess(object):
     # ================================================================================================
     # 4.3. 초기 변수 (Argument, Option) 설정
     # ================================================================================================
-    def __init__(self, inParams):
+    def __init__(self):
 
         log.info("[START] __init__ : {}".format("init"))
 
         try:
             # 초기 전달인자 설정 (파이썬 실행 시)
             # pyhton3 *.py argv1 argv2 argv3 ...
-            initArgument(globalVar, inParams)
+            initArgument(globalVar)
 
         except Exception as e:
             log.error("Exception : {}".format(e))
@@ -224,46 +212,28 @@ class DtaProcess(object):
         try:
 
             if (platform.system() == 'Windows'):
-
-                # 옵션 설정
-                sysOpt = {
-                    # 시작/종료 시간
-                    'srtDate': '1990-01-01'
-                    , 'endDate': '2022-01-01'
-
-                    # 경도 최소/최대/간격
-                    , 'lonMin': -180
-                    , 'lonMax': 180
-                    , 'lonInv': 0.1
-
-                    # 위도 최소/최대/간격
-                    , 'latMin': -90
-                    , 'latMax': 90
-                    , 'latInv': 0.1
-                }
-
+                pass
             else:
-
-                # 옵션 설정
-                sysOpt = {
-                    # 시작/종료 시간
-                    'srtDate': '1990-01-01'
-                    , 'endDate': '2022-01-01'
-
-                    # 경도 최소/최대/간격
-                    , 'lonMin': -180
-                    , 'lonMax': 180
-                    , 'lonInv': 0.1
-
-                    # 위도 최소/최대/간격
-                    , 'latMin': -90
-                    , 'latMax': 90
-                    , 'latInv': 0.1
-                }
-
                 globalVar['inpPath'] = '/DATA/INPUT'
                 globalVar['outPath'] = '/DATA/OUTPUT'
                 globalVar['figPath'] = '/DATA/FIG'
+
+            # 옵션 설정
+            sysOpt = {
+                # 시작/종료 시간
+                'srtDate': '1990-01-01'
+                , 'endDate': '2022-01-01'
+
+                # 경도 최소/최대/간격
+                , 'lonMin': -180
+                , 'lonMax': 180
+                , 'lonInv': 0.1
+
+                # 위도 최소/최대/간격
+                , 'latMin': -90
+                , 'latMax': 90
+                , 'latInv': 0.1
+            }
 
             # 도법 설정
             proj4326 = 'epsg:4326'
@@ -285,24 +255,27 @@ class DtaProcess(object):
                 log.info("[CHECK] dtIncDateInfo : {}".format(dtIncDateInfo))
                 sYear = dtIncDateInfo.strftime('%Y')
 
-                saveFile = '{}/{}/{}-{}.nc'.format(globalVar['outPath'], serviceName, 'EC', sYear)
+                saveFile = '{}/{}/{}-{}.nc'.format(globalVar['outPath'], serviceName, 'GDP', sYear)
                 fileChkList = glob.glob(saveFile)
-                # if (len(fileChkList) > 0): continue
+                if (len(fileChkList) > 0): continue
 
                 # inpFilePattern = '{}/CarbonMonitor_*{}*_y{}_m{}.nc'.format(serviceName, keyInfo, dtYear, dtMonth)
-                inpFilePattern = '{1:s}/{1:s}{0:s}.tif'.format(sYear, 'EC')
+                # inpFilePattern = '{1:s}/{0:s}/{0:s}{1:s}.tif'.format(sYear, 'GDP')
+                inpFilePattern = '{1:s}/{0:s}{1:s}.tif'.format(sYear, 'GDP')
                 inpFile = '{}/{}/{}'.format(globalVar['inpPath'], serviceName, inpFilePattern)
                 fileList = sorted(glob.glob(inpFile))
 
                 if (len(fileList) < 1): continue
+
                 fileInfo = fileList[0]
 
                 # 파일 읽기
                 # data = xr.open_rasterio(fileInfo)
                 data = xr.open_rasterio(fileInfo, chunks={"band": 1, "x": 500, "y": 500})
 
+                # proj4326 도법 변환
                 dataL1 = data.rio.reproject(proj4326)
-                dataL2 = dataL1.sel(band=1)
+                dataL2 = dataL1.sel(band = 1)
 
                 dataL3 = dataL2.interp(x=lonList, y=latList, method='nearest')
 
@@ -314,7 +287,7 @@ class DtaProcess(object):
 
                 dataL4 = xr.Dataset(
                     {
-                        'EC': (('time', 'lat', 'lon'), (dataL3.values).reshape(1, len(lat1D), len(lon1D)))
+                        'GDP': (('time', 'lat', 'lon'), (dataL3.values).reshape(1, len(lat1D), len(lon1D)))
                     }
                     , coords={
                         'time': pd.date_range(sYear, periods=1)
@@ -347,7 +320,7 @@ class DtaProcess(object):
                 # 가비지 수집기 강제 실행
                 gc.collect()
 
-            inpFile = '{}/{}/{}'.format(globalVar['outPath'], serviceName, 'EC-????.nc')
+            inpFile = '{}/{}/{}'.format(globalVar['outPath'], serviceName, 'GDP-????.nc')
             fileList = sorted(glob.glob(inpFile))
             dataL5 = xr.open_mfdataset(fileList)
 
@@ -355,17 +328,16 @@ class DtaProcess(object):
             minYear = pd.to_datetime(timeList.min()).strftime('%Y')
             maxYear = pd.to_datetime(timeList.max()).strftime('%Y')
 
-            saveFile = '{}/{}/{}_{}-{}.nc'.format(globalVar['outPath'], serviceName, 'EC', minYear, maxYear)
+            saveFile = '{}/{}/{}_{}-{}.nc'.format(globalVar['outPath'], serviceName, 'GDP', minYear, maxYear)
             os.makedirs(os.path.dirname(saveFile), exist_ok=True)
             dataL5.to_netcdf(saveFile)
-            log.info(f'[CHECK] saveFile : {saveFile}')
+            log.info('[CHECK] saveFile : {}'.format(saveFile))
 
         except Exception as e:
             log.error("Exception : {}".format(e))
             raise e
         finally:
             log.info('[END] {}'.format("exec"))
-
 
 # ================================================
 # 3. 주 프로그램
@@ -375,15 +347,8 @@ if __name__ == '__main__':
     print('[START] {}'.format("main"))
 
     try:
-
-        # 파이썬 실행 시 전달인자를 초기 환경변수 설정
-        inParams = {}
-
-        print("[CHECK] inParams : {}".format(inParams))
-
         # 부 프로그램 호출
-        subDtaProcess = DtaProcess(inParams)
-
+        subDtaProcess = DtaProcess()
         subDtaProcess.exec()
 
     except Exception as e:

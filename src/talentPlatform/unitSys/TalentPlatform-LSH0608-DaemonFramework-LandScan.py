@@ -1,3 +1,8 @@
+# ================================================
+# 요구사항
+# ================================================
+# Python 이용한 NetCDF 파일 처리 및 3종 증발산량 (Penman, Hargreaves, Thornthwaite) 계산
+
 # -*- coding: utf-8 -*-
 import argparse
 import glob
@@ -129,53 +134,30 @@ def initGlobalVar(env=None, contextPath=None, prjName=None):
 
     return globalVar
 
-
 #  초기 전달인자 설정
-def initArgument(globalVar, inParams):
-    # 원도우 또는 맥 환경
-    if globalVar['sysOs'] in 'Windows' or globalVar['sysOs'] in 'Darwin':
-        inParInfo = inParams
+def initArgument(globalVar):
+    parser = argparse.ArgumentParser()
 
-    # 리눅스 환경
-    if globalVar['sysOs'] in 'Linux':
-        parser = argparse.ArgumentParser()
+    for i, argv in enumerate(sys.argv[1:]):
+        if not argv.__contains__('--'): continue
+        parser.add_argument(argv)
 
-        for i, argv in enumerate(sys.argv[1:]):
-            if not argv.__contains__('--'): continue
-            parser.add_argument(argv)
+    inParInfo = vars(parser.parse_args())
+    log.info(f"[CHECK] inParInfo : {inParInfo}")
 
-        inParInfo = vars(parser.parse_args())
-
-    log.info("[CHECK] inParInfo : {}".format(inParInfo))
-
+    # 전역 변수에 할당
     for key, val in inParInfo.items():
         if val is None: continue
-        # 전역 변수에 할당
+        if env not in 'local' and key.__contains__('Path'):
+            os.makedirs(val, exist_ok=True)
         globalVar[key] = val
 
-    # 전역 변수
-    for key, val in globalVar.items():
-        if env not in 'local' and key.__contains__('Path') and env and not os.path.exists(val):
-            os.makedirs(val)
-
-        globalVar[key] = val.replace('\\', '/')
-
-        log.info("[CHECK] {} : {}".format(key, val))
-
-        # self 변수에 할당
-        # setattr(self, key, val)
-
     return globalVar
-
 
 # ================================================
 # 4. 부 프로그램
 # ================================================
 class DtaProcess(object):
-    # ================================================
-    # 요구사항
-    # ================================================
-    # Python 이용한 NetCDF 파일 처리 및 3종 증발산량 (Penman, Hargreaves, Thornthwaite) 계산
 
     # ================================================================================================
     # 환경변수 설정
@@ -203,17 +185,17 @@ class DtaProcess(object):
     # ================================================================================================
     # 4.3. 초기 변수 (Argument, Option) 설정
     # ================================================================================================
-    def __init__(self, inParams):
+    def __init__(self):
 
         log.info("[START] __init__ : {}".format("init"))
 
         try:
             # 초기 전달인자 설정 (파이썬 실행 시)
             # pyhton3 *.py argv1 argv2 argv3 ...
-            initArgument(globalVar, inParams)
+            initArgument(globalVar)
 
         except Exception as e:
-            log.error("Exception : {}".format(e))
+            log.error(f"Exception : {str(e)}")
             raise e
         finally:
             log.info("[END] __init__ : {}".format("init"))
@@ -228,46 +210,28 @@ class DtaProcess(object):
         try:
 
             if (platform.system() == 'Windows'):
-
-                # 옵션 설정
-                sysOpt = {
-                    # 시작/종료 시간
-                    'srtDate': '2000-01-01'
-                    , 'endDate': '2022-01-01'
-
-                    # 경도 최소/최대/간격
-                    , 'lonMin': -180
-                    , 'lonMax': 180
-                    , 'lonInv': 0.1
-
-                    # 위도 최소/최대/간격
-                    , 'latMin': -90
-                    , 'latMax': 90
-                    , 'latInv': 0.1
-                }
-
+                pass
             else:
-
-                # 옵션 설정
-                sysOpt = {
-                    # 시작/종료 시간
-                    'srtDate': '2000-01-01'
-                    , 'endDate': '2022-01-01'
-
-                    # 경도 최소/최대/간격
-                    , 'lonMin': -180
-                    , 'lonMax': 180
-                    , 'lonInv': 0.1
-
-                    # 위도 최소/최대/간격
-                    , 'latMin': -90
-                    , 'latMax': 90
-                    , 'latInv': 0.1
-                }
-
                 globalVar['inpPath'] = '/DATA/INPUT'
                 globalVar['outPath'] = '/DATA/OUTPUT'
                 globalVar['figPath'] = '/DATA/FIG'
+
+            # 옵션 설정
+            sysOpt = {
+                # 시작/종료 시간
+                'srtDate': '2000-01-01'
+                , 'endDate': '2022-01-01'
+
+                # 경도 최소/최대/간격
+                , 'lonMin': -180
+                , 'lonMax': 180
+                , 'lonInv': 0.1
+
+                # 위도 최소/최대/간격
+                , 'latMin': -90
+                , 'latMax': 90
+                , 'latInv': 0.1
+            }
 
             lonList = np.arange(sysOpt['lonMin'], sysOpt['lonMax'], sysOpt['lonInv'])
             latList = np.arange(sysOpt['latMin'], sysOpt['latMax'], sysOpt['latInv'])
@@ -355,15 +319,8 @@ if __name__ == '__main__':
     print('[START] {}'.format("main"))
 
     try:
-
-        # 파이썬 실행 시 전달인자를 초기 환경변수 설정
-        inParams = {}
-
-        print("[CHECK] inParams : {}".format(inParams))
-
         # 부 프로그램 호출
-        subDtaProcess = DtaProcess(inParams)
-
+        subDtaProcess = DtaProcess()
         subDtaProcess.exec()
 
     except Exception as e:

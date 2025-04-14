@@ -1,3 +1,8 @@
+# ================================================
+# 요구사항
+# ================================================
+# Python 이용한 NetCDF 파일 처리 및 3종 증발산량 (Penman, Hargreaves, Thornthwaite) 계산
+
 # -*- coding: utf-8 -*-
 import argparse
 import glob
@@ -18,6 +23,9 @@ import xarray as xr
 from pyproj import Proj
 import rioxarray as rio
 import cftime
+import subprocess
+from global_land_mask import globe
+import gc
 
 # =================================================
 # 사용자 매뉴얼
@@ -44,12 +52,12 @@ plt.rc('axes', unicode_minus=False)
 # 그래프에서 마이너스 글꼴 깨지는 문제에 대한 대처
 mpl.rcParams['axes.unicode_minus'] = False
 
+
 # =================================================
 # 2. 유틸리티 함수
 # =================================================
 # 로그 설정
 def initLog(env=None, contextPath=None, prjName=None):
-
     if env is None: env = 'local'
     if contextPath is None: contextPath = os.getcwd()
     if prjName is None: prjName = 'test'
@@ -111,7 +119,7 @@ def initGlobalVar(env=None, contextPath=None, prjName=None):
         , 'cfgPath': contextPath if env in 'local' else os.path.join(contextPath, 'resources', 'config')
         , 'inpPath': contextPath if env in 'local' else os.path.join(contextPath, 'resources', 'input', prjName)
         , 'figPath': contextPath if env in 'local' else os.path.join(contextPath, 'resources', 'fig', prjName)
-        , 'outPath': contextPath if env in 'local' else os.path.join(contextPath, 'resources', 'output', prjName)
+        , 'outPath': contextPath if env in 'local' else os.path.join(contextPath, 'resources', 'input', prjName)
         , 'movPath': contextPath if env in 'local' else os.path.join(contextPath, 'resources', 'movie', prjName)
         , 'logPath': contextPath if env in 'local' else os.path.join(contextPath, 'resources', 'log', prjName)
         , 'mapPath': contextPath if env in 'local' else os.path.join(contextPath, 'resources', 'mapInfo')
@@ -122,42 +130,23 @@ def initGlobalVar(env=None, contextPath=None, prjName=None):
 
     return globalVar
 
-
 #  초기 전달인자 설정
-def initArgument(globalVar, inParams):
+def initArgument(globalVar):
+    parser = argparse.ArgumentParser()
 
-    # 원도우 또는 맥 환경
-    if globalVar['sysOs'] in 'Windows' or globalVar['sysOs'] in 'Darwin':
-        inParInfo = inParams
+    for i, argv in enumerate(sys.argv[1:]):
+        if not argv.__contains__('--'): continue
+        parser.add_argument(argv)
 
-    # 리눅스 환경
-    if globalVar['sysOs'] in 'Linux':
-        parser = argparse.ArgumentParser()
+    inParInfo = vars(parser.parse_args())
+    log.info(f"[CHECK] inParInfo : {inParInfo}")
 
-        for i, argv in enumerate(sys.argv[1:]):
-            if not argv.__contains__('--'): continue
-            parser.add_argument(argv)
-
-        inParInfo = vars(parser.parse_args())
-
-    log.info("[CHECK] inParInfo : {}".format(inParInfo))
-
+    # 전역 변수에 할당
     for key, val in inParInfo.items():
         if val is None: continue
-        # 전역 변수에 할당
+        if env not in 'local' and key.__contains__('Path'):
+            os.makedirs(val, exist_ok=True)
         globalVar[key] = val
-
-    # 전역 변수
-    for key, val in globalVar.items():
-        if env not in 'local' and key.__contains__('Path') and env and not os.path.exists(val):
-            os.makedirs(val)
-
-        globalVar[key] = val.replace('\\', '/')
-
-        log.info("[CHECK] {} : {}".format(key, val))
-
-        # self 변수에 할당
-        # setattr(self, key, val)
 
     return globalVar
 
@@ -166,42 +155,14 @@ def initArgument(globalVar, inParams):
 # ================================================
 class DtaProcess(object):
 
-    # ================================================
-    # 요구사항
-    # ================================================
-    # Python 이용한 NetCDF 파일 처리 및 3종 증발산량 (Penman, Hargreaves, Thornthwaite) 계산
-
-    # 	ubyte Land_Cover_Type_1_Percent(YDim\:MOD12C1, XDim\:MOD12C1, Num_IGBP_Classes\:MOD12C1) ;
-    # 		Land_Cover_Type_1_Percent:long_name = "Land_Cover_Type_1_Percent" ;
-    # 		Land_Cover_Type_1_Percent:units = "percent in integers" ;
-    # 		Land_Cover_Type_1_Percent:valid_range = 0UB, 100UB ;
-    # 		Land_Cover_Type_1_Percent:_FillValue = 255UB ;
-    # 		Land_Cover_Type_1_Percent:Layer\ 0 = "water" ;
-    # 		Land_Cover_Type_1_Percent:Layer\ 1 = "evergreen needleleaf forest" ;
-    # 		Land_Cover_Type_1_Percent:Layer\ 2 = "evergreen broadleaf forest" ;
-    # 		Land_Cover_Type_1_Percent:Layer\ 3 = "deciduous needleleaf forest" ;
-    # 		Land_Cover_Type_1_Percent:Layer\ 4 = "deciduous broadleaf forest" ;
-    # 		Land_Cover_Type_1_Percent:Layer\ 5 = "mixed forests" ;
-    # 		Land_Cover_Type_1_Percent:Layer\ 6 = "closed shrubland" ;
-    # 		Land_Cover_Type_1_Percent:Layer\ 7 = "open shrublands" ;
-    # 		Land_Cover_Type_1_Percent:Layer\ 8 = "woody savannas" ;
-    # 		Land_Cover_Type_1_Percent:Layer\ 9 = "savannas" ;
-    # 		Land_Cover_Type_1_Percent:Layer\ 10 = "grasslands" ;
-    # 		Land_Cover_Type_1_Percent:Layer\ 11 = "permanent wetlands" ;
-    # 		Land_Cover_Type_1_Percent:Layer\ 12 = "croplands" ;
-    # 		Land_Cover_Type_1_Percent:Layer\ 13 = "urban and built-up" ;
-    # 		Land_Cover_Type_1_Percent:Layer\ 14 = "cropland/natural vegetation mosaic" ;
-    # 		Land_Cover_Type_1_Percent:Layer\ 15 = "snow and ice" ;
-    # 		Land_Cover_Type_1_Percent:Layer\ 16 = "barren or sparsely vegetated" ;
-
     # ================================================================================================
     # 환경변수 설정
     # ================================================================================================
     global env, contextPath, prjName, serviceName, log, globalVar
 
     # env = 'local'  # 로컬 : 원도우 환경, 작업환경 (현재 소스 코드 환경 시 .) 설정
-    # env = 'dev'      # 개발 : 원도우 환경, 작업환경 (사용자 환경 시 contextPath) 설정
-    env = 'oper'  # 운영 : 리눅스 환경, 작업환경 (사용자 환경 시 contextPath) 설정
+    env = 'dev'  # 개발 : 원도우 환경, 작업환경 (사용자 환경 시 contextPath) 설정
+    # env = 'oper'  # 운영 : 리눅스 환경, 작업환경 (사용자 환경 시 contextPath) 설정
 
     if (platform.system() == 'Windows'):
         contextPath = os.getcwd() if env in 'local' else 'E:/04. TalentPlatform/Github/TalentPlatform-Python'
@@ -220,14 +181,14 @@ class DtaProcess(object):
     # ================================================================================================
     # 4.3. 초기 변수 (Argument, Option) 설정
     # ================================================================================================
-    def __init__(self, inParams):
+    def __init__(self):
 
         log.info("[START] __init__ : {}".format("init"))
 
         try:
             # 초기 전달인자 설정 (파이썬 실행 시)
             # pyhton3 *.py argv1 argv2 argv3 ...
-            initArgument(globalVar, inParams)
+            initArgument(globalVar)
 
         except Exception as e:
             log.error("Exception : {}".format(e))
@@ -245,50 +206,28 @@ class DtaProcess(object):
         try:
 
             if (platform.system() == 'Windows'):
-
-                # 옵션 설정
-                sysOpt = {
-                    # 시작/종료 시간
-                    'srtDate': '1990-01-01'
-                    , 'endDate': '2022-01-01'
-
-                    # 경도 최소/최대/간격
-                    , 'lonMin': -180
-                    , 'lonMax': 180
-                    , 'lonInv': 0.1
-                    # , 'lonInv': 5
-
-                    # 위도 최소/최대/간격
-                    , 'latMin': -90
-                    , 'latMax': 90
-                    , 'latInv': 0.1
-                    # , 'latInv': 5
-                }
-
+                pass
             else:
-
-                # 옵션 설정
-                sysOpt = {
-                    # 시작/종료 시간
-                    # 'srtDate': globalVar['srtDate']
-                    # , 'endDate': globalVar['endDate']
-                    'srtDate': '1990-01-01'
-                    , 'endDate': '2022-01-01'
-
-                    # 경도 최소/최대/간격
-                    , 'lonMin': -180
-                    , 'lonMax': 180
-                    , 'lonInv': 0.1
-
-                    # 위도 최소/최대/간격
-                    , 'latMin': -90
-                    , 'latMax': 90
-                    , 'latInv': 0.1
-                }
-
                 globalVar['inpPath'] = '/DATA/INPUT'
                 globalVar['outPath'] = '/DATA/OUTPUT'
                 globalVar['figPath'] = '/DATA/FIG'
+
+            # 옵션 설정
+            sysOpt = {
+                # 시작/종료 시간
+                'srtDate': '1990-01-01'
+                , 'endDate': '2022-01-01'
+
+                # 경도 최소/최대/간격
+                , 'lonMin': -180
+                , 'lonMax': 180
+                , 'lonInv': 0.1
+
+                # 위도 최소/최대/간격
+                , 'latMin': -90
+                , 'latMax': 90
+                , 'latInv': 0.1
+            }
 
             # 도법 설정
             proj4326 = 'epsg:4326'
@@ -300,81 +239,97 @@ class DtaProcess(object):
             log.info('[CHECK] len(lonList) : {}'.format(len(lonList)))
             log.info('[CHECK] len(latList) : {}'.format(len(latList)))
 
-
             dtSrtDate = pd.to_datetime(sysOpt['srtDate'], format='%Y-%m-%d')
             dtEndDate = pd.to_datetime(sysOpt['endDate'], format='%Y-%m-%d')
             dtIncDateList = pd.date_range(start=dtSrtDate, end=dtEndDate, freq='1Y')
             # dtIncDateInfo = dtIncDateList[0]
 
-            dataL3 = xr.Dataset()
-            for i, dtIncDateInfo in enumerate(dtIncDateList):
-                # log.info("[CHECK] dtIncDateInfo : {}".format(dtIncDateInfo))
+            dataL5 = xr.Dataset()
+            for j, dtIncDateInfo in enumerate(dtIncDateList):
+                log.info("[CHECK] dtIncDateInfo : {}".format(dtIncDateInfo))
                 sYear = dtIncDateInfo.strftime('%Y')
 
-                # inpFile = '{}/{}/*/MCD12C1.A{}*.hdf'.format(globalVar['inpPath'], serviceName, sYear)
-                inpFile = '{}/{}/*/MCD12C1.A{}*.tif'.format(globalVar['inpPath'], serviceName, sYear)
+                saveFile = '{}/{}/{}-{}.nc'.format(globalVar['outPath'], serviceName, 'EC', sYear)
+                fileChkList = glob.glob(saveFile)
+                # if (len(fileChkList) > 0): continue
 
+                # inpFilePattern = '{}/CarbonMonitor_*{}*_y{}_m{}.nc'.format(serviceName, keyInfo, dtYear, dtMonth)
+                inpFilePattern = '{1:s}/{1:s}{0:s}.tif'.format(sYear, 'EC')
+                inpFile = '{}/{}/{}'.format(globalVar['inpPath'], serviceName, inpFilePattern)
                 fileList = sorted(glob.glob(inpFile))
 
-                if fileList is None or len(fileList) < 1:
-                    log.error('[ERROR] inpFile : {} / {}'.format(inpFile, '입력 자료를 확인해주세요.'))
-                    continue
-
+                if (len(fileList) < 1): continue
                 fileInfo = fileList[0]
-                log.info('[CHECK] fileInfo : {}'.format(fileInfo))
 
-                fileNameNoExt = os.path.basename(fileInfo).split('.tif')[0]
+                # 파일 읽기
+                # data = xr.open_rasterio(fileInfo)
+                data = xr.open_rasterio(fileInfo, chunks={"band": 1, "x": 500, "y": 500})
 
-                # data = xr.open_mfdataset(fileInfo)
-                data = xr.open_dataset(fileInfo)
-                # data = xr.open_dataset(fileInfo, engine="h5netcdf")
+                dataL1 = data.rio.reproject(proj4326)
+                dataL2 = dataL1.sel(band=1)
 
-                # Land_Cover_Type_1_Percent:Layer\ 13 = "urban and built-up" ;
-                dataL1 = data.sel(band=13).interp(x=lonList, y=latList, method='linear')
+                dataL3 = dataL2.interp(x=lonList, y=latList, method='nearest')
 
-                # 자료 변환
-                lon1D = dataL1['x'].values
-                lat1D = dataL1['y'].values
-                time1D = pd.to_datetime(sYear, format='%Y')
+                # 결측값 처리
+                dataL3 = xr.where((dataL3 < 0), np.nan, dataL3)
 
-                dataL2 = xr.Dataset(
+                lon1D = dataL3['x'].values
+                lat1D = dataL3['y'].values
+
+                dataL4 = xr.Dataset(
                     {
-                        'Land_Cover_Type_1_Percent': (('time', 'lat', 'lon'), (dataL1['band_data'].values).reshape(1, len(lat1D), len(lon1D)))
+                        'EC': (('time', 'lat', 'lon'), (dataL3.values).reshape(1, len(lat1D), len(lon1D)))
                     }
                     , coords={
-                        'time': pd.date_range(time1D, periods=1)
+                        'time': pd.date_range(sYear, periods=1)
                         , 'lat': lat1D
                         , 'lon': lon1D
                     }
                 )
 
-                # key = 'Land_Cover_Type_1_Percent'
-                # saveImg = '{}/{}/{}/{}-{}.png'.format(globalVar['figPath'], serviceName, 'MCD12C1', fileNameNoExt, key)
-                # os.makedirs(os.path.dirname(saveImg), exist_ok=True)
-                # dataL2[key].plot()
-                # plt.savefig(saveImg, dpi=600, bbox_inches='tight', transparent=True)
-                # plt.tight_layout()
-                # plt.show()
-                # plt.close()
-                # log.info(f'[CHECK] saveImg : {saveImg}')
+                # if (len(dataL5) < 1):
+                #     dataL5 = dataL4
+                # else:
+                #     dataL5 = xr.concat([dataL5, dataL4], "time")
 
-                dataL3 = xr.merge([dataL3, dataL2])
+                os.makedirs(os.path.dirname(saveFile), exist_ok=True)
+                dataL4.to_netcdf(saveFile)
+                log.info(f'[CHECK] saveFile : {saveFile}')
 
-            # 자료 저장
-            timeList = dataL3['time'].values
+                # 데이터셋 닫기 및 메모리에서 제거
+                data.close()
+                del data
+                dataL1.close()
+                del dataL1
+                dataL2.close()
+                del dataL2
+                dataL3.close()
+                del dataL3
+                dataL4.close()
+                del dataL4
+
+                # 가비지 수집기 강제 실행
+                gc.collect()
+
+            inpFile = '{}/{}/{}'.format(globalVar['outPath'], serviceName, 'EC-????.nc')
+            fileList = sorted(glob.glob(inpFile))
+            dataL5 = xr.open_mfdataset(fileList)
+
+            timeList = dataL5['time'].values
             minYear = pd.to_datetime(timeList.min()).strftime('%Y')
             maxYear = pd.to_datetime(timeList.max()).strftime('%Y')
 
-            saveFile = '{}/{}/{}_{}-{}.nc'.format(globalVar['outPath'], serviceName, 'MCD12C1-Stat', minYear, maxYear)
+            saveFile = '{}/{}/{}_{}-{}.nc'.format(globalVar['outPath'], serviceName, 'EC', minYear, maxYear)
             os.makedirs(os.path.dirname(saveFile), exist_ok=True)
-            dataL3.to_netcdf(saveFile)
-            log.info('[CHECK] saveFile : {}'.format(saveFile))
+            dataL5.to_netcdf(saveFile)
+            log.info(f'[CHECK] saveFile : {saveFile}')
 
         except Exception as e:
             log.error("Exception : {}".format(e))
             raise e
         finally:
             log.info('[END] {}'.format("exec"))
+
 
 # ================================================
 # 3. 주 프로그램
@@ -384,15 +339,8 @@ if __name__ == '__main__':
     print('[START] {}'.format("main"))
 
     try:
-
-        # 파이썬 실행 시 전달인자를 초기 환경변수 설정
-        inParams = { }
-
-        print("[CHECK] inParams : {}".format(inParams))
-
         # 부 프로그램 호출
-        subDtaProcess = DtaProcess(inParams)
-
+        subDtaProcess = DtaProcess()
         subDtaProcess.exec()
 
     except Exception as e:

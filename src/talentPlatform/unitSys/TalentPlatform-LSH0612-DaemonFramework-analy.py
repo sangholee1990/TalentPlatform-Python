@@ -144,7 +144,6 @@ def initGlobalVar(env=None, contextPath=None, prjName=None):
 
     return globalVar
 
-
 #  초기 전달인자 설정
 def initArgument(globalVar):
     parser = argparse.ArgumentParser()
@@ -169,6 +168,7 @@ def initArgument(globalVar):
 # 4. 부 프로그램
 # ================================================
 class DtaProcess(object):
+
     # ================================================================================================
     # 환경변수 설정
     # ================================================================================================
