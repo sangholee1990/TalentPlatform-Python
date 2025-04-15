@@ -217,11 +217,8 @@ class DtaProcess(object):
                 'srtDate': '2014-01-01'
                 , 'endDate': datetime.now().strftime("%Y-%m-%d")
 
-                # 공공데이터포털 API
-                # , 'apiKey': ''
-                #, 'apiKey': 'bf9fH0KLgr65zXKT5D/dcgUBIj1znJKnUPrzDVZEe6g4gquylOjmt65R5cjivLPfOKXWcRcAWU0SN7KKXBGDKA=='         # 상호
-                #, 'apiKey': 'OZt4/yRFmIB75XnywK0mWWLivk+ZwkwIpNj1pB9uQT2uACBh53WLeGNOuiE0PvQ6iM7C7/GlU3+GDSbmGZUtyw=='         # 주형
-                , 'apiKey': 'LO%2FPM7UaWcr9d2ypUzQzjYK3KyEoRZtKIKuvrDfhg51mXlk2eFriN%2FWCZV249GrQorog5Fv12iOUeWx9nhwDWA%3D%3D'  # TOP BDS
+                # 공공데이터포털 API 디코딩
+                , 'apiKey': ''
 
                 # 건축 인허가
                 , 'apiUrl': 'https://apis.data.go.kr/1613000/ArchPmsService_v2/getApBasisOulnInfo'
@@ -240,9 +237,7 @@ class DtaProcess(object):
                 # , 'addrList': [globalVar['addrList']]
 
                 # 구글 API 정보
-                # , 'googleApiKey': ''
-                #, 'googleApiKey': 'AIzaSyCkYokUFIcH5OYDaYU0IrFLX89wX1o7-qc'    # 상호
-                , 'googleApiKey': 'AIzaSyBq4ZkoyoXaD0pt9TYwdfNctrAwyO1DDuk'     # 유민
+                , 'googleApiKey': ''
             }
 
             dtSrtDate = pd.to_datetime(sysOpt['srtDate'], format='%Y-%m-%d')
