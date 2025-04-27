@@ -1,3 +1,12 @@
+# ================================================
+# 요구사항
+# ================================================
+# Python을 이용한 미국 전역 관측소를 기준으로 매칭 자동화
+
+# cd /SYSTEMS/PROG/PYTHON/IDE/src/talentPlatform/unitSys
+# nohup /SYSTEMS/LIB/anaconda3/envs/py38/bin/python3.8 TalentPlatform-LSH0589-DaemonFramework.py &
+# tail -f nohup.out
+
 # -*- coding: utf-8 -*-
 import argparse
 import glob
@@ -200,15 +209,6 @@ def initArgument(globalVar, inParams):
 # ================================================
 class DtaProcess(object):
 
-    # ================================================
-    # 요구사항
-    # ================================================
-    # Python을 이용한 미국 전역 관측소를 기준으로 매칭 자동화
-
-    # cd /SYSTEMS/PROG/PYTHON/IDE/src/talentPlatform/unitSys
-    # nohup /SYSTEMS/LIB/anaconda3/envs/py38/bin/python3.8 TalentPlatform-LSH0589-DaemonFramework.py &
-    # tail -f nohup.out
-
     # ================================================================================================
     # 환경변수 설정
     # ================================================================================================
@@ -348,8 +348,10 @@ class DtaProcess(object):
                 xlsxFilePattern = f"{globalVar['outPath']}/{serviceName}/{stateInfo['abbr']}-{stateInfo['state']}_Average_Values_Across_Stations_*.xlsx"
                 # if len(glob.glob(xlsxFilePattern)) > 0: continue
 
-                rsvDataL1 = rsvData.loc[(rsvData['HOSPST'] == stateInfo['abbr'])].reset_index(drop=True)
+                rsvDataL1 = rsvData.loc[(rsvData['HOSPST'] == stateInfo['abbr'])].reset_index(drop=False)
                 if len(rsvDataL1) < 1: continue
+
+                set(rsvDataL1['year'])
 
                 log.info(f"[CHECK] abbr : {stateInfo['abbr']}")
 
@@ -361,7 +363,9 @@ class DtaProcess(object):
                 maxVal = aweek1_counts.max()
 
                 # 문턱값 계산 (최대값의 80%)
-                maxThres = maxVal * 0.8
+                # maxThres = maxVal * 0.8
+                # maxThres = maxVal * 1.0
+                maxThres = 0.0
 
                 # 기준값 이상인 최소값 찾기
                 minIdxAweek1 = aweek1_counts[aweek1_counts >= maxThres].index.min()
