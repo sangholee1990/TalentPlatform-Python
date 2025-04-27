@@ -271,15 +271,15 @@ class DtaProcess(object):
             # 옵션 설정
             sysOpt = {
                 # 시작일, 종료일, 시간 간격 (연 1y, 월 1h, 일 1d, 시간 1h, 분 1t)
-                # 'srtDate': '2024-01-10 00:00'
-                # , 'endDate': '2024-01-10 06:00'
-                # , 'invDate': '1t'
+                'srtDate': '1997-01-01'
+                , 'endDate': '2011-12-31'
+                , 'invDate': '1d'
             }
 
             # 시작일/종료일 설정
-            # dtSrtDate = pd.to_datetime(sysOpt['srtDate'], format='%Y-%m-%d %H:%M')
-            # dtEndDate = pd.to_datetime(sysOpt['endDate'], format='%Y-%m-%d %H:%M')
-            # dtDateList = pd.date_range(start=dtSrtDate, end=dtEndDate, freq=sysOpt['invDate'])
+            dtSrtDate = pd.to_datetime(sysOpt['srtDate'], format='%Y-%m-%d')
+            dtEndDate = pd.to_datetime(sysOpt['endDate'], format='%Y-%m-%d')
+            dtDateList = pd.date_range(start=dtSrtDate, end=dtEndDate, freq=sysOpt['invDate'])
 
             # =========================================================
             # 데이터 수집
@@ -346,8 +346,7 @@ class DtaProcess(object):
                 # if not stateInfo['abbr'] == 'MN': continue
 
                 xlsxFilePattern = f"{globalVar['outPath']}/{serviceName}/{stateInfo['abbr']}-{stateInfo['state']}_Average_Values_Across_Stations_*.xlsx"
-                xlsxFileList = glob.glob(xlsxFilePattern)
-                if len(xlsxFileList) > 0: continue
+                # if len(glob.glob(xlsxFilePattern)) > 0: continue
 
                 rsvDataL1 = rsvData.loc[(rsvData['HOSPST'] == stateInfo['abbr'])].reset_index(drop=True)
                 if len(rsvDataL1) < 1: continue
@@ -366,7 +365,7 @@ class DtaProcess(object):
 
                 # 기준값 이상인 최소값 찾기
                 minIdxAweek1 = aweek1_counts[aweek1_counts >= maxThres].index.min()
-                log.info(f"maxVal: {maxVal}, maxThres: {maxThres:.1f}, minIdxAweek1: {minIdxAweek1}")
+                log.info(f"[CHECK] maxVal: {maxVal}, maxThres: {maxThres:.1f}, minIdxAweek1: {minIdxAweek1}")
 
                 # Filter for necessary columns and 'AWEEK1' > 680
                 columns_needed = ['AWEEK1', 'HOSPSTCO', 'rsv', 'COUNTYPOP', 'mbirth_rate', 'year', 'weekyear']
@@ -441,13 +440,13 @@ class DtaProcess(object):
 
                 minYear = int(grouped_data['year'].min())
                 maxYear = int(grouped_data['year'].max())
-                log.info(f"minYear : {minYear} / maxYear : {maxYear}")
+                log.info(f"[CHECK] minYear : {minYear} / maxYear : {maxYear}")
 
                 # Initialize an empty DataFrame to hold all the filtered and reshaped data
                 combined_data = pd.DataFrame()
                 # for year in range(2000, 2011):
                 for year in range(minYear, maxYear):
-                    log.info(f"year : {year}")
+                    log.info(f"[CHECK] year : {year}")
 
                     # Create the file path for the current year
                     # file_path = path_template.format(year, year)
@@ -455,7 +454,7 @@ class DtaProcess(object):
 
                     # Check if the file exists
                     if not os.path.exists(file_path):
-                        print(f"File for year {year} not found at path: {file_path}")
+                        log.info(f"[CHECK] File for year {year} not found at path: {file_path}")
                         continue  # Skip to the next year if file is missing
 
                     # Load only the first four columns for the current year without headers
@@ -495,7 +494,6 @@ class DtaProcess(object):
 
                 # Save the combined reshaped data to an Excel file
                 # combined_data.to_excel(output_file_path, index=False)
-
                 # (f"All data from 2001 to 2010 saved with variables as columns in {output_file_path}")
 
 
@@ -505,7 +503,9 @@ class DtaProcess(object):
 
                 # Group by 'Date' and calculate the mean for each variable column, ignoring NaN values
                 if len(combined_data) < 1: continue
-                comData = combined_data.reset_index()
+                # comData = combined_data.reset_index()
+                comData = combined_data.reset_index(drop=True)
+
                 # variable_columns = data.columns.difference(['Station', 'Date'])
                 # average_by_date = data.groupby('Date')[variable_columns].mean().reset_index()
                 # variable_columns = combined_data.columns.difference(['Station', 'Date'])
@@ -517,6 +517,10 @@ class DtaProcess(object):
                 # avgDataL1 = average_by_date.dropna(axis=1, how='all').reset_index(drop=True)
                 # avgDataL1 = average_by_date.loc[:, ~average_by_date.isna().any()]
 
+                # 시작일/종료일을 기준으로 데이터 병합
+                dtDateData = pd.DataFrame(dtDateList.strftime('%Y%m%d').astype(int), columns=['Date'])
+                comDataL1 = pd.merge(dtDateData, comData, how='left', left_on=['Date'], right_on=['Date'])
+
                 # Define the output path for the file with averages by date
                 # output_file_path = r"C:\Users\hongz\Downloads\MinnesotaAverage_Values_Across_Stations.xlsx"
                 xlsxFile = f"{globalVar['outPath']}/{serviceName}/{stateInfo['abbr']}-{stateInfo['state']}_Average_Values_Across_Stations_{minYear}-{maxYear}.xlsx"
@@ -525,10 +529,10 @@ class DtaProcess(object):
                 # Save the averages by date to an Excel file
                 # average_by_date.to_excel(xlsxFile, index=False)
                 # avgDataL1.to_excel(xlsxFile, index=False)
-                comData.to_excel(xlsxFile, index=False)
+                comDataL1.to_excel(xlsxFile, index=False)
 
                 # print(f"Averages by date saved to {output_file_path}")
-                log.info(f"xlsxFile : {xlsxFile}")
+                log.info(f"[CHECK] xlsxFile : {xlsxFile}")
 
         except Exception as e:
             log.error(f"Exception : {str(e)}")
