@@ -355,32 +355,40 @@ class DtaProcess(object):
 
                 log.info(f"[CHECK] abbr : {stateInfo['abbr']}")
 
-                # Minnesota.ipynb 참조
-                # Count unique values in the "AWEEK1" column and sort by index
-                aweek1_counts = rsvDataL1['AWEEK1'].value_counts().sort_index()
-
-                # 최대값
-                maxVal = aweek1_counts.max()
-
-                # 문턱값 계산 (최대값의 80%)
-                # maxThres = maxVal * 0.8
-                # maxThres = maxVal * 1.0
-                maxThres = 0.0
-
-                # 기준값 이상인 최소값 찾기
-                minIdxAweek1 = aweek1_counts[aweek1_counts >= maxThres].index.min()
-                log.info(f"[CHECK] maxVal: {maxVal}, maxThres: {maxThres:.1f}, minIdxAweek1: {minIdxAweek1}")
-
-                # Filter for necessary columns and 'AWEEK1' > 680
+                # ******************************************************************
+                # 문턱값 설정
+                # ******************************************************************
                 columns_needed = ['AWEEK1', 'HOSPSTCO', 'rsv', 'COUNTYPOP', 'mbirth_rate', 'year', 'weekyear']
-                # filtered_data = data_main[columns_needed]
-                filtered_data = rsvDataL1[columns_needed]
 
-                # filtered_data = filtered_data[filtered_data['AWEEK1'] > 680]
-                filtered_data = filtered_data[filtered_data['AWEEK1'] > minIdxAweek1]
+                # # Minnesota.ipynb 참조
+                # # Count unique values in the "AWEEK1" column and sort by index
+                # aweek1_counts = rsvDataL1['AWEEK1'].value_counts().sort_index()
+                #
+                # # 최대값
+                # maxVal = aweek1_counts.max()
+                #
+                # # 문턱값 계산 (최대값의 80%)
+                # maxThres = maxVal * 0.8
+                #
+                # # 기준값 이상인 최소값 찾기
+                # minIdxAweek1 = aweek1_counts[aweek1_counts >= maxThres].index.min()
+                # log.info(f"[CHECK] maxVal: {maxVal}, maxThres: {maxThres:.1f}, minIdxAweek1: {minIdxAweek1}")
+                #
+                # # Filter for necessary columns and 'AWEEK1' > 680
 
-                # Remove duplicates and drop missing values
-                filtered_data = filtered_data.drop_duplicates().dropna()
+                # # filtered_data = data_main[columns_needed]
+                # filtered_data = rsvDataL1[columns_needed]
+                #
+                # # filtered_data = filtered_data[filtered_data['AWEEK1'] > 680]
+                # filtered_data = filtered_data[filtered_data['AWEEK1'] > minIdxAweek1]
+                #
+                # # Remove duplicates and drop missing values
+                # filtered_data = filtered_data.drop_duplicates().dropna()
+
+                # ******************************************************************
+                # 문턱값 미설정
+                # ******************************************************************
+                filtered_data = rsvDataL1[columns_needed].drop_duplicates().dropna()
 
                 # Fill in missing weeks with averaged RSV values
                 filled_data = []
