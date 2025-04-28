@@ -3,9 +3,13 @@
 # ================================================
 # Python을 이용한 미국 전역 관측소를 기준으로 매칭 자동화
 
+# 프로그램 시작
 # cd /SYSTEMS/PROG/PYTHON/IDE/src/talentPlatform/unitSys
 # nohup /SYSTEMS/LIB/anaconda3/envs/py38/bin/python3.8 TalentPlatform-LSH0589-DaemonFramework.py &
 # tail -f nohup.out
+
+# 프로그램 종료
+# ps -ef | grep "TalentPlatform-LSH0589-DaemonFramework" | awk '{print $2}' | xargs kill -9
 
 # -*- coding: utf-8 -*-
 import argparse
@@ -271,7 +275,7 @@ class DtaProcess(object):
             # 옵션 설정
             sysOpt = {
                 # 시작일, 종료일, 시간 간격 (연 1y, 월 1h, 일 1d, 시간 1h, 분 1t)
-                'srtDate': '1997-01-01'
+                'srtDate': '1996-01-01'
                 , 'endDate': '2011-12-31'
                 , 'invDate': '1d'
             }
