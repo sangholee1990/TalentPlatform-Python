@@ -350,7 +350,7 @@ class DtaProcess(object):
                 # if not stateInfo['abbr'] == 'MN': continue
 
                 xlsxFilePattern = f"{globalVar['outPath']}/{serviceName}/{stateInfo['abbr']}-{stateInfo['state']}_Average_Values_Across_Stations_*.xlsx"
-                # if len(glob.glob(xlsxFilePattern)) > 0: continue
+                if len(glob.glob(xlsxFilePattern)) > 0: continue
 
                 rsvDataL1 = rsvData.loc[(rsvData['HOSPST'] == stateInfo['abbr'])].reset_index(drop=False)
                 if len(rsvDataL1) < 1: continue
