@@ -170,41 +170,22 @@ def initGlobalVar(env=None, contextPath=None, prjName=None):
 
 
 #  초기 전달인자 설정
-def initArgument(globalVar, inParams):
-    # 원도우 또는 맥 환경
-    if globalVar['sysOs'] in 'Windows' or globalVar['sysOs'] in 'Darwin':
-        inParInfo = inParams
+def initArgument(globalVar):
+    parser = argparse.ArgumentParser()
 
-    # 리눅스 환경
-    if globalVar['sysOs'] in 'Linux':
-        parser = argparse.ArgumentParser()
+    for i, argv in enumerate(sys.argv[1:]):
+        if not argv.__contains__('--'): continue
+        parser.add_argument(argv)
 
-        for i, argv in enumerate(sys.argv[1:]):
-            if not argv.__contains__('--'): continue
-            parser.add_argument(argv)
-
-        inParInfo = vars(parser.parse_args())
-
-        # 글꼴 설정
-        # fontList = glob.glob('{}/{}'.format(globalVar['fontPath'], '*.ttf'))
-        # fontName = font_manager.FontProperties(fname=fontList[0]).get_name()
-        # plt.rcParams['font.family'] = fontName
-
+    inParInfo = vars(parser.parse_args())
     log.info(f"[CHECK] inParInfo : {inParInfo}")
 
     # 전역 변수에 할당
     for key, val in inParInfo.items():
         if val is None: continue
+        if env not in 'local' and key.__contains__('Path'):
+            os.makedirs(val, exist_ok=True)
         globalVar[key] = val
-
-    # 전역 변수
-    for key, val in globalVar.items():
-        if env not in 'local' and key.__contains__('Path') and env and not os.path.exists(val):
-            os.makedirs(val)
-
-        globalVar[key] = val.replace('\\', '/')
-
-        log.info(f"[CHECK] {key} : {val}")
 
     return globalVar
 
@@ -239,14 +220,14 @@ class DtaProcess(object):
     # ================================================================================================
     # 4.3. 초기 변수 (Argument, Option) 설정
     # ================================================================================================
-    def __init__(self, inParams):
+    def __init__(self):
 
         log.info('[START] {}'.format("init"))
 
         try:
             # 초기 전달인자 설정 (파이썬 실행 시)
             # pyhton3 *.py argv1 argv2 argv3 ...
-            initArgument(globalVar, inParams)
+            initArgument(globalVar)
 
         except Exception as e:
             log.error(f"Exception : {str(e)}")
@@ -564,13 +545,8 @@ if __name__ == '__main__':
     print('[START] {}'.format("main"))
 
     try:
-
-        # 파이썬 실행 시 전달인자를 초기 환경변수 설정
-        inParams = {}
-        print("[CHECK] inParams : {}".format(inParams))
-
         # 부 프로그램 호출
-        subDtaProcess = DtaProcess(inParams)
+        subDtaProcess = DtaProcess()
         subDtaProcess.exec()
 
     except Exception as e:
