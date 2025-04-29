@@ -236,6 +236,7 @@ class DtaProcess(object):
                     'apiUrl': 'http://apis.data.go.kr/1613000/HsPmsHubService/getHpBasisOulnInfo?serviceKey={apiKey}&sigunguCd={sigunguCd}&bjdongCd={bjdongCd}&numOfRows=100&pageNo={pageInfo}',
                     'colctFile': '/DATA/OUTPUT/LSH0613/건축인허가/{addrInfo}/건축인허가_{addrInfo}.csv',
                     'colctFilePattern': '/DATA/OUTPUT/LSH0613/건축인허가/{addrInfo}/건축인허가_{addrInfo}.csv',
+                    'propFile': '/DATA/OUTPUT/LSH0613/건축인허가/전처리/건축인허가_{addrInfo}_prop.csv',
                 }
 
                 , '아파트실거래': {
@@ -244,6 +245,7 @@ class DtaProcess(object):
                     'apiUrl': 'http://apis.data.go.kr/1613000/RTMSDataSvcAptTradeDev/getRTMSDataSvcAptTradeDev?serviceKey={apiKey}&pageNo={pageInfo}&numOfRows=100&LAWD_CD={sigunguCd}&DEAL_YMD={dtYearMonth}',
                     'colctFile': '/DATA/OUTPUT/LSH0613/아파트실거래/{addrInfo}/아파트실거래_{addrInfo}_{dtYearMonth}.csv',
                     'colctFilePattern': '/DATA/OUTPUT/LSH0613/아파트실거래/{addrInfo}/아파트실거래_{addrInfo}_*.csv',
+                    'propFile': '/DATA/OUTPUT/LSH0613/아파트실거래/전처리/아파트실거래_{addrInfo}_prop.csv',
                 }
                 , '아파트전월세': {
                     # 국토교통부_아파트 매매 실거래가 상세 자료 > 아파트 전월세 실거래가 자료
@@ -251,14 +253,15 @@ class DtaProcess(object):
                     'apiUrl': 'http://apis.data.go.kr/1613000/RTMSDataSvcAptRent/getRTMSDataSvcAptRent?serviceKey={apiKey}&pageNo={pageInfo}&numOfRows=100&LAWD_CD={sigunguCd}&DEAL_YMD={dtYearMonth}',
                     'colctFile': '/DATA/OUTPUT/LSH0613/아파트전월세/{addrInfo}/아파트전월세_{addrInfo}_{dtYearMonth}.csv',
                     'colctFilePattern': '/DATA/OUTPUT/LSH0613/아파트전월세/{addrInfo}/아파트전월세_{addrInfo}_*.csv',
+                    'propFile': '/DATA/OUTPUT/LSH0613/아파트전월세/전처리/아파트전월세_{addrInfo}_prop.csv',
                 }
 
                 # 검색 목록
                 #, 'addrList': ['서울특별시 강북구', '서울특별시 송파구', '서울특별시 강남구', '서울특별시 양천구', '서울특별시 서초구']
                 #, 'addrList': ['서울특별시 강남구', '서울특별시 서초구', '서울특별시 송파구', '서울특별시 양천구', '서울특별시 용산구']
                 #, 'addrList': ['서울특별시 강서구', '서울특별시 구로구', '서울특별시 동작구', '서울특별시 영등포구']
-                # , 'addrList': ['서울특별시', '경기도']
-                , 'addrList': ['서울특별시']
+                , 'addrList': ['서울특별시', '경기도']
+                # , 'addrList': ['서울특별시']
                 # , 'addrList': [globalVar['addrList']]
 
                 # 설정 정보
@@ -622,7 +625,7 @@ class DtaProcess(object):
                 fileList = sorted(glob.glob(inpFile))
                 if fileList is None or len(fileList) < 1:
                     log.error('[ERROR] inpFile : {} / {}'.format(inpFile, '입력 자료를 확인해주세요.'))
-                    raise Exception('[ERROR] inpFile : {} / {}'.format(inpFile, '입력 자료를 확인해주세요.'))
+                    # raise Exception('[ERROR] inpFile : {} / {}'.format(inpFile, '입력 자료를 확인해주세요.'))
 
                 orgData = pd.DataFrame()
                 for fileInfo in fileList:
@@ -646,34 +649,38 @@ class DtaProcess(object):
                 # posData['주소'] = addrInfo + ' ' + posData['도로명'] + ' ' + posData['단지명']
                 # posData['addrDtlInfo'] = posData['addrInfo'] + ' ' + posData['법정동'] + ' ' + posData['아파트'] + ' ' + posData['지번'].astype('string')
                 # posData['addrDtlInfo'] = posData['addrInfo'].astype(str) + ' ' + posData['법정동'].astype(str) + ' ' + posData['지번'].astype(str) + ' ' + posData['아파트'].astype(str)
-                posData['addrDtlInfo'] = posData['addrInfo'].astype(str) + ' ' + posData['d2'].astype(str) + ' ' + posData['umdNm'].astype(str) + ' ' + posData['jibun'].astype(str) + ' ' + posData['aptNm'].astype(str)
+                posData['addrDtlInfo'] = posData['addrInfo'].astype(str).str.strip() + ' ' + posData['d2'].astype(str).str.strip() + ' ' + posData['umdNm'].astype(str).str.strip() + ' ' + posData['jibun'].astype(str).str.strip() + ' ' + posData['aptNm'].astype(str).str.strip()
+                # posData['addrDtlInfo'] = posData['addrDtlInfo'].str.strip()
 
-                # addrList = posData['주소'].unique()
-                addDtlrList = set(posData['addrDtlInfo'])
-                len(addDtlrList)
+                addrDtlList = posData['addrDtlInfo'].unique()
+                # addrDtlList = set(posData['addrDtlInfo'])
 
-                rtnGeo = gmap.geocode('서울특별시 종로구 무악동 82 현대', language='ko')
+                propData = pd.DataFrame(addrDtlList, columns=['addr'])
+                propData['addr'] = propData['addr'].astype(str)
 
-                sys.exit(1)
+                saveFile = sysOpt['아파트실거래']['propFile'].format(addrInfo=addrInfo)
+                os.makedirs(os.path.dirname(saveFile), exist_ok=True)
+                propData.to_csv(saveFile, index=False)
+                log.info(f'[CHECK] saveFile : {saveFile}')
 
-                posDataL1 = pd.DataFrame()
-                for i, addrDtlInfo in enumerate(addDtlrList):
-                    log.info(f'[CHECK] addrDtlInfo : {addrDtlInfo}')
-
-                    posDataL1.loc[i, 'addrDtlInfo'] = addrDtlInfo
-                    posDataL1.loc[i, 'lat'] = None
-                    posDataL1.loc[i, 'lon'] = None
-
-                    try:
-                        rtnGeo = gmap.geocode(addrDtlInfo, language='ko')
-                        if (len(rtnGeo) < 1): continue
-
-                        # 위/경도 반환
-                        posDataL1.loc[i, 'lat'] = rtnGeo[0]['geometry']['location']['lat']
-                        posDataL1.loc[i, 'lon'] = rtnGeo[0]['geometry']['location']['lng']
-
-                    except Exception as e:
-                        log.error("Exception : {}".format(e))
+                # posDataL1 = pd.DataFrame()
+                # for i, addrDtlInfo in enumerate(addDtlrList):
+                #     log.info(f'[CHECK] addrDtlInfo : {addrDtlInfo}')
+                #
+                #     posDataL1.loc[i, 'addrDtlInfo'] = addrDtlInfo
+                #     posDataL1.loc[i, 'lat'] = None
+                #     posDataL1.loc[i, 'lon'] = None
+                #
+                #     try:
+                #         rtnGeo = gmap.geocode(addrDtlInfo, language='ko')
+                #         if (len(rtnGeo) < 1): continue
+                #
+                #         # 위/경도 반환
+                #         posDataL1.loc[i, 'lat'] = rtnGeo[0]['geometry']['location']['lat']
+                #         posDataL1.loc[i, 'lon'] = rtnGeo[0]['geometry']['location']['lng']
+                #
+                #     except Exception as e:
+                #         log.error("Exception : {}".format(e))
 
                 # 기존 네이버 주석처리
                 # for i, addrInfo in enumerate(addrList):
@@ -709,13 +716,13 @@ class DtaProcess(object):
                 #     except HTTPError as e:
                 #         log.error("Exception : {}".format(e))
 
-                posDataL2 = pd.merge(left=posData, right=posDataL1, how='left', left_on='addrDtlInfo', right_on='addrDtlInfo')
-                # posDataL2.drop(['index'], axis=1, inplace=True)
-
-                saveFile = '{}/{}/{}/{}/{}_{}_{}.csv'.format(globalVar['outPath'], serviceName, '전처리', addrInfo, '아파트 실거래', addrInfo, datetime.now().strftime('%Y%m%d'))
-                os.makedirs(os.path.dirname(saveFile), exist_ok=True)
-                posDataL2.to_csv(saveFile, index_label=False, index=False)
-                log.info('[CHECK] saveFile : {}'.format(saveFile))
+                # posDataL2 = pd.merge(left=posData, right=posDataL1, how='left', left_on='addrDtlInfo', right_on='addrDtlInfo')
+                # # posDataL2.drop(['index'], axis=1, inplace=True)
+                #
+                # saveFile = '{}/{}/{}/{}/{}_{}_{}.csv'.format(globalVar['outPath'], serviceName, '전처리', addrInfo, '아파트 실거래', addrInfo, datetime.now().strftime('%Y%m%d'))
+                # os.makedirs(os.path.dirname(saveFile), exist_ok=True)
+                # posDataL2.to_csv(saveFile, index_label=False, index=False)
+                # log.info('[CHECK] saveFile : {}'.format(saveFile))
 
             # *********************************************************************************
             # [자료 전처리] 아파트 전월세
@@ -741,11 +748,19 @@ class DtaProcess(object):
             #     # posData = posData.reset_index()
             #     # posData['주소'] = '서울특별시 강북구' + ' ' + posData['도로명'] + ' ' + posData['단지명']
             #     # posData['addrDtlInfo'] = posData['addrInfo'] + ' ' + posData['법정동'] + ' ' + posData['아파트'] + ' ' + posData['지번']
-            #     posData['addrDtlInfo'] = posData['addrInfo'] + ' ' + posData['법정동'] + ' ' + posData['지번'].astype('string') + ' ' + posData['아파트']
+            #     # posData['addrDtlInfo'] = posData['addrInfo'] + ' ' + posData['법정동'] + ' ' + posData['지번'].astype('string') + ' ' + posData['아파트']
+            #     posData['addrDtlInfo'] = posData['addrInfo'].astype(str) + ' ' + posData['d2'].astype(str) + ' ' + posData['umdNm'].astype(str) + ' ' + posData['jibun'].astype(str) + ' ' + posData['aptNm'].astype(str)
             #
             #     # addrList = posData['주소'].unique()
             #     addrDtlList = set(posData['addrDtlInfo'])
             #
+            #     propData = pd.DataFrame(addrDtlList, columns=['addr'])
+            #     saveFile = sysOpt['아파트전월세']['propFile'].format(addrInfo=addrInfo)
+            #     os.makedirs(os.path.dirname(saveFile), exist_ok=True)
+            #     propData.to_csv(saveFile, index=False)
+            #     log.info(f'[CHECK] saveFile : {saveFile}')
+
+
             #     posDataL1 = pd.DataFrame()
             #     for i, addrDtlInfo in enumerate(addrDtlList):
             #         log.info(f'[CHECK] addrDtlInfo : {addrDtlInfo}')
