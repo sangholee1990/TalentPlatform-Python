@@ -178,7 +178,6 @@ class DtaProcess(object):
         contextPath = os.getcwd() if env in 'local' else '/SYSTEMS/PROG/PYTHON/IDE'
 
     prjName = 'test'
-    # serviceName = 'LSH0454'
     serviceName = 'LSH0613'
 
     # 4.1. 환경 변수 설정 (로그 설정)
@@ -285,7 +284,7 @@ class DtaProcess(object):
                 # , 'addrList': [globalVar['addrList']]
 
                 # 설정 정보
-                , 'inpFile': '/SYSTEMS/PROG/PYTHON/IDE/resources/config/mapInfo/admCode/법정동코드_전체자료.txt'
+                , 'cfgFile': '/SYSTEMS/PROG/PYTHON/IDE/resources/config/mapInfo/admCode/법정동코드_전체자료.txt'
             }
 
             dtSrtDate = pd.to_datetime(sysOpt['srtDate'], format='%Y-%m-%d')
@@ -302,7 +301,7 @@ class DtaProcess(object):
             # 법정동 코드 읽기
             # *********************************************************************************
             # inpFile = '{}/{}'.format(globalVar['mapPath'], 'admCode/법정동코드_전체자료.txt')
-            inpFile = sysOpt['inpFile']
+            inpFile = sysOpt['cfgFile']
             fileList = glob.glob(inpFile)
             if fileList is None or len(fileList) < 1:
                 log.error(f'[ERROR] inpFile : {inpFile} / 입력 자료를 확인해주세요.')
