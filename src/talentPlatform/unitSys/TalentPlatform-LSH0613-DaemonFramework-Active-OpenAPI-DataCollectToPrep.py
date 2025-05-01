@@ -235,17 +235,15 @@ class DtaProcess(object):
                 , 'googleApiKey': ''
 
                 , '건축인허가': {
-                    # 국토교통부_건축HUB_주택인허가정보 서비스 > 건축HUB 주택인허가 기본개요 조회
+                    # 국토교통부_건축HUB_건축인허가정보 서비스 > 건축HUB 주택인허가 기본개요 조회
                     # 'apiUrl': 'https://apis.data.go.kr/1613000/ArchPmsService_v2/getApBasisOulnInfo',
-                    'apiUrl': 'http://apis.data.go.kr/1613000/HsPmsHubService/getHpBasisOulnInfo?serviceKey={apiKey}&sigunguCd={sigunguCd}&bjdongCd={bjdongCd}&numOfRows=100&pageNo={pageInfo}',
-                    'colctFile': '/DATA/OUTPUT/LSH0613/건축인허가/{addrInfo}/건축인허가_{addrInfo}.csv',
-                    'colctFilePattern': '/DATA/OUTPUT/LSH0613/건축인허가/{addrInfo}/건축인허가_{addrInfo}.csv',
+                    'apiUrl': 'https://apis.data.go.kr/1613000/ArchPmsHubService/getApBasisOulnInfo?serviceKey={apiKey}&sigunguCd={sigunguCd}&bjdongCd={bjdongCd}&numOfRows=100&pageNo={pageInfo}',
+                    'colctFile': '/DATA/OUTPUT/LSH0613/건축인허가/{addrInfo}/건축인허가_{addrInfo}_{sigunguCd}{bjdongCd}.csv',
+                    'colctFilePattern': '/DATA/OUTPUT/LSH0613/건축인허가/{addrInfo}/건축인허가_{addrInfo}_*.csv',
                     'tmpFile': '/DATA/OUTPUT/LSH0613/임시/건축인허가.csv',
                     'tmpFilePattern': '/DATA/OUTPUT/LSH0613/임시/건축인허가.csv.csv',
                     'propFile': '/DATA/OUTPUT/LSH0613/전처리/건축인허가_{addrInfo}_{d2}.csv',
-                    'propFilePattern': '/DATA/OUTPUT/LSH0613/전처리/건축인허가_{addrInfo}_*.csv',
                 }
-
                 , '아파트실거래': {
                     # 국토교통부_아파트 매매 실거래가 상세 자료 > 아파트 매매 신고 상세자료
                     # 'apiUrl': 'http://openapi.molit.go.kr/OpenAPI_ToolInstallPackage/service/rest/RTMSOBJSvc/getRTMSDataSvcAptTradeDev',
@@ -255,7 +253,6 @@ class DtaProcess(object):
                     'tmpFile': '/DATA/OUTPUT/LSH0613/임시/아파트실거래.csv',
                     'tmpFilePattern': '/DATA/OUTPUT/LSH0613/임시/아파트실거래.csv.csv',
                     'propFile': '/DATA/OUTPUT/LSH0613/전처리/아파트실거래_{addrInfo}_{d2}.csv',
-                    'propFilePattern': '/DATA/OUTPUT/LSH0613/전처리/아파트실거래_{addrInfo}_{d2}.csv',
                 }
                 , '아파트전월세': {
                     # 국토교통부_아파트 매매 실거래가 상세 자료 > 아파트 전월세 실거래가 자료
@@ -267,7 +264,6 @@ class DtaProcess(object):
                     'tmpFilePattern': '/DATA/OUTPUT/LSH0613/임시/아파트전월세.csv.csv',
                     'propFile': '/DATA/OUTPUT/LSH0613/전처리/아파트전월세_{addrInfo}_{d2}.csv',
                 }
-
                 , '건축인허가-아파트실거래': {
                     'propFile': '/DATA/OUTPUT/LSH0613/전처리/건축인허가-아파트실거래_{addrInfo}_{d2}.csv',
                 }
@@ -277,6 +273,7 @@ class DtaProcess(object):
 
                 , 'keyList': ['아파트실거래', '아파트전월세', '건축인허가']
                 # , 'keyList': ['건축인허가']
+                # , 'keyList': ['아파트전월세']
 
                 # 검색 목록
                 #, 'addrList': ['서울특별시 강북구', '서울특별시 송파구', '서울특별시 강남구', '서울특별시 양천구', '서울특별시 서초구']
@@ -284,6 +281,7 @@ class DtaProcess(object):
                 #, 'addrList': ['서울특별시 강서구', '서울특별시 구로구', '서울특별시 동작구', '서울특별시 영등포구']
                 , 'addrList': ['서울특별시', '경기도']
                 # , 'addrList': ['서울특별시']
+                # , 'addrList': ['경기도']
                 # , 'addrList': [globalVar['addrList']]
 
                 # 설정 정보
@@ -315,7 +313,7 @@ class DtaProcess(object):
             admData['bjdongCd'] = admData['법정동코드'].astype('str').str.slice(5, 10)
 
             # *********************************************************************************
-            # [자료 수집] 오픈API를 이용하여 건축 인허가
+            # [자료 수집] 오픈API를 이용하여 건축인허가
             # *********************************************************************************
             # for addrInfo in sysOpt['addrList']:
             #     log.info(f'[CHECK] addrInfo : {addrInfo}')
@@ -333,15 +331,15 @@ class DtaProcess(object):
             #
             #     if admDataL1 is None or len(admDataL1) < 1: continue
             #
-            #     # saveFile = '{}/{}/{}/{}/{}_{}_{}.csv'.format(globalVar['outPath'], serviceName, '건축인허가', addrInfo, '건축인허가', addrInfo, dtYearMonth)
-            #     # saveFile = '{}/{}/{}/{}/{}_{}.csv'.format(globalVar['outPath'], serviceName, '건축인허가', addrInfo, '건축인허가', addrInfo)
-            #     saveFile = sysOpt['건축인허가']['colctFile'].format(addrInfo=addrInfo)
-            #     os.makedirs(os.path.dirname(saveFile), exist_ok=True)
-            #     # if len(glob.glob(saveFile)) > 0: continue
-            #
-            #     dataL1 = pd.DataFrame()
             #     for i, rowData in admDataL1.iterrows():
             #
+            #         # saveFile = '{}/{}/{}/{}/{}_{}_{}.csv'.format(globalVar['outPath'], serviceName, '건축인허가', addrInfo, '건축인허가', addrInfo, dtYearMonth)
+            #         # saveFile = '{}/{}/{}/{}/{}_{}.csv'.format(globalVar['outPath'], serviceName, '건축인허가', addrInfo, '건축인허가', addrInfo)
+            #         saveFile = sysOpt['건축인허가']['colctFile'].format(addrInfo=addrInfo, sigunguCd=rowData['sigunguCd'], bjdongCd=rowData['bjdongCd'])
+            #         os.makedirs(os.path.dirname(saveFile), exist_ok=True)
+            #         # if len(glob.glob(saveFile)) > 0: continue
+            #
+            #         dataL1 = pd.DataFrame()
             #         pageList = np.arange(1, 9999, 1)
             #         for k, pageInfo in enumerate(pageList):
             #
@@ -395,13 +393,13 @@ class DtaProcess(object):
             #             except Exception as e:
             #                 log.error(f"Exception : {str(e)}")
             #
-            #     # log.info(f"[CHECK] addrInfo {dtSrtYmd}~{dtEndYmd} : {len(dataL1)} : {addrInfo} {dtYearMonth}")
-            #     log.info(f"[CHECK] addrInfo : {len(dataL1)} : {addrInfo}")
+            #         # log.info(f"[CHECK] addrInfo {dtSrtYmd}~{dtEndYmd} : {len(dataL1)} : {addrInfo} {dtYearMonth}")
+            #         log.info(f"[CHECK] addrInfo : {len(dataL1)} : {addrInfo}")
             #
-            #     # 자료 저장
-            #     if len(dataL1) > 0:
-            #         dataL1.to_csv(saveFile, index=False)
-            #         log.info(f'[CHECK] saveFile : {saveFile}')
+            #         # 자료 저장
+            #         if len(dataL1) > 0:
+            #             dataL1.to_csv(saveFile, index=False)
+            #             log.info(f'[CHECK] saveFile : {saveFile}')
             #
             # sys.exit(1)
 
@@ -639,6 +637,8 @@ class DtaProcess(object):
             #     os.makedirs(os.path.dirname(saveFile), exist_ok=True)
             #     propData.to_csv(saveFile, index=False, quoting=csv.QUOTE_NONE)
             #     log.info(f'[CHECK] saveFile : {saveFile}')
+            #
+            # sys.exit(1)
 
                 # ******************************************************************************************************
                 # (유료) 구글 지오코딩 API
@@ -699,8 +699,6 @@ class DtaProcess(object):
                 #     except HTTPError as e:
                 #         log.error("Exception : {}".format(e))
 
-            # sys.exit(1)
-
             # *********************************************************************************
             # [전처리] 아파트실거래, 아파트전월세, 건축인허가
             # *********************************************************************************
@@ -745,6 +743,7 @@ class DtaProcess(object):
             #             if posDataL1 is None or len(posDataL1) < 1: continue
             #
             #             posDataL2 = pd.merge(left=posDataL1, right=cfgDataL1, how='left', left_on='addrDtlInfo', right_on='addrDtlInfo')
+            #             if posDataL2 is None or len(posDataL2) < 1: continue
             #
             #             saveFile = sysOpt[keyInfo]['propFile'].format(addrInfo=addrInfo, d2=d2)
             #             os.makedirs(os.path.dirname(saveFile), exist_ok=True)
@@ -791,7 +790,7 @@ class DtaProcess(object):
 
                     aptPriceDataL1 = aptPriceData
                     for i, posInfo in aptPriceDataL1.iterrows():
-                        if (pd.isna(posInfo['lat']) or pd.isna(posInfo['lon'])): continue
+                        if pd.isna(posInfo['lat']) or pd.isna(posInfo['lon']): continue
 
                         closest = baTree.query(np.deg2rad(np.c_[posInfo['lat'], posInfo['lon']]), k=1)
                         cloDist = closest[0][0][0] * 1000.0
@@ -846,7 +845,7 @@ class DtaProcess(object):
 
                     aptPriceDataL1 = aptPriceData
                     for i, posInfo in aptPriceDataL1.iterrows():
-                        if (pd.isna(posInfo['lat']) or pd.isna(posInfo['lon'])): continue
+                        if pd.isna(posInfo['lat']) or pd.isna(posInfo['lon']): continue
 
                         closest = baTree.query(np.deg2rad(np.c_[posInfo['lat'], posInfo['lon']]), k=1)
                         cloDist = closest[0][0][0] * 1000.0
