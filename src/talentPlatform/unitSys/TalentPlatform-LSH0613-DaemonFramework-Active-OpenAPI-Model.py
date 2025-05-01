@@ -1255,7 +1255,8 @@ class DtaProcess(object):
                     for colInfo in colList:
                         fnlDataL2[colInfo] = fnlDataL2[colInfo] * 10000
 
-                    fnlDataL2.to_excel(saveFile, index=False)
+                    # fnlDataL2.to_excel(saveFile, index=False)
+                    fnlDataL2.to_csv(saveFile, index=False)
                     log.info('[CHECK] saveFile : {}'.format(saveFile))
 
         except Exception as e:
