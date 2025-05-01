@@ -18,11 +18,11 @@
 
 # 프로그램 시작
 # conda activate py36
-# cd /SYSTEMS/PROG/PYTHON/PyCharm/src/talentPlatform/unitSys
+# cd /SYSTEMS/PROG/PYTHON/IDE/src/talentPlatform/unitSys
 
 # 쉘 수행
-# cd /SYSTEMS/PROG/PYTHON/PyCharm/src/talentPlatform/shell
-# nohup bash /SYSTEMS/PROG/PYTHON/PyCharm/src/talentPlatform/shell/RunShell-LSH0454.sh &
+# cd /SYSTEMS/PROG/PYTHON/IDE/src/talentPlatform/shell
+# nohup bash /SYSTEMS/PROG/PYTHON/IDE/src/talentPlatform/shell/RunShell-LSH0454.sh &
 
 # 프로그램 실행
 # cd /SYSTEMS/PROG/PYTHON/IDE/src/talentPlatform/unitSys
