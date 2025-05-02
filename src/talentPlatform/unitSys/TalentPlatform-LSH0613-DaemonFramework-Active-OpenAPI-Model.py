@@ -4,10 +4,10 @@
 #  Python을 이용한 부동산 데이터 분석 및 가격 예측 고도화 개선
 
 # 전처리 파일 업로드
-# /DATA/OUTPUT/LSH0454/전처리
+# /DATA/OUTPUT/LSH0613/전처리
 
 # 예측 파일 다운로드
-# /DATA/OUTPUT/LSH0454/예측
+# /DATA/OUTPUT/LSH0613/예측
 
 # 학습 모형 삭제
 # rm -rf /DATA/OUTPUT/LSH0454/MODEL/*
@@ -670,7 +670,16 @@ class DtaProcess(object):
             for addrInfo in sysOpt['addrList']:
                 log.info(f'[CHECK] addrInfo : {addrInfo}')
 
-                admDataL1 = admData[admData['d1'] == addrInfo]
+                # admDataL1 = admData[admData['d1'] == addrInfo]
+                admDataL1 = admData[admData['d1'].str.contains(addrInfo) & admData['d2'].isna()]
+                if admDataL1 is None or len(admDataL1) < 1: continue
+
+                # 2024.04.05 한글 포함 시 모델 재처리 불가
+                # addrCode = '{}-{}'.format(np.unique(admDataL1['sigunguCd'])[0], addrInfo)
+                # addrCode = np.unique(admDataL1['sigunguCd'])[0]
+                addrCode = admDataL1.iloc[0]['법정동코드']
+                log.info(f'[CHECK] addrCode : {addrCode}')
+
                 d2List = set(admDataL1['d2'])
                 for d2 in d2List:
                     if d2 is None: continue
@@ -679,11 +688,6 @@ class DtaProcess(object):
                     saveFile = sysOpt['예측']['propFile'].format(addrInfo=addrInfo, d2=d2)
                     os.makedirs(os.path.dirname(saveFile), exist_ok=True)
                     if len(glob.glob(saveFile)) > 0: continue
-
-                    # 2024.04.05 한글 포함 시 모델 재처리 불가
-                    addrCode = np.unique(admDataL1['sigunguCd'])[0]
-                    # addrCode = '{}-{}'.format(np.unique(admDataL1['sigunguCd'])[0], addrInfo)
-                    log.info(f'[CHECK] addrCode : {addrCode}')
 
                     # lcnsInpFile = '{}/{}/{}/{}/{}.csv'.format(globalVar['outPath'], serviceName, '전처리', addrInfo, '건축 인허가_*_*')
                     lcnsInpFile = sysOpt['건축인허가']['propFile'].format(addrInfo=addrInfo, d2=d2)
