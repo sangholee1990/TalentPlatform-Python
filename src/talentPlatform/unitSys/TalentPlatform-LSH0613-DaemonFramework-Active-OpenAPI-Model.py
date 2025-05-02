@@ -671,7 +671,7 @@ class DtaProcess(object):
                 log.info(f'[CHECK] addrInfo : {addrInfo}')
 
                 # admDataL1 = admData[admData['d1'] == addrInfo]
-                admDataL1 = admData[admData['d1'].str.contains(addrInfo) & admData['d2'].isna()]
+                admDataL1 = admData[admData['d1'].str.contains(addrInfo)]
                 if admDataL1 is None or len(admDataL1) < 1: continue
 
                 # 2024.04.05 한글 포함 시 모델 재처리 불가
