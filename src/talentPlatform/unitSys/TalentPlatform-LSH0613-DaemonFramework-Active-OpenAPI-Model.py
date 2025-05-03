@@ -674,15 +674,15 @@ class DtaProcess(object):
                 admDataL1 = admData[admData['d1'].str.contains(addrInfo)]
                 if admDataL1 is None or len(admDataL1) < 1: continue
 
-                # 2024.04.05 한글 포함 시 모델 재처리 불가
-                # addrCode = '{}-{}'.format(np.unique(admDataL1['sigunguCd'])[0], addrInfo)
-                # addrCode = np.unique(admDataL1['sigunguCd'])[0]
-                addrCode = admDataL1.iloc[0]['법정동코드']
-                log.info(f'[CHECK] addrCode : {addrCode}')
-
                 d2List = set(admDataL1['d2'])
                 for d2 in d2List:
                     if d2 is None: continue
+
+                    # 2024.04.05 한글 포함 시 모델 재처리 불가
+                    # addrCode = '{}-{}'.format(np.unique(admDataL1['sigunguCd'])[0], addrInfo)
+                    # addrCode = np.unique(admDataL1['sigunguCd'])[0]
+                    addrCode = admDataL1[admDataL1['d2'] == d2].iloc[0]['법정동코드']
+                    log.info(f'[CHECK] addrCode : {addrCode}')
 
                     # saveFile = '{}/{}/{}/{}_{}_{}.xlsx'.format(globalVar['outPath'], serviceName, '예측', 'NEW 수익률 테이블', addrInfo, datetime.now().strftime('%Y%m%d'))
                     saveFile = sysOpt['예측']['propFile'].format(addrInfo=addrInfo, d2=d2)
