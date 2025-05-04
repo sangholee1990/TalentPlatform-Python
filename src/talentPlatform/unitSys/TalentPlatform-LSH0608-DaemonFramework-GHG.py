@@ -174,7 +174,7 @@ class DtaProcess(object):
         contextPath = os.getcwd() if env in 'local' else '/SYSTEMS/PROG/PYTHON/PyCharm'
 
     prjName = 'test'
-    serviceName = 'LSH0418'
+    serviceName = 'LSH0608'
 
     # 4.1. 환경 변수 설정 (로그 설정)
     log = initLog(env, contextPath, prjName)
@@ -261,7 +261,6 @@ class DtaProcess(object):
                     sYear = dtIncDateInfo.strftime('%Y')
 
                     inpFile = '{}/{}/*/*_{}_*{}*.nc'.format(globalVar['inpPath'], serviceName, keyInfo, sYear)
-
                     fileList = sorted(glob.glob(inpFile))
 
                     if fileList is None or len(fileList) < 1:

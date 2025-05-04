@@ -26,6 +26,8 @@
 # 		Land_Cover_Type_1_Percent:Layer\ 15 = "snow and ice" ;
 # 		Land_Cover_Type_1_Percent:Layer\ 16 = "barren or sparsely vegetated" ;
 
+# gdalinfo to tif 변환, 0.1도 간격
+
 # -*- coding: utf-8 -*-
 import argparse
 import glob
@@ -191,7 +193,7 @@ class DtaProcess(object):
         contextPath = os.getcwd() if env in 'local' else '/SYSTEMS/PROG/PYTHON/PyCharm'
 
     prjName = 'test'
-    serviceName = 'LSH0418'
+    serviceName = 'LSH0608'
 
     # 4.1. 환경 변수 설정 (로그 설정)
     log = initLog(env, contextPath, prjName)
@@ -262,7 +264,6 @@ class DtaProcess(object):
             log.info('[CHECK] len(lonList) : {}'.format(len(lonList)))
             log.info('[CHECK] len(latList) : {}'.format(len(latList)))
 
-
             dtSrtDate = pd.to_datetime(sysOpt['srtDate'], format='%Y-%m-%d')
             dtEndDate = pd.to_datetime(sysOpt['endDate'], format='%Y-%m-%d')
             dtIncDateList = pd.date_range(start=dtSrtDate, end=dtEndDate, freq='1Y')
@@ -273,11 +274,10 @@ class DtaProcess(object):
                 # log.info("[CHECK] dtIncDateInfo : {}".format(dtIncDateInfo))
                 sYear = dtIncDateInfo.strftime('%Y')
 
-                # inpFile = '{}/{}/*/MCD12C1.A{}*.hdf'.format(globalVar['inpPath'], serviceName, sYear)
-                inpFile = '{}/{}/*/MCD12C1.A{}*.tif'.format(globalVar['inpPath'], serviceName, sYear)
+                inpFile = '{}/{}/*/MCD12C1.A{}*.hdf'.format(globalVar['inpPath'], serviceName, sYear)
+                # inpFile = '{}/{}/*/MCD12C1.A{}*.tif'.format(globalVar['inpPath'], serviceName, sYear)
 
                 fileList = sorted(glob.glob(inpFile))
-
                 if fileList is None or len(fileList) < 1:
                     log.error('[ERROR] inpFile : {} / {}'.format(inpFile, '입력 자료를 확인해주세요.'))
                     continue
@@ -288,10 +288,14 @@ class DtaProcess(object):
                 fileNameNoExt = os.path.basename(fileInfo).split('.tif')[0]
 
                 # data = xr.open_mfdataset(fileInfo)
-                data = xr.open_dataset(fileInfo)
+                # data = xr.open_dataset(fileInfo)
                 # data = xr.open_dataset(fileInfo, engine="h5netcdf")
+                data = xr.open_dataset(fileInfo, engine="rasterio")
 
                 # Land_Cover_Type_1_Percent:Layer\ 13 = "urban and built-up" ;
+
+                # SUBDATASET_3_NAME=HDF4_EOS:EOS_GRID:"MCD12C1.A2019001.061.2022170020638.hdf":MOD12C1:Land_Cover_Type_1_Percent
+                # SUBDATASET_3_DESC=[3600x7200x17] Land_Cover_Type_1_Percent MOD12C1 (8-bit unsigned integer)
                 dataL1 = data.sel(band=13).interp(x=lonList, y=latList, method='linear')
 
                 # 자료 변환

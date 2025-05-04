@@ -20,16 +20,10 @@ import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
 import xarray as xr
-# from global_land_mask import globe
 import cftime
-# import pyeto
-# import xclim
 import calendar
-
-# import xclim.core.units
 from pandas.tseries.offsets import MonthEnd
-
-# from pyeto import fao
+import rasterio
 
 # =================================================
 # 사용자 매뉴얼
@@ -174,7 +168,7 @@ class DtaProcess(object):
         contextPath = os.getcwd() if env in 'local' else '/SYSTEMS/PROG/PYTHON/PyCharm'
 
     prjName = 'test'
-    serviceName = 'LSH0418'
+    serviceName = 'LSH0608'
 
     # 4.1. 환경 변수 설정 (로그 설정)
     log = initLog(env, contextPath, prjName)
@@ -254,12 +248,14 @@ class DtaProcess(object):
                 inpFile = '{}/{}/*/{}'.format(globalVar['inpPath'], serviceName, inpFilePattern)
                 fileList = sorted(glob.glob(inpFile))
 
-                if (len(fileList) < 1): continue
-
-                fileInfo = fileList[0]
+                if fileList is None or len(fileList) < 1: continue
 
                 # 파일 읽기
+                fileInfo = fileList[0]
+                log.info('[CHECK] fileInfo : {}'.format(fileInfo))
+
                 data = xr.open_rasterio(fileInfo)
+                # data = xr.open(fileInfo)
 
                 # saveFile = '{}/{}/{}-{}.nc'.format(globalVar['outPath'], serviceName, 'landscan-global-org', sYear)
                 # os.makedirs(os.path.dirname(saveFile), exist_ok=True)
