@@ -246,7 +246,7 @@ app.add_middleware(
 )
 
 # genai.configure(api_key=None)
-genai.configure(api_key='AIzaSyCcWX2naC_JeugXS8zt4AsFeAUIFKAMaYQ')
+genai.configure(api_key='')
 model = genai.GenerativeModel('gemini-1.5-pro')
 
 # ============================================
