@@ -272,7 +272,7 @@ class DtaProcess(object):
             # log.info(f"[CHECK] saveFile : {saveFile}")
 
             # =================================================================
-            # 파일 병합
+            # csv 파일 병합
             # =================================================================
             cmd = sysOpt['cmd'].format(exe='cat', tmpFilePattern=sysOpt['tmpFilePattern'], sep='>', tmpFile=sysOpt['tmpFile'])
             log.info(f'[CHECK] cmd : {cmd}')
@@ -288,89 +288,89 @@ class DtaProcess(object):
             # =================================================================
             # 빅쿼리 업로드
             # =================================================================
-            # jsonFile = sysOpt['jsonFile']
-            # jsonList = sorted(glob.glob(jsonFile))
-            # if jsonList is None or len(jsonList) < 1:
-            #     log.error(f'jsonFile : {jsonFile} / 설정 파일 검색 실패')
-            #     exit(1)
-            #
-            # jsonInfo = jsonList[0]
-            #
-            # try:
-            #     credentials = service_account.Credentials.from_service_account_file(jsonInfo)
-            #     client = bigquery.Client(credentials=credentials, project=credentials.project_id)
-            # except Exception as e:
-            #     log.error(f'Exception : {e} / 빅쿼리 연결 실패')
-            #     exit(1)
-            #
-            # # inpFile = '{}/{}/{}'.format(globalVar['outPath'], serviceName, '20250320_ydg2007-2025.csv')
-            # inpFile = sysOpt['tmpFile']
-            # fileList = sorted(glob.glob(inpFile))
-            # if fileList is None or len(fileList) < 1:
-            #     log.error(f'inpFile : {inpFile} / 파일 검색 실패')
-            #     exit(1)
-            #
-            # fileInfo = fileList[0]
-            # data = pd.read_csv(fileInfo)
-            #
-            # # 데이터 병합
-            # sectGrpData = pd.read_csv(sysOpt['sectGrpFile'])
-            # mrgData = pd.merge(left=data, right=sectGrpData, how='left', left_on=['SECTION'], right_on=['SECTION'])
-            # mrgData.loc[mrgData['GROUP'].isna(), 'GROUP'] = '미분류'
-            #
+            jsonFile = sysOpt['jsonFile']
+            jsonList = sorted(glob.glob(jsonFile))
+            if jsonList is None or len(jsonList) < 1:
+                log.error(f'jsonFile : {jsonFile} / 설정 파일 검색 실패')
+                exit(1)
+
+            jsonInfo = jsonList[0]
+
+            try:
+                credentials = service_account.Credentials.from_service_account_file(jsonInfo)
+                client = bigquery.Client(credentials=credentials, project=credentials.project_id)
+            except Exception as e:
+                log.error(f'Exception : {e} / 빅쿼리 연결 실패')
+                exit(1)
+
+            # inpFile = '{}/{}/{}'.format(globalVar['outPath'], serviceName, '20250320_ydg2007-2025.csv')
+            inpFile = sysOpt['tmpFile']
+            fileList = sorted(glob.glob(inpFile))
+            if fileList is None or len(fileList) < 1:
+                log.error(f'inpFile : {inpFile} / 파일 검색 실패')
+                exit(1)
+
+            fileInfo = fileList[0]
+            data = pd.read_csv(fileInfo)
+
+            # 데이터 병합
+            sectGrpData = pd.read_csv(sysOpt['sectGrpFile'])
+            mrgData = pd.merge(left=data, right=sectGrpData, how='left', left_on=['SECTION'], right_on=['SECTION'])
+            mrgData.loc[mrgData['GROUP'].isna(), 'GROUP'] = '미분류'
+
+            saveFile = sysOpt['saveFile']
+            os.makedirs(os.path.dirname(saveFile), exist_ok=True)
+            mrgData.to_csv(saveFile, index=False)
+            log.info(f'[CHECK] saveFile : {saveFile}')
+
+            # mrgDataL1 = mrgData[mrgData['GROUP'].isna()]
+            # mrgData['SECTION'].unique()
+            # mrgData['GROUP'].unique()
+            # data['DEPART'].unique()
+            # data['YEAR_DATE'].unique()
+
+            # 단위업무 중복제거
+            # sectionList = data['SECTION'].unique()
+            # sectionData = pd.DataFrame(sectionList, columns=["SECTION"])
+
             # saveFile = sysOpt['saveFile']
             # os.makedirs(os.path.dirname(saveFile), exist_ok=True)
-            # mrgData.to_csv(saveFile, index=False)
+            # sectionData.to_csv(saveFile, index=False)
             # log.info(f'[CHECK] saveFile : {saveFile}')
-            #
-            # # mrgDataL1 = mrgData[mrgData['GROUP'].isna()]
-            # # mrgData['SECTION'].unique()
-            # # mrgData['GROUP'].unique()
-            # # data['DEPART'].unique()
-            # # data['YEAR_DATE'].unique()
-            #
-            # # 단위업무 중복제거
-            # # sectionList = data['SECTION'].unique()
-            # # sectionData = pd.DataFrame(sectionList, columns=["SECTION"])
-            #
-            # # saveFile = sysOpt['saveFile']
-            # # os.makedirs(os.path.dirname(saveFile), exist_ok=True)
-            # # sectionData.to_csv(saveFile, index=False)
-            # # log.info(f'[CHECK] saveFile : {saveFile}')
-            # # sys.exit(1)
-            #
-            # jobCfg = bigquery.LoadJobConfig(
-            #     source_format=bigquery.SourceFormat.CSV,
-            #     skip_leading_rows=1,
-            #     autodetect=True,
-            #     # autodetect=False,
-            #     # schema=[  # BigQuery 테이블 스키마 정의 (열 이름, 데이터 타입)
-            #     #     bigquery.SchemaField("Y_NO", "INTEGER"),
-            #     #     bigquery.SchemaField("DEPART", "STRING"),
-            #     #     bigquery.SchemaField("DEPART_NO", "STRING"),
-            #     #     bigquery.SchemaField("SECTION", "STRING"),
-            #     #     bigquery.SchemaField("SUBJECT", "STRING"),
-            #     #     bigquery.SchemaField("NAME", "STRING"),
-            #     #     bigquery.SchemaField("YEAR", "STRING"),
-            #     #     bigquery.SchemaField("YEAR_DATE", "STRING"),
-            #     #     bigquery.SchemaField("PUBLIC", "STRING"),
-            #     #     bigquery.SchemaField("RC_DATE", "DATE"),
-            #     #     bigquery.SchemaField("REG_DATE", "DATE"),
-            #     #     bigquery.SchemaField("SIZE", "INTEGER"),
-            #     # ],
-            #     write_disposition=bigquery.WriteDisposition.WRITE_TRUNCATE,
-            #     max_bad_records=1000, # 최대 오류 허용
-            # )
-            #
-            # tableId = f"{credentials.project_id}.DMS01.TB_YDG"
-            # # with open(fileInfo, "rb") as file:
-            # with open(saveFile, "rb") as file:
-            #     job = client.load_table_from_file(file, tableId, job_config=jobCfg)
-            # job.result()
-            # log.info(f"[CHECK] tableId : {tableId}")
-            #
-            # # dataL1 = data.astype(str)
-            # # dataL1.dtypes
+            # sys.exit(1)
+
+            jobCfg = bigquery.LoadJobConfig(
+                source_format=bigquery.SourceFormat.CSV,
+                skip_leading_rows=1,
+                autodetect=True,
+                # autodetect=False,
+                # schema=[  # BigQuery 테이블 스키마 정의 (열 이름, 데이터 타입)
+                #     bigquery.SchemaField("Y_NO", "INTEGER"),
+                #     bigquery.SchemaField("DEPART", "STRING"),
+                #     bigquery.SchemaField("DEPART_NO", "STRING"),
+                #     bigquery.SchemaField("SECTION", "STRING"),
+                #     bigquery.SchemaField("SUBJECT", "STRING"),
+                #     bigquery.SchemaField("NAME", "STRING"),
+                #     bigquery.SchemaField("YEAR", "STRING"),
+                #     bigquery.SchemaField("YEAR_DATE", "STRING"),
+                #     bigquery.SchemaField("PUBLIC", "STRING"),
+                #     bigquery.SchemaField("RC_DATE", "DATE"),
+                #     bigquery.SchemaField("REG_DATE", "DATE"),
+                #     bigquery.SchemaField("SIZE", "INTEGER"),
+                # ],
+                write_disposition=bigquery.WriteDisposition.WRITE_TRUNCATE,
+                max_bad_records=1000, # 최대 오류 허용
+            )
+
+            tableId = f"{credentials.project_id}.DMS01.TB_YDG"
+            # with open(fileInfo, "rb") as file:
+            with open(saveFile, "rb") as file:
+                job = client.load_table_from_file(file, tableId, job_config=jobCfg)
+            job.result()
+            log.info(f"[CHECK] tableId : {tableId}")
+
+            # dataL1 = data.astype(str)
+            # dataL1.dtypes
 
         except Exception as e:
             log.error(f"Exception : {str(e)}")
