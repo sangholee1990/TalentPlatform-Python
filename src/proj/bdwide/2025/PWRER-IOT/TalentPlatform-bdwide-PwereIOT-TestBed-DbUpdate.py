@@ -342,67 +342,68 @@ class DtaProcess(object):
                 # TB_INPUT_DATA 생성
                 # ********************************************************************************
                 # proSerNumList = ['BDWIDE-0033f-05a3776796-89ff44-b7b3ec0-d30403e426', 'BDWIDE-820b897da-c8384be-d793ded9-1bc8d8-0f1260de']
-                proSerNumList = ['BDWIDE-820b897da-c8384be-d793ded9-1bc8d8-0f1260de']
-                for j, proSerNumInfo in enumerate(proSerNumList):
-                    log.info(f'[CHECK] proSerNumInfo : {proSerNumInfo}')
-
-                    dict = {
-                        'PRODUCT_SERIAL_NUMBER': [proSerNumInfo]
-                        , 'DATE_TIME': [dtIncDateInfo.strftime('%Y-%m-%d %H:%M:%S')]
-                        , 'TEMP': [random.uniform(-10, 30)]
-                        , 'HMDTY': [random.uniform(0, 100)]
-                        , 'PM25': [random.uniform(0, 500)]
-                        , 'PM10': [random.uniform(0, 500)]
-                        , 'MVMNT': [round(random.uniform(0, 1))]
-                        , 'TVOC': [random.uniform(0.02, 2000)]
-                        , 'HCHO': [random.uniform(0.01, 50)]
-                        , 'CO2': [random.uniform(350, 5000)]
-                        , 'CO': [random.uniform(0, 5000)]
-                        , 'BENZO': [random.uniform(0, 5)]
-                        , 'RADON': [random.uniform(20, 9990)]
-                        , 'MOD_DATE': [datetime.now()]
-                        , 'REG_DATE': [datetime.now()]
-                    }
-
-                    dbData = pd.DataFrame.from_dict(dict)
-
-                    selDbTable = 'TB_INPUT_DATA_{}'.format(dtIncDateInfo.strftime('%Y'))
-
-                    # 테이블 생성
-                    session.execute(text(
-                        """
-                        CREATE TABLE IF NOT EXISTS `{}`
-                        (
-                            PRODUCT_SERIAL_NUMBER varchar(63) not null comment '제품 시리얼 번호',
-                            DATE_TIME             datetime    not null comment '날짜 시간 UTC 기준' primary key,
-                            TEMP                  float       null comment '온도',
-                            HMDTY                 float       null comment '습도',
-                            PM25                  float       null comment '미세먼지2.5',
-                            PM10                  float       null comment '미세먼지10',
-                            MVMNT                 varchar(20) null comment '움직임 센서',
-                            TVOC                  float       null comment '총 휘발성 유기화합물',
-                            HCHO                  float       null comment '포름알데하이드',
-                            CO2                   float       null comment '이산화탄소',
-                            CO                    float       null comment '일산화탄소',
-                            BENZO                 float       null comment '벤조피렌',
-                            RADON                 float       null comment '라돈',
-                            MOD_DATE              datetime    null comment '수정일',
-                            REG_DATE              datetime    null comment '등록일',
-                            TMP                   float       null comment '실수형 임시 변수',
-                            TMP2                  float       null comment '실수형 임시 변수2',
-                            TMP3                  float       null comment '실수형 임시 변수3',
-                            TMP4                  float       null comment '실수형 임시 변수4',
-                            TMP5                  float       null comment '실수형 임시 변수5',
-                            TMP6                  varchar(20) null comment '문자형 임시 변수',
-                            TMP7                  varchar(20) null comment '문자형 임시 변수2',
-                            TMP8                  varchar(20) null comment '문자형 임시 변수3',
-                            TMP9                  varchar(20) null comment '문자형 임시 변수4',
-                            TMP10                 varchar(20) null comment '문자형 임시 변수5'
-                        )
-                            comment 'IOT 테이블 {}';
-                        """.format(selDbTable, dtIncDateInfo.strftime('%Y'))
-                    ))
-                    session.commit()
+                # proSerNumList = ['BDWIDE-820b897da-c8384be-d793ded9-1bc8d8-0f1260de']
+                # proSerNumList = ["1B0034343151", "1E002C343151", "270033343151", "2D002B343151", "32004E313851", "340032343151", "3E0033343151", "40002E343151", "450033343151", "2B0033343151"]
+                # for j, proSerNumInfo in enumerate(proSerNumList):
+                #     log.info(f'[CHECK] proSerNumInfo : {proSerNumInfo}')
+                #
+                #     dict = {
+                #         'PRODUCT_SERIAL_NUMBER': [proSerNumInfo]
+                #         , 'DATE_TIME': [dtIncDateInfo.strftime('%Y-%m-%d %H:%M:%S')]
+                #         , 'TEMP': [random.uniform(-10, 30)]
+                #         , 'HMDTY': [random.uniform(0, 100)]
+                #         , 'PM25': [random.uniform(0, 500)]
+                #         , 'PM10': [random.uniform(0, 500)]
+                #         , 'MVMNT': [round(random.uniform(0, 1))]
+                #         , 'TVOC': [random.uniform(0.02, 2000)]
+                #         , 'HCHO': [random.uniform(0.01, 50)]
+                #         , 'CO2': [random.uniform(350, 5000)]
+                #         , 'CO': [random.uniform(0, 5000)]
+                #         , 'BENZO': [random.uniform(0, 5)]
+                #         , 'RADON': [random.uniform(20, 9990)]
+                #         , 'MOD_DATE': [datetime.now()]
+                #         , 'REG_DATE': [datetime.now()]
+                #     }
+                #
+                #     dbData = pd.DataFrame.from_dict(dict)
+                #
+                #     selDbTable = 'TB_INPUT_DATA_{}'.format(dtIncDateInfo.strftime('%Y'))
+                #
+                #     # 테이블 생성
+                #     session.execute(text(
+                #         """
+                #         CREATE TABLE IF NOT EXISTS `{}`
+                #         (
+                #             PRODUCT_SERIAL_NUMBER varchar(63) not null comment '제품 시리얼 번호',
+                #             DATE_TIME             datetime    not null comment '날짜 시간 UTC 기준' primary key,
+                #             TEMP                  float       null comment '온도',
+                #             HMDTY                 float       null comment '습도',
+                #             PM25                  float       null comment '미세먼지2.5',
+                #             PM10                  float       null comment '미세먼지10',
+                #             MVMNT                 varchar(20) null comment '움직임 센서',
+                #             TVOC                  float       null comment '총 휘발성 유기화합물',
+                #             HCHO                  float       null comment '포름알데하이드',
+                #             CO2                   float       null comment '이산화탄소',
+                #             CO                    float       null comment '일산화탄소',
+                #             BENZO                 float       null comment '벤조피렌',
+                #             RADON                 float       null comment '라돈',
+                #             MOD_DATE              datetime    null comment '수정일',
+                #             REG_DATE              datetime    null comment '등록일',
+                #             TMP                   float       null comment '실수형 임시 변수',
+                #             TMP2                  float       null comment '실수형 임시 변수2',
+                #             TMP3                  float       null comment '실수형 임시 변수3',
+                #             TMP4                  float       null comment '실수형 임시 변수4',
+                #             TMP5                  float       null comment '실수형 임시 변수5',
+                #             TMP6                  varchar(20) null comment '문자형 임시 변수',
+                #             TMP7                  varchar(20) null comment '문자형 임시 변수2',
+                #             TMP8                  varchar(20) null comment '문자형 임시 변수3',
+                #             TMP9                  varchar(20) null comment '문자형 임시 변수4',
+                #             TMP10                 varchar(20) null comment '문자형 임시 변수5'
+                #         )
+                #             comment 'IOT 테이블 {}';
+                #         """.format(selDbTable, dtIncDateInfo.strftime('%Y'))
+                #     ))
+                #     session.commit()
 
                     # for k, dbInfo in dbData.iterrows():
                     #
@@ -436,7 +437,8 @@ class DtaProcess(object):
                 # TB_OUTPUT_DATA 생성
                 # ********************************************************************************
                 # customerLinkNumList = [1, 66]
-                customerLinkNumList = [4]
+                # customerLinkNumList = [4]
+                customerLinkNumList = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10]
                 for j, customerLinkNumInfo in enumerate(customerLinkNumList):
                     log.info(f'[CHECK] customerLinkNumInfo : {customerLinkNumInfo}')
 
@@ -528,7 +530,8 @@ class DtaProcess(object):
                 log.info("[CHECK] dtIncMonthInfo : {}".format(dtIncMonthInfo))
 
                 # customerLinkNumList = [1, 66]
-                customerLinkNumList = [4]
+                # customerLinkNumList = [4]
+                customerLinkNumList = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10]
                 for j, customerLinkNumInfo in enumerate(customerLinkNumList):
                     log.info(f'[CHECK] customerLinkNumInfo : {customerLinkNumInfo}')
 
