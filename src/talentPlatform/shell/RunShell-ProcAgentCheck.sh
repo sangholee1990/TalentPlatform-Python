@@ -8,6 +8,8 @@ echo
 # DOC
 #========================================
 # * * * * * bash /HDD/SYSTEMS/PROG/PYTHON/IDE/src/talentPlatform/shell/RunShell-ProcAgentCheck.sh
+# pkill -f SOLARMY_APP && cd /SYSTEMS/IOT/Roverdyn/daemon-iot-tcpipDb/build && cmake .. && make && bash /HDD/SYSTEMS/PROG/PYTHON/IDE/src/talentPlatform/shell/RunShell-ProcAgentCheck.sh
+# tail -f /SYSTEMS/PROG/SHELL/PROC/LOG/*.log
 
 #========================================
 # Set Env
