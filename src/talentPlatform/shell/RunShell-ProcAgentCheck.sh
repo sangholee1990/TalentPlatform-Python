@@ -21,11 +21,12 @@ export LC_TIME=en_US.UTF-8
 CTX_PATH=/SYSTEMS/PROG/SHELL/PROC
 
 declare -A metaData
-metaData["SOLARMY_APP"]="/SYSTEMS/IOT/Roverdyn/PROJ_TCP_DB/build/SOLARMY_APP"
-metaData["TalentPlatform-LSH0605-DaemonFramework"]="/HDD/SYSTEMS/LIB/anaconda3/envs/py38/bin/python /SYSTEMS/PROG/PYTHON/IDE/src/talentPlatform/unitSys/TalentPlatform-LSH0605-DaemonFramework.py"
+#metaData["SOLARMY_APP"]="/SYSTEMS/IOT/Roverdyn/PROJ_TCP_DB/build/SOLARMY_APP"
+metaData["SOLARMY_APP"]="/SYSTEMS/IOT/Roverdyn/daemon-iot-tcpipDb/build/SOLARMY_APP"
+#metaData["TalentPlatform-LSH0605-DaemonFramework"]="/HDD/SYSTEMS/LIB/anaconda3/envs/py38/bin/python /SYSTEMS/PROG/PYTHON/IDE/src/talentPlatform/unitSys/TalentPlatform-LSH0605-DaemonFramework.py"
 #metaData["open-webui"]="/HDD/SYSTEMS/LIB/anaconda3/envs/py311/bin/open-webui serve --host 0.0.0.0 --port 9310"
-metaData["open-webui"]="/HDD/SYSTEMS/LIB/anaconda3/envs/py311/bin/open-webui serve --host 0.0.0.0 --port 9210"
-metaData["port 9099"]="bash /DATA/TMP/pipelines/start.sh"
+#metaData["open-webui"]="/HDD/SYSTEMS/LIB/anaconda3/envs/py311/bin/open-webui serve --host 0.0.0.0 --port 9210"
+#metaData["port 9099"]="bash /DATA/TMP/pipelines/start.sh"
 
 LOG_PATH=${CTX_PATH}/LOG
 LOG_NAME=$(basename "$0" .sh)_$(date +"%Y%m%d").log
