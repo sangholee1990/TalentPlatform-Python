@@ -224,7 +224,7 @@ class SendingFactory(protocol.ClientFactory):
         return p
 
     def clientConnectionFailed(self, connector, reason):
-        log.err(f"[Client] 서버 연결 실패: {reason.getErrorMessage()}")
+        log.error(f"[Client] 서버 연결 실패: {reason.getErrorMessage()}")
         if self.deferred and not self.deferred.called:
             self.deferred.errback(reason) # 실패 콜백 호출
         # *** 여기서 reactor.stop() 제거 ***
@@ -316,32 +316,28 @@ def build_ctrl_create_input_message(data):
         return full_message
 
     except struct.error as e:
-        log.err(f"페이로드 패킹 오류: {e}")
+        log.error(f"페이로드 패킹 오류: {e}")
         return None
     except KeyError as e:
-        log.err(f"데이터 딕셔너리에 필요한 키 없음: {e}")
+        log.error(f"데이터 딕셔너리에 필요한 키 없음: {e}")
         return None
     except Exception as e:
-        log.err(f"메시지 생성 중 오류: {e}")
+        log.error(f"메시지 생성 중 오류: {e}")
         return None
 
 # *** Deferred 객체에 콜백/에러백 추가 및 reactor.stop() 호출 ***
-def handle_success(response):
+def handleSucc(response):
     log.info(f"[Client] 최종 처리 성공: 응답={response!r}")
 
     ascii_ignored = response.decode('ascii', errors='ignore')
     print(f"오류 무시: '{ascii_ignored}'")
 
-    ascii_replaced = response.decode('ascii', errors='replace')
-    print(f"오류 대체: '{ascii_replaced}'")
-
-
     if reactor.running:  # Reactor가 실행 중일 때만 stop 호출
         reactor.stop()
 
-def handle_error(failure):
+def handleFail(failure):
     # 실패 이유 로깅 (ConnectionDone 등 정상 종료도 포함될 수 있음)
-    log.err(f"[Client] 최종 처리 실패: 이유={failure.getErrorMessage()}")
+    log.error(f"[Client] 최종 처리 실패: 이유={failure.getErrorMessage()}")
     # 에러 종류에 따라 다른 처리 가능
     # failure.printTraceback() # 상세 트레이스백 출력
     if reactor.running:  # Reactor가 실행 중일 때만 stop 호출
@@ -412,52 +408,23 @@ class DtaProcess(object):
             # 옵션 설정
             sysOpt = {
                 # 시작/종료 시간
-                'srtDate': '2025-01-01',
-                'endDate': '2025-01-05',
-                'invDate': '1d',
-                'searchMaxPage': 99,
-
-                # 언어 설정
-                # , 'language' : 'en'
-                'language': 'ko',
-
-                # 국가 설정
-                # , 'country' : 'US'
-                'country': 'KR',
-
-                # 키워드 설정
-                'keywordList': ['청소년 게임 중독'],
-
-                # 저장 경로
-                'saveCsvFile': '/DATA/OUTPUT/LSH0612/gnews_%Y%m%d.csv',
-                'saveXlsxFile': '/DATA/OUTPUT/LSH0612/gnews_%Y%m%d.xlsx',
+                'serverHost': 'localhost',
+                'serverPort': 9998,
             }
 
-            # listen_port = 9998
-            #
-            # # TCP 서버 엔드포인트 설정
-            # endpoint = endpoints.TCP4ServerEndpoint(reactor, listen_port)
-            # log.info(f"[Server] TCP 서버 시작 중 (포트: {listen_port})...")
-            #
-            # # 엔드포인트 리스닝 시작 (팩토리 사용)
-            # endpoint.listen(ReceivingFactory())
-            #
-            # # 리액터 시작 (프로그램 종료 시까지 실행)
-            # reactor.run()
-
-            server_host = 'localhost'  # 서버 주소
-            server_port = 9998  # 서버 포트 (로그 기준 9998)
+            serverHost = sysOpt['serverHost']
+            serverPort = sysOpt['serverPort']
 
             # 보낼 데이터 준비 (#12 CTRL CREATE INPUT DATA 형식) - 예제 값 사용
-            message_content = {
+            msg = {
                 'year': 2025,
-                'serial': 'BDWIDE-0033f-05a3776796-89ff44-b7b3ec0-d30403e426',  # 21바이트보다 짧음 -> 패딩됨
-                'datetime': datetime.now().strftime('%Y-%m-%d %H:%M:%S'),  # 현재 시간 사용
+                'serial': 'BDWIDE-0033f-05a3776796-89ff44-b7b3ec0-d30403e426',
+                'datetime': datetime.now().strftime('%Y-%m-%d %H:%M:%S'),
                 'temp': 24.2,
                 'hmdty': 88.2,
                 'pm25': 10.6,
                 'pm10': 2.4,
-                'mvmnt': 'movement',  # 20바이트보다 짧음 -> 패딩됨
+                'mvmnt': 'movement',
                 'tvoc': 4.5,
                 'hcho': 46.2,
                 'co2': 2.9,
@@ -467,155 +434,26 @@ class DtaProcess(object):
             }
 
             # 보낼 메시지 생성
-            message_to_send = build_ctrl_create_input_message(message_content)
+            msgInfo = build_ctrl_create_input_message(msg)
+            if not msgInfo:
+                raise Exception("[Client] 메시지 생성 실패")
 
-            if message_to_send:
-                log.info("[Client] 서버에 연결 시도 중...")
-                # 비동기 작업 완료를 추적할 Deferred 객체 생성
-                connection_deferred = Deferred()
+            log.info("[Client] 서버에 연결 시도 중...")
 
+            log.info(f"[CHECK] msg : {msg}")
+            log.info(f"[CHECK] msgInfo : {msgInfo}")
+            # 비동기 작업 완료를 추적할 Deferred 객체 생성
+            conDef = Deferred()
+            conDef.addCallbacks(handleSucc, handleFail)
 
+            # 클라이언트 팩토리 생성 및 메시지 전달
+            factory = SendingFactory(msgInfo, conDef)
 
-                connection_deferred.addCallbacks(handle_success, handle_error)
+            # TCP 연결 시작
+            reactor.connectTCP(serverHost, serverPort, factory)
 
-                # 클라이언트 팩토리 생성 및 메시지 전달
-                factory = SendingFactory(message_to_send, connection_deferred)
-
-                # TCP 연결 시작
-                reactor.connectTCP(server_host, server_port, factory)
-
-                # 리액터 시작
-                reactor.run()
-                log.info("[Client] Reactor 중지됨.")  # Reactor 종료 후 로그
-            else:
-                log.err("[Client] 메시지 생성 실패. 클라이언트를 시작할 수 없습니다.")
-
-            log.info("[END] main")  # 프로그램 종료 로그
-
-            # =================================================================
-            # from gnews import GNews
-            # from newspaper import Article
-            # =================================================================
-            # okt = Okt()
-            #
-            # unitGoogleNews = GNews(language='ko', country='KR')
-            # searchList = unitGoogleNews.get_news('청소년 게임 중독')
-            # log.info(f'[CHECK] searchList : {len(searchList)}')
-            #
-            # flatList = []
-            # for data in searchList:
-            #     flatData = {
-            #         'title': data['title'],
-            #         'description': data['description'],
-            #         'publishedDate': data['published date'],
-            #         'url': data['url'],
-            #         'publisherTitle': data['publisher']['title'],
-            #         'publisherHref': data['publisher']['href']
-            #     }
-            #
-            #     flatList.append(flatData)
-            #
-            # data = pd.DataFrame.from_dict(flatList)
-            # # description                               [기획] 청소년 게임중독 문제 심각  매일일보
-            # # publishedDate                         Thu, 30 May 2024 07:00:00 GMT
-            # # url               https://news.google.com/rss/articles/CBMiZEFVX...
-            # # publisherTitle                                                 매일일보
-            # # publisherHref                                    https://www.m-i.kr
-            #
-            # # i = 16
-            # for i, row in data.iterrows():
-            #
-            #     per = round(i / len(data) * 100, 1)
-            #     log.info(f'[CHECK] i : {i} / {per}%')
-            #
-            #     try:
-            #         # https://www.m-i.kr/news/articleView.html?idxno=1125607
-            #         # decInfo = gnewsdecoder(row['url'])
-            #         decInfo = gnewsdecoder(data.loc[i, f'url'])
-            #         if not (decInfo['status'] == True): continue
-            #
-            #         articleInfo = Article(decInfo['decoded_url'], language='ko')
-            #
-            #         #날짜 변환
-            #         dtUtcPubDate = tzUtc.localize(datetime.strptime(data.loc[i, f'publishedDate'][:-4], '%a, %d %b %Y %H:%M:%S'))
-            #         sKstPubDate = dtUtcPubDate.astimezone(tzKst).strftime('%Y-%m-%d %H:%M:%S')
-            #
-            #         # 뉴스 다운로드/파싱/자연어 처리
-            #         articleInfo.download()
-            #         articleInfo.parse()
-            #         articleInfo.nlp()
-            #
-            #         # 명사/동사/형용사 추출
-            #         text = articleInfo.text
-            #         if text is None or len(text) < 1: continue
-            #         posTagList = okt.pos(text, stem=True)
-            #
-            #         # i = 0
-            #         keyData = {}
-            #         keyList = ['Noun', 'Verb', 'Adjective']
-            #         for keyInfo in keyList:
-            #             # log.info(f'[CHECK] keyInfo : {keyInfo}')
-            #
-            #             keywordList = [word for word, pos in posTagList if pos in keyInfo]
-            #
-            #             # 불용어 제거
-            #             # keywordList = [word for word in keywordList if word not in stopWordList and len(word) > 1]
-            #
-            #             # 빈도수 계산
-            #             keywordCnt = Counter(keywordList).most_common(20)
-            #             keywordData = pd.DataFrame(keywordCnt, columns=['keyword', 'cnt']).sort_values(by='cnt', ascending=False)
-            #             keywordDataL1 = keywordData[keywordData['keyword'].str.len() >= 2].reset_index(drop=True)
-            #             keyCnt = keywordDataL1['cnt'].astype(str) + " " + keywordDataL1['keyword']
-            #             keyData.update({keyInfo : keyCnt.values.tolist()})
-            #
-            #         # log.info(f"[CHECK] keyData['Noun'] : {keyData['Noun']}")
-            #         # log.info(f"[CHECK] keyData['Verb'] : {keyData['Verb']}")
-            #         # log.info(f"[CHECK] keyData['Adjective'] : {keyData['Adjective']}")
-            #
-            #         data.loc[i, f'decUrl'] = None if decInfo['decoded_url'] is None or len(decInfo['decoded_url']) < 1 else str(decInfo['decoded_url'])
-            #         data.loc[i, f'text'] = text
-            #         data.loc[i, f'summary'] = None if articleInfo.summary is None or len(articleInfo.summary) < 1 else str(articleInfo.summary)
-            #         data.loc[i, f'keywordNoun'] = None if keyData['Noun'] is None or len(keyData['Noun']) < 1 else str(keyData['Noun'])
-            #         data.loc[i, f'keywordVerb'] = None if keyData['Verb'] is None or len(keyData['Verb']) < 1 else str(keyData['Verb'])
-            #         data.loc[i, f'keywordAdjective'] = None if keyData['Adjective'] is None or len(keyData['Adjective']) < 1 else str(keyData['Adjective'])
-            #         data.loc[i, f'authors'] = None if articleInfo.authors is None or len(articleInfo.authors) < 1 else str(articleInfo.authors)
-            #         data.loc[i, f'publishedKstDate'] = None if sKstPubDate is None or len(sKstPubDate) < 1 else str(sKstPubDate)
-            #         data.loc[i, f'top_image'] = None if articleInfo.top_image is None or len(articleInfo.top_image) < 1 else str(articleInfo.top_image)
-            #         data.loc[i, f'images'] = None if articleInfo.images is None or len(articleInfo.images) < 1 else str(articleInfo.images)
-            #     except Exception as e:
-            #         log.error(f"Exception : {str(e)}")
-            #
-            # if len(data) > 0:
-            #     saveCsvFile = datetime.now().strftime(sysOpt['saveCsvFile'])
-            #     os.makedirs(os.path.dirname(saveCsvFile), exist_ok=True)
-            #     data.to_csv(saveCsvFile, index=False)
-            #     log.info(f'[CHECK] saveCsvFile : {saveCsvFile}')
-            #
-            #     saveXlsxFile = datetime.now().strftime(sysOpt['saveXlsxFile'])
-            #     os.makedirs(os.path.dirname(saveXlsxFile), exist_ok=True)
-            #     data.to_excel(saveXlsxFile, index=False)
-            #     log.info(f'[CHECK] saveXlsxFile : {saveXlsxFile}')
-
-            # =================================================================
-            # from GoogleNews import GoogleNews
-            # =================================================================
-            # from GoogleNews import GoogleNews
-            # 시작일/종료일 설정
-            # dtSrtDate = pd.to_datetime(sysOpt['srtDate'], format='%Y-%m-%d %H:%M')
-            # dtEndDate = pd.to_datetime(sysOpt['endDate'], format='%Y-%m-%d %H:%M')
-            # dtDateList = pd.date_range(start=dtSrtDate, end=dtEndDate, freq=sysOpt['invDate'])
-            # for dtDateInfo in dtDateList:
-            #     log.info(f'[CHECK] dtDateInfo : {dtDateInfo}')
-            #
-            #     unitGoogleNews = GoogleNews(
-            #         lang=sysOpt['language'],
-            #         region=sysOpt['country'],
-            #         start=dtDateInfo.strftime('%m/%d/%Y'),
-            #         end=(dtDateInfo + timedelta(days=1)).strftime('%m/%d/%Y'),
-            #         encode='UTF-8'
-            #     )
-            #
-            #     searchGoogleNews(unitGoogleNews, sysOpt, dtDateInfo)
+            # 리액터 시작
+            reactor.run()
 
         except Exception as e:
             log.error(f"Exception : {str(e)}")

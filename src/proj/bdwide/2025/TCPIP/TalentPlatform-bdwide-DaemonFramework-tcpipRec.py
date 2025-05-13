@@ -156,187 +156,107 @@ def initArgument(globalVar):
 
     return globalVar
 
-# 서버 측 프로토콜
+# 서버측 프로토콜
 class ReceivingProtocol(protocol.Protocol):
-    """
-    클라이언트로부터 데이터를 수신하고 처리하는 프로토콜
-    """
     def __init__(self):
-        self._buffer = b'' # 데이터 수신 버퍼
+        self._buffer = b''
 
     def connectionMade(self):
         peer = self.transport.getPeer()
-        log.info(f"[Server] 클라이언트 연결됨: {peer.host}:{peer.port}")
+        log.info(f"[CHECK] 클라이언트 연결 : {peer.host}:{peer.port}")
 
     def dataReceived(self, data):
-        """
-        데이터가 수신될 때마다 호출됩니다.
-        데이터가 조각나서 도착할 수 있으므로 버퍼링하여 처리합니다.
-        """
         self._buffer += data
-        log.info(f"[Server] 데이터 수신 (raw): {data!r}")
+        log.info(f"[CHECK] 데이터 수신 : {len(self._buffer)} : {data!r}")
 
-        # 버퍼에 최소 헤더 크기(4바이트) 이상의 데이터가 있는지 확인
-        header_size = 4
-        while len(self._buffer) >= header_size:
-            # 헤더 파싱 (SOF, MsgID_H, MsgID_L, PayloadLength) - Big Endian
-            # SOF(1), MsgID(2), PayloadLength(1) -> 총 4바이트
+        headerSize = 4
+        while len(self._buffer) >= headerSize:
             try:
-                # Manual parsing for >BBHB equivalent (SOF, MsgID_H, MsgID_L, PayloadLength)
                 sof = self._buffer[0]
-                msg_id_h = self._buffer[1]
-                msg_id_l = self._buffer[2]
-                payload_length = self._buffer[3]
-                msg_id = (msg_id_h << 8) | msg_id_l
+                msgIdH = self._buffer[1]
+                msgIdL = self._buffer[2]
+                payloadSize = self._buffer[3]
+                msgId = (msgIdH << 8) | msgIdL
 
-                # SOF 확인 (문서 기준 0xFF)
                 if sof != 0xFF:
-                    log.err(f"[Server] 잘못된 SOF 수신: {sof:#02x}. 연결 종료.")
+                    log.error(f"[CHECK] 잘못된 SOF 수신: {sof:#02x}. 연결 종료.")
                     self.transport.loseConnection()
-                    return # 더 이상 처리하지 않음
+                    return
 
-                full_message_length = header_size + payload_length
+                msgSize = headerSize + payloadSize
+                if not len(self._buffer) >= msgSize:
+                    log.info(f"[Server] 메시지 일부 수신. Payload 길이({payloadSize}), 현재 버퍼({len(self._buffer)}). 대기 중...")
+                    break
 
-                # 전체 메시지가 도착했는지 확인
-                if len(self._buffer) >= full_message_length:
-                    # 전체 메시지 추출
-                    message_data = self._buffer[:full_message_length]
-                    payload = message_data[header_size:]
+                msgData = self._buffer[:msgSize]
+                payload = msgData[headerSize:]
+                self._buffer = self._buffer[msgSize:]
 
-                    # 처리된 메시지는 버퍼에서 제거
-                    self._buffer = self._buffer[full_message_length:]
+                log.info(f"[CHECK] SOF: {sof:#02x}")
+                log.info(f"[CHECK] Msg ID: {msgId:#04x} ({msgId})")
+                log.info(f"[CHECK] Payload Length: {payloadSize}")
+                log.info(f"[CHECK] Payload: {payload!r}")
 
-                    log.info(f"[Server] 완전한 메시지 수신:")
-                    log.info(f"  - SOF: {sof:#02x}")
-                    log.info(f"  - Msg ID: {msg_id:#04x} ({msg_id})")
-                    log.info(f"  - Payload Length: {payload_length}")
-                    log.info(f"  - Payload: {payload!r}")
-
-                    # ascii_ignored = payload.decode('ascii', errors='ignore')
-                    # print(f"오류 무시: '{ascii_ignored}'")
-
-                    parsed_result = parse_input_data_payload(payload)
-                    log.info(f"[CHECK] parsed_result : {parsed_result}")
-                    # 결과 확인
-                    # if parsed_result:
-                    #     for key, value in parsed_result.items():
-                    #         # 보기 좋게 출력 (float는 소수점 제한)
-                    #         if isinstance(value, float):
-                    #             print(f"{key.capitalize()}: {value:.1f}")
-                    #         else:
-                    #             print(f"{key.capitalize()}: {value}")
-                    # else:
-                    #     print("\n페이로드 파싱 실패.")
-
-                    # --- 수신된 메시지 처리 로직 ---
-                    self.handle_message(msg_id, payload)
-                    # -------------------------------
-
-                else:
-                    # 아직 전체 메시지가 도착하지 않음, 다음 dataReceived 호출 때 마저 처리
-                    log.info(f"[Server] 메시지 일부 수신. Payload 길이({payload_length}), 현재 버퍼({len(self._buffer)}). 대기 중...")
-                    break # while 루프 종료, 추가 데이터 기다림
-
-            except IndexError:
-                log.info("[Server] 헤더 파싱 중 오류 발생 (데이터 부족). 대기 중...")
-                break # while 루프 종료, 추가 데이터 기다림
+                self.handleMsg(msgId, payload)
             except Exception as e:
-                log.err(f"[Server] 메시지 처리 중 오류: {e}")
+                log.error(f"메시지 처리 오류: {e}")
                 self._buffer = b'' # 오류 발생 시 버퍼 비우기 (선택적)
                 self.transport.loseConnection()
                 return
 
-    def handle_message(self, msg_id, payload):
-        """
-        수신된 메시지 ID에 따라 적절한 처리를 수행하고 응답을 보냅니다.
-        """
-        response_payload = b'UNKNOWN'
-        # 예: CTRL CREATE INPUT DATA (0x0030) 처리
-        if msg_id == 0x0030: # 48
-            log.info("[Server] CTRL CREATE INPUT DATA (0x0030) 요청 수신.")
-            # 여기서 payload 데이터를 실제로 DB에 저장하는 로직 수행
-            # ... (데이터 파싱 및 저장 로직) ...
-            # 성공 가정
-            success = True
-            if success:
-                response_payload = b'200' # 성공 응답
-            else:
-                response_payload = b'400' # 실패 응답
+    def handleMsg(self, msgId, payload):
 
-            # res_header = self.create_header(msg_id, len(response_payload))
-            # response_message = res_header + response_payload
-            # response_message = response_payload
-            # self.transport.write(response_message)
-            # log.info(f"[Server] 응답 전송: {response_message!r}")
+        resPayload = b'404'
 
-        elif msg_id == 0x0003:  # #2 GET SYSTEM TIME *** 새로 추가된 부분 ***
-            log.msg("[Server] GET SYSTEM TIME (0x0003) 요청 수신.")
-            try:
-                now = datetime.datetime.now()
-                # 응답 페이로드 생성: Year(H), Month(B), Day(B), Hour(B), Minute(B), Second(B)
-                # 모두 Big Endian으로 패킹
-                response_payload = struct.pack('>HBBBBB',
-                                               now.year,
-                                               now.month,
-                                               now.day,
-                                               now.hour,
-                                               now.minute,
-                                               now.second)
-                # response_msg_id는 0x0003 유지
-                log.msg(f"[Server] 현재 시간 응답 페이로드 생성: {response_payload!r}")
-            except Exception as e:
-                log.err(f"[Server] 시간 응답 생성 오류: {e}")
-                response_payload = b'500'  # 예시: 서버 내부 오류 코드
-                # 필요시 response_msg_id를 오류 관련 ID로 변경할 수도 있음
+        try:
+            if msgId == 0x0000:
+                resPayload = payload
+            elif msgId == 0x0003:
+                now = datetime.now()
+                resPayload = struct.pack('>HBBBBB', now.year, now.month, now.day, now.hour, now.minute, now.second)
+            elif msgId == 0x0030:
+                parsed_result = parse_input_data_payload(payload)
+                resPayload = b'200' if parsed_result else b'400'
+        except Exception as e:
+            log.error(f"Exception : {e}")
 
-        elif msg_id == 0x0000: # SYSTEM CONNECTION CHECK
-             log.info("[Server] SYSTEM CONNECTION CHECK (0x0000) 요청 수신.")
-             response_payload = payload # Echo
+        log.info(f"[CHECK] msgId : {msgId} / resPayload : {resPayload!r}")
 
+        # 반환 포맷
+        if msgId == 0x0000 or msgId == 0x0003:
+            resHeader = self.createHeader(msgId, len(resPayload))
+            resMsg = resHeader + resPayload
         else:
-            log.info(f"[Server] 처리되지 않은 Msg ID: {msg_id:#04x}")
-            response_payload = b'404' # 예시: 알 수 없는 요청
+            resMsg = resPayload
 
-        # 클라이언트에 응답 보내기 (응답 형식은 API 가이드에 따라 정의 필요)
-        # 여기서는 간단히 받은 Msg ID와 페이로드(문자열)로 응답 헤더/페이로드 구성
-        # 실제 응답 형식은 API 가이드를 따라야 함
-        # res_header = self.create_header(msg_id, len(response_payload))
-        # response_message = res_header + response_payload
-        response_message = response_payload
-        self.transport.write(response_message)
-        log.info(f"[Server] 응답 전송: {response_message!r}")
+        self.transport.write(resMsg)
 
-
-    def create_header(self, msg_id, payload_length):
-        """주어진 Msg ID와 Payload 길이에 대한 헤더를 생성합니다."""
+    def createHeader(self, msg_id, payloadSize):
         sof = 0xFF
         msg_id_h = (msg_id >> 8) & 0xFF
         msg_id_l = msg_id & 0xFF
-        # Payload 길이는 1바이트로 가정 (API 문서 헤더 그림 기준)
-        # 만약 255바이트를 넘는 페이로드가 있다면 헤더 형식 재정의 필요
-        if payload_length > 255:
-             log.warn(f"페이로드 길이가 255를 초과({payload_length})하지만 헤더는 1바이트 길이만 지원합니다.")
-             payload_length = 255 # 최대값으로 제한하거나 오류 처리 필요
+        if payloadSize > 255:
+             log.warn(f"페이로드 길이가 255를 초과({payloadSize})하지만 헤더는 1바이트 길이만 지원합니다.")
+             payloadSize = 255
 
-        # Big Endian (>) : SOF(B), MsgID_H(B), MsgID_L(B), Length(B)
-        header = struct.pack('>BBBB', sof, msg_id_h, msg_id_l, payload_length)
+        header = struct.pack('>BBBB', sof, msg_id_h, msg_id_l, payloadSize)
         return header
 
     def connectionLost(self, reason):
-        log.info(f"[Server] 클라이언트 연결 끊김: {reason.getErrorMessage()}")
+        log.info(f"[CHECK] 클라이언트 해제  : {reason.getErrorMessage()}")
         self._buffer = b'' # 버퍼 초기화
 
-
-# --- 서버 측 팩토리 ---
+# 서버 측 팩토리
 class ReceivingFactory(protocol.Factory):
-    protocol = ReceivingProtocol # 연결이 생성될 때 사용할 프로토콜 클래스 지정
+    # 프로토콜 클래스 지정
+    protocol = ReceivingProtocol
 
+    # 신규 연결 시 프로토콜 인스턴스 생성 메서드
     def buildProtocol(self, addr):
-        log.info(f"[Server] 프로토콜 인스턴스 생성 요청: {addr}")
+        log.info(f"[CHECK] 프로토콜 인스턴스 생성 : {addr}")
         p = self.protocol()
         p.factory = self
         return p
-
 
 def parse_input_data_payload(payload_bytes):
     """
@@ -349,87 +269,66 @@ def parse_input_data_payload(payload_bytes):
         return None
 
     parsed_data = {}
-    offset = 0 # 현재 읽고 있는 바이트 위치
+    offset = 0
 
     try:
-        # 1. Year (2 bytes, Big Endian Unsigned Short)
-        # '>H' : Big Endian, Unsigned Short (2 bytes)
-        # 결과는 튜플이므로 [0]으로 값 추출
         parsed_data['year'], = struct.unpack('>H', payload_bytes[offset:offset+2])
         offset += 2
 
-        # 2. Product Serial Number (21 bytes, ASCII)
-        # ASCII로 디코딩하고, 끝에 있을 수 있는 NULL 패딩(\x00) 제거
         parsed_data['serial'] = payload_bytes[offset:offset+49].decode('ascii').rstrip('\x00')
         offset += 49
 
-        # 3. Datetime (19 bytes, ASCII)
-        # ASCII로 디코딩
         parsed_data['datetime'] = payload_bytes[offset:offset+19].decode('ascii').rstrip('\x00')
         offset += 19
 
-        # 4. Temp (4 bytes, Big Endian Float)
-        # '>f' : Big Endian, Float (4 bytes)
         parsed_data['temp'], = struct.unpack('>f', payload_bytes[offset:offset+4])
         offset += 4
 
-        # 5. Hmdty (4 bytes, Big Endian Float)
         parsed_data['hmdty'], = struct.unpack('>f', payload_bytes[offset:offset+4])
         offset += 4
 
-        # 6. PM25 (4 bytes, Big Endian Float)
         parsed_data['pm25'], = struct.unpack('>f', payload_bytes[offset:offset+4])
         offset += 4
 
-        # 7. PM10 (4 bytes, Big Endian Float)
         parsed_data['pm10'], = struct.unpack('>f', payload_bytes[offset:offset+4])
         offset += 4
 
-        # 8. MVMNT (20 bytes, ASCII)
-        # ASCII로 디코딩하고, NULL 패딩 제거
         parsed_data['mvmnt'] = payload_bytes[offset:offset+20].decode('ascii').rstrip('\x00')
         offset += 20
 
-        # 9. TVOC (4 bytes, Big Endian Float)
         parsed_data['tvoc'], = struct.unpack('>f', payload_bytes[offset:offset+4])
         offset += 4
 
-        # 10. HCHO (4 bytes, Big Endian Float)
         parsed_data['hcho'], = struct.unpack('>f', payload_bytes[offset:offset+4])
         offset += 4
 
-        # 11. CO2 (4 bytes, Big Endian Float)
         parsed_data['co2'], = struct.unpack('>f', payload_bytes[offset:offset+4])
         offset += 4
 
-        # 12. CO (4 bytes, Big Endian Float)
         parsed_data['co'], = struct.unpack('>f', payload_bytes[offset:offset+4])
         offset += 4
 
-        # 13. BENZO (4 bytes, Big Endian Float)
         parsed_data['benzo'], = struct.unpack('>f', payload_bytes[offset:offset+4])
         offset += 4
 
-        # 14. RADON (4 bytes, Big Endian Float)
         parsed_data['radon'], = struct.unpack('>f', payload_bytes[offset:offset+4])
         offset += 4
 
-        # 모든 필드가 성공적으로 파싱되었으면 결과 반환
         return parsed_data
 
     except struct.error as e:
-        print(f"구조체 언패킹 오류: {e} (offset: {offset})")
+        log.error(f"구조체 언패킹 오류: {e} (offset: {offset})")
         return None
     except UnicodeDecodeError as e:
-        print(f"문자열 디코딩 오류: {e} (offset: {offset})")
+        log.error(f"문자열 디코딩 오류: {e} (offset: {offset})")
         return None
     except IndexError:
         # 이 오류는 보통 expected_length 체크에서 걸리지만, 만약을 위해 남겨둠
-        print(f"인덱스 오류: 페이로드 데이터가 예상보다 짧습니다. (offset: {offset})")
+        log.error(f"인덱스 오류: 페이로드 데이터가 예상보다 짧습니다. (offset: {offset})")
         return None
     except Exception as e:
          # 예상치 못한 다른 오류 처리
-         print(f"페이로드 파싱 중 예상치 못한 오류: {e} (offset: {offset})")
+         log.error(f"페이로드 파싱 중 예상치 못한 오류: {e} (offset: {offset})")
          return None
 
 
