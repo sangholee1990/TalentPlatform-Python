@@ -17,10 +17,11 @@ PORT = 9999            # 대상 서버 포트 번호
 # PACKET_LENGTH = 11
 
 # 정상
-# hex_payload = 'FF00308207E84244574944452D30303333662D303561333737363739362D3839666634342D623762336563302D64333034303365343236323032352D30312D30312031303A30303A303041C1999A42B066664129999A4019999A6D6F76656D656E740000000000000000000000004090000042C8CCCD4039999A4290333341B2666642606666'
-
-hex_payload = 'FF00308207E932423030333333343331353100000000000000000000000000000000000000000000000000000000000000000000000000323032352D30342D31382031343A34303A303041D6666641E4000040800000408000003000000000000000000000000000000000000000000000000000000000000000000000000000000000000000'
 # hex_payload = 'FF000300'
+# hex_payload = 'FF00308207E932423030333333343331353100000000000000000000000000000000000000000000000000000000000000000000000000323032352D30342D31382031343A34303A303041D6666641E4000040800000408000003000000000000000000000000000000000000000000000000000000000000000000000000000000000000000'
+hex_payload = 'FF00141907e900000004323032352d30312d33312032303a30303a3030'
+# hex_payload = 'FF00151907E900000004323032352D30382D30312030303A30303A3030'
+
 
 
 
@@ -52,7 +53,7 @@ hex_payload = 'FF00308207E932423030333333343331353100000000000000000000000000000
 # print(f"[CHECK] hex_payload : {hex_payload}")
 
 # hex_to_send = header_hex + hex_payload
-hex_to_send = hex_payload
+hex_to_send = hex_payload.upper()
 # hex_to_send = hex_payload # 이 예제에서는 헤더 없이 페이로드만 보냅니다.
 
 
@@ -61,21 +62,21 @@ def decode_timestamp_packet(packet_data):
     주어진 형식의 바이트 패킷을 디코딩하여 타임스탬프 정보를 반환합니다.
     성공 시 딕셔너리 반환, 실패 시 None 반환.
     """
-    if not packet_data or len(packet_data) < PACKET_LENGTH:
-        print("오류: 데이터 길이가 너무 짧습니다.")
-        return None
+    # if not packet_data or len(packet_data) < PACKET_LENGTH:
+    #     print("오류: 데이터 길이가 너무 짧습니다.")
+    #     return None
 
     # 1. SoF 확인
     sof = packet_data[0]
-    if sof != EXPECTED_SOF:
-        print(f"오류: 잘못된 SoF입니다. (Expected: {EXPECTED_SOF:#04x}, Got: {sof:#04x})")
-        return None
+    # if sof != EXPECTED_SOF:
+    #     print(f"오류: 잘못된 SoF입니다. (Expected: {EXPECTED_SOF:#04x}, Got: {sof:#04x})")
+    #     return None
 
     # 2. 헤더 검증
     header = packet_data[1:4]
-    if header != EXPECTED_HEADER:
-        print(f"오류: 잘못된 헤더입니다. (Expected: {EXPECTED_HEADER.hex()}, Got: {header.hex()})")
-        return None
+    # if header != EXPECTED_HEADER:
+    #     print(f"오류: 잘못된 헤더입니다. (Expected: {EXPECTED_HEADER.hex()}, Got: {header.hex()})")
+    #     return None
 
     # 3. 데이터 추출 및 디코딩 (struct 모듈 사용)
     try:

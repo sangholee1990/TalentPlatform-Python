@@ -237,11 +237,25 @@ class ReceivingProtocol(protocol.Protocol):
             elif msgId == 0x0003:
                 resPayload = struct.pack('>HBBBBB', nowKst.year, nowKst.month, nowKst.day, nowKst.hour, nowKst.minute, nowKst.second)
             elif msgId == 0x0014:
-                req_year, req_cust_link_num = struct.unpack('>HI', payload[:6])
-                req_date_time_str = payload[6:25].decode('ascii').rstrip('\x00')
-                log.info(f"[Server] 0x0014 요청 파싱: Year={req_year}, CustLinkNum={req_cust_link_num}, DateTime='{req_date_time_str}'")
-
-
+                payloadOpt = [
+                    ('YEAR', 'H', 2),
+                    ('CUSTOMER_LINK_NUMBER', 'I', 4),
+                    ('DATE_TIME', 'ascii', 19),
+                ]
+                dbData = payloadProc(payload, payloadOpt)
+                tbOutputData = self.sysOpt['mysql']['table'][f"tbOutputData{dbData['YEAR']}"]
+                listDbProc = self.sysOpt['mysql']['session'].query(tbOutputData).filter(tbOutputData.c.CUSTOMER_LINK_NUMBER == dbData['CUSTOMER_LINK_NUMBER'], tbOutputData.c.DATE_TIME == dbData['DATE_TIME']).first()
+                resPayload = ",".join(str(item) for item in listDbProc).encode('utf-8')
+            elif msgId == 0x0015:
+                payloadOpt = [
+                    ('YEAR', 'H', 2),
+                    ('CUSTOMER_LINK_NUMBER', 'I', 4),
+                    ('DATE_TIME', 'ascii', 19),
+                ]
+                dbData = payloadProc(payload, payloadOpt)
+                tbOutputStatData = self.sysOpt['mysql']['table'][f"tbOutputStatData{dbData['YEAR']}"]
+                listDbProc = self.sysOpt['mysql']['session'].query(tbOutputStatData).filter(tbOutputStatData.c.CUSTOMER_LINK_NUMBER == dbData['CUSTOMER_LINK_NUMBER'], tbOutputStatData.c.DATE_TIME == dbData['DATE_TIME']).first()
+                resPayload = ",".join(str(item) for item in listDbProc).encode('utf-8')
             elif msgId == 0x0030:
                 payloadOpt = [
                     ('YEAR', 'H', 2),
@@ -270,7 +284,7 @@ class ReceivingProtocol(protocol.Protocol):
 
         # 반환 포맷
         log.info(f"[CHECK] msgId : {msgId} / resPayload : {resPayload!r}")
-        if msgId == 0x0000 or msgId == 0x0003:
+        if msgId in [0x0000, 0x0003]:
             resHeader = self.createHeader(msgId, len(resPayload))
             resMsg = resHeader + resPayload
         else:
