@@ -5,6 +5,9 @@
 # lsof -i :9998
 # kill -9 232746
 
+# cd /SYSTEMS/PROG/PYTHON/IDE/src/proj/bdwide/2025/TCPIP
+# nohup /SYSTEMS/LIB/anaconda3/envs/py38/bin/python /SYSTEMS/PROG/PYTHON/IDE/src/proj/bdwide/2025/TCPIP/TalentPlatform-bdwide-DaemonFramework-tcpipRec.py &
+# tail -f nohup.out
 
 import argparse
 import glob
@@ -216,14 +219,15 @@ class ReceivingProtocol(protocol.Protocol):
 
     def handleMsg(self, msgId, payload):
 
+        nowUtc = datetime.now(pytz.utc)
+        nowKst = nowUtc.astimezone(tzKst)
+
         # 가공 포맷
         resPayload = b'404'
         try:
             if msgId == 0x0000:
                 resPayload = payload
             elif msgId == 0x0003:
-                nowUtc = datetime.now(pytz.utc)
-                nowKst = nowUtc.astimezone(tzKst)
                 resPayload = struct.pack('>HBBBBB', nowKst.year, nowKst.month, nowKst.day, nowKst.hour, nowKst.minute, nowKst.second)
             elif msgId == 0x0030:
                 payloadOpt = [
@@ -243,9 +247,11 @@ class ReceivingProtocol(protocol.Protocol):
                     ('RADON', 'f', 4),
                 ]
                 result = payloadProc(payload, payloadOpt)
+                result['MOD_DATE'] = nowKst
                 isDbProc = dbMergeData(self.sysOpt['mysql']['session'], self.sysOpt['mysql']['tbInputData'], result, pkList=['PRODUCT_SERIAL_NUMBER', 'DATE_TIME'], excList=['YEAR'])
                 log.info(f"[CHECK] isDbProc : {isDbProc} / result : {result}")
                 resPayload = b'200' if result and isDbProc else b'400'
+
         except Exception as e:
             log.error(f"Exception : {e}")
 
@@ -404,13 +410,13 @@ class DtaProcess(object):
             # 옵션 설정
             sysOpt = {
                 'tcpip': {
-                    'port': 9998,
+                    'port': 9999,
                 },
                 'mysql': {
                     # 설정
                     'host': 'localhost',
                     'user': 'dms01user01',
-                    'password': 'Bdwide365!@',
+                    'password': '',
                     'port': '3306',
                     'schema': 'DMS02',
 

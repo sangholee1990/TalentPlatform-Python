@@ -419,7 +419,8 @@ class DtaProcess(object):
             msg = {
                 'year': 2025,
                 'serial': 'BDWIDE-0033f-05a3776796-89ff44-b7b3ec0-d30403e426',
-                'datetime': datetime.now().strftime('%Y-%m-%d %H:%M:%S'),
+                # 'datetime': datetime.now().strftime('%Y-%m-%d %H:%M:%S'),
+                'datetime': '2025-05-13 16:25:49',
                 'temp': 24.2,
                 'hmdty': 88.2,
                 'pm25': 10.6,
@@ -430,7 +431,7 @@ class DtaProcess(object):
                 'co2': 2.9,
                 'co': 72.1,
                 'benzo': 22.3,
-                'radon': 56.1
+                'radon': 100.1
             }
 
             # 보낼 메시지 생성
