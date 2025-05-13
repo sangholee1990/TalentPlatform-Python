@@ -2,6 +2,9 @@
 # 요구사항
 # ================================================
 # Python을 이용한 청소년 인터넷 게임 중독 관련 소셜데이터 수집과 분석을 위한 한국형 온톨로지 개발 및 평가
+# lsof -i :9998
+# kill -9 232746
+
 
 import argparse
 import glob
@@ -26,6 +29,12 @@ import pytz
 import struct
 from twisted.internet import reactor, protocol, endpoints
 from twisted.python import log
+from sqlalchemy import create_engine, Column, Integer, String, Float, DateTime, UniqueConstraint
+from sqlalchemy.orm import sessionmaker, declarative_base
+from sqlalchemy.dialects.mysql import insert as mysql_insert
+from sqlalchemy import create_engine, MetaData, Table, Column, Integer, String, DateTime, Float
+from urllib.parse import quote_plus
+from twisted.internet.error import CannotListenError
 
 # =================================================
 # 사용자 매뉴얼
@@ -158,8 +167,9 @@ def initArgument(globalVar):
 
 # 서버측 프로토콜
 class ReceivingProtocol(protocol.Protocol):
-    def __init__(self):
+    def __init__(self, sysOptForProtocol):
         self._buffer = b''
+        self.sysOpt = sysOptForProtocol
 
     def connectionMade(self):
         peer = self.transport.getPeer()
@@ -206,29 +216,46 @@ class ReceivingProtocol(protocol.Protocol):
 
     def handleMsg(self, msgId, payload):
 
+        # 가공 포맷
         resPayload = b'404'
-
         try:
             if msgId == 0x0000:
                 resPayload = payload
             elif msgId == 0x0003:
-                now = datetime.now()
-                resPayload = struct.pack('>HBBBBB', now.year, now.month, now.day, now.hour, now.minute, now.second)
+                nowUtc = datetime.now(pytz.utc)
+                nowKst = nowUtc.astimezone(tzKst)
+                resPayload = struct.pack('>HBBBBB', nowKst.year, nowKst.month, nowKst.day, nowKst.hour, nowKst.minute, nowKst.second)
             elif msgId == 0x0030:
-                parsed_result = parse_input_data_payload(payload)
-                resPayload = b'200' if parsed_result else b'400'
+                payloadOpt = [
+                    ('YEAR', 'H', 2),
+                    ('PRODUCT_SERIAL_NUMBER', 'ascii', 49),
+                    ('DATE_TIME', 'ascii', 19),
+                    ('TEMP', 'f', 4),
+                    ('HMDTY', 'f', 4),
+                    ('PM25', 'f', 4),
+                    ('PM10', 'f', 4),
+                    ('MVMNT', 'ascii', 20),
+                    ('TVOC', 'f', 4),
+                    ('HCHO', 'f', 4),
+                    ('CO2', 'f', 4),
+                    ('CO', 'f', 4),
+                    ('BENZO', 'f', 4),
+                    ('RADON', 'f', 4),
+                ]
+                result = payloadProc(payload, payloadOpt)
+                isDbProc = dbMergeData(self.sysOpt['mysql']['session'], self.sysOpt['mysql']['tbInputData'], result, pkList=['PRODUCT_SERIAL_NUMBER', 'DATE_TIME'], excList=['YEAR'])
+                log.info(f"[CHECK] isDbProc : {isDbProc} / result : {result}")
+                resPayload = b'200' if result and isDbProc else b'400'
         except Exception as e:
             log.error(f"Exception : {e}")
 
-        log.info(f"[CHECK] msgId : {msgId} / resPayload : {resPayload!r}")
-
         # 반환 포맷
+        log.info(f"[CHECK] msgId : {msgId} / resPayload : {resPayload!r}")
         if msgId == 0x0000 or msgId == 0x0003:
             resHeader = self.createHeader(msgId, len(resPayload))
             resMsg = resHeader + resPayload
         else:
             resMsg = resPayload
-
         self.transport.write(resMsg)
 
     def createHeader(self, msg_id, payloadSize):
@@ -248,88 +275,68 @@ class ReceivingProtocol(protocol.Protocol):
 
 # 서버 측 팩토리
 class ReceivingFactory(protocol.Factory):
-    # 프로토콜 클래스 지정
+
     protocol = ReceivingProtocol
+
+    def __init__(self, sysOptForProtocol):
+        self.sysOpt = sysOptForProtocol
 
     # 신규 연결 시 프로토콜 인스턴스 생성 메서드
     def buildProtocol(self, addr):
         log.info(f"[CHECK] 프로토콜 인스턴스 생성 : {addr}")
-        p = self.protocol()
+        p = self.protocol(self.sysOpt)
         p.factory = self
         return p
 
-def parse_input_data_payload(payload_bytes):
-    """
-    #12 CTRL CREATE INPUT DATA 페이로드 바이트를 파싱하여
-    딕셔너리 형태로 반환합니다. (총 102 바이트 기준)
-    """
-    # expected_length = 102
-    if len(payload_bytes) < 1:
-        print(f"오류: 페이로드 길이가 충분하지 않습니다. (실제: {len(payload_bytes)})")
-        return None
-
-    parsed_data = {}
+def payloadProc(payload, payloadOpt):
+    data = {}
     offset = 0
-
     try:
-        parsed_data['year'], = struct.unpack('>H', payload_bytes[offset:offset+2])
-        offset += 2
+        for field, fmt, size in payloadOpt:
+            fieldByte = payload[offset:offset + size]
 
-        parsed_data['serial'] = payload_bytes[offset:offset+49].decode('ascii').rstrip('\x00')
-        offset += 49
+            value = None
+            if fmt == 'ascii':
+                value = fieldByte.decode('ascii').rstrip('\x00')
+            elif fmt:
+                tmp = struct.unpack('>' + fmt, fieldByte)
+                value = round(tmp[0], 1) if fmt == 'f' else tmp[0]
+            else:
+                log.warn(f"{field} : {value} : 필드 변환 실패")
+                value = fieldByte
 
-        parsed_data['datetime'] = payload_bytes[offset:offset+19].decode('ascii').rstrip('\x00')
-        offset += 19
+            data[field] = value
+            offset += size
 
-        parsed_data['temp'], = struct.unpack('>f', payload_bytes[offset:offset+4])
-        offset += 4
-
-        parsed_data['hmdty'], = struct.unpack('>f', payload_bytes[offset:offset+4])
-        offset += 4
-
-        parsed_data['pm25'], = struct.unpack('>f', payload_bytes[offset:offset+4])
-        offset += 4
-
-        parsed_data['pm10'], = struct.unpack('>f', payload_bytes[offset:offset+4])
-        offset += 4
-
-        parsed_data['mvmnt'] = payload_bytes[offset:offset+20].decode('ascii').rstrip('\x00')
-        offset += 20
-
-        parsed_data['tvoc'], = struct.unpack('>f', payload_bytes[offset:offset+4])
-        offset += 4
-
-        parsed_data['hcho'], = struct.unpack('>f', payload_bytes[offset:offset+4])
-        offset += 4
-
-        parsed_data['co2'], = struct.unpack('>f', payload_bytes[offset:offset+4])
-        offset += 4
-
-        parsed_data['co'], = struct.unpack('>f', payload_bytes[offset:offset+4])
-        offset += 4
-
-        parsed_data['benzo'], = struct.unpack('>f', payload_bytes[offset:offset+4])
-        offset += 4
-
-        parsed_data['radon'], = struct.unpack('>f', payload_bytes[offset:offset+4])
-        offset += 4
-
-        return parsed_data
-
-    except struct.error as e:
-        log.error(f"구조체 언패킹 오류: {e} (offset: {offset})")
-        return None
-    except UnicodeDecodeError as e:
-        log.error(f"문자열 디코딩 오류: {e} (offset: {offset})")
-        return None
-    except IndexError:
-        # 이 오류는 보통 expected_length 체크에서 걸리지만, 만약을 위해 남겨둠
-        log.error(f"인덱스 오류: 페이로드 데이터가 예상보다 짧습니다. (offset: {offset})")
-        return None
+        return data
     except Exception as e:
-         # 예상치 못한 다른 오류 처리
-         log.error(f"페이로드 파싱 중 예상치 못한 오류: {e} (offset: {offset})")
+         print(f"Exception : {e} : {field} / {offset}")
          return None
+
+def dbMergeData(session, table, dataList, pkList, excList):
+    try:
+        # excList 컬럼 제외
+        dataList = {key: value for key, value in dataList.items() if key not in excList}
+
+        # 배열 선언
+        if isinstance(dataList, dict): dataList = [dataList]
+
+        # PK에 따른 수정/등록 처리
+        stmt = mysql_insert(table)
+        setData = {
+            key: stmt.inserted[key] for key in dataList[0].keys() if key not in pkList
+        }
+        onConflictStmt = stmt.on_duplicate_key_update(**setData)
+        session.execute(onConflictStmt, dataList)
+        session.commit()
+        return True
+
+    except Exception as e:
+        session.rollback()
+        log.error(f'Exception : {e}')
+        return False
+    finally:
+        session.close()
 
 
 # ================================================
@@ -396,171 +403,63 @@ class DtaProcess(object):
 
             # 옵션 설정
             sysOpt = {
-                # 시작/종료 시간
-                'srtDate': '2025-01-01',
-                'endDate': '2025-01-05',
-                'invDate': '1d',
-                'searchMaxPage': 99,
+                'tcpip': {
+                    'port': 9998,
+                },
+                'mysql': {
+                    # 설정
+                    'host': 'localhost',
+                    'user': 'dms01user01',
+                    'password': 'Bdwide365!@',
+                    'port': '3306',
+                    'schema': 'DMS02',
 
-                # 언어 설정
-                # , 'language' : 'en'
-                'language': 'ko',
-
-                # 국가 설정
-                # , 'country' : 'US'
-                'country': 'KR',
-
-                # 키워드 설정
-                'keywordList': ['청소년 게임 중독'],
-
-                # 저장 경로
-                'saveCsvFile': '/DATA/OUTPUT/LSH0612/gnews_%Y%m%d.csv',
-                'saveXlsxFile': '/DATA/OUTPUT/LSH0612/gnews_%Y%m%d.xlsx',
+                    # 세션
+                    'session': None,
+                    'tbInputData': None,
+                },
             }
 
-            listen_port = 9998
+            try:
+                # dbUrl = f"mysql+mysqlclient://{sysOpt['mysql']['user']}:{sysOpt['mysql']['password']}@{sysOpt['mysql']['host']}:{sysOpt['mysql']['port']}/{sysOpt['mysql']['schema']}"
+                dbUrl = f"mysql+pymysql://{sysOpt['mysql']['user']}:{quote_plus(sysOpt['mysql']['password'])}@{sysOpt['mysql']['host']}:{sysOpt['mysql']['port']}/{sysOpt['mysql']['schema']}"
+                dbEngine = create_engine(
+                    dbUrl,
+                    pool_size=10,
+                    max_overflow=20,
+                    pool_recycle=3600,
+                    pool_pre_ping=True,
+                    pool_timeout=30,
+                    echo=False,
+                )
+
+                sessionMake = sessionmaker(autocommit=False, autoflush=False, bind=dbEngine)
+                sysOpt['mysql']['session'] = sessionMake()
+
+                # 테이블 정보
+                metaData = MetaData()
+                year = datetime.now().strftime("%Y")
+                sysOpt['mysql']['tbInputData'] = Table(f"TB_INPUT_DATA_{year}", metaData, autoload_with=dbEngine, schema=sysOpt['mysql']['schema'])
+
+            except Exception as e:
+                raise Exception(f"DB 연결 실패 : {e}")
 
             # TCP 서버 엔드포인트 설정
-            endpoint = endpoints.TCP4ServerEndpoint(reactor, listen_port)
-            log.info(f"[Server] TCP 서버 시작 중 (포트: {listen_port})...")
+            endpoint = endpoints.TCP4ServerEndpoint(reactor, sysOpt['tcpip']['port'])
+            log.info(f"[CHECK] TCP 서버 시작 : {sysOpt['tcpip']['port']}")
 
             # 엔드포인트 리스닝 시작 (팩토리 사용)
-            endpoint.listen(ReceivingFactory())
+            factory = ReceivingFactory(sysOpt)
+            endpoint.listen(factory)
 
             # 리액터 시작 (프로그램 종료 시까지 실행)
             reactor.run()
 
-            # =================================================================
-            # from gnews import GNews
-            # from newspaper import Article
-            # =================================================================
-            # okt = Okt()
-            #
-            # unitGoogleNews = GNews(language='ko', country='KR')
-            # searchList = unitGoogleNews.get_news('청소년 게임 중독')
-            # log.info(f'[CHECK] searchList : {len(searchList)}')
-            #
-            # flatList = []
-            # for data in searchList:
-            #     flatData = {
-            #         'title': data['title'],
-            #         'description': data['description'],
-            #         'publishedDate': data['published date'],
-            #         'url': data['url'],
-            #         'publisherTitle': data['publisher']['title'],
-            #         'publisherHref': data['publisher']['href']
-            #     }
-            #
-            #     flatList.append(flatData)
-            #
-            # data = pd.DataFrame.from_dict(flatList)
-            # # description                               [기획] 청소년 게임중독 문제 심각  매일일보
-            # # publishedDate                         Thu, 30 May 2024 07:00:00 GMT
-            # # url               https://news.google.com/rss/articles/CBMiZEFVX...
-            # # publisherTitle                                                 매일일보
-            # # publisherHref                                    https://www.m-i.kr
-            #
-            # # i = 16
-            # for i, row in data.iterrows():
-            #
-            #     per = round(i / len(data) * 100, 1)
-            #     log.info(f'[CHECK] i : {i} / {per}%')
-            #
-            #     try:
-            #         # https://www.m-i.kr/news/articleView.html?idxno=1125607
-            #         # decInfo = gnewsdecoder(row['url'])
-            #         decInfo = gnewsdecoder(data.loc[i, f'url'])
-            #         if not (decInfo['status'] == True): continue
-            #
-            #         articleInfo = Article(decInfo['decoded_url'], language='ko')
-            #
-            #         #날짜 변환
-            #         dtUtcPubDate = tzUtc.localize(datetime.strptime(data.loc[i, f'publishedDate'][:-4], '%a, %d %b %Y %H:%M:%S'))
-            #         sKstPubDate = dtUtcPubDate.astimezone(tzKst).strftime('%Y-%m-%d %H:%M:%S')
-            #
-            #         # 뉴스 다운로드/파싱/자연어 처리
-            #         articleInfo.download()
-            #         articleInfo.parse()
-            #         articleInfo.nlp()
-            #
-            #         # 명사/동사/형용사 추출
-            #         text = articleInfo.text
-            #         if text is None or len(text) < 1: continue
-            #         posTagList = okt.pos(text, stem=True)
-            #
-            #         # i = 0
-            #         keyData = {}
-            #         keyList = ['Noun', 'Verb', 'Adjective']
-            #         for keyInfo in keyList:
-            #             # log.info(f'[CHECK] keyInfo : {keyInfo}')
-            #
-            #             keywordList = [word for word, pos in posTagList if pos in keyInfo]
-            #
-            #             # 불용어 제거
-            #             # keywordList = [word for word in keywordList if word not in stopWordList and len(word) > 1]
-            #
-            #             # 빈도수 계산
-            #             keywordCnt = Counter(keywordList).most_common(20)
-            #             keywordData = pd.DataFrame(keywordCnt, columns=['keyword', 'cnt']).sort_values(by='cnt', ascending=False)
-            #             keywordDataL1 = keywordData[keywordData['keyword'].str.len() >= 2].reset_index(drop=True)
-            #             keyCnt = keywordDataL1['cnt'].astype(str) + " " + keywordDataL1['keyword']
-            #             keyData.update({keyInfo : keyCnt.values.tolist()})
-            #
-            #         # log.info(f"[CHECK] keyData['Noun'] : {keyData['Noun']}")
-            #         # log.info(f"[CHECK] keyData['Verb'] : {keyData['Verb']}")
-            #         # log.info(f"[CHECK] keyData['Adjective'] : {keyData['Adjective']}")
-            #
-            #         data.loc[i, f'decUrl'] = None if decInfo['decoded_url'] is None or len(decInfo['decoded_url']) < 1 else str(decInfo['decoded_url'])
-            #         data.loc[i, f'text'] = text
-            #         data.loc[i, f'summary'] = None if articleInfo.summary is None or len(articleInfo.summary) < 1 else str(articleInfo.summary)
-            #         data.loc[i, f'keywordNoun'] = None if keyData['Noun'] is None or len(keyData['Noun']) < 1 else str(keyData['Noun'])
-            #         data.loc[i, f'keywordVerb'] = None if keyData['Verb'] is None or len(keyData['Verb']) < 1 else str(keyData['Verb'])
-            #         data.loc[i, f'keywordAdjective'] = None if keyData['Adjective'] is None or len(keyData['Adjective']) < 1 else str(keyData['Adjective'])
-            #         data.loc[i, f'authors'] = None if articleInfo.authors is None or len(articleInfo.authors) < 1 else str(articleInfo.authors)
-            #         data.loc[i, f'publishedKstDate'] = None if sKstPubDate is None or len(sKstPubDate) < 1 else str(sKstPubDate)
-            #         data.loc[i, f'top_image'] = None if articleInfo.top_image is None or len(articleInfo.top_image) < 1 else str(articleInfo.top_image)
-            #         data.loc[i, f'images'] = None if articleInfo.images is None or len(articleInfo.images) < 1 else str(articleInfo.images)
-            #     except Exception as e:
-            #         log.error(f"Exception : {str(e)}")
-            #
-            # if len(data) > 0:
-            #     saveCsvFile = datetime.now().strftime(sysOpt['saveCsvFile'])
-            #     os.makedirs(os.path.dirname(saveCsvFile), exist_ok=True)
-            #     data.to_csv(saveCsvFile, index=False)
-            #     log.info(f'[CHECK] saveCsvFile : {saveCsvFile}')
-            #
-            #     saveXlsxFile = datetime.now().strftime(sysOpt['saveXlsxFile'])
-            #     os.makedirs(os.path.dirname(saveXlsxFile), exist_ok=True)
-            #     data.to_excel(saveXlsxFile, index=False)
-            #     log.info(f'[CHECK] saveXlsxFile : {saveXlsxFile}')
-
-            # =================================================================
-            # from GoogleNews import GoogleNews
-            # =================================================================
-            # from GoogleNews import GoogleNews
-            # 시작일/종료일 설정
-            # dtSrtDate = pd.to_datetime(sysOpt['srtDate'], format='%Y-%m-%d %H:%M')
-            # dtEndDate = pd.to_datetime(sysOpt['endDate'], format='%Y-%m-%d %H:%M')
-            # dtDateList = pd.date_range(start=dtSrtDate, end=dtEndDate, freq=sysOpt['invDate'])
-            # for dtDateInfo in dtDateList:
-            #     log.info(f'[CHECK] dtDateInfo : {dtDateInfo}')
-            #
-            #     unitGoogleNews = GoogleNews(
-            #         lang=sysOpt['language'],
-            #         region=sysOpt['country'],
-            #         start=dtDateInfo.strftime('%m/%d/%Y'),
-            #         end=(dtDateInfo + timedelta(days=1)).strftime('%m/%d/%Y'),
-            #         encode='UTF-8'
-            #     )
-            #
-            #     searchGoogleNews(unitGoogleNews, sysOpt, dtDateInfo)
-
         except Exception as e:
-            log.error(f"Exception : {str(e)}")
+            log.error(f"Exception : {e}")
             raise e
         finally:
             log.info('[END] {}'.format("exec"))
-
 
 # ================================================
 # 3. 주 프로그램
