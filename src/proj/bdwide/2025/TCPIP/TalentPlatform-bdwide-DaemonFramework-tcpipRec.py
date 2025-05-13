@@ -2,8 +2,8 @@
 # 요구사항
 # ================================================
 # Python을 이용한 청소년 인터넷 게임 중독 관련 소셜데이터 수집과 분석을 위한 한국형 온톨로지 개발 및 평가
-# lsof -i :9998
-# kill -9 232746
+# lsof -i :9998 | awk '{print $2}' | xargs kill -9
+# lsof -i :9999 | awk '{print $2}' | xargs kill -9
 
 # cd /SYSTEMS/PROG/PYTHON/IDE/src/proj/bdwide/2025/TCPIP
 # nohup /SYSTEMS/LIB/anaconda3/envs/py38/bin/python /SYSTEMS/PROG/PYTHON/IDE/src/proj/bdwide/2025/TCPIP/TalentPlatform-bdwide-DaemonFramework-tcpipRec.py &
@@ -176,10 +176,13 @@ class ReceivingProtocol(protocol.Protocol):
 
     def connectionMade(self):
         peer = self.transport.getPeer()
+        self.sysOpt['tcpip']['clientHost'] = peer.host
+        self.sysOpt['tcpip']['clientPort'] = peer.port
         log.info(f"[CHECK] 클라이언트 연결 : {peer.host}:{peer.port}")
 
     def dataReceived(self, data):
-        self._buffer += data
+        # self._buffer += data
+        self._buffer = data
         log.info(f"[CHECK] 데이터 수신 : {len(self._buffer)} : {data!r}")
 
         headerSize = 4
@@ -197,38 +200,48 @@ class ReceivingProtocol(protocol.Protocol):
                     return
 
                 msgSize = headerSize + payloadSize
-                if not len(self._buffer) >= msgSize:
-                    log.info(f"[Server] 메시지 일부 수신. Payload 길이({payloadSize}), 현재 버퍼({len(self._buffer)}). 대기 중...")
-                    break
+                # if not len(self._buffer) >= msgSize:
+                #     log.info(f"[Server] 메시지 일부 수신. Payload 길이({payloadSize}), 현재 버퍼({len(self._buffer)}). 대기 중...")
+                #     break
 
                 msgData = self._buffer[:msgSize]
                 payload = msgData[headerSize:]
                 self._buffer = self._buffer[msgSize:]
 
-                log.info(f"[CHECK] SOF: {sof:#02x}")
-                log.info(f"[CHECK] Msg ID: {msgId:#04x} ({msgId})")
-                log.info(f"[CHECK] Payload Length: {payloadSize}")
-                log.info(f"[CHECK] Payload: {payload!r}")
+                log.info(f"[CHECK] SOF : {sof:#02x}")
+                log.info(f"[CHECK] Msg ID : {msgId:#04x} ({msgId})")
+                log.info(f"[CHECK] Payload Length : {payloadSize}")
+                log.info(f"[CHECK] Payload : {payload!r}")
 
                 self.handleMsg(msgId, payload)
+
             except Exception as e:
                 log.error(f"메시지 처리 오류: {e}")
-                self._buffer = b'' # 오류 발생 시 버퍼 비우기 (선택적)
+                # self._buffer = b''
                 self.transport.loseConnection()
                 return
 
     def handleMsg(self, msgId, payload):
 
+        # 가공 포맷
+        resPayload = b'404'
         nowUtc = datetime.now(pytz.utc)
         nowKst = nowUtc.astimezone(tzKst)
 
-        # 가공 포맷
-        resPayload = b'404'
+        dbData = {'device': f"{self.sysOpt['tcpip']['clientHost']}:{self.sysOpt['tcpip']['clientPort']}:{msgId}", 'eventTime': nowKst, 'eventType': '연결', 'address': f"{self.sysOpt['tcpip']['clientHost']}"}
+        dbMergeData(self.sysOpt['mysql']['session'], self.sysOpt['mysql']['table'][f"tbConnLog"], dbData, pkList=['id'], excList=[])
+
         try:
             if msgId == 0x0000:
                 resPayload = payload
             elif msgId == 0x0003:
                 resPayload = struct.pack('>HBBBBB', nowKst.year, nowKst.month, nowKst.day, nowKst.hour, nowKst.minute, nowKst.second)
+            elif msgId == 0x0014:
+                req_year, req_cust_link_num = struct.unpack('>HI', payload[:6])
+                req_date_time_str = payload[6:25].decode('ascii').rstrip('\x00')
+                log.info(f"[Server] 0x0014 요청 파싱: Year={req_year}, CustLinkNum={req_cust_link_num}, DateTime='{req_date_time_str}'")
+
+
             elif msgId == 0x0030:
                 payloadOpt = [
                     ('YEAR', 'H', 2),
@@ -246,11 +259,11 @@ class ReceivingProtocol(protocol.Protocol):
                     ('BENZO', 'f', 4),
                     ('RADON', 'f', 4),
                 ]
-                result = payloadProc(payload, payloadOpt)
-                result['MOD_DATE'] = nowKst
-                isDbProc = dbMergeData(self.sysOpt['mysql']['session'], self.sysOpt['mysql']['tbInputData'], result, pkList=['PRODUCT_SERIAL_NUMBER', 'DATE_TIME'], excList=['YEAR'])
-                log.info(f"[CHECK] isDbProc : {isDbProc} / result : {result}")
-                resPayload = b'200' if result and isDbProc else b'400'
+                dbData = payloadProc(payload, payloadOpt)
+                dbData['MOD_DATE'] = nowKst
+                isDbProc = dbMergeData(self.sysOpt['mysql']['session'], self.sysOpt['mysql']['table'][f"tbInputData{dbData['YEAR']}"], dbData, pkList=['PRODUCT_SERIAL_NUMBER', 'DATE_TIME'], excList=['YEAR'])
+                log.info(f"[CHECK] isDbProc : {isDbProc} / dbData : {dbData}")
+                resPayload = b'200' if dbData and isDbProc else b'400'
 
         except Exception as e:
             log.error(f"Exception : {e}")
@@ -264,15 +277,18 @@ class ReceivingProtocol(protocol.Protocol):
             resMsg = resPayload
         self.transport.write(resMsg)
 
+        dbData = {'device': f"{self.sysOpt['tcpip']['clientHost']}:{self.sysOpt['tcpip']['clientPort']}:{msgId}", 'eventTime': nowKst, 'eventType': '해제', 'address': f"{self.sysOpt['tcpip']['clientHost']}"}
+        dbMergeData(self.sysOpt['mysql']['session'], self.sysOpt['mysql']['table'][f"tbConnLog"], dbData, pkList=['id'], excList=[])
+
     def createHeader(self, msg_id, payloadSize):
         sof = 0xFF
-        msg_id_h = (msg_id >> 8) & 0xFF
-        msg_id_l = msg_id & 0xFF
+        msgIdH = (msg_id >> 8) & 0xFF
+        msgIdL = msg_id & 0xFF
         if payloadSize > 255:
              log.warn(f"페이로드 길이가 255를 초과({payloadSize})하지만 헤더는 1바이트 길이만 지원합니다.")
              payloadSize = 255
 
-        header = struct.pack('>BBBB', sof, msg_id_h, msg_id_l, payloadSize)
+        header = struct.pack('>BBBB', sof, msgIdH, msgIdL, payloadSize)
         return header
 
     def connectionLost(self, reason):
@@ -407,24 +423,28 @@ class DtaProcess(object):
                 globalVar['outPath'] = '/DATA/OUTPUT'
                 globalVar['figPath'] = '/DATA/FIG'
 
-            # 옵션 설정
             sysOpt = {
                 'tcpip': {
-                    'port': 9999,
+                    'serverPort': 9999,
+                    'clientHost': None,
+                    'clientPort': None,
                 },
                 'mysql': {
                     # 설정
                     'host': 'localhost',
                     'user': 'dms01user01',
-                    'password': '',
+                    'password': 'Bdwide365!@',
                     'port': '3306',
                     'schema': 'DMS02',
 
                     # 세션
                     'session': None,
-                    'tbInputData': None,
+                    'table': {
+                        'tbConnLog': None
+                    },
                 },
             }
+            # 옵션 설정
 
             try:
                 # dbUrl = f"mysql+mysqlclient://{sysOpt['mysql']['user']}:{sysOpt['mysql']['password']}@{sysOpt['mysql']['host']}:{sysOpt['mysql']['port']}/{sysOpt['mysql']['schema']}"
@@ -444,15 +464,23 @@ class DtaProcess(object):
 
                 # 테이블 정보
                 metaData = MetaData()
-                year = datetime.now().strftime("%Y")
-                sysOpt['mysql']['tbInputData'] = Table(f"TB_INPUT_DATA_{year}", metaData, autoload_with=dbEngine, schema=sysOpt['mysql']['schema'])
+                for year in range(2022, 2027):
+                    try:
+                        sysOpt['mysql']['table'][f"tbInputData{year}"] = Table(f"TB_INPUT_DATA_{year}", metaData, autoload_with=dbEngine, schema=sysOpt['mysql']['schema'])
+                        sysOpt['mysql']['table'][f"tbOutputData{year}"] = Table(f"TB_OUTPUT_DATA_{year}", metaData, autoload_with=dbEngine, schema=sysOpt['mysql']['schema'])
+                        sysOpt['mysql']['table'][f"tbOutputStatData{year}"] = Table(f"TB_OUTPUT_STAT_DATA_{year}", metaData, autoload_with=dbEngine, schema=sysOpt['mysql']['schema'])
+                    except Exception as e:
+                        pass
+
+                sysOpt['mysql']['table']['tbConnLog'] = Table(f"TB_CONN_LOG", metaData, autoload_with=dbEngine, schema=sysOpt['mysql']['schema'])
+                sysOpt['mysql']['table']['tbConnLog'] = Table(f"TB_CONN_LOG", metaData, autoload_with=dbEngine, schema=sysOpt['mysql']['schema'])
 
             except Exception as e:
                 raise Exception(f"DB 연결 실패 : {e}")
 
             # TCP 서버 엔드포인트 설정
-            endpoint = endpoints.TCP4ServerEndpoint(reactor, sysOpt['tcpip']['port'])
-            log.info(f"[CHECK] TCP 서버 시작 : {sysOpt['tcpip']['port']}")
+            endpoint = endpoints.TCP4ServerEndpoint(reactor, sysOpt['tcpip']['serverPort'])
+            log.info(f"[CHECK] TCP 서버 시작 : {sysOpt['tcpip']['serverPort']}")
 
             # 엔드포인트 리스닝 시작 (팩토리 사용)
             factory = ReceivingFactory(sysOpt)
