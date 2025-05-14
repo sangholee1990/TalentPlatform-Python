@@ -307,7 +307,7 @@ class ReceivingProtocol(protocol.Protocol):
 
     def connectionLost(self, reason):
         log.info(f"[CHECK] 클라이언트 해제  : {reason.getErrorMessage()}")
-        self._buffer = b'' # 버퍼 초기화
+        self._buffer = b''
 
 # 서버 측 팩토리
 class ReceivingFactory(protocol.Factory):
@@ -346,7 +346,7 @@ def payloadProc(payload, payloadOpt):
 
         return data
     except Exception as e:
-         print(f"Exception : {e} : {field} / {offset}")
+         log.error(f"Exception : {e} : {field} / {offset}")
          return None
 
 def dbMergeData(session, table, dataList, pkList, excList):
@@ -373,7 +373,6 @@ def dbMergeData(session, table, dataList, pkList, excList):
         return False
     finally:
         session.close()
-
 
 # ================================================
 # 4. 부 프로그램
@@ -437,6 +436,7 @@ class DtaProcess(object):
                 globalVar['outPath'] = '/DATA/OUTPUT'
                 globalVar['figPath'] = '/DATA/FIG'
 
+            # 옵션 설정
             sysOpt = {
                 'tcpip': {
                     'serverPort': 9999,
@@ -458,7 +458,6 @@ class DtaProcess(object):
                     },
                 },
             }
-            # 옵션 설정
 
             try:
                 # dbUrl = f"mysql+mysqlclient://{sysOpt['mysql']['user']}:{sysOpt['mysql']['password']}@{sysOpt['mysql']['host']}:{sysOpt['mysql']['port']}/{sysOpt['mysql']['schema']}"
