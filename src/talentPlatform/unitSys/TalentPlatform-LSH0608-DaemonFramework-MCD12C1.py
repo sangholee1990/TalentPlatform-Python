@@ -48,6 +48,7 @@ import xarray as xr
 from pyproj import Proj
 import rioxarray as rio
 import cftime
+import subprocess
 
 # =================================================
 # 사용자 매뉴얼
@@ -240,18 +241,21 @@ class DtaProcess(object):
                 # 시작/종료 시간
                 # 'srtDate': globalVar['srtDate']
                 # , 'endDate': globalVar['endDate']
-                'srtDate': '1990-01-01'
-                , 'endDate': '2022-01-01'
+                'srtDate': '1990-01-01',
+                'endDate': '2022-01-01',
 
                 # 경도 최소/최대/간격
-                , 'lonMin': -180
-                , 'lonMax': 180
-                , 'lonInv': 0.1
+                'lonMin': -180,
+                'lonMax': 180,
+                'lonInv': 0.1,
 
                 # 위도 최소/최대/간격
-                , 'latMin': -90
-                , 'latMax': 90
-                , 'latInv': 0.1
+                'latMin': -90,
+                'latMax': 90,
+                'latInv': 0.1,
+
+                # cmd 실행 정보
+                'cmd': '{exe} -of GTiff -tr 0.1 0.1 {inpFile} {outFile}',
             }
 
             # 도법 설정
@@ -279,13 +283,22 @@ class DtaProcess(object):
 
                 fileList = sorted(glob.glob(inpFile))
                 if fileList is None or len(fileList) < 1:
-                    log.error('[ERROR] inpFile : {} / {}'.format(inpFile, '입력 자료를 확인해주세요.'))
+                    log.error(f"inpFile : {inpFile} / 입력 자료를 확인해주세요")
                     continue
 
                 fileInfo = fileList[0]
-                log.info('[CHECK] fileInfo : {}'.format(fileInfo))
+                log.info(f'[CHECK] fileInfo : {fileInfo}')
 
-                fileNameNoExt = os.path.basename(fileInfo).split('.tif')[0]
+                fileNameNoExt = os.path.basename(fileInfo).split('.hdf')[0]
+                cmd = sysOpt['cmd'].format(exe='/SYSTEMS/LIB/anaconda3/envs/py38/bin/gdalwarp', inpFile=f"{fileNameNoExt}.hdf", outFile=f"{fileNameNoExt}.tif")
+                log.info(f'[CHECK] cmd : {cmd}')
+
+                try:
+                    res = subprocess.run(cmd, shell=True, executable='/bin/bash')
+                    log.info(f'returncode : {res.returncode} / args : {res.args}')
+                    if res.returncode != 0: log.error(f'cmd 실패 : {cmd}')
+                except Exception as e:
+                    raise ValueError(f'Exception cmd 실패 : {e}')
 
                 # data = xr.open_mfdataset(fileInfo)
                 # data = xr.open_dataset(fileInfo)

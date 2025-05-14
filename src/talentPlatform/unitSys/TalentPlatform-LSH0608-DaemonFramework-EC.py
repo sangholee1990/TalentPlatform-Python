@@ -24,7 +24,7 @@ from pyproj import Proj
 import rioxarray as rio
 import cftime
 import subprocess
-from global_land_mask import globe
+# from global_land_mask import globe
 import gc
 
 # =================================================
@@ -250,8 +250,7 @@ class DtaProcess(object):
                 sYear = dtIncDateInfo.strftime('%Y')
 
                 saveFile = '{}/{}/{}-{}.nc'.format(globalVar['outPath'], serviceName, 'EC', sYear)
-                fileChkList = glob.glob(saveFile)
-                # if (len(fileChkList) > 0): continue
+                if (len(glob.glob(saveFile)) > 0): continue
 
                 # inpFilePattern = '{}/CarbonMonitor_*{}*_y{}_m{}.nc'.format(serviceName, keyInfo, dtYear, dtMonth)
                 inpFilePattern = '{1:s}/{1:s}{0:s}.tif'.format(sYear, 'EC')

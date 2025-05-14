@@ -24,12 +24,11 @@ from pyproj import Proj
 import rioxarray as rio
 import cftime
 import subprocess
-from global_land_mask import globe
+# from global_land_mask import globe
 from pyproj import Proj
 import rioxarray as rio
 import cftime
 import subprocess
-from global_land_mask import globe
 import gc
 
 
@@ -250,9 +249,18 @@ class DtaProcess(object):
             dtIncDateList = pd.date_range(start=dtSrtDate, end=dtEndDate, freq='1Y')
             # dtIncDateInfo = dtIncDateList[0]
 
+            # /HDD/DATA/INPUT/LSH0608/GDP/rast_gdpTot_1990_2020_30arcsec.tif
+
+            data = xr.open_dataset('/HDD/DATA/INPUT/LSH0608/GDP/rast_gdpTot_1990_2020_30arcsec.tif')
+            data = xr.open_dataset('/HDD/DATA/INPUT/LSH0608/GDP/rast_adm0_gdp_perCapita_1990_2022.tif')
+            dataL1 = data.rio.reproject(proj4326)
+            dataL2 = dataL1.sel(band=1)
+            dataL2 = data.sel(band=1)
+            dataL2['spatial_ref']
+
             dataL5 = xr.Dataset()
             for j, dtIncDateInfo in enumerate(dtIncDateList):
-                log.info("[CHECK] dtIncDateInfo : {}".format(dtIncDateInfo))
+                log.info(f"[CHECK] dtIncDateInfo : {dtIncDateInfo}")
                 sYear = dtIncDateInfo.strftime('%Y')
 
                 saveFile = '{}/{}/{}-{}.nc'.format(globalVar['outPath'], serviceName, 'GDP', sYear)
