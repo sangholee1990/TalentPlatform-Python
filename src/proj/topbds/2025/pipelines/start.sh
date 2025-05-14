@@ -152,6 +152,7 @@ fi
 
 if [[ "$MODE" == "run" || "$MODE" == "full" ]]; then
   echo "Running via Mode: $MODE"
-  uvicorn main:app --host "$HOST" --port "$PORT" --forwarded-allow-ips '*' --loop "$UVICORN_LOOP"
+#  uvicorn main:app --host "$HOST" --port "$PORT" --forwarded-allow-ips '*' --loop "$UVICORN_LOOP"
+  /SYSTEMS/LIB/anaconda3/envs/py311/bin/uvicorn main:app --host "$HOST" --port "$PORT" --forwarded-allow-ips '*' --loop "$UVICORN_LOOP"
 fi
 
