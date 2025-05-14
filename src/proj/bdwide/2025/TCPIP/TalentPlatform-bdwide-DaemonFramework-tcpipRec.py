@@ -183,9 +183,8 @@ class ReceivingProtocol(protocol.Protocol):
     def dataReceived(self, data):
         # self._buffer += data
         self._buffer = data
-        log.info(f"[CHECK] 데이터 수신 : {len(self._buffer)} : {data!r}")
-
         headerSize = 4
+
         while len(self._buffer) >= headerSize:
             try:
                 sof = self._buffer[0]
@@ -208,6 +207,7 @@ class ReceivingProtocol(protocol.Protocol):
                 payload = msgData[headerSize:]
                 self._buffer = self._buffer[msgSize:]
 
+                log.info(f"[CHECK] 데이터 수신 : {len(self._buffer)} : {data!r}")
                 log.info(f"[CHECK] SOF : {sof:#02x}")
                 log.info(f"[CHECK] Msg ID : {msgId:#04x} ({msgId})")
                 log.info(f"[CHECK] Payload Length : {payloadSize}")
