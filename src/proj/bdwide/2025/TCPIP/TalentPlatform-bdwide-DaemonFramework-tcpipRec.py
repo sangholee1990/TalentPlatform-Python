@@ -319,10 +319,8 @@ class ReceivingProtocol(protocol.Protocol, TimeoutMixin):
         self._buffer = b''
 
     def timeoutConnection(self):
-        peer = self.transport.getPeer()
         log.info(f"[{self.sysOpt['tcpip']['clientHost']}][{self.sysOpt['tcpip']['clientPort']}] 클라이언트 타임아웃")
         self.transport.loseConnection()
-
 
 # 서버 측 팩토리
 class ReceivingFactory(protocol.Factory):
