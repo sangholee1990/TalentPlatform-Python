@@ -208,9 +208,10 @@ class DtaProcess(object):
             if (platform.system() == 'Windows'):
                 pass
             else:
-                globalVar['inpPath'] = '/DATA/INPUT'
-                globalVar['outPath'] = '/DATA/OUTPUT'
-                globalVar['figPath'] = '/DATA/FIG'
+                pass
+                # globalVar['inpPath'] = '/DATA/INPUT'
+                # globalVar['outPath'] = '/DATA/OUTPUT'
+                # globalVar['figPath'] = '/DATA/FIG'
 
             # 옵션 설정
             sysOpt = {
@@ -219,20 +220,14 @@ class DtaProcess(object):
                 , 'endDate': '2022-01-01'
 
                 # 경도 최소/최대/간격
-                # , 'lonMin': -180
-                # , 'lonMax': 180
-                # , 'lonInv': 0.1
-                , 'lonMin': 120
-                , 'lonMax': 130
-                , 'lonInv': 1
+                , 'lonMin': -180
+                , 'lonMax': 180
+                , 'lonInv': 0.1
 
                 # 위도 최소/최대/간격
-                # , 'latMin': -90
-                # , 'latMax': 90
-                # , 'latInv': 0.1
-                , 'latMin': 30
-                , 'latMax': 40
-                , 'latInv': 1
+                , 'latMin': -90
+                , 'latMax': 90
+                , 'latInv': 0.1
             }
 
             # 도법 설정

@@ -232,9 +232,10 @@ class DtaProcess(object):
             if (platform.system() == 'Windows'):
                 pass
             else:
-                globalVar['inpPath'] = '/DATA/INPUT'
-                globalVar['outPath'] = '/DATA/OUTPUT'
-                globalVar['figPath'] = '/DATA/FIG'
+                pass
+                # globalVar['inpPath'] = '/DATA/INPUT'
+                # globalVar['outPath'] = '/DATA/OUTPUT'
+                # globalVar['figPath'] = '/DATA/FIG'
 
             # 옵션 설정
             sysOpt = {
@@ -255,8 +256,9 @@ class DtaProcess(object):
                 'latInv': 0.1,
 
                 # cmd 실행 정보
-                'cmd': '{exe} -of GTiff -tr 0.1 0.1 {inpFile} {outFile}',
-                'exe': '/SYSTEMS/LIB/anaconda3/envs/py38/bin/gdalwarp'
+                'cmd': 'export PROJ_LIB=/SYSTEMS/LIB/anaconda3/envs/py38/share/proj && {exe} HDF4_EOS:EOS_GRID:"{inpFile}":MOD12C1:Land_Cover_Type_1_Percent "{outFile}"',
+                'exe': '/SYSTEMS/LIB/anaconda3/envs/py38/bin/gdal_translate'
+                # 'exe': '/data2/hzhenshao/EMI/py38/bin/gdal_translate'
             }
 
             # 도법 설정
@@ -290,8 +292,10 @@ class DtaProcess(object):
                 fileInfo = fileList[0]
                 log.info(f'[CHECK] fileInfo : {fileInfo}')
 
-                fileNameNoExt = os.path.basename(fileInfo).split('.hdf')[0]
-                cmd = sysOpt['cmd'].format(exe=sysOpt['exe'], inpFile=f"{fileNameNoExt}.hdf", outFile=f"{fileNameNoExt}.tif")
+                # fileNameNoExt = os.path.basename(fileInfo).split('.hdf')[0]
+                filePath = os.path.dirname(fileInfo)
+                fileNameNoExt =  os.path.basename(fileInfo).split('.hdf')[0]
+                cmd = sysOpt['cmd'].format(exe=sysOpt['exe'], inpFile=f"{filePath}/{fileNameNoExt}.hdf", outFile=f"{filePath}/{fileNameNoExt}.tif")
                 log.info(f'[CHECK] cmd : {cmd}')
 
                 try:
@@ -299,13 +303,24 @@ class DtaProcess(object):
                     log.info(f'returncode : {res.returncode} / args : {res.args}')
                     if res.returncode != 0: log.error(f'cmd 실패 : {cmd}')
                 except Exception as e:
-                    raise ValueError(f'Exception cmd 실패 : {e}')
+                    raise ValueError(f'Exception: {e}')
+
+                inpFile = '{}/{}/*/MCD12C1.A{}*.tif'.format(globalVar['inpPath'], serviceName, sYear)
+
+                fileList = sorted(glob.glob(inpFile))
+                if fileList is None or len(fileList) < 1:
+                    log.error(f"inpFile : {inpFile} / 입력 자료를 확인해주세요")
+                    continue
+
+                fileInfo = fileList[0]
+                log.info(f'[CHECK] fileInfo : {fileInfo}')
 
                 # data = xr.open_mfdataset(fileInfo)
                 # data = xr.open_dataset(fileInfo)
                 # data = xr.open_dataset(fileInfo, engine="h5netcdf")
                 # data = xr.open_dataset(fileInfo, engine="rasterio")
-                data = xr.open_rasterio(fileInfo, chunks={"band": 1, "x": 100, "y": 100})
+                # data = xr.open_rasterio(fileInfo, chunks={"band": 1, "x": 100, "y": 100})
+                data = xr.open_rasterio(fileInfo)
 
                 dataL1 = data.rio.reproject(proj4326)
                 dataL2 = dataL1.sel(band=13)
