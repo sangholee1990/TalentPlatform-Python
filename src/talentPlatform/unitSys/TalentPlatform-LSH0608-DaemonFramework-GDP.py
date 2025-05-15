@@ -224,14 +224,20 @@ class DtaProcess(object):
                 , 'endDate': '2022-01-01'
 
                 # 경도 최소/최대/간격
-                , 'lonMin': -180
-                , 'lonMax': 180
-                , 'lonInv': 0.1
+                # , 'lonMin': -180
+                # , 'lonMax': 180
+                # , 'lonInv': 0.1
+                , 'lonMin': 120
+                , 'lonMax': 130
+                , 'lonInv': 1
 
                 # 위도 최소/최대/간격
-                , 'latMin': -90
-                , 'latMax': 90
-                , 'latInv': 0.1
+                # , 'latMin': -90
+                # , 'latMax': 90
+                # , 'latInv': 0.1
+                , 'latMin': 30
+                , 'latMax': 40
+                , 'latInv': 1
             }
 
             # 도법 설정
@@ -251,12 +257,39 @@ class DtaProcess(object):
 
             # /HDD/DATA/INPUT/LSH0608/GDP/rast_gdpTot_1990_2020_30arcsec.tif
 
-            data = xr.open_dataset('/HDD/DATA/INPUT/LSH0608/GDP/rast_gdpTot_1990_2020_30arcsec.tif')
-            data = xr.open_dataset('/HDD/DATA/INPUT/LSH0608/GDP/rast_adm0_gdp_perCapita_1990_2022.tif')
-            dataL1 = data.rio.reproject(proj4326)
-            dataL2 = dataL1.sel(band=1)
-            dataL2 = data.sel(band=1)
-            dataL2['spatial_ref']
+            # data = xr.open_dataset('/HDD/DATA/INPUT/LSH0608/GDP/rast_gdpTot_1990_2020_30arcsec.tif')
+            # data = xr.open_dataset('/HDD/DATA/INPUT/LSH0608/GDP/rast_adm2_gdp_perCapita_1990_2022.tif')
+
+            # 세부 adm2, 1990~2022 연도
+            data = xr.open_rasterio('/HDD/DATA/INPUT/LSH0608/GDP/rast_adm2_gdp_perCapita_1990_2022.tif', chunks={"band": 1, "x": 100, "y": 100})
+            # dd = data.sel(band=1)
+
+            descList = data.attrs['descriptions']
+            # range(1, len(descList))
+            for idx, desc in enumerate(descList):
+                log.info(f"[CHECK] idx : {idx} / desc : {desc}")
+
+                dtDateInfo = pd.to_datetime(desc, format='gdp_pc_%Y')
+                sYear = dtDateInfo.strftime('%Y')
+
+                dd = data.isel(band=idx)
+            #
+            # dataL1 = dd.rio.reproject(proj4326)
+            # dataL3 = dataL1.interp(x=lonList, y=latList, method='nearest')
+            #
+            # dataL3.plot()
+            # plt.show()
+            #
+            # dataL3.values
+
+
+            # dataL1.plot()
+            # plt.show()
+
+
+            # dataL1 = data.rio.reproject(proj4326)
+            # dataL2 = dataL1.sel(band=1)
+            # dataL2 = data.sel(band=1)
 
             dataL5 = xr.Dataset()
             for j, dtIncDateInfo in enumerate(dtIncDateList):

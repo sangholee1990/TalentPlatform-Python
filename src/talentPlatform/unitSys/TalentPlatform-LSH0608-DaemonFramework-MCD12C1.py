@@ -256,6 +256,7 @@ class DtaProcess(object):
 
                 # cmd 실행 정보
                 'cmd': '{exe} -of GTiff -tr 0.1 0.1 {inpFile} {outFile}',
+                'exe': '/SYSTEMS/LIB/anaconda3/envs/py38/bin/gdalwarp'
             }
 
             # 도법 설정
@@ -273,7 +274,7 @@ class DtaProcess(object):
             dtIncDateList = pd.date_range(start=dtSrtDate, end=dtEndDate, freq='1Y')
             # dtIncDateInfo = dtIncDateList[0]
 
-            dataL3 = xr.Dataset()
+            dataL5 = xr.Dataset()
             for i, dtIncDateInfo in enumerate(dtIncDateList):
                 # log.info("[CHECK] dtIncDateInfo : {}".format(dtIncDateInfo))
                 sYear = dtIncDateInfo.strftime('%Y')
@@ -290,7 +291,7 @@ class DtaProcess(object):
                 log.info(f'[CHECK] fileInfo : {fileInfo}')
 
                 fileNameNoExt = os.path.basename(fileInfo).split('.hdf')[0]
-                cmd = sysOpt['cmd'].format(exe='/SYSTEMS/LIB/anaconda3/envs/py38/bin/gdalwarp', inpFile=f"{fileNameNoExt}.hdf", outFile=f"{fileNameNoExt}.tif")
+                cmd = sysOpt['cmd'].format(exe=sysOpt['exe'], inpFile=f"{fileNameNoExt}.hdf", outFile=f"{fileNameNoExt}.tif")
                 log.info(f'[CHECK] cmd : {cmd}')
 
                 try:
@@ -303,20 +304,24 @@ class DtaProcess(object):
                 # data = xr.open_mfdataset(fileInfo)
                 # data = xr.open_dataset(fileInfo)
                 # data = xr.open_dataset(fileInfo, engine="h5netcdf")
-                data = xr.open_dataset(fileInfo, engine="rasterio")
+                # data = xr.open_dataset(fileInfo, engine="rasterio")
+                data = xr.open_rasterio(fileInfo, chunks={"band": 1, "x": 100, "y": 100})
+
+                dataL1 = data.rio.reproject(proj4326)
+                dataL2 = dataL1.sel(band=13)
+                dataL3 = dataL2.interp(x=lonList, y=latList, method='nearest')
 
                 # Land_Cover_Type_1_Percent:Layer\ 13 = "urban and built-up" ;
-
                 # SUBDATASET_3_NAME=HDF4_EOS:EOS_GRID:"MCD12C1.A2019001.061.2022170020638.hdf":MOD12C1:Land_Cover_Type_1_Percent
                 # SUBDATASET_3_DESC=[3600x7200x17] Land_Cover_Type_1_Percent MOD12C1 (8-bit unsigned integer)
-                dataL1 = data.sel(band=13).interp(x=lonList, y=latList, method='linear')
+                # dataL1 = data.sel(band=13).interp(x=lonList, y=latList, method='linear')
 
                 # 자료 변환
                 lon1D = dataL1['x'].values
                 lat1D = dataL1['y'].values
                 time1D = pd.to_datetime(sYear, format='%Y')
 
-                dataL2 = xr.Dataset(
+                dataL4 = xr.Dataset(
                     {
                         'Land_Cover_Type_1_Percent': (('time', 'lat', 'lon'), (dataL1['band_data'].values).reshape(1, len(lat1D), len(lon1D)))
                     }
@@ -337,16 +342,16 @@ class DtaProcess(object):
                 # plt.close()
                 # log.info(f'[CHECK] saveImg : {saveImg}')
 
-                dataL3 = xr.merge([dataL3, dataL2])
+                dataL5 = xr.merge([dataL5, dataL4])
 
             # 자료 저장
-            timeList = dataL3['time'].values
+            timeList = dataL5['time'].values
             minYear = pd.to_datetime(timeList.min()).strftime('%Y')
             maxYear = pd.to_datetime(timeList.max()).strftime('%Y')
 
             saveFile = '{}/{}/{}_{}-{}.nc'.format(globalVar['outPath'], serviceName, 'MCD12C1-Stat', minYear, maxYear)
             os.makedirs(os.path.dirname(saveFile), exist_ok=True)
-            dataL3.to_netcdf(saveFile)
+            dataL5.to_netcdf(saveFile)
             log.info('[CHECK] saveFile : {}'.format(saveFile))
 
         except Exception as e:

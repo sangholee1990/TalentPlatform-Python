@@ -236,6 +236,12 @@ class DtaProcess(object):
                 # , 'keyList' : ['CO', 'NOx']
             }
 
+            # N2O
+            # GHG
+            # CO2
+            # CO2bio
+            # CH4
+
             # 도법 설정
             proj4326 = 'epsg:4326'
             mapProj4326 = Proj(proj4326)
@@ -243,8 +249,8 @@ class DtaProcess(object):
             lonList = np.arange(sysOpt['lonMin'], sysOpt['lonMax'], sysOpt['lonInv'])
             latList = np.arange(sysOpt['latMin'], sysOpt['latMax'], sysOpt['latInv'])
 
-            log.info('[CHECK] len(lonList) : {}'.format(len(lonList)))
-            log.info('[CHECK] len(latList) : {}'.format(len(latList)))
+            log.info("[CHECK] len(lonList) : {len(lonList)}")
+            log.info("[CHECK] len(latList) : {len(latList)}")
 
 
             dtSrtDate = pd.to_datetime(sysOpt['srtDate'], format='%Y-%m-%d')
@@ -253,7 +259,7 @@ class DtaProcess(object):
             # dtIncDateInfo = dtIncDateList[0]
 
             for i, keyInfo in enumerate(sysOpt['keyList']):
-                log.info("[CHECK] keyInfo : {}".format(keyInfo))
+                log.info(f"[CHECK] keyInfo : {keyInfo}")
 
                 dataL3 = xr.Dataset()
                 for i, dtIncDateInfo in enumerate(dtIncDateList):

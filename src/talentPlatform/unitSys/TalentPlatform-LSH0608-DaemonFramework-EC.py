@@ -219,14 +219,20 @@ class DtaProcess(object):
                 , 'endDate': '2022-01-01'
 
                 # 경도 최소/최대/간격
-                , 'lonMin': -180
-                , 'lonMax': 180
-                , 'lonInv': 0.1
+                # , 'lonMin': -180
+                # , 'lonMax': 180
+                # , 'lonInv': 0.1
+                , 'lonMin': 120
+                , 'lonMax': 130
+                , 'lonInv': 1
 
                 # 위도 최소/최대/간격
-                , 'latMin': -90
-                , 'latMax': 90
-                , 'latInv': 0.1
+                # , 'latMin': -90
+                # , 'latMax': 90
+                # , 'latInv': 0.1
+                , 'latMin': 30
+                , 'latMax': 40
+                , 'latInv': 1
             }
 
             # 도법 설정
@@ -257,12 +263,12 @@ class DtaProcess(object):
                 inpFile = '{}/{}/{}'.format(globalVar['inpPath'], serviceName, inpFilePattern)
                 fileList = sorted(glob.glob(inpFile))
 
-                if (len(fileList) < 1): continue
+                if len(fileList) < 1: continue
                 fileInfo = fileList[0]
 
                 # 파일 읽기
                 # data = xr.open_rasterio(fileInfo)
-                data = xr.open_rasterio(fileInfo, chunks={"band": 1, "x": 500, "y": 500})
+                data = xr.open_rasterio(fileInfo, chunks={"band": 1, "x": 100, "y": 100})
 
                 dataL1 = data.rio.reproject(proj4326)
                 dataL2 = dataL1.sel(band=1)

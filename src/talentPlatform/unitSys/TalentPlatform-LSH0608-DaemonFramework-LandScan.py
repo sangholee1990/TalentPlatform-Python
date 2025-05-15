@@ -24,6 +24,8 @@ import cftime
 import calendar
 from pandas.tseries.offsets import MonthEnd
 import rasterio
+from pyproj import Proj
+import rioxarray as rio
 
 # =================================================
 # 사용자 매뉴얼
@@ -217,15 +219,25 @@ class DtaProcess(object):
                 , 'endDate': '2022-01-01'
 
                 # 경도 최소/최대/간격
-                , 'lonMin': -180
-                , 'lonMax': 180
-                , 'lonInv': 0.1
+                # , 'lonMin': -180
+                # , 'lonMax': 180
+                # , 'lonInv': 0.1
+                , 'lonMin': 120
+                , 'lonMax': 130
+                , 'lonInv': 1
 
                 # 위도 최소/최대/간격
-                , 'latMin': -90
-                , 'latMax': 90
-                , 'latInv': 0.1
+                # , 'latMin': -90
+                # , 'latMax': 90
+                # , 'latInv': 0.1
+                , 'latMin': 30
+                , 'latMax': 40
+                , 'latInv': 1
             }
+
+            # 도법 설정
+            proj4326 = 'epsg:4326'
+            mapProj4326 = Proj(proj4326)
 
             lonList = np.arange(sysOpt['lonMin'], sysOpt['lonMax'], sysOpt['lonInv'])
             latList = np.arange(sysOpt['latMin'], sysOpt['latMax'], sysOpt['latInv'])
@@ -238,7 +250,7 @@ class DtaProcess(object):
             dtIncDateList = pd.date_range(start=dtSrtDate, end=dtEndDate, freq='1Y')
             # dtIncDateInfo = dtIncDateList[0]
 
-            dataL4 = xr.Dataset()
+            dataL5 = xr.Dataset()
             for j, dtIncDateInfo in enumerate(dtIncDateList):
                 log.info("[CHECK] dtIncDateInfo : {}".format(dtIncDateInfo))
                 sYear = dtIncDateInfo.strftime('%Y')
@@ -252,9 +264,10 @@ class DtaProcess(object):
 
                 # 파일 읽기
                 fileInfo = fileList[0]
-                log.info('[CHECK] fileInfo : {}'.format(fileInfo))
+                log.info(f'[CHECK] fileInfo : {fileInfo}')
 
-                data = xr.open_rasterio(fileInfo)
+                # data = xr.open_rasterio(fileInfo)
+                data = xr.open_rasterio(fileInfo, chunks={"band": 1, "x": 100, "y": 100})
                 # data = xr.open(fileInfo)
 
                 # saveFile = '{}/{}/{}-{}.nc'.format(globalVar['outPath'], serviceName, 'landscan-global-org', sYear)
@@ -262,15 +275,19 @@ class DtaProcess(object):
                 # data.to_netcdf(saveFile)
                 # log.info('[CHECK] saveFile : {}'.format(saveFile))
 
-                dataL1 = data.interp(x=lonList, y=latList, method='nearest')
+                # dataL1 = data.interp(x=lonList, y=latList, method='nearest')
+
+                dataL1 = data.rio.reproject(proj4326)
+                dataL2 = dataL1.sel(band=1)
+                dataL3 = dataL2.interp(x=lonList, y=latList, method='nearest')
 
                 # 결측값 처리
-                dataL2 = xr.where((dataL1 < 0), np.nan, dataL1)
+                dataL3 = xr.where((dataL1 < 0), np.nan, dataL1)
 
                 lon1D = dataL1['x'].values
                 lat1D = dataL1['y'].values
 
-                dataL3 = xr.Dataset(
+                dataL4 = xr.Dataset(
                     {
                         'landscan': (('time', 'lat', 'lon'), (dataL2.values).reshape(1, len(lat1D), len(lon1D)))
                     }
@@ -286,18 +303,18 @@ class DtaProcess(object):
                 # dataL3.to_netcdf(saveFile)
                 # log.info('[CHECK] saveFile : {}'.format(saveFile))
 
-                if (len(dataL4) < 1):
-                    dataL4 = dataL3
+                if (len(dataL5) < 1):
+                    dataL5 = dataL4
                 else:
-                    dataL4 = xr.concat([dataL4, dataL3], "time")
+                    dataL5 = xr.concat([dataL5, dataL4], "time")
 
-            timeList = dataL4['time'].values
+            timeList = dataL5['time'].values
             minYear = pd.to_datetime(timeList.min()).strftime('%Y')
             maxYear = pd.to_datetime(timeList.max()).strftime('%Y')
 
             saveFile = '{}/{}/{}_{}-{}.nc'.format(globalVar['outPath'], serviceName, 'landscan-global', minYear, maxYear)
             os.makedirs(os.path.dirname(saveFile), exist_ok=True)
-            dataL4.to_netcdf(saveFile)
+            dataL5.to_netcdf(saveFile)
             log.info('[CHECK] saveFile : {}'.format(saveFile))
 
         except Exception as e:
