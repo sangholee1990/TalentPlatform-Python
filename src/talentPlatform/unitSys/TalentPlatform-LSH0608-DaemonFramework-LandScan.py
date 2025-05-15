@@ -259,32 +259,22 @@ class DtaProcess(object):
 
                 # 파일 읽기
                 fileInfo = fileList[0]
+                data = xr.open_rasterio(fileInfo)
                 log.info(f'[CHECK] fileInfo : {fileInfo}')
-
-                # data = xr.open_rasterio(fileInfo)
-                data = xr.open_rasterio(fileInfo, chunks={"band": 1, "x": 100, "y": 100})
-                # data = xr.open(fileInfo)
-
-                # saveFile = '{}/{}/{}-{}.nc'.format(globalVar['outPath'], serviceName, 'landscan-global-org', sYear)
-                # os.makedirs(os.path.dirname(saveFile), exist_ok=True)
-                # data.to_netcdf(saveFile)
-                # log.info('[CHECK] saveFile : {}'.format(saveFile))
-
-                # dataL1 = data.interp(x=lonList, y=latList, method='nearest')
 
                 dataL1 = data.rio.reproject(proj4326)
                 dataL2 = dataL1.sel(band=1)
                 dataL3 = dataL2.interp(x=lonList, y=latList, method='nearest')
 
                 # 결측값 처리
-                dataL3 = xr.where((dataL1 < 0), np.nan, dataL1)
+                dataL3 = xr.where((dataL3 < 0), np.nan, dataL3)
 
-                lon1D = dataL1['x'].values
-                lat1D = dataL1['y'].values
+                lon1D = dataL3['x'].values
+                lat1D = dataL3['y'].values
 
                 dataL4 = xr.Dataset(
                     {
-                        'landscan': (('time', 'lat', 'lon'), (dataL2.values).reshape(1, len(lat1D), len(lon1D)))
+                        'landscan': (('time', 'lat', 'lon'), (dataL3.values).reshape(1, len(lat1D), len(lon1D)))
                     }
                     , coords={
                         'time': pd.date_range(sYear, periods=1)
