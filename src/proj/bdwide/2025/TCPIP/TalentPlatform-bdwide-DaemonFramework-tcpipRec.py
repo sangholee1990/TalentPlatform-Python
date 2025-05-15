@@ -38,6 +38,7 @@ from sqlalchemy.dialects.mysql import insert as mysql_insert
 from sqlalchemy import create_engine, MetaData, Table, Column, Integer, String, DateTime, Float
 from urllib.parse import quote_plus
 from twisted.internet.error import CannotListenError
+from twisted.protocols.policies import TimeoutMixin
 
 # =================================================
 # 사용자 매뉴얼
@@ -157,7 +158,7 @@ def initArgument(globalVar):
         parser.add_argument(argv)
 
     inParInfo = vars(parser.parse_args())
-    log.info(f"[CHECK] inParInfo : {inParInfo}")
+    log.info(f"inParInfo : {inParInfo}")
 
     # 전역 변수에 할당
     for key, val in inParInfo.items():
@@ -169,7 +170,7 @@ def initArgument(globalVar):
     return globalVar
 
 # 서버측 프로토콜
-class ReceivingProtocol(protocol.Protocol):
+class ReceivingProtocol(protocol.Protocol, TimeoutMixin):
     def __init__(self, sysOptForProtocol):
         self._buffer = b''
         self.sysOpt = sysOptForProtocol
@@ -178,25 +179,34 @@ class ReceivingProtocol(protocol.Protocol):
         peer = self.transport.getPeer()
         self.sysOpt['tcpip']['clientHost'] = peer.host
         self.sysOpt['tcpip']['clientPort'] = peer.port
-        log.info(f"[CHECK] 클라이언트 연결 : {peer.host}:{peer.port}")
+        self.setTimeout(self.sysOpt['tcpip']['timeout'])
+        log.info(f"[{self.sysOpt['tcpip']['clientHost']}][{self.sysOpt['tcpip']['clientPort']}] 클라이언트 연결")
 
     def dataReceived(self, data):
-        # self._buffer += data
-        self._buffer = data
+        self.resetTimeout()
+        self._buffer += data
+        # self._buffer = data
         headerSize = 4
 
-        while len(self._buffer) >= headerSize:
+        log.info(f"[{self.sysOpt['tcpip']['clientHost']}][{self.sysOpt['tcpip']['clientPort']}] 데이터 수신 : {len(self._buffer)} : {data!r}")
+
+        # while len(self._buffer) >= headerSize:
+        while True:
             try:
+                if len(self._buffer) < headerSize:
+                    return
+
                 sof = self._buffer[0]
+                if sof != 0xFF:
+                    log.info(f"잘못된 SOF 수신 : {sof:#02x} 연결 종료")
+                    return
+                    # self.transport.loseConnection()
+                    # return
+
                 msgIdH = self._buffer[1]
                 msgIdL = self._buffer[2]
                 payloadSize = self._buffer[3]
                 msgId = (msgIdH << 8) | msgIdL
-
-                if sof != 0xFF:
-                    log.error(f"[CHECK] 잘못된 SOF 수신: {sof:#02x}. 연결 종료.")
-                    self.transport.loseConnection()
-                    return
 
                 msgSize = headerSize + payloadSize
                 # if not len(self._buffer) >= msgSize:
@@ -207,19 +217,18 @@ class ReceivingProtocol(protocol.Protocol):
                 payload = msgData[headerSize:]
                 self._buffer = self._buffer[msgSize:]
 
-                log.info(f"[CHECK] 데이터 수신 : {len(self._buffer)} : {data!r}")
-                log.info(f"[CHECK] SOF : {sof:#02x}")
-                log.info(f"[CHECK] Msg ID : {msgId:#04x} ({msgId})")
-                log.info(f"[CHECK] Payload Length : {payloadSize}")
-                log.info(f"[CHECK] Payload : {payload!r}")
+                log.info(f"[{self.sysOpt['tcpip']['clientHost']}][{self.sysOpt['tcpip']['clientPort']}] SOF : {sof:#02x}")
+                log.info(f"[{self.sysOpt['tcpip']['clientHost']}][{self.sysOpt['tcpip']['clientPort']}] Msg ID : {msgId:#04x} ({msgId})")
+                log.info(f"[{self.sysOpt['tcpip']['clientHost']}][{self.sysOpt['tcpip']['clientPort']}] Payload Length : {payloadSize}")
+                log.info(f"[{self.sysOpt['tcpip']['clientHost']}][{self.sysOpt['tcpip']['clientPort']}] Payload : {payload!r}")
 
                 self.handleMsg(msgId, payload)
 
             except Exception as e:
-                log.error(f"메시지 처리 오류: {e}")
-                # self._buffer = b''
-                self.transport.loseConnection()
-                return
+                log.error(f"[{self.sysOpt['tcpip']['clientHost']}][{self.sysOpt['tcpip']['clientPort']}] 메시지 처리 오류: {e}")
+                self._buffer = b''
+                # self.transport.loseConnection()
+                # return
 
     def handleMsg(self, msgId, payload):
 
@@ -276,14 +285,14 @@ class ReceivingProtocol(protocol.Protocol):
                 dbData = payloadProc(payload, payloadOpt)
                 dbData['MOD_DATE'] = nowKst
                 isDbProc = dbMergeData(self.sysOpt['mysql']['session'], self.sysOpt['mysql']['table'][f"tbInputData{dbData['YEAR']}"], dbData, pkList=['PRODUCT_SERIAL_NUMBER', 'DATE_TIME'], excList=['YEAR'])
-                log.info(f"[CHECK] isDbProc : {isDbProc} / dbData : {dbData}")
+                log.info(f"[{self.sysOpt['tcpip']['clientHost']}][{self.sysOpt['tcpip']['clientPort']}] isDbProc : {isDbProc} / dbData : {dbData}")
                 resPayload = b'200' if dbData and isDbProc else b'400'
 
         except Exception as e:
             log.error(f"Exception : {e}")
 
         # 반환 포맷
-        log.info(f"[CHECK] msgId : {msgId} / resPayload : {resPayload!r}")
+        log.info(f"[{self.sysOpt['tcpip']['clientHost']}][{self.sysOpt['tcpip']['clientPort']}] msgId : {msgId} / resPayload : {resPayload!r}")
         if msgId in [0x0000, 0x0003]:
             resHeader = self.createHeader(msgId, len(resPayload))
             resMsg = resHeader + resPayload
@@ -299,15 +308,21 @@ class ReceivingProtocol(protocol.Protocol):
         msgIdH = (msg_id >> 8) & 0xFF
         msgIdL = msg_id & 0xFF
         if payloadSize > 255:
-             log.warn(f"페이로드 길이가 255를 초과({payloadSize})하지만 헤더는 1바이트 길이만 지원합니다.")
+             log.warn(f"[{self.sysOpt['tcpip']['clientHost']}][{self.sysOpt['tcpip']['clientPort']}] 페이로드 길이가 255를 초과({payloadSize})하지만 헤더는 1바이트 길이만 지원합니다.")
              payloadSize = 255
 
         header = struct.pack('>BBBB', sof, msgIdH, msgIdL, payloadSize)
         return header
 
     def connectionLost(self, reason):
-        log.info(f"[CHECK] 클라이언트 해제  : {reason.getErrorMessage()}")
+        log.info(f"[{self.sysOpt['tcpip']['clientHost']}][{self.sysOpt['tcpip']['clientPort']}] 클라이언트 해제 : {reason.getErrorMessage()}")
         self._buffer = b''
+
+    def timeoutConnection(self):
+        peer = self.transport.getPeer()
+        log.info(f"[{self.sysOpt['tcpip']['clientHost']}][{self.sysOpt['tcpip']['clientPort']}] 클라이언트 타임아웃")
+        self.transport.loseConnection()
+
 
 # 서버 측 팩토리
 class ReceivingFactory(protocol.Factory):
@@ -319,7 +334,7 @@ class ReceivingFactory(protocol.Factory):
 
     # 신규 연결 시 프로토콜 인스턴스 생성 메서드
     def buildProtocol(self, addr):
-        log.info(f"[CHECK] 프로토콜 인스턴스 생성 : {addr}")
+        log.info(f"프로토콜 인스턴스 생성 : {addr}")
         p = self.protocol(self.sysOpt)
         p.factory = self
         return p
@@ -440,6 +455,7 @@ class DtaProcess(object):
             sysOpt = {
                 'tcpip': {
                     'serverPort': 9999,
+                    'timeout': 30,
                     'clientHost': None,
                     'clientPort': None,
                 },
@@ -493,7 +509,7 @@ class DtaProcess(object):
 
             # TCP 서버 엔드포인트 설정
             endpoint = endpoints.TCP4ServerEndpoint(reactor, sysOpt['tcpip']['serverPort'])
-            log.info(f"[CHECK] TCP 서버 시작 : {sysOpt['tcpip']['serverPort']}")
+            log.info(f"TCP 서버 시작 : {sysOpt['tcpip']['serverPort']}")
 
             # 엔드포인트 리스닝 시작 (팩토리 사용)
             factory = ReceivingFactory(sysOpt)
