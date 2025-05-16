@@ -188,12 +188,12 @@ class ReceivingProtocol(protocol.Protocol, TimeoutMixin):
         self._buffer = data
         headerSize = 4
 
-        while len(self._buffer) >= headerSize:
+        # while len(self._buffer) >= headerSize:
+        while True:
             try:
                 sof = self._buffer[0]
                 if sof != 0xFF:
-                    log.info(f"[{self.sysOpt['tcpip']['clientHost']}][{self.sysOpt['tcpip']['clientPort']}] sof 수신 실패 : {sof:#02x} 연결 종료")
-                    self.transport.loseConnection()
+                    log.info(f"잘못된 SOF 수신 : {sof:#02x} 연결 종료")
                     return
 
                 msgIdH = self._buffer[1]
@@ -234,11 +234,32 @@ class ReceivingProtocol(protocol.Protocol, TimeoutMixin):
         dbMergeData(self.sysOpt['mysql']['session'], self.sysOpt['mysql']['table'][f"tbConnLog"], dbData, pkList=['id'], excList=[])
 
         try:
-            if msgId == 0x0000:
+            if msgId == 0x00:
+                log.info(f"[{self.sysOpt['tcpip']['clientHost']}][{self.sysOpt['tcpip']['clientPort']}] 0x00")
                 resPayload = payload
+            if msgId == 0x0000:
+                log.info(f"[{self.sysOpt['tcpip']['clientHost']}][{self.sysOpt['tcpip']['clientPort']}] 0x0000")
+                resPayload = payload
+            elif msgId == 0x0001:
+                log.info(f"[{self.sysOpt['tcpip']['clientHost']}][{self.sysOpt['tcpip']['clientPort']}] {msgId:#04x} CTRL_REQUEST_FIRMVER")
+            elif msgId == 0x0002:
+                log.info(f"[{self.sysOpt['tcpip']['clientHost']}][{self.sysOpt['tcpip']['clientPort']}] {msgId:#04x} CTRL_REQUEST_FIRMURL")
             elif msgId == 0x0003:
+                log.info(f"[{self.sysOpt['tcpip']['clientHost']}][{self.sysOpt['tcpip']['clientPort']}] {msgId:#04x} GET_SYSTEM_TIME")
                 resPayload = struct.pack('>HBBBBB', nowKst.year, nowKst.month, nowKst.day, nowKst.hour, nowKst.minute, nowKst.second)
+            elif msgId == 0x0008:
+                log.info(f"[{self.sysOpt['tcpip']['clientHost']}][{self.sysOpt['tcpip']['clientPort']}] {msgId:#04x} CTRL_REQUEST_INPUT_DATA")
+            elif msgId == 0x0010:
+                log.info(f"[{self.sysOpt['tcpip']['clientHost']}][{self.sysOpt['tcpip']['clientPort']}] {msgId:#04x} CTRL_REQUEST_MEMBER")
+            elif msgId == 0x0011:
+                log.info(f"[{self.sysOpt['tcpip']['clientHost']}][{self.sysOpt['tcpip']['clientPort']}] {msgId:#04x} CTRL_REQUEST_IOT_PRDCT_AUTH")
+            elif msgId == 0x0012:
+                log.info(f"[{self.sysOpt['tcpip']['clientHost']}][{self.sysOpt['tcpip']['clientPort']}] {msgId:#04x} CTRL_REQUEST_KEPCO_API_AUTH")
+            elif msgId == 0x0013:
+                log.info(f"[{self.sysOpt['tcpip']['clientHost']}][{self.sysOpt['tcpip']['clientPort']}] {msgId:#04x} CTRL_REQUEST_MSG_INFO")
+
             elif msgId == 0x0014:
+                log.info(f"[{self.sysOpt['tcpip']['clientHost']}][{self.sysOpt['tcpip']['clientPort']}] {msgId:#04x} CTRL_REQUEST_OUTPUT_DATA")
                 payloadOpt = [
                     ('YEAR', 'H', 2),
                     ('CUSTOMER_LINK_NUMBER', 'I', 4),
@@ -249,6 +270,7 @@ class ReceivingProtocol(protocol.Protocol, TimeoutMixin):
                 listDbProc = self.sysOpt['mysql']['session'].query(tbOutputData).filter(tbOutputData.c.CUSTOMER_LINK_NUMBER == dbData['CUSTOMER_LINK_NUMBER'], tbOutputData.c.DATE_TIME == dbData['DATE_TIME']).first()
                 resPayload = ",".join(str(item) for item in listDbProc).encode('utf-8')
             elif msgId == 0x0015:
+                log.info(f"[{self.sysOpt['tcpip']['clientHost']}][{self.sysOpt['tcpip']['clientPort']}] {msgId:#04x} CTRL_REQUEST_OUTPUT_STAT_DATA")
                 payloadOpt = [
                     ('YEAR', 'H', 2),
                     ('CUSTOMER_LINK_NUMBER', 'I', 4),
@@ -258,7 +280,12 @@ class ReceivingProtocol(protocol.Protocol, TimeoutMixin):
                 tbOutputStatData = self.sysOpt['mysql']['table'][f"tbOutputStatData{dbData['YEAR']}"]
                 listDbProc = self.sysOpt['mysql']['session'].query(tbOutputStatData).filter(tbOutputStatData.c.CUSTOMER_LINK_NUMBER == dbData['CUSTOMER_LINK_NUMBER'], tbOutputStatData.c.DATE_TIME == dbData['DATE_TIME']).first()
                 resPayload = ",".join(str(item) for item in listDbProc).encode('utf-8')
+            elif msgId == 0x0016:
+                log.info(f"[{self.sysOpt['tcpip']['clientHost']}][{self.sysOpt['tcpip']['clientPort']}] {msgId:#04x} CTRL_REQUEST_SYS_INFO")
+            elif msgId == 0x0017:
+                log.info(f"[{self.sysOpt['tcpip']['clientHost']}][{self.sysOpt['tcpip']['clientPort']}] {msgId:#04x} CTRL_REQUEST_TERMS_COND")
             elif msgId == 0x0030:
+                log.info(f"[{self.sysOpt['tcpip']['clientHost']}][{self.sysOpt['tcpip']['clientPort']}] {msgId:#04x} CTRL_CREATE_INPUT")
                 payloadOpt = [
                     ('YEAR', 'H', 2),
                     ('PRODUCT_SERIAL_NUMBER', 'ascii', 49),
@@ -280,7 +307,24 @@ class ReceivingProtocol(protocol.Protocol, TimeoutMixin):
                 isDbProc = dbMergeData(self.sysOpt['mysql']['session'], self.sysOpt['mysql']['table'][f"tbInputData{dbData['YEAR']}"], dbData, pkList=['PRODUCT_SERIAL_NUMBER', 'DATE_TIME'], excList=['YEAR'])
                 log.info(f"[{self.sysOpt['tcpip']['clientHost']}][{self.sysOpt['tcpip']['clientPort']}] isDbProc : {isDbProc} / dbData : {dbData}")
                 resPayload = b'200' if dbData and isDbProc else b'400'
-
+            elif msgId == 0x0031:
+                log.info(f"[{self.sysOpt['tcpip']['clientHost']}][{self.sysOpt['tcpip']['clientPort']}] {msgId:#04x} CTRL_CREATE_MEMBER")
+            elif msgId == 0x0032:
+                log.info(f"[{self.sysOpt['tcpip']['clientHost']}][{self.sysOpt['tcpip']['clientPort']}] {msgId:#04x} CTRL_CREATE_IOT_PRDCT_AUTH")
+            elif msgId == 0x0033:
+                log.info(f"[{self.sysOpt['tcpip']['clientHost']}][{self.sysOpt['tcpip']['clientPort']}] {msgId:#04x} CTRL_CREATE_KEPCO_API_AUTH")
+            elif msgId == 0x0034:
+                log.info(f"[{self.sysOpt['tcpip']['clientHost']}][{self.sysOpt['tcpip']['clientPort']}] {msgId:#04x} CTRL_CREATE_MSG_INFO")
+            elif msgId == 0x0035:
+                log.info(f"[{self.sysOpt['tcpip']['clientHost']}][{self.sysOpt['tcpip']['clientPort']}] {msgId:#04x} CTRL_CREATE_OUTPUT_DATA")
+            elif msgId == 0x0036:
+                log.info(f"[{self.sysOpt['tcpip']['clientHost']}][{self.sysOpt['tcpip']['clientPort']}] {msgId:#04x} CTRL_CREATE_OUTPUT_STAT_DATA")
+            elif msgId == 0x0037:
+                log.info(f"[{self.sysOpt['tcpip']['clientHost']}][{self.sysOpt['tcpip']['clientPort']}] {msgId:#04x} CTRL_CREATE_SYS_INFO")
+            elif msgId == 0x0038:
+                log.info(f"[{self.sysOpt['tcpip']['clientHost']}][{self.sysOpt['tcpip']['clientPort']}] {msgId:#04x} CTRL_CREATE_TERMS_COND")
+            else:
+                log.info(f"[{self.sysOpt['tcpip']['clientHost']}][{self.sysOpt['tcpip']['clientPort']}] {msgId:#04x} NA")
         except Exception as e:
             log.error(f"Exception : {e}")
 
