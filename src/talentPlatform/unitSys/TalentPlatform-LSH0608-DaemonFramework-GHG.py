@@ -164,8 +164,8 @@ class DtaProcess(object):
     # ================================================================================================
     global env, contextPath, prjName, serviceName, log, globalVar
 
-    # env = 'local'  # 로컬 : 원도우 환경, 작업환경 (현재 소스 코드 환경 시 .) 설정
-    env = 'dev'      # 개발 : 원도우 환경, 작업환경 (사용자 환경 시 contextPath) 설정
+    env = 'local'  # 로컬 : 원도우 환경, 작업환경 (현재 소스 코드 환경 시 .) 설정
+    # env = 'dev'      # 개발 : 원도우 환경, 작업환경 (사용자 환경 시 contextPath) 설정
     # env = 'oper'  # 운영 : 리눅스 환경, 작업환경 (사용자 환경 시 contextPath) 설정
 
     if (platform.system() == 'Windows'):
@@ -212,9 +212,10 @@ class DtaProcess(object):
             if (platform.system() == 'Windows'):
                 pass
             else:
-                globalVar['inpPath'] = '/DATA/INPUT'
-                globalVar['outPath'] = '/DATA/OUTPUT'
-                globalVar['figPath'] = '/DATA/FIG'
+                pass
+                # globalVar['inpPath'] = '/DATA/INPUT'
+                # globalVar['outPath'] = '/DATA/OUTPUT'
+                # globalVar['figPath'] = '/DATA/FIG'
 
             # 옵션 설정
             sysOpt = {
@@ -232,15 +233,10 @@ class DtaProcess(object):
                 , 'latMax': 90
                 , 'latInv': 0.1
 
-                , 'keyList' : ['CO', 'NOx', 'CH4', 'CO2_excl', 'CO2_org', 'N2O', 'NH3', 'NMVOC', 'OC', 'NH3', 'SO2']
+                # , 'keyList' : ['CO', 'NOx', 'CH4', 'CO2_excl', 'CO2_org', 'N2O', 'NH3', 'NMVOC', 'OC', 'NH3', 'SO2']
                 # , 'keyList' : ['CO', 'NOx']
+                , 'keyList': ['N2O', 'GHG', 'CO2', 'CO2bio', 'CH4']
             }
-
-            # N2O
-            # GHG
-            # CO2
-            # CO2bio
-            # CH4
 
             # 도법 설정
             proj4326 = 'epsg:4326'
@@ -251,7 +247,6 @@ class DtaProcess(object):
 
             log.info("[CHECK] len(lonList) : {len(lonList)}")
             log.info("[CHECK] len(latList) : {len(latList)}")
-
 
             dtSrtDate = pd.to_datetime(sysOpt['srtDate'], format='%Y-%m-%d')
             dtEndDate = pd.to_datetime(sysOpt['endDate'], format='%Y-%m-%d')
@@ -270,31 +265,37 @@ class DtaProcess(object):
                     fileList = sorted(glob.glob(inpFile))
 
                     if fileList is None or len(fileList) < 1:
-                        log.error('[ERROR] inpFile : {} / {}'.format(inpFile, '입력 자료를 확인해주세요.'))
+                        log.error(f"파일 없음 : {inpFile}")
                         continue
 
                     fileInfo = fileList[0]
-                    log.info('[CHECK] fileInfo : {}'.format(fileInfo))
+                    log.info(f'[CHECK] fileInfo : {fileInfo}')
 
                     # fileNameNoExt = os.path.basename(fileInfo).split('.nc')[0]
-                    data = xr.open_mfdataset(fileInfo)
+                    # data = xr.open_mfdataset(fileInfo)
+                    data = xr.open_rasterio(fileInfo)
 
                     # 경도 변환 (0~360 to -180~180)
-                    data.coords['lon'] = (data.coords['lon'] + 180) % 360 - 180
-                    data = data.sortby(data.lon)
+                    # data.coords['lon'] = (data.coords['lon'] + 180) % 360 - 180
+                    # data = data.sortby(data.lon)
 
-                    dataL1 = data.interp(lon=lonList, lat=latList, method='linear')
+                    # dataL1 = data.interp(lon=lonList, lat=latList, method='linear')
+                    dataL1 = data.sel(band=1).interp(x=lonList, y=latList, method='linear')
 
-                    varInfo = list(dataL1.data_vars)[0]
+                    # varInfo = list(dataL1.data_vars)[0]
+                    varInfo = keyInfo
 
                     # 자료 변환
-                    lon1D = dataL1['lon'].values
-                    lat1D = dataL1['lat'].values
+                    # lon1D = dataL1['lon'].values
+                    # lat1D = dataL1['lat'].values
+                    lon1D = dataL1['x'].values
+                    lat1D = dataL1['y'].values
                     time1D = pd.to_datetime(sYear, format='%Y')
 
                     dataL2 = xr.Dataset(
                         {
-                            varInfo : (('time', 'lat', 'lon'), (dataL1[varInfo].values).reshape(1, len(lat1D), len(lon1D)))
+                            # varInfo : (('time', 'lat', 'lon'), (dataL1[varInfo].values).reshape(1, len(lat1D), len(lon1D)))
+                            varInfo : (('time', 'lat', 'lon'), (dataL1.values).reshape(1, len(lat1D), len(lon1D)))
                         }
                         , coords={
                             'time': pd.date_range(time1D, periods=1)
@@ -303,8 +304,8 @@ class DtaProcess(object):
                         }
                     )
 
-                    dataL2['emi_co'].plot()
-                    plt.show()
+                    # dataL2['N2O'].plot()
+                    # plt.show()
 
                     dataL3 = xr.merge([dataL3, dataL2])
 

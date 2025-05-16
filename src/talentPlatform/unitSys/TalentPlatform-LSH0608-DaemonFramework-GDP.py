@@ -165,8 +165,8 @@ class DtaProcess(object):
     # ================================================================================================
     global env, contextPath, prjName, serviceName, log, globalVar
 
-    # env = 'local'  # 로컬 : 원도우 환경, 작업환경 (현재 소스 코드 환경 시 .) 설정
-    env = 'dev'      # 개발 : 원도우 환경, 작업환경 (사용자 환경 시 contextPath) 설정
+    env = 'local'  # 로컬 : 원도우 환경, 작업환경 (현재 소스 코드 환경 시 .) 설정
+    # env = 'dev'      # 개발 : 원도우 환경, 작업환경 (사용자 환경 시 contextPath) 설정
     # env = 'oper'  # 운영 : 리눅스 환경, 작업환경 (사용자 환경 시 contextPath) 설정
 
     if (platform.system() == 'Windows'):
@@ -213,9 +213,10 @@ class DtaProcess(object):
             if (platform.system() == 'Windows'):
                 pass
             else:
-                globalVar['inpPath'] = '/DATA/INPUT'
-                globalVar['outPath'] = '/DATA/OUTPUT'
-                globalVar['figPath'] = '/DATA/FIG'
+                pass
+                # globalVar['inpPath'] = '/DATA/INPUT'
+                # globalVar['outPath'] = '/DATA/OUTPUT'
+                # globalVar['figPath'] = '/DATA/FIG'
 
             # 옵션 설정
             sysOpt = {
@@ -224,20 +225,14 @@ class DtaProcess(object):
                 , 'endDate': '2022-01-01'
 
                 # 경도 최소/최대/간격
-                # , 'lonMin': -180
-                # , 'lonMax': 180
-                # , 'lonInv': 0.1
-                , 'lonMin': 120
-                , 'lonMax': 130
-                , 'lonInv': 1
+                , 'lonMin': -180
+                , 'lonMax': 180
+                , 'lonInv': 0.1
 
                 # 위도 최소/최대/간격
-                # , 'latMin': -90
-                # , 'latMax': 90
-                # , 'latInv': 0.1
-                , 'latMin': 30
-                , 'latMax': 40
-                , 'latInv': 1
+                , 'latMin': -90
+                , 'latMax': 90
+                , 'latInv': 0.1
             }
 
             # 도법 설정
@@ -255,69 +250,28 @@ class DtaProcess(object):
             dtIncDateList = pd.date_range(start=dtSrtDate, end=dtEndDate, freq='1Y')
             # dtIncDateInfo = dtIncDateList[0]
 
-            # /HDD/DATA/INPUT/LSH0608/GDP/rast_gdpTot_1990_2020_30arcsec.tif
+            inpFilePattern = '{}'.format('GDP/rast_adm2_gdp_perCapita_1990_2022.tif')
+            inpFile = '{}/{}/{}'.format(globalVar['inpPath'], serviceName, inpFilePattern)
+            fileList = sorted(glob.glob(inpFile))
 
-            # data = xr.open_dataset('/HDD/DATA/INPUT/LSH0608/GDP/rast_gdpTot_1990_2020_30arcsec.tif')
-            # data = xr.open_dataset('/HDD/DATA/INPUT/LSH0608/GDP/rast_adm2_gdp_perCapita_1990_2022.tif')
-
+            if len(fileList) < 1: 
+                raise Exception(f"파일 없음 : {inpFile}")
+            fileInfo = fileList[0]
+            
             # 세부 adm2, 1990~2022 연도
-            data = xr.open_rasterio('/HDD/DATA/INPUT/LSH0608/GDP/rast_adm2_gdp_perCapita_1990_2022.tif', chunks={"band": 1, "x": 100, "y": 100})
-            # dd = data.sel(band=1)
-
+            data = xr.open_rasterio(fileInfo)
+            
             descList = data.attrs['descriptions']
-            # range(1, len(descList))
+            dataL5 = xr.Dataset()
             for idx, desc in enumerate(descList):
                 log.info(f"[CHECK] idx : {idx} / desc : {desc}")
 
                 dtDateInfo = pd.to_datetime(desc, format='gdp_pc_%Y')
                 sYear = dtDateInfo.strftime('%Y')
 
-                dd = data.isel(band=idx)
-            #
-            # dataL1 = dd.rio.reproject(proj4326)
-            # dataL3 = dataL1.interp(x=lonList, y=latList, method='nearest')
-            #
-            # dataL3.plot()
-            # plt.show()
-            #
-            # dataL3.values
+                dataL1 = data.isel(band=idx)
 
-
-            # dataL1.plot()
-            # plt.show()
-
-
-            # dataL1 = data.rio.reproject(proj4326)
-            # dataL2 = dataL1.sel(band=1)
-            # dataL2 = data.sel(band=1)
-
-            dataL5 = xr.Dataset()
-            for j, dtIncDateInfo in enumerate(dtIncDateList):
-                log.info(f"[CHECK] dtIncDateInfo : {dtIncDateInfo}")
-                sYear = dtIncDateInfo.strftime('%Y')
-
-                saveFile = '{}/{}/{}-{}.nc'.format(globalVar['outPath'], serviceName, 'GDP', sYear)
-                fileChkList = glob.glob(saveFile)
-                if (len(fileChkList) > 0): continue
-
-                # inpFilePattern = '{}/CarbonMonitor_*{}*_y{}_m{}.nc'.format(serviceName, keyInfo, dtYear, dtMonth)
-                # inpFilePattern = '{1:s}/{0:s}/{0:s}{1:s}.tif'.format(sYear, 'GDP')
-                inpFilePattern = '{1:s}/{0:s}{1:s}.tif'.format(sYear, 'GDP')
-                inpFile = '{}/{}/{}'.format(globalVar['inpPath'], serviceName, inpFilePattern)
-                fileList = sorted(glob.glob(inpFile))
-
-                if (len(fileList) < 1): continue
-
-                fileInfo = fileList[0]
-
-                # 파일 읽기
-                # data = xr.open_rasterio(fileInfo)
-                data = xr.open_rasterio(fileInfo, chunks={"band": 1, "x": 500, "y": 500})
-
-                # proj4326 도법 변환
-                dataL1 = data.rio.reproject(proj4326)
-                dataL2 = dataL1.sel(band = 1)
-
+                dataL2 = dataL1.rio.reproject(proj4326)
                 dataL3 = dataL2.interp(x=lonList, y=latList, method='nearest')
 
                 # 결측값 처리
@@ -337,33 +291,10 @@ class DtaProcess(object):
                     }
                 )
 
-                # if (len(dataL5) < 1):
-                #     dataL5 = dataL4
-                # else:
-                #     dataL5 = xr.concat([dataL5, dataL4], "time")
-
-                os.makedirs(os.path.dirname(saveFile), exist_ok=True)
-                dataL4.to_netcdf(saveFile)
-                log.info(f'[CHECK] saveFile : {saveFile}')
-
-                # 데이터셋 닫기 및 메모리에서 제거
-                data.close()
-                del data
-                dataL1.close()
-                del dataL1
-                dataL2.close()
-                del dataL2
-                dataL3.close()
-                del dataL3
-                dataL4.close()
-                del dataL4
-
-                # 가비지 수집기 강제 실행
-                gc.collect()
-
-            inpFile = '{}/{}/{}'.format(globalVar['outPath'], serviceName, 'GDP-????.nc')
-            fileList = sorted(glob.glob(inpFile))
-            dataL5 = xr.open_mfdataset(fileList)
+                if len(dataL5) < 1:
+                    dataL5 = dataL4
+                else:
+                    dataL5 = xr.concat([dataL5, dataL4], "time")
 
             timeList = dataL5['time'].values
             minYear = pd.to_datetime(timeList.min()).strftime('%Y')
@@ -372,7 +303,90 @@ class DtaProcess(object):
             saveFile = '{}/{}/{}_{}-{}.nc'.format(globalVar['outPath'], serviceName, 'GDP', minYear, maxYear)
             os.makedirs(os.path.dirname(saveFile), exist_ok=True)
             dataL5.to_netcdf(saveFile)
-            log.info('[CHECK] saveFile : {}'.format(saveFile))
+            log.info(f'[CHECK] saveFile : {saveFile}')
+
+            # dataL5 = xr.Dataset()
+            # for j, dtIncDateInfo in enumerate(dtIncDateList):
+            #     log.info(f"[CHECK] dtIncDateInfo : {dtIncDateInfo}")
+            #     sYear = dtIncDateInfo.strftime('%Y')
+            # 
+            #     saveFile = '{}/{}/{}-{}.nc'.format(globalVar['outPath'], serviceName, 'GDP', sYear)
+            #     fileChkList = glob.glob(saveFile)
+            #     if (len(fileChkList) > 0): continue
+            # 
+            #     # inpFilePattern = '{}/CarbonMonitor_*{}*_y{}_m{}.nc'.format(serviceName, keyInfo, dtYear, dtMonth)
+            #     # inpFilePattern = '{1:s}/{0:s}/{0:s}{1:s}.tif'.format(sYear, 'GDP')
+            #     inpFilePattern = '{1:s}/{0:s}{1:s}.tif'.format(sYear, 'GDP')
+            #     inpFile = '{}/{}/{}'.format(globalVar['inpPath'], serviceName, inpFilePattern)
+            #     fileList = sorted(glob.glob(inpFile))
+            # 
+            #     if (len(fileList) < 1): continue
+            # 
+            #     fileInfo = fileList[0]
+            # 
+            #     # 파일 읽기
+            #     # data = xr.open_rasterio(fileInfo)
+            #     data = xr.open_rasterio(fileInfo, chunks={"band": 1, "x": 500, "y": 500})
+            # 
+            #     # proj4326 도법 변환
+            #     dataL1 = data.rio.reproject(proj4326)
+            #     dataL2 = dataL1.sel(band = 1)
+            # 
+            #     dataL3 = dataL2.interp(x=lonList, y=latList, method='nearest')
+            # 
+            #     # 결측값 처리
+            #     dataL3 = xr.where((dataL3 < 0), np.nan, dataL3)
+            # 
+            #     lon1D = dataL3['x'].values
+            #     lat1D = dataL3['y'].values
+            # 
+            #     dataL4 = xr.Dataset(
+            #         {
+            #             'GDP': (('time', 'lat', 'lon'), (dataL3.values).reshape(1, len(lat1D), len(lon1D)))
+            #         }
+            #         , coords={
+            #             'time': pd.date_range(sYear, periods=1)
+            #             , 'lat': lat1D
+            #             , 'lon': lon1D
+            #         }
+            #     )
+            # 
+            #     # if (len(dataL5) < 1):
+            #     #     dataL5 = dataL4
+            #     # else:
+            #     #     dataL5 = xr.concat([dataL5, dataL4], "time")
+            # 
+            #     os.makedirs(os.path.dirname(saveFile), exist_ok=True)
+            #     dataL4.to_netcdf(saveFile)
+            #     log.info(f'[CHECK] saveFile : {saveFile}')
+            # 
+            #     # 데이터셋 닫기 및 메모리에서 제거
+            #     data.close()
+            #     del data
+            #     dataL1.close()
+            #     del dataL1
+            #     dataL2.close()
+            #     del dataL2
+            #     dataL3.close()
+            #     del dataL3
+            #     dataL4.close()
+            #     del dataL4
+            # 
+            #     # 가비지 수집기 강제 실행
+            #     gc.collect()
+
+            # inpFile = '{}/{}/{}'.format(globalVar['outPath'], serviceName, 'GDP-????.nc')
+            # fileList = sorted(glob.glob(inpFile))
+            # dataL5 = xr.open_mfdataset(fileList)
+            #
+            # timeList = dataL5['time'].values
+            # minYear = pd.to_datetime(timeList.min()).strftime('%Y')
+            # maxYear = pd.to_datetime(timeList.max()).strftime('%Y')
+            #
+            # saveFile = '{}/{}/{}_{}-{}.nc'.format(globalVar['outPath'], serviceName, 'GDP', minYear, maxYear)
+            # os.makedirs(os.path.dirname(saveFile), exist_ok=True)
+            # dataL5.to_netcdf(saveFile)
+            # log.info('[CHECK] saveFile : {}'.format(saveFile))
 
         except Exception as e:
             log.error("Exception : {}".format(e))

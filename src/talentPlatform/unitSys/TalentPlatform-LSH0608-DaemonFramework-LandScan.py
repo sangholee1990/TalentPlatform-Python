@@ -208,9 +208,10 @@ class DtaProcess(object):
             if (platform.system() == 'Windows'):
                 pass
             else:
-                globalVar['inpPath'] = '/DATA/INPUT'
-                globalVar['outPath'] = '/DATA/OUTPUT'
-                globalVar['figPath'] = '/DATA/FIG'
+                pass
+                # globalVar['inpPath'] = '/DATA/INPUT'
+                # globalVar['outPath'] = '/DATA/OUTPUT'
+                # globalVar['figPath'] = '/DATA/FIG'
 
             # 옵션 설정
             sysOpt = {
@@ -219,20 +220,14 @@ class DtaProcess(object):
                 , 'endDate': '2022-01-01'
 
                 # 경도 최소/최대/간격
-                # , 'lonMin': -180
-                # , 'lonMax': 180
-                # , 'lonInv': 0.1
-                , 'lonMin': 120
-                , 'lonMax': 130
-                , 'lonInv': 1
+                , 'lonMin': -180
+                , 'lonMax': 180
+                , 'lonInv': 0.1
 
                 # 위도 최소/최대/간격
-                # , 'latMin': -90
-                # , 'latMax': 90
-                # , 'latInv': 0.1
-                , 'latMin': 30
-                , 'latMax': 40
-                , 'latInv': 1
+                , 'latMin': -90
+                , 'latMax': 90
+                , 'latInv': 0.1
             }
 
             # 도법 설정
@@ -264,32 +259,22 @@ class DtaProcess(object):
 
                 # 파일 읽기
                 fileInfo = fileList[0]
+                data = xr.open_rasterio(fileInfo)
                 log.info(f'[CHECK] fileInfo : {fileInfo}')
-
-                # data = xr.open_rasterio(fileInfo)
-                data = xr.open_rasterio(fileInfo, chunks={"band": 1, "x": 100, "y": 100})
-                # data = xr.open(fileInfo)
-
-                # saveFile = '{}/{}/{}-{}.nc'.format(globalVar['outPath'], serviceName, 'landscan-global-org', sYear)
-                # os.makedirs(os.path.dirname(saveFile), exist_ok=True)
-                # data.to_netcdf(saveFile)
-                # log.info('[CHECK] saveFile : {}'.format(saveFile))
-
-                # dataL1 = data.interp(x=lonList, y=latList, method='nearest')
 
                 dataL1 = data.rio.reproject(proj4326)
                 dataL2 = dataL1.sel(band=1)
                 dataL3 = dataL2.interp(x=lonList, y=latList, method='nearest')
 
                 # 결측값 처리
-                dataL3 = xr.where((dataL1 < 0), np.nan, dataL1)
+                dataL3 = xr.where((dataL3 < 0), np.nan, dataL3)
 
-                lon1D = dataL1['x'].values
-                lat1D = dataL1['y'].values
+                lon1D = dataL3['x'].values
+                lat1D = dataL3['y'].values
 
                 dataL4 = xr.Dataset(
                     {
-                        'landscan': (('time', 'lat', 'lon'), (dataL2.values).reshape(1, len(lat1D), len(lon1D)))
+                        'landscan': (('time', 'lat', 'lon'), (dataL3.values).reshape(1, len(lat1D), len(lon1D)))
                     }
                     , coords={
                         'time': pd.date_range(sYear, periods=1)
