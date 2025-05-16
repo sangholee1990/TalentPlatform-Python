@@ -174,6 +174,8 @@ class ReceivingProtocol(protocol.Protocol, TimeoutMixin):
     def __init__(self, sysOptForProtocol):
         self._buffer = b''
         self.sysOpt = sysOptForProtocol
+        self.sysOpt['tcpip']['clientHost'] = None
+        self.sysOpt['tcpip']['clientPort'] = None
 
     def connectionMade(self):
         peer = self.transport.getPeer()
@@ -184,16 +186,17 @@ class ReceivingProtocol(protocol.Protocol, TimeoutMixin):
 
     def dataReceived(self, data):
         self.resetTimeout()
-        # self._buffer += data
-        self._buffer = data
+        self._buffer += data
+        # self._buffer = data
         headerSize = 4
 
-        # while len(self._buffer) >= headerSize:
-        while True:
+        while len(self._buffer) >= headerSize:
+        # while True:
             try:
                 sof = self._buffer[0]
                 if sof != 0xFF:
-                    log.info(f"잘못된 SOF 수신 : {sof:#02x} 연결 종료")
+                    log.info(f"[{self.sysOpt['tcpip']['clientHost']}][{self.sysOpt['tcpip']['clientPort']}] 잘못된 SOF 수신 : {sof:#02x} 연결 종료")
+                    self.transport.loseConnection()
                     return
 
                 msgIdH = self._buffer[1]
@@ -202,28 +205,32 @@ class ReceivingProtocol(protocol.Protocol, TimeoutMixin):
                 msgId = (msgIdH << 8) | msgIdL
 
                 msgSize = headerSize + payloadSize
-                # if not len(self._buffer) >= msgSize:
-                #     log.info(f"[Server] 메시지 일부 수신. Payload 길이({payloadSize}), 현재 버퍼({len(self._buffer)}). 대기 중...")
-                #     break
 
+                # 전체 메시지 대기
+                if len(self._buffer) < msgSize:
+                    log.info(f"[{self.sysOpt['tcpip']['clientHost']}][{self.sysOpt['tcpip']['clientPort']}] 메시지 일부 수신 : Payload 길이 ({payloadSize}), 현재 버퍼 ({len(self._buffer)}). 대기 중")
+                    break
+
+                # 전체 메시지 추출
+                orgBuffer = self._buffer
                 msgData = self._buffer[:msgSize]
                 payload = msgData[headerSize:]
                 self._buffer = self._buffer[msgSize:]
 
+                log.info(f"[{self.sysOpt['tcpip']['clientHost']}][{self.sysOpt['tcpip']['clientPort']}] orgBuffer : {orgBuffer}")
                 log.info(f"[{self.sysOpt['tcpip']['clientHost']}][{self.sysOpt['tcpip']['clientPort']}] SOF : {sof:#02x}")
                 log.info(f"[{self.sysOpt['tcpip']['clientHost']}][{self.sysOpt['tcpip']['clientPort']}] Msg ID : {msgId:#04x} ({msgId})")
                 log.info(f"[{self.sysOpt['tcpip']['clientHost']}][{self.sysOpt['tcpip']['clientPort']}] Payload Length : {payloadSize}")
                 log.info(f"[{self.sysOpt['tcpip']['clientHost']}][{self.sysOpt['tcpip']['clientPort']}] Payload : {payload!r}")
 
-                self.handleMsg(msgId, payload)
+                self.handleMsg(msgId, payload, orgBuffer)
 
             except Exception as e:
                 log.error(f"[{self.sysOpt['tcpip']['clientHost']}][{self.sysOpt['tcpip']['clientPort']}] 메시지 처리 오류: {e}")
-                self._buffer = b''
                 self.transport.loseConnection()
                 return
 
-    def handleMsg(self, msgId, payload):
+    def handleMsg(self, msgId, payload, buffer):
 
         # 가공 포맷
         resPayload = b'404'
@@ -236,8 +243,9 @@ class ReceivingProtocol(protocol.Protocol, TimeoutMixin):
         try:
             if msgId == 0x00:
                 log.info(f"[{self.sysOpt['tcpip']['clientHost']}][{self.sysOpt['tcpip']['clientPort']}] 0x00")
-                resPayload = payload
-            if msgId == 0x0000:
+                # resPayload = payload
+                resPayload = buffer
+            elif msgId == 0x0000:
                 log.info(f"[{self.sysOpt['tcpip']['clientHost']}][{self.sysOpt['tcpip']['clientPort']}] 0x0000")
                 resPayload = payload
             elif msgId == 0x0001:
@@ -249,6 +257,19 @@ class ReceivingProtocol(protocol.Protocol, TimeoutMixin):
                 resPayload = struct.pack('>HBBBBB', nowKst.year, nowKst.month, nowKst.day, nowKst.hour, nowKst.minute, nowKst.second)
             elif msgId == 0x0008:
                 log.info(f"[{self.sysOpt['tcpip']['clientHost']}][{self.sysOpt['tcpip']['clientPort']}] {msgId:#04x} CTRL_REQUEST_INPUT_DATA")
+                payloadOpt = [
+                    ('YEAR', 'H', 2),
+                    ('DATE_TIME', 'ascii', 19),
+                    ('PRODUCT_SERIAL_NUMBER', 'ascii', 21),
+                ]
+                dbData = payloadProc(payload, payloadOpt)
+                tbInputData = self.sysOpt['mysql']['table'][f"tbInputData{dbData['YEAR']}"]
+                listDbProc = self.sysOpt['mysql']['session'].query(tbInputData).filter(
+                    tbInputData.c.PRODUCT_SERIAL_NUMBER == dbData['PRODUCT_SERIAL_NUMBER'],
+                    tbInputData.c.DATE_TIME == dbData['DATE_TIME']
+                ).first()
+                resPayload = ",".join(str(item) for item in listDbProc).encode('utf-8')
+
             elif msgId == 0x0010:
                 log.info(f"[{self.sysOpt['tcpip']['clientHost']}][{self.sysOpt['tcpip']['clientPort']}] {msgId:#04x} CTRL_REQUEST_MEMBER")
             elif msgId == 0x0011:
