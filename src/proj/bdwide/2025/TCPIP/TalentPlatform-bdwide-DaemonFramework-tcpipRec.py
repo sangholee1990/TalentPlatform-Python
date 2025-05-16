@@ -184,24 +184,17 @@ class ReceivingProtocol(protocol.Protocol, TimeoutMixin):
 
     def dataReceived(self, data):
         self.resetTimeout()
-        self._buffer += data
-        # self._buffer = data
+        # self._buffer += data
+        self._buffer = data
         headerSize = 4
 
-        log.info(f"[{self.sysOpt['tcpip']['clientHost']}][{self.sysOpt['tcpip']['clientPort']}] 데이터 수신 : {len(self._buffer)} : {data!r}")
-
-        # while len(self._buffer) >= headerSize:
-        while True:
+        while len(self._buffer) >= headerSize:
             try:
-                if len(self._buffer) < headerSize:
-                    return
-
                 sof = self._buffer[0]
                 if sof != 0xFF:
-                    log.info(f"잘못된 SOF 수신 : {sof:#02x} 연결 종료")
+                    log.info(f"[{self.sysOpt['tcpip']['clientHost']}][{self.sysOpt['tcpip']['clientPort']}] sof 수신 실패 : {sof:#02x} 연결 종료")
+                    self.transport.loseConnection()
                     return
-                    # self.transport.loseConnection()
-                    # return
 
                 msgIdH = self._buffer[1]
                 msgIdL = self._buffer[2]
@@ -227,8 +220,8 @@ class ReceivingProtocol(protocol.Protocol, TimeoutMixin):
             except Exception as e:
                 log.error(f"[{self.sysOpt['tcpip']['clientHost']}][{self.sysOpt['tcpip']['clientPort']}] 메시지 처리 오류: {e}")
                 self._buffer = b''
-                # self.transport.loseConnection()
-                # return
+                self.transport.loseConnection()
+                return
 
     def handleMsg(self, msgId, payload):
 
@@ -318,9 +311,9 @@ class ReceivingProtocol(protocol.Protocol, TimeoutMixin):
         log.info(f"[{self.sysOpt['tcpip']['clientHost']}][{self.sysOpt['tcpip']['clientPort']}] 클라이언트 해제 : {reason.getErrorMessage()}")
         self._buffer = b''
 
-    def timeoutConnection(self):
-        log.info(f"[{self.sysOpt['tcpip']['clientHost']}][{self.sysOpt['tcpip']['clientPort']}] 클라이언트 타임아웃")
-        self.transport.loseConnection()
+    # def timeoutConnection(self):
+    #     log.info(f"[{self.sysOpt['tcpip']['clientHost']}][{self.sysOpt['tcpip']['clientPort']}] 클라이언트 타임아웃")
+    #     self.transport.loseConnection()
 
 # 서버 측 팩토리
 class ReceivingFactory(protocol.Factory):
