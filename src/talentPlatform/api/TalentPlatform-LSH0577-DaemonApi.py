@@ -105,7 +105,6 @@ import asyncio
 from fastapi import FastAPI
 import socket
 import json
-
 from google.cloud import bigquery
 from google.oauth2 import service_account
 import db_dtypes
@@ -113,6 +112,7 @@ import db_dtypes
 from fastapi.responses import RedirectResponse
 from fastapi import FastAPI, HTTPException, Query, Depends
 from fastapi.middleware.cors import CORSMiddleware
+import pandas as pd
 
 # ============================================
 # 유틸리티 함수
@@ -1265,7 +1265,7 @@ def selPrd(
 def selInfra(
         lon: float = Query(127.10, description="특정 경도")
         , lat: float = Query(37.46, description="특정 위도")
-        , distKm: float = Query(0.1, description="특정 경위도를 기준으로 거리 km")
+        , distKm: float = Query(1, description="특정 경위도를 기준으로 거리 km")
         , limit: int = Query(10, description="1쪽당 개수")
         , page: int = Query(1, description="현재 쪽")
         , sort: str = Query(None, description="정렬")
@@ -1277,7 +1277,7 @@ def selInfra(
     테스트\n
         특정 경도: 127.10\n
         특정 위도: 37.46\n
-        특정 경위도를 기준으로 거리 km: 0.1 km = 100 m\n
+        특정 경위도를 기준으로 거리 km: 1 km = 1000 m\n
         1쪽당 개수: 10\n
         현재 쪽: 1\n
         정렬 (컬럼|차순, 컬럼|차순, ...): distKm|desc\n
@@ -1301,7 +1301,7 @@ def selInfra(
         #     condList.append(f"({' OR '.join(sggCond)})")
 
         if lon and lat and distKm:
-            condList.append(f"ST_DISTANCE(ST_GEOGPOINT(p_x, p_y), ST_GEOGPOINT({lon}, {lat})) <= {distKm * 1000}")
+            condList.append(f"ST_DISTANCE(ST_GEOGPOINT(p_x, p_y), ST_GEOGPOINT({lon}, {lat})) / 1000 <= {distKm}")
 
         if condList:
             condSql = " WHERE " + " AND ".join(condList)
@@ -1343,12 +1343,20 @@ def selInfra(
         if fileList is None or len(fileList) < 1:
             return resResponse("fail", 400, f"검색 결과가 없습니다.", None)
 
+        data = pd.DataFrame(fileList)
+        fileDict = {}
+        cntDict = {}
+        for cate in ['편의시설', '교육', '주거환경', '교통']:
+            dataL1 = data.loc[data['category'] == cate]
+            fileDict[cate] = dataL1.to_dict(orient='records')
+            cntDict[cate] = len(fileDict[cate])
+
         cntQuery = client.query(cntSql)
         cntRes = cntQuery.result()
         cntList = [dict(row) for row in cntRes]
         cnt = cntList[0]['cnt']
 
-        return resResponse("succ", 200, "처리 완료", cnt, len(fileList), fileList)
+        return resResponse("succ", 200, "처리 완료", cnt, cntDict, fileDict)
 
     except Exception as e:
         log.error(f'Exception : {e}')
