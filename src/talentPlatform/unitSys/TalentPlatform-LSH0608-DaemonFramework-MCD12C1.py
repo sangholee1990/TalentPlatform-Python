@@ -364,7 +364,7 @@ class DtaProcess(object):
             minYear = pd.to_datetime(timeList.min()).strftime('%Y')
             maxYear = pd.to_datetime(timeList.max()).strftime('%Y')
 
-            saveFile = '{}/{}/{}_{}-{}.nc'.format(globalVar['outPath'], serviceName, 'MCD12C1-Stat', minYear, maxYear)
+            saveFile = '{}/{}/{}_{}-{}.nc'.format(globalVar['outPath'], serviceName, 'Land_Cover_Type_1_Percent', minYear, maxYear)
             os.makedirs(os.path.dirname(saveFile), exist_ok=True)
             dataL5.to_netcdf(saveFile)
             log.info('[CHECK] saveFile : {}'.format(saveFile))
