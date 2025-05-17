@@ -321,64 +321,64 @@ class DtaProcess(object):
                 # **********************************************************************************************************
                 # 피어슨 상관계수 계산
                 # **********************************************************************************************************
-                # for i, typeInfo in enumerate(sysOpt['typeList']):
-                #     for j, keyInfo in enumerate(sysOpt['keyList']):
-                #         log.info(f'[CHECK] typeInfo : {typeInfo} / keyInfo : {keyInfo}')
-                #
-                #         saveFile = '{}/{}/{}/{}_{}_{}_{}.nc'.format(globalVar['outPath'], serviceName, 'CORR', dateInfo, 'corr', typeInfo, keyInfo)
-                #         # if len(glob.glob(saveFile)) > 0: continue
-                #
-                #         var1 = data[typeInfo]
-                #         var2 = data[keyInfo]
-                #
-                #         # np.nanmin(var1)
-                #         # np.nanmax(var1)
-                #
-                #         # np.nanmin(var2)
-                #         # np.nanmax(var2)
-                #
-                #         cov = ((var1 - var1.mean(dim='time', skipna=True)) * (var2 - var2.mean(dim='time', skipna=True))).mean(dim='time', skipna=True)
-                #         stdVar1 = var1.std(dim='time', skipna=True)
-                #         stdVar2 = var2.std(dim='time', skipna=True)
-                #
-                #         # 0값일 경우 결측값 처리
-                #         stdVar1 = xr.where((stdVar1 == 0), np.nan, stdVar1)
-                #         stdVar2 = xr.where((stdVar2 == 0), np.nan, stdVar2)
-                #
-                #         peaCorr = cov / (stdVar1 * stdVar2)
-                #         peaCorr = peaCorr.rename(f'{typeInfo}_{keyInfo}')
-                #
-                #         # 0값일 경우 결측값 처리
-                #         peaCorr = xr.where(peaCorr > 1, np.nan, peaCorr)
-                #         peaCorr = xr.where(peaCorr < -1, np.nan, peaCorr)
-                #
-                #         # log.info(f'min ~ max : {np.nanmin(peaCorr)} ~ {np.nanmax(peaCorr)}')
-                #
-                #         # EC, CO
-                #         # 6480000만개 중에서 134개 발생
-                #         # dd = peaCorr.to_dataframe().reset_index(drop=False)
-                #         # filtered_df = dd[(dd['EC_emi_co'] > 1) | (dd['EC_emi_co'] < -1)]
-                #         # -16.20000,123.60000,-1.80950
-                #
-                #         saveImg = '{}/{}/{}/{}_{}_{}_{}.png'.format(globalVar['figPath'], serviceName, 'CORR', dateInfo, 'corr', typeInfo, keyInfo)
-                #         os.makedirs(os.path.dirname(saveImg), exist_ok=True)
-                #         peaCorr.plot(vmin=-1.0, vmax=1.0)
-                #         plt.savefig(saveImg, dpi=600, bbox_inches='tight', transparent=True)
-                #         plt.tight_layout()
-                #         # plt.show()
-                #         plt.close()
-                #         log.info(f'[CHECK] saveImg : {saveImg}')
-                #
-                #         os.makedirs(os.path.dirname(saveFile), exist_ok=True)
-                #         peaCorr.to_netcdf(saveFile)
-                #         log.info(f'[CHECK] saveFile : {saveFile}')
-                #
-                #         # 데이터셋 닫기 및 메모리에서 제거
-                #         # var1.close(), var2.close(), cov.close(), stdVar1.close(), stdVar2.close(), peaCorr.close()
-                #         # del var1, var2, cov, stdVar1, stdVar2, peaCorr
-                #
-                #         # 가비지 수집기 강제 실행
-                #         # gc.collect()
+                for i, typeInfo in enumerate(sysOpt['typeList']):
+                    for j, keyInfo in enumerate(sysOpt['keyList']):
+                        log.info(f'[CHECK] typeInfo : {typeInfo} / keyInfo : {keyInfo}')
+
+                        saveFile = '{}/{}/{}/{}_{}_{}_{}.nc'.format(globalVar['outPath'], serviceName, 'CORR', dateInfo, 'corr', typeInfo, keyInfo)
+                        if len(glob.glob(saveFile)) > 0: continue
+
+                        var1 = data[typeInfo]
+                        var2 = data[keyInfo]
+
+                        # np.nanmin(var1)
+                        # np.nanmax(var1)
+
+                        # np.nanmin(var2)
+                        # np.nanmax(var2)
+
+                        cov = ((var1 - var1.mean(dim='time', skipna=True)) * (var2 - var2.mean(dim='time', skipna=True))).mean(dim='time', skipna=True)
+                        stdVar1 = var1.std(dim='time', skipna=True)
+                        stdVar2 = var2.std(dim='time', skipna=True)
+
+                        # 0값일 경우 결측값 처리
+                        stdVar1 = xr.where((stdVar1 == 0), np.nan, stdVar1)
+                        stdVar2 = xr.where((stdVar2 == 0), np.nan, stdVar2)
+
+                        peaCorr = cov / (stdVar1 * stdVar2)
+                        peaCorr = peaCorr.rename(f'{typeInfo}_{keyInfo}')
+
+                        # 0값일 경우 결측값 처리
+                        peaCorr = xr.where(peaCorr > 1, np.nan, peaCorr)
+                        peaCorr = xr.where(peaCorr < -1, np.nan, peaCorr)
+
+                        # log.info(f'min ~ max : {np.nanmin(peaCorr)} ~ {np.nanmax(peaCorr)}')
+
+                        # EC, CO
+                        # 6480000만개 중에서 134개 발생
+                        # dd = peaCorr.to_dataframe().reset_index(drop=False)
+                        # filtered_df = dd[(dd['EC_emi_co'] > 1) | (dd['EC_emi_co'] < -1)]
+                        # -16.20000,123.60000,-1.80950
+
+                        saveImg = '{}/{}/{}/{}_{}_{}_{}.png'.format(globalVar['figPath'], serviceName, 'CORR', dateInfo, 'corr', typeInfo, keyInfo)
+                        os.makedirs(os.path.dirname(saveImg), exist_ok=True)
+                        peaCorr.plot(vmin=-1.0, vmax=1.0)
+                        plt.savefig(saveImg, dpi=600, bbox_inches='tight', transparent=True)
+                        plt.tight_layout()
+                        # plt.show()
+                        plt.close()
+                        log.info(f'[CHECK] saveImg : {saveImg}')
+
+                        os.makedirs(os.path.dirname(saveFile), exist_ok=True)
+                        peaCorr.to_netcdf(saveFile)
+                        log.info(f'[CHECK] saveFile : {saveFile}')
+
+                        # 데이터셋 닫기 및 메모리에서 제거
+                        # var1.close(), var2.close(), cov.close(), stdVar1.close(), stdVar2.close(), peaCorr.close()
+                        # del var1, var2, cov, stdVar1, stdVar2, peaCorr
+
+                        # 가비지 수집기 강제 실행
+                        # gc.collect()
 
                 # **********************************************************************************************************
                 # 온실가스 배출량 계산
@@ -386,6 +386,9 @@ class DtaProcess(object):
                 for i, keyInfo in enumerate(sysOpt['keyList']):
                     log.info(f'[CHECK] keyInfo : {keyInfo}')
 
+                    saveImg = '{}/{}/{}/{}_{}.png'.format(globalVar['figPath'], serviceName, 'EMI', dateInfo, keyInfo)
+                    if len(glob.glob(saveFile)) > 0: continue
+                    
                     var = data[keyInfo]
 
                     meanData = var.mean(dim=('time'), skipna=True)
@@ -394,7 +397,6 @@ class DtaProcess(object):
 
                     meanDataL1 = np.log10(meanData)
 
-                    saveImg = '{}/{}/{}/{}_{}.png'.format(globalVar['figPath'], serviceName, 'EMI', dateInfo, keyInfo)
                     os.makedirs(os.path.dirname(saveImg), exist_ok=True)
                     meanDataL1.plot()
                     plt.savefig(saveImg, dpi=600, bbox_inches='tight', transparent=True)
@@ -413,6 +415,9 @@ class DtaProcess(object):
                 # **********************************************************************************************************
                 for i, keyInfo in enumerate(sysOpt['keyList']):
                     log.info(f'[CHECK] keyInfo : {keyInfo}')
+
+                    saveImg = '{}/{}/{}/{}_{}_{}.png'.format(globalVar['figPath'], serviceName, 'MANN', dateInfo, 'mann', keyInfo)
+                    if len(glob.glob(saveFile)) > 0: continue
 
                     var = data[keyInfo]
 
@@ -435,7 +440,6 @@ class DtaProcess(object):
                         dask_gufunc_kwargs={'allow_rechunk': True}
                     ).compute()
 
-                    saveImg = '{}/{}/{}/{}_{}_{}.png'.format(globalVar['figPath'], serviceName, 'MANN', dateInfo, 'mann', keyInfo)
                     os.makedirs(os.path.dirname(saveImg), exist_ok=True)
                     mannKendall.plot(vmin=-1.0, vmax=1.0)
                     plt.savefig(saveImg, dpi=600, bbox_inches='tight', transparent=True)
@@ -490,6 +494,11 @@ class DtaProcess(object):
                 for i, typeInfo in enumerate(sysOpt['typeList']):
                     log.info(f'[CHECK] typeInfo : {typeInfo}')
 
+                    # mainTitle = f'EDGAR Pearson-Corr {typeInfo} (2001~2018)'
+                    mainTitle = f"EDGAR Pearson-Corr {typeInfo} ({dateInfo})"
+                    saveImg = '{}/{}/{}.png'.format(globalVar['figPath'], serviceName, mainTitle)
+                    if len(glob.glob(saveFile)) > 0: continue
+
                     inpFile = '{}/{}/{}/*{}*.nc'.format(globalVar['outPath'], serviceName, 'CORR', typeInfo)
                     fileList = sorted(glob.glob(inpFile))
 
@@ -501,10 +510,6 @@ class DtaProcess(object):
                     dataL1.columns = dataL1.columns.str.replace(f'{typeInfo}-emi_', '').str.replace(f'{typeInfo}_emi_', '')
 
                     dataL2 = pd.melt(dataL1, id_vars=[], var_name='key', value_name='val')
-
-                    # mainTitle = f'EDGAR Pearson-Corr {typeInfo} (2001~2018)'
-                    mainTitle = f"EDGAR Pearson-Corr {typeInfo} ({dateInfo})"
-                    saveImg = '{}/{}/{}.png'.format(globalVar['figPath'], serviceName, mainTitle)
                     os.makedirs(os.path.dirname(saveImg), exist_ok=True)
 
                     sns.set_style("whitegrid")
