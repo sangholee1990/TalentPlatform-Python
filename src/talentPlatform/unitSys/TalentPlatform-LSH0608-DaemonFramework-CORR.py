@@ -29,7 +29,7 @@ import xarray as xr
 import dask.array as da
 from dask.diagnostics import ProgressBar
 from xarrayMannKendall import *
-import dask.array as da
+# import dask.array as da
 import dask
 from dask.distributed import Client
 
@@ -244,8 +244,8 @@ class DtaProcess(object):
             # 옵션 설정
             sysOpt = {
                 # 시작/종료 시간
-                'srtDate': '2001-01-01'
-                , 'endDate': '2018-01-01'
+                'srtDate': '2000-01-01'
+                , 'endDate': '2019-12-31'
 
                 # 경도 최소/최대/간격
                 , 'lonMin': -180
@@ -257,7 +257,22 @@ class DtaProcess(object):
                 , 'latMax': 90
                 , 'latInv': 0.1
 
-                , 'typeList': ['EC', 'GDP', 'Land_Cover_Type_1_Percent', 'landscan']
+                , 'dateList': {
+                    '2000-2019': {
+                        'srtDate': '2000-01-01',
+                        'endDate': '2019-12-31',
+                    },
+                    '2000-2009': {
+                        'srtDate': '2000-01-01',
+                        'endDate': '2009-12-31',
+                    },
+                    '2010-2019': {
+                        'srtDate': '2010-01-01',
+                        'endDate': '2019-12-31',
+                    },
+
+                }
+                , 'typeList': ['EC', 'GDP', 'landscan', 'Land_Cover_Type_1_Percent']
                 # , 'typeList': ['EC']
                 # , 'typeList': ['landscan']
                 # , 'typeList': ['Land_Cover_Type_1_Percent']
@@ -286,210 +301,224 @@ class DtaProcess(object):
 
             # inpFile = '{}/{}/{}.nc'.format(globalVar['outPath'], serviceName, '*_1990-2021')
             # inpFile = '{}/{}/{}.nc'.format(globalVar['outPath'], serviceName, '*')
-            inpFile = '{}/{}/{}.nc'.format(globalVar['outPath'], serviceName, '*')
+            inpFile = '{}/{}/{}.nc'.format(globalVar['inpPath'], serviceName, '*')
             fileList = sorted(glob.glob(inpFile))
 
             if fileList is None or len(fileList) < 1:
                 log.error(f"파일 없음 : {inpFile}")
                 # continue
 
-            # data = xr.open_mfdataset(fileList, chunks={'time': 10, 'lat': 10, 'lon': 10}).sel(time=slice(sysOpt['srtDate'], sysOpt['endDate']))
-            data = xr.open_mfdataset(fileList).sel(time=slice(sysOpt['srtDate'], sysOpt['endDate']))
+            for dateInfo in sysOpt['dateList']:
+                log.info(f'[CHECK] dateInfo : {dateInfo}')
+                srtDate = sysOpt['dateList'][dateInfo]['srtDate']
+                endDate = sysOpt['dateList'][dateInfo]['endDate']
 
-            # **********************************************************************************************************
-            # 피어슨 상관계수 계산
-            # **********************************************************************************************************
-            for i, typeInfo in enumerate(sysOpt['typeList']):
-                for j, keyInfo in enumerate(sysOpt['keyList']):
-                    log.info(f'[CHECK] typeInfo : {typeInfo} / keyInfo : {keyInfo}')
+                # data = xr.open_mfdataset(fileList, chunks={'time': 10, 'lat': 10, 'lon': 10}).sel(time=slice(sysOpt['srtDate'], sysOpt['endDate']))
+                # data = xr.open_mfdataset(fileList).sel(time=slice(sysOpt['srtDate'], sysOpt['endDate']))
+                data = xr.open_mfdataset(fileList).sel(time=slice(srtDate, endDate))
+                log.info(f'[CHECK] data : {data}')
 
-                    saveFile = '{}/{}/{}/{}_{}_{}.nc'.format(globalVar['outPath'], serviceName, 'CORR', 'corr', typeInfo, keyInfo)
-                    # if len(glob.glob(saveFile)) > 0: continue
+                # **********************************************************************************************************
+                # 피어슨 상관계수 계산
+                # **********************************************************************************************************
+                # for i, typeInfo in enumerate(sysOpt['typeList']):
+                #     for j, keyInfo in enumerate(sysOpt['keyList']):
+                #         log.info(f'[CHECK] typeInfo : {typeInfo} / keyInfo : {keyInfo}')
+                #
+                #         saveFile = '{}/{}/{}/{}_{}_{}_{}.nc'.format(globalVar['outPath'], serviceName, 'CORR', dateInfo, 'corr', typeInfo, keyInfo)
+                #         # if len(glob.glob(saveFile)) > 0: continue
+                #
+                #         var1 = data[typeInfo]
+                #         var2 = data[keyInfo]
+                #
+                #         # np.nanmin(var1)
+                #         # np.nanmax(var1)
+                #
+                #         # np.nanmin(var2)
+                #         # np.nanmax(var2)
+                #
+                #         cov = ((var1 - var1.mean(dim='time', skipna=True)) * (var2 - var2.mean(dim='time', skipna=True))).mean(dim='time', skipna=True)
+                #         stdVar1 = var1.std(dim='time', skipna=True)
+                #         stdVar2 = var2.std(dim='time', skipna=True)
+                #
+                #         # 0값일 경우 결측값 처리
+                #         stdVar1 = xr.where((stdVar1 == 0), np.nan, stdVar1)
+                #         stdVar2 = xr.where((stdVar2 == 0), np.nan, stdVar2)
+                #
+                #         peaCorr = cov / (stdVar1 * stdVar2)
+                #         peaCorr = peaCorr.rename(f'{typeInfo}_{keyInfo}')
+                #
+                #         # 0값일 경우 결측값 처리
+                #         peaCorr = xr.where(peaCorr > 1, np.nan, peaCorr)
+                #         peaCorr = xr.where(peaCorr < -1, np.nan, peaCorr)
+                #
+                #         # log.info(f'min ~ max : {np.nanmin(peaCorr)} ~ {np.nanmax(peaCorr)}')
+                #
+                #         # EC, CO
+                #         # 6480000만개 중에서 134개 발생
+                #         # dd = peaCorr.to_dataframe().reset_index(drop=False)
+                #         # filtered_df = dd[(dd['EC_emi_co'] > 1) | (dd['EC_emi_co'] < -1)]
+                #         # -16.20000,123.60000,-1.80950
+                #
+                #         saveImg = '{}/{}/{}/{}_{}_{}_{}.png'.format(globalVar['figPath'], serviceName, 'CORR', dateInfo, 'corr', typeInfo, keyInfo)
+                #         os.makedirs(os.path.dirname(saveImg), exist_ok=True)
+                #         peaCorr.plot(vmin=-1.0, vmax=1.0)
+                #         plt.savefig(saveImg, dpi=600, bbox_inches='tight', transparent=True)
+                #         plt.tight_layout()
+                #         # plt.show()
+                #         plt.close()
+                #         log.info(f'[CHECK] saveImg : {saveImg}')
+                #
+                #         os.makedirs(os.path.dirname(saveFile), exist_ok=True)
+                #         peaCorr.to_netcdf(saveFile)
+                #         log.info(f'[CHECK] saveFile : {saveFile}')
+                #
+                #         # 데이터셋 닫기 및 메모리에서 제거
+                #         # var1.close(), var2.close(), cov.close(), stdVar1.close(), stdVar2.close(), peaCorr.close()
+                #         # del var1, var2, cov, stdVar1, stdVar2, peaCorr
+                #
+                #         # 가비지 수집기 강제 실행
+                #         # gc.collect()
 
-                    var1 = data[typeInfo]
-                    var2 = data[keyInfo]
+                # **********************************************************************************************************
+                # 온실가스 배출량 계산
+                # **********************************************************************************************************
+                for i, keyInfo in enumerate(sysOpt['keyList']):
+                    log.info(f'[CHECK] keyInfo : {keyInfo}')
 
-                    # np.nanmin(var1)
-                    # np.nanmax(var1)
+                    var = data[keyInfo]
 
-                    # np.nanmin(var2)
-                    # np.nanmax(var2)
+                    meanData = var.mean(dim=('time'), skipna=True)
+                    # meanData = meanData.where(meanData > 0)
+                    meanData = meanData.where(meanData != 0)
 
-                    cov = ((var1 - var1.mean(dim='time', skipna=True)) * (var2 - var2.mean(dim='time', skipna=True))).mean(dim='time', skipna=True)
-                    stdVar1 = var1.std(dim='time', skipna=True)
-                    stdVar2 = var2.std(dim='time', skipna=True)
+                    meanDataL1 = np.log10(meanData)
 
-                    # 0값일 경우 결측값 처리
-                    stdVar1 = xr.where((stdVar1 == 0), np.nan, stdVar1)
-                    stdVar2 = xr.where((stdVar2 == 0), np.nan, stdVar2)
-
-                    peaCorr = cov / (stdVar1 * stdVar2)
-                    peaCorr = peaCorr.rename(f'{typeInfo}_{keyInfo}')
-
-                    # 0값일 경우 결측값 처리
-                    peaCorr = xr.where(peaCorr > 1, np.nan, peaCorr)
-                    peaCorr = xr.where(peaCorr < -1, np.nan, peaCorr)
-
-                    # log.info(f'min ~ max : {np.nanmin(peaCorr)} ~ {np.nanmax(peaCorr)}')
-
-                    # EC, CO
-                    # 6480000만개 중에서 134개 발생
-                    # dd = peaCorr.to_dataframe().reset_index(drop=False)
-                    # filtered_df = dd[(dd['EC_emi_co'] > 1) | (dd['EC_emi_co'] < -1)]
-                    # -16.20000,123.60000,-1.80950
-
-                    saveImg = '{}/{}/{}/{}_{}_{}.png'.format(globalVar['figPath'], serviceName, 'CORR', 'corr', typeInfo, keyInfo)
+                    saveImg = '{}/{}/{}/{}_{}.png'.format(globalVar['figPath'], serviceName, 'EMI', dateInfo, keyInfo)
                     os.makedirs(os.path.dirname(saveImg), exist_ok=True)
-                    peaCorr.plot(vmin=-1.0, vmax=1.0)
+                    meanDataL1.plot()
                     plt.savefig(saveImg, dpi=600, bbox_inches='tight', transparent=True)
                     plt.tight_layout()
                     # plt.show()
                     plt.close()
                     log.info(f'[CHECK] saveImg : {saveImg}')
 
+                    saveFile = '{}/{}/{}/{}_{}.nc'.format(globalVar['outPath'], serviceName, 'EMI', dateInfo, keyInfo)
                     os.makedirs(os.path.dirname(saveFile), exist_ok=True)
-                    peaCorr.to_netcdf(saveFile)
+                    meanDataL1.to_netcdf(saveFile)
                     log.info(f'[CHECK] saveFile : {saveFile}')
 
-                    # 데이터셋 닫기 및 메모리에서 제거
-                    # var1.close(), var2.close(), cov.close(), stdVar1.close(), stdVar2.close(), peaCorr.close()
-                    # del var1, var2, cov, stdVar1, stdVar2, peaCorr
+                # **********************************************************************************************************
+                # Mann-Kendall 계산
+                # **********************************************************************************************************
+                for i, keyInfo in enumerate(sysOpt['keyList']):
+                    log.info(f'[CHECK] keyInfo : {keyInfo}')
 
-                    # 가비지 수집기 강제 실행
-                    # gc.collect()
+                    var = data[keyInfo]
 
-            # **********************************************************************************************************
-            # 온실가스 배출량 계산
-            # **********************************************************************************************************
-            for i, keyInfo in enumerate(sysOpt['keyList']):
-                log.info(f'[CHECK] keyInfo : {keyInfo}')
+                    coreNum = int(os.cpu_count() * 0.50)
+                    log.info(f'[CHECK] coreNum : {coreNum}')
+                    client = Client(n_workers=coreNum)
+                    dask.config.set(scheduler='processes')
 
-                var = data[keyInfo]
+                    # trend 추세, p 유의수준, Tau 상관계수, z 표준 검정통계량, s 불일치 개수, slope 기울기
+                    colName = 'Tau'
+                    mannKendall = xr.apply_ufunc(
+                        calcMannKendall,
+                        var,
+                        kwargs={'colName': colName},
+                        input_core_dims=[['time']],
+                        output_core_dims=[[]],
+                        vectorize=True,
+                        dask='parallelized',
+                        output_dtypes=[np.float64],
+                        dask_gufunc_kwargs={'allow_rechunk': True}
+                    ).compute()
 
-                meanData = var.mean(dim=('time'), skipna=True)
-                # meanData = meanData.where(meanData > 0)
-                meanData = meanData.where(meanData != 0)
+                    saveImg = '{}/{}/{}/{}_{}_{}.png'.format(globalVar['figPath'], serviceName, 'MANN', dateInfo, 'mann', keyInfo)
+                    os.makedirs(os.path.dirname(saveImg), exist_ok=True)
+                    mannKendall.plot(vmin=-1.0, vmax=1.0)
+                    plt.savefig(saveImg, dpi=600, bbox_inches='tight', transparent=True)
+                    plt.tight_layout()
+                    # plt.show()
+                    plt.close()
+                    log.info(f'[CHECK] saveImg : {saveImg}')
 
-                meanDataL1 = np.log10(meanData)
+                    saveFile = '{}/{}/{}/{}_{}_{}.nc'.format(globalVar['outPath'], serviceName, 'MANN', dateInfo, 'mann', keyInfo)
+                    os.makedirs(os.path.dirname(saveFile), exist_ok=True)
+                    mannKendall.to_netcdf(saveFile)
+                    log.info(f'[CHECK] saveFile : {saveFile}')
 
-                saveImg = '{}/{}/{}/{}.png'.format(globalVar['figPath'], serviceName, 'EMI', keyInfo)
+                    client.close()
+
+                # **********************************************************************************************************
+                # Mann Kendall 상자 그림
+                # **********************************************************************************************************
+                inpFile = '{}/{}/{}/{}.nc'.format(globalVar['outPath'], serviceName, 'MANN', '*')
+                fileList = sorted(glob.glob(inpFile))
+
+                if fileList is None or len(fileList) < 1:
+                    log.error('[ERROR] inpFile : {} / {}'.format(inpFile, '입력 자료를 확인해주세요.'))
+
+                data = xr.open_mfdataset(fileList)
+                dataL1 = data.to_dataframe().reset_index(drop=True)
+                dataL1.columns = dataL1.columns.str.replace('emi_', '')
+
+                dataL2 = pd.melt(dataL1, id_vars=[], var_name='key', value_name='val')
+
+                # mainTitle = '{}'.format('EDGAR Mann-Kendall Trend (2001~2018)')
+                mainTitle = f"EDGAR Mann-Kendall Trend ({dateInfo})"
+                saveImg = '{}/{}/{}.png'.format(globalVar['figPath'], serviceName, mainTitle)
                 os.makedirs(os.path.dirname(saveImg), exist_ok=True)
-                meanDataL1.plot()
+
+                sns.set_style("whitegrid")
+                sns.set_palette(sns.color_palette("husl", len(dataL1.columns)))
+                sns.boxplot(x='key', y='val', data=dataL2, dodge=False, hue='key')
+                plt.xlabel(None)
+                plt.ylabel('Mann-Kendall Trend')
+                plt.title(mainTitle)
+                plt.legend(loc='upper center', bbox_to_anchor=(0.5, -0.2), ncol=4, title=None)
                 plt.savefig(saveImg, dpi=600, bbox_inches='tight', transparent=True)
                 plt.tight_layout()
                 # plt.show()
                 plt.close()
                 log.info(f'[CHECK] saveImg : {saveImg}')
 
-                saveFile = '{}/{}/{}/{}.nc'.format(globalVar['outPath'], serviceName, 'EMI', keyInfo)
-                os.makedirs(os.path.dirname(saveFile), exist_ok=True)
-                meanDataL1.to_netcdf(saveFile)
-                log.info(f'[CHECK] saveFile : {saveFile}')
+                # **********************************************************************************************************
+                # typeList에 따른 상자 그림
+                # **********************************************************************************************************
+                for i, typeInfo in enumerate(sysOpt['typeList']):
+                    log.info(f'[CHECK] typeInfo : {typeInfo}')
 
-            # **********************************************************************************************************
-            # Mann-Kendall 계산
-            # **********************************************************************************************************
-            for i, keyInfo in enumerate(sysOpt['keyList']):
-                log.info(f'[CHECK] keyInfo : {keyInfo}')
+                    inpFile = '{}/{}/{}/*{}*.nc'.format(globalVar['outPath'], serviceName, 'CORR', typeInfo)
+                    fileList = sorted(glob.glob(inpFile))
 
-                var = data[keyInfo]
+                    if fileList is None or len(fileList) < 1:
+                        log.error('[ERROR] inpFile : {} / {}'.format(inpFile, '입력 자료를 확인해주세요.'))
 
-                client = Client(n_workers=os.cpu_count(), threads_per_worker=os.cpu_count())
-                dask.config.set(scheduler='processes')
+                    data = xr.open_mfdataset(fileList)
+                    dataL1 = data.to_dataframe().reset_index(drop=True)
+                    dataL1.columns = dataL1.columns.str.replace(f'{typeInfo}-emi_', '').str.replace(f'{typeInfo}_emi_', '')
 
-                mannKendall = xr.apply_ufunc(
-                    calcMannKendall,
-                    var,
-                    input_core_dims=[['time']],
-                    output_core_dims=[[]],
-                    vectorize=True,
-                    dask='parallelized',
-                    output_dtypes=[np.float64],
-                    dask_gufunc_kwargs={'allow_rechunk': True}
-                ).compute()
+                    dataL2 = pd.melt(dataL1, id_vars=[], var_name='key', value_name='val')
 
-                saveImg = '{}/{}/{}/{}_{}.png'.format(globalVar['figPath'], serviceName, 'MANN', 'mann', keyInfo)
-                os.makedirs(os.path.dirname(saveImg), exist_ok=True)
-                mannKendall.plot(vmin=-1.0, vmax=1.0)
-                plt.savefig(saveImg, dpi=600, bbox_inches='tight', transparent=True)
-                plt.tight_layout()
-                # plt.show()
-                plt.close()
-                log.info(f'[CHECK] saveImg : {saveImg}')
+                    # mainTitle = f'EDGAR Pearson-Corr {typeInfo} (2001~2018)'
+                    mainTitle = f"EDGAR Pearson-Corr {typeInfo} ({dateInfo})"
+                    saveImg = '{}/{}/{}.png'.format(globalVar['figPath'], serviceName, mainTitle)
+                    os.makedirs(os.path.dirname(saveImg), exist_ok=True)
 
-                saveFile = '{}/{}/{}/{}_{}.nc'.format(globalVar['outPath'], serviceName, 'MANN', 'mann', keyInfo)
-                os.makedirs(os.path.dirname(saveFile), exist_ok=True)
-                mannKendall.to_netcdf(saveFile)
-                log.info(f'[CHECK] saveFile : {saveFile}')
-
-                client.close()
-
-            # **********************************************************************************************************
-            # Mann Kendall 상자 그림
-            # **********************************************************************************************************
-            # inpFile = '{}/{}/{}/{}.nc'.format(globalVar['outPath'], serviceName, 'MANN', '*')
-            # fileList = sorted(glob.glob(inpFile))
-            #
-            # if fileList is None or len(fileList) < 1:
-            #     log.error('[ERROR] inpFile : {} / {}'.format(inpFile, '입력 자료를 확인해주세요.'))
-            #
-            # data = xr.open_mfdataset(fileList)
-            # dataL1 = data.to_dataframe().reset_index(drop=True)
-            # dataL1.columns = dataL1.columns.str.replace('emi_', '')
-            #
-            # dataL2 = pd.melt(dataL1, id_vars=[], var_name='key', value_name='val')
-            #
-            # mainTitle = '{}'.format('EDGAR Mann-Kendall Trend (2001~2018)')
-            # saveImg = '{}/{}/{}.png'.format(globalVar['figPath'], serviceName, mainTitle)
-            # os.makedirs(os.path.dirname(saveImg), exist_ok=True)
-            #
-            # sns.set_style("whitegrid")
-            # sns.set_palette(sns.color_palette("husl", len(dataL1.columns)))
-            # sns.boxplot(x='key', y='val', data=dataL2, dodge=False, hue='key')
-            # plt.xlabel(None)
-            # plt.ylabel('Mann-Kendall Trend')
-            # plt.title(mainTitle)
-            # plt.legend(loc='upper center', bbox_to_anchor=(0.5, -0.2), ncol=4, title=None)
-            # plt.savefig(saveImg, dpi=600, bbox_inches='tight', transparent=True)
-            # plt.tight_layout()
-            # plt.show()
-            # plt.close()
-            # log.info(f'[CHECK] saveImg : {saveImg}')
-
-            # **********************************************************************************************************
-            # typeList에 따른 상자 그림
-            # **********************************************************************************************************
-            # for i, typeInfo in enumerate(sysOpt['typeList']):
-            #     log.info(f'[CHECK] typeInfo : {typeInfo}')
-            #
-            #     inpFile = '{}/{}/{}/*{}*.nc'.format(globalVar['outPath'], serviceName, 'CORR', typeInfo)
-            #     fileList = sorted(glob.glob(inpFile))
-            #
-            #     if fileList is None or len(fileList) < 1:
-            #         log.error('[ERROR] inpFile : {} / {}'.format(inpFile, '입력 자료를 확인해주세요.'))
-            #
-            #     data = xr.open_mfdataset(fileList)
-            #     dataL1 = data.to_dataframe().reset_index(drop=True)
-            #     dataL1.columns = dataL1.columns.str.replace(f'{typeInfo}-emi_', '').str.replace(f'{typeInfo}_emi_', '')
-            #
-            #     dataL2 = pd.melt(dataL1, id_vars=[], var_name='key', value_name='val')
-            #
-            #     mainTitle = f'EDGAR Pearson-Corr {typeInfo} (2001~2018)'
-            #     saveImg = '{}/{}/{}.png'.format(globalVar['figPath'], serviceName, mainTitle)
-            #     os.makedirs(os.path.dirname(saveImg), exist_ok=True)
-            #
-            #     sns.set_style("whitegrid")
-            #     sns.set_palette(sns.color_palette("husl", len(dataL1.columns)))
-            #     sns.boxplot(x='key', y='val', data=dataL2, dodge=False, hue='key')
-            #     plt.xlabel(None)
-            #     plt.ylabel('Pearson-Corr')
-            #     plt.title(mainTitle)
-            #     plt.legend(loc='upper center', bbox_to_anchor=(0.5, -0.2), ncol=4, title=None)
-            #     plt.savefig(saveImg, dpi=600, bbox_inches='tight', transparent=True)
-            #     plt.tight_layout()
-            #     # plt.show()
-            #     plt.close()
-            #     log.info(f'[CHECK] saveImg : {saveImg}')
+                    sns.set_style("whitegrid")
+                    sns.set_palette(sns.color_palette("husl", len(dataL1.columns)))
+                    sns.boxplot(x='key', y='val', data=dataL2, dodge=False, hue='key')
+                    plt.xlabel(None)
+                    plt.ylabel('Pearson-Corr')
+                    plt.title(mainTitle)
+                    plt.legend(loc='upper center', bbox_to_anchor=(0.5, -0.2), ncol=4, title=None)
+                    plt.savefig(saveImg, dpi=600, bbox_inches='tight', transparent=True)
+                    plt.tight_layout()
+                    # plt.show()
+                    plt.close()
+                    log.info(f'[CHECK] saveImg : {saveImg}')
 
         except Exception as e:
             log.error("Exception : {}".format(e))
