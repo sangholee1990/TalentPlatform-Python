@@ -294,28 +294,31 @@ class DtaProcess(object):
             #         log.error('[ERROR] inpFile : {} / {}'.format(inpFile, '입력 자료를 확인해주세요.'))
             #         continue
 
-            # fileInfo = fileList[0]
-            # log.info('[CHECK] fileInfo : {}'.format(fileInfo))
-
-            # data = xr.open_mfdataset(fileInfo)
-
-            # inpFile = '{}/{}/{}.nc'.format(globalVar['outPath'], serviceName, '*_1990-2021')
-            # inpFile = '{}/{}/{}.nc'.format(globalVar['outPath'], serviceName, '*')
-            inpFile = '{}/{}/{}.nc'.format(globalVar['inpPath'], serviceName, '*')
-            fileList = sorted(glob.glob(inpFile))
-
-            if fileList is None or len(fileList) < 1:
-                log.error(f"파일 없음 : {inpFile}")
-                # continue
-
             for dateInfo in sysOpt['dateList']:
+                # inpFile = '{}/{}/{}.nc'.format(globalVar['outPath'], serviceName, '*_1990-2021')
+                # inpFile = '{}/{}/{}.nc'.format(globalVar['outPath'], serviceName, '*')
+                inpFile = '{}/{}/{}.nc'.format(globalVar['inpPath'], serviceName, '*')
+                fileList = sorted(glob.glob(inpFile))
+
+                if fileList is None or len(fileList) < 1:
+                    log.error(f"파일 없음 : {inpFile}")
+                    continue
+
+                log.info(f'[CHECK] fileList : {fileList}')
+
                 log.info(f'[CHECK] dateInfo : {dateInfo}')
                 srtDate = sysOpt['dateList'][dateInfo]['srtDate']
                 endDate = sysOpt['dateList'][dateInfo]['endDate']
 
+                log.info(f'[CHECK] srtDate : {srtDate}')
+                log.info(f'[CHECK] endDate : {endDate}')
+
                 # data = xr.open_mfdataset(fileList, chunks={'time': 10, 'lat': 10, 'lon': 10}).sel(time=slice(sysOpt['srtDate'], sysOpt['endDate']))
                 # data = xr.open_mfdataset(fileList).sel(time=slice(sysOpt['srtDate'], sysOpt['endDate']))
-                data = xr.open_mfdataset(fileList).sel(time=slice(srtDate, endDate))
+                data = xr.open_mfdataset(fileList)
+                log.info(f'[CHECK] data : {data}')
+
+                data = data.sel(time=slice(srtDate, endDate))
                 log.info(f'[CHECK] data : {data}')
 
                 # **********************************************************************************************************
@@ -330,6 +333,9 @@ class DtaProcess(object):
 
                         var1 = data[typeInfo]
                         var2 = data[keyInfo]
+
+                        log.info(f'[CHECK] var1 : {var1}')
+                        log.info(f'[CHECK] var2 : {var2}')
 
                         # np.nanmin(var1)
                         # np.nanmax(var1)
