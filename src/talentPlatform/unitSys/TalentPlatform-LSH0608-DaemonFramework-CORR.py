@@ -423,7 +423,8 @@ class DtaProcess(object):
                     log.info(f'[CHECK] keyInfo : {keyInfo}')
 
                     saveImg = '{}/{}/{}/{}_{}_{}.png'.format(globalVar['figPath'], serviceName, 'MANN', dateInfo, 'mann', keyInfo)
-                    if len(glob.glob(saveFile)) > 0: continue
+                    os.makedirs(os.path.dirname(saveImg), exist_ok=True)
+                    if len(glob.glob(saveImg)) > 0: continue
 
                     var = data[keyInfo]
 
@@ -446,7 +447,6 @@ class DtaProcess(object):
                         dask_gufunc_kwargs={'allow_rechunk': True}
                     ).compute()
 
-                    os.makedirs(os.path.dirname(saveImg), exist_ok=True)
                     mannKendall.plot(vmin=-1.0, vmax=1.0)
                     plt.savefig(saveImg, dpi=600, bbox_inches='tight', transparent=True)
                     plt.tight_layout()
@@ -464,22 +464,24 @@ class DtaProcess(object):
                 # **********************************************************************************************************
                 # Mann Kendall 상자 그림
                 # **********************************************************************************************************
-                inpFile = '{}/{}/{}/{}.nc'.format(globalVar['outPath'], serviceName, 'MANN', '*')
+                # mainTitle = '{}'.format('EDGAR Mann-Kendall Trend (2001~2018)')
+                mainTitle = f"EDGAR Mann-Kendall Trend ({dateInfo})"
+                saveImg = '{}/{}/{}/{}.png'.format(globalVar['figPath'], serviceName, 'MANN', mainTitle)
+                os.makedirs(os.path.dirname(saveImg), exist_ok=True)
+                if len(glob.glob(saveImg)) > 0: continue
+
+                inpFile = '{}/{}/{}/{}_{}.nc'.format(globalVar['outPath'], serviceName, 'MANN', dateInfo, '*')
                 fileList = sorted(glob.glob(inpFile))
 
                 if fileList is None or len(fileList) < 1:
-                    log.error('[ERROR] inpFile : {} / {}'.format(inpFile, '입력 자료를 확인해주세요.'))
+                    log.error(f"파일 없음 : {inpFile}")
+                    continue
 
                 data = xr.open_mfdataset(fileList)
                 dataL1 = data.to_dataframe().reset_index(drop=True)
                 dataL1.columns = dataL1.columns.str.replace('emi_', '')
 
                 dataL2 = pd.melt(dataL1, id_vars=[], var_name='key', value_name='val')
-
-                # mainTitle = '{}'.format('EDGAR Mann-Kendall Trend (2001~2018)')
-                mainTitle = f"EDGAR Mann-Kendall Trend ({dateInfo})"
-                saveImg = '{}/{}/{}.png'.format(globalVar['figPath'], serviceName, mainTitle)
-                os.makedirs(os.path.dirname(saveImg), exist_ok=True)
 
                 sns.set_style("whitegrid")
                 sns.set_palette(sns.color_palette("husl", len(dataL1.columns)))
@@ -502,21 +504,22 @@ class DtaProcess(object):
 
                     # mainTitle = f'EDGAR Pearson-Corr {typeInfo} (2001~2018)'
                     mainTitle = f"EDGAR Pearson-Corr {typeInfo} ({dateInfo})"
-                    saveImg = '{}/{}/{}.png'.format(globalVar['figPath'], serviceName, mainTitle)
-                    if len(glob.glob(saveFile)) > 0: continue
+                    saveImg = '{}/{}/{}/{}.png'.format(globalVar['figPath'], serviceName, 'CORR', mainTitle)
+                    os.makedirs(os.path.dirname(saveImg), exist_ok=True)
+                    if len(glob.glob(saveImg)) > 0: continue
 
-                    inpFile = '{}/{}/{}/*{}*.nc'.format(globalVar['outPath'], serviceName, 'CORR', typeInfo)
+                    inpFile = '{}/{}/{}/{}_*{}*.nc'.format(globalVar['outPath'], serviceName, 'CORR', dateInfo, typeInfo)
                     fileList = sorted(glob.glob(inpFile))
 
                     if fileList is None or len(fileList) < 1:
-                        log.error('[ERROR] inpFile : {} / {}'.format(inpFile, '입력 자료를 확인해주세요.'))
+                        log.error(f"파일 없음 : {inpFile}")
+                        continue
 
                     data = xr.open_mfdataset(fileList)
                     dataL1 = data.to_dataframe().reset_index(drop=True)
                     dataL1.columns = dataL1.columns.str.replace(f'{typeInfo}-emi_', '').str.replace(f'{typeInfo}_emi_', '')
 
                     dataL2 = pd.melt(dataL1, id_vars=[], var_name='key', value_name='val')
-                    os.makedirs(os.path.dirname(saveImg), exist_ok=True)
 
                     sns.set_style("whitegrid")
                     sns.set_palette(sns.color_palette("husl", len(dataL1.columns)))
