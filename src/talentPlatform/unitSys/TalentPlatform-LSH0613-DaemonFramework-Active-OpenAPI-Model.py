@@ -674,7 +674,7 @@ class DtaProcess(object):
                 admDataL1 = admData[admData['d1'].str.contains(addrInfo)]
                 if admDataL1 is None or len(admDataL1) < 1: continue
 
-                d2List = set(admDataL1['d2'])
+                d2List = sorted(set(admDataL1['d2']))
                 for d2 in d2List:
                     if d2 is None: continue
 
