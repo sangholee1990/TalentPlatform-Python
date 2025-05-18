@@ -184,9 +184,9 @@ class DtaProcess(object):
     # ================================================================================================
     global env, contextPath, prjName, serviceName, log, globalVar
 
-    # env = 'local'  # 로컬 : 원도우 환경, 작업환경 (현재 소스 코드 환경 시 .) 설정
+    env = 'local'  # 로컬 : 원도우 환경, 작업환경 (현재 소스 코드 환경 시 .) 설정
     # env = 'dev'      # 개발 : 원도우 환경, 작업환경 (사용자 환경 시 contextPath) 설정
-    env = 'oper'  # 운영 : 리눅스 환경, 작업환경 (사용자 환경 시 contextPath) 설정
+    #env = 'oper'  # 운영 : 리눅스 환경, 작업환경 (사용자 환경 시 contextPath) 설정
 
     if (platform.system() == 'Windows'):
         contextPath = os.getcwd() if env in 'local' else 'E:/04. TalentPlatform/Github/TalentPlatform-Python'
@@ -233,9 +233,9 @@ class DtaProcess(object):
                 pass
             else:
                 pass
-                # globalVar['inpPath'] = '/DATA/INPUT'
-                # globalVar['outPath'] = '/DATA/OUTPUT'
-                # globalVar['figPath'] = '/DATA/FIG'
+                #globalVar['inpPath'] = '/DATA/INPUT'
+                #globalVar['outPath'] = '/DATA/OUTPUT'
+                #globalVar['figPath'] = '/DATA/FIG'
 
             # 옵션 설정
             sysOpt = {
@@ -256,9 +256,12 @@ class DtaProcess(object):
                 'latInv': 0.1,
 
                 # cmd 실행 정보
-                'cmd': 'export PROJ_LIB=/SYSTEMS/LIB/anaconda3/envs/py38/share/proj && {exe} HDF4_EOS:EOS_GRID:"{inpFile}":MOD12C1:Land_Cover_Type_1_Percent "{outFile}"',
-                'exe': '/SYSTEMS/LIB/anaconda3/envs/py38/bin/gdal_translate'
-                # 'exe': '/data2/hzhenshao/EMI/py38/bin/gdal_translate'
+                #'cmd': 'export PROJ_LIB=/SYSTEMS/LIB/anaconda3/envs/py38/share/proj && {exe} HDF4_EOS:EOS_GRID:"{inpFile}":MOD12C1:Land_Cover_Type_1_Percent "{outFile}"',
+                #'cmd': 'export PROJ_LIB=/data2/hzhenshao/EMI/py38/share/proj && {exe} HDF4_EOS:EOS_GRID:"{inpFile}":MOD12C1:Land_Cover_Type_1_Percent "{outFile}"',
+                'cmd': 'export PROJ_LIB=/data2/hzhenshao/EMI/py38/share/proj && {exe} -b 13 HDF4_EOS:EOS_GRID:"{inpFile}":MOD12C1:Land_Cover_Type_1_Percent "{outFile}"',
+                #'exe': '/SYSTEMS/LIB/anaconda3/envs/py38/bin/gdalwarp'
+                #'exe': '/data2/hzhenshao/EMI/py38/bin/gdalwarp'
+                'exe': '/data2/hzhenshao/EMI/py38/bin/gdal_translate'
             }
 
             # 도법 설정
@@ -292,7 +295,6 @@ class DtaProcess(object):
                 fileInfo = fileList[0]
                 log.info(f'[CHECK] fileInfo : {fileInfo}')
 
-                # fileNameNoExt = os.path.basename(fileInfo).split('.hdf')[0]
                 filePath = os.path.dirname(fileInfo)
                 fileNameNoExt =  os.path.basename(fileInfo).split('.hdf')[0]
                 cmd = sysOpt['cmd'].format(exe=sysOpt['exe'], inpFile=f"{filePath}/{fileNameNoExt}.hdf", outFile=f"{filePath}/{fileNameNoExt}.tif")
@@ -303,7 +305,7 @@ class DtaProcess(object):
                     log.info(f'returncode : {res.returncode} / args : {res.args}')
                     if res.returncode != 0: log.error(f'cmd 실패 : {cmd}')
                 except Exception as e:
-                    raise ValueError(f'Exception: {e}')
+                    raise ValueError(f'Exception cmd 실패 : {e}')
 
                 inpFile = '{}/{}/*/MCD12C1.A{}*.tif'.format(globalVar['inpPath'], serviceName, sYear)
 
@@ -314,17 +316,19 @@ class DtaProcess(object):
 
                 fileInfo = fileList[0]
                 log.info(f'[CHECK] fileInfo : {fileInfo}')
-
                 # data = xr.open_mfdataset(fileInfo)
                 # data = xr.open_dataset(fileInfo)
                 # data = xr.open_dataset(fileInfo, engine="h5netcdf")
                 # data = xr.open_dataset(fileInfo, engine="rasterio")
-                # data = xr.open_rasterio(fileInfo, chunks={"band": 1, "x": 100, "y": 100})
+                #data = xr.open_rasterio(fileInfo, chunks={"band": 1, "x": 100, "y": 100})
                 data = xr.open_rasterio(fileInfo)
 
                 dataL1 = data.rio.reproject(proj4326)
-                dataL2 = dataL1.sel(band=13)
+                #dataL2 = dataL1.sel(band=13)
+                dataL2 = dataL1.sel(band=1)
                 dataL3 = dataL2.interp(x=lonList, y=latList, method='nearest')
+                print(dataL3)
+                print(dataL3.values)
 
                 # Land_Cover_Type_1_Percent:Layer\ 13 = "urban and built-up" ;
                 # SUBDATASET_3_NAME=HDF4_EOS:EOS_GRID:"MCD12C1.A2019001.061.2022170020638.hdf":MOD12C1:Land_Cover_Type_1_Percent
@@ -332,13 +336,14 @@ class DtaProcess(object):
                 # dataL1 = data.sel(band=13).interp(x=lonList, y=latList, method='linear')
 
                 # 자료 변환
-                lon1D = dataL1['x'].values
-                lat1D = dataL1['y'].values
+                lon1D = dataL3['x'].values
+                lat1D = dataL3['y'].values
                 time1D = pd.to_datetime(sYear, format='%Y')
 
                 dataL4 = xr.Dataset(
                     {
-                        'Land_Cover_Type_1_Percent': (('time', 'lat', 'lon'), (dataL1['band_data'].values).reshape(1, len(lat1D), len(lon1D)))
+                        #'Land_Cover_Type_1_Percent': (('time', 'lat', 'lon'), (dataL3['band_data'].values).reshape(1, len(lat1D), len(lon1D)))
+                        'Land_Cover_Type_1_Percent': (('time', 'lat', 'lon'), (dataL3.values).reshape(1, len(lat1D), len(lon1D)))
                     }
                     , coords={
                         'time': pd.date_range(time1D, periods=1)
@@ -364,7 +369,7 @@ class DtaProcess(object):
             minYear = pd.to_datetime(timeList.min()).strftime('%Y')
             maxYear = pd.to_datetime(timeList.max()).strftime('%Y')
 
-            saveFile = '{}/{}/{}_{}-{}.nc'.format(globalVar['outPath'], serviceName, 'Land_Cover_Type_1_Percent', minYear, maxYear)
+            saveFile = '{}/{}/{}_{}-{}.nc'.format(globalVar['outPath'], serviceName, 'MCD12C1-Stat', minYear, maxYear)
             os.makedirs(os.path.dirname(saveFile), exist_ok=True)
             dataL5.to_netcdf(saveFile)
             log.info('[CHECK] saveFile : {}'.format(saveFile))

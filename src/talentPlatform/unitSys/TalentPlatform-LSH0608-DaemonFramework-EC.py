@@ -250,8 +250,8 @@ class DtaProcess(object):
                 log.info("[CHECK] dtIncDateInfo : {}".format(dtIncDateInfo))
                 sYear = dtIncDateInfo.strftime('%Y')
 
-                # saveFile = '{}/{}/{}-{}.nc'.format(globalVar['outPath'], serviceName, 'EC', sYear)
-                # if (len(glob.glob(saveFile)) > 0): continue
+                #saveFile = '{}/{}/{}-{}.nc'.format(globalVar['outPath'], serviceName, 'EC', sYear)
+                #if (len(glob.glob(saveFile)) > 0): continue
 
                 # inpFilePattern = '{}/CarbonMonitor_*{}*_y{}_m{}.nc'.format(serviceName, keyInfo, dtYear, dtMonth)
                 inpFilePattern = '{1:s}/*/{1:s}{0:s}.tif'.format(sYear, 'EC')
@@ -263,7 +263,7 @@ class DtaProcess(object):
 
                 # 파일 읽기
                 data = xr.open_rasterio(fileInfo)
-                # data = xr.open_rasterio(fileInfo, chunks={"band": 1, "x": 100, "y": 100})
+                #data = xr.open_rasterio(fileInfo, chunks={"band": 1, "x": 100, "y": 100})
 
                 dataL1 = data.rio.reproject(proj4326)
                 dataL2 = dataL1.sel(band=1)
@@ -290,8 +290,7 @@ class DtaProcess(object):
                 if len(dataL5) < 1:
                     dataL5 = dataL4
                 else:
-                    # dataL5 = xr.merge([dataL5, dataL4])
-                    dataL5 = xr.concat([dataL5, dataL4], "time")
+                    dataL5 = xr.merge([dataL5, dataL4])
 
                 # os.makedirs(os.path.dirname(saveFile), exist_ok=True)
                 # dataL4.to_netcdf(saveFile)
@@ -350,3 +349,4 @@ if __name__ == '__main__':
 
     finally:
         print('[END] {}'.format("main"))
+

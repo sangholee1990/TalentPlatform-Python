@@ -470,12 +470,11 @@ class DtaProcess(object):
                 os.makedirs(os.path.dirname(saveImg), exist_ok=True)
                 if len(glob.glob(saveImg)) > 0: continue
 
-                inpFile = '{}/{}/{}/{}_{}.nc'.format(globalVar['outPath'], serviceName, 'MANN', dateInfo, '*')
+                inpFile = '{}/{}/{}/{}.nc'.format(globalVar['outPath'], serviceName, 'MANN', '*')
                 fileList = sorted(glob.glob(inpFile))
 
                 if fileList is None or len(fileList) < 1:
-                    log.error(f"파일 없음 : {inpFile}")
-                    continue
+                    log.error('[ERROR] inpFile : {} / {}'.format(inpFile, '입력 자료를 확인해주세요.'))
 
                 data = xr.open_mfdataset(fileList)
                 dataL1 = data.to_dataframe().reset_index(drop=True)
@@ -508,12 +507,11 @@ class DtaProcess(object):
                     os.makedirs(os.path.dirname(saveImg), exist_ok=True)
                     if len(glob.glob(saveImg)) > 0: continue
 
-                    inpFile = '{}/{}/{}/{}_*{}*.nc'.format(globalVar['outPath'], serviceName, 'CORR', dateInfo, typeInfo)
+                    inpFile = '{}/{}/{}/*{}*.nc'.format(globalVar['outPath'], serviceName, 'CORR', typeInfo)
                     fileList = sorted(glob.glob(inpFile))
 
                     if fileList is None or len(fileList) < 1:
-                        log.error(f"파일 없음 : {inpFile}")
-                        continue
+                        log.error('[ERROR] inpFile : {} / {}'.format(inpFile, '입력 자료를 확인해주세요.'))
 
                     data = xr.open_mfdataset(fileList)
                     dataL1 = data.to_dataframe().reset_index(drop=True)

@@ -381,7 +381,7 @@ class DtaProcess(object):
             #
             # timeList = dataL5['time'].values
             # minYear = pd.to_datetime(timeList.min()).strftime('%Y')
-            # maxYear = pd.to_datetime(timeList.max()).strftime('%Y')
+            # maxYear = pd.to_datetime(timeList.max()).strftime('%Y')
             #
             # saveFile = '{}/{}/{}_{}-{}.nc'.format(globalVar['outPath'], serviceName, 'GDP', minYear, maxYear)
             # os.makedirs(os.path.dirname(saveFile), exist_ok=True)
