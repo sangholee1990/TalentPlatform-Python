@@ -674,10 +674,8 @@ class DtaProcess(object):
                 admDataL1 = admData[admData['d1'].str.contains(addrInfo)]
                 if admDataL1 is None or len(admDataL1) < 1: continue
 
-                d2List = sorted(set(admDataL1['d2']))
+                d2List = sorted(set(item for item in admDataL1['d2'] if item is not None))
                 for d2 in d2List:
-                    if d2 is None: continue
-
                     # 2024.04.05 한글 포함 시 모델 재처리 불가
                     # addrCode = '{}-{}'.format(np.unique(admDataL1['sigunguCd'])[0], addrInfo)
                     # addrCode = np.unique(admDataL1['sigunguCd'])[0]
