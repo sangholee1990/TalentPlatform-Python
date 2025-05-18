@@ -404,11 +404,19 @@ def makeMlModel(subOpt=None, xCol=None, yCol=None, inpData=None, modelKey=None, 
             trainData, validData = train_test_split(data, test_size=0.3)
             # trainData = inpData
 
+            # pyModel = setup(
+            #     data=trainData
+            #     , session_id=123
+            #     , silent=True
+            #     , target=yCol
+            # )
+
             pyModel = setup(
                 data=trainData
-                , session_id=123
+                , session_id=int(datetime.now().strftime('%H%M%S'))
                 , silent=True
                 , target=yCol
+                , html=False
             )
 
             # 각 모형에 따른 자동 머신러닝
@@ -875,7 +883,7 @@ class DtaProcess(object):
 
                     # 딥러닝 매매가 불러오기
                     result = makeDlModel(sysOpt['dlModel'], xCol, yCol, inpData, modelKey, addrCode)
-                    log.info('[CHECK] result : {}'.format(result))
+                    # log.info('[CHECK] result : {}'.format(result))
 
                     # 딥러닝 매매가 예측
                     realPriceDlModel = result['dlModel']
@@ -900,7 +908,7 @@ class DtaProcess(object):
 
                     # 딥러닝 전세가 불러오기
                     result = makeDlModel(sysOpt['dlModel'], xCol, yCol, inpData, modelKey, addrCode)
-                    log.info('[CHECK] result : {}'.format(result))
+                    # log.info('[CHECK] result : {}'.format(result))
 
                     # 딥러닝 전세가 예측
                     realBjPriceDlModel = result['dlModel']
@@ -926,7 +934,7 @@ class DtaProcess(object):
 
                     # 머신러닝 매매가 불러오기
                     result = makeMlModel(sysOpt['mlModel'], xCol, yCol, inpData, modelKey, addrCode)
-                    log.info('[CHECK] result : {}'.format(result))
+                    # log.info('[CHECK] result : {}'.format(result))
 
                     # 머신러닝 매매가 예측
                     realPriceMlModel = result['mlModel']
@@ -953,7 +961,7 @@ class DtaProcess(object):
 
                     # 머신러닝 전세가 불러오기
                     result = makeMlModel(sysOpt['mlModel'], xCol, yCol, inpData, modelKey, addrCode)
-                    log.info('[CHECK] result : {}'.format(result))
+                    # log.info('[CHECK] result : {}'.format(result))
 
                     # 머신러닝 전세가 예측
                     realBjPriceMlModel = result['mlModel']
