@@ -345,7 +345,8 @@ def makeDlModel(subOpt=None, xCol=None, yCol=None, inpData=None, modelKey=None, 
             # trainData = inpData
 
             # dlModel = H2OAutoML(max_models=30, max_runtime_secs=99999, balance_classes=True, seed=123)
-            dlModel = H2OAutoML(max_models=20, max_runtime_secs=60, balance_classes=True, seed=123)
+            # dlModel = H2OAutoML(max_models=20, max_runtime_secs=60, balance_classes=True, seed=123)
+            dlModel = H2OAutoML(max_models=20, max_runtime_secs=600, balance_classes=True, seed=int(datetime.now().strftime('%H%M%S')))
             dlModel.train(x=xCol, y=yCol, training_frame=h2o.H2OFrame(trainData), validation_frame=h2o.H2OFrame(validData))
             # dlModel.train(x=xCol, y=yCol, training_frame=h2o.H2OFrame(data))
             fnlModel = dlModel.get_best_model()
