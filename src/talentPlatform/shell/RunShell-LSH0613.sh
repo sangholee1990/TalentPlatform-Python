@@ -58,10 +58,17 @@ echo "[$(date +"%Y-%m-%d %H:%M:%S")] [CHECK] CTX_PATH : $CTX_PATH"
 #========================================
 # Run Shell
 #========================================
+#declare -a fileList
 cnt=0
-fileList=$(find "/DATA/OUTPUT/LSH0613/전처리" -name "건축인허가-아파트전월세_*_*.csv" -type f 2>/dev/null | sort -u)
-for fileInfo in $fileList; do
-  sgg=$(echo "$fileInfo" | awk -F '[_.]' '{print $2, $3}')
+fileList=$(find "/DATA/OUTPUT/LSH0613/전처리" -name "건축인허가-아파트전월세_*_*.csv" -type f 2>/dev/null)
+for fileInfo in ${fileList[@]}; do
+  addr=$(echo "$fileInfo" | awk -F '[_.]' '{print $2}')
+  d2=$(echo "$fileInfo" | awk -F '[_.]' '{print $3}')
+  sgg=$(echo "${addr} ${d2}")
+
+  fileListCnt=$(find "/HDD/DATA/OUTPUT/LSH0613/예측" -name "수익률_${addr}_${d2}.csv" -type f 2>/dev/null | sort -u | wc -l)
+  if [ ${fileListCnt} -gt 0 ]; then continue; fi
+
   echo "[$(date +"%Y-%m-%d %H:%M:%S")] [CHECK] cnt : $cnt / sgg : $sgg"
 
   ${PY36_BIN} /HDD/SYSTEMS/PROG/PYTHON/IDE/src/talentPlatform/unitSys/TalentPlatform-LSH0613-DaemonFramework-Active-OpenAPI-Model.py --searchSggList "$sgg" &
