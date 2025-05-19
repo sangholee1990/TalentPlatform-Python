@@ -196,7 +196,7 @@ class ReceivingProtocol(protocol.Protocol, TimeoutMixin):
                 sof = self._buffer[0]
                 if sof != 0xFF:
                     log.info(f"[{self.sysOpt['tcpip']['clientHost']}][{self.sysOpt['tcpip']['clientPort']}] 잘못된 SOF 수신 : {sof:#02x} 연결 종료")
-                    self.transport.loseConnection()
+                    # self.transport.loseConnection()
                     return
 
                 msgIdH = self._buffer[1]
@@ -226,7 +226,7 @@ class ReceivingProtocol(protocol.Protocol, TimeoutMixin):
                 self.handleMsg(msgId, payload, orgBuffer)
 
             except Exception as e:
-                log.error(f"[{self.sysOpt['tcpip']['clientHost']}][{self.sysOpt['tcpip']['clientPort']}] 메시지 처리 오류: {e}")
+                log.error(f"[{self.sysOpt['tcpip']['clientHost']}][{self.sysOpt['tcpip']['clientPort']}] 메시지 처리 오류 : {e}")
                 self.transport.loseConnection()
                 return
 
@@ -376,9 +376,9 @@ class ReceivingProtocol(protocol.Protocol, TimeoutMixin):
         log.info(f"[{self.sysOpt['tcpip']['clientHost']}][{self.sysOpt['tcpip']['clientPort']}] 클라이언트 해제 : {reason.getErrorMessage()}")
         self._buffer = b''
 
-    # def timeoutConnection(self):
-    #     log.info(f"[{self.sysOpt['tcpip']['clientHost']}][{self.sysOpt['tcpip']['clientPort']}] 클라이언트 타임아웃")
-    #     self.transport.loseConnection()
+    def timeoutConnection(self):
+        log.info(f"[{self.sysOpt['tcpip']['clientHost']}][{self.sysOpt['tcpip']['clientPort']}] 클라이언트 타임아웃")
+        self.transport.loseConnection()
 
 # 서버 측 팩토리
 class ReceivingFactory(protocol.Factory):
