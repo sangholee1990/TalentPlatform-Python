@@ -64,7 +64,7 @@ for fileInfo in $fileList; do
   sgg=$(echo "$fileInfo" | awk -F '[_.]' '{print $2, $3}')
   echo "[$(date +"%Y-%m-%d %H:%M:%S")] [CHECK] cnt : $cnt / sgg : $sgg"
 
-  ${PY36_BIN} /HDD/SYSTEMS/PROG/PYTHON/IDE/src/talentPlatform/unitSys/TalentPlatform-LSH0613-DaemonFramework-Active-OpenAPI-Model.py --searchSggList "$sgg"
+  ${PY36_BIN} /HDD/SYSTEMS/PROG/PYTHON/IDE/src/talentPlatform/unitSys/TalentPlatform-LSH0613-DaemonFramework-Active-OpenAPI-Model.py --searchSggList "$sgg" &
   sleep 1s
   let cnt++
 
