@@ -511,6 +511,7 @@ class DtaProcess(object):
             sysOpt = {
                 'tcpip': {
                     'serverPort': 9999,
+                    # 'serverPort': 9998,
                     'timeout': 30,
                     'clientHost': None,
                     'clientPort': None,
