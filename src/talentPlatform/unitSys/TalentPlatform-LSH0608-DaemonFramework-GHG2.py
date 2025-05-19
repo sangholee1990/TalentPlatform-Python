@@ -3,14 +3,10 @@
 # ================================================
 # Python 이용한 CO2 및 CH4 자료 처리 및 연도별 저장
 
-# 추가 기체
-# Ch4
-# https://jeodpp.jrc.ec.europa.eu/ftp/jrc-opendata/EDGAR/datasets/v60_GHG/CH4/
-# totals 파일
-
-# CO2
-# https://jeodpp.jrc.ec.europa.eu/ftp/jrc-opendata/EDGAR/datasets/v60_GHG/CO2_excl_short-cycle_org_C/
-# totals 파일
+# cd /data2/hzhenshao/EMI
+# /data2/hzhenshao/EMI/py38/bin/python3 TalentPlatform-LSH0608-DaemonFramework-GHG2.py
+# nohup /data2/hzhenshao/EMI/py38/bin/python3 TalentPlatform-LSH0608-DaemonFramework-GHG2.py &
+# tail -f nohup.out
 
 # -*- coding: utf-8 -*-
 import argparse
@@ -235,7 +231,8 @@ class DtaProcess(object):
 
                 # , 'keyList' : ['CO', 'NOx', 'CH4', 'CO2_excl', 'CO2_org', 'N2O', 'NH3', 'NMVOC', 'OC', 'NH3', 'SO2']
                 # , 'keyList' : ['CO', 'NOx']
-                , 'keyList': ['N2O', 'GHG', 'CO2', 'CO2bio', 'CH4']
+                # , 'keyList': ['N2O', 'GHG', 'CO2', 'CO2bio', 'CH4']
+                , 'keyList': ['SO2', 'N2O', 'CH4', 'NMVOC', 'NOx', 'NH3', 'CO', 'PM10', 'PM2.5', 'OC', 'BC']
             }
 
             # 도법 설정
@@ -261,7 +258,8 @@ class DtaProcess(object):
                     # log.info("[CHECK] dtIncDateInfo : {}".format(dtIncDateInfo))
                     sYear = dtIncDateInfo.strftime('%Y')
 
-                    inpFile = '{}/{}/EDGAR/*_{}_*{}*.nc'.format(globalVar['inpPath'], serviceName, keyInfo, sYear)
+                    # inpFile = '{}/{}/*/*{}_{}*.nc'.format(globalVar['inpPath'], serviceName, keyInfo, sYear)
+                    inpFile = '{}/{}/EDGAR2/*{}_{}*.nc'.format(globalVar['inpPath'], serviceName, keyInfo, sYear)
                     fileList = sorted(glob.glob(inpFile))
 
                     if fileList is None or len(fileList) < 1:
@@ -314,7 +312,7 @@ class DtaProcess(object):
                 maxYear = pd.to_datetime(timeList.max()).strftime('%Y')
 
                 # 자료 저장
-                saveFile = '{}/{}/{}_{}-{}.nc'.format(globalVar['outPath'], serviceName, keyInfo, minYear, maxYear)
+                saveFile = '{}/{}/EDGAR2-{}_{}-{}.nc'.format(globalVar['outPath'], serviceName, keyInfo, minYear, maxYear)
                 os.makedirs(os.path.dirname(saveFile), exist_ok=True)
                 dataL3.to_netcdf(saveFile)
                 log.info('[CHECK] saveFile : {}'.format(saveFile))
