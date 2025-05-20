@@ -33,6 +33,15 @@ declare -A metaData
 #metaData["open-webui"]="/HDD/SYSTEMS/LIB/anaconda3/envs/py311/bin/open-webui serve --host 0.0.0.0 --port 9210"
 #metaData["port 9099"]="bash /DATA/TMP/pipelines/start.sh"
 
+
+metaData["open-webui"]="/HDD/SYSTEMS/LIB/anaconda3/envs/py311/bin/open-webui serve --host 0.0.0.0 --port 9210"
+metaData["pipelines/start"]="bash /HDD/SYSTEMS/PROG/PYTHON/IDE/src/proj/topbds/2025/pipelines/start.sh"
+metaData["TalentPlatform-LSH0577-DaemonApi"]="/HDD/SYSTEMS/LIB/anaconda3/envs/py39/bin/uvicorn TalentPlatform-LSH0577-DaemonApi:app --host=0.0.0.0 --port=9000"
+metaData["TalentPlatform-LSH0578-DaemonApi"]="/HDD/SYSTEMS/LIB/anaconda3/envs/py39/bin/uvicorn TalentPlatform-LSH0578-DaemonApi:app --host=0.0.0.0 --port=9200"
+metaData["TalentPlatform-LSH0597-DaemonApi"]="/HDD/SYSTEMS/LIB/anaconda3/envs/py39/bin/uvicorn TalentPlatform-LSH0597-DaemonApi:app --host=0.0.0.0 --port=9300"
+metaData["TalentPlatform-LSH0597-DaemonApi"]="/HDD/SYSTEMS/LIB/anaconda3/envs/py39/bin/uvicorn TalentPlatform-LSH0597-DaemonApi:app --host=0.0.0.0 --port=9300"
+metaData["rcmdapt_ai_server"]="/HDD/SYSTEMS/LIB/anaconda3/envs/py38/bin/python /HDD/SYSTEMS/PROG/PYTHON/IDE/src/talentPlatform/rcmdapt/rcmdapt_ai_server.py"
+
 LOG_PATH=${CTX_PATH}/LOG
 LOG_NAME=$(basename "$0" .sh)_$(date +"%Y%m%d").log
 mkdir -p ${LOG_PATH}
