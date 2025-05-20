@@ -371,7 +371,7 @@ class DtaProcess(object):
                         # filtered_df = dd[(dd['EC_emi_co'] > 1) | (dd['EC_emi_co'] < -1)]
                         # -16.20000,123.60000,-1.80950
 
-                        saveImg = '{}/{}/{}/{}_{}_{}_{}.png'.format(globalVar['figPath'], serviceName, 'CORR2', dateInfo, 'corr2', typeInfo, keyInfo)
+                        saveImg = '{}/{}/{}/{}_{}_{}_{}.png'.format(globalVar['figPath'], serviceName, 'CORR2', dateInfo, 'corr', typeInfo, keyInfo)
                         os.makedirs(os.path.dirname(saveImg), exist_ok=True)
                         peaCorr.plot(vmin=-1.0, vmax=1.0)
                         plt.savefig(saveImg, dpi=600, bbox_inches='tight', transparent=True)
