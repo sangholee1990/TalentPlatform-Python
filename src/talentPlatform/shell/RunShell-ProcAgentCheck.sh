@@ -20,12 +20,15 @@ export LC_TIME=en_US.UTF-8
 
 # 작업 경로 설정
 #CTX_PATH=$(pwd)
-CTX_PATH=/SYSTEMS/PROG/SHELL/PROC
+#CTX_PATH=/SYSTEMS/PROG/SHELL/PROC
+CTX_PATH=/HDD/SYSTEMS/PROG/PYTHON/IDE/src/talentPlatform/shell
 
 declare -A metaData
 #metaData["SOLARMY_APP"]="/SYSTEMS/IOT/Roverdyn/PROJ_TCP_DB/build/SOLARMY_APP"
-metaData["SOLARMY_APP"]="/SYSTEMS/IOT/Roverdyn/daemon-iot-tcpipDb/build/SOLARMY_APP"
-#metaData["TalentPlatform-LSH0605-DaemonFramework"]="/HDD/SYSTEMS/LIB/anaconda3/envs/py38/bin/python /SYSTEMS/PROG/PYTHON/IDE/src/talentPlatform/unitSys/TalentPlatform-LSH0605-DaemonFramework.py"
+#metaData["SOLARMY_APP"]="/SYSTEMS/IOT/Roverdyn/daemon-iot-tcpipDb/build/SOLARMY_APP"
+#metaData["TalentPlatform-LSH0605-DaemonFramework.py"]="/HDD/SYSTEMS/LIB/anaconda3/envs/py38/bin/python /HDD/SYSTEMS/PROG/PYTHON/IDE/src/talentPlatform/unitSys/TalentPlatform-LSH0605-DaemonFramework.py"
+#metaData["TalentPlatform-LSH0613-DaemonFramework-Active-OpenAPI-DataCollectToPrep.py"]="/HDD/SYSTEMS/LIB/anaconda3/envs/py38/bin/python /HDD/SYSTEMS/PROG/PYTHON/IDE/src/talentPlatform/unitSys/TalentPlatform-LSH0613-DaemonFramework-Active-OpenAPI-DataCollectToPrep.py"
+#metaData["TalentPlatform-LSH0613-DaemonFramework-Active-OpenAPI-Model.py"]="/HDD/SYSTEMS/LIB/anaconda3/envs/py36/bin/python /HDD/SYSTEMS/PROG/PYTHON/IDE/src/talentPlatform/unitSys/TalentPlatform-LSH0613-DaemonFramework-Active-OpenAPI-Model.py"
 #metaData["open-webui"]="/HDD/SYSTEMS/LIB/anaconda3/envs/py311/bin/open-webui serve --host 0.0.0.0 --port 9310"
 #metaData["open-webui"]="/HDD/SYSTEMS/LIB/anaconda3/envs/py311/bin/open-webui serve --host 0.0.0.0 --port 9210"
 #metaData["port 9099"]="bash /DATA/TMP/pipelines/start.sh"

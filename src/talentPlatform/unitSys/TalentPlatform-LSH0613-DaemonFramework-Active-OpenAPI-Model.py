@@ -31,6 +31,7 @@
 # tail -f nohup.out
 
 # nohup /SYSTEMS/LIB/anaconda3/envs/py36/bin/python TalentPlatform-LSH0613-DaemonFramework-Active-OpenAPI-Model.py --addrList "서울특별시,경기도" &
+# /SYSTEMS/LIB/anaconda3/envs/py36/bin/python TalentPlatform-LSH0613-DaemonFramework-Active-OpenAPI-Model.py --searchSggList "서울특별시 금천구"
 
 import argparse
 import glob
@@ -571,11 +572,6 @@ class DtaProcess(object):
                     # 미래 예측 연도
                     # 'forYear': 2027
                     'forYear': int((datetime.now() + relativedelta(years=3)).strftime('%Y'))
-
-                    # 아파트 설정
-                    , 'aptList': [] # 전체 아파트 검색
-                    # , 'aptList': ['미아동부센트레빌']
-                    # , 'aptList': ['미아동부센트레빌', '송천센트레빌', '에스케이북한산시티']
                 }
 
                 # 검색 목록
@@ -586,6 +582,14 @@ class DtaProcess(object):
                 # , 'addrList': ['경기도 의정부시']
                 # , 'addrList': [globalVar['addrList']]
                 , 'addrList': ['서울특별시', '경기도']
+
+                # 검색조건 시군구 (서울특별시 금천구)
+                , 'searchSggList': [globalVar['searchSggList']] if globalVar.get('searchSggList') else []
+
+                # 검색조건 아파트
+                , 'searchAptList': [globalVar['searchAptList']] if globalVar.get('searchAptList') else []
+                # , 'aptList': []
+                # , 'aptList': ['미아동부센트레빌']
 
                 , '건축인허가': {
                     'propFile': '/DATA/OUTPUT/LSH0613/전처리/건축인허가_{addrInfo}_{d2}.csv',
@@ -676,6 +680,8 @@ class DtaProcess(object):
             # *****************************************************
             # addrInfo = sysOpt['addrList'][0]
             # for  addrInfo in sysOpt['addrList'][0].split(", "):
+            searchSggList = sysOpt['searchSggList']
+
             for addrInfo in sysOpt['addrList']:
                 log.info(f'[CHECK] addrInfo : {addrInfo}')
 
@@ -685,6 +691,9 @@ class DtaProcess(object):
 
                 d2List = sorted(set(item for item in admDataL1['d2'] if item is not None))
                 for d2 in d2List:
+                    if searchSggList and not any(ssgInfo in f"{addrInfo} {d2}" for ssgInfo in searchSggList):
+                        continue
+
                     # 2024.04.05 한글 포함 시 모델 재처리 불가
                     # addrCode = '{}-{}'.format(np.unique(admDataL1['sigunguCd'])[0], addrInfo)
                     # addrCode = np.unique(admDataL1['sigunguCd'])[0]
@@ -976,7 +985,8 @@ class DtaProcess(object):
                     # 시계열 갭투자
                     # **********************************************************************************************************
                     nameList = sorted(data['name'].unique())
-                    searchAptList = sysOpt['tsModel']['aptList']
+                    # searchAptList = sysOpt['tsModel']['aptList']
+                    searchAptList = sysOpt['searchAptList']
 
                     fnlData = pd.DataFrame()
                     for i, nameInfo in enumerate(nameList):
@@ -984,15 +994,18 @@ class DtaProcess(object):
                         # 아파트 검색 모듈
                         # sysOpt['tsModel']['aptList'] = [] : 전체 아파트에 대한 수익률 예측
                         # sysOpt['tsModel']['aptList'] = ['미아동부센트레빌'] : 미아동부센트레빌 아파트에 대한 수익률 예측
-                        isSearch = True if (len(searchAptList) < 1) else False
-                        for ii, aptInfo in enumerate(searchAptList):
-                            if (aptInfo in nameInfo):
-                                isSearch = True
-                                break
+                        # isSearch = True if (len(searchAptList) < 1) else False
+                        # for ii, aptInfo in enumerate(searchAptList):
+                        #     if (aptInfo in nameInfo):
+                        #         isSearch = True
+                        #         break
+                        # if isSearch == False: continue
 
-                        if isSearch == False: continue
+                        if searchAptList and not any(aptInfo in nameInfo for aptInfo in searchAptList):
+                            continue
 
-                        log.info('[CHECK] isSearch : {} / nameInfo : {}'.format(isSearch, nameInfo))
+                        # log.info('[CHECK] isSearch : {} / nameInfo : {}'.format(isSearch, nameInfo))
+                        log.info(f"[CHECK] nameInfo : {nameInfo}")
 
                         selData = data.loc[(data['name'] == nameInfo)].reset_index(drop=True)
 
@@ -1069,7 +1082,7 @@ class DtaProcess(object):
                             # makeUserTimeSeriesPlot(dataL2['date'], dataL2['realPriceML'], dataL2['realPriceDL'], dataL2['realPrice'], '예측 (머신러닝)', '예측 (딥러닝)', '실측', '날짜 [연도]', '매매가 [만원]', mainTitle, saveImg, False)
 
                             tsForPeriod = sysOpt['tsModel']['forYear'] - dataL2['year'].max()
-                            log.info(f'[CHECK] tsForPeriod : {tsForPeriod}')
+                            # log.info(f'[CHECK] tsForPeriod : {tsForPeriod}')
 
                             # 미래 전세가
                             try:
