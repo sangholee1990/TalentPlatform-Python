@@ -1,7 +1,10 @@
 # ================================================
 # 요구사항
 # ================================================
-# Python 이용한 CO2 및 CH4 자료 처리 및 연도별 저장
+# cd /data2/hzhenshao/EMI
+# /data2/hzhenshao/EMI/py38/bin/python3 TalentPlatform-LSH0608-DaemonFramework-CORR2.py
+# nohup /data2/hzhenshao/EMI/py38/bin/python3 TalentPlatform-LSH0608-DaemonFramework-CORR2.py &
+# tail -f nohup.out
 
 # -*- coding: utf-8 -*-
 import argparse
@@ -280,7 +283,8 @@ class DtaProcess(object):
                 # , 'keyList': ['CH4', 'CO2_excl', 'CO2_org', 'N2O', 'NH3', 'NMVOC', 'OC', 'NH3', 'SO2']
                 # , 'keyList': ['emi_co', 'emi_n2o', 'emi_nh3', 'emi_nmvoc', 'emi_nox', 'emi_oc', 'emi_so2']
                 # , 'keyList': ['emi_nmvoc']
-                , 'keyList': ['N2O', 'GHG', 'CO2', 'CO2bio', 'CH4']
+                # , 'keyList': ['N2O', 'GHG', 'CO2', 'CO2bio', 'CH4']
+                , 'keyList': ['SO2', 'N2O', 'CH4', 'NMVOC', 'NOx', 'NH3', 'CO', 'PM10', 'PM2.5', 'OC', 'BC']
             }
 
 
@@ -297,7 +301,8 @@ class DtaProcess(object):
             for dateInfo in sysOpt['dateList']:
                 # inpFile = '{}/{}/{}.nc'.format(globalVar['outPath'], serviceName, '*_1990-2021')
                 # inpFile = '{}/{}/{}.nc'.format(globalVar['outPath'], serviceName, '*')
-                inpFile = '{}/{}/{}.nc'.format(globalVar['inpPath'], serviceName, '*')
+                # inpFile = '{}/{}/{}.nc'.format(globalVar['inpPath'], serviceName, '*')
+                inpFile = '{}/{}/EDGAR2-{}.nc'.format(globalVar['inpPath'], serviceName, '*')
                 fileList = sorted(glob.glob(inpFile))
 
                 if fileList is None or len(fileList) < 1:
@@ -316,10 +321,10 @@ class DtaProcess(object):
                 # data = xr.open_mfdataset(fileList, chunks={'time': 10, 'lat': 10, 'lon': 10}).sel(time=slice(sysOpt['srtDate'], sysOpt['endDate']))
                 # data = xr.open_mfdataset(fileList).sel(time=slice(sysOpt['srtDate'], sysOpt['endDate']))
                 data = xr.open_mfdataset(fileList)
-                log.info(f'[CHECK] data : {data}')
+                # log.info(f'[CHECK] data : {data}')
 
                 data = data.sel(time=slice(srtDate, endDate))
-                log.info(f'[CHECK] data : {data}')
+                # log.info(f'[CHECK] data : {data}')
 
                 # **********************************************************************************************************
                 # 피어슨 상관계수 계산
@@ -328,7 +333,7 @@ class DtaProcess(object):
                     for j, keyInfo in enumerate(sysOpt['keyList']):
                         log.info(f'[CHECK] typeInfo : {typeInfo} / keyInfo : {keyInfo}')
 
-                        saveFile = '{}/{}/{}/{}_{}_{}_{}.nc'.format(globalVar['outPath'], serviceName, 'CORR', dateInfo, 'corr', typeInfo, keyInfo)
+                        saveFile = '{}/{}/{}/{}_{}_{}_{}.nc'.format(globalVar['outPath'], serviceName, 'CORR2', dateInfo, 'corr', typeInfo, keyInfo)
                         if len(glob.glob(saveFile)) > 0: continue
 
                         var1 = data[typeInfo]
@@ -366,7 +371,7 @@ class DtaProcess(object):
                         # filtered_df = dd[(dd['EC_emi_co'] > 1) | (dd['EC_emi_co'] < -1)]
                         # -16.20000,123.60000,-1.80950
 
-                        saveImg = '{}/{}/{}/{}_{}_{}_{}.png'.format(globalVar['figPath'], serviceName, 'CORR', dateInfo, 'corr', typeInfo, keyInfo)
+                        saveImg = '{}/{}/{}/{}_{}_{}_{}.png'.format(globalVar['figPath'], serviceName, 'CORR2', dateInfo, 'corr2', typeInfo, keyInfo)
                         os.makedirs(os.path.dirname(saveImg), exist_ok=True)
                         peaCorr.plot(vmin=-1.0, vmax=1.0)
                         plt.savefig(saveImg, dpi=600, bbox_inches='tight', transparent=True)
@@ -392,7 +397,7 @@ class DtaProcess(object):
                 for i, keyInfo in enumerate(sysOpt['keyList']):
                     log.info(f'[CHECK] keyInfo : {keyInfo}')
 
-                    saveImg = '{}/{}/{}/{}_{}.png'.format(globalVar['figPath'], serviceName, 'EMI', dateInfo, keyInfo)
+                    saveImg = '{}/{}/{}/{}_{}.png'.format(globalVar['figPath'], serviceName, 'EMI2', dateInfo, keyInfo)
                     if len(glob.glob(saveFile)) > 0: continue
                     
                     var = data[keyInfo]
@@ -411,7 +416,7 @@ class DtaProcess(object):
                     plt.close()
                     log.info(f'[CHECK] saveImg : {saveImg}')
 
-                    saveFile = '{}/{}/{}/{}_{}.nc'.format(globalVar['outPath'], serviceName, 'EMI', dateInfo, keyInfo)
+                    saveFile = '{}/{}/{}/{}_{}.nc'.format(globalVar['outPath'], serviceName, 'EMI2', dateInfo, keyInfo)
                     os.makedirs(os.path.dirname(saveFile), exist_ok=True)
                     meanDataL1.to_netcdf(saveFile)
                     log.info(f'[CHECK] saveFile : {saveFile}')
@@ -422,7 +427,7 @@ class DtaProcess(object):
                 for i, keyInfo in enumerate(sysOpt['keyList']):
                     log.info(f'[CHECK] keyInfo : {keyInfo}')
 
-                    saveImg = '{}/{}/{}/{}_{}_{}.png'.format(globalVar['figPath'], serviceName, 'MANN', dateInfo, 'mann', keyInfo)
+                    saveImg = '{}/{}/{}/{}_{}_{}.png'.format(globalVar['figPath'], serviceName, 'MANN2', dateInfo, 'mann', keyInfo)
                     os.makedirs(os.path.dirname(saveImg), exist_ok=True)
                     if len(glob.glob(saveImg)) > 0: continue
 
@@ -454,7 +459,7 @@ class DtaProcess(object):
                     plt.close()
                     log.info(f'[CHECK] saveImg : {saveImg}')
 
-                    saveFile = '{}/{}/{}/{}_{}_{}.nc'.format(globalVar['outPath'], serviceName, 'MANN', dateInfo, 'mann', keyInfo)
+                    saveFile = '{}/{}/{}/{}_{}_{}.nc'.format(globalVar['outPath'], serviceName, 'MANN2', dateInfo, 'mann', keyInfo)
                     os.makedirs(os.path.dirname(saveFile), exist_ok=True)
                     mannKendall.to_netcdf(saveFile)
                     log.info(f'[CHECK] saveFile : {saveFile}')
@@ -466,11 +471,11 @@ class DtaProcess(object):
                 # **********************************************************************************************************
                 # mainTitle = '{}'.format('EDGAR Mann-Kendall Trend (2001~2018)')
                 mainTitle = f"EDGAR Mann-Kendall Trend ({dateInfo})"
-                saveImg = '{}/{}/{}/{}.png'.format(globalVar['figPath'], serviceName, 'MANN', mainTitle)
+                saveImg = '{}/{}/{}/{}.png'.format(globalVar['figPath'], serviceName, 'MANN2', mainTitle)
                 os.makedirs(os.path.dirname(saveImg), exist_ok=True)
                 if len(glob.glob(saveImg)) > 0: continue
 
-                inpFile = '{}/{}/{}/{}.nc'.format(globalVar['outPath'], serviceName, 'MANN', '*')
+                inpFile = '{}/{}/{}/{}.nc'.format(globalVar['outPath'], serviceName, 'MANN2', '*')
                 fileList = sorted(glob.glob(inpFile))
 
                 if fileList is None or len(fileList) < 1:
@@ -503,11 +508,11 @@ class DtaProcess(object):
 
                     # mainTitle = f'EDGAR Pearson-Corr {typeInfo} (2001~2018)'
                     mainTitle = f"EDGAR Pearson-Corr {typeInfo} ({dateInfo})"
-                    saveImg = '{}/{}/{}/{}.png'.format(globalVar['figPath'], serviceName, 'CORR', mainTitle)
+                    saveImg = '{}/{}/{}/{}.png'.format(globalVar['figPath'], serviceName, 'CORR2', mainTitle)
                     os.makedirs(os.path.dirname(saveImg), exist_ok=True)
                     if len(glob.glob(saveImg)) > 0: continue
 
-                    inpFile = '{}/{}/{}/*{}*.nc'.format(globalVar['outPath'], serviceName, 'CORR', typeInfo)
+                    inpFile = '{}/{}/{}/*{}*.nc'.format(globalVar['outPath'], serviceName, 'CORR2', typeInfo)
                     fileList = sorted(glob.glob(inpFile))
 
                     if fileList is None or len(fileList) < 1:
