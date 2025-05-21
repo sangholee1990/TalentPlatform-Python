@@ -302,7 +302,7 @@ class DtaProcess(object):
                 # inpFile = '{}/{}/{}.nc'.format(globalVar['outPath'], serviceName, '*_1990-2021')
                 # inpFile = '{}/{}/{}.nc'.format(globalVar['outPath'], serviceName, '*')
                 # inpFile = '{}/{}/{}.nc'.format(globalVar['inpPath'], serviceName, '*')
-                inpFile = '{}/{}/EDGAR2-{}.nc'.format(globalVar['inpPath'], serviceName, '*')
+                inpFile = '{}/{}/{}.nc'.format(globalVar['inpPath'], serviceName, 'EDGAR2-*')
                 fileList = sorted(glob.glob(inpFile))
 
                 if fileList is None or len(fileList) < 1:
