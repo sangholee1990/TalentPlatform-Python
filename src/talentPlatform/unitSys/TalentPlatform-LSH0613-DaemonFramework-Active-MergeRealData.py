@@ -323,11 +323,11 @@ class DtaProcess(object):
             
             colNameList = ['apt', '전용면적', '평수', '거래 금액',
                            '거래 금액(억원)', '거래가 분류', '층', '건축날짜',
-                           '거래유형', '중개사소재지', '주소', '계약날짜', '법정동', 'geo', 'sgg', '건축연도', '계약연도']
+                           '거래유형', '중개사소재지', '주소', '계약날짜', '법정동', 'geo', 'sgg', '건축연도', '계약연도', 'key']
 
             colCodeList = ['apt', 'capacity', 'area', 'amount'
                            , 'amountConv', 'amountType', 'floor', 'conDate'
-                           , 'transMethod', 'broLoc', 'addr', 'date', 'dong', 'geo', 'sgg', 'conYear', 'year']
+                           , 'transMethod', 'broLoc', 'addr', 'date', 'dong', 'geo', 'sgg', 'conYear', 'year', 'key']
 
             renameDict = {colName: colCode for colName, colCode in zip(colNameList, colCodeList)}
 
@@ -347,7 +347,7 @@ class DtaProcess(object):
 
                 fileName = os.path.basename(fileInfo)
                 fileNameNoExt = fileName.split('.')[0]
-                ssg = fileNameNoExt.split('_')[1]
+                # ssg = fileNameNoExt.split('_')[1]
 
                 # data = pd.read_excel(fileInfo, sheet_name=sysOpt['sheetName'], engine='openpyxl')
             
@@ -362,20 +362,29 @@ class DtaProcess(object):
                 data['거래 금액(억원)'] = data['거래 금액'] / 100000000
                 data['계약날짜'] = pd.to_datetime(data['dtYearMonth'].astype(str) + data['일'].apply(lambda x: f'{x:02d}').astype(str), format='%Y%m%d')
                 data['건축날짜'] = pd.to_datetime(data['건축년도'].astype(str), format='%Y')
-                data['주소'] = data['addrInfo'].astype(str) + ' ' + data['도로명'].astype(str) + ' ' + data['도로명건물본번호코드'].astype(str) + ' ' + data['아파트'].astype(str)
+                # data['주소'] = data['addrInfo'].astype(str) + ' ' + data['도로명'].astype(str) + ' ' + data['도로명건물본번호코드'].astype(str) + ' ' + data['아파트'].astype(str)
+                data['주소'] = data['addrInfo'].astype(str) + ' ' + data['d2'].astype(str) + ' ' + data['도로명'].astype(str) + ' ' + data['도로명건물본번호코드'].astype(str) + ' ' + data['아파트'].astype(str)
                 data["평수"] = pd.to_numeric(data["전용면적"], errors='coerce').apply(getFloorArea)
                 data["거래가 분류"] = data["거래 금액(억원)"].apply(getAmountType)
-                data['sgg'] = data['addrInfo']
+                # data['sgg'] = data['addrInfo']
+                data['sgg'] = data['addrInfo'] + ' ' + data['d2'].astype(str)
                 data['계약연도'] = data['계약날짜'].dt.strftime('%Y').astype(int)
                 data['건축연도'] = data['건축날짜'].dt.strftime('%Y').astype(int)
-                
+                data['층'] = pd.to_numeric(data["층"], errors='coerce').astype('Int64')
+
                 if 'lat' in data.columns and 'lon' in data.columns:
                     data['geo'] = data["lat"].astype('str') + ", " + data["lon"].astype('str')
                 else:
                     data['geo'] = data["latitude"].astype('str') + ", " + data["longitude"].astype('str')
-                
+
+                data['key'] = data['addrInfo'] + ' ' + data['d2'].astype(str) + ' ' + data['법정동'] + ' ' + data['아파트'] + '(' + data['지번'] + ')'
+
                 dataL1 = data[colNameList].rename(columns=renameDict, inplace=False)
+                # dataL1 = data.rename(columns=renameDict, inplace=False)
+
                 dataL2 = pd.concat([dataL2, dataL1], axis=0)
+
+            # dataL2.loc[dataL2['apt'] == '라움(태평로)'].iloc[0]
 
             # =================================================================
             # CSV 통합파일
@@ -385,7 +394,6 @@ class DtaProcess(object):
             os.makedirs(os.path.dirname(saveFile), exist_ok=True)
             dataL2.to_csv(saveFile, index=False)
             log.info(f'[CHECK] saveFile : {saveFile}')
-
 
             # =================================================================
             # 빅쿼리 업로드
@@ -429,7 +437,6 @@ class DtaProcess(object):
             )
 
             tableId = f"{credentials.project_id}.DMS01.TB_REAL"
-            # with open(fileInfo, "rb") as file:
             with open(saveFile, "rb") as file:
                 job = client.load_table_from_file(file, tableId, job_config=jobCfg)
             job.result()
