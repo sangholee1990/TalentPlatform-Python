@@ -171,9 +171,10 @@ def initArgument(globalVar):
 
 # 서버측 프로토콜
 class ReceivingProtocol(protocol.Protocol, TimeoutMixin):
-    def __init__(self, sysOptForProtocol):
+    def __init__(self, factory):
         self._buffer = b''
-        self.sysOpt = sysOptForProtocol
+        self.sysOpt = factory
+        self.timeout_call = None
         self.sysOpt['tcpip']['clientHost'] = None
         self.sysOpt['tcpip']['clientPort'] = None
 
@@ -184,20 +185,42 @@ class ReceivingProtocol(protocol.Protocol, TimeoutMixin):
         self.setTimeout(self.sysOpt['tcpip']['timeout'])
         log.info(f"[{self.sysOpt['tcpip']['clientHost']}][{self.sysOpt['tcpip']['clientPort']}] 클라이언트 연결")
 
+    # def resetTimeout(self):
+    #     if self.timeout_call and self.timeout_call.active():
+    #         self.timeout_call.cancel()
+    #     self.timeout_call = reactor.callLater(self.sysOpt['tcpip']['timeout'], self.handleTimeout)
+
+    def handleTimeout(self):
+        log.info(f"[{self.sysOpt['tcpip']['clientHost']}][{self.sysOpt['tcpip']['clientPort']}] {self.sysOpt['tcpip']['timeout']} 시간 초과")
+        self.transport.loseConnection()
+
     def dataReceived(self, data):
         self.resetTimeout()
         self._buffer += data
-        # self._buffer = data
         headerSize = 4
+        log.info(f"[{self.sysOpt['tcpip']['clientHost']}][{self.sysOpt['tcpip']['clientPort']}] Received {len(data)} bytes. Buffer size: {len(self._buffer)}")
 
         while len(self._buffer) >= headerSize:
         # while True:
             try:
-                sof = self._buffer[0]
-                if sof != 0xFF:
-                    log.info(f"[{self.sysOpt['tcpip']['clientHost']}][{self.sysOpt['tcpip']['clientPort']}] 잘못된 SOF 수신 : {sof:#02x} 연결 종료")
-                    # self.transport.loseConnection()
-                    return
+                # SOF 찾기
+                # sof = self._buffer[0]
+                # if sof != 0xFF:
+                #     log.info(f"[{self.sysOpt['tcpip']['clientHost']}][{self.sysOpt['tcpip']['clientPort']}] 잘못된 SOF 수신 : {sof:#02x} 연결 종료")
+                #     return
+
+                sofIdx = self._buffer.find(b'\xFF')
+                if sofIdx == -1:
+                    logging.warning(f"[{self.sysOpt['tcpip']['clientHost']}][{self.sysOpt['tcpip']['clientPort']}] No SoF found in buffer. Discarding buffer: {self._buffer.hex()}")
+                    self._buffer = b''
+                    break
+
+                if sofIdx > 0:
+                    logging.warning(f"[{self.sysOpt['tcpip']['clientHost']}][{self.sysOpt['tcpip']['clientPort']}] Discarding data before SoF: {self._buffer[:sofIdx].hex()}")
+                    self._buffer = self._buffer[sofIdx:]
+
+                if len(self._buffer) < 4:
+                    break
 
                 msgIdH = self._buffer[1]
                 msgIdL = self._buffer[2]
@@ -218,7 +241,7 @@ class ReceivingProtocol(protocol.Protocol, TimeoutMixin):
                 self._buffer = self._buffer[msgSize:]
 
                 log.info(f"[{self.sysOpt['tcpip']['clientHost']}][{self.sysOpt['tcpip']['clientPort']}] orgBuffer : {orgBuffer}")
-                log.info(f"[{self.sysOpt['tcpip']['clientHost']}][{self.sysOpt['tcpip']['clientPort']}] SOF : {sof:#02x}")
+                # log.info(f"[{self.sysOpt['tcpip']['clientHost']}][{self.sysOpt['tcpip']['clientPort']}] SOF : {sof:#02x}")
                 log.info(f"[{self.sysOpt['tcpip']['clientHost']}][{self.sysOpt['tcpip']['clientPort']}] Msg ID : {msgId:#04x} ({msgId})")
                 log.info(f"[{self.sysOpt['tcpip']['clientHost']}][{self.sysOpt['tcpip']['clientPort']}] Payload Length : {payloadSize}")
                 log.info(f"[{self.sysOpt['tcpip']['clientHost']}][{self.sysOpt['tcpip']['clientPort']}] Payload : {payload!r}")
@@ -227,8 +250,18 @@ class ReceivingProtocol(protocol.Protocol, TimeoutMixin):
 
             except Exception as e:
                 log.error(f"[{self.sysOpt['tcpip']['clientHost']}][{self.sysOpt['tcpip']['clientPort']}] 메시지 처리 오류 : {e}")
-                self.transport.loseConnection()
-                return
+                # self.transport.loseConnection()
+                # return
+                self._buffer = b''
+                break
+
+    def connectionLost(self, reason):
+        log.info(f"[{self.sysOpt['tcpip']['clientHost']}][{self.sysOpt['tcpip']['clientPort']}] 클라이언트 해제 : {reason.getErrorMessage()}")
+        self._buffer = b''
+
+    def timeoutConnection(self):
+        log.info(f"[{self.sysOpt['tcpip']['clientHost']}][{self.sysOpt['tcpip']['clientPort']}] 클라이언트 타임아웃")
+        self.transport.loseConnection()
 
     def handleMsg(self, msgId, payload, buffer):
 
@@ -372,14 +405,6 @@ class ReceivingProtocol(protocol.Protocol, TimeoutMixin):
         header = struct.pack('>BBBB', sof, msgIdH, msgIdL, payloadSize)
         return header
 
-    def connectionLost(self, reason):
-        log.info(f"[{self.sysOpt['tcpip']['clientHost']}][{self.sysOpt['tcpip']['clientPort']}] 클라이언트 해제 : {reason.getErrorMessage()}")
-        self._buffer = b''
-
-    def timeoutConnection(self):
-        log.info(f"[{self.sysOpt['tcpip']['clientHost']}][{self.sysOpt['tcpip']['clientPort']}] 클라이언트 타임아웃")
-        self.transport.loseConnection()
-
 # 서버 측 팩토리
 class ReceivingFactory(protocol.Factory):
 
@@ -391,9 +416,9 @@ class ReceivingFactory(protocol.Factory):
     # 신규 연결 시 프로토콜 인스턴스 생성 메서드
     def buildProtocol(self, addr):
         log.info(f"프로토콜 인스턴스 생성 : {addr}")
-        p = self.protocol(self.sysOpt)
-        p.factory = self
-        return p
+        proto  = self.protocol(self.sysOpt)
+        # p.factory = self
+        return proto
 
 def payloadProc(payload, payloadOpt):
     data = {}
@@ -517,14 +542,11 @@ class DtaProcess(object):
                     'clientPort': None,
                 },
                 'mysql': {
-                    # 설정
                     'host': 'localhost',
                     'user': 'dms01user01',
                     'password': 'Bdwide365!@',
                     'port': '3306',
                     'schema': 'DMS02',
-
-                    # 세션
                     'session': None,
                     'table': {
                         'tbConnLog': None
