@@ -84,12 +84,12 @@ while [ $(date -d "$incDate" +"%s") -le $(date -d "$endDate" +"%s") ]; do
 
 	for model in ${modelList[@]}; do
 	for key in ${keyList[@]}; do
-	    metaInfo=${metaData[$model,$key]}
+	  metaInfo=${metaData[$model,$key]}
 		#echo "[$(date +"%Y-%m-%d %H:%M:%S")] [CHECK] metaInfo : $metaInfo"
 
 		fileInfoPtrn=$(echo "$metaInfo" | sed -e "s/%Y/$year/g" -e "s/%m/$month/g" -e "s/%d/$day/g" -e "s/%H/$hour/g" -e "s/%M/$min/g")
 		filePath=${fileInfoPtrn%/*}
-   		fileName="${fileInfoPtrn##*/}"
+   	fileName="${fileInfoPtrn##*/}"
 
 		fileListCnt=$(find ${filePath} -name "${fileName}" -type f 2>/dev/null | sort -u | wc -l)
 		if [ ${fileListCnt} -lt 1 ]; then continue; fi

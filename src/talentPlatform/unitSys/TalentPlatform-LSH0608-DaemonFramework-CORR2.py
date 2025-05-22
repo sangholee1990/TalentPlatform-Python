@@ -302,7 +302,7 @@ class DtaProcess(object):
                 # inpFile = '{}/{}/{}.nc'.format(globalVar['outPath'], serviceName, '*_1990-2021')
                 # inpFile = '{}/{}/{}.nc'.format(globalVar['outPath'], serviceName, '*')
                 # inpFile = '{}/{}/{}.nc'.format(globalVar['inpPath'], serviceName, '*')
-                inpFile = '{}/{}/EDGAR2-{}.nc'.format(globalVar['inpPath'], serviceName, '*')
+                inpFile = '{}/{}/{}.nc'.format(globalVar['inpPath'], serviceName, 'EDGAR2-*')
                 fileList = sorted(glob.glob(inpFile))
 
                 if fileList is None or len(fileList) < 1:
@@ -475,7 +475,7 @@ class DtaProcess(object):
                 os.makedirs(os.path.dirname(saveImg), exist_ok=True)
                 if len(glob.glob(saveImg)) > 0: continue
 
-                inpFile = '{}/{}/{}/{}.nc'.format(globalVar['outPath'], serviceName, 'MANN2', '*')
+                inpFile = '{}/{}/{}/{}_{}.nc'.format(globalVar['outPath'], serviceName, 'MANN2', dateInfo, '*')
                 fileList = sorted(glob.glob(inpFile))
 
                 if fileList is None or len(fileList) < 1:
@@ -512,7 +512,7 @@ class DtaProcess(object):
                     os.makedirs(os.path.dirname(saveImg), exist_ok=True)
                     if len(glob.glob(saveImg)) > 0: continue
 
-                    inpFile = '{}/{}/{}/*{}*.nc'.format(globalVar['outPath'], serviceName, 'CORR2', typeInfo)
+                    inpFile = '{}/{}/{}/{}_*{}*.nc'.format(globalVar['outPath'], serviceName, 'CORR2', dateInfo, typeInfo)
                     fileList = sorted(glob.glob(inpFile))
 
                     if fileList is None or len(fileList) < 1:

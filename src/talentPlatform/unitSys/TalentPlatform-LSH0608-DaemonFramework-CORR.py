@@ -1,7 +1,10 @@
 # ================================================
 # 요구사항
 # ================================================
-# Python 이용한 CO2 및 CH4 자료 처리 및 연도별 저장
+# cd /data2/hzhenshao/EMI
+# /data2/hzhenshao/EMI/py38/bin/python3 TalentPlatform-LSH0608-DaemonFramework-CORR.py
+# nohup /data2/hzhenshao/EMI/py38/bin/python3 TalentPlatform-LSH0608-DaemonFramework-CORR.py &
+# tail -f nohup.out
 
 # -*- coding: utf-8 -*-
 import argparse
@@ -297,7 +300,7 @@ class DtaProcess(object):
             for dateInfo in sysOpt['dateList']:
                 # inpFile = '{}/{}/{}.nc'.format(globalVar['outPath'], serviceName, '*_1990-2021')
                 # inpFile = '{}/{}/{}.nc'.format(globalVar['outPath'], serviceName, '*')
-                inpFile = '{}/{}/{}.nc'.format(globalVar['inpPath'], serviceName, '*')
+                inpFile = '{}/{}/{}.nc'.format(globalVar['inpPath'], serviceName, 'EDGAR-*')
                 fileList = sorted(glob.glob(inpFile))
 
                 if fileList is None or len(fileList) < 1:
@@ -470,7 +473,7 @@ class DtaProcess(object):
                 os.makedirs(os.path.dirname(saveImg), exist_ok=True)
                 if len(glob.glob(saveImg)) > 0: continue
 
-                inpFile = '{}/{}/{}/{}.nc'.format(globalVar['outPath'], serviceName, 'MANN', '*')
+                inpFile = '{}/{}/{}/{}_{}.nc'.format(globalVar['outPath'], serviceName, 'MANN', dateInfo, '*')
                 fileList = sorted(glob.glob(inpFile))
 
                 if fileList is None or len(fileList) < 1:
@@ -507,7 +510,7 @@ class DtaProcess(object):
                     os.makedirs(os.path.dirname(saveImg), exist_ok=True)
                     if len(glob.glob(saveImg)) > 0: continue
 
-                    inpFile = '{}/{}/{}/*{}*.nc'.format(globalVar['outPath'], serviceName, 'CORR', typeInfo)
+                    inpFile = '{}/{}/{}/{}_*{}*.nc'.format(globalVar['outPath'], serviceName, 'CORR', dateInfo, typeInfo)
                     fileList = sorted(glob.glob(inpFile))
 
                     if fileList is None or len(fileList) < 1:
