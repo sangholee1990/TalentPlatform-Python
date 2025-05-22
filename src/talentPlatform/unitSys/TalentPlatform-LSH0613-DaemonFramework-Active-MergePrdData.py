@@ -3,7 +3,7 @@
 # ================================================
 # Python을 이용한 부동산 데이터 분석 및 가격 예측 고도화 및 구글 스튜디오 시각화
 
-# /SYSTEMS/LIB/anaconda3/envs/py38/bin/python /SYSTEMS/PROG/PYTHON/IDE/src/talentPlatform/unitSys/TalentPlatform-LSH0613-DaemonFramework-Active-OpenAPI-DataCollectToPrep.py
+# /SYSTEMS/LIB/anaconda3/envs/py38/bin/python /SYSTEMS/PROG/PYTHON/IDE/src/talentPlatform/unitSys/TalentPlatform-LSH0613-DaemonFramework-Active-MergePrdData.py
 
 # -*- coding: utf-8 -*-
 import argparse
@@ -244,8 +244,43 @@ class DtaProcess(object):
                 },
                 '아파트실거래': {
                     # 'propFile': '/DATA/OUTPUT/LSH0613/전처리/아파트실거래_{addrInfo}_{d2}.csv',
+                    'propFilePattern': '/DATA/OUTPUT/LSH0613/전처리/아파트실거래_{addrInfo}_{d2}.csv',
                     'propFile': '/DATA/OUTPUT/LSH0613/전처리/아파트실거래_*_*.csv',
                     'saveFile': '/DATA/OUTPUT/LSH0613/통합/아파트실거래.csv',
+                    'renameDict': {
+                        'sggCd': '법정동시군구코드',
+                        'umdCd': '법정동읍면동코드',
+                        'landCd': '법정동지번코드',
+                        'bonbun': '법정동본번코드',
+                        'bubun': '법정동부번코드',
+                        'roadNm': '도로명',
+                        'roadNmSggCd': '도로명시군구코드',
+                        'roadNmCd': '도로명코드',
+                        'roadNmSeq': '도로명일련번호코드',
+                        'roadNmbCd': '도로명지상지하코드',
+                        'roadNmBonbun': '도로명건물본번호코드',
+                        'roadNmBubun': '도로명건물부번호코드',
+                        'umdNm': '법정동',
+                        'aptNm': '아파트',
+                        'jibun': '지번',
+                        'excluUseAr': '전용면적',
+                        'dealYear': '년',
+                        'dealMonth': '월',
+                        'dealDay': '일',
+                        'dealAmount': '거래금액',
+                        'floor': '층',
+                        'buildYear': '건축년도',
+                        'aptSeq': '일련번호',
+                        'cdealType': '해제여부',
+                        'cdealDay': '해제사유발생일',
+                        'dealingGbn': '거래유형',
+                        'estateAgentSggNm': '중개사소재지',
+                        'rgstDate': '등기일자',
+                        'aptDong': '아파트동명',
+                        'slerGbn': '매도자',
+                        'buyerGbn': '매수자',
+                        'landLeaseholdGbn': '토지임대부 아파트 여부'
+                    },
                 }
             }
 
@@ -266,14 +301,41 @@ class DtaProcess(object):
             # *********************************************************************************
             # 파일 읽기
             # *********************************************************************************
-            # inpFile = '{}/{}/{}'.format(globalVar['inpPath'], serviceName, '예측/수익률 테이블_*.xlsx')
+            # # inpFile = '{}/{}/{}'.format(globalVar['inpPath'], serviceName, '예측/수익률 테이블_*.xlsx')
+            # inpFile = sysOpt['예측']['propFile']
+            # fileList = sorted(glob.glob(inpFile), reverse=True)
+            # if fileList is None or len(fileList) < 1:
+            #     log.error(f'파일 없음 : {inpFile}')
+            #     sys.exit(1)
+            #
+            # dataL2 = pd.DataFrame()
+            # for fileInfo in fileList:
+            #     log.info(f'[CHECK] fileInfo : {fileInfo}')
+            #
+            #     # data = pd.read_excel(fileInfo, engine='openpyxl')
+            #     data = pd.read_csv(fileInfo)
+            #
+            #     data["area"] = data["면적"].apply(getFloorArea)
+            #     data['geo'] = data["위도"].astype('str') + ", " + data["경도"].astype('str')
+            #
+            #     # splitData = data['아파트(도로명)'].str.split(" ")
+            #     # data['sgg'] = splitData.str[0] + " " + splitData.str[1]
+            #     # data['town'] = splitData.str[2]
+            #     # data['apt'] = splitData.str[3]
+            #
+            #     dataL1 = data.rename(columns=renameDict, inplace=False)
+            #     dataL2 = pd.concat([dataL2, dataL1], axis=0)
+
+            # *********************************************************************************
+            # 파일 읽기2
+            # *********************************************************************************
             inpFile = sysOpt['예측']['propFile']
             fileList = sorted(glob.glob(inpFile), reverse=True)
             if fileList is None or len(fileList) < 1:
                 log.error(f'파일 없음 : {inpFile}')
                 sys.exit(1)
 
-            dataL2 = pd.DataFrame()
+            dataL4 = pd.DataFrame()
             for fileInfo in fileList:
                 log.info(f'[CHECK] fileInfo : {fileInfo}')
 
@@ -283,13 +345,44 @@ class DtaProcess(object):
                 data["area"] = data["면적"].apply(getFloorArea)
                 data['geo'] = data["위도"].astype('str') + ", " + data["경도"].astype('str')
 
-                splitData = data['아파트(도로명)'].str.split(" ")
-                data['sgg'] = splitData.str[0] + " " + splitData.str[1]
-                data['town'] = splitData.str[2]
-                data['apt'] = splitData.str[3]
+                # splitData = data['아파트(도로명)'].str.split(" ")
+                # data['sgg'] = splitData.str[0] + " " + splitData.str[1]
+                # data['town'] = splitData.str[2]
+                # data['apt'] = splitData.str[3]
 
-                dataL1 = data.rename(columns=renameDict, inplace=False)
-                dataL2 = pd.concat([dataL2, dataL1], axis=0)
+                fileNameNoExt = os.path.basename(fileInfo).split('.')[0]
+                splitList = fileNameNoExt.split('_')
+                inpFile = sysOpt['아파트실거래']['propFilePattern'].format(addrInfo=splitList[1], d2=splitList[2])
+                fileList = sorted(glob.glob(inpFile), reverse=True)
+                if fileList is None or len(fileList) < 1:
+                    continue
+                refData = pd.read_csv(fileList[0], low_memory=False)
+                refData = refData.rename(columns=sysOpt['아파트실거래']['renameDict'])
+                refData['key'] = refData['addrInfo'] + ' ' + refData['d2'].astype(str) + ' ' + refData['법정동'] + ' ' + refData['아파트'] + '(' + refData['지번'] + ')'
+                refData['apt'] = refData['아파트'] + '(' + refData['도로명'] + ')'
+                refData['sgg'] = refData['addrInfo'] + ' ' + refData['d2'].astype(str)
+
+                dataL2 = pd.merge(data, refData[['key', 'apt', 'sgg']], how='left', left_on=['아파트(도로명)'], right_on=['key'])
+                splitData = dataL2['key'].str.split(" ")
+                dataL2['town'] = splitData.str[2]
+                dataL2['key'] = dataL2['아파트(도로명)']
+                dataL2['아파트(도로명)'] = dataL2['apt']
+
+                dataL3 = dataL2.rename(columns=renameDict, inplace=False)
+                dataL4 = pd.concat([dataL4, dataL3], axis=0)
+
+            # =================================================================
+            # 아파트실거래 매칭
+            # =================================================================
+            # refData = pd.read_csv(sysOpt['아파트실거래']['saveFile'], low_memory=False)
+
+            # dataL3 = pd.merge(dataL2, refData[['key', 'apt', 'sgg', 'dong']], how='left', left_on=['key'], right_on=['key'])
+            # splitData = dataL3['key'].str.split(" ")
+            # dataL3['town'] = splitData.str[2]
+            # dataL3['name'] = dataL3['apt']
+            #
+            # print(dataL4.loc[dataL4['name'] == '두산(가산로)'].iloc[0])
+            # sys.exit(1)
 
             # =================================================================
             # CSV 통합파일
@@ -297,7 +390,8 @@ class DtaProcess(object):
             # saveFile = '{}/{}/{}_{}.csv'.format(globalVar['outPath'], serviceName, datetime.now().strftime("%Y%m%d"), 'TB_PRD')
             saveFile = sysOpt['예측']['saveFile']
             os.makedirs(os.path.dirname(saveFile), exist_ok=True)
-            dataL2.to_csv(saveFile, index=False)
+            # dataL3.to_csv(saveFile, index=False)
+            dataL4.to_csv(saveFile, index=False)
             log.info(f'[CHECK] saveFile : {saveFile}')
 
             # =================================================================
@@ -342,7 +436,6 @@ class DtaProcess(object):
             )
 
             tableId = f"{credentials.project_id}.DMS01.TB_PRD"
-            # with open(fileInfo, "rb") as file:
             with open(saveFile, "rb") as file:
                 job = client.load_table_from_file(file, tableId, job_config=jobCfg)
             job.result()
