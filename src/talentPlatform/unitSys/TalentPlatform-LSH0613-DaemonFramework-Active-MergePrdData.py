@@ -1,5 +1,11 @@
-# -*- coding: utf-8 -*-
+# ================================================
+# 요구사항
+# ================================================
+# Python을 이용한 부동산 데이터 분석 및 가격 예측 고도화 및 구글 스튜디오 시각화
 
+# /SYSTEMS/LIB/anaconda3/envs/py38/bin/python /SYSTEMS/PROG/PYTHON/IDE/src/talentPlatform/unitSys/TalentPlatform-LSH0613-DaemonFramework-Active-MergePrdData.py
+
+# -*- coding: utf-8 -*-
 import argparse
 import glob
 import logging
@@ -171,13 +177,6 @@ def getFloorArea(size):
 # ================================================
 class DtaProcess(object):
 
-    # ================================================
-    # 요구사항
-    # ================================================
-    # Python을 이용한 부동산 데이터 분석 및 가격 예측 고도화 및 구글 스튜디오 시각화
-
-    # G:\내 드라이브\shlee\04. TalentPlatform\[재능플랫폼] 최종납품\[요청] LSH0454. Python을 이용한 부동산 데이터 분석 및 가격 예측 고도화 및 구글 스튜디오 시각화\20240310_빅쿼리 연계
-
     # ================================================================================================
     # 환경변수 설정
     # ================================================================================================
@@ -241,14 +240,14 @@ class DtaProcess(object):
                 '예측': {
                     # 'propFile': '/DATA/OUTPUT/LSH0613/예측/수익률_{addrInfo}_{d2}.csv',
                     'propFile': '/DATA/OUTPUT/LSH0613/예측/수익률_*_*.csv',
+                    'saveFile': '/DATA/OUTPUT/LSH0613/통합/수익률.csv',
                 },
                 '아파트실거래': {
                     # 'propFile': '/DATA/OUTPUT/LSH0613/전처리/아파트실거래_{addrInfo}_{d2}.csv',
                     'propFile': '/DATA/OUTPUT/LSH0613/전처리/아파트실거래_*_*.csv',
+                    'saveFile': '/DATA/OUTPUT/LSH0613/통합/아파트실거래.csv',
                 }
             }
-
-
 
             # *********************************************************************************
             # 코드 정보 읽기
@@ -272,12 +271,14 @@ class DtaProcess(object):
             fileList = sorted(glob.glob(inpFile), reverse=True)
             if fileList is None or len(fileList) < 1:
                 log.error(f'파일 없음 : {inpFile}')
+                sys.exit(1)
 
             dataL2 = pd.DataFrame()
             for fileInfo in fileList:
                 log.info(f'[CHECK] fileInfo : {fileInfo}')
 
-                data = pd.read_excel(fileInfo, engine='openpyxl')
+                # data = pd.read_excel(fileInfo, engine='openpyxl')
+                data = pd.read_csv(fileInfo)
 
                 data["area"] = data["면적"].apply(getFloorArea)
                 data['geo'] = data["위도"].astype('str') + ", " + data["경도"].astype('str')
@@ -290,11 +291,62 @@ class DtaProcess(object):
                 dataL1 = data.rename(columns=renameDict, inplace=False)
                 dataL2 = pd.concat([dataL2, dataL1], axis=0)
 
-            # CSV 생성
-            saveFile = '{}/{}/{}_{}.csv'.format(globalVar['outPath'], serviceName, datetime.now().strftime("%Y%m%d"), 'TB_PRD')
+            # =================================================================
+            # CSV 통합파일
+            # =================================================================
+            # saveFile = '{}/{}/{}_{}.csv'.format(globalVar['outPath'], serviceName, datetime.now().strftime("%Y%m%d"), 'TB_PRD')
+            saveFile = sysOpt['예측']['saveFile']
             os.makedirs(os.path.dirname(saveFile), exist_ok=True)
             dataL2.to_csv(saveFile, index=False)
             log.info(f'[CHECK] saveFile : {saveFile}')
+
+            # =================================================================
+            # 빅쿼리 업로드
+            # =================================================================
+            jsonFile = sysOpt['jsonFile']
+            jsonList = sorted(glob.glob(jsonFile))
+            if jsonList is None or len(jsonList) < 1:
+                log.error(f'jsonFile : {jsonFile} / 설정 파일 검색 실패')
+                exit(1)
+
+            jsonInfo = jsonList[0]
+
+            try:
+                credentials = service_account.Credentials.from_service_account_file(jsonInfo)
+                client = bigquery.Client(credentials=credentials, project=credentials.project_id)
+            except Exception as e:
+                log.error(f'Exception : {e} / 빅쿼리 연결 실패')
+                exit(1)
+
+            jobCfg = bigquery.LoadJobConfig(
+                source_format=bigquery.SourceFormat.CSV,
+                skip_leading_rows=1,
+                autodetect=True,
+                # autodetect=False,
+                # schema=[  # BigQuery 테이블 스키마 정의 (열 이름, 데이터 타입)
+                #     bigquery.SchemaField("Y_NO", "INTEGER"),
+                #     bigquery.SchemaField("DEPART", "STRING"),
+                #     bigquery.SchemaField("DEPART_NO", "STRING"),
+                #     bigquery.SchemaField("SECTION", "STRING"),
+                #     bigquery.SchemaField("SUBJECT", "STRING"),
+                #     bigquery.SchemaField("NAME", "STRING"),
+                #     bigquery.SchemaField("YEAR", "STRING"),
+                #     bigquery.SchemaField("YEAR_DATE", "STRING"),
+                #     bigquery.SchemaField("PUBLIC", "STRING"),
+                #     bigquery.SchemaField("RC_DATE", "DATE"),
+                #     bigquery.SchemaField("REG_DATE", "DATE"),
+                #     bigquery.SchemaField("SIZE", "INTEGER"),
+                # ],
+                write_disposition=bigquery.WriteDisposition.WRITE_TRUNCATE,
+                max_bad_records=1000,
+            )
+
+            tableId = f"{credentials.project_id}.DMS01.TB_REAL"
+            # with open(fileInfo, "rb") as file:
+            with open(saveFile, "rb") as file:
+                job = client.load_table_from_file(file, tableId, job_config=jobCfg)
+            job.result()
+            log.info(f"[CHECK] tableId : {tableId}")
 
         except Exception as e:
             log.error(f'Exception : {e}')
