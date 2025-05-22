@@ -1,3 +1,10 @@
+# ================================================
+# 요구사항
+# ================================================
+# Python을 이용한 부동산 데이터 분석 및 가격 예측 고도화 및 구글 스튜디오 시각화
+
+# /SYSTEMS/LIB/anaconda3/envs/py38/bin/python /SYSTEMS/PROG/PYTHON/IDE/src/talentPlatform/unitSys/TalentPlatform-LSH0613-DaemonFramework-Active-MergeRealData.py
+
 # -*- coding: utf-8 -*-
 
 import argparse
@@ -15,6 +22,8 @@ import matplotlib.dates as mdates
 import matplotlib.pyplot as plt
 from matplotlib import font_manager
 import pandas as pd
+from google.cloud import bigquery
+from google.oauth2 import service_account
 
 # =================================================
 # 사용자 매뉴얼
@@ -119,47 +128,22 @@ def initGlobalVar(env=None, contextPath=None, prjName=None):
 
 
 #  초기 전달인자 설정
-def initArgument(globalVar, inParams):
+def initArgument(globalVar):
+    parser = argparse.ArgumentParser()
 
-    # 원도우 또는 맥 환경
-    if globalVar['sysOs'] in 'Windows' or globalVar['sysOs'] in 'Darwin':
-        inParInfo = inParams
+    for i, argv in enumerate(sys.argv[1:]):
+        if not argv.__contains__('--'): continue
+        parser.add_argument(argv)
 
-    # 리눅스 환경
-    if globalVar['sysOs'] in 'Linux':
-        parser = argparse.ArgumentParser()
+    inParInfo = vars(parser.parse_args())
+    log.info(f"[CHECK] inParInfo : {inParInfo}")
 
-        for i, argv in enumerate(sys.argv[1:]):
-            if not argv.__contains__('--'): continue
-            parser.add_argument(argv)
-
-        inParInfo = vars(parser.parse_args())
-
-        # 글꼴 설정
-        fontList = glob.glob('{}/{}'.format(globalVar['fontPath'], '*.ttf'))
-        if (len(fontList) > 0):
-            fontName = font_manager.FontProperties(fname=fontList[0]).get_name()
-            plt.rcParams['font.family'] = fontName
-            plt.rc('font', family=fontName)
-
-    log.info('[CHECK] inParInfo : {}'.format(inParInfo))
-
+    # 전역 변수에 할당
     for key, val in inParInfo.items():
         if val is None: continue
-        # 전역 변수에 할당
+        if env not in 'local' and key.__contains__('Path'):
+            os.makedirs(val, exist_ok=True)
         globalVar[key] = val
-
-    # 전역 변수
-    for key, val in globalVar.items():
-        if env not in 'local' and key.__contains__('Path') and env and not os.path.exists(val):
-            os.makedirs(val)
-
-        globalVar[key] = val.replace('\\', '/')
-
-        log.info("[CHECK] {} : {}".format(key, val))
-
-        # self 변수에 할당
-        # setattr(self, key, val)
 
     return globalVar
 
@@ -196,13 +180,6 @@ def getAmountType(amount):
 # ================================================
 class DtaProcess(object):
 
-    # ================================================
-    # 요구사항
-    # ================================================
-    # Python을 이용한 부동산 데이터 분석 및 가격 예측 고도화 및 구글 스튜디오 시각화
-
-    # G:\내 드라이브\shlee\04. TalentPlatform\[재능플랫폼] 최종납품\[요청] LSH0454. Python을 이용한 부동산 데이터 분석 및 가격 예측 고도화 및 구글 스튜디오 시각화\20240310_빅쿼리 연계
-
     # ================================================================================================
     # 환경변수 설정
     # ================================================================================================
@@ -229,14 +206,14 @@ class DtaProcess(object):
     # ================================================================================================
     # 4.3. 초기 변수 (Argument, Option) 설정
     # ================================================================================================
-    def __init__(self, inParams):
+    def __init__(self):
 
         log.info('[START] __init__ : {}'.format('init'))
 
         try:
             # 초기 전달인자 설정 (파이썬 실행 시)
             # pyhton3 *.py argv1 argv2 argv3 ...
-            initArgument(globalVar, inParams)
+            initArgument(globalVar)
 
         except Exception as e:
             log.error('Exception : {}'.format(e))
@@ -263,8 +240,8 @@ class DtaProcess(object):
                 globalVar['updPath'] = '/DATA/CSV'
 
             sysOpt = {
-                'sheetName': '실거래가 전처리'
-                , 'metaData': {
+                'sheetName': '실거래가 전처리',
+                'metaData': {
                     "충남": "충청남도",
                     "충북": "충청북도",
                     "서울": "서울특별시",
@@ -282,6 +259,53 @@ class DtaProcess(object):
                     "경북": "경상북도",
                     "경남": "경상남도",
                     "제주": "제주특별자치도"
+                },
+                # 빅쿼리 설정 정보
+                'jsonFile': '/SYSTEMS/PROG/PYTHON/IDE/resources/config/iconic-ruler-239806-7f6de5759012.json',
+
+                '예측': {
+                    # 'propFile': '/DATA/OUTPUT/LSH0613/예측/수익률_{addrInfo}_{d2}.csv',
+                    'propFile': '/DATA/OUTPUT/LSH0613/예측/수익률_*_*.csv',
+                    'saveFile': '/DATA/OUTPUT/LSH0613/통합/수익률.csv',
+                },
+                '아파트실거래': {
+                    # 'propFile': '/DATA/OUTPUT/LSH0613/전처리/아파트실거래_{addrInfo}_{d2}.csv',
+                    'propFile': '/DATA/OUTPUT/LSH0613/전처리/아파트실거래_*_*.csv',
+                    'saveFile': '/DATA/OUTPUT/LSH0613/통합/아파트실거래.csv',
+                    'renameDict': {
+                        'sggCd': '법정동시군구코드',
+                        'umdCd': '법정동읍면동코드',
+                        'landCd': '법정동지번코드',
+                        'bonbun': '법정동본번코드',
+                        'bubun': '법정동부번코드',
+                        'roadNm': '도로명',
+                        'roadNmSggCd': '도로명시군구코드',
+                        'roadNmCd': '도로명코드',
+                        'roadNmSeq': '도로명일련번호코드',
+                        'roadNmbCd': '도로명지상지하코드',
+                        'roadNmBonbun': '도로명건물본번호코드',
+                        'roadNmBubun': '도로명건물부번호코드',
+                        'umdNm': '법정동',
+                        'aptNm': '아파트',
+                        'jibun': '지번',
+                        'excluUseAr': '전용면적',
+                        'dealYear': '년',
+                        'dealMonth': '월',
+                        'dealDay': '일',
+                        'dealAmount': '거래금액',
+                        'floor': '층',
+                        'buildYear': '건축년도',
+                        'aptSeq': '일련번호',
+                        'cdealType': '해제여부',
+                        'cdealDay': '해제사유발생일',
+                        'dealingGbn': '거래유형',
+                        'estateAgentSggNm': '중개사소재지',
+                        'rgstDate': '등기일자',
+                        'aptDong': '아파트동명',
+                        'slerGbn': '매도자',
+                        'buyerGbn': '매수자',
+                        'landLeaseholdGbn': '토지임대부 아파트 여부'
+                    },
                 }
             }
 
@@ -310,10 +334,12 @@ class DtaProcess(object):
             # *********************************************************************************
             # 파일 읽기
             # *********************************************************************************
-            inpFile = '{}/{}/{}'.format(globalVar['inpPath'], serviceName, '전처리/*/아파트 실거래_*_*.csv')
+            # inpFile = '{}/{}/{}'.format(globalVar['inpPath'], serviceName, '전처리/*/아파트 실거래_*_*.csv')
+            inpFile = sysOpt['아파트실거래']['propFile']
             fileList = sorted(glob.glob(inpFile), reverse=True)
             if fileList is None or len(fileList) < 1:
                 log.error(f'파일 없음 : {inpFile}')
+                sys.exit(1)
 
             dataL2 = pd.DataFrame()
             for fileInfo in fileList:
@@ -326,10 +352,11 @@ class DtaProcess(object):
                 # data = pd.read_excel(fileInfo, sheet_name=sysOpt['sheetName'], engine='openpyxl')
             
                 try:
-                    data = pd.read_csv(fileInfo, encoding='EUC-KR')                    
+                    data = pd.read_csv(fileInfo, encoding='EUC-KR', low_memory=False)
                 except UnicodeDecodeError:
-                    data = pd.read_csv(fileInfo, encoding='UTF-8')
-                
+                    data = pd.read_csv(fileInfo, encoding='UTF-8', low_memory=False)
+                data = data.rename(columns=sysOpt['아파트실거래']['renameDict'])
+
                 data['거래 금액'] = pd.to_numeric(data['거래금액'].str.replace(',', ''), errors='coerce') * 10000
                 data['apt'] = data['아파트'] + '(' + data['도로명'] + ')'
                 data['거래 금액(억원)'] = data['거래 금액'] / 100000000
@@ -347,15 +374,66 @@ class DtaProcess(object):
                 else:
                     data['geo'] = data["latitude"].astype('str') + ", " + data["longitude"].astype('str')
                 
-
                 dataL1 = data[colNameList].rename(columns=renameDict, inplace=False)
                 dataL2 = pd.concat([dataL2, dataL1], axis=0)
 
-            # CSV 생성
-            saveFile = '{}/{}/{}_{}.csv'.format(globalVar['outPath'], serviceName, datetime.now().strftime("%Y%m%d"), 'TB_REAL')
+            # =================================================================
+            # CSV 통합파일
+            # =================================================================
+            # saveFile = '{}/{}/{}_{}.csv'.format(globalVar['outPath'], serviceName, datetime.now().strftime("%Y%m%d"), 'TB_REAL')
+            saveFile = sysOpt['아파트실거래']['saveFile']
             os.makedirs(os.path.dirname(saveFile), exist_ok=True)
             dataL2.to_csv(saveFile, index=False)
             log.info(f'[CHECK] saveFile : {saveFile}')
+
+
+            # =================================================================
+            # 빅쿼리 업로드
+            # =================================================================
+            jsonFile = sysOpt['jsonFile']
+            jsonList = sorted(glob.glob(jsonFile))
+            if jsonList is None or len(jsonList) < 1:
+                log.error(f'jsonFile : {jsonFile} / 설정 파일 검색 실패')
+                exit(1)
+
+            jsonInfo = jsonList[0]
+
+            try:
+                credentials = service_account.Credentials.from_service_account_file(jsonInfo)
+                client = bigquery.Client(credentials=credentials, project=credentials.project_id)
+            except Exception as e:
+                log.error(f'Exception : {e} / 빅쿼리 연결 실패')
+                exit(1)
+
+            jobCfg = bigquery.LoadJobConfig(
+                source_format=bigquery.SourceFormat.CSV,
+                skip_leading_rows=1,
+                autodetect=True,
+                # autodetect=False,
+                # schema=[  # BigQuery 테이블 스키마 정의 (열 이름, 데이터 타입)
+                #     bigquery.SchemaField("Y_NO", "INTEGER"),
+                #     bigquery.SchemaField("DEPART", "STRING"),
+                #     bigquery.SchemaField("DEPART_NO", "STRING"),
+                #     bigquery.SchemaField("SECTION", "STRING"),
+                #     bigquery.SchemaField("SUBJECT", "STRING"),
+                #     bigquery.SchemaField("NAME", "STRING"),
+                #     bigquery.SchemaField("YEAR", "STRING"),
+                #     bigquery.SchemaField("YEAR_DATE", "STRING"),
+                #     bigquery.SchemaField("PUBLIC", "STRING"),
+                #     bigquery.SchemaField("RC_DATE", "DATE"),
+                #     bigquery.SchemaField("REG_DATE", "DATE"),
+                #     bigquery.SchemaField("SIZE", "INTEGER"),
+                # ],
+                write_disposition=bigquery.WriteDisposition.WRITE_TRUNCATE,
+                max_bad_records=1000,
+            )
+
+            tableId = f"{credentials.project_id}.DMS01.TB_REAL"
+            # with open(fileInfo, "rb") as file:
+            with open(saveFile, "rb") as file:
+                job = client.load_table_from_file(file, tableId, job_config=jobCfg)
+            job.result()
+            log.info(f"[CHECK] tableId : {tableId}")
 
         except Exception as e:
             log.error(f'Exception : {e}')

@@ -3,7 +3,7 @@
 # ================================================
 # Python을 이용한 부동산 데이터 분석 및 가격 예측 고도화 및 구글 스튜디오 시각화
 
-# /SYSTEMS/LIB/anaconda3/envs/py38/bin/python /SYSTEMS/PROG/PYTHON/IDE/src/talentPlatform/unitSys/TalentPlatform-LSH0613-DaemonFramework-Active-MergePrdData.py
+# /SYSTEMS/LIB/anaconda3/envs/py38/bin/python /SYSTEMS/PROG/PYTHON/IDE/src/talentPlatform/unitSys/TalentPlatform-LSH0613-DaemonFramework-Active-OpenAPI-DataCollectToPrep.py
 
 # -*- coding: utf-8 -*-
 import argparse
@@ -341,7 +341,7 @@ class DtaProcess(object):
                 max_bad_records=1000,
             )
 
-            tableId = f"{credentials.project_id}.DMS01.TB_REAL"
+            tableId = f"{credentials.project_id}.DMS01.TB_PRD"
             # with open(fileInfo, "rb") as file:
             with open(saveFile, "rb") as file:
                 job = client.load_table_from_file(file, tableId, job_config=jobCfg)
