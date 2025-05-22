@@ -331,9 +331,10 @@ class DtaProcess(object):
             dataL3 = pd.merge(dataL2, refDataL1, how='left', left_on=['key'], right_on=['key'])
             splitData = dataL3['key'].str.split(" ")
             dataL3['town'] = splitData.str[2]
-            dataL3['name'] = dataL3['apt']
+            dataL3['keyapt'] = splitData.str[3]
+            # dataL3['name'] = dataL3['apt']
 
-            dataL3.drop(['apt'], axis=1, inplace=True)
+            # dataL3.drop(['apt'], axis=1, inplace=True)
 
             # print(dataL3.loc[dataL3['name'] == '두산(가산로)'].iloc[0])
             # sys.exit(1)

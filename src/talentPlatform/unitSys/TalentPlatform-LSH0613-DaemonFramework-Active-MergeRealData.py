@@ -378,6 +378,7 @@ class DtaProcess(object):
                     data['geo'] = data["latitude"].astype('str') + ", " + data["longitude"].astype('str')
 
                 data['key'] = data['addrInfo'] + ' ' + data['d2'].astype(str) + ' ' + data['법정동'] + ' ' + data['아파트'] + '(' + data['지번'] + ')'
+                data['keyapt'] = data['아파트'] + '(' + data['지번'] + ')'
 
                 dataL1 = data[colNameList].rename(columns=renameDict, inplace=False)
                 # dataL1 = data.rename(columns=renameDict, inplace=False)
