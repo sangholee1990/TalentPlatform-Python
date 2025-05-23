@@ -41,6 +41,8 @@ metaData["TalentPlatform-LSH0578-DaemonApi"]="/HDD/SYSTEMS/LIB/anaconda3/envs/py
 metaData["TalentPlatform-LSH0597-DaemonApi"]="/HDD/SYSTEMS/LIB/anaconda3/envs/py39/bin/uvicorn TalentPlatform-LSH0597-DaemonApi:app --host=0.0.0.0 --port=9300"
 metaData["TalentPlatform-LSH0597-DaemonApi"]="/HDD/SYSTEMS/LIB/anaconda3/envs/py39/bin/uvicorn TalentPlatform-LSH0597-DaemonApi:app --host=0.0.0.0 --port=9300"
 metaData["rcmdapt_ai_server"]="/HDD/SYSTEMS/LIB/anaconda3/envs/py38/bin/python /HDD/SYSTEMS/PROG/PYTHON/IDE/src/talentPlatform/rcmdapt/rcmdapt_ai_server.py"
+metaData["TalentPlatform-bdwide-FileWatch"]="/HDD/SYSTEMS/LIB/anaconda3/envs/py38/bin/python /SYSTEMS/PROG/PYTHON/IDE/src/proj/bdwide/2025/MNTRG/TalentPlatform-bdwide-FileWatch.py"
+#metaData["rclone mount"]="rclone mount 'gd-bdwide:/DATA/LABEL' '/HDD/DATA/LABEL' --daemon"
 
 LOG_PATH=${CTX_PATH}/LOG
 LOG_NAME=$(basename "$0" .sh)_$(date +"%Y%m%d").log

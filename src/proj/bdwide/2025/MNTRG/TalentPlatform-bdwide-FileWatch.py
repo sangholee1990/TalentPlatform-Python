@@ -54,6 +54,8 @@ import pytz
 from datetime import timedelta
 
 import time
+
+from sqlalchemy.util import await_only
 from watchdog.observers import Observer
 from watchdog.events import FileSystemEventHandler
 import fnmatch
@@ -78,6 +80,7 @@ from retrying import retry
 import asyncio
 from apscheduler.schedulers.asyncio import AsyncIOScheduler
 from apscheduler.executors.asyncio import AsyncIOExecutor
+import threading
 
 # =================================================
 # 사용자 매뉴얼
@@ -236,8 +239,7 @@ def makeFileProc(fileInfo):
             # cmdProc = f"labelme_export_json '{fileInfo}' -o '{tmpPath}'"
             # cmd = f"source /usr/local/anaconda3/etc/profile.d/conda.sh && conda activate py38 && {cmdProc}"
             # cmd = f"source /HDD/SYSTEMS/LIB/anaconda3/etc/profile.d/conda.sh && conda activate py38 && {cmdProc}"
-
-            cmd = f"/SYSTEMS/LIB/anaconda3/envs/py38/bin/labelme_export_json '{fileInfo}' -o '{tmpPath}'"
+            cmd = f"/HDD/SYSTEMS/LIB/anaconda3/envs/py38/bin/labelme_export_json '{fileInfo}' -o '{tmpPath}'"
             log.info(f'[CHECK] cmd : {cmd}')
 
             try:
@@ -284,7 +286,7 @@ class handler(FileSystemEventHandler):
         if not re.search('closed', event.event_type, re.IGNORECASE): return
         if not os.path.exists(event.src_path): return
 
-        # log.info(f'[CHECK] event : {event} / event_type : {event.event_type} / src_path : {event.src_path}')
+        log.info(f'[CHECK] event : {event} / event_type : {event.event_type} / src_path : {event.src_path}')
 
         try:
             makeFileProc(event.src_path)
@@ -309,14 +311,15 @@ def fileWatch(sysOpt):
             observer.stop()
         observer.join()
 
-async def makeFileList(mntrgFileInfo):
+def makeFileList(mntrgFileInfo):
     fileList = glob.glob(mntrgFileInfo)
+    log.info(f"[CHECK] fileList : {fileList}")
+
     for fileInfo in fileList:
         makeFileProc(fileInfo)
 
 async def asyncSchdl(sysOpt):
     scheduler = AsyncIOScheduler()
-    scheduler.add_executor(AsyncIOExecutor(), 'default')
 
     jobList = [
         (makeFileList, 'cron', {'second': '0'}, {'args': [sysOpt['mntrgFileList'][0]]}),
@@ -398,31 +401,32 @@ class DtaProcess(object):
             if platform.system() == 'Windows':
                 pass
             else:
-                globalVar['inpPath'] = '/DATA/INPUT'
-                globalVar['outPath'] = '/DATA/OUTPUT'
-                globalVar['figPath'] = '/DATA/FIG'
+                globalVar['inpPath'] = '/HDD/DATA/INPUT'
+                globalVar['outPath'] = '/HDD/DATA/OUTPUT'
+                globalVar['figPath'] = '/HDD/DATA/FIG'
 
-                globalVar['orgPath'] = '/DATA/TEST/LABEL/ORG'
-                globalVar['oldPath'] = '/DATA/TEST/LABEL/OLD'
-                globalVar['newPath'] = '/DATA/TEST/LABEL/NEW'
-                # globalVar['orgPath'] = '/DATA/LABEL/LABEL/ORG'
-                # globalVar['oldPath'] = '/DATA/LABEL/LABEL/OLD'
-                # globalVar['newPath'] = '/DATA/LABEL/LABEL/NEW'
+                # globalVar['orgPath'] = '/DATA/TEST/LABEL/ORG'
+                # globalVar['oldPath'] = '/DATA/TEST/LABEL/OLD'
+                # globalVar['newPath'] = '/DATA/TEST/LABEL/NEW'
+                globalVar['orgPath'] = '/HDD/DATA/LABEL/LABEL/ORG'
+                globalVar['oldPath'] = '/HDD/DATA/LABEL/LABEL/OLD'
+                globalVar['newPath'] = '/HDD/DATA/LABEL/LABEL/NEW'
                 globalVar['tmpPath'] = tempfile.TemporaryDirectory().name
 
             # 옵션 설정
             sysOpt = {
-                # 모니터링 파일
                 'mntrgFileList': [
                     f'{globalVar["orgPath"]}/*/*.jpg'
                     , f'{globalVar["orgPath"]}/*/*.json'
                 ]
             }
 
-            # 신규 파일 감시
-            fileWatch(sysOpt)
+            # 파일 감시
+            # fileWatch(sysOpt)
+            fileWachThr = threading.Thread(target=fileWatch, args=(sysOpt,), daemon=True)
+            fileWachThr.start()
 
-            # 신규 파일 스케줄러
+            # 파일 스케줄러
             asyncio.run(asyncSchdl(sysOpt))
 
         except Exception as e:
