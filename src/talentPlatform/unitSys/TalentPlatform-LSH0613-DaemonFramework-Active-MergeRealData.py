@@ -323,11 +323,11 @@ class DtaProcess(object):
             
             colNameList = ['apt', '전용면적', '평수', '거래 금액',
                            '거래 금액(억원)', '거래가 분류', '층', '건축날짜',
-                           '거래유형', '중개사소재지', '주소', '계약날짜', '법정동', 'geo', 'sgg', '건축연도', '계약연도', 'key']
+                           '거래유형', '중개사소재지', '주소', '계약날짜', '법정동', 'geo', 'sgg', '건축연도', '계약연도', 'key', 'keyapt']
 
             colCodeList = ['apt', 'capacity', 'area', 'amount'
                            , 'amountConv', 'amountType', 'floor', 'conDate'
-                           , 'transMethod', 'broLoc', 'addr', 'date', 'dong', 'geo', 'sgg', 'conYear', 'year', 'key']
+                           , 'transMethod', 'broLoc', 'addr', 'date', 'dong', 'geo', 'sgg', 'conYear', 'year', 'key', 'keyapt']
 
             renameDict = {colName: colCode for colName, colCode in zip(colNameList, colCodeList)}
 
