@@ -183,7 +183,8 @@ def statOls(ln_eg, ln_pop, ln_gdp, ln_ur, ln_ec):
     try:
         model = sm.OLS(y, X)
         results = model.fit()
-        return np.array([results.params['const'], results.params['ln_pop'], results.params['ln_gdp'], results.params['ln_ur'], results.params['ln_ec']])
+        # return np.array([results.params['const'], results.params['ln_pop'], results.params['ln_gdp'], results.params['ln_ur'], results.params['ln_ec']])
+        return np.array([np.exp(results.params['const']), results.params['ln_pop'], results.params['ln_gdp'], results.params['ln_ur'], results.params['ln_ec']])
     except Exception as e:
         return np.array([np.nan] * 5)
 
@@ -319,10 +320,10 @@ class DtaProcess(object):
                     os.makedirs(os.path.dirname(saveFile), exist_ok=True)
                     if len(glob.glob(saveFile)) > 0: continue
 
-                    # coreNum = int(os.cpu_count() * 0.50)
-                    # log.info(f'[CHECK] coreNum : {coreNum}')
-                    # client = Client(n_workers=coreNum)
-                    # dask.config.set(scheduler='processes')
+                    coreNum = int(os.cpu_count() * 0.50)
+                    log.info(f'[CHECK] coreNum : {coreNum}')
+                    client = Client(n_workers=coreNum)
+                    dask.config.set(scheduler='processes')
 
                     statOlsRes = xr.apply_ufunc(
                         statOls,
@@ -342,12 +343,12 @@ class DtaProcess(object):
                     )
 
                     # 계수 이름 지정
-                    statOlsRes = statOlsRes.assign_coords(coef=['lnAlpha', 'b', 'c', 'd', 'e'])
+                    statOlsRes = statOlsRes.assign_coords(coef=['a', 'b', 'c', 'd', 'e'])
                     statOlsRes = statOlsRes.expand_dims(period=[dateInfo])
 
                     # alpha 값 계산
                     # statOlsRes['alpha'] = np.exp(statOlsRes.sel(coef='lnAlpha'))
-                    statOlsRes['alpha'] = np.exp(statOlsRes.sel(coef='lnAlpha', drop=True))
+                    # statOlsRes['alpha'] = np.exp(statOlsRes.sel(coef='lnAlpha', drop=True))
                     log.info(f'[CHECK] statOlsRes : {statOlsRes}')
 
                     # 파일 저장
@@ -355,6 +356,7 @@ class DtaProcess(object):
                     log.info(f'[CHECK] saveFile : {saveFile}')
 
                     # client.close()
+
         except Exception as e:
             log.error("Exception : {}".format(e))
             raise e
