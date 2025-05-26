@@ -390,8 +390,8 @@ class DtaProcess(object):
 
                 # 도로명주소
                 # 서울특별시 중랑구 봉화산로 130.0 엘지,쌍용아파트
-                data['apt'] = data['아파트'] + '(' + data['도로명'] + ')'
-                data['aptDtl'] = data['addrInfo'].astype(str) + ' ' + data['d2'].astype(str) + ' ' + data['도로명'].astype(str) + ' ' + data['도로명건물본번호코드'].astype(str) + ' ' + data['아파트'].astype(str)
+                data['apt'] = data['아파트'] + '(' + data['도로명']  + ' ' + data['도로명건물본번호코드'].astype('Int64').astype(str) + ')'
+                data['aptDtl'] = data['addrInfo'].astype(str) + ' ' + data['d2'].astype(str) + ' ' + data['도로명'].astype(str) + ' ' + data['도로명건물본번호코드'].astype('Int64').astype(str) + ' ' + data['아파트'].astype(str)
 
                 dataL1 = data[colNameList].rename(columns=renameDict, inplace=False)
                 # dataL1 = data.rename(columns=renameDict, inplace=False)

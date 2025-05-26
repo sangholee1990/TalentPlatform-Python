@@ -361,8 +361,9 @@ class DtaProcess(object):
                 refData = refData.rename(columns=sysOpt['아파트실거래']['renameDict'])
                 refData['key'] = refData['아파트'] + '(' + refData['지번'] + ')'
                 refData['keyDtl'] = refData['addrDtlInfo']
-                refData['apt'] = refData['아파트'] + '(' + refData['도로명'] + ')'
-                refData['aptDtl'] = refData['addrInfo'].astype(str) + ' ' + refData['d2'].astype(str) + ' ' + refData['도로명'].astype(str) + ' ' + refData['도로명건물본번호코드'].astype(str) + ' ' + refData['아파트'].astype(str)
+
+                refData['apt'] = refData['아파트'] + '(' + refData['도로명'] + ' ' + refData['도로명건물본번호코드'].astype('Int64').astype(str) + ')'
+                refData['aptDtl'] = refData['addrInfo'].astype(str) + ' ' + refData['d2'].astype(str) + ' ' + refData['도로명'].astype(str) + ' ' + refData['도로명건물본번호코드'].astype('Int64').astype(str) + ' ' + refData['아파트'].astype(str)
                 refData['sgg'] = refData['addrInfo'] + ' ' + refData['d2'].astype(str)
                 refData['아파트(도로명)'] = refData['addrInfo'] + ' ' + refData['d2'] + ' ' + refData['법정동'] + ' ' + refData['아파트'] + '(' + refData['지번'] + ')'
 
