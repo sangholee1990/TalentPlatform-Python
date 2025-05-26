@@ -368,7 +368,6 @@ class DtaProcess(object):
 
                 refDataL1 = refData.drop_duplicates(subset=['아파트(도로명)', 'key', 'keyDtl', 'apt', 'aptDtl', 'sgg'], keep='first', inplace=False)
 
-                # 아파트(도로명)               서울특별시 중랑구 망우동 (506-14)(506-14)
                 # data.iloc[0]
                 # refData.iloc[0]
 
