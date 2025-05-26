@@ -373,8 +373,8 @@ class DtaProcess(object):
                 # refData.iloc[0]
 
                 dataL2 = pd.merge(data, refDataL1[['아파트(도로명)', 'key', 'keyDtl', 'apt', 'aptDtl', 'sgg']], how='left', left_on=['아파트(도로명)'], right_on=['아파트(도로명)'])
-                splitData = dataL2['key'].str.split(" ")
-                dataL2['town'] = splitData.str[2]
+                # splitData = dataL2['keyDtl'].str.split(" ")
+                # dataL2['keyDtl'] = splitData.str[2]
 
                 dataL2.drop(['아파트(도로명)'], axis=1, inplace=True)
 
