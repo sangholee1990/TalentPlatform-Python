@@ -321,13 +321,21 @@ class DtaProcess(object):
             #               'ctaDate', 'amount', 'amountConv', 'amountType', 'floor', 'conYear', 'conDate', 'roadName', 'transMethod',
             #               'broLoc', 'addr', 'lat', 'lon', 'date', 'gu', 'dong', 'year', 'month']
             
+            # colNameList = ['아파트(도로명)', '전용면적', '평수', '거래 금액',
+            #                '거래 금액(억원)', '거래가 분류', '층', '건축날짜',
+            #                '거래유형', '중개사소재지', '주소', '계약날짜', '법정동', 'geo', 'sgg', '건축연도', '계약연도', 'key', 'keyDtl', 'aptDtl']
+            #
+            # colCodeList = ['apt', 'capacity', 'area', 'amount'
+            #                , 'amountConv', 'amountType', 'floor', 'conDate'
+            #                , 'transMethod', 'broLoc', 'addr', 'date', 'dong', 'geo', 'sgg', 'conYear', 'year', 'key', 'keyDtl', 'aptDtl']
+
             colNameList = ['apt', '전용면적', '평수', '거래 금액',
                            '거래 금액(억원)', '거래가 분류', '층', '건축날짜',
-                           '거래유형', '중개사소재지', '주소', '계약날짜', '법정동', 'geo', 'sgg', '건축연도', '계약연도', 'key', 'keyapt']
+                           '거래유형', '중개사소재지', '계약날짜', '법정동', 'geo', 'sgg', '건축연도', '계약연도', 'key', 'keyDtl', 'aptDtl']
 
             colCodeList = ['apt', 'capacity', 'area', 'amount'
                            , 'amountConv', 'amountType', 'floor', 'conDate'
-                           , 'transMethod', 'broLoc', 'addr', 'date', 'dong', 'geo', 'sgg', 'conYear', 'year', 'key', 'keyapt']
+                           , 'transMethod', 'broLoc', 'date', 'dong', 'geo', 'sgg', 'conYear', 'year', 'key', 'keyDtl', 'aptDtl']
 
             renameDict = {colName: colCode for colName, colCode in zip(colNameList, colCodeList)}
 
@@ -358,12 +366,9 @@ class DtaProcess(object):
                 data = data.rename(columns=sysOpt['아파트실거래']['renameDict'])
 
                 data['거래 금액'] = pd.to_numeric(data['거래금액'].str.replace(',', ''), errors='coerce') * 10000
-                data['apt'] = data['아파트'] + '(' + data['도로명'] + ')'
                 data['거래 금액(억원)'] = data['거래 금액'] / 100000000
                 data['계약날짜'] = pd.to_datetime(data['dtYearMonth'].astype(str) + data['일'].apply(lambda x: f'{x:02d}').astype(str), format='%Y%m%d')
                 data['건축날짜'] = pd.to_datetime(data['건축년도'].astype(str), format='%Y')
-                # data['주소'] = data['addrInfo'].astype(str) + ' ' + data['도로명'].astype(str) + ' ' + data['도로명건물본번호코드'].astype(str) + ' ' + data['아파트'].astype(str)
-                data['주소'] = data['addrInfo'].astype(str) + ' ' + data['d2'].astype(str) + ' ' + data['도로명'].astype(str) + ' ' + data['도로명건물본번호코드'].astype(str) + ' ' + data['아파트'].astype(str)
                 data["평수"] = pd.to_numeric(data["전용면적"], errors='coerce').apply(getFloorArea)
                 data["거래가 분류"] = data["거래 금액(억원)"].apply(getAmountType)
                 # data['sgg'] = data['addrInfo']
@@ -377,8 +382,16 @@ class DtaProcess(object):
                 else:
                     data['geo'] = data["latitude"].astype('str') + ", " + data["longitude"].astype('str')
 
-                data['key'] = data['addrInfo'] + ' ' + data['d2'].astype(str) + ' ' + data['법정동'] + ' ' + data['아파트'] + '(' + data['지번'] + ')'
-                data['keyapt'] = data['아파트'] + '(' + data['지번'] + ')'
+                # 지번주소
+                # 서울특별시 중랑구 상봉동 484 엘지,쌍용아파트
+                # data['keyDtl'] = data['addrInfo'] + ' ' + data['d2'].astype(str) + ' ' + data['법정동'] + ' ' + data['아파트'] + '(' + data['지번'] + ')'
+                data['key'] = data['아파트'] + '(' + data['지번'] + ')'
+                data['keyDtl'] = data['addrDtlInfo']
+
+                # 도로명주소
+                # 서울특별시 중랑구 봉화산로 130.0 엘지,쌍용아파트
+                data['apt'] = data['아파트'] + '(' + data['도로명'] + ')'
+                data['aptDtl'] = data['addrInfo'].astype(str) + ' ' + data['d2'].astype(str) + ' ' + data['도로명'].astype(str) + ' ' + data['도로명건물본번호코드'].astype(str) + ' ' + data['아파트'].astype(str)
 
                 dataL1 = data[colNameList].rename(columns=renameDict, inplace=False)
                 # dataL1 = data.rename(columns=renameDict, inplace=False)
@@ -386,6 +399,7 @@ class DtaProcess(object):
                 dataL2 = pd.concat([dataL2, dataL1], axis=0)
 
             # dataL2.loc[dataL2['apt'] == '라움(태평로)'].iloc[0]
+            # data.iloc[0]
 
             # =================================================================
             # CSV 통합파일
@@ -402,8 +416,9 @@ class DtaProcess(object):
             jsonFile = sysOpt['jsonFile']
             jsonList = sorted(glob.glob(jsonFile))
             if jsonList is None or len(jsonList) < 1:
-                log.error(f'jsonFile : {jsonFile} / 설정 파일 검색 실패')
-                exit(1)
+                log.error(f'설정 파일 없음 : {jsonFile}')
+                raise Exception(f'설정 파일 없음 : {jsonFile}')
+                # exit(1)
 
             jsonInfo = jsonList[0]
 
@@ -411,8 +426,9 @@ class DtaProcess(object):
                 credentials = service_account.Credentials.from_service_account_file(jsonInfo)
                 client = bigquery.Client(credentials=credentials, project=credentials.project_id)
             except Exception as e:
-                log.error(f'Exception : {e} / 빅쿼리 연결 실패')
-                exit(1)
+                log.error(f'빅쿼리 연결 실패 : {e}')
+                raise Exception(f'빅쿼리 연결 실패 : {e}')
+                # exit(1)
 
             jobCfg = bigquery.LoadJobConfig(
                 source_format=bigquery.SourceFormat.CSV,

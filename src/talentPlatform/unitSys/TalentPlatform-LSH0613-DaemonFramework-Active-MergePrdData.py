@@ -247,18 +247,52 @@ class DtaProcess(object):
                     'propFilePattern': '/DATA/OUTPUT/LSH0613/전처리/아파트실거래_{addrInfo}_{d2}.csv',
                     'propFile': '/DATA/OUTPUT/LSH0613/전처리/아파트실거래_*_*.csv',
                     'saveFile': '/DATA/OUTPUT/LSH0613/통합/아파트실거래.csv',
+                    'renameDict': {
+                        'sggCd': '법정동시군구코드',
+                        'umdCd': '법정동읍면동코드',
+                        'landCd': '법정동지번코드',
+                        'bonbun': '법정동본번코드',
+                        'bubun': '법정동부번코드',
+                        'roadNm': '도로명',
+                        'roadNmSggCd': '도로명시군구코드',
+                        'roadNmCd': '도로명코드',
+                        'roadNmSeq': '도로명일련번호코드',
+                        'roadNmbCd': '도로명지상지하코드',
+                        'roadNmBonbun': '도로명건물본번호코드',
+                        'roadNmBubun': '도로명건물부번호코드',
+                        'umdNm': '법정동',
+                        'aptNm': '아파트',
+                        'jibun': '지번',
+                        'excluUseAr': '전용면적',
+                        'dealYear': '년',
+                        'dealMonth': '월',
+                        'dealDay': '일',
+                        'dealAmount': '거래금액',
+                        'floor': '층',
+                        'buildYear': '건축년도',
+                        'aptSeq': '일련번호',
+                        'cdealType': '해제여부',
+                        'cdealDay': '해제사유발생일',
+                        'dealingGbn': '거래유형',
+                        'estateAgentSggNm': '중개사소재지',
+                        'rgstDate': '등기일자',
+                        'aptDong': '아파트동명',
+                        'slerGbn': '매도자',
+                        'buyerGbn': '매수자',
+                        'landLeaseholdGbn': '토지임대부 아파트 여부'
+                    },
                 }
             }
 
             # *********************************************************************************
             # 코드 정보 읽기
             # *********************************************************************************
-            colNameList = ['아파트(도로명)', '면적', '건축연도', '연도', '날짜', '위도', '경도', '인허가', '건축년도', '매매가', '전세가',
+            colNameList = ['apt', '면적', '건축연도', '연도', '날짜', '위도', '경도', '인허가', '건축년도', '매매가', '전세가',
                            '예측 딥러닝 매매가', '예측 딥러닝 전세가', '예측 머신러닝 매매가', '예측 머신러닝 전세가', '실측 갭투자',
                            '예측 머신러닝 갭투자', '예측 딥러닝 갭투자', '실측 수익금', '예측 딥러닝 수익금', '예측 머신러닝 수익금',
                            '실측 수익률', '예측 딥러닝 수익률', '예측 머신러닝 수익률']
 
-            colCodeList = ['key', 'capacity', 'construction_year', 'year', 'date', 'lat', 'lon', 'inhuga', 'conYear', 'realPrice', 'realBjprice',
+            colCodeList = ['apt', 'capacity', 'construction_year', 'year', 'date', 'lat', 'lon', 'inhuga', 'conYear', 'realPrice', 'realBjprice',
                            'realPriceDL', 'realBjPriceDL', 'realPriceML', 'realBjPriceML', 'gapReal', 'gapML', 'gapDL',
                            'gapDiffReal', 'gapDiffDL', 'gapDiffML', 'gapPctReal', 'gapPctDL', 'gapPctML']
 
@@ -301,7 +335,7 @@ class DtaProcess(object):
                 log.error(f'파일 없음 : {inpFile}')
                 sys.exit(1)
 
-            dataL2 = pd.DataFrame()
+            dataL4 = pd.DataFrame()
             for fileInfo in fileList:
                 log.info(f'[CHECK] fileInfo : {fileInfo}')
 
@@ -316,27 +350,48 @@ class DtaProcess(object):
                 # data['town'] = splitData.str[2]
                 # data['apt'] = splitData.str[3]
 
-                dataL1 = data.rename(columns=renameDict, inplace=False)
-                dataL2 = pd.concat([dataL2, dataL1], axis=0)
+                fileNameNoExt = os.path.basename(fileInfo).split('.')[0]
+                splitList = fileNameNoExt.split('_')
+                inpFile = sysOpt['아파트실거래']['propFilePattern'].format(addrInfo=splitList[1], d2=splitList[2])
+                fileList = sorted(glob.glob(inpFile), reverse=True)
+                if fileList is None or len(fileList) < 1:
+                    continue
 
-                # data.loc[data['아파트(도로명)'].str.contains('라움')]
-                # data.loc[data['아파트(도로명)'].str.contains('현대')]
+                refData = pd.read_csv(fileList[0], low_memory=False)
+                refData = refData.rename(columns=sysOpt['아파트실거래']['renameDict'])
+                refData['key'] = refData['아파트'] + '(' + refData['지번'] + ')'
+                refData['keyDtl'] = refData['addrDtlInfo']
+                refData['apt'] = refData['아파트'] + '(' + refData['도로명'] + ')'
+                refData['aptDtl'] = refData['addrInfo'].astype(str) + ' ' + refData['d2'].astype(str) + ' ' + refData['도로명'].astype(str) + ' ' + refData['도로명건물본번호코드'].astype(str) + ' ' + refData['아파트'].astype(str)
+                refData['sgg'] = refData['addrInfo'] + ' ' + refData['d2'].astype(str)
+                refData['아파트(도로명)'] = refData['addrInfo'] + ' ' + refData['d2'] + ' ' + refData['법정동'] + ' ' + refData['아파트'] + '(' + refData['지번'] + ')'
+
+                refDataL1 = refData.drop_duplicates(subset=['아파트(도로명)', 'key', 'keyDtl', 'apt', 'aptDtl', 'sgg'], keep='first', inplace=False)
+
+                # 아파트(도로명)               서울특별시 중랑구 망우동 (506-14)(506-14)
+                # data.iloc[0]
+                # refData.iloc[0]
+
+                dataL2 = pd.merge(data, refDataL1[['아파트(도로명)', 'key', 'keyDtl', 'apt', 'aptDtl', 'sgg']], how='left', left_on=['아파트(도로명)'], right_on=['아파트(도로명)'])
+                splitData = dataL2['key'].str.split(" ")
+                dataL2['town'] = splitData.str[2]
+
+                dataL2.drop(['아파트(도로명)'], axis=1, inplace=True)
+
+                dataL3 = dataL2.rename(columns=renameDict, inplace=False)
+                dataL4 = pd.concat([dataL4, dataL3], axis=0)
 
             # =================================================================
             # 아파트실거래 매칭
             # =================================================================
-            refData = pd.read_csv(sysOpt['아파트실거래']['saveFile'], low_memory=False)
-            refDataL1 = refData.drop_duplicates(subset=['key', 'apt', 'sgg', 'dong'])[['key', 'apt', 'sgg', 'dong']]
+            # refData = pd.read_csv(sysOpt['아파트실거래']['saveFile'], low_memory=False)
 
-            dataL3 = pd.merge(dataL2, refDataL1, how='left', left_on=['key'], right_on=['key'])
-            splitData = dataL3['key'].str.split(" ")
-            dataL3['town'] = splitData.str[2]
-            dataL3['keyapt'] = splitData.str[3]
+            # dataL3 = pd.merge(dataL2, refData[['key', 'apt', 'sgg', 'dong']], how='left', left_on=['key'], right_on=['key'])
+            # splitData = dataL3['key'].str.split(" ")
+            # dataL3['town'] = splitData.str[2]
             # dataL3['name'] = dataL3['apt']
-
-            # dataL3.drop(['apt'], axis=1, inplace=True)
-
-            # print(dataL3.loc[dataL3['name'] == '두산(가산로)'].iloc[0])
+            #
+            # print(dataL4.loc[dataL4['name'] == '두산(가산로)'].iloc[0])
             # sys.exit(1)
 
             # =================================================================
@@ -345,7 +400,8 @@ class DtaProcess(object):
             # saveFile = '{}/{}/{}_{}.csv'.format(globalVar['outPath'], serviceName, datetime.now().strftime("%Y%m%d"), 'TB_PRD')
             saveFile = sysOpt['예측']['saveFile']
             os.makedirs(os.path.dirname(saveFile), exist_ok=True)
-            dataL3.to_csv(saveFile, index=False)
+            # dataL3.to_csv(saveFile, index=False)
+            dataL4.to_csv(saveFile, index=False)
             log.info(f'[CHECK] saveFile : {saveFile}')
 
             # =================================================================
