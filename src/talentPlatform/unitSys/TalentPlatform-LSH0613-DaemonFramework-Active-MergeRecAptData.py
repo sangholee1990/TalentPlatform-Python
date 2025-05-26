@@ -316,14 +316,17 @@ class DtaProcess(object):
             import json
             import requests
 
-            SERVER_IP = '125.251.52.42'
-            PORT = '9010'
             REST_API_URL_CF = 'http://125.251.52.42:9010/recommends_cf'
             REST_API_URL_SIMIL = 'http://125.251.52.42:9010/recommends_simil'
 
             response = requests.request("POST", REST_API_URL_CF, data=payload, verify=False)
             res_json = response.json().get('recommends')
             print('res_json:', res_json)
+
+            resData = pd.DataFrame(res_json['cf'])
+
+
+            # recAptDataL1
 
 
             #     if price < user_info.get('price_from').values[0] or price > user_info.get('price_to').values[0] * 1.2:
@@ -388,10 +391,10 @@ class DtaProcess(object):
             # CSV 통합파일
             # =================================================================
             # saveFile = '{}/{}/{}_{}.csv'.format(globalVar['outPath'], serviceName, datetime.now().strftime("%Y%m%d"), 'TB_REAL')
-            saveFile = sysOpt['아파트실거래']['saveFile']
-            os.makedirs(os.path.dirname(saveFile), exist_ok=True)
-            dataL2.to_csv(saveFile, index=False)
-            log.info(f'[CHECK] saveFile : {saveFile}')
+            # saveFile = sysOpt['아파트실거래']['saveFile']
+            # os.makedirs(os.path.dirname(saveFile), exist_ok=True)
+            # dataL2.to_csv(saveFile, index=False)
+            # log.info(f'[CHECK] saveFile : {saveFile}')
 
             # =================================================================
             # 빅쿼리 업로드
