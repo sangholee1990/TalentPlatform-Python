@@ -359,7 +359,7 @@ class DtaProcess(object):
                 #     bigquery.SchemaField("SIZE", "INTEGER"),
                 # ],
                 write_disposition=bigquery.WriteDisposition.WRITE_TRUNCATE,
-                max_bad_records=1000, # 최대 오류 허용
+                max_bad_records=1000,
             )
 
             tableId = f"{credentials.project_id}.DMS01.TB_YDG"
