@@ -113,6 +113,10 @@ from fastapi.responses import RedirectResponse
 from fastapi import FastAPI, HTTPException, Query, Depends
 from fastapi.middleware.cors import CORSMiddleware
 import pandas as pd
+import json
+import requests
+import time
+from concurrent.futures import ProcessPoolExecutor
 
 # ============================================
 # 유틸리티 함수
@@ -178,6 +182,21 @@ def resResponse(status: str, code: int, message: str, allCnt: int = 0, rowCnt: i
         , "data": data
     }
 
+def fetchApi(apiUrl, payload, apiType, recAptData):
+
+    result = pd.DataFrame(columns=['idx', 'score'])
+
+    try:
+        response = requests.post(apiUrl, data=payload, verify=False, timeout=30)
+        response.raise_for_status()
+        resJson = response.json().get('recommends')
+        resData = pd.DataFrame(resJson[apiType], columns=['idx', 'score'])
+        result = pd.merge(resData, recAptData, how='left', left_on=['idx'], right_on=['idx'])
+    except Exception as e:
+        log.error(f"Exception : {e}")
+
+    return result
+
 # ============================================
 # 주요 설정
 # ============================================
@@ -196,10 +215,6 @@ log = initLog(env, ctxPath, prjName)
 
 # 옵션 설정
 sysOpt = {
-    # 시작/종료 시간
-    # 'srtDate': '2018-01-01',
-    # 'endDate': '2018-12-31',
-
     # 빅쿼리 설정 정보
     'jsonFile': '/SYSTEMS/PROG/PYTHON/IDE/resources/config/iconic-ruler-239806-7f6de5759012.json',
 
@@ -208,8 +223,14 @@ sysOpt = {
         'http://localhost:9000'
         , 'http://49.247.41.71:9000'
     ],
-}
 
+    'rcmd': {
+        'apiCfUrl': 'http://125.251.52.42:9010/recommends_cf',
+        'apiSimUrl': 'http://125.251.52.42:9010/recommends_simil',
+        'propAptFile': '/SYSTEMS/PROG/PYTHON/IDE/resources/config/xlsx/20250526_tbl_apts.xlsx',
+        'propUserFile': '/SYSTEMS/PROG/PYTHON/IDE/resources/config/xlsx/20250526_tbl_users.xlsx',
+    },
+}
 
 app = FastAPI(
     openapi_url='/api'
@@ -229,6 +250,7 @@ app.add_middleware(
     , allow_headers=["*"]
 )
 
+# 빅쿼리 설정 정보
 jsonFile = sysOpt['jsonFile']
 jsonList = sorted(glob.glob(jsonFile))
 if jsonList is None or len(jsonList) < 1:
@@ -244,12 +266,118 @@ except Exception as e:
     log.error(f'Exception : {e} / 빅쿼리 연결 실패')
     exit(1)
 
+# 사용자 설정 정보
+inpFile = sysOpt['rcmd']['propUserFile']
+fileList = sorted(glob.glob(inpFile), reverse=True)
+if fileList is None or len(fileList) < 1:
+    log.error(f'파일 없음 : {inpFile}')
+    sys.exit(1)
+
+recUserData = pd.read_excel(fileList[0])
+
+# 아파트 설정 정보
+inpFile = sysOpt['rcmd']['propAptFile']
+fileList = sorted(glob.glob(inpFile), reverse=True)
+if fileList is None or len(fileList) < 1:
+    log.error(f'파일 없음 : {inpFile}')
+    sys.exit(1)
+
+recAptData = pd.read_excel(fileList[0])
+
 # ============================================
 # 비즈니스 로직
 # ============================================
+class cfgRcmd(BaseModel):
+    gender: str = Field(..., description='성별 (1 남성, 2 여성)', examples=['1'])
+    age: str = Field(..., description='나이 (최소-최대, 20-39)', examples=['20-39'])
+    price: str = Field(..., description='가격 억원 (최소-최대, 3-6)', examples=['3-6'])
+    area: str = Field(..., description='면적 m² (최소-최대, 58-100)', examples=['58-100'])
+    debtRat: str = Field(..., description='부채 비율', examples=['0.25'])
+    apt: str = Field(..., description='아파트 도로명주소, 두산(가산로 99)', examples=['두산(가산로 99)'])
+    cnt: str = Field(..., alias='cnt', description='추천 개수', examples=['10'])
+
 @app.get(f"/", include_in_schema=False)
 async def redirect_to_docs():
     return RedirectResponse(url="/docs")
+
+@app.post(f"/api/sel-rcmd", dependencies=[Depends(chkApiKey)])
+# @app.post(f"/api/sel-rcmd")
+def selRcmd(request: cfgRcmd = Form(...)):
+    """
+    기능\n
+        CF/유사도 기반 아파트 추천 서비스 API\n
+        검색조건 사용자 설정 (gender, age, price, area, debtRat), 아파트 설정 (apt, cnt)\n
+    """
+
+    try:
+        gender = request.gender
+        age = request.age
+        price = request.price
+        area = request.area
+        debtRat = request.debtRat
+        apt = request.apt
+        cnt = request.cnt
+
+        minAge, maxAge = age.split('-')
+        if age is None or len(age) < 1 or minAge is None or maxAge is None:
+            return resResponse("fail", 400, f"나이를 확인해주세요 ({age}).", None)
+
+        minPrice, maxPrice = price.split('-')
+        if price is None or len(price) < 1 or minPrice is None or maxPrice is None:
+            return resResponse("fail", 400, f"가격을 확인해주세요 ({price}).", None)
+
+        minArea, maxArea = area.split('-')
+        if area is None or len(area) < 1 or minArea is None or maxArea is None:
+            return resResponse("fail", 400, f"면적을 확인해주세요 ({area}).", None)
+
+        recUserDataL1 = recUserData.loc[
+            (recUserData['gender'] == int(gender))
+            & (recUserData['age'] >= float(minAge)) & (recUserData['age'] <= float(maxAge))
+            & (recUserData['price_from'] >= float(minPrice)) & (recUserData['price_to'] <= float(maxPrice))
+            & (recUserData['area_from'] >= float(minArea)) & (recUserData['area_to'] <= float(maxArea))
+            & (recUserData['debt_ratio'] >= float(debtRat))
+            # & (recUserData['prefer'] == prefer)
+            ]
+
+        if len(recUserDataL1) < 1:
+            return resResponse("fail", 400, f"사용자 설정 정보를 확인해주세요.", None)
+
+        recAptDataL1 = recAptData.loc[
+            (recAptData['apt'] == apt)
+            & (recAptData['area'] >= float(minArea)) & (recAptData['area'] <= float(maxArea))
+            & (recAptData['price'] >= float(minPrice)) & (recAptData['price'] <= float(maxPrice))
+            ]
+
+        if len(recAptDataL1) < 1:
+            return resResponse("fail", 400, f"아파트 설정 정보를 확인해주세요.", None)
+
+        payload = {
+            'user_id': recUserDataL1.iloc[0]['idx'],
+            'apt_idx': recAptDataL1.iloc[0]['idx'],
+            'rcmd_count': cnt,
+        }
+
+        # CF기반 및 유사도 기반 아파트 추천
+        with ProcessPoolExecutor(max_workers=2) as executor:
+            futureCf = executor.submit(fetchApi, sysOpt['rcmd']['apiCfUrl'], payload, 'cf', recAptData)
+            futureSim = executor.submit(fetchApi, sysOpt['rcmd']['apiSimUrl'], payload, 'simil', recAptData)
+
+            cfData = futureCf.result()
+            simData = futureSim.result()
+
+        result = {
+            'user': recUserDataL1.iloc[0].to_dict(),
+            'apt': recAptDataL1.iloc[0].to_dict(),
+            'cf': cfData.to_dict(orient='records'),
+            'sim': simData.to_dict(orient='records'),
+        }
+
+        return resResponse("succ", 200, "처리 완료", len(result), len(result), result)
+
+    except Exception as e:
+        log.error(f'Exception : {e}')
+        raise HTTPException(status_code=400, detail=str(e))
+
 
 @app.post(f"/api/sel-statRealMeanBySggDong", dependencies=[Depends(chkApiKey)])
 # @app.post(f"/api/sel-statRealMeanBySggDong")
@@ -347,7 +475,10 @@ def selStatRealSggApt(
 # @app.post(f"/api/sel-statRealSearchBySgg")
 def statRealSearch(
         sgg: str = Query(None, description="시군구")
-        , apt: str = Query(None, description="아파트")
+        , apt: str = Query(None, description="도로명주소")
+        , aptDtl: str = Query(None, description="도로명주소 상세")
+        , key: str = Query(None, description="지번주소")
+        , keyDtl: str = Query(None, description="지번주소 상세")
         , area: str = Query(None, description="평수")
         , srtYear: int = Query(None, description="시작 연도")
         , endYear: int = Query(None, description="종료 연도")
@@ -361,7 +492,10 @@ def statRealSearch(
         맞집 좌측 검색조건 지역 참조
     테스트\n
         시군구 (시군구, 시군구, ...): 서울특별시 강남구,서울특별시 금천구\n
-        아파트 (아파트, 아파트, ...): \n
+        도로명주소: 두산(가산로)\n
+        도로명주소 상세: 서울특별시 금천구 가산로 99.0 두산\n
+        지번주소: 두산(769)\n
+        지번주소 상세: 서울특별시 금천구 가산동 769 두산\n
         평수 (평수, 평수, ...): 5평,6평\n
         시작 연도: \n
         종료 연도: \n
@@ -390,6 +524,21 @@ def statRealSearch(
             aptList = [s.strip() for s in apt.split(',')]
             aptCond = [f"apt LIKE '%{s}%'" for s in aptList]
             condList.append(f"({' OR '.join(aptCond)})")
+
+        if aptDtl:
+            aptDtlList = [s.strip() for s in aptDtl.split(',')]
+            aptDtlCond = [f"aptDtl LIKE '%{s}%'" for s in aptDtlList]
+            condList.append(f"({' OR '.join(aptDtlCond)})")
+
+        if key:
+            keyList = [s.strip() for s in key.split(',')]
+            keyCond = [f"key LIKE '%{s}%'" for s in keyList]
+            condList.append(f"({' OR '.join(keyCond)})")
+
+        if keyDtl:
+            keyDtlList = [s.strip() for s in keyDtl.split(',')]
+            keyDtlCond = [f"keyDtl LIKE '%{s}%'" for s in keyDtlList]
+            condList.append(f"({' OR '.join(keyDtlCond)})")
 
 
         if srtYear and endYear:
@@ -447,7 +596,10 @@ def statRealSearch(
 # @app.post(f"/api/sel-statRealSearchByYear")
 def statRealSearch(
         sgg: str = Query(None, description="시군구")
-        , apt: str = Query(None, description="아파트")
+        , apt: str = Query(None, description="도로명주소")
+        , aptDtl: str = Query(None, description="도로명주소 상세")
+        , key: str = Query(None, description="지번주소")
+        , keyDtl: str = Query(None, description="지번주소 상세")
         , area: str = Query(None, description="평수")
         , srtYear: int = Query(None, description="시작 연도")
         , endYear: int = Query(None, description="종료 연도")
@@ -461,7 +613,10 @@ def statRealSearch(
         맞집 좌측 검색조건 거래년도 참조
     테스트\n
         시군구 (시군구, 시군구, ...): 서울특별시 강남구,서울특별시 금천구\n
-        아파트 (아파트, 아파트, ...): \n
+        도로명주소: 두산(가산로)\n
+        도로명주소 상세: 서울특별시 금천구 가산로 99.0 두산\n
+        지번주소: 두산(769)\n
+        지번주소 상세: 서울특별시 금천구 가산동 769 두산\n
         평수 (평수, 평수, ...): 5평,6평\n
         시작 연도: \n
         종료 연도: \n
@@ -481,16 +636,25 @@ def statRealSearch(
             sggCond = [f"sgg LIKE '%{s}%'" for s in sggList]
             condList.append(f"({' OR '.join(sggCond)})")
 
-        if area:
-            areaList = [s.strip() for s in area.split(',')]
-            areaCond = [f"area LIKE '%{s}%'" for s in areaList]
-            condList.append(f"({' OR '.join(areaCond)})")
-
         if apt:
             aptList = [s.strip() for s in apt.split(',')]
             aptCond = [f"apt LIKE '%{s}%'" for s in aptList]
             condList.append(f"({' OR '.join(aptCond)})")
 
+        if aptDtl:
+            aptDtlList = [s.strip() for s in aptDtl.split(',')]
+            aptDtlCond = [f"aptDtl LIKE '%{s}%'" for s in aptDtlList]
+            condList.append(f"({' OR '.join(aptDtlCond)})")
+
+        if key:
+            keyList = [s.strip() for s in key.split(',')]
+            keyCond = [f"key LIKE '%{s}%'" for s in keyList]
+            condList.append(f"({' OR '.join(keyCond)})")
+
+        if keyDtl:
+            keyDtlList = [s.strip() for s in keyDtl.split(',')]
+            keyDtlCond = [f"keyDtl LIKE '%{s}%'" for s in keyDtlList]
+            condList.append(f"({' OR '.join(keyDtlCond)})")
 
         if srtYear and endYear:
             condList.append(f"year BETWEEN {srtYear} AND {endYear}")
@@ -547,7 +711,10 @@ def statRealSearch(
 # @app.post(f"/api/sel-statRealSearchByArea")
 def statRealSearch(
         sgg: str = Query(None, description="시군구")
-        , apt: str = Query(None, description="아파트")
+        , apt: str = Query(None, description="도로명주소")
+        , aptDtl: str = Query(None, description="도로명주소 상세")
+        , key: str = Query(None, description="지번주소")
+        , keyDtl: str = Query(None, description="지번주소 상세")
         , area: str = Query(None, description="평수")
         , srtYear: int = Query(None, description="시작 연도")
         , endYear: int = Query(None, description="종료 연도")
@@ -561,7 +728,10 @@ def statRealSearch(
         맞집 좌측 검색조건 평수 참조
     테스트\n
         시군구 (시군구, 시군구, ...): 서울특별시 강남구,서울특별시 금천구\n
-        아파트 (아파트, 아파트, ...): \n
+        도로명주소: 두산(가산로)\n
+        도로명주소 상세: 서울특별시 금천구 가산로 99.0 두산\n
+        지번주소: 두산(769)\n
+        지번주소 상세: 서울특별시 금천구 가산동 769 두산\n
         평수 (평수, 평수, ...): 5평,6평\n
         시작 연도: \n
         종료 연도: \n
@@ -591,6 +761,20 @@ def statRealSearch(
             aptCond = [f"apt LIKE '%{s}%'" for s in aptList]
             condList.append(f"({' OR '.join(aptCond)})")
 
+        if aptDtl:
+            aptDtlList = [s.strip() for s in aptDtl.split(',')]
+            aptDtlCond = [f"aptDtl LIKE '%{s}%'" for s in aptDtlList]
+            condList.append(f"({' OR '.join(aptDtlCond)})")
+
+        if key:
+            keyList = [s.strip() for s in key.split(',')]
+            keyCond = [f"key LIKE '%{s}%'" for s in keyList]
+            condList.append(f"({' OR '.join(keyCond)})")
+
+        if keyDtl:
+            keyDtlList = [s.strip() for s in keyDtl.split(',')]
+            keyDtlCond = [f"keyDtl LIKE '%{s}%'" for s in keyDtlList]
+            condList.append(f"({' OR '.join(keyDtlCond)})")
 
         if srtYear and endYear:
             condList.append(f"year BETWEEN {srtYear} AND {endYear}")
@@ -647,7 +831,10 @@ def statRealSearch(
 # @app.post(f"/api/sel-statRealSearchByApt")
 def statRealSearch(
         sgg: str = Query(None, description="시군구")
-        , apt: str = Query(None, description="아파트")
+        , apt: str = Query(None, description="도로명주소")
+        , aptDtl: str = Query(None, description="도로명주소 상세")
+        , key: str = Query(None, description="지번주소")
+        , keyDtl: str = Query(None, description="지번주소 상세")
         , area: str = Query(None, description="평수")
         , srtYear: int = Query(None, description="시작 연도")
         , endYear: int = Query(None, description="종료 연도")
@@ -661,7 +848,10 @@ def statRealSearch(
         맞집 좌측 검색조건 아파트명 참조
     테스트\n
         시군구 (시군구, 시군구, ...): 서울특별시 강남구,서울특별시 금천구\n
-        아파트 (아파트, 아파트, ...): \n
+        도로명주소: 두산(가산로)\n
+        도로명주소 상세: 서울특별시 금천구 가산로 99.0 두산\n
+        지번주소: 두산(769)\n
+        지번주소 상세: 서울특별시 금천구 가산동 769 두산\n
         평수 (평수, 평수, ...): 5평,6평\n
         시작 연도: \n
         종료 연도: \n
@@ -681,10 +871,25 @@ def statRealSearch(
             sggCond = [f"sgg LIKE '%{s}%'" for s in sggList]
             condList.append(f"({' OR '.join(sggCond)})")
 
-        if area:
-            areaList = [s.strip() for s in area.split(',')]
-            areaCond = [f"area LIKE '%{s}%'" for s in areaList]
-            condList.append(f"({' OR '.join(areaCond)})")
+        if apt:
+            aptList = [s.strip() for s in apt.split(',')]
+            aptCond = [f"apt LIKE '%{s}%'" for s in aptList]
+            condList.append(f"({' OR '.join(aptCond)})")
+
+        if aptDtl:
+            aptDtlList = [s.strip() for s in aptDtl.split(',')]
+            aptDtlCond = [f"aptDtl LIKE '%{s}%'" for s in aptDtlList]
+            condList.append(f"({' OR '.join(aptDtlCond)})")
+
+        if key:
+            keyList = [s.strip() for s in key.split(',')]
+            keyCond = [f"key LIKE '%{s}%'" for s in keyList]
+            condList.append(f"({' OR '.join(keyCond)})")
+
+        if keyDtl:
+            keyDtlList = [s.strip() for s in keyDtl.split(',')]
+            keyDtlCond = [f"keyDtl LIKE '%{s}%'" for s in keyDtlList]
+            condList.append(f"({' OR '.join(keyDtlCond)})")
 
         if apt:
             aptList = [s.strip() for s in apt.split(',')]
@@ -839,7 +1044,10 @@ def selStatRealMaxBySgg(
 # @app.post(f"/api/sel-statRealMaxBySggApt")
 def selStatRealMaxBySggApt(
         sgg: str = Query(None, description="시군구")
-        , apt: str = Query(None, description="아파트")
+        , apt: str = Query(None, description="도로명주소")
+        , aptDtl: str = Query(None, description="도로명주소 상세")
+        , key: str = Query(None, description="지번주소")
+        , keyDtl: str = Query(None, description="지번주소 상세")
         , area: str = Query(None, description="평수")
         , srtYear: int = Query(None, description="시작 연도")
         , endYear: int = Query(None, description="종료 연도")
@@ -853,7 +1061,10 @@ def selStatRealMaxBySggApt(
         검색조건 시군구, 아파트명, 지역, 거래년도, 평수\n
     테스트\n
         시군구 (시군구, 시군구, ...): 서울특별시 강남구,서울특별시 금천구\n
-        아파트 (아파트, 아파트, ...): \n
+        도로명주소: 두산(가산로)\n
+        도로명주소 상세: 서울특별시 금천구 가산로 99.0 두산\n
+        지번주소: 두산(769)\n
+        지번주소 상세: 서울특별시 금천구 가산동 769 두산\n
         평수 (평수, 평수, ...): 5평,6평\n
         시작 연도: \n
         종료 연도: \n
@@ -877,6 +1088,21 @@ def selStatRealMaxBySggApt(
             aptList = [s.strip() for s in apt.split(',')]
             aptCond = [f"apt LIKE '%{s}%'" for s in aptList]
             condList.append(f"({' OR '.join(aptCond)})")
+
+        if aptDtl:
+            aptDtlList = [s.strip() for s in aptDtl.split(',')]
+            aptDtlCond = [f"aptDtl LIKE '%{s}%'" for s in aptDtlList]
+            condList.append(f"({' OR '.join(aptDtlCond)})")
+
+        if key:
+            keyList = [s.strip() for s in key.split(',')]
+            keyCond = [f"key LIKE '%{s}%'" for s in keyList]
+            condList.append(f"({' OR '.join(keyCond)})")
+
+        if keyDtl:
+            keyDtlList = [s.strip() for s in keyDtl.split(',')]
+            keyDtlCond = [f"keyDtl LIKE '%{s}%'" for s in keyDtlList]
+            condList.append(f"({' OR '.join(keyDtlCond)})")
 
         if area:
             areaList = [s.strip() for s in area.split(',')]
@@ -1065,7 +1291,10 @@ def selStatReal(
 # @app.post(f"/api/sel-real")
 def selReal(
         sgg: str = Query(None, description="시군구")
-        , apt: str = Query(None, description="아파트")
+        , apt: str = Query(None, description="도로명주소")
+        , aptDtl: str = Query(None, description="도로명주소 상세")
+        , key: str = Query(None, description="지번주소")
+        , keyDtl: str = Query(None, description="지번주소 상세")
         , area: str = Query(None, description="평수")
         # , year: int = Query(None, description="연도")
         , srtYear: int = Query(None, description="시작 연도")
@@ -1079,7 +1308,10 @@ def selReal(
         TB_REAL 목록 조회\n
     테스트\n
         시군구 (시군구, 시군구, ...): 서울특별시 강남구,서울특별시 금천구\n
-        아파트 (아파트, 아파트, ...): \n
+        도로명주소: 두산(가산로)\n
+        도로명주소 상세: 서울특별시 금천구 가산로 99.0 두산\n
+        지번주소: 두산(769)\n
+        지번주소 상세: 서울특별시 금천구 가산동 769 두산\n
         평수 (평수, 평수, ...): 5평,6평\n
         시작 연도: \n
         종료 연도: \n
@@ -1102,10 +1334,24 @@ def selReal(
             condList.append(f"({' OR '.join(sggCond)})")
 
         if apt:
-            # condList.append(f"apt LIKE '%{apt}%'")
             aptList = [s.strip() for s in apt.split(',')]
             aptCond = [f"apt LIKE '%{s}%'" for s in aptList]
             condList.append(f"({' OR '.join(aptCond)})")
+
+        if aptDtl:
+            aptDtlList = [s.strip() for s in aptDtl.split(',')]
+            aptDtlCond = [f"aptDtl LIKE '%{s}%'" for s in aptDtlList]
+            condList.append(f"({' OR '.join(aptDtlCond)})")
+
+        if key:
+            keyList = [s.strip() for s in key.split(',')]
+            keyCond = [f"key LIKE '%{s}%'" for s in keyList]
+            condList.append(f"({' OR '.join(keyCond)})")
+
+        if keyDtl:
+            keyDtlList = [s.strip() for s in keyDtl.split(',')]
+            keyDtlCond = [f"keyDtl LIKE '%{s}%'" for s in keyDtlList]
+            condList.append(f"({' OR '.join(keyDtlCond)})")
 
         if area:
             # condList.append(f"area LIKE '%{area}%'")
@@ -1164,7 +1410,10 @@ def selReal(
 # @app.post(f"/api/sel-prd")
 def selPrd(
         sgg: str = Query(None, description="시군구")
-        , apt: str = Query(None, description="아파트")
+        , apt: str = Query(None, description="도로명주소")
+        , aptDtl: str = Query(None, description="도로명주소 상세")
+        , key: str = Query(None, description="지번주소")
+        , keyDtl: str = Query(None, description="지번주소 상세")
         , area: str = Query(None, description="평수")
         # , year: int = Query(None, description="연도")
         , srtYear: int = Query(None, description="시작 연도")
@@ -1178,7 +1427,10 @@ def selPrd(
         TB_PRD 목록 조회\n
     테스트\n
         시군구 (시군구, 시군구, ...): 서울특별시 강남구,서울특별시 금천구\n
-        아파트 (아파트, 아파트, ...): \n
+        도로명주소: 두산(가산로)\n
+        도로명주소 상세: 서울특별시 금천구 가산로 99.0 두산\n
+        지번주소: 두산(769)\n
+        지번주소 상세: 서울특별시 금천구 가산동 769 두산\n
         평수 (평수, 평수, ...): 5평,6평\n
         시작 연도: \n
         종료 연도: \n
@@ -1201,10 +1453,24 @@ def selPrd(
             condList.append(f"({' OR '.join(sggCond)})")
 
         if apt:
-            # condList.append(f"apt LIKE '%{apt}%'")
             aptList = [s.strip() for s in apt.split(',')]
             aptCond = [f"apt LIKE '%{s}%'" for s in aptList]
             condList.append(f"({' OR '.join(aptCond)})")
+
+        if aptDtl:
+            aptDtlList = [s.strip() for s in aptDtl.split(',')]
+            aptDtlCond = [f"aptDtl LIKE '%{s}%'" for s in aptDtlList]
+            condList.append(f"({' OR '.join(aptDtlCond)})")
+
+        if key:
+            keyList = [s.strip() for s in key.split(',')]
+            keyCond = [f"key LIKE '%{s}%'" for s in keyList]
+            condList.append(f"({' OR '.join(keyCond)})")
+
+        if keyDtl:
+            keyDtlList = [s.strip() for s in keyDtl.split(',')]
+            keyDtlCond = [f"keyDtl LIKE '%{s}%'" for s in keyDtlList]
+            condList.append(f"({' OR '.join(keyDtlCond)})")
 
         if area:
             # condList.append(f"area LIKE '%{area}%'")

@@ -24,6 +24,10 @@ from matplotlib import font_manager
 import pandas as pd
 from google.cloud import bigquery
 from google.oauth2 import service_account
+import json
+import requests
+import time
+from concurrent.futures import ProcessPoolExecutor
 
 # =================================================
 # 사용자 매뉴얼
@@ -175,6 +179,21 @@ def getAmountType(amount):
     else:
         return "3억 이하"
 
+def fetchApi(apiUrl, payload, apiType, recAptData):
+
+    result = pd.DataFrame(columns=['idx', 'score'])
+
+    try:
+        response = requests.post(apiUrl, data=payload, verify=False, timeout=30)
+        response.raise_for_status()
+        resJson = response.json().get('recommends')
+        resData = pd.DataFrame(resJson[apiType], columns=['idx', 'score'])
+        result = pd.merge(resData, recAptData, how='left', left_on=['idx'], right_on=['idx'])
+    except Exception as e:
+        log.error(f"Exception : {e}")
+
+    return result
+
 # ================================================
 # 4. 부 프로그램
 # ================================================
@@ -239,10 +258,6 @@ class DtaProcess(object):
             sysOpt = {
                 # 빅쿼리 설정 정보
                 'jsonFile': '/SYSTEMS/PROG/PYTHON/IDE/resources/config/iconic-ruler-239806-7f6de5759012.json',
-                '추천': {
-                    'propAptFile': '/DATA/OUTPUT/LSH0613/추천/20250526_tbl_apts.xlsx',
-                    'propUserFile': '/DATA/OUTPUT/LSH0613/추천/20250526_tbl_users.xlsx',
-                },
                 '예측': {
                     # 'propFile': '/DATA/OUTPUT/LSH0613/예측/수익률_{addrInfo}_{d2}.csv',
                     'propFile': '/DATA/OUTPUT/LSH0613/예측/수익률_*_*.csv',
@@ -252,12 +267,19 @@ class DtaProcess(object):
                     # 'propFile': '/DATA/OUTPUT/LSH0613/전처리/아파트실거래_{addrInfo}_{d2}.csv',
                     'propFile': '/DATA/OUTPUT/LSH0613/전처리/아파트실거래_*_*.csv',
                     'saveFile': '/DATA/OUTPUT/LSH0613/통합/아파트실거래.csv',
-                }
+                },
+                '추천': {
+                    'apiCfUrl': 'http://125.251.52.42:9010/recommends_cf',
+                    'apiSimUrl': 'http://125.251.52.42:9010/recommends_simil',
+                    'propAptFile': '/DATA/OUTPUT/LSH0613/추천/20250526_tbl_apts.xlsx',
+                    'propUserFile': '/DATA/OUTPUT/LSH0613/추천/20250526_tbl_users.xlsx',
+                },
             }
 
             # *********************************************************************************
             # 파일 읽기
             # *********************************************************************************
+            # 사용자 설정 정보
             inpFile = sysOpt['추천']['propUserFile']
             fileList = sorted(glob.glob(inpFile), reverse=True)
             if fileList is None or len(fileList) < 1:
@@ -266,14 +288,27 @@ class DtaProcess(object):
 
             recUserData = pd.read_excel(fileList[0])
 
+            # 아파트 설정 정보
+            inpFile = sysOpt['추천']['propAptFile']
+            fileList = sorted(glob.glob(inpFile), reverse=True)
+            if fileList is None or len(fileList) < 1:
+                log.error(f'파일 없음 : {inpFile}')
+                sys.exit(1)
+
+            recAptData = pd.read_excel(fileList[0])
+
+
+
             # 검색어
             gender = '1'
             minAge, maxAge = '20-39'.split('-')
             minPrice, maxPrice = '3-6'.split('-')
             minArea, maxArea = '58-100'.split('-')
             debtRat = '0.25'
+
             # prefer = '편의시설'
             apt = '두산(가산로 99)'
+            rcmdCnt = 10
 
             recUserDataL1 = recUserData.loc[
                 (recUserData['gender'] == int(gender))
@@ -289,41 +324,74 @@ class DtaProcess(object):
             # len(recUserDataL1) < 1
 
 
-            inpFile = sysOpt['추천']['propAptFile']
-            fileList = sorted(glob.glob(inpFile), reverse=True)
-            if fileList is None or len(fileList) < 1:
-                log.error(f'파일 없음 : {inpFile}')
-                sys.exit(1)
-
-            recAptData = pd.read_excel(fileList[0])
-
             recAptDataL1 = recAptData.loc[
                 (recAptData['apt'] == apt)
                 & (recAptData['area'] >= float(minArea)) & (recAptData['area'] <= float(maxArea))
                 & (recAptData['price'] >= float(minPrice)) & (recAptData['price'] <= float(maxPrice))
             ]
-
             # len(recAptDataL1) < 1
 
-            # recUserDataL1.iloc[0]['idx']
-            # recAptDataL1.iloc[0]['idx']
-
+            # CF기반 아파트 추천
+            # 사용자 id, 아파트 idx, 추천 개수
             payload = {
-                'user_id': str(recUserDataL1.iloc[0]['idx']),
-                'apt_idx': (recAptDataL1.iloc[0]['idx']),
+                'user_id': recUserDataL1.iloc[0]['idx'],
+                'apt_idx': recAptDataL1.iloc[0]['idx'],
+                'rcmd_count': 10,
             }
 
-            import json
-            import requests
+            #
+            # response = requests.post(sysOpt['추천']['apiCfUrl'], data=payload, verify=False)
+            #
+            # res_json = response.json().get('recommends')
+            # log.info(f'[CHECK] res_json : {res_json}')
+            #
+            # resData = pd.DataFrame(res_json['cf'], columns=['idx', 'score'])
+            # resDataL1 = pd.merge(resData, recAptData, how='left', left_on=['idx'], right_on=['idx'])
+            #
+            # # 유사도 기반 아파트 추천
+            # payload = {
+            #     'user_id': recUserDataL1.iloc[0]['idx'],
+            #     'apt_idx': recAptDataL1.iloc[0]['idx'],
+            #     'rcmd_count': rcmdCnt,
+            # }
+            #
+            # response = requests.post(sysOpt['추천']['apiSimUrl'], data=payload, verify=False)
+            # res_json = response.json().get('recommends')
+            # log.info(f'[CHECK] res_json : {res_json}')
+            #
+            # resData = pd.DataFrame(res_json['simil'], columns=['idx', 'score'])
+            # resDataL1 = pd.merge(resData, recAptData, how='left', left_on=['idx'], right_on=['idx'])
 
-            REST_API_URL_CF = 'http://125.251.52.42:9010/recommends_cf'
-            REST_API_URL_SIMIL = 'http://125.251.52.42:9010/recommends_simil'
+            # CF기반 및 유사도 기반 아파트 추천
+            with ProcessPoolExecutor(max_workers=2) as executor:
+                futureCf = executor.submit(fetchApi,sysOpt['추천']['apiCfUrl'], payload, 'cf', recAptData)
+                futureSim = executor.submit(fetchApi,sysOpt['추천']['apiSimUrl'], payload, 'simil', recAptData)
 
-            response = requests.request("POST", REST_API_URL_CF, data=payload, verify=False)
-            res_json = response.json().get('recommends')
-            print('res_json:', res_json)
+                cfData = futureCf.result()
+                simData = futureSim.result()
 
-            resData = pd.DataFrame(res_json['cf'])
+
+        #
+            # def fetch_recommendations(payload):
+            #     try:
+            #         # verify=False는 SSL 인증서 검증 비활성화
+            #         response = requests.post(sysOpt['apiCfUrl'], data=payload, verify=False)
+            #         response.raise_for_status()
+            #         res_json = response.json().get('recommends')
+            #         if res_json and 'cf' in res_json:
+            #             return res_json['cf']
+            #         else:
+            #             print(f"경고: 페이로드 {payload}에 대한 응답에서 'recommends' 또는 'cf' 키를 찾을 수 없습니다.")
+            #             return None
+            #     except requests.exceptions.RequestException as e:
+            #         print(f"페이로드 {payload}에 대한 요청 실패: {e}")
+            #         return None
+            #     except ValueError as e:  # JSONDecodeError 포함
+            #         print(f"페이로드 {payload}에 대한 JSON 디코딩 실패: {e}")
+            #         print(f"응답 내용: {response.text}")
+            #         return None
+
+
 
 
             # recAptDataL1
