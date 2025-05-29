@@ -73,18 +73,6 @@ import h2o
 from h2o.automl import H2OAutoML
 
 from matplotlib import font_manager, rc
-
-try:
-    from pycaret.regression import *
-except Exception as e:
-    print("Exception : {}".format(e))
-
-try:
-    from pycaret.regression import *
-except Exception as e:
-    print("Exception : {}".format(e))
-
-
 import pandas as pd
 import numpy as np
 from sklearn.preprocessing import MinMaxScaler
@@ -93,11 +81,11 @@ from sklearn.metrics import mean_absolute_percentage_error, mean_squared_error
 from sklearn.ensemble import RandomForestRegressor
 import xgboost
 # from sklearn.utils import safe_indexing
-
 import os
 import pickle
 import ray
-
+from pycaret.regression import *
+import optuna.integration.lightgbm as lgb
 
 # =================================================
 # 사용자 매뉴얼
@@ -862,8 +850,6 @@ class DtaProcess(object):
                 # 머신러닝 예측
                 flamlModel = resFlaml['mlModel']
                 prdData['flaml'] = flamlModel.predict(prdData)
-
-                import optuna.integration.lightgbm as lgb
 
                 lgbTrainData = lgb.Dataset(trainData[xCol], trainData[yCol])
                 lgbTestData = lgb.Dataset(testData[xCol], testData[yCol], reference=lgbTrainData)
