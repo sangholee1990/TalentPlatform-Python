@@ -388,8 +388,6 @@ class DtaProcess(object):
                     # client.close()
 
 
-
-
             # --- 개념적인 위경도 기반 데이터 및 공간 탄력성 준비 ---
             # 실제로는 NetCDF 파일 등에서 데이터를 불러옵니다.
             years = [2010, 2020]
