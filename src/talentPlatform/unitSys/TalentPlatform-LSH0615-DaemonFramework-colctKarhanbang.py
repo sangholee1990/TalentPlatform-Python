@@ -236,7 +236,7 @@ def colctProc(sysOpt, addrInfo):
 
                 data = pd.concat([data, pd.DataFrame.from_dict(dict)], ignore_index=True)
 
-            log.info(f'[CHECK] addrInfo : {addrInfo} / cnt : {len(data)} / pid : {procInfo.pid}')
+            log.info(f'[CHECK] addrInfo : {addrInfo} / per : {round((pageInfo / maxPage) * 100, 1)}  / cnt : {len(data)} / pid : {procInfo.pid}')
 
         if len(data) > 0:
             saveFile = sysOpt['preDt'].strftime(sysOpt['saveFile']).format(addrInfo=addrInfo)
