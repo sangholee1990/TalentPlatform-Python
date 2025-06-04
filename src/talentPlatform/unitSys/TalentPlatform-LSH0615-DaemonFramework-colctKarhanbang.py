@@ -306,7 +306,7 @@ class DtaProcess(object):
 
         try:
 
-            if (platform.system() == 'Windows'):
+            if platform.system() == 'Windows':
                 pass
             else:
                 globalVar['inpPath'] = '/DATA/INPUT'
