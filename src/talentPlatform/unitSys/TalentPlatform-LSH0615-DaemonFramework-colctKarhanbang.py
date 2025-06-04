@@ -9,6 +9,8 @@
 # nohup /SYSTEMS/LIB/anaconda3/envs/py38/bin/python /SYSTEMS/PROG/PYTHON/IDE/src/talentPlatform/unitSys/TalentPlatform-LSH0615-DaemonFramework-colctKarhanbang.py &
 # tail -f nohup.out
 
+# pkill -f TalentPlatform-LSH0615-DaemonFramework-colctKarhanbang.py
+
 import argparse
 import glob
 import logging
@@ -167,12 +169,12 @@ def getTagText(tag, xpath):
     except AttributeError:
         return None
 
-
 def colctProc(sysOpt, addrInfo):
     try:
         procInfo = mp.current_process()
         pageList = np.arange(1, 9999, 1)
         data = pd.DataFrame()
+        maxPage = None
 
         for pageInfo in pageList:
             # log.info(f'[CHECK] pageInfo : {pageInfo}')
@@ -180,10 +182,17 @@ def colctProc(sysOpt, addrInfo):
             addrIdx = sysOpt['addrList'].index(addrInfo)
             url = sysOpt['url'].format(sido=addrInfo, sido_no=(addrIdx + 1), page=pageInfo)
             res = requests.get(url)
-            if res.status_code != 200: break
+            if res.status_code != 200: continue
 
             soup = BeautifulSoup(res.text, 'html.parser')
             lxml = etree.HTML(str(soup))
+
+            if maxPage is None:
+                jsFun = lxml.xpath('/html/body/div/div[3]/a[6]')[0].get('onclick')
+                maxPage = int(re.findall(r"'\s*(\d+)\s*'\)", jsFun)[0])
+
+            if maxPage and pageInfo > maxPage:
+                break
 
             # tagInfo = tagList[0]
             tagList = lxml.xpath('/html/body/div/div[1]/div[2]/ul/li[*]')
@@ -226,15 +235,14 @@ def colctProc(sysOpt, addrInfo):
                 }
 
                 data = pd.concat([data, pd.DataFrame.from_dict(dict)], ignore_index=True)
+
             log.info(f'[CHECK] addrInfo : {addrInfo} / cnt : {len(data)} / pid : {procInfo.pid}')
 
         if len(data) > 0:
-            saveFile = sysOpt['saveFile'].format(addrInfo=addrInfo)
+            saveFile = sysOpt['preDt'].strftime(sysOpt['saveFile']).format(addrInfo=addrInfo)
             os.makedirs(os.path.dirname(saveFile), exist_ok=True)
             data.to_csv(saveFile, index=False)
             log.info(f"[CHECK] saveFile : {saveFile}")
-
-        # log.info(f'[END] colctProc : {addrInfo} / pid : {procInfo.pid}')
 
     except Exception as e:
         log.error(f'Exception : {e}')
@@ -307,10 +315,9 @@ class DtaProcess(object):
                 'addrList': ['서울', '경기', '인천', '부산', '대구', '광주', '대전', '울산', '강원', '상남', '경북', '전남', '전북', '충남', '충북', '세종', '제주'],
                 'url': 'https://karhanbang.com/mamulCommon/mamul_list.asp?gure_cd=0&mamulGubun=01&cate_cd=01&sido={sido}&gugun=&dong=&sido_no={sido_no}&gugun_no=&dong_no=&hDong_no=&danji_no=&schType=1&tab_gubun=mamul&gugun_chk=&danji_name=&schGongMeter=&schdanjiDongNm=&schdanjiCurrFloor=&stateCheck=&trade_yn=&txt_amt_sell_s=&txt_amt_sell_e=&txt_amt_guar_s=&txt_amt_guar_e=&txt_amt_month_s=&txt_amt_month_e=&txt_amt_month2_s=&txt_amt_month2_e=&sel_area=&txt_area_s=&txt_area_e=&txt_room_cnt_s=&txt_room_cnt_e=&won_room_cnt=&txt_const_year=&txt_estimate_meter_s=&txt_estimate_meter_e=&sel_area3=&txt_area3_s=&txt_area3_e=&sel_building_use_cd=&sel_gunrak_cd=&sel_area5=&txt_area5_s=&txt_area5_e=&sel_area6=&txt_area6_s=&txt_area6_e=&txt_floor_high_s=&txt_floor_high_e=&officetel_use_cd=&sel_option_cd=&txt_land_s=&txt_land_e=&sel_jimok_cd=&txt_road_meter_s=&txt_road_meter_e=&sel_store_use_cd=&sel_sangga_cd=&sangga_cd=&sangga_chk=&sel_sangga_ipji_cd=&sel_office_use_cd=&orderByGubun=&regOrderBy=&confirmOrderBy=&meterOrderBy=&priceOrderBy=&currFloorBy=&chk_rentalhouse_yn=NN&chk_soon_move_yn=NN&chk_kyungmae_yn=NN&txt_yong_jiyuk2_nm=&txt_amt_dang_s=&txt_amt_dang_e=&gong_meter_s=&gong_meter_e=&gun_meter_s=&gun_meter_e=&toji_meter_s=&toji_meter_e=&txt_const_year_s=&txt_const_year_e=&txt_curr_floor_s=&txt_curr_floor_e=&page={page}&flag=S&theme=&',
                 'urlDtl': 'https://karhanbang.com/detail/?topM={topM}&schType=3&mm_no={mmNo}&mapGubun=N',
-                'saveFile': '/DATA/OUTPUT/LSH0615/매물_{addrInfo}.csv',
-
-                # 비동기 다중 프로세스 개수
-                'cpuCoreNum': '4',
+                'saveFile': '/DATA/OUTPUT/LSH0615/%Y%m%d_매물_{addrInfo}.csv',
+                'preDt': datetime.now(),
+                'cpuCoreNum': '5',
             }
 
             # **************************************************************************************************************
