@@ -176,12 +176,15 @@ def colctProc(sysOpt, addrInfo):
         data = pd.DataFrame()
         maxPage = None
 
+        saveFilePattern = sysOpt['saveFilePattern'].format(addrInfo=addrInfo)
+        if len(glob.glob(saveFilePattern)) > 0: return
+
         for pageInfo in pageList:
             # log.info(f'[CHECK] pageInfo : {pageInfo}')
 
             addrIdx = sysOpt['addrList'].index(addrInfo)
             url = sysOpt['url'].format(sido=addrInfo, sido_no=(addrIdx + 1), page=pageInfo)
-            res = requests.get(url)
+            res = requests.get(url, timeout=int(sysOpt['timeout']))
             if res.status_code != 200: continue
 
             soup = BeautifulSoup(res.text, 'html.parser')
@@ -316,8 +319,10 @@ class DtaProcess(object):
                 'url': 'https://karhanbang.com/mamulCommon/mamul_list.asp?gure_cd=0&mamulGubun=01&cate_cd=01&sido={sido}&gugun=&dong=&sido_no={sido_no}&gugun_no=&dong_no=&hDong_no=&danji_no=&schType=1&tab_gubun=mamul&gugun_chk=&danji_name=&schGongMeter=&schdanjiDongNm=&schdanjiCurrFloor=&stateCheck=&trade_yn=&txt_amt_sell_s=&txt_amt_sell_e=&txt_amt_guar_s=&txt_amt_guar_e=&txt_amt_month_s=&txt_amt_month_e=&txt_amt_month2_s=&txt_amt_month2_e=&sel_area=&txt_area_s=&txt_area_e=&txt_room_cnt_s=&txt_room_cnt_e=&won_room_cnt=&txt_const_year=&txt_estimate_meter_s=&txt_estimate_meter_e=&sel_area3=&txt_area3_s=&txt_area3_e=&sel_building_use_cd=&sel_gunrak_cd=&sel_area5=&txt_area5_s=&txt_area5_e=&sel_area6=&txt_area6_s=&txt_area6_e=&txt_floor_high_s=&txt_floor_high_e=&officetel_use_cd=&sel_option_cd=&txt_land_s=&txt_land_e=&sel_jimok_cd=&txt_road_meter_s=&txt_road_meter_e=&sel_store_use_cd=&sel_sangga_cd=&sangga_cd=&sangga_chk=&sel_sangga_ipji_cd=&sel_office_use_cd=&orderByGubun=&regOrderBy=&confirmOrderBy=&meterOrderBy=&priceOrderBy=&currFloorBy=&chk_rentalhouse_yn=NN&chk_soon_move_yn=NN&chk_kyungmae_yn=NN&txt_yong_jiyuk2_nm=&txt_amt_dang_s=&txt_amt_dang_e=&gong_meter_s=&gong_meter_e=&gun_meter_s=&gun_meter_e=&toji_meter_s=&toji_meter_e=&txt_const_year_s=&txt_const_year_e=&txt_curr_floor_s=&txt_curr_floor_e=&page={page}&flag=S&theme=&',
                 'urlDtl': 'https://karhanbang.com/detail/?topM={topM}&schType=3&mm_no={mmNo}&mapGubun=N',
                 'saveFile': '/DATA/OUTPUT/LSH0615/%Y%m%d_매물_{addrInfo}.csv',
+                'saveFilePattern': '/DATA/OUTPUT/LSH0615/*_매물_{addrInfo}.csv',
                 'preDt': datetime.now(),
-                'cpuCoreNum': '5',
+                'timeout': '60',
+                'cpuCoreNum': '3',
             }
 
             # **************************************************************************************************************
