@@ -326,6 +326,89 @@ class DtaProcess(object):
                 coefData = xr.open_mfdataset(fileList)
                 coefData = coefData.rename({'__xarray_dataarray_variable__': 'coefVar'})
 
+
+                dataL1 = xr.merge([data, coefData])
+                minYear = pd.to_datetime(np.min(dataL1['time'].values)).strftime('%Y')
+                maxYear = pd.to_datetime(np.max(dataL1['time'].values)).strftime('%Y')
+
+                # 분석 시작/종료 시점 데이터 선택
+                data_t0_spatial = dataL1.sel(time=minYear)
+                data_tT_spatial = dataL1.sel(time=maxYear)
+
+                # 분석 기간 선택 (탄력성 데이터용)
+                current_period = '2010-2019'  # 사용자의 Dataset 구조에 맞게 조정
+
+                # --- 단계 1: 대수평균 L(EG) 계산 (격자 셀별) ---
+                eg_t0_spatial_da = data_t0_spatial['EG']
+                eg_tT_spatial_da = data_tT_spatial['EG']
+                l_eg_spatial = xr.where(
+                    eg_tT_spatial_da == eg_t0_spatial_da,
+                    eg_t0_spatial_da,
+                    (eg_tT_spatial_da - eg_t0_spatial_da) / (np.log(eg_tT_spatial_da) - np.log(eg_t0_spatial_da))
+                )
+                print(f"## 공간 데이터 기반 STIRPAT LMDI 분해 분석 (공간적 탄력성 적용)\n")
+                print(f"단계 1: 대수평균 L(EG) 계산 완료.\n L(EG) 예시 (첫번째 셀): {l_eg_spatial.isel(lat=0, lon=0).item():.2f}\n")
+
+                # --- 단계 2: 초기 요인별 기여도 계산 (격자 셀별, 공간적 탄력성 사용) ---
+                delta_E_factors_spatial_calculated = {}
+                print("단계 2: 초기 요인별 기여도 계산 (격자 셀별, 공간적 탄력성 사용)")
+
+                for factor_name in factors_lmdi:
+                    factor_t0_da = data_t0_spatial[factor_name]
+                    factor_tT_da = data_tT_spatial[factor_name]
+
+                    # 해당 요인의 공간적 탄력성 계수 DataArray 추출
+                    # factor_to_elasticity_coef_map에서 실제 'coef_alias' 이름을 가져옴
+                    coef_alias_for_factor = factor_to_elasticity_coef_map[factor_name]
+
+                    # 공간적 탄력성 값 (DataArray[lat, lon])
+                    # .squeeze()는 period 차원(크기가 1인 경우)을 제거하여 (lat, lon, coef_alias) 로 만듭니다.
+                    # 실제 데이터 구조에 따라 squeeze() 사용 여부나 sel 조건이 달라질 수 있습니다.
+                    elasticity_val_spatial = ds_spatial['spatial_elasticities'].sel(
+                        period=current_period,
+                        coef_alias=coef_alias_for_factor
+                    )
+                    # .squeeze(dim='period', drop=True))  # period 차원이 있으면 제거, 없으면 에러 방지 위해 drop=True
+
+                    log_ratio_factor_da = xr.where(
+                        factor_tT_da == factor_t0_da,
+                        0.0,
+                        xr.where(
+                            (factor_t0_da > 0) & (factor_tT_da > 0),
+                            np.log(factor_tT_da / factor_t0_da),
+                            np.nan
+                        )
+                    )
+
+                    # 초기 기여도 계산 (요소별)
+                    # 이제 elasticity_val_spatial도 (lat, lon) 차원의 DataArray임
+                    calculated_delta_E = elasticity_val_spatial * l_eg_spatial * log_ratio_factor_da
+                    delta_E_factors_spatial_calculated[factor_name] = calculated_delta_E
+                    print(f"  ΔEG_{factor_name} (첫번째 셀 값 예시): {calculated_delta_E.isel(lat=0, lon=0).item():.2f}")
+                    print(f"    사용된 탄력성 (첫번째 셀 값 예시): {elasticity_val_spatial.isel(lat=0, lon=0).item():.2f}")
+
+                print("")
+                # 이후 단계 3, 4, 5 (분해 검증, 실질 기여도, 백분율 기여도)는
+                # delta_E_factors_spatial_calculated 딕셔너리에 저장된 DataArray들을 사용하여
+                # 이전 코드와 동일한 로직으로 요소별 연산을 수행하면 됩니다.
+                # 예를 들어, sum_delta_E_factors_da는 이제 delta_E_factors_spatial_calculated의 DataArray들을 합산합니다.
+
+                # --- 단계 3 예시 (격자 셀별 합산) ---
+                sum_delta_E_factors_da_spatial = xr.DataArray(
+                    np.zeros_like(l_eg_spatial.values),  # 초기화할 배열 (l_eg_spatial과 동일한 형태)
+                    coords=l_eg_spatial.coords,
+                    dims=l_eg_spatial.dims
+                )
+                for factor_name in factors_lmdi:
+                    # NaN 값을 0으로 처리하여 합산 (필요에 따라 다른 처리 가능)
+                    sum_delta_E_factors_da_spatial += delta_E_factors_spatial_calculated[factor_name].fillna(0)
+
+                actual_delta_EG_da_spatial = eg_tT_spatial_da - eg_t0_spatial_da
+
+                print(f"단계 3: 분해 검증 (격자 셀별)")
+                print(f"  초기 기여도 합계 (첫번째 셀 값 예시) = {sum_delta_E_factors_da_spatial.isel(lat=0, lon=0).item():.2f}")
+                print(f"  실제 EG 변화량 (첫번째 셀 값 예시) = {actual_delta_EG_da_spatial.isel(lat=0, lon=0).item():.2f}\n")
+
                 # coefData.isel(period=0, isel=)
                 # coefData.sel(period=dateInfo, coef='c')['coefVar'].plot()
                 # plt.show()
@@ -336,7 +419,7 @@ class DtaProcess(object):
 
 
                 # b_coeff_data = ds[data_var_name].sel(period='2010-2019', coef='b')
-                coefData['coef']
+                # coefData['coef']
 
                 # <xarray.DataArray (period: 1, lat: 2, lon: 2, coef_alias: 4)>
 
