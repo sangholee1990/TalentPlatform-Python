@@ -22,12 +22,12 @@ import urllib
 import warnings
 from datetime import datetime
 import re
-import googlemaps
+# import googlemaps
 import matplotlib as mpl
 import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
-import xmltodict
+# import xmltodict
 from sklearn.neighbors import BallTree
 import requests
 import csv
@@ -760,6 +760,7 @@ class DtaProcess(object):
                 d2List = set(admDataL1['d2'])
                 for d2 in d2List:
                     if d2 is None: continue
+                    if d2 != '강북구': continue
 
                     # inpFile = '{}/{}/{}/{}/{}.csv'.format(globalVar['outPath'], serviceName, '전처리', addrInfo, '건축 인허가_*_*')
                     inpFile = sysOpt['건축인허가']['propFile'].format(addrInfo=addrInfo, d2=d2)
@@ -786,7 +787,8 @@ class DtaProcess(object):
                     houseConsRef = houseConsData[['addrDtlInfo', 'lat', 'lon']].dropna().reset_index(drop=True)
                     baTree = BallTree(np.deg2rad(houseConsRef[['lat', 'lon']].values), metric='haversine')
 
-                    aptPriceDataL1 = aptPriceData
+                    # aptPriceDataL1 = aptPriceData
+                    aptPriceDataL1 = aptPriceData[~aptPriceData['aptNm'].str.endswith('(임대)')].reset_index()
                     for i, posInfo in aptPriceDataL1.iterrows():
                         if pd.isna(posInfo['lat']) or pd.isna(posInfo['lon']): continue
 
@@ -815,6 +817,7 @@ class DtaProcess(object):
                 d2List = set(admDataL1['d2'])
                 for d2 in d2List:
                     if d2 is None: continue
+                    if d2 != '강북구': continue
 
                     # inpFile = '{}/{}/{}/{}/{}.csv'.format(globalVar['outPath'], serviceName, '전처리', addrInfo, '건축 인허가_*_*')
                     inpFile = sysOpt['건축인허가']['propFile'].format(addrInfo=addrInfo, d2=d2)
@@ -841,7 +844,8 @@ class DtaProcess(object):
                     houseConsRef = houseConsData[['addrDtlInfo', 'lat', 'lon']].dropna().reset_index(drop=True)
                     baTree = BallTree(np.deg2rad(houseConsRef[['lat', 'lon']].values), metric='haversine')
 
-                    aptPriceDataL1 = aptPriceData
+                    # aptPriceDataL1 = aptPriceData
+                    aptPriceDataL1 = aptPriceData[~aptPriceData['aptNm'].str.endswith('(임대)')].reset_index()
                     for i, posInfo in aptPriceDataL1.iterrows():
                         if pd.isna(posInfo['lat']) or pd.isna(posInfo['lon']): continue
 
