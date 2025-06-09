@@ -760,7 +760,6 @@ class DtaProcess(object):
                 d2List = set(admDataL1['d2'])
                 for d2 in d2List:
                     if d2 is None: continue
-                    if d2 != '강북구': continue
 
                     # inpFile = '{}/{}/{}/{}/{}.csv'.format(globalVar['outPath'], serviceName, '전처리', addrInfo, '건축 인허가_*_*')
                     inpFile = sysOpt['건축인허가']['propFile'].format(addrInfo=addrInfo, d2=d2)
@@ -817,7 +816,6 @@ class DtaProcess(object):
                 d2List = set(admDataL1['d2'])
                 for d2 in d2List:
                     if d2 is None: continue
-                    if d2 != '강북구': continue
 
                     # inpFile = '{}/{}/{}/{}/{}.csv'.format(globalVar['outPath'], serviceName, '전처리', addrInfo, '건축 인허가_*_*')
                     inpFile = sysOpt['건축인허가']['propFile'].format(addrInfo=addrInfo, d2=d2)
