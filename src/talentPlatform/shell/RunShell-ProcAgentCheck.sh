@@ -33,13 +33,11 @@ declare -A metaData
 #metaData["open-webui"]="/HDD/SYSTEMS/LIB/anaconda3/envs/py311/bin/open-webui serve --host 0.0.0.0 --port 9210"
 #metaData["port 9099"]="bash /DATA/TMP/pipelines/start.sh"
 
-
 metaData["open-webui"]="/HDD/SYSTEMS/LIB/anaconda3/envs/py311/bin/open-webui serve --host 0.0.0.0 --port 9210"
 metaData["pipelines/start"]="bash /HDD/SYSTEMS/PROG/PYTHON/IDE/src/proj/topbds/2025/pipelines/start.sh"
-metaData["TalentPlatform-LSH0577-DaemonApi"]="/HDD/SYSTEMS/LIB/anaconda3/envs/py39/bin/uvicorn TalentPlatform-LSH0577-DaemonApi:app --host=0.0.0.0 --port=9000"
-metaData["TalentPlatform-LSH0578-DaemonApi"]="/HDD/SYSTEMS/LIB/anaconda3/envs/py39/bin/uvicorn TalentPlatform-LSH0578-DaemonApi:app --host=0.0.0.0 --port=9200"
-metaData["TalentPlatform-LSH0597-DaemonApi"]="/HDD/SYSTEMS/LIB/anaconda3/envs/py39/bin/uvicorn TalentPlatform-LSH0597-DaemonApi:app --host=0.0.0.0 --port=9300"
-metaData["TalentPlatform-LSH0597-DaemonApi"]="/HDD/SYSTEMS/LIB/anaconda3/envs/py39/bin/uvicorn TalentPlatform-LSH0597-DaemonApi:app --host=0.0.0.0 --port=9300"
+metaData["TalentPlatform-LSH0577-DaemonApi"]="cd /HDD/SYSTEMS/PROG/PYTHON/IDE/src/talentPlatform/api && /HDD/SYSTEMS/LIB/anaconda3/envs/py39/bin/python -m uvicorn TalentPlatform-LSH0577-DaemonApi:app --reload --host=0.0.0.0 --port=9000"
+metaData["TalentPlatform-LSH0578-DaemonApi"]="cd /HDD/SYSTEMS/PROG/PYTHON/IDE/src/talentPlatform/api && /HDD/SYSTEMS/LIB/anaconda3/envs/py39/bin/python -m uvicorn TalentPlatform-LSH0578-DaemonApi:app --reload --host=0.0.0.0 --port=9200"
+metaData["TalentPlatform-LSH0597-DaemonApi"]="cd /HDD/SYSTEMS/PROG/PYTHON/IDE/src/talentPlatform/api && /HDD/SYSTEMS/LIB/anaconda3/envs/py39/bin/python -m uvicorn TalentPlatform-LSH0597-DaemonApi:app --reload --host=0.0.0.0 --port=9300"
 metaData["rcmdapt_ai_server"]="/HDD/SYSTEMS/LIB/anaconda3/envs/py38/bin/python /HDD/SYSTEMS/PROG/PYTHON/IDE/src/talentPlatform/rcmdapt/rcmdapt_ai_server.py"
 metaData["TalentPlatform-bdwide-FileWatch"]="/HDD/SYSTEMS/LIB/anaconda3/envs/py38/bin/python /SYSTEMS/PROG/PYTHON/IDE/src/proj/bdwide/2025/MNTRG/TalentPlatform-bdwide-FileWatch.py"
 #metaData["rclone mount"]="rclone mount 'gd-bdwide:/DATA/LABEL' '/HDD/DATA/LABEL' --daemon"
@@ -60,19 +58,20 @@ for key in "${!metaData[@]}"; do
   #echo "[$(date +"%Y-%m-%d %H:%M:%S")] [CHECK] key : $key / val : $val"
 
   procId=$(pgrep -f "$key")
+#  LOG_NAME=$(basename "$0" .sh)_$(date +"%Y%m%d")_${key}.log
 
   if [ -z "${procId}" ]; then 
-      case "$key" in
-        "TalentPlatform-LSH0605-DaemonFramework")
-		      ps -ef | grep "chrome" | awk '{print $2}' | xargs kill -9
-		      ;;
-	      *)
-		      ;;
-      esac
-
+#      case "$key" in
+#        "TalentPlatform-LSH0605-DaemonFramework")
+#		      ps -ef | grep "chrome" | awk '{print $2}' | xargs kill -9
+#		      ;;
+#	      *)
+#		      ;;
+#      esac
       echo "[$(date +"%Y-%m-%d %H:%M:%S")] [CHECK] Process is not running : $key"
       echo "[$(date +"%Y-%m-%d %H:%M:%S")] [CHECK] Process is not running : $key" >> ${LOG_PATH}/${LOG_NAME}
-      nohup $val >> ${LOG_PATH}/${LOG_NAME} 2>&1 &
+#      nohup $val >> ${LOG_PATH}/${LOG_NAME} 2>&1 &
+      nohup bash -c "$val" >> ${LOG_PATH}/${LOG_NAME} 2>&1 &
   else
       echo "[$(date +"%Y-%m-%d %H:%M:%S")] [CHECK] Process is running with PID: $key : ${procId}"
       echo "[$(date +"%Y-%m-%d %H:%M:%S")] [CHECK] Process is running with PID: $key : ${procId}" >> ${LOG_PATH}/${LOG_NAME}
