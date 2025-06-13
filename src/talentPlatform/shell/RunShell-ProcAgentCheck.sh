@@ -26,6 +26,7 @@ CTX_PATH=/HDD/SYSTEMS/PROG/PYTHON/IDE/src/talentPlatform/shell
 declare -A metaData
 #metaData["SOLARMY_APP"]="/SYSTEMS/IOT/Roverdyn/PROJ_TCP_DB/build/SOLARMY_APP"
 metaData["SOLARMY_APP"]="/SYSTEMS/IOT/Roverdyn/daemon-iot-tcpipDb/build/SOLARMY_APP"
+metaData["TCP-Server-Bees"]="/SYSTEMS/IOT/Roverdyn/bee-iot/TCP-Server-Bees"
 #metaData["TalentPlatform-LSH0605-DaemonFramework.py"]="/HDD/SYSTEMS/LIB/anaconda3/envs/py38/bin/python /HDD/SYSTEMS/PROG/PYTHON/IDE/src/talentPlatform/unitSys/TalentPlatform-LSH0605-DaemonFramework.py"
 #metaData["TalentPlatform-LSH0613-DaemonFramework-Active-OpenAPI-DataCollectToPrep.py"]="/HDD/SYSTEMS/LIB/anaconda3/envs/py38/bin/python /HDD/SYSTEMS/PROG/PYTHON/IDE/src/talentPlatform/unitSys/TalentPlatform-LSH0613-DaemonFramework-Active-OpenAPI-DataCollectToPrep.py"
 #metaData["TalentPlatform-LSH0613-DaemonFramework-Active-OpenAPI-Model.py"]="/HDD/SYSTEMS/LIB/anaconda3/envs/py36/bin/python /HDD/SYSTEMS/PROG/PYTHON/IDE/src/talentPlatform/unitSys/TalentPlatform-LSH0613-DaemonFramework-Active-OpenAPI-Model.py"
