@@ -321,6 +321,10 @@ class DtaProcess(object):
                     coefData = xr.open_mfdataset(fileList)
                     coefData = coefData.rename({'__xarray_dataarray_variable__': 'coefVar'})
 
+                    # saveFile = '{}/{}/{}/{}_{}_{}.nc'.format(globalVar['outPath'], serviceName, 'LDMI', 'coefData', keyInfo, dateInfo)
+                    # os.makedirs(os.path.dirname(saveFile), exist_ok=True)
+                    # coefData.to_netcdf(saveFile)
+                    # log.info(f'[CHECK] saveFile : {saveFile}')
 
                     dataL1 = xr.merge([data, coefData])
                     minYear = pd.to_datetime(np.min(dataL1['time'].values)).strftime('%Y')
@@ -338,11 +342,12 @@ class DtaProcess(object):
                     eg_t0 = data_t0[keyInfo]
                     eg_tT = data_tT[keyInfo]
 
-                    l_eg_spatial = xr.where(
-                        eg_tT == eg_t0,
-                        0.0,
-                        (eg_tT - eg_t0) / (np.log(eg_tT) - np.log(eg_tT))
-                    )
+                    # l_eg_spatial = xr.where(
+                    #     eg_tT == eg_t0,
+                    #     0.0,
+                    #     (eg_tT - eg_t0) / (np.log(eg_tT) - np.log(eg_tT))
+                    # )
+                    l_eg_spatial =  (eg_tT - eg_t0) / (np.log(eg_tT) - np.log(eg_tT))
 
                     # l_eg_spatial.plot()
                     # plt.show()
@@ -370,15 +375,20 @@ class DtaProcess(object):
                         coef_alias  = factor_to_elasticity_coef_map[factor]
                         elasticity_val = coefData.sel(coef=coef_alias, period=current_period)['coefVar']
 
+                        # log_ratio = xr.where(
+                        #     factor_tT == factor_t0,
+                        #     0.0,
+                        #     xr.where(
+                        #         (factor_t0 > 0) & (factor_tT > 0),
+                        #         np.log(factor_tT / factor_t0),
+                        #         np.nan
+                        #     )
+                        # )
                         log_ratio = xr.where(
-                            factor_tT == factor_t0,
-                            0.0,
-                            xr.where(
                                 (factor_t0 > 0) & (factor_tT > 0),
                                 np.log(factor_tT / factor_t0),
                                 np.nan
                             )
-                        )
 
                         delta_E_factors_calculated[factor] = elasticity_val * l_eg_spatial * log_ratio
 
