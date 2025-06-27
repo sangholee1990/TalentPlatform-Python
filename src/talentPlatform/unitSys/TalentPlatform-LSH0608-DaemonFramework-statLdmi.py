@@ -223,10 +223,10 @@ class DtaProcess(object):
             if (platform.system() == 'Windows'):
                 pass
             else:
-                pass
-                # globalVar['inpPath'] = '/DATA/INPUT'
-                # globalVar['outPath'] = '/DATA/OUTPUT'
-                # globalVar['figPath'] = '/DATA/FIG'
+                # pass
+                globalVar['inpPath'] = '/DATA/INPUT'
+                globalVar['outPath'] = '/DATA/OUTPUT'
+                globalVar['figPath'] = '/DATA/FIG'
 
             # 옵션 설정
             sysOpt = {
@@ -245,14 +245,14 @@ class DtaProcess(object):
                 # , 'latInv': 0.1
 
                 'dateList': {
-                    '2000-2019': {
-                        'srtDate': '2000-01-01',
-                        'endDate': '2019-12-31',
-                    },
-                    '2000-2009': {
-                        'srtDate': '2000-01-01',
-                        'endDate': '2009-12-31',
-                    },
+                    # '2000-2019': {
+                    #     'srtDate': '2000-01-01',
+                    #     'endDate': '2019-12-31',
+                    # },
+                    # '2000-2009': {
+                    #     'srtDate': '2000-01-01',
+                    #     'endDate': '2009-12-31',
+                    # },
                     '2010-2019': {
                         'srtDate': '2010-01-01',
                         'endDate': '2019-12-31',
@@ -261,8 +261,8 @@ class DtaProcess(object):
                 }
                 , 'typeList': ['landscan', 'GDP', 'Land_Cover_Type_1_Percent', 'EC']
                 , 'coefList': ['b', 'c', 'd', 'e']
-                , 'keyList': ['SO2', 'N2O', 'CH4', 'NMVOC', 'NOx', 'NH3', 'CO', 'PM10', 'PM2.5', 'OC', 'BC']
-                # , 'keyList': ['OC']
+                # , 'keyList': ['SO2', 'N2O', 'CH4', 'NMVOC', 'NOx', 'NH3', 'CO', 'PM10', 'PM2.5', 'OC', 'BC']
+                , 'keyList': ['OC']
             }
 
             for dateInfo in sysOpt['dateList']:
@@ -285,12 +285,13 @@ class DtaProcess(object):
 
                     # 회귀계수
                     for keyInfo in sysOpt['keyList']:
-                        inpFile = '{}/{}/{}.nc'.format(globalVar['outPath'], serviceName, f"STAT/{dateInfo}_*{keyInfo}")
+                        inpFile = '{}/{}/{}.nc'.format(globalVar['outPath'], serviceName, f"STAT/{dateInfo}_statOls_{keyInfo}")
                         fileList = sorted(glob.glob(inpFile))
 
                         if fileList is None or len(fileList) < 1:
                             log.error(f"파일 없음 : {inpFile}")
                             continue
+
                         log.info(f'[CHECK] keyInfo : {keyInfo}')
                         coefData = xr.open_mfdataset(fileList)
                         # coefData = xr.open_dataset(fileList)
