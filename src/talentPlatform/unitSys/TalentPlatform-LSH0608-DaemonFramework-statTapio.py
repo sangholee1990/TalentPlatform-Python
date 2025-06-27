@@ -3,8 +3,8 @@
 # ================================================
 # bash
 # cd /data2/hzhenshao/EMI
-# /data2/hzhenshao/EMI/py38/bin/python3 TalentPlatform-LSH0608-DaemonFramework-statLdmi.py
-# nohup /data2/hzhenshao/EMI/py38/bin/python3 TalentPlatform-LSH0608-DaemonFramework-statLdmi.py &
+# /data2/hzhenshao/EMI/py38/bin/python3 TalentPlatform-LSH0608-DaemonFramework-statTapio.py
+# nohup /data2/hzhenshao/EMI/py38/bin/python3 TalentPlatform-LSH0608-DaemonFramework-statTapio.py &
 # tail -f nohup.out
 
 # -*- coding: utf-8 -*-
@@ -223,13 +223,12 @@ class DtaProcess(object):
             if (platform.system() == 'Windows'):
                 pass
             else:
-                # pass
-                globalVar['inpPath'] = '/DATA/INPUT'
-                globalVar['outPath'] = '/DATA/OUTPUT'
-                globalVar['figPath'] = '/DATA/FIG'
+                pass
+                # globalVar['inpPath'] = '/DATA/INPUT'
+                # globalVar['outPath'] = '/DATA/OUTPUT'
+                # globalVar['figPath'] = '/DATA/FIG'
 
             # 옵션 설정
-
             sysOpt = {
                 'dateList': {
                     '2000-2019': {
@@ -246,10 +245,10 @@ class DtaProcess(object):
                     },
 
                 }
-                # , 'typeList': ['landscan', 'GDP', 'Land_Cover_Type_1_Percent', 'EC']
-                # , 'keyList': ['SO2', 'N2O', 'CH4', 'NMVOC', 'NOx', 'NH3', 'CO', 'PM10', 'PM2.5', 'OC', 'BC']
-                , 'typeList': ['landscan']
-                , 'keyList': ['BC']
+                , 'typeList': ['landscan', 'GDP', 'Land_Cover_Type_1_Percent', 'EC']
+                , 'keyList': ['SO2', 'N2O', 'CH4', 'NMVOC', 'NOx', 'NH3', 'CO', 'PM10', 'PM2.5', 'OC', 'BC']
+                # , 'typeList': ['landscan']
+                # , 'keyList': ['BC']
                 , 'tapioList': {
                     0: 'Undefined / No Change',
                     1: 'Weak Negative Decoupling',
@@ -282,12 +281,13 @@ class DtaProcess(object):
 
                     # 회귀계수
                     for keyInfo in sysOpt['keyList']:
-                        # 테스트
-                        data['landscan'].loc[dict(time='2000')] = 10
-                        data['BC'].loc[dict(time='2000')] = 5
 
-                        data['landscan'].loc[dict(time='2019')] = 15
-                        data['BC'].loc[dict(time='2019')] = 5.5
+                        # 테스트
+                        # data['landscan'].loc[dict(time='2000')] = 10
+                        # data['BC'].loc[dict(time='2000')] = 5
+                        #
+                        # data['landscan'].loc[dict(time='2019')] = 15
+                        # data['BC'].loc[dict(time='2019')] = 5.5
 
                         dataL1 = data
                         srtYear = pd.to_datetime(np.min(dataL1['time'].values)).strftime('%Y')
