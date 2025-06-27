@@ -261,6 +261,7 @@ class DtaProcess(object):
                     8: 'Growth Connectivity'
                 }
             }
+
             for dateInfo in sysOpt['dateList']:
                 try:
                     inpFile = '{}/{}/{}.nc'.format(globalVar['inpPath'], serviceName, 'EDGAR2-*')
