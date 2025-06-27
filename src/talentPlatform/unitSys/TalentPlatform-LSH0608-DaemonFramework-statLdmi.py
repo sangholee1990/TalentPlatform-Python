@@ -223,36 +223,22 @@ class DtaProcess(object):
             if (platform.system() == 'Windows'):
                 pass
             else:
-                # pass
-                globalVar['inpPath'] = '/DATA/INPUT'
-                globalVar['outPath'] = '/DATA/OUTPUT'
-                globalVar['figPath'] = '/DATA/FIG'
+                pass
+                # globalVar['inpPath'] = '/DATA/INPUT'
+                # globalVar['outPath'] = '/DATA/OUTPUT'
+                # globalVar['figPath'] = '/DATA/FIG'
 
             # 옵션 설정
             sysOpt = {
-                # 시작/종료 시간
-                # 'srtDate': '2000-01-01'
-                # , 'endDate': '2019-12-31'
-
-                # 경도 최소/최대/간격
-                # , 'lonMin': -180
-                # , 'lonMax': 180
-                # , 'lonInv': 0.1
-
-                # 위도 최소/최대/간격
-                # , 'latMin': -90
-                # , 'latMax': 90
-                # , 'latInv': 0.1
-
                 'dateList': {
-                    # '2000-2019': {
-                    #     'srtDate': '2000-01-01',
-                    #     'endDate': '2019-12-31',
-                    # },
-                    # '2000-2009': {
-                    #     'srtDate': '2000-01-01',
-                    #     'endDate': '2009-12-31',
-                    # },
+                    '2000-2019': {
+                        'srtDate': '2000-01-01',
+                        'endDate': '2019-12-31',
+                    },
+                    '2000-2009': {
+                        'srtDate': '2000-01-01',
+                        'endDate': '2009-12-31',
+                    },
                     '2010-2019': {
                         'srtDate': '2010-01-01',
                         'endDate': '2019-12-31',
@@ -261,8 +247,7 @@ class DtaProcess(object):
                 }
                 , 'typeList': ['landscan', 'GDP', 'Land_Cover_Type_1_Percent', 'EC']
                 , 'coefList': ['b', 'c', 'd', 'e']
-                # , 'keyList': ['SO2', 'N2O', 'CH4', 'NMVOC', 'NOx', 'NH3', 'CO', 'PM10', 'PM2.5', 'OC', 'BC']
-                , 'keyList': ['OC']
+                , 'keyList': ['SO2', 'N2O', 'CH4', 'NMVOC', 'NOx', 'NH3', 'CO', 'PM10', 'PM2.5', 'OC', 'BC']
             }
 
             for dateInfo in sysOpt['dateList']:
