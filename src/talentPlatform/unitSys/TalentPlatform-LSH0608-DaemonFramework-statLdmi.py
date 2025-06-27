@@ -308,122 +308,123 @@ class DtaProcess(object):
                 # log.info(f'[CHECK] endDate : {endDate}')
 
                 # 회귀계수
-                keyInfo = 'BC'
-                log.info(f'[CHECK] saveFile : {keyInfo}')
-                inpFile = '{}/{}/{}.nc'.format(globalVar['outPath'], serviceName, f"STAT/{dateInfo}_*{keyInfo}")
-                fileList = sorted(glob.glob(inpFile))
+                # keyInfo = 'BC'
+                for keyInfo in sysOpt['keyList']:
+                    log.info(f'[CHECK] saveFile : {keyInfo}')
+                    inpFile = '{}/{}/{}.nc'.format(globalVar['outPath'], serviceName, f"STAT/{dateInfo}_*{keyInfo}")
+                    fileList = sorted(glob.glob(inpFile))
 
-                if fileList is None or len(fileList) < 1:
-                    log.error(f"파일 없음 : {inpFile}")
-                    continue
+                    if fileList is None or len(fileList) < 1:
+                        log.error(f"파일 없음 : {inpFile}")
+                        continue
 
-                coefData = xr.open_mfdataset(fileList)
-                coefData = coefData.rename({'__xarray_dataarray_variable__': 'coefVar'})
-
-
-                dataL1 = xr.merge([data, coefData])
-                minYear = pd.to_datetime(np.min(dataL1['time'].values)).strftime('%Y')
-                maxYear = pd.to_datetime(np.max(dataL1['time'].values)).strftime('%Y')
+                    coefData = xr.open_mfdataset(fileList)
+                    coefData = coefData.rename({'__xarray_dataarray_variable__': 'coefVar'})
 
 
-                # 분석 시작/종료 시점 데이터 선택
-                data_t0 = dataL1.sel(time=minYear).isel(time=0)
-                data_tT = dataL1.sel(time=maxYear).isel(time=0)
-
-                # 분석 기간 선택 (탄력성 데이터용)
-                current_period = dateInfo  # 사용자의 Dataset 구조에 맞게 조정
-
-                # --- 단계 1: 대수평균 L(EG) 계산 (격자 셀별) ---
-                eg_t0 = data_t0[keyInfo]
-                eg_tT = data_tT[keyInfo]
-
-                l_eg_spatial = xr.where(
-                    eg_tT == eg_t0,
-                    0.0,
-                    (eg_tT - eg_t0) / (np.log(eg_tT) - np.log(eg_tT))
-                )
-
-                # l_eg_spatial.plot()
-                # plt.show()
-
-                # print(f"## 공간 데이터 기반 STIRPAT LMDI 분해 분석 (공간적 탄력성 적용)\n")
-                # print(f"단계 1: 대수평균 L(EG) 계산 완료.\n L(EG) 예시 (첫번째 셀): {l_eg_spatial.2f}\n")
+                    dataL1 = xr.merge([data, coefData])
+                    minYear = pd.to_datetime(np.min(dataL1['time'].values)).strftime('%Y')
+                    maxYear = pd.to_datetime(np.max(dataL1['time'].values)).strftime('%Y')
 
 
-                # print("단계 2: 초기 요인별 기여도 계산 (격자 셀별, 공간적 탄력성 사용)")
+                    # 분석 시작/종료 시점 데이터 선택
+                    data_t0 = dataL1.sel(time=minYear).isel(time=0)
+                    data_tT = dataL1.sel(time=maxYear).isel(time=0)
 
-                # data['landscan'],
-                # data['GDP'],
-                # data['Land_Cover_Type_1_Percent'],
-                # data['EC'],
-                factors_lmdi = sysOpt['typeList']
-                elasticity_coef_names = sysOpt['coefList']
-                factor_to_elasticity_coef_map = dict(zip(factors_lmdi, elasticity_coef_names))
+                    # 분석 기간 선택 (탄력성 데이터용)
+                    current_period = dateInfo  # 사용자의 Dataset 구조에 맞게 조정
 
-                # --- 단계 2: 초기 요인별 기여도 계산 (격자 셀별, 공간적 탄력성 사용) ---
-                delta_E_factors_calculated = {}
-                for factor in factors_lmdi:
-                    factor_t0 = data_t0[factor]
-                    factor_tT = data_tT[factor]
+                    # --- 단계 1: 대수평균 L(EG) 계산 (격자 셀별) ---
+                    eg_t0 = data_t0[keyInfo]
+                    eg_tT = data_tT[keyInfo]
 
-                    coef_alias  = factor_to_elasticity_coef_map[factor]
-                    elasticity_val = coefData.sel(coef=coef_alias, period=current_period)['coefVar']
-
-                    log_ratio = xr.where(
-                        factor_tT == factor_t0,
+                    l_eg_spatial = xr.where(
+                        eg_tT == eg_t0,
                         0.0,
-                        xr.where(
-                            (factor_t0 > 0) & (factor_tT > 0),
-                            np.log(factor_tT / factor_t0),
-                            np.nan
-                        )
+                        (eg_tT - eg_t0) / (np.log(eg_tT) - np.log(eg_tT))
                     )
 
-                    delta_E_factors_calculated[factor] = elasticity_val * l_eg_spatial * log_ratio
+                    # l_eg_spatial.plot()
+                    # plt.show()
 
-                # delta_E_factors_calculated['EC'].isel(lat=900, lon=1800)
+                    # print(f"## 공간 데이터 기반 STIRPAT LMDI 분해 분석 (공간적 탄력성 적용)\n")
+                    # print(f"단계 1: 대수평균 L(EG) 계산 완료.\n L(EG) 예시 (첫번째 셀): {l_eg_spatial.2f}\n")
 
-                # --- 단계 3: 분해 결과 검증 (기여도 합산) ---
-                # 효율성 개선: 반복문 대신 xr.concat과 sum() 사용
-                calculated_contributions = list(delta_E_factors_calculated.values())
-                sum_calculated_delta_E = xr.concat(calculated_contributions, dim='factor').sum(dim='factor', skipna=True)
-                actual_delta_E = eg_tT - eg_t0
 
-                # --- 단계 4 & 5: 실질 기여도 및 백분율 기여도 계산 ---
-                # 안정성 개선: 0으로 나누기 오류 방지
-                residual_ratio = xr.where(sum_calculated_delta_E != 0, actual_delta_E / sum_calculated_delta_E, 0)
-                combined_data_vars = {}
-                for factor, calculated_delta in delta_E_factors_calculated.items():
-                    # 단계 4: 실질 기여도 (계산된 기여도를 잔차 비율에 맞게 조정)
-                    real_delta = calculated_delta * residual_ratio
+                    # print("단계 2: 초기 요인별 기여도 계산 (격자 셀별, 공간적 탄력성 사용)")
 
-                    delList = ['coef', 'period', 'time']
-                    for delInfo in delList:
-                        try:
-                            real_delta = real_delta.drop_vars(delInfo)
-                        except Exception as e:
-                            pass
+                    # data['landscan'],
+                    # data['GDP'],
+                    # data['Land_Cover_Type_1_Percent'],
+                    # data['EC'],
+                    factors_lmdi = sysOpt['typeList']
+                    elasticity_coef_names = sysOpt['coefList']
+                    factor_to_elasticity_coef_map = dict(zip(factors_lmdi, elasticity_coef_names))
 
-                    combined_data_vars[f"con-{factor}"] = real_delta
+                    # --- 단계 2: 초기 요인별 기여도 계산 (격자 셀별, 공간적 탄력성 사용) ---
+                    delta_E_factors_calculated = {}
+                    for factor in factors_lmdi:
+                        factor_t0 = data_t0[factor]
+                        factor_tT = data_tT[factor]
 
-                    # 단계 5: 백분율 기여도 (시작 시점 값 대비 변화율)
-                    percentage_delta = xr.where(eg_t0 != 0, (real_delta / eg_t0) * 100, 0)
+                        coef_alias  = factor_to_elasticity_coef_map[factor]
+                        elasticity_val = coefData.sel(coef=coef_alias, period=current_period)['coefVar']
 
-                    delList = ['coef', 'period', 'time']
-                    for delInfo in delList:
-                        try:
-                            percentage_delta = percentage_delta.drop_vars(delInfo)
-                        except Exception as e:
-                            pass
+                        log_ratio = xr.where(
+                            factor_tT == factor_t0,
+                            0.0,
+                            xr.where(
+                                (factor_t0 > 0) & (factor_tT > 0),
+                                np.log(factor_tT / factor_t0),
+                                np.nan
+                            )
+                        )
 
-                    combined_data_vars[f"per-{factor}"] = percentage_delta
+                        delta_E_factors_calculated[factor] = elasticity_val * l_eg_spatial * log_ratio
 
-                combined_ds = xr.Dataset(combined_data_vars)
+                    # delta_E_factors_calculated['EC'].isel(lat=900, lon=1800)
 
-                saveFile = '{}/{}/{}/{}_{}_{}.nc'.format(globalVar['outPath'], serviceName, 'LDMI', 'statLdmi', keyInfo, dateInfo)
-                os.makedirs(os.path.dirname(saveFile), exist_ok=True)
-                combined_ds.to_netcdf(saveFile)
-                log.info(f'[CHECK] saveFile : {saveFile}')
+                    # --- 단계 3: 분해 결과 검증 (기여도 합산) ---
+                    # 효율성 개선: 반복문 대신 xr.concat과 sum() 사용
+                    calculated_contributions = list(delta_E_factors_calculated.values())
+                    sum_calculated_delta_E = xr.concat(calculated_contributions, dim='factor').sum(dim='factor', skipna=True)
+                    actual_delta_E = eg_tT - eg_t0
+
+                    # --- 단계 4 & 5: 실질 기여도 및 백분율 기여도 계산 ---
+                    # 안정성 개선: 0으로 나누기 오류 방지
+                    residual_ratio = xr.where(sum_calculated_delta_E != 0, actual_delta_E / sum_calculated_delta_E, 0)
+                    combined_data_vars = {}
+                    for factor, calculated_delta in delta_E_factors_calculated.items():
+                        # 단계 4: 실질 기여도 (계산된 기여도를 잔차 비율에 맞게 조정)
+                        real_delta = calculated_delta * residual_ratio
+
+                        delList = ['coef', 'period', 'time']
+                        for delInfo in delList:
+                            try:
+                                real_delta = real_delta.drop_vars(delInfo)
+                            except Exception as e:
+                                pass
+
+                        combined_data_vars[f"con-{factor}"] = real_delta
+
+                        # 단계 5: 백분율 기여도 (시작 시점 값 대비 변화율)
+                        percentage_delta = xr.where(eg_t0 != 0, (real_delta / eg_t0) * 100, 0)
+
+                        delList = ['coef', 'period', 'time']
+                        for delInfo in delList:
+                            try:
+                                percentage_delta = percentage_delta.drop_vars(delInfo)
+                            except Exception as e:
+                                pass
+
+                        combined_data_vars[f"per-{factor}"] = percentage_delta
+
+                    combined_ds = xr.Dataset(combined_data_vars)
+
+                    saveFile = '{}/{}/{}/{}_{}_{}.nc'.format(globalVar['outPath'], serviceName, 'LDMI', 'statLdmi', keyInfo, dateInfo)
+                    os.makedirs(os.path.dirname(saveFile), exist_ok=True)
+                    combined_ds.to_netcdf(saveFile)
+                    log.info(f'[CHECK] saveFile : {saveFile}')
 
 
                 # saveFile = '{}/{}/{}/{}_{}_{}.nc'.format(globalVar['outPath'], serviceName, 'LDMI', dateInfo, keyInfo, 'per')
