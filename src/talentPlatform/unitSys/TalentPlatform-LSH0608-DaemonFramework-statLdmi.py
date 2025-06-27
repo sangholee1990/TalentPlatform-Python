@@ -282,15 +282,8 @@ class DtaProcess(object):
                     },
 
                 }
-                , 'typeList': ['EC', 'GDP', 'landscan', 'Land_Cover_Type_1_Percent']
-                # , 'typeList': ['EC']
-                # , 'typeList': ['landscan']
-                # , 'typeList': ['Land_Cover_Type_1_Percent']
-
-                # , 'keyList': ['CH4', 'CO2_excl', 'CO2_org', 'N2O', 'NH3', 'NMVOC', 'OC', 'NH3', 'SO2']
-                # , 'keyList': ['emi_co', 'emi_n2o', 'emi_nh3', 'emi_nmvoc', 'emi_nox', 'emi_oc', 'emi_so2']
-                # , 'keyList': ['emi_nmvoc']
-                # , 'keyList': ['N2O', 'GHG', 'CO2', 'CO2bio', 'CH4']
+                , 'typeList': ['landscan', 'GDP', 'Land_Cover_Type_1_Percent', 'EC']
+                , 'coefList': ['b', 'c', 'd', 'e']
                 , 'keyList': ['SO2', 'N2O', 'CH4', 'NMVOC', 'NOx', 'NH3', 'CO', 'PM10', 'PM2.5', 'OC', 'BC']
 
             #     /data2/hzhenshao/EMI/LSH0608/STAT
@@ -308,14 +301,15 @@ class DtaProcess(object):
                 log.info(f'[CHECK] dateInfo : {dateInfo}')
                 srtDate = sysOpt['dateList'][dateInfo]['srtDate']
                 endDate = sysOpt['dateList'][dateInfo]['endDate']
-
                 data = xr.open_mfdataset(fileList).sel(time=slice(srtDate, endDate))
-                log.info(f'[CHECK] fileList : {fileList}')
-                log.info(f'[CHECK] srtDate : {srtDate}')
-                log.info(f'[CHECK] endDate : {endDate}')
+
+                # log.info(f'[CHECK] fileList : {fileList}')
+                # log.info(f'[CHECK] srtDate : {srtDate}')
+                # log.info(f'[CHECK] endDate : {endDate}')
 
                 # 회귀계수
                 keyInfo = 'BC'
+                log.info(f'[CHECK] saveFile : {keyInfo}')
                 inpFile = '{}/{}/{}.nc'.format(globalVar['outPath'], serviceName, f"STAT/{dateInfo}_*{keyInfo}")
                 fileList = sorted(glob.glob(inpFile))
 
@@ -331,83 +325,139 @@ class DtaProcess(object):
                 minYear = pd.to_datetime(np.min(dataL1['time'].values)).strftime('%Y')
                 maxYear = pd.to_datetime(np.max(dataL1['time'].values)).strftime('%Y')
 
+
                 # 분석 시작/종료 시점 데이터 선택
-                data_t0_spatial = dataL1.sel(time=minYear)
-                data_tT_spatial = dataL1.sel(time=maxYear)
+                data_t0 = dataL1.sel(time=minYear).isel(time=0)
+                data_tT = dataL1.sel(time=maxYear).isel(time=0)
 
                 # 분석 기간 선택 (탄력성 데이터용)
-                current_period = '2010-2019'  # 사용자의 Dataset 구조에 맞게 조정
+                current_period = dateInfo  # 사용자의 Dataset 구조에 맞게 조정
 
                 # --- 단계 1: 대수평균 L(EG) 계산 (격자 셀별) ---
-                eg_t0_spatial_da = data_t0_spatial['EG']
-                eg_tT_spatial_da = data_tT_spatial['EG']
+                eg_t0 = data_t0[keyInfo]
+                eg_tT = data_tT[keyInfo]
+
                 l_eg_spatial = xr.where(
-                    eg_tT_spatial_da == eg_t0_spatial_da,
-                    eg_t0_spatial_da,
-                    (eg_tT_spatial_da - eg_t0_spatial_da) / (np.log(eg_tT_spatial_da) - np.log(eg_t0_spatial_da))
+                    eg_tT == eg_t0,
+                    0.0,
+                    (eg_tT - eg_t0) / (np.log(eg_tT) - np.log(eg_tT))
                 )
-                print(f"## 공간 데이터 기반 STIRPAT LMDI 분해 분석 (공간적 탄력성 적용)\n")
-                print(f"단계 1: 대수평균 L(EG) 계산 완료.\n L(EG) 예시 (첫번째 셀): {l_eg_spatial.isel(lat=0, lon=0).item():.2f}\n")
+
+                # l_eg_spatial.plot()
+                # plt.show()
+
+                # print(f"## 공간 데이터 기반 STIRPAT LMDI 분해 분석 (공간적 탄력성 적용)\n")
+                # print(f"단계 1: 대수평균 L(EG) 계산 완료.\n L(EG) 예시 (첫번째 셀): {l_eg_spatial.2f}\n")
+
+
+                # print("단계 2: 초기 요인별 기여도 계산 (격자 셀별, 공간적 탄력성 사용)")
+
+                # data['landscan'],
+                # data['GDP'],
+                # data['Land_Cover_Type_1_Percent'],
+                # data['EC'],
+                factors_lmdi = sysOpt['typeList']
+                elasticity_coef_names = sysOpt['coefList']
+                factor_to_elasticity_coef_map = dict(zip(factors_lmdi, elasticity_coef_names))
 
                 # --- 단계 2: 초기 요인별 기여도 계산 (격자 셀별, 공간적 탄력성 사용) ---
-                delta_E_factors_spatial_calculated = {}
-                print("단계 2: 초기 요인별 기여도 계산 (격자 셀별, 공간적 탄력성 사용)")
+                delta_E_factors_calculated = {}
+                for factor in factors_lmdi:
+                    factor_t0 = data_t0[factor]
+                    factor_tT = data_tT[factor]
 
-                for factor_name in factors_lmdi:
-                    factor_t0_da = data_t0_spatial[factor_name]
-                    factor_tT_da = data_tT_spatial[factor_name]
+                    coef_alias  = factor_to_elasticity_coef_map[factor]
+                    elasticity_val = coefData.sel(coef=coef_alias, period=current_period)['coefVar']
 
-                    # 해당 요인의 공간적 탄력성 계수 DataArray 추출
-                    # factor_to_elasticity_coef_map에서 실제 'coef_alias' 이름을 가져옴
-                    coef_alias_for_factor = factor_to_elasticity_coef_map[factor_name]
-
-                    # 공간적 탄력성 값 (DataArray[lat, lon])
-                    # .squeeze()는 period 차원(크기가 1인 경우)을 제거하여 (lat, lon, coef_alias) 로 만듭니다.
-                    # 실제 데이터 구조에 따라 squeeze() 사용 여부나 sel 조건이 달라질 수 있습니다.
-                    elasticity_val_spatial = ds_spatial['spatial_elasticities'].sel(
-                        period=current_period,
-                        coef_alias=coef_alias_for_factor
-                    )
-                    # .squeeze(dim='period', drop=True))  # period 차원이 있으면 제거, 없으면 에러 방지 위해 drop=True
-
-                    log_ratio_factor_da = xr.where(
-                        factor_tT_da == factor_t0_da,
+                    log_ratio = xr.where(
+                        factor_tT == factor_t0,
                         0.0,
                         xr.where(
-                            (factor_t0_da > 0) & (factor_tT_da > 0),
-                            np.log(factor_tT_da / factor_t0_da),
+                            (factor_t0 > 0) & (factor_tT > 0),
+                            np.log(factor_tT / factor_t0),
                             np.nan
                         )
                     )
 
-                    # 초기 기여도 계산 (요소별)
-                    # 이제 elasticity_val_spatial도 (lat, lon) 차원의 DataArray임
-                    calculated_delta_E = elasticity_val_spatial * l_eg_spatial * log_ratio_factor_da
-                    delta_E_factors_spatial_calculated[factor_name] = calculated_delta_E
-                    print(f"  ΔEG_{factor_name} (첫번째 셀 값 예시): {calculated_delta_E.isel(lat=0, lon=0).item():.2f}")
-                    print(f"    사용된 탄력성 (첫번째 셀 값 예시): {elasticity_val_spatial.isel(lat=0, lon=0).item():.2f}")
+                    delta_E_factors_calculated[factor] = elasticity_val * l_eg_spatial * log_ratio
 
-                print("")
-                # 이후 단계 3, 4, 5 (분해 검증, 실질 기여도, 백분율 기여도)는
-                # delta_E_factors_spatial_calculated 딕셔너리에 저장된 DataArray들을 사용하여
-                # 이전 코드와 동일한 로직으로 요소별 연산을 수행하면 됩니다.
-                # 예를 들어, sum_delta_E_factors_da는 이제 delta_E_factors_spatial_calculated의 DataArray들을 합산합니다.
+                # delta_E_factors_calculated['EC'].isel(lat=900, lon=1800)
 
-                # --- 단계 3 예시 (격자 셀별 합산) ---
-                sum_delta_E_factors_da_spatial = xr.DataArray(
-                    np.zeros_like(l_eg_spatial.values),  # 초기화할 배열 (l_eg_spatial과 동일한 형태)
-                    coords=l_eg_spatial.coords,
-                    dims=l_eg_spatial.dims
-                )
-                for factor_name in factors_lmdi:
-                    # NaN 값을 0으로 처리하여 합산 (필요에 따라 다른 처리 가능)
-                    sum_delta_E_factors_da_spatial += delta_E_factors_spatial_calculated[factor_name].fillna(0)
+                # --- 단계 3: 분해 결과 검증 (기여도 합산) ---
+                # 효율성 개선: 반복문 대신 xr.concat과 sum() 사용
+                calculated_contributions = list(delta_E_factors_calculated.values())
+                sum_calculated_delta_E = xr.concat(calculated_contributions, dim='factor').sum(dim='factor', skipna=True)
+                actual_delta_E = eg_tT - eg_t0
 
-                actual_delta_EG_da_spatial = eg_tT_spatial_da - eg_t0_spatial_da
+                # --- 단계 4 & 5: 실질 기여도 및 백분율 기여도 계산 ---
+                # 안정성 개선: 0으로 나누기 오류 방지
+                residual_ratio = xr.where(sum_calculated_delta_E != 0, actual_delta_E / sum_calculated_delta_E, 0)
+                combined_data_vars = {}
+                for factor, calculated_delta in delta_E_factors_calculated.items():
+                    # 단계 4: 실질 기여도 (계산된 기여도를 잔차 비율에 맞게 조정)
+                    real_delta = calculated_delta * residual_ratio
 
-                print(f"단계 3: 분해 검증 (격자 셀별)")
-                print(f"  초기 기여도 합계 (첫번째 셀 값 예시) = {sum_delta_E_factors_da_spatial.isel(lat=0, lon=0).item():.2f}")
-                print(f"  실제 EG 변화량 (첫번째 셀 값 예시) = {actual_delta_EG_da_spatial.isel(lat=0, lon=0).item():.2f}\n")
+                    delList = ['coef', 'period', 'time']
+                    for delInfo in delList:
+                        try:
+                            real_delta = real_delta.drop_vars(delInfo)
+                        except Exception as e:
+                            pass
+
+                    combined_data_vars[f"con-{factor}"] = real_delta
+
+                    # 단계 5: 백분율 기여도 (시작 시점 값 대비 변화율)
+                    percentage_delta = xr.where(eg_t0 != 0, (real_delta / eg_t0) * 100, 0)
+
+                    delList = ['coef', 'period', 'time']
+                    for delInfo in delList:
+                        try:
+                            percentage_delta = percentage_delta.drop_vars(delInfo)
+                        except Exception as e:
+                            pass
+
+                    combined_data_vars[f"per-{factor}"] = percentage_delta
+
+                combined_ds = xr.Dataset(combined_data_vars)
+
+                saveFile = '{}/{}/{}/{}_{}_{}.nc'.format(globalVar['outPath'], serviceName, 'LDMI', 'statLdmi', keyInfo, dateInfo)
+                os.makedirs(os.path.dirname(saveFile), exist_ok=True)
+                combined_ds.to_netcdf(saveFile)
+                log.info(f'[CHECK] saveFile : {saveFile}')
+
+
+                # saveFile = '{}/{}/{}/{}_{}_{}.nc'.format(globalVar['outPath'], serviceName, 'LDMI', dateInfo, keyInfo, 'per')
+                # os.makedirs(os.path.dirname(saveFile), exist_ok=True)
+                # percentage_contributions[factor].to_netcdf(saveFile)
+                # log.info(f'[CHECK] saveFile : {saveFile}')
+
+                #
+                # # {'landscan': 'b', 'GDP': 'c', 'Land_Cover_Type_1_Percent': 'd', 'EC': 'e'}
+                # # factors_lmdi
+                # # ['landscan', 'GDP', 'Land_Cover_Type_1_Percent', 'EC']
+                # delta_E_factors_spatial_calculated['landscan'].plot()
+                # delta_E_factors_spatial_calculated['landscan'].values()
+                #
+                # # 이후 단계 3, 4, 5 (분해 검증, 실질 기여도, 백분율 기여도)는
+                # # delta_E_factors_spatial_calculated 딕셔너리에 저장된 DataArray들을 사용하여
+                # # 이전 코드와 동일한 로직으로 요소별 연산을 수행하면 됩니다.
+                # # 예를 들어, sum_delta_E_factors_da는 이제 delta_E_factors_spatial_calculated의 DataArray들을 합산합니다.
+                #
+                # # --- 단계 3 예시 (격자 셀별 합산) ---
+                # sum_delta_E_factors_da_spatial = xr.DataArray(
+                #     np.zeros_like(l_eg_spatial.values),  # 초기화할 배열 (l_eg_spatial과 동일한 형태)
+                #     coords=l_eg_spatial.coords,
+                #     dims=l_eg_spatial.dims
+                # )
+                # for factor_name in factors_lmdi:
+                #     # NaN 값을 0으로 처리하여 합산 (필요에 따라 다른 처리 가능)
+                #     sum_delta_E_factors_da_spatial += delta_E_factors_spatial_calculated[factor_name].fillna(0)
+                #
+                # actual_delta_EG_da_spatial = eg_tT_spatial_da - eg_t0_spatial_da
+
+                # print(f"단계 3: 분해 검증 (격자 셀별)")
+                # print(f"  초기 기여도 합계 (첫번째 셀 값 예시) = {sum_delta_E_factors_da_spatial.isel(lat=0, lon=0).item():.2f}")
+                # print(f"  실제 EG 변화량 (첫번째 셀 값 예시) = {actual_delta_EG_da_spatial.isel(lat=0, lon=0).item():.2f}\n")
 
                 # coefData.isel(period=0, isel=)
                 # coefData.sel(period=dateInfo, coef='c')['coefVar'].plot()
@@ -426,238 +476,239 @@ class DtaProcess(object):
                 # **********************************************************************************************************
                 # 화소별 회귀계수 계산
                 # **********************************************************************************************************
-                for keyInfo in sysOpt['keyList']:
-                    log.info(f'[CHECK] keyInfo : {keyInfo}')
-
-                    # saveFile = '{}/{}/{}/{}_{}_{}.nc'.format(globalVar['outPath'], serviceName, 'STAT', dateInfo, 'statOls', keyInfo)
-                    # os.makedirs(os.path.dirname(saveFile), exist_ok=True)
-                    # if len(glob.glob(saveFile)) > 0: continue
-
-                    # coreNum = int(os.cpu_count() * 0.50)
-                    # log.info(f'[CHECK] coreNum : {coreNum}')
-                    # client = Client(n_workers=coreNum)
-                    # dask.config.set(scheduler='processes')
-                    #
-                    # statOlsRes = xr.apply_ufunc(
-                    #     statOls,
-                    #     data[keyInfo],
-                    #     data['landscan'],
-                    #     data['GDP'],
-                    #     data['Land_Cover_Type_1_Percent'],
-                    #     data['EC'],
-                    #     input_core_dims=[['time'], ['time'], ['time'], ['time'], ['time']],
-                    #     output_core_dims=[['coef']],
-                    #     exclude_dims=set(('time',)),
-                    #     output_sizes={'coef': 5},
-                    #     # vectorize=False,
-                    #     vectorize=True,
-                    #     dask="parallelized",
-                    #     output_dtypes=[float],
-                    # )
-                    #
-                    # # 계수 이름 지정
-                    # statOlsRes = statOlsRes.assign_coords(coef=['a', 'b', 'c', 'd', 'e'])
-                    # statOlsRes = statOlsRes.expand_dims(period=[dateInfo])
-                    #
-                    # # alpha 값 계산
-                    # # statOlsRes['alpha'] = np.exp(statOlsRes.sel(coef='lnAlpha'))
-                    # # statOlsRes['alpha'] = np.exp(statOlsRes.sel(coef='lnAlpha', drop=True))
-                    # log.info(f'[CHECK] statOlsRes : {statOlsRes}')
-                    #
-                    # # 파일 저장
-                    # statOlsRes.to_netcdf(saveFile)
-                    # log.info(f'[CHECK] saveFile : {saveFile}')
-
-                    # client.close()
-
-
-            # --- 개념적인 위경도 기반 데이터 및 공간 탄력성 준비 ---
-            # 실제로는 NetCDF 파일 등에서 데이터를 불러옵니다.
-            years = [2010, 2020]
-            # lats = np.array([35.0, 35.1])  # 예시 위도
-            # lons = np.array([127.0, 127.1])  # 예시 경도
-            lats = np.array([35.0, 35.1])  # 예시 위도
-            lons = np.array([127.0, 127.1])  # 예시 경도
-            factors_lmdi = ['POP', 'GDP', 'UR', 'EC']
-            # STIRPAT 모델의 계수 'b', 'c', 'd', 'e' 가 각각 POP, GDP, UR, EC의 탄력성이라고 가정
-            elasticity_coef_names = ['b', 'c', 'd', 'e']  # 탄력성 계수 이름 (Dataset 내 coef 차원과 일치)
-
-            # 매핑: 분석 요인명 -> 탄력성 계수 이름
-            factor_to_elasticity_coef_map = dict(zip(factors_lmdi, elasticity_coef_names))
-
-            example_coords_base = {'year': years, 'lat': lats, 'lon': lons}
-            example_coords_elasticity = {'period': ['2010-2019'], 'lat': lats, 'lon': lons, 'coef_alias': elasticity_coef_names}
-
-            # 기본 데이터 (POP, GDP, EG 등)
-            ds_spatial = xr.Dataset(
-                {
-                    'POP': (('year', 'lat', 'lon'), np.random.rand(len(years), len(lats), len(lons)) * 1 + 1),
-                    'GDP': (('year', 'lat', 'lon'), np.random.rand(len(years), len(lats), len(lons)) * 10 + 5),
-                    'UR': (('year', 'lat', 'lon'), np.random.rand(len(years), len(lats), len(lons)) * 20 + 40),
-                    'EC': (('year', 'lat', 'lon'), np.random.rand(len(years), len(lats), len(lons)) * 0.5 + 0.3),
-                    'EG': (('year', 'lat', 'lon'), np.random.rand(len(years), len(lats), len(lons)) * 5 + 5)
-                },
-                coords=example_coords_base
-            )
-
-            # 공간적으로 변화하는 탄력성 데이터 (예시)
-            # 실제로는 이 데이터가 ds_spatial에 이미 포함되어 있거나 별도로 로드될 수 있습니다.
-            # 여기서는 예시로 생성합니다.
-            elasticity_data_values = np.random.rand(1, len(lats), len(lons), len(elasticity_coef_names)) * 0.5 + 0.1
-            # 'EC' 탄력성은 음수일 수 있으므로, 예시에서는 e 계수(마지막 인덱스)를 음수로 만듭니다.
-            elasticity_data_values[:, :, :, elasticity_coef_names.index('e')] = - (np.random.rand(1, len(lats), len(lons)) * 0.5 + 0.1)
-
-            # 탄력성 데이터를 별도의 DataArray 또는 Dataset 변수로 준비했다고 가정
-            # 여기서는 ds_spatial에 'spatial_elasticities'라는 이름으로 추가합니다.
-            ds_spatial['spatial_elasticities'] = xr.DataArray(
-                elasticity_data_values,
-                coords=example_coords_elasticity,
-                dims=('period', 'lat', 'lon', 'coef_alias')
-            )
-
-            # 분석 시작/종료 시점 데이터 선택
-            data_t0_spatial = ds_spatial.sel(year=2010)
-            data_tT_spatial = ds_spatial.sel(year=2020)
-
-            # 분석 기간 선택 (탄력성 데이터용)
-            current_period = '2010-2019'  # 사용자의 Dataset 구조에 맞게 조정
-
-            # --- 단계 1: 대수평균 L(EG) 계산 (격자 셀별) ---
-            eg_t0_spatial_da = data_t0_spatial['EG']
-            eg_tT_spatial_da = data_tT_spatial['EG']
-            l_eg_spatial = xr.where(
-                eg_tT_spatial_da == eg_t0_spatial_da,
-                eg_t0_spatial_da,
-                (eg_tT_spatial_da - eg_t0_spatial_da) / (np.log(eg_tT_spatial_da) - np.log(eg_t0_spatial_da))
-            )
-            print(f"## 공간 데이터 기반 STIRPAT LMDI 분해 분석 (공간적 탄력성 적용)\n")
-            print(f"단계 1: 대수평균 L(EG) 계산 완료.\n L(EG) 예시 (첫번째 셀): {l_eg_spatial.isel(lat=0, lon=0).item():.2f}\n")
-
-            # --- 단계 2: 초기 요인별 기여도 계산 (격자 셀별, 공간적 탄력성 사용) ---
-            delta_E_factors_spatial_calculated = {}
-            print("단계 2: 초기 요인별 기여도 계산 (격자 셀별, 공간적 탄력성 사용)")
-
-            for factor_name in factors_lmdi:
-                factor_t0_da = data_t0_spatial[factor_name]
-                factor_tT_da = data_tT_spatial[factor_name]
-
-                # 해당 요인의 공간적 탄력성 계수 DataArray 추출
-                # factor_to_elasticity_coef_map에서 실제 'coef_alias' 이름을 가져옴
-                coef_alias_for_factor = factor_to_elasticity_coef_map[factor_name]
-
-                # 공간적 탄력성 값 (DataArray[lat, lon])
-                # .squeeze()는 period 차원(크기가 1인 경우)을 제거하여 (lat, lon, coef_alias) 로 만듭니다.
-                # 실제 데이터 구조에 따라 squeeze() 사용 여부나 sel 조건이 달라질 수 있습니다.
-                elasticity_val_spatial = ds_spatial['spatial_elasticities'].sel(
-                    period=current_period,
-                    coef_alias=coef_alias_for_factor
-                )
-                #.squeeze(dim='period', drop=True))  # period 차원이 있으면 제거, 없으면 에러 방지 위해 drop=True
-
-                log_ratio_factor_da = xr.where(
-                    factor_tT_da == factor_t0_da,
-                    0.0,
-                    xr.where(
-                        (factor_t0_da > 0) & (factor_tT_da > 0),
-                        np.log(factor_tT_da / factor_t0_da),
-                        np.nan
-                    )
-                )
-
-                # 초기 기여도 계산 (요소별)
-                # 이제 elasticity_val_spatial도 (lat, lon) 차원의 DataArray임
-                calculated_delta_E = elasticity_val_spatial * l_eg_spatial * log_ratio_factor_da
-                delta_E_factors_spatial_calculated[factor_name] = calculated_delta_E
-                print(f"  ΔEG_{factor_name} (첫번째 셀 값 예시): {calculated_delta_E.isel(lat=0, lon=0).item():.2f}")
-                print(f"    사용된 탄력성 (첫번째 셀 값 예시): {elasticity_val_spatial.isel(lat=0, lon=0).item():.2f}")
-
-            print("")
-            # 이후 단계 3, 4, 5 (분해 검증, 실질 기여도, 백분율 기여도)는
-            # delta_E_factors_spatial_calculated 딕셔너리에 저장된 DataArray들을 사용하여
-            # 이전 코드와 동일한 로직으로 요소별 연산을 수행하면 됩니다.
-            # 예를 들어, sum_delta_E_factors_da는 이제 delta_E_factors_spatial_calculated의 DataArray들을 합산합니다.
-
-            # --- 단계 3 예시 (격자 셀별 합산) ---
-            sum_delta_E_factors_da_spatial = xr.DataArray(
-                np.zeros_like(l_eg_spatial.values),  # 초기화할 배열 (l_eg_spatial과 동일한 형태)
-                coords=l_eg_spatial.coords,
-                dims=l_eg_spatial.dims
-            )
-            for factor_name in factors_lmdi:
-                # NaN 값을 0으로 처리하여 합산 (필요에 따라 다른 처리 가능)
-                sum_delta_E_factors_da_spatial += delta_E_factors_spatial_calculated[factor_name].fillna(0)
-
-            actual_delta_EG_da_spatial = eg_tT_spatial_da - eg_t0_spatial_da
-
-            print(f"단계 3: 분해 검증 (격자 셀별)")
-            print(f"  초기 기여도 합계 (첫번째 셀 값 예시) = {sum_delta_E_factors_da_spatial.isel(lat=0, lon=0).item():.2f}")
-            print(f"  실제 EG 변화량 (첫번째 셀 값 예시) = {actual_delta_EG_da_spatial.isel(lat=0, lon=0).item():.2f}\n")
-
-            # (단계 4, 5는 이전과 유사하게 delta_Real_EG_factors_spatial, percentage_EG_factors_spatial 딕셔너리에
-            #  공간 DataArray 결과를 저장하도록 수정 가능)
-
-            # for dateInfo in sysOpt['dateList']:
-            #     inpFile = '{}/{}/{}.nc'.format(globalVar['inpPath'], serviceName, 'EDGAR2-*')
-            #     fileList = sorted(glob.glob(inpFile))
-            #
-            #     if fileList is None or len(fileList) < 1:
-            #         log.error(f"파일 없음 : {inpFile}")
-            #         continue
-            #
-            #     log.info(f'[CHECK] dateInfo : {dateInfo}')
-            #     srtDate = sysOpt['dateList'][dateInfo]['srtDate']
-            #     endDate = sysOpt['dateList'][dateInfo]['endDate']
-            #
-            #     data = xr.open_mfdataset(fileList).sel(time=slice(srtDate, endDate))
-            #     log.info(f'[CHECK] fileList : {fileList}')
-            #     log.info(f'[CHECK] srtDate : {srtDate}')
-            #     log.info(f'[CHECK] endDate : {endDate}')
-            #
-            #     # **********************************************************************************************************
-            #     # 화소별 회귀계수 계산
-            #     # **********************************************************************************************************
             #     for keyInfo in sysOpt['keyList']:
+            #         log.info(f'[CHECK] keyInfo : {keyInfo}')
             #
-            #         saveFile = '{}/{}/{}/{}_{}_{}.nc'.format(globalVar['outPath'], serviceName, 'STAT', dateInfo, 'statOls', keyInfo)
-            #         os.makedirs(os.path.dirname(saveFile), exist_ok=True)
-            #         if len(glob.glob(saveFile)) > 0: continue
+            #         # saveFile = '{}/{}/{}/{}_{}_{}.nc'.format(globalVar['outPath'], serviceName, 'STAT', dateInfo, 'statOls', keyInfo)
+            #         # os.makedirs(os.path.dirname(saveFile), exist_ok=True)
+            #         # if len(glob.glob(saveFile)) > 0: continue
             #
-            #         coreNum = int(os.cpu_count() * 0.50)
-            #         log.info(f'[CHECK] coreNum : {coreNum}')
-            #         client = Client(n_workers=coreNum)
-            #         dask.config.set(scheduler='processes')
-            #
-            #         statOlsRes = xr.apply_ufunc(
-            #             statOls,
-            #             data[keyInfo],
-            #             data['landscan'],
-            #             data['GDP'],
-            #             data['Land_Cover_Type_1_Percent'],
-            #             data['EC'],
-            #             input_core_dims=[['time'], ['time'], ['time'], ['time'], ['time']],
-            #             output_core_dims=[['coef']],
-            #             exclude_dims=set(('time',)),
-            #             output_sizes={'coef': 5},
-            #             # vectorize=False,
-            #             vectorize=True,
-            #             dask="parallelized",
-            #             output_dtypes=[float],
-            #         )
-            #
-            #         # 계수 이름 지정
-            #         statOlsRes = statOlsRes.assign_coords(coef=['a', 'b', 'c', 'd', 'e'])
-            #         statOlsRes = statOlsRes.expand_dims(period=[dateInfo])
-            #
-            #         # alpha 값 계산
-            #         # statOlsRes['alpha'] = np.exp(statOlsRes.sel(coef='lnAlpha'))
-            #         # statOlsRes['alpha'] = np.exp(statOlsRes.sel(coef='lnAlpha', drop=True))
-            #         log.info(f'[CHECK] statOlsRes : {statOlsRes}')
-            #
-            #         # 파일 저장
-            #         statOlsRes.to_netcdf(saveFile)
-            #         log.info(f'[CHECK] saveFile : {saveFile}')
+            #         # coreNum = int(os.cpu_count() * 0.50)
+            #         # log.info(f'[CHECK] coreNum : {coreNum}')
+            #         # client = Client(n_workers=coreNum)
+            #         # dask.config.set(scheduler='processes')
+            #         #
+            #         # statOlsRes = xr.apply_ufunc(
+            #         #     statOls,
+            #         #     data[keyInfo],
+            #         #     data['landscan'],
+            #         #     data['GDP'],
+            #         #     data['Land_Cover_Type_1_Percent'],
+            #         #     data['EC'],
+            #         #     input_core_dims=[['time'], ['time'], ['time'], ['time'], ['time']],
+            #         #     output_core_dims=[['coef']],
+            #         #     exclude_dims=set(('time',)),
+            #         #     output_sizes={'coef': 5},
+            #         #     # vectorize=False,
+            #         #     vectorize=True,
+            #         #     dask="parallelized",
+            #         #     output_dtypes=[float],
+            #         # )
+            #         #
+            #         # # 계수 이름 지정
+            #         # statOlsRes = statOlsRes.assign_coords(coef=['a', 'b', 'c', 'd', 'e'])
+            #         # statOlsRes = statOlsRes.expand_dims(period=[dateInfo])
+            #         #
+            #         # # alpha 값 계산
+            #         # # statOlsRes['alpha'] = np.exp(statOlsRes.sel(coef='lnAlpha'))
+            #         # # statOlsRes['alpha'] = np.exp(statOlsRes.sel(coef='lnAlpha', drop=True))
+            #         # log.info(f'[CHECK] statOlsRes : {statOlsRes}')
+            #         #
+            #         # # 파일 저장
+            #         # statOlsRes.to_netcdf(saveFile)
+            #         # log.info(f'[CHECK] saveFile : {saveFile}')
             #
             #         # client.close()
+            #
+            #
+            # # --- 개념적인 위경도 기반 데이터 및 공간 탄력성 준비 ---
+            # # 실제로는 NetCDF 파일 등에서 데이터를 불러옵니다.
+            # years = [2010, 2020]
+            # # lats = np.array([35.0, 35.1])  # 예시 위도
+            # # lons = np.array([127.0, 127.1])  # 예시 경도
+            # lats = np.array([35.0, 35.1])  # 예시 위도
+            # lons = np.array([127.0, 127.1])  # 예시 경도
+            # factors_lmdi = sysOpt['typeList']
+            # # STIRPAT 모델의 계수 'b', 'c', 'd', 'e' 가 각각 POP, GDP, UR, EC의 탄력성이라고 가정
+            # elasticity_coef_names = ['b', 'c', 'd', 'e']  # 탄력성 계수 이름 (Dataset 내 coef 차원과 일치)
+            #
+            # # 매핑: 분석 요인명 -> 탄력성 계수 이름
+            # factor_to_elasticity_coef_map = dict(zip(factors_lmdi, elasticity_coef_names))
+            #
+            # example_coords_base = {'year': years, 'lat': lats, 'lon': lons}
+            # example_coords_elasticity = {'period': ['2010-2019'], 'lat': lats, 'lon': lons, 'coef_alias': elasticity_coef_names}
+            #
+            # # 기본 데이터 (POP, GDP, EG 등)
+            # ds_spatial = xr.Dataset(
+            #     {
+            #         'landscan': (('year', 'lat', 'lon'), np.random.rand(len(years), len(lats), len(lons)) * 1 + 1),
+            #         'GDP': (('year', 'lat', 'lon'), np.random.rand(len(years), len(lats), len(lons)) * 10 + 5),
+            #         'Land_Cover_Type_1_Percent': (('year', 'lat', 'lon'), np.random.rand(len(years), len(lats), len(lons)) * 20 + 40),
+            #         'EC': (('year', 'lat', 'lon'), np.random.rand(len(years), len(lats), len(lons)) * 0.5 + 0.3),
+            #         'EG': (('year', 'lat', 'lon'), np.random.rand(len(years), len(lats), len(lons)) * 5 + 5)
+            #     },
+            #     coords=example_coords_base
+            # )
+            #
+            # # 공간적으로 변화하는 탄력성 데이터 (예시)
+            # # 실제로는 이 데이터가 ds_spatial에 이미 포함되어 있거나 별도로 로드될 수 있습니다.
+            # # 여기서는 예시로 생성합니다.
+            # elasticity_data_values = np.random.rand(1, len(lats), len(lons), len(elasticity_coef_names)) * 0.5 + 0.1
+            # # 'EC' 탄력성은 음수일 수 있으므로, 예시에서는 e 계수(마지막 인덱스)를 음수로 만듭니다.
+            # elasticity_data_values[:, :, :, elasticity_coef_names.index('e')] = - (np.random.rand(1, len(lats), len(lons)) * 0.5 + 0.1)
+            #
+            # # 탄력성 데이터를 별도의 DataArray 또는 Dataset 변수로 준비했다고 가정
+            # # 여기서는 ds_spatial에 'spatial_elasticities'라는 이름으로 추가합니다.
+            # ds_spatial['spatial_elasticities'] = xr.DataArray(
+            #     elasticity_data_values,
+            #     coords=example_coords_elasticity,
+            #     dims=('period', 'lat', 'lon', 'coef_alias')
+            # )
+            #
+            # # 분석 시작/종료 시점 데이터 선택
+            # data_t0_spatial = ds_spatial.sel(year=2010)
+            # data_tT_spatial = ds_spatial.sel(year=2020)
+            #
+            # # 분석 기간 선택 (탄력성 데이터용)
+            # current_period = '2010-2019'  # 사용자의 Dataset 구조에 맞게 조정
+            #
+            # # --- 단계 1: 대수평균 L(EG) 계산 (격자 셀별) ---
+            # eg_t0_spatial_da = data_t0_spatial['EG']
+            # eg_tT_spatial_da = data_tT_spatial['EG']
+            # l_eg_spatial = xr.where(
+            #     eg_tT_spatial_da == eg_t0_spatial_da,
+            #     eg_t0_spatial_da,
+            #     (eg_tT_spatial_da - eg_t0_spatial_da) / (np.log(eg_tT_spatial_da) - np.log(eg_t0_spatial_da))
+            # )
+            # print(f"## 공간 데이터 기반 STIRPAT LMDI 분해 분석 (공간적 탄력성 적용)\n")
+            # print(f"단계 1: 대수평균 L(EG) 계산 완료.\n L(EG) 예시 (첫번째 셀): {l_eg_spatial.isel(lat=0, lon=0).item():.2f}\n")
+            #
+            # # --- 단계 2: 초기 요인별 기여도 계산 (격자 셀별, 공간적 탄력성 사용) ---
+            # delta_E_factors_spatial_calculated = {}
+            # print("단계 2: 초기 요인별 기여도 계산 (격자 셀별, 공간적 탄력성 사용)")
+            #
+            # for factor_name in factors_lmdi:
+            #     factor_t0_da = data_t0_spatial[factor_name]
+            #     factor_tT_da = data_tT_spatial[factor_name]
+            #
+            #     # 해당 요인의 공간적 탄력성 계수 DataArray 추출
+            #     # factor_to_elasticity_coef_map에서 실제 'coef_alias' 이름을 가져옴
+            #     coef_alias_for_factor = factor_to_elasticity_coef_map[factor_name]
+            #
+            #     # 공간적 탄력성 값 (DataArray[lat, lon])
+            #     # .squeeze()는 period 차원(크기가 1인 경우)을 제거하여 (lat, lon, coef_alias) 로 만듭니다.
+            #     # 실제 데이터 구조에 따라 squeeze() 사용 여부나 sel 조건이 달라질 수 있습니다.
+            #     elasticity_val_spatial = ds_spatial['spatial_elasticities'].sel(
+            #         period=current_period,
+            #         coef_alias=coef_alias_for_factor
+            #     )
+            #     #.squeeze(dim='period', drop=True))  # period 차원이 있으면 제거, 없으면 에러 방지 위해 drop=True
+            #
+            #     log_ratio_factor_da = xr.where(
+            #         factor_tT_da == factor_t0_da,
+            #         0.0,
+            #         xr.where(
+            #             (factor_t0_da > 0) & (factor_tT_da > 0),
+            #             np.log(factor_tT_da / factor_t0_da),
+            #             np.nan
+            #         )
+            #     )
+            #
+            #     # 초기 기여도 계산 (요소별)
+            #     # 이제 elasticity_val_spatial도 (lat, lon) 차원의 DataArray임
+            #     calculated_delta_E = elasticity_val_spatial * l_eg_spatial * log_ratio_factor_da
+            #     delta_E_factors_spatial_calculated[factor_name] = calculated_delta_E
+            #     print(f"  ΔEG_{factor_name} (첫번째 셀 값 예시): {calculated_delta_E.isel(lat=0, lon=0).item():.2f}")
+            #     print(f"    사용된 탄력성 (첫번째 셀 값 예시): {elasticity_val_spatial.isel(lat=0, lon=0).item():.2f}")
+            #
+            # print("")
+            # # 이후 단계 3, 4, 5 (분해 검증, 실질 기여도, 백분율 기여도)는
+            # # delta_E_factors_spatial_calculated 딕셔너리에 저장된 DataArray들을 사용하여
+            # # 이전 코드와 동일한 로직으로 요소별 연산을 수행하면 됩니다.
+            # # 예를 들어, sum_delta_E_factors_da는 이제 delta_E_factors_spatial_calculated의 DataArray들을 합산합니다.
+            #
+            # # --- 단계 3 예시 (격자 셀별 합산) ---
+            # sum_delta_E_factors_da_spatial = xr.DataArray(
+            #     np.zeros_like(l_eg_spatial.values),  # 초기화할 배열 (l_eg_spatial과 동일한 형태)
+            #     coords=l_eg_spatial.coords,
+            #     dims=l_eg_spatial.dims
+            # )
+            #
+            # for factor_name in factors_lmdi:
+            #     # NaN 값을 0으로 처리하여 합산 (필요에 따라 다른 처리 가능)
+            #     sum_delta_E_factors_da_spatial += delta_E_factors_spatial_calculated[factor_name].fillna(0)
+            #
+            # actual_delta_EG_da_spatial = eg_tT_spatial_da - eg_t0_spatial_da
+            #
+            # print(f"단계 3: 분해 검증 (격자 셀별)")
+            # print(f"  초기 기여도 합계 (첫번째 셀 값 예시) = {sum_delta_E_factors_da_spatial.isel(lat=0, lon=0).item():.2f}")
+            # print(f"  실제 EG 변화량 (첫번째 셀 값 예시) = {actual_delta_EG_da_spatial.isel(lat=0, lon=0).item():.2f}\n")
+            #
+            # # (단계 4, 5는 이전과 유사하게 delta_Real_EG_factors_spatial, percentage_EG_factors_spatial 딕셔너리에
+            # #  공간 DataArray 결과를 저장하도록 수정 가능)
+            #
+            # # for dateInfo in sysOpt['dateList']:
+            # #     inpFile = '{}/{}/{}.nc'.format(globalVar['inpPath'], serviceName, 'EDGAR2-*')
+            # #     fileList = sorted(glob.glob(inpFile))
+            # #
+            # #     if fileList is None or len(fileList) < 1:
+            # #         log.error(f"파일 없음 : {inpFile}")
+            # #         continue
+            # #
+            # #     log.info(f'[CHECK] dateInfo : {dateInfo}')
+            # #     srtDate = sysOpt['dateList'][dateInfo]['srtDate']
+            # #     endDate = sysOpt['dateList'][dateInfo]['endDate']
+            # #
+            # #     data = xr.open_mfdataset(fileList).sel(time=slice(srtDate, endDate))
+            # #     log.info(f'[CHECK] fileList : {fileList}')
+            # #     log.info(f'[CHECK] srtDate : {srtDate}')
+            # #     log.info(f'[CHECK] endDate : {endDate}')
+            # #
+            # #     # **********************************************************************************************************
+            # #     # 화소별 회귀계수 계산
+            # #     # **********************************************************************************************************
+            # #     for keyInfo in sysOpt['keyList']:
+            # #
+            # #         saveFile = '{}/{}/{}/{}_{}_{}.nc'.format(globalVar['outPath'], serviceName, 'STAT', dateInfo, 'statOls', keyInfo)
+            # #         os.makedirs(os.path.dirname(saveFile), exist_ok=True)
+            # #         if len(glob.glob(saveFile)) > 0: continue
+            # #
+            # #         coreNum = int(os.cpu_count() * 0.50)
+            # #         log.info(f'[CHECK] coreNum : {coreNum}')
+            # #         client = Client(n_workers=coreNum)
+            # #         dask.config.set(scheduler='processes')
+            # #
+            # #         statOlsRes = xr.apply_ufunc(
+            # #             statOls,
+            # #             data[keyInfo],
+            # #             data['landscan'],
+            # #             data['GDP'],
+            # #             data['Land_Cover_Type_1_Percent'],
+            # #             data['EC'],
+            # #             input_core_dims=[['time'], ['time'], ['time'], ['time'], ['time']],
+            # #             output_core_dims=[['coef']],
+            # #             exclude_dims=set(('time',)),
+            # #             output_sizes={'coef': 5},
+            # #             # vectorize=False,
+            # #             vectorize=True,
+            # #             dask="parallelized",
+            # #             output_dtypes=[float],
+            # #         )
+            # #
+            # #         # 계수 이름 지정
+            # #         statOlsRes = statOlsRes.assign_coords(coef=['a', 'b', 'c', 'd', 'e'])
+            # #         statOlsRes = statOlsRes.expand_dims(period=[dateInfo])
+            # #
+            # #         # alpha 값 계산
+            # #         # statOlsRes['alpha'] = np.exp(statOlsRes.sel(coef='lnAlpha'))
+            # #         # statOlsRes['alpha'] = np.exp(statOlsRes.sel(coef='lnAlpha', drop=True))
+            # #         log.info(f'[CHECK] statOlsRes : {statOlsRes}')
+            # #
+            # #         # 파일 저장
+            # #         statOlsRes.to_netcdf(saveFile)
+            # #         log.info(f'[CHECK] saveFile : {saveFile}')
+            # #
+            # #         # client.close()
 
         except Exception as e:
             log.error("Exception : {}".format(e))
