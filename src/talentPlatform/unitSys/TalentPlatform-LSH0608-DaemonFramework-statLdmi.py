@@ -262,136 +262,138 @@ class DtaProcess(object):
                 , 'typeList': ['landscan', 'GDP', 'Land_Cover_Type_1_Percent', 'EC']
                 , 'coefList': ['b', 'c', 'd', 'e']
                 , 'keyList': ['SO2', 'N2O', 'CH4', 'NMVOC', 'NOx', 'NH3', 'CO', 'PM10', 'PM2.5', 'OC', 'BC']
-                # , 'keyList': ['BC']
+                # , 'keyList': ['OC']
             }
 
             for dateInfo in sysOpt['dateList']:
-                inpFile = '{}/{}/{}.nc'.format(globalVar['inpPath'], serviceName, 'EDGAR2-*')
-                fileList = sorted(glob.glob(inpFile))
-
-                if fileList is None or len(fileList) < 1:
-                    log.error(f"파일 없음 : {inpFile}")
-                    continue
-
-                # log.info(f'[CHECK] dateInfo : {dateInfo}')
-                srtDate = sysOpt['dateList'][dateInfo]['srtDate']
-                endDate = sysOpt['dateList'][dateInfo]['endDate']
-                data = xr.open_mfdataset(fileList).sel(time=slice(srtDate, endDate))
-
-                # log.info(f'[CHECK] fileList : {fileList}')
-                # log.info(f'[CHECK] srtDate : {srtDate}')
-                # log.info(f'[CHECK] endDate : {endDate}')
-
-                # 회귀계수
-                for keyInfo in sysOpt['keyList']:
-                    log.info(f'[CHECK] saveFile : {keyInfo}')
-                    inpFile = '{}/{}/{}.nc'.format(globalVar['outPath'], serviceName, f"STAT/{dateInfo}_*{keyInfo}")
+                try:
+                    inpFile = '{}/{}/{}.nc'.format(globalVar['inpPath'], serviceName, 'EDGAR2-*')
                     fileList = sorted(glob.glob(inpFile))
 
                     if fileList is None or len(fileList) < 1:
                         log.error(f"파일 없음 : {inpFile}")
                         continue
 
-                    coefData = xr.open_mfdataset(fileList)
-                    coefData = coefData.rename({'__xarray_dataarray_variable__': 'coefVar'})
+                    log.info(f'[CHECK] dateInfo : {dateInfo}')
+                    srtDate = sysOpt['dateList'][dateInfo]['srtDate']
+                    endDate = sysOpt['dateList'][dateInfo]['endDate']
+                    data = xr.open_mfdataset(fileList).sel(time=slice(srtDate, endDate))
 
-                    # 테스트
-                    # 'landscan', 'GDP', 'Land_Cover_Type_1_Percent', 'EC'
-                    # coefData['coefVar'].loc[dict(period='2010-2019', coef='b')] = 0.5
-                    # coefData['coefVar'].loc[dict(period='2010-2019', coef='c')] = 0.8
-                    # coefData['coefVar'].loc[dict(period='2010-2019', coef='d')] = 0.3
-                    # coefData['coefVar'].loc[dict(period='2010-2019', coef='e')] = -0.6
-                    #
-                    # data['landscan'].loc[dict(time='2010')] = 1.2
-                    # data['GDP'].loc[dict(time='2010')] = 10
-                    # data['Land_Cover_Type_1_Percent'].loc[dict(time='2010')] = 50
-                    # data['EC'].loc[dict(time='2010')] = 0.6
-                    # data['BC'].loc[dict(time='2010')] = 7.2
-                    #
-                    # data['landscan'].loc[dict(time='2019')] = 1.5
-                    # data['GDP'].loc[dict(time='2019')] = 15
-                    # data['Land_Cover_Type_1_Percent'].loc[dict(time='2019')] = 60
-                    # data['EC'].loc[dict(time='2019')] = 0.5
-                    # data['BC'].loc[dict(time='2019')] = 9.0
+                    # log.info(f'[CHECK] fileList : {fileList}')
+                    # log.info(f'[CHECK] srtDate : {srtDate}')
+                    # log.info(f'[CHECK] endDate : {endDate}')
 
-                    dataL1 = xr.merge([data, coefData])
-                    srtYear = pd.to_datetime(np.min(dataL1['time'].values)).strftime('%Y')
-                    endYear = pd.to_datetime(np.max(dataL1['time'].values)).strftime('%Y')
+                    # 회귀계수
+                    for keyInfo in sysOpt['keyList']:
+                        inpFile = '{}/{}/{}.nc'.format(globalVar['outPath'], serviceName, f"STAT/{dateInfo}_*{keyInfo}")
+                        fileList = sorted(glob.glob(inpFile))
 
-                    srtData = dataL1.sel(time=srtYear).isel(time=0)
-                    endData = dataL1.sel(time=endYear).isel(time=0)
+                        if fileList is None or len(fileList) < 1:
+                            log.error(f"파일 없음 : {inpFile}")
+                            continue
+                        log.info(f'[CHECK] keyInfo : {keyInfo}')
+                        coefData = xr.open_mfdataset(fileList)
+                        # coefData = xr.open_dataset(fileList)
+                        coefData = coefData.rename({'__xarray_dataarray_variable__': 'coefVar'})
 
-                    # 1단계 대수평균 계산
-                    srtKeyData = srtData[keyInfo]
-                    endKeyData = endData[keyInfo]
+                        # 테스트
+                        # 'landscan', 'GDP', 'Land_Cover_Type_1_Percent', 'EC'
+                        # coefData['coefVar'].loc[dict(period='2010-2019', coef='b')] = 0.5
+                        # coefData['coefVar'].loc[dict(period='2010-2019', coef='c')] = 0.8
+                        # coefData['coefVar'].loc[dict(period='2010-2019', coef='d')] = 0.3
+                        # coefData['coefVar'].loc[dict(period='2010-2019', coef='e')] = -0.6
+                        #
+                        # data['landscan'].loc[dict(time='2010')] = 1.2
+                        # data['GDP'].loc[dict(time='2010')] = 10
+                        # data['Land_Cover_Type_1_Percent'].loc[dict(time='2010')] = 50
+                        # data['EC'].loc[dict(time='2010')] = 0.6
+                        # data['BC'].loc[dict(time='2010')] = 7.2
+                        #
+                        # data['landscan'].loc[dict(time='2019')] = 1.5
+                        # data['GDP'].loc[dict(time='2019')] = 15
+                        # data['Land_Cover_Type_1_Percent'].loc[dict(time='2019')] = 60
+                        # data['EC'].loc[dict(time='2019')] = 0.5
+                        # data['BC'].loc[dict(time='2019')] = 9.0
 
-                    calcKeyData = xr.where(
-                        endKeyData == srtKeyData,
-                        np.nan,
-                        (endKeyData - srtKeyData) / (np.log(endKeyData) - np.log(srtKeyData))
-                    )
-                    # calcKeyData = (endKeyData - srtKeyData) / (np.log(endKeyData) - np.log(srtKeyData))
-                    # calcKeyData.isel(lat=0, lon=0).values
+                        dataL1 = xr.merge([data, coefData])
+                        srtYear = pd.to_datetime(np.min(dataL1['time'].values)).strftime('%Y')
+                        endYear = pd.to_datetime(np.max(dataL1['time'].values)).strftime('%Y')
 
-                    # 2단계 초기 요인별 기여도 계산
-                    factorList = sysOpt['typeList']
-                    coefList = sysOpt['coefList']
-                    matList = dict(zip(factorList, coefList))
+                        srtData = dataL1.sel(time=srtYear).isel(time=0)
+                        endData = dataL1.sel(time=endYear).isel(time=0)
 
-                    mrgDict = {}
-                    for factor in factorList:
-                        srtFacData = srtData[factor]
-                        endFacData = endData[factor]
+                        # 1단계 대수평균 계산
+                        srtKeyData = srtData[keyInfo]
+                        endKeyData = endData[keyInfo]
 
-                        coefVal  = matList[factor]
-                        coefDataL1 = coefData.sel(coef=coefVal, period=dateInfo)['coefVar']
-
-                        ratio = xr.where(
-                            (srtFacData > 0) & (endFacData > 0),
-                            np.log(endFacData / srtFacData),
-                            np.nan
+                        calcKeyData = xr.where(
+                            endKeyData == srtKeyData,
+                            np.nan,
+                            (endKeyData - srtKeyData) / (np.log(endKeyData) - np.log(srtKeyData))
                         )
-                        mrgDict[factor] = coefDataL1 * calcKeyData * ratio
+                        # calcKeyData = (endKeyData - srtKeyData) / (np.log(endKeyData) - np.log(srtKeyData))
+                        # calcKeyData.isel(lat=0, lon=0).values
 
-                    # 3단계 기여도 합산
-                    sumData = xr.concat(list(mrgDict.values()), dim='factor').sum(dim='factor', skipna=True)
-                    diffKeyData = endKeyData - srtKeyData
-                    # sumData.isel(lat=0, lon=0).values
-                    # diffKeyData.isel(lat=0, lon=0).values
+                        # 2단계 초기 요인별 기여도 계산
+                        factorList = sysOpt['typeList']
+                        coefList = sysOpt['coefList']
+                        matList = dict(zip(factorList, coefList))
 
-                    # 실질 기여도 및 백분율 기여도 계산
-                    residual_ratio = xr.where(sumData != 0, diffKeyData / sumData, 0)
-                    comData = {}
-                    for factor, calculated_delta in mrgDict.items():
+                        mrgDict = {}
+                        for factor in factorList:
+                            srtFacData = srtData[factor]
+                            endFacData = endData[factor]
 
-                        con = calculated_delta * residual_ratio
-                        delList = ['coef', 'period', 'time']
-                        for delInfo in delList:
-                            try:
-                                con = con.drop_vars(delInfo)
-                            except Exception as e:
-                                pass
-                        comData[f"con-{keyInfo}-{factor}"] = con
+                            coefVal  = matList[factor]
+                            coefDataL1 = coefData.sel(coef=coefVal, period=dateInfo)['coefVar']
 
-                        percentage_delta = xr.where(srtKeyData != 0, (con / srtKeyData) * 100, 0)
-                        delList = ['coef', 'period', 'time']
-                        for delInfo in delList:
-                            try:
-                                percentage_delta = percentage_delta.drop_vars(delInfo)
-                            except Exception as e:
-                                pass
-                        comData[f"per-{keyInfo}-{factor}"] = percentage_delta
+                            ratio = xr.where(
+                                (srtFacData > 0) & (endFacData > 0),
+                                np.log(endFacData / srtFacData),
+                                np.nan
+                            )
+                            mrgDict[factor] = coefDataL1 * calcKeyData * ratio
 
-                    comDataL1 = xr.Dataset(comData)
-                    # comDataL1.isel(lat=0, lon=0).values
-                    # comDataL1['con-landscan'].isel(lat=0, lon=0).values
-                    # comDataL1['per-landscan'].isel(lat=0, lon=0).values
+                        # 3단계 기여도 합산
+                        sumData = xr.concat(list(mrgDict.values()), dim='factor').sum(dim='factor', skipna=True)
+                        diffKeyData = endKeyData - srtKeyData
+                        # sumData.isel(lat=0, lon=0).values
+                        # diffKeyData.isel(lat=0, lon=0).values
 
-                    saveFile = '{}/{}/{}/{}_{}_{}.nc'.format(globalVar['outPath'], serviceName, 'LDMI', 'statLdmi', keyInfo, dateInfo)
-                    os.makedirs(os.path.dirname(saveFile), exist_ok=True)
-                    comDataL1.to_netcdf(saveFile)
-                    log.info(f'[CHECK] saveFile : {saveFile}')
+                        # 실질 기여도 및 백분율 기여도 계산
+                        residRatio = xr.where(sumData != 0, diffKeyData / sumData, 0)
+                        comData = {}
+                        for factor, calcDelta in mrgDict.items():
 
+                            con = calcDelta * residRatio
+                            delList = ['coef', 'period', 'time']
+                            for delInfo in delList:
+                                try:
+                                    con = con.drop_vars(delInfo)
+                                except Exception as e:
+                                    pass
+                            comData[f"con-{keyInfo}-{factor}"] = con
+
+                            percentage_delta = xr.where(srtKeyData != 0, (con / srtKeyData) * 100, 0)
+                            delList = ['coef', 'period', 'time']
+                            for delInfo in delList:
+                                try:
+                                    percentage_delta = percentage_delta.drop_vars(delInfo)
+                                except Exception as e:
+                                    pass
+                            comData[f"per-{keyInfo}-{factor}"] = percentage_delta
+
+                        comDataL1 = xr.Dataset(comData)
+                        # comDataL1.isel(lat=0, lon=0).values
+                        # comDataL1['con-landscan'].isel(lat=0, lon=0).values
+                        # comDataL1['per-landscan'].isel(lat=0, lon=0).values
+
+                        saveFile = '{}/{}/{}/{}_{}_{}.nc'.format(globalVar['outPath'], serviceName, 'LDMI', 'statLdmi', keyInfo, dateInfo)
+                        os.makedirs(os.path.dirname(saveFile), exist_ok=True)
+                        comDataL1.to_netcdf(saveFile)
+                        log.info(f'[CHECK] saveFile : {saveFile}')
+                except Exception as e:
+                    log.error(f"Exception : {e}")
         except Exception as e:
             log.error("Exception : {}".format(e))
             raise e
