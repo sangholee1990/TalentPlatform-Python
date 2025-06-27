@@ -1,6 +1,7 @@
 # ================================================
 # 요구사항
 # ================================================
+# bash
 # cd /data2/hzhenshao/EMI
 # /data2/hzhenshao/EMI/py38/bin/python3 TalentPlatform-LSH0608-DaemonFramework-statLdmi.py
 # nohup /data2/hzhenshao/EMI/py38/bin/python3 TalentPlatform-LSH0608-DaemonFramework-statLdmi.py &
@@ -164,30 +165,6 @@ def initArgument(globalVar):
 
     return globalVar
 
-def statOls(ln_eg, ln_pop, ln_gdp, ln_ur, ln_ec):
-    valid_indices = ~np.isnan(ln_eg) & ~np.isnan(ln_pop) & ~np.isnan(ln_gdp) & ~np.isnan(ln_ur) & ~np.isnan(ln_ec)
-    if np.sum(valid_indices) < 5:
-        return np.array([np.nan] * 5)
-
-    y = ln_eg[valid_indices]
-    X_df = pd.DataFrame({
-        'ln_pop': ln_pop[valid_indices],
-        'ln_gdp': ln_gdp[valid_indices],
-        'ln_ur': ln_ur[valid_indices],
-        'ln_ec': ln_ec[valid_indices]
-    })
-
-    # 절편(상수항) 추가
-    X = sm.add_constant(X_df)
-
-    try:
-        model = sm.OLS(y, X)
-        results = model.fit()
-        # return np.array([results.params['const'], results.params['ln_pop'], results.params['ln_gdp'], results.params['ln_ur'], results.params['ln_ec']])
-        return np.array([np.exp(results.params['const']), results.params['ln_pop'], results.params['ln_gdp'], results.params['ln_ur'], results.params['ln_ec']])
-    except Exception as e:
-        return np.array([np.nan] * 5)
-
 # ================================================
 # 4. 부 프로그램
 # ================================================
@@ -246,36 +223,36 @@ class DtaProcess(object):
             if (platform.system() == 'Windows'):
                 pass
             else:
-                # pass
-                globalVar['inpPath'] = '/DATA/INPUT'
-                globalVar['outPath'] = '/DATA/OUTPUT'
-                globalVar['figPath'] = '/DATA/FIG'
+                pass
+                # globalVar['inpPath'] = '/DATA/INPUT'
+                # globalVar['outPath'] = '/DATA/OUTPUT'
+                # globalVar['figPath'] = '/DATA/FIG'
 
             # 옵션 설정
             sysOpt = {
                 # 시작/종료 시간
-                'srtDate': '2000-01-01'
-                , 'endDate': '2019-12-31'
+                # 'srtDate': '2000-01-01'
+                # , 'endDate': '2019-12-31'
 
                 # 경도 최소/최대/간격
-                , 'lonMin': -180
-                , 'lonMax': 180
-                , 'lonInv': 0.1
+                # , 'lonMin': -180
+                # , 'lonMax': 180
+                # , 'lonInv': 0.1
 
                 # 위도 최소/최대/간격
-                , 'latMin': -90
-                , 'latMax': 90
-                , 'latInv': 0.1
+                # , 'latMin': -90
+                # , 'latMax': 90
+                # , 'latInv': 0.1
 
-                , 'dateList': {
-                    # '2000-2019': {
-                    #     'srtDate': '2000-01-01',
-                    #     'endDate': '2019-12-31',
-                    # },
-                    # '2000-2009': {
-                    #     'srtDate': '2000-01-01',
-                    #     'endDate': '2009-12-31',
-                    # },
+                'dateList': {
+                    '2000-2019': {
+                        'srtDate': '2000-01-01',
+                        'endDate': '2019-12-31',
+                    },
+                    '2000-2009': {
+                        'srtDate': '2000-01-01',
+                        'endDate': '2009-12-31',
+                    },
                     '2010-2019': {
                         'srtDate': '2010-01-01',
                         'endDate': '2019-12-31',
@@ -318,6 +295,7 @@ class DtaProcess(object):
                     coefData = xr.open_mfdataset(fileList)
                     coefData = coefData.rename({'__xarray_dataarray_variable__': 'coefVar'})
 
+                    # 테스트
                     # 'landscan', 'GDP', 'Land_Cover_Type_1_Percent', 'EC'
                     # coefData['coefVar'].loc[dict(period='2010-2019', coef='b')] = 0.5
                     # coefData['coefVar'].loc[dict(period='2010-2019', coef='c')] = 0.8
@@ -336,18 +314,12 @@ class DtaProcess(object):
                     # data['EC'].loc[dict(time='2019')] = 0.5
                     # data['BC'].loc[dict(time='2019')] = 9.0
 
-                    # data.sel(time='2019')['BC'].isel(lat=0, lon=0).values
-
                     dataL1 = xr.merge([data, coefData])
                     srtYear = pd.to_datetime(np.min(dataL1['time'].values)).strftime('%Y')
                     endYear = pd.to_datetime(np.max(dataL1['time'].values)).strftime('%Y')
 
-                    # 분석 시작/종료 시점 데이터 선택
                     srtData = dataL1.sel(time=srtYear).isel(time=0)
                     endData = dataL1.sel(time=endYear).isel(time=0)
-
-                    # 분석 기간 선택 (탄력성 데이터용)
-                    current_period = dateInfo
 
                     # 1단계 대수평균 계산
                     srtKeyData = srtData[keyInfo]
@@ -372,7 +344,7 @@ class DtaProcess(object):
                         endFacData = endData[factor]
 
                         coefVal  = matList[factor]
-                        coefDataL1 = coefData.sel(coef=coefVal, period=current_period)['coefVar']
+                        coefDataL1 = coefData.sel(coef=coefVal, period=dateInfo)['coefVar']
 
                         ratio = xr.where(
                             (srtFacData > 0) & (endFacData > 0),
@@ -399,7 +371,7 @@ class DtaProcess(object):
                                 con = con.drop_vars(delInfo)
                             except Exception as e:
                                 pass
-                        comData[f"con-{factor}"] = con
+                        comData[f"con-{keyInfo}-{factor}"] = con
 
                         percentage_delta = xr.where(srtKeyData != 0, (con / srtKeyData) * 100, 0)
                         delList = ['coef', 'period', 'time']
@@ -408,7 +380,7 @@ class DtaProcess(object):
                                 percentage_delta = percentage_delta.drop_vars(delInfo)
                             except Exception as e:
                                 pass
-                        comData[f"per-{factor}"] = percentage_delta
+                        comData[f"per-{keyInfo}-{factor}"] = percentage_delta
 
                     comDataL1 = xr.Dataset(comData)
                     # comDataL1.isel(lat=0, lon=0).values
