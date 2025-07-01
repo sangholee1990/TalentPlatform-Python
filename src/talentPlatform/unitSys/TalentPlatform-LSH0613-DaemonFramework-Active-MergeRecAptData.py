@@ -297,8 +297,6 @@ class DtaProcess(object):
 
             recAptData = pd.read_excel(fileList[0])
 
-
-
             # 검색어
             gender = '1'
             minAge, maxAge = '20-39'.split('-')
@@ -320,9 +318,7 @@ class DtaProcess(object):
             ]
 
             # userIdx = recUserDataL1.iloc[0]['idx']
-
             # len(recUserDataL1) < 1
-
 
             recAptDataL1 = recAptData.loc[
                 (recAptData['apt'] == apt)
@@ -339,29 +335,6 @@ class DtaProcess(object):
                 'rcmd_count': 10,
             }
 
-            #
-            # response = requests.post(sysOpt['추천']['apiCfUrl'], data=payload, verify=False)
-            #
-            # res_json = response.json().get('recommends')
-            # log.info(f'[CHECK] res_json : {res_json}')
-            #
-            # resData = pd.DataFrame(res_json['cf'], columns=['idx', 'score'])
-            # resDataL1 = pd.merge(resData, recAptData, how='left', left_on=['idx'], right_on=['idx'])
-            #
-            # # 유사도 기반 아파트 추천
-            # payload = {
-            #     'user_id': recUserDataL1.iloc[0]['idx'],
-            #     'apt_idx': recAptDataL1.iloc[0]['idx'],
-            #     'rcmd_count': rcmdCnt,
-            # }
-            #
-            # response = requests.post(sysOpt['추천']['apiSimUrl'], data=payload, verify=False)
-            # res_json = response.json().get('recommends')
-            # log.info(f'[CHECK] res_json : {res_json}')
-            #
-            # resData = pd.DataFrame(res_json['simil'], columns=['idx', 'score'])
-            # resDataL1 = pd.merge(resData, recAptData, how='left', left_on=['idx'], right_on=['idx'])
-
             # CF기반 및 유사도 기반 아파트 추천
             with ProcessPoolExecutor(max_workers=2) as executor:
                 futureCf = executor.submit(fetchApi,sysOpt['추천']['apiCfUrl'], payload, 'cf', recAptData)
@@ -369,149 +342,6 @@ class DtaProcess(object):
 
                 cfData = futureCf.result()
                 simData = futureSim.result()
-
-
-        #
-            # def fetch_recommendations(payload):
-            #     try:
-            #         # verify=False는 SSL 인증서 검증 비활성화
-            #         response = requests.post(sysOpt['apiCfUrl'], data=payload, verify=False)
-            #         response.raise_for_status()
-            #         res_json = response.json().get('recommends')
-            #         if res_json and 'cf' in res_json:
-            #             return res_json['cf']
-            #         else:
-            #             print(f"경고: 페이로드 {payload}에 대한 응답에서 'recommends' 또는 'cf' 키를 찾을 수 없습니다.")
-            #             return None
-            #     except requests.exceptions.RequestException as e:
-            #         print(f"페이로드 {payload}에 대한 요청 실패: {e}")
-            #         return None
-            #     except ValueError as e:  # JSONDecodeError 포함
-            #         print(f"페이로드 {payload}에 대한 JSON 디코딩 실패: {e}")
-            #         print(f"응답 내용: {response.text}")
-            #         return None
-
-
-
-
-            # recAptDataL1
-
-
-            #     if price < user_info.get('price_from').values[0] or price > user_info.get('price_to').values[0] * 1.2:
-            #                             continue
-            #                         if area < user_info.get('area_from').values[0] or area > user_info.get('area_to').values[0]:
-            #                             continue
-
-
-            # dataL2 = pd.DataFrame()
-            # for fileInfo in fileList:
-            #     log.info(f'[CHECK] fileInfo : {fileInfo}')
-            #
-            #     fileName = os.path.basename(fileInfo)
-            #     fileNameNoExt = fileName.split('.')[0]
-            #     # ssg = fileNameNoExt.split('_')[1]
-
-                # data = pd.read_excel(fileInfo, sheet_name=sysOpt['sheetName'], engine='openpyxl')
-            
-                # try:
-                #     data = pd.read_csv(fileInfo, encoding='EUC-KR', low_memory=False)
-                # except UnicodeDecodeError:
-                #     data = pd.read_csv(fileInfo, encoding='UTF-8', low_memory=False)
-                # data = data.rename(columns=sysOpt['아파트실거래']['renameDict'])
-                #
-                # data['거래 금액'] = pd.to_numeric(data['거래금액'].str.replace(',', ''), errors='coerce') * 10000
-                # data['거래 금액(억원)'] = data['거래 금액'] / 100000000
-                # data['계약날짜'] = pd.to_datetime(data['dtYearMonth'].astype(str) + data['일'].apply(lambda x: f'{x:02d}').astype(str), format='%Y%m%d')
-                # data['건축날짜'] = pd.to_datetime(data['건축년도'].astype(str), format='%Y')
-                # data["평수"] = pd.to_numeric(data["전용면적"], errors='coerce').apply(getFloorArea)
-                # data["거래가 분류"] = data["거래 금액(억원)"].apply(getAmountType)
-                # # data['sgg'] = data['addrInfo']
-                # data['sgg'] = data['addrInfo'] + ' ' + data['d2'].astype(str)
-                # data['계약연도'] = data['계약날짜'].dt.strftime('%Y').astype(int)
-                # data['건축연도'] = data['건축날짜'].dt.strftime('%Y').astype(int)
-                # data['층'] = pd.to_numeric(data["층"], errors='coerce').astype('Int64')
-                #
-                # if 'lat' in data.columns and 'lon' in data.columns:
-                #     data['geo'] = data["lat"].astype('str') + ", " + data["lon"].astype('str')
-                # else:
-                #     data['geo'] = data["latitude"].astype('str') + ", " + data["longitude"].astype('str')
-
-                # 지번주소
-                # 서울특별시 중랑구 상봉동 484 엘지,쌍용아파트
-                # data['keyDtl'] = data['addrInfo'] + ' ' + data['d2'].astype(str) + ' ' + data['법정동'] + ' ' + data['아파트'] + '(' + data['지번'] + ')'
-                # data['key'] = data['아파트'] + '(' + data['지번'] + ')'
-                # data['keyDtl'] = data['addrDtlInfo']
-                #
-                # # 도로명주소
-                # # 서울특별시 중랑구 봉화산로 130.0 엘지,쌍용아파트
-                # data['apt'] = data['아파트'] + '(' + data['도로명']  + ' ' + data['도로명건물본번호코드'].astype('Int64').astype(str) + ')'
-                # data['aptDtl'] = data['addrInfo'].astype(str) + ' ' + data['d2'].astype(str) + ' ' + data['도로명'].astype(str) + ' ' + data['도로명건물본번호코드'].astype('Int64').astype(str) + ' ' + data['아파트'].astype(str)
-                #
-                # dataL1 = data[colNameList].rename(columns=renameDict, inplace=False)
-                # # dataL1 = data.rename(columns=renameDict, inplace=False)
-                #
-                # dataL2 = pd.concat([dataL2, dataL1], axis=0)
-
-            # dataL2.loc[dataL2['apt'] == '라움(태평로)'].iloc[0]
-            # data.iloc[0]
-
-            # =================================================================
-            # CSV 통합파일
-            # =================================================================
-            # saveFile = '{}/{}/{}_{}.csv'.format(globalVar['outPath'], serviceName, datetime.now().strftime("%Y%m%d"), 'TB_REAL')
-            # saveFile = sysOpt['아파트실거래']['saveFile']
-            # os.makedirs(os.path.dirname(saveFile), exist_ok=True)
-            # dataL2.to_csv(saveFile, index=False)
-            # log.info(f'[CHECK] saveFile : {saveFile}')
-
-            # =================================================================
-            # 빅쿼리 업로드
-            # =================================================================
-            # jsonFile = sysOpt['jsonFile']
-            # jsonList = sorted(glob.glob(jsonFile))
-            # if jsonList is None or len(jsonList) < 1:
-            #     log.error(f'설정 파일 없음 : {jsonFile}')
-            #     raise Exception(f'설정 파일 없음 : {jsonFile}')
-            #     # exit(1)
-            #
-            # jsonInfo = jsonList[0]
-            #
-            # try:
-            #     credentials = service_account.Credentials.from_service_account_file(jsonInfo)
-            #     client = bigquery.Client(credentials=credentials, project=credentials.project_id)
-            # except Exception as e:
-            #     log.error(f'빅쿼리 연결 실패 : {e}')
-            #     raise Exception(f'빅쿼리 연결 실패 : {e}')
-            #     # exit(1)
-            #
-            # jobCfg = bigquery.LoadJobConfig(
-            #     source_format=bigquery.SourceFormat.CSV,
-            #     skip_leading_rows=1,
-            #     autodetect=True,
-            #     # autodetect=False,
-            #     # schema=[  # BigQuery 테이블 스키마 정의 (열 이름, 데이터 타입)
-            #     #     bigquery.SchemaField("Y_NO", "INTEGER"),
-            #     #     bigquery.SchemaField("DEPART", "STRING"),
-            #     #     bigquery.SchemaField("DEPART_NO", "STRING"),
-            #     #     bigquery.SchemaField("SECTION", "STRING"),
-            #     #     bigquery.SchemaField("SUBJECT", "STRING"),
-            #     #     bigquery.SchemaField("NAME", "STRING"),
-            #     #     bigquery.SchemaField("YEAR", "STRING"),
-            #     #     bigquery.SchemaField("YEAR_DATE", "STRING"),
-            #     #     bigquery.SchemaField("PUBLIC", "STRING"),
-            #     #     bigquery.SchemaField("RC_DATE", "DATE"),
-            #     #     bigquery.SchemaField("REG_DATE", "DATE"),
-            #     #     bigquery.SchemaField("SIZE", "INTEGER"),
-            #     # ],
-            #     write_disposition=bigquery.WriteDisposition.WRITE_TRUNCATE,
-            #     max_bad_records=1000,
-            # )
-            #
-            # tableId = f"{credentials.project_id}.DMS01.TB_REAL"
-            # with open(saveFile, "rb") as file:
-            #     job = client.load_table_from_file(file, tableId, job_config=jobCfg)
-            # job.result()
-            # log.info(f"[CHECK] tableId : {tableId}")
 
         except Exception as e:
             log.error(f'Exception : {e}')
