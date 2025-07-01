@@ -6,7 +6,9 @@ echo
 #========================================
 # DOC
 #========================================
+# cd /HDD/SYSTEMS/PROG/PYTHON/IDE/src/talentPlatform/shell
 # bash /HDD/SYSTEMS/PROG/PYTHON/IDE/src/talentPlatform/shell/RunShell-LSH0613.sh
+# nohup bash /HDD/SYSTEMS/PROG/PYTHON/IDE/src/talentPlatform/shell/RunShell-LSH0613.sh &
 
 #========================================
 # Init Config
