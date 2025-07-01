@@ -4,8 +4,8 @@
 # Python을 이용한 청소년 인터넷 게임 중독 관련 소셜데이터 수집과 분석을 위한 한국형 온톨로지 개발 및 평가
 
 # cd /SYSTEMS/PROG/PYTHON/IDE/src/talentPlatform/unitSys
-# /SYSTEMS/LIB/anaconda3/envs/py38/bin/python /SYSTEMS/PROG/PYTHON/IDE/src/talentPlatform/unitSys/TalentPlatform-LSH0612-DaemonFramework-colct-naverSearchApi.py
-# nohup /SYSTEMS/LIB/anaconda3/envs/py38/bin/python /SYSTEMS/PROG/PYTHON/IDE/src/talentPlatform/unitSys/TalentPlatform-LSH0612-DaemonFramework-colct-naverSearchApi.py &
+# /SYSTEMS/LIB/anaconda3/envs/py39/bin/python /SYSTEMS/PROG/PYTHON/IDE/src/talentPlatform/unitSys/TalentPlatform-LSH0612-DaemonFramework-analy-naverSearchApi.py
+# nohup /SYSTEMS/LIB/anaconda3/envs/py39/bin/python /SYSTEMS/PROG/PYTHON/IDE/src/talentPlatform/unitSys/TalentPlatform-LSH0612-DaemonFramework-analy-naverSearchApi.py &
 # tail -f nohup.out
 
 import argparse
@@ -241,96 +241,93 @@ class DtaProcess(object):
                 'preDt': datetime.now(),
 
                 # 수행 목록
-                # 'modelList': ['NEWS', 'BLOG', 'CAFE'],
                 'modelList': ['NEWS'],
-                # 'modelList': ['BLOG'],
-                # 'modelList': ['CAFE'],
 
                 # 세부 정보
                 'NEWS': {
-                    'client_id': 'BNDqTQqb0NECaQN56flk',
-                    'client_secret': '5t2GECIt1m',
-                    'url': 'https://openapi.naver.com/v1/search/news.json',
-                    'saveCsvFile': '/DATA/OUTPUT/LSH0612/naverNews_%Y%m%d.csv',
-                    'saveXlsxFile': '/DATA/OUTPUT/LSH0612/naverNews_%Y%m%d.xlsx',
-                },
-                'BLOG': {
-                    'client_id': 'BNDqTQqb0NECaQN56flk',
-                    'client_secret': '5t2GECIt1m',
-                    'url': 'https://openapi.naver.com/v1/search/blog.json',
-                    'saveCsvFile': '/DATA/OUTPUT/LSH0612/naverBlog_%Y%m%d.csv',
-                    'saveXlsxFile': '/DATA/OUTPUT/LSH0612/naverBlog_%Y%m%d.xlsx',
-                },
-                'CAFE': {
-                    'client_id': 'BNDqTQqb0NECaQN56flk',
-                    'client_secret': '5t2GECIt1m',
-                    'url': 'https://openapi.naver.com/v1/search/cafearticle.json',
-                    'saveCsvFile': '/DATA/OUTPUT/LSH0612/naverCafe_%Y%m%d.csv',
-                    'saveXlsxFile': '/DATA/OUTPUT/LSH0612/naverCafe_%Y%m%d.xlsx',
+                    'inpFile': '/DATA/OUTPUT/LSH0612/naverNews_*.csv',
+                    'saveCsvFile': '/DATA/OUTPUT/LSH0612/naverNewsL1_%Y%m%d.csv',
+                    'saveXlsxFile': '/DATA/OUTPUT/LSH0612/naverNewsL1_%Y%m%d.xlsx',
                 },
             }
 
             # =================================================================
-            # 네이버 API 수집
+            # 네이버 API 분석
             # =================================================================
+            okt = Okt()
             for modelType in sysOpt['modelList']:
                 log.info(f'[CHECK] modelType : {modelType}')
 
                 modelInfo = sysOpt.get(modelType)
                 if modelInfo is None: continue
 
-                dataL1 = pd.DataFrame()
-                pageList = np.arange(1, 1001, 1)
-                for pageInfo in pageList:
+                inpFile = modelInfo['inpFile']
+                fileList = sorted(glob.glob(inpFile), reverse=True)
+                fileInfo = fileList[0]
+
+                data = pd.read_csv(fileInfo)
+
+                for i, row in data.iterrows():
+
+                    per = round(i / len(data) * 100, 1)
+                    log.info(f'[CHECK] i : {i} / {per}%')
+
                     try:
-                        headers = {
-                            'X-Naver-Client-Id': modelInfo['client_id'],
-                            'X-Naver-Client-Secret': modelInfo['client_secret'],
-                        }
+                        articleInfo = Article(row['link'], language='ko')
 
-                        params = {
-                            'query': sysOpt['query'],
-                            'display': sysOpt['display'],
-                            'sort': sysOpt['sort'],
-                            'start': pageInfo,
-                        }
+                        # 뉴스 다운로드/파싱/자연어 처리
+                        articleInfo.download()
+                        articleInfo.parse()
+                        articleInfo.nlp()
 
-                        res = requests.get(modelInfo['url'], headers=headers, params=params)
-                        if res.status_code != 200: continue
+                        # 명사/동사/형용사 추출
+                        text = articleInfo.text
+                        if text is None or len(text) < 1: continue
+                        posTagList = okt.pos(text, stem=True)
 
-                        resJson = res.json().get('items')
-                        if resJson is None or len(resJson) < 1: continue
+                        # i = 0
+                        keyData = {}
+                        keyList = ['Noun', 'Verb', 'Adjective']
+                        for keyInfo in keyList:
+                            # log.info(f'[CHECK] keyInfo : {keyInfo}')
 
-                        resData = pd.DataFrame(resJson)
+                            keywordList = [word for word, pos in posTagList if pos in keyInfo]
 
-                        if 'BLOG' in modelType:
-                            regDate = resData.get('postdate')
-                        elif 'NEWS' in modelType:
-                            regDate = resData.get('pubDate')
-                        else:
-                            regDate = None
+                            # 불용어 제거
+                            # keywordList = [word for word in keywordList if word not in stopWordList and len(word) > 1]
 
-                        if regDate is not None and len(regDate) > 1:
-                            resData['regDate'] = pd.to_datetime(regDate)
-                            filterData = resData[resData['regDate'].dt.year.between(2020, 2025)]
-                            if filterData is None or len(filterData) < 1:
-                                break
+                            # 빈도수 계산
+                            keywordCnt = Counter(keywordList).most_common(20)
+                            keywordData = pd.DataFrame(keywordCnt, columns=['keyword', 'cnt']).sort_values(by='cnt',
+                                                                                                           ascending=False)
+                            keywordDataL1 = keywordData[keywordData['keyword'].str.len() >= 2].reset_index(drop=True)
+                            keyCnt = keywordDataL1['cnt'].astype(str) + " " + keywordDataL1['keyword']
+                            keyData.update({keyInfo: keyCnt.values.tolist()})
 
-                        dataL1 = pd.concat([dataL1, resData], ignore_index=True)
-                        log.info(f'[CHECK] modelType : {modelType} / per : {round((pageInfo / 1001) * 100, 1)}  / cnt : {len(dataL1)}')
+                        # log.info(f"[CHECK] keyData['Noun'] : {keyData['Noun']}")
+                        # log.info(f"[CHECK] keyData['Verb'] : {keyData['Verb']}")
+                        # log.info(f"[CHECK] keyData['Adjective'] : {keyData['Adjective']}")
 
+                        data.loc[i, f'text'] = text
+                        data.loc[i, f'summary'] = None if articleInfo.summary is None or len(articleInfo.summary) < 1 else str(articleInfo.summary)
+                        data.loc[i, f'keywordNoun'] = None if keyData['Noun'] is None or len(keyData['Noun']) < 1 else str(keyData['Noun'])
+                        data.loc[i, f'keywordVerb'] = None if keyData['Verb'] is None or len(keyData['Verb']) < 1 else str(keyData['Verb'])
+                        data.loc[i, f'keywordAdjective'] = None if keyData['Adjective'] is None or len(keyData['Adjective']) < 1 else str(keyData['Adjective'])
+                        data.loc[i, f'authors'] = None if articleInfo.authors is None or len(articleInfo.authors) < 1 else str(articleInfo.authors)
+                        data.loc[i, f'top_image'] = None if articleInfo.top_image is None or len(articleInfo.top_image) < 1 else str(articleInfo.top_image)
+                        data.loc[i, f'images'] = None if articleInfo.images is None or len(articleInfo.images) < 1 else str(articleInfo.images)
                     except Exception as e:
                         log.error(f"Exception : {e}")
 
-                if len(dataL1) > 0:
+                if len(data) > 0:
                     saveCsvFile = sysOpt['preDt'].strftime(modelInfo['saveCsvFile'])
                     os.makedirs(os.path.dirname(saveCsvFile), exist_ok=True)
-                    dataL1.to_csv(saveCsvFile, index=False)
+                    data.to_csv(saveCsvFile, index=False)
                     log.info(f"[CHECK] saveCsvFile : {saveCsvFile}")
 
                     saveXlsxFile = sysOpt['preDt'].strftime(modelInfo['saveXlsxFile'])
                     os.makedirs(os.path.dirname(saveXlsxFile), exist_ok=True)
-                    dataL1.to_csv(saveXlsxFile, index=False)
+                    data.to_csv(saveXlsxFile, index=False)
                     log.info(f"[CHECK] saveXlsxFile : {saveXlsxFile}")
 
         except Exception as e:
