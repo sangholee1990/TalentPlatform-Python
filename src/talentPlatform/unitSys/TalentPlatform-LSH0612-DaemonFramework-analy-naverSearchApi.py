@@ -338,7 +338,7 @@ class DtaProcess(object):
             fileInfo = fileList[0]
             data = pd.read_csv(fileInfo)
 
-            chunkSize = 20000
+            chunkSize = 10000
             for i in range(0, len(data), chunkSize):
                 chunk = data.iloc[i:i + chunkSize]
                 fileName = f'/HDD/DATA/OUTPUT/LSH0612/naverNewsL1_{i // chunkSize + 1}_20250702.csv'
