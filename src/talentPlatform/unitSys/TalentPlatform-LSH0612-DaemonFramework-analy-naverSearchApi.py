@@ -338,12 +338,12 @@ class DtaProcess(object):
             fileInfo = fileList[0]
             data = pd.read_csv(fileInfo)
 
-            chunkSize = 10000
+            chunkSize = 11000
             for i in range(0, len(data), chunkSize):
                 chunk = data.iloc[i:i + chunkSize]
-                fileName = f'/HDD/DATA/OUTPUT/LSH0612/naverNewsL1_{i // chunkSize + 1}_20250702.csv'
+                fileName = f'/HDD/DATA/OUTPUT/LSH0612/naverNewsL1_{i}_20250702.csv'
                 chunk.to_csv(fileName, index=False, encoding='utf-8')
-                log.info(f"'{fileName}' 저장 완료. (행: {len(chunk)}개)")
+                log.info(f"{fileName} 저장 완료 (행: {len(chunk)}개)")
 
         except Exception as e:
             log.error(f"Exception : {str(e)}")
