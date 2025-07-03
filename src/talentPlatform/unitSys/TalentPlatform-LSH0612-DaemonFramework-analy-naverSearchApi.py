@@ -41,6 +41,8 @@ import requests
 import json
 from konlpy.tag import Okt
 from newspaper import Article
+import gspread
+from google.oauth2.service_account import Credentials
 
 # =================================================
 # 사용자 매뉴얼
@@ -331,19 +333,55 @@ class DtaProcess(object):
             #         log.info(f"[CHECK] saveXlsxFile : {saveXlsxFile}")
 
             # =================================================================
-            # 분할
+            # 파일 분할
+            # =================================================================
+            # inpFile = '/HDD/DATA/OUTPUT/LSH0612/naverNewsL1_20250702.csv'
+            # fileList = sorted(glob.glob(inpFile), reverse=True)
+            # fileInfo = fileList[0]
+            # data = pd.read_csv(fileInfo)
+
+            # chunkSize = 11000
+            # for i in range(0, len(data), chunkSize):
+            #     chunk = data.iloc[i:i + chunkSize]
+            #     fileName = f'/HDD/DATA/OUTPUT/LSH0612/naverNewsL1_{i}_20250702.csv'
+            #     chunk.to_csv(fileName, index=False, encoding='utf-8')
+            #     log.info(f"{fileName} 저장 완료 (행: {len(chunk)}개)")
+
+            # =================================================================
+            # 구글 API 자동화 연계
             # =================================================================
             inpFile = '/HDD/DATA/OUTPUT/LSH0612/naverNewsL1_20250702.csv'
             fileList = sorted(glob.glob(inpFile), reverse=True)
             fileInfo = fileList[0]
             data = pd.read_csv(fileInfo)
+            
+            # 모든 컬럼 문자열
+            dataL1 = data.astype(str)
 
-            chunkSize = 11000
-            for i in range(0, len(data), chunkSize):
-                chunk = data.iloc[i:i + chunkSize]
-                fileName = f'/HDD/DATA/OUTPUT/LSH0612/naverNewsL1_{i}_20250702.csv'
-                chunk.to_csv(fileName, index=False, encoding='utf-8')
-                log.info(f"{fileName} 저장 완료 (행: {len(chunk)}개)")
+            scopes = ['https://www.googleapis.com/auth/spreadsheets']
+            cfgInfo = "/HDD/SYSTEMS/PROG/PYTHON/IDE/resources/config/shlee1990-146be-f485474fc453.json"
+
+            creds = Credentials.from_service_account_file(cfgInfo, scopes=scopes)
+            client = gspread.authorize(creds)
+
+            try:
+                sheetUrl = 'https://docs.google.com/spreadsheets/d/1HytRF6BuzyDli5WLB178Q3-pZRf0xbb3qMSaW9DlMJc/edit?usp=sharing'
+                spreadsheet = client.open_by_url(sheetUrl)
+
+                sheetList = spreadsheet.worksheets()
+                for idx, sheet in enumerate(sheetList):
+                    print(f"인덱스: {idx} / 이름: {sheet.title} / 시트 ID (gid): {sheet.id}")
+
+                # 시트1 선택
+                # worksheet = spreadsheet.sheet1
+                worksheet = spreadsheet.get_worksheet_by_id(763549175)
+
+                # worksheet.clear()
+                updData = [dataL1.columns.values.tolist()] + dataL1.values.tolist()
+                worksheet.update('A1', updData)
+
+            except Exception as e:
+                log.error(f"Exception : {e}")
 
         except Exception as e:
             log.error(f"Exception : {str(e)}")
