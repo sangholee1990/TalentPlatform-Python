@@ -3,6 +3,9 @@
 # ================================================
 # Python을 이용한 청소년 인터넷 게임 중독 관련 소셜데이터 수집과 분석을 위한 한국형 온톨로지 개발 및 평가
 
+# cd /SYSTEMS/PROG/PYTHON/IDE/src/talentPlatform/unitSys
+# /SYSTEMS/LIB/anaconda3/envs/py38/bin/python TalentPlatform-LSH0612-DaemonFramework-analy-allData.py
+
 import argparse
 import glob
 import logging
@@ -232,7 +235,8 @@ class DtaProcess(object):
                 'fontInfo': '/SYSTEMS/PROG/PYTHON/IDE/resources/config/fontInfo/malgun.ttf',
 
                 # 수행 목록
-                'modelList': ['googleNews', 'naverNews', 'naverBlog', 'naverCafe'],
+                'modelList': ['googleNews', 'naverNews', 'naverBlog', 'naverCafe', 'kci'],
+                # 'modelList': ['naverNews', 'naverBlog', 'naverCafe', 'kci'],
                 # 'modelList': ['googleNews'],
                 # 'modelList': ['naverNews'],
                 # 'modelList': ['naverBlog'],
@@ -245,11 +249,11 @@ class DtaProcess(object):
                 },
                 'naverNews': {
                     'inpFile': '/DATA/OUTPUT/LSH0612/naverNewsL1_*.csv',
-                    'itemList': {'title': '제목', 'text': '본문', 'summary': '요약'},
+                    'itemList': {'title': '제목', 'description': '본문', 'summary': '요약'},
                 },
                 'naverBlog': {
                     'inpFile': '/DATA/OUTPUT/LSH0612/naverBlog_*.csv',
-                    'itemList': {'title': '제목', 'text': '본문'},
+                    'itemList': {'title': '제목', 'description': '본문'},
                 },
                 'naverCafe': {
                     'inpFile': '/DATA/OUTPUT/LSH0612/naverCafe_*.csv',
@@ -257,7 +261,7 @@ class DtaProcess(object):
                 },
                 'kci': {
                     'inpFile': '/DATA/OUTPUT/LSH0612/kci_*.csv',
-                    'itemList': {'title': '제목', 'description': '본문'},
+                    'itemList': {'title': '제목', 'text': '본문'},
                 },
 
                 'saveFile': '/DATA/OUTPUT/LSH0612/%Y%m%d_{key}_빈도분포_{type}.xlsx',
@@ -284,12 +288,18 @@ class DtaProcess(object):
                 keywordDataL2 = pd.DataFrame()
                 for key, name in modelInfo['itemList'].items():
                     log.info(f'[CHECK] {key} : {name}')
-    
+
                     textList = data[key].astype(str).tolist()
-                    text = '\n'.join(textList)
-                    if text is None or len(text) < 1: continue
-    
-                    posTagList = okt.pos(text, stem=True)
+                    log.info(f'[CHECK] textList : {len(textList)}')
+
+                    # text = '\n'.join(textList)
+                    # if text is None or len(text) < 1: continue
+                    # posTagList = okt.pos(text, stem=True)
+
+                    posTagList = []
+                    for textLine in textList:
+                        posTagList.extend(okt.pos(textLine, stem=True))
+
                     keywordList = [word for word, pos in posTagList if pos in ['Noun']]
     
                     keywordOrder = 100
