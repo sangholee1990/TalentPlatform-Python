@@ -254,83 +254,119 @@ class DtaProcess(object):
             }
 
             # =================================================================
-            # 네이버 API 분석
+            # 네이버뉴스 API 상세 수집
             # =================================================================
-            # okt = Okt()
-            # for modelType in sysOpt['modelList']:
-            #     log.info(f'[CHECK] modelType : {modelType}')
-            #
-            #     modelInfo = sysOpt.get(modelType)
-            #     if modelInfo is None: continue
-            #
-            #     inpFile = modelInfo['inpFile']
-            #     fileList = sorted(glob.glob(inpFile), reverse=True)
-            #     fileInfo = fileList[0]
-            #
-            #     data = pd.read_csv(fileInfo)
-            #
-            #     for i, row in data.iterrows():
-            #
-            #         per = round(i / len(data) * 100, 1)
-            #         log.info(f'[CHECK] i : {i} / {per}%')
-            #
-            #         try:
-            #             articleInfo = Article(row['link'], language='ko')
-            #
-            #             # 뉴스 다운로드/파싱/자연어 처리
-            #             articleInfo.download()
-            #             articleInfo.parse()
-            #             articleInfo.nlp()
-            #
-            #             # 명사/동사/형용사 추출
-            #             text = articleInfo.text
-            #             if text is None or len(text) < 1: continue
-            #             posTagList = okt.pos(text, stem=True)
-            #
-            #             # i = 0
-            #             keyData = {}
-            #             keyList = ['Noun', 'Verb', 'Adjective']
-            #             for keyInfo in keyList:
-            #                 # log.info(f'[CHECK] keyInfo : {keyInfo}')
-            #
-            #                 keywordList = [word for word, pos in posTagList if pos in keyInfo]
-            #
-            #                 # 불용어 제거
-            #                 # keywordList = [word for word in keywordList if word not in stopWordList and len(word) > 1]
-            #
-            #                 # 빈도수 계산
-            #                 keywordCnt = Counter(keywordList).most_common(20)
-            #                 keywordData = pd.DataFrame(keywordCnt, columns=['keyword', 'cnt']).sort_values(by='cnt',
-            #                                                                                                ascending=False)
-            #                 keywordDataL1 = keywordData[keywordData['keyword'].str.len() >= 2].reset_index(drop=True)
-            #                 keyCnt = keywordDataL1['cnt'].astype(str) + " " + keywordDataL1['keyword']
-            #                 keyData.update({keyInfo: keyCnt.values.tolist()})
-            #
-            #             # log.info(f"[CHECK] keyData['Noun'] : {keyData['Noun']}")
-            #             # log.info(f"[CHECK] keyData['Verb'] : {keyData['Verb']}")
-            #             # log.info(f"[CHECK] keyData['Adjective'] : {keyData['Adjective']}")
-            #
-            #             data.loc[i, f'text'] = text
-            #             data.loc[i, f'summary'] = None if articleInfo.summary is None or len(articleInfo.summary) < 1 else str(articleInfo.summary)
-            #             data.loc[i, f'keywordNoun'] = None if keyData['Noun'] is None or len(keyData['Noun']) < 1 else str(keyData['Noun'])
-            #             data.loc[i, f'keywordVerb'] = None if keyData['Verb'] is None or len(keyData['Verb']) < 1 else str(keyData['Verb'])
-            #             data.loc[i, f'keywordAdjective'] = None if keyData['Adjective'] is None or len(keyData['Adjective']) < 1 else str(keyData['Adjective'])
-            #             data.loc[i, f'authors'] = None if articleInfo.authors is None or len(articleInfo.authors) < 1 else str(articleInfo.authors)
-            #             data.loc[i, f'top_image'] = None if articleInfo.top_image is None or len(articleInfo.top_image) < 1 else str(articleInfo.top_image)
-            #             data.loc[i, f'images'] = None if articleInfo.images is None or len(articleInfo.images) < 1 else str(articleInfo.images)
-            #         except Exception as e:
-            #             log.error(f"Exception : {e}")
-            #
-            #     if len(data) > 0:
-            #         saveCsvFile = sysOpt['preDt'].strftime(modelInfo['saveCsvFile'])
-            #         os.makedirs(os.path.dirname(saveCsvFile), exist_ok=True)
-            #         data.to_csv(saveCsvFile, index=False)
-            #         log.info(f"[CHECK] saveCsvFile : {saveCsvFile}")
-            #
-            #         saveXlsxFile = sysOpt['preDt'].strftime(modelInfo['saveXlsxFile'])
-            #         os.makedirs(os.path.dirname(saveXlsxFile), exist_ok=True)
-            #         data.to_csv(saveXlsxFile, index=False)
-            #         log.info(f"[CHECK] saveXlsxFile : {saveXlsxFile}")
+            okt = Okt()
+            for modelType in sysOpt['modelList']:
+                log.info(f'[CHECK] modelType : {modelType}')
+
+                modelInfo = sysOpt.get(modelType)
+                if modelInfo is None: continue
+
+                inpFile = modelInfo['inpFile']
+                fileList = sorted(glob.glob(inpFile), reverse=True)
+                fileInfo = fileList[0]
+
+                data = pd.read_csv(fileInfo)
+
+                for i, row in data.iterrows():
+
+                    per = round(i / len(data) * 100, 1)
+                    log.info(f'[CHECK] i : {i} / {per}%')
+
+                    try:
+                        articleInfo = Article(row['link'], language='ko')
+
+                        # 뉴스 다운로드/파싱/자연어 처리
+                        articleInfo.download()
+                        articleInfo.parse()
+                        articleInfo.nlp()
+
+                        # 명사/동사/형용사 추출
+                        text = articleInfo.text
+                        if text is None or len(text) < 1: continue
+                        posTagList = okt.pos(text, stem=True)
+
+                        # i = 0
+                        keyData = {}
+                        keyList = ['Noun', 'Verb', 'Adjective']
+                        for keyInfo in keyList:
+                            # log.info(f'[CHECK] keyInfo : {keyInfo}')
+
+                            keywordList = [word for word, pos in posTagList if pos in keyInfo]
+
+                            # 불용어 제거
+                            # keywordList = [word for word in keywordList if word not in stopWordList and len(word) > 1]
+
+                            # 빈도수 계산
+                            keywordCnt = Counter(keywordList).most_common(20)
+                            keywordData = pd.DataFrame(keywordCnt, columns=['keyword', 'cnt']).sort_values(by='cnt',
+                                                                                                           ascending=False)
+                            keywordDataL1 = keywordData[keywordData['keyword'].str.len() >= 2].reset_index(drop=True)
+                            keyCnt = keywordDataL1['cnt'].astype(str) + " " + keywordDataL1['keyword']
+                            keyData.update({keyInfo: keyCnt.values.tolist()})
+
+                        # log.info(f"[CHECK] keyData['Noun'] : {keyData['Noun']}")
+                        # log.info(f"[CHECK] keyData['Verb'] : {keyData['Verb']}")
+                        # log.info(f"[CHECK] keyData['Adjective'] : {keyData['Adjective']}")
+
+                        data.loc[i, f'text'] = text
+                        data.loc[i, f'summary'] = None if articleInfo.summary is None or len(articleInfo.summary) < 1 else str(articleInfo.summary)
+                        data.loc[i, f'keywordNoun'] = None if keyData['Noun'] is None or len(keyData['Noun']) < 1 else str(keyData['Noun'])
+                        data.loc[i, f'keywordVerb'] = None if keyData['Verb'] is None or len(keyData['Verb']) < 1 else str(keyData['Verb'])
+                        data.loc[i, f'keywordAdjective'] = None if keyData['Adjective'] is None or len(keyData['Adjective']) < 1 else str(keyData['Adjective'])
+                        data.loc[i, f'authors'] = None if articleInfo.authors is None or len(articleInfo.authors) < 1 else str(articleInfo.authors)
+                        data.loc[i, f'top_image'] = None if articleInfo.top_image is None or len(articleInfo.top_image) < 1 else str(articleInfo.top_image)
+                        data.loc[i, f'images'] = None if articleInfo.images is None or len(articleInfo.images) < 1 else str(articleInfo.images)
+                    except Exception as e:
+                        log.error(f"Exception : {e}")
+
+                if len(data) > 0:
+                    saveCsvFile = sysOpt['preDt'].strftime(modelInfo['saveCsvFile'])
+                    os.makedirs(os.path.dirname(saveCsvFile), exist_ok=True)
+                    data.to_csv(saveCsvFile, index=False)
+                    log.info(f"[CHECK] saveCsvFile : {saveCsvFile}")
+
+                    saveXlsxFile = sysOpt['preDt'].strftime(modelInfo['saveXlsxFile'])
+                    os.makedirs(os.path.dirname(saveXlsxFile), exist_ok=True)
+                    data.to_csv(saveXlsxFile, index=False)
+                    log.info(f"[CHECK] saveXlsxFile : {saveXlsxFile}")
+
+            # =================================================================
+            # 구글시트 연계
+            # =================================================================
+            inpFile = '/HDD/DATA/OUTPUT/LSH0612/naverNewsL1_20250702.csv'
+            fileList = sorted(glob.glob(inpFile), reverse=True)
+            fileInfo = fileList[0]
+            data = pd.read_csv(fileInfo)
+
+            # 모든 컬럼 문자열
+            dataL1 = data.astype(str)
+
+            scopes = ['https://www.googleapis.com/auth/spreadsheets']
+            cfgInfo = "/HDD/SYSTEMS/PROG/PYTHON/IDE/resources/config/shlee1990-146be-f485474fc453.json"
+
+            creds = Credentials.from_service_account_file(cfgInfo, scopes=scopes)
+            client = gspread.authorize(creds)
+
+            try:
+                sheetUrl = 'https://docs.google.com/spreadsheets/d/1HytRF6BuzyDli5WLB178Q3-pZRf0xbb3qMSaW9DlMJc/edit?usp=sharing'
+                spreadsheet = client.open_by_url(sheetUrl)
+
+                sheetList = spreadsheet.worksheets()
+                for idx, sheet in enumerate(sheetList):
+                    print(f"인덱스: {idx} / 이름: {sheet.title} / 시트 ID (gid): {sheet.id}")
+
+                # 시트1 선택
+                # worksheet = spreadsheet.sheet1
+                worksheet = spreadsheet.get_worksheet_by_id(763549175)
+
+                # worksheet.clear()
+                updData = [dataL1.columns.values.tolist()] + dataL1.values.tolist()
+                worksheet.update('A1', updData)
+
+            except Exception as e:
+                log.error(f"Exception : {e}")
 
             # =================================================================
             # 파일 분할
@@ -347,42 +383,6 @@ class DtaProcess(object):
                 fileName = f'/HDD/DATA/OUTPUT/LSH0612/20250702_LSH0612 청소년 게임 중독 관련 수집 데이터 5종 - 네이버뉴스_{i}.csv'
                 chunk.to_csv(fileName, index=False, encoding='utf-8')
                 log.info(f"{fileName} 저장 완료 (행: {len(chunk)}개)")
-
-            # =================================================================
-            # 구글 API 자동화 연계
-            # =================================================================
-            # inpFile = '/HDD/DATA/OUTPUT/LSH0612/naverNewsL1_20250702.csv'
-            # fileList = sorted(glob.glob(inpFile), reverse=True)
-            # fileInfo = fileList[0]
-            # data = pd.read_csv(fileInfo)
-            #
-            # # 모든 컬럼 문자열
-            # dataL1 = data.astype(str)
-            #
-            # scopes = ['https://www.googleapis.com/auth/spreadsheets']
-            # cfgInfo = "/HDD/SYSTEMS/PROG/PYTHON/IDE/resources/config/shlee1990-146be-f485474fc453.json"
-            #
-            # creds = Credentials.from_service_account_file(cfgInfo, scopes=scopes)
-            # client = gspread.authorize(creds)
-            #
-            # try:
-            #     sheetUrl = 'https://docs.google.com/spreadsheets/d/1HytRF6BuzyDli5WLB178Q3-pZRf0xbb3qMSaW9DlMJc/edit?usp=sharing'
-            #     spreadsheet = client.open_by_url(sheetUrl)
-            #
-            #     sheetList = spreadsheet.worksheets()
-            #     for idx, sheet in enumerate(sheetList):
-            #         print(f"인덱스: {idx} / 이름: {sheet.title} / 시트 ID (gid): {sheet.id}")
-            #
-            #     # 시트1 선택
-            #     # worksheet = spreadsheet.sheet1
-            #     worksheet = spreadsheet.get_worksheet_by_id(763549175)
-            #
-            #     # worksheet.clear()
-            #     updData = [dataL1.columns.values.tolist()] + dataL1.values.tolist()
-            #     worksheet.update('A1', updData)
-            #
-            # except Exception as e:
-            #     log.error(f"Exception : {e}")
 
         except Exception as e:
             log.error(f"Exception : {str(e)}")
