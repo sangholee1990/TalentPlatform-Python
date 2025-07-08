@@ -385,12 +385,12 @@ class DtaProcess(object):
             # 아파트실거래 매칭
             # =================================================================
             # refData = pd.read_csv(sysOpt['아파트실거래']['saveFile'], low_memory=False)
-
+            #
             # dataL3 = pd.merge(dataL2, refData[['key', 'apt', 'sgg', 'dong']], how='left', left_on=['key'], right_on=['key'])
             # splitData = dataL3['key'].str.split(" ")
             # dataL3['town'] = splitData.str[2]
             # dataL3['name'] = dataL3['apt']
-            #
+
             # print(dataL4.loc[dataL4['name'] == '두산(가산로)'].iloc[0])
             # sys.exit(1)
 
