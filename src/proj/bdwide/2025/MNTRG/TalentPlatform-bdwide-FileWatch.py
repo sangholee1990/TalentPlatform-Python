@@ -349,7 +349,7 @@ async def asyncSchdl(sysOpt):
             scheduler.shutdown()
 
 # /SYSTEMS/LIB/anaconda3/envs/py38/lib/python3.8/site-packages/labelme/cli/export_json.py 코드 참조
-def makeLabelmeVis(json_file, out_dir,font_size = 30):
+def makeLabelmeVis(json_file, out_dir, font_size=30):
 
     if not osp.exists(out_dir):
         os.mkdir(out_dir)
