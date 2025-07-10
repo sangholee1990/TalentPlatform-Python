@@ -3,38 +3,6 @@
 # ================================================
 # Python을 이용한 파일이벤트 및 비동기 스케줄러 기반 라벨링 영상 생산
 
-# 프로그램 종료
-# ps -ef | grep python | grep TalentPlatform-bdwide-FileWatch.py | awk '{print $2}' | xargs kill -9
-
-# 프로그램 시작
-# conda activate py38
-# cd /SYSTEMS/PROG/PYTHON/IDE/src/proj/bdwide/2023
-# cd /SYSTEMS/PROG/PYTHON/IDE/src/proj/bdwide/2025/MNTRG
-# nohup python TalentPlatform-bdwide-FileWatch.py &
-# tail -f nohup.out
-
-# 입력 자료
-# /DATA/LABEL/ORG/생성일
-# *.jpg, *.json
-
-# 2024.03.18
-# 연구원님 저번에 주신 라벨링 이미지 변환 프로그램상에 문제가 확인되어 공유드립니다.
-
-# 1. 이미지 인식 문제
-# ORG와 OLD 폴더에는 정상적으로 이미지가 업로드되나 NEW 폴더에 있는 PNG 파일이 0바이트(빈 파일)로 생성되는 경우가 자주 발생하고 있습니다.
-# json 파일에 따른 이미지 생산될 경우 기존 json 파일을 삭제하게끔 변경해놨습니다.
-#
-# 2. 라벨링 누락
-# 실제 라벨링 프로그램(라벨미)에서는 확인되는 라벨링 작업이 변환된 PNG 파일에서는 없어지는 경우가 확인되고 있습니다.
-# 라벨링 과정에서 음영 색칠을 위한 4개 꼭지점이 없을 경우 정상적으로 표출이 안되는 것 같더라구요ㅠㅠ
-# 혹시 관련 샘플파일을 보내주시면 확인해보겠습니다.
-#
-# 2가지 사항에 대한 의견을 여쭤보고자 합니다.
-
-# /etc/security/limits.conf
-# * soft nofile 65536
-# * hard nofile 65536
-
 import argparse
 import glob
 import json
@@ -81,6 +49,15 @@ import asyncio
 from apscheduler.schedulers.asyncio import AsyncIOScheduler
 from apscheduler.executors.asyncio import AsyncIOExecutor
 import threading
+
+import base64
+import json
+import os
+import os.path as osp
+import imgviz
+import PIL.Image
+from loguru import logger
+from labelme import utils
 
 # =================================================
 # 사용자 매뉴얼
@@ -210,186 +187,6 @@ def initArgument(globalVar):
 
     return globalVar
 
-@retry(stop_max_attempt_number=10)
-def makeFileProc(fileInfo):
-    try:
-        if not os.path.exists(fileInfo): return
-        log.info(f'[CHECK] fileInfo : {fileInfo}')
-
-        fileRegDate = fileInfo.replace(globalVar['orgPath'], '').split('/')[1]
-        fileName = os.path.basename(fileInfo)
-        fileNameNoExt = fileName.split('.')[0]
-        fileExt = fileName.split('.')[1]
-
-        # 자료 처리
-        if re.search('jpg', fileExt, re.IGNORECASE):
-            saveFile = "{}/{}/{}.jpg".format(globalVar['oldPath'], fileRegDate, fileNameNoExt)
-            os.makedirs(os.path.dirname(saveFile), exist_ok=True)
-
-            try:
-                shutil.move(fileInfo, saveFile)
-                log.info(f'[CHECK] saveFile : {saveFile}')
-            except OSError as e:
-                raise ValueError(f'파일 관리 실패 : {e}')
-
-        if re.search('json', fileExt, re.IGNORECASE):
-            tmpPath = globalVar['tmpPath']
-            os.makedirs(tmpPath, exist_ok=True)
-
-            # # cmdProc = f"labelme_export_json '{fileInfo}' -o '{tmpPath}'"
-            # # cmd = f"source /usr/local/anaconda3/etc/profile.d/conda.sh && conda activate py38 && {cmdProc}"
-            # # cmd = f"source /HDD/SYSTEMS/LIB/anaconda3/etc/profile.d/conda.sh && conda activate py38 && {cmdProc}"
-            # cmd = f"/HDD/SYSTEMS/LIB/anaconda3/envs/py38/bin/labelme_export_json '{fileInfo}' -o '{tmpPath}'"
-            # log.info(f'[CHECK] cmd : {cmd}')
-            #
-            # try:
-            #     subprocess.run(cmd, shell=True, check=True, executable='/bin/bash')
-            # except subprocess.CalledProcessError as e:
-            #     raise ValueError(f'실행 프로그램 실패 : {e}')
-
-            # /SYSTEMS/LIB/anaconda3/envs/py38/lib/python3.8/site-packages/labelme/cli/export_json.py 수행
-            try:
-                makeLabelmeVis(json_file=fileInfo, out_dir=tmpPath, font_size=20)
-            except Exception as e:
-                raise ValueError(f'실행 프로그램 실패 : {e}')
-
-            oldFile = "{}/{}".format(tmpPath, 'label_viz.png')
-
-            if not os.path.exists(oldFile):
-                raise ValueError(f'파일 존재 검사')
-
-            if os.path.getsize(oldFile) < 1:
-                raise ValueError(f'파일 용량 검사')
-
-            saveFile = "{}/{}/{}.png".format(globalVar['newPath'], fileRegDate, fileNameNoExt)
-            os.makedirs(os.path.dirname(saveFile), exist_ok=True)
-
-            try:
-                # 파일 이동
-                shutil.move(oldFile, saveFile)
-                log.info(f'[CHECK] saveFile : {saveFile}')
-
-                # 임시 폴더 삭제
-                shutil.rmtree(tmpPath)
-
-                # 파일 삭제
-                if os.path.exists(saveFile):
-                    os.remove(fileInfo)
-            except OSError as e:
-                raise ValueError(f'실행 프로그램 실패 : {e}')
-
-    except Exception as e:
-        log.error(f'Exception : {e}')
-        raise e
-
-class handler(FileSystemEventHandler):
-    def __init__(self, patterns):
-        self.patterns = patterns
-
-    def on_any_event(self, event):
-        if not any(fnmatch.fnmatch(event.src_path, pattern) for pattern in self.patterns): return
-        if not re.search('closed', event.event_type, re.IGNORECASE): return
-        if not os.path.exists(event.src_path): return
-
-        log.info(f'[CHECK] event : {event} / event_type : {event.event_type} / src_path : {event.src_path}')
-
-        try:
-            makeFileProc(event.src_path)
-        except Exception as e:
-            log.error(f'Exception : {e}')
-
-def fileWatch(sysOpt):
-    observer = Observer()
-    eventHandler = handler(sysOpt['mntrgFileList'])
-    filePathList = set(os.path.dirname(os.path.dirname(fileInfo)) for fileInfo in sysOpt['mntrgFileList'])
-    for filePathInfo in filePathList:
-        observer.schedule(eventHandler, filePathInfo, recursive=True)
-    observer.start()
-
-    try:
-        while observer.is_alive():
-            observer.join(timeout=1)
-    except Exception as e:
-        log.error(f'Exception : {e}')
-    finally:
-        if observer.is_alive():
-            observer.stop()
-        observer.join()
-
-def makeFileList(mntrgFileInfo):
-    fileList = glob.glob(mntrgFileInfo)
-    # log.info(f"[CHECK] fileList : {fileList}")
-
-    for fileInfo in fileList:
-        makeFileProc(fileInfo)
-
-async def asyncSchdl(sysOpt):
-    scheduler = AsyncIOScheduler()
-
-    jobList = [
-        (makeFileList, 'cron', {'second': '0'}, {'args': [sysOpt['mntrgFileList'][0]]}),
-        (makeFileList, 'cron', {'second': '30'}, {'args': [sysOpt['mntrgFileList'][1]]}),
-    ]
-
-    for fun, trigger, triggerArgs, kwargs in jobList:
-        try:
-            scheduler.add_job(fun, trigger, **triggerArgs, **kwargs)
-        except Exception as e:
-            log.error(f"Exception : {e}")
-
-    scheduler.start()
-    asyncEvent = asyncio.Event()
-
-    try:
-        await asyncEvent.wait()
-    except Exception as e:
-        log.error(f"Exception : {e}")
-    finally:
-        if scheduler.running:
-            scheduler.shutdown()
-
-# /SYSTEMS/LIB/anaconda3/envs/py38/lib/python3.8/site-packages/labelme/cli/export_json.py 코드 참조
-def makeLabelmeVis(json_file, out_dir,font_size = 30):
-
-    if not osp.exists(out_dir):
-        os.mkdir(out_dir)
-
-    data = json.load(open(json_file))
-    imageData = data.get("imageData")
-
-    if not imageData:
-        imagePath = os.path.join(os.path.dirname(json_file), data["imagePath"])
-        with open(imagePath, "rb") as f:
-            imageData = f.read()
-            imageData = base64.b64encode(imageData).decode("utf-8")
-    img = utils.img_b64_to_arr(imageData)
-
-    label_name_to_value = {"_background_": 0}
-    for shape in sorted(data["shapes"], key=lambda x: x["label"]):
-        label_name = shape["label"]
-        if label_name in label_name_to_value:
-            label_value = label_name_to_value[label_name]
-        else:
-            label_value = len(label_name_to_value)
-            label_name_to_value[label_name] = label_value
-    lbl, _ = utils.shapes_to_label(img.shape, data["shapes"], label_name_to_value)
-
-    label_names = [None] * (max(label_name_to_value.values()) + 1)
-    for name, value in label_name_to_value.items():
-        label_names[value] = name
-
-    # 33% 크기 감소
-    lbl_viz = imgviz.label2rgb(
-        lbl, imgviz.asgray(img), label_names=label_names, loc="rb", font_size=font_size
-    )
-
-    PIL.Image.fromarray(lbl_viz).save(osp.join(out_dir, "label_viz.png"))
-    # PIL.Image.fromarray(img).save(osp.join(out_dir, "img.png"))
-    # utils.lblsave(osp.join(out_dir, "label.png"), lbl)
-    # with open(osp.join(out_dir, "label_names.txt"), "w") as f:
-    #     for lbl_name in label_names:
-    #         f.write(lbl_name + "\n")
-
 # ================================================
 # 4. 부 프로그램
 # ================================================
@@ -448,33 +245,57 @@ class DtaProcess(object):
             if platform.system() == 'Windows':
                 pass
             else:
-                globalVar['inpPath'] = '/HDD/DATA/INPUT'
-                globalVar['outPath'] = '/HDD/DATA/OUTPUT'
-                globalVar['figPath'] = '/HDD/DATA/FIG'
-
-                # globalVar['orgPath'] = '/DATA/TEST/LABEL/ORG'
-                # globalVar['oldPath'] = '/DATA/TEST/LABEL/OLD'
-                # globalVar['newPath'] = '/DATA/TEST/LABEL/NEW'
-                globalVar['orgPath'] = '/HDD/DATA/LABEL/LABEL/ORG'
-                globalVar['oldPath'] = '/HDD/DATA/LABEL/LABEL/OLD'
-                globalVar['newPath'] = '/HDD/DATA/LABEL/LABEL/NEW'
-                globalVar['tmpPath'] = tempfile.TemporaryDirectory().name
+                pass
 
             # 옵션 설정
             sysOpt = {
-                'mntrgFileList': [
-                    f'{globalVar["orgPath"]}/*/*.jpg'
-                    , f'{globalVar["orgPath"]}/*/*.json'
-                ]
+                'fileInfo': '/SYSTEMS/PROG/PYTHON/IDE/src/proj/bdwide/2025/MNTRG/apc2016_obj3.json',
+                'tmpPath': tempfile.TemporaryDirectory().name,
             }
 
-            # 파일 감시
-            # fileWatch(sysOpt)
-            fileWachThr = threading.Thread(target=fileWatch, args=(sysOpt,), daemon=True)
-            fileWachThr.start()
+            # **********************************************************************************************************
+            # /SYSTEMS/LIB/anaconda3/envs/py38/lib/python3.8/site-packages/labelme/cli/export_json.py 코드 참조
+            # **********************************************************************************************************
+            json_file = sysOpt['fileInfo']
+            out_dir = sysOpt['tmpPath']
+            os.makedirs(out_dir, exist_ok=True)
 
-            # 파일 스케줄러
-            asyncio.run(asyncSchdl(sysOpt))
+            data = json.load(open(json_file))
+            imageData = data.get("imageData")
+
+            if not imageData:
+                imagePath = os.path.join(os.path.dirname(json_file), data["imagePath"])
+                with open(imagePath, "rb") as f:
+                    imageData = f.read()
+                    imageData = base64.b64encode(imageData).decode("utf-8")
+            img = utils.img_b64_to_arr(imageData)
+
+            label_name_to_value = {"_background_": 0}
+            for shape in sorted(data["shapes"], key=lambda x: x["label"]):
+                label_name = shape["label"]
+                if label_name in label_name_to_value:
+                    label_value = label_name_to_value[label_name]
+                else:
+                    label_value = len(label_name_to_value)
+                    label_name_to_value[label_name] = label_value
+            lbl, _ = utils.shapes_to_label(img.shape, data["shapes"], label_name_to_value)
+
+            label_names = [None] * (max(label_name_to_value.values()) + 1)
+            for name, value in label_name_to_value.items():
+                label_names[value] = name
+
+            # 33% 크기 감소
+            lbl_viz = imgviz.label2rgb(
+                # lbl, imgviz.asgray(img), label_names=label_names, loc="rb", font_size=30
+                lbl, imgviz.asgray(img), label_names=label_names, loc="rb", font_size=20
+            )
+
+            PIL.Image.fromarray(lbl_viz).save(osp.join(out_dir, "label_viz.png"))
+            # PIL.Image.fromarray(img).save(osp.join(out_dir, "img.png"))
+            # utils.lblsave(osp.join(out_dir, "label.png"), lbl)
+            # with open(osp.join(out_dir, "label_names.txt"), "w") as f:
+            #     for lbl_name in label_names:
+            #         f.write(lbl_name + "\n")
 
         except Exception as e:
             log.error(f"Exception : {e}")
