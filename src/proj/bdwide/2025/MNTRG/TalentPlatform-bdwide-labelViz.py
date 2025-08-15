@@ -81,7 +81,7 @@ from PIL import Image, ImageDraw, ImageFont
 warnings.filterwarnings("ignore")
 # font_manager._rebuild()
 
-plt.rc('font', family='Malgun Gothic')
+# plt.rc('font', family='Malgun Gothic')
 plt.rc('axes', unicode_minus=False)
 # sns.set(font="Malgun Gothic", rc={"axes.unicode_minus": False}, style='darkgrid')
 
@@ -191,7 +191,7 @@ def initArgument(globalVar):
     return globalVar
 
 # /SYSTEMS/LIB/anaconda3/envs/py38/lib/python3.8/site-packages/labelme/cli/export_json.py 코드 참조
-def makeLabelmeVis(json_file, out_dir, font_size=30):
+def makeLabelmePolygon(json_file, out_dir, font_size=30):
 
     if not osp.exists(out_dir):
         os.mkdir(out_dir)
@@ -241,8 +241,7 @@ def makeLabelmeVis(json_file, out_dir, font_size=30):
     #     for lbl_name in label_names:
     #         f.write(lbl_name + "\n")
 
-# /SYSTEMS/LIB/anaconda3/envs/py38/lib/python3.8/site-packages/labelme/cli/export_json.py 코드 참조
-def makeLabelmeVis2(json_file, out_dir, font_size=30):
+def makeLabelmeBbox(json_file, out_dir, font_size):
 
     if not osp.exists(out_dir):
         os.mkdir(out_dir)
@@ -259,6 +258,7 @@ def makeLabelmeVis2(json_file, out_dir, font_size=30):
     imgObj = PIL.Image.fromarray(img)
 
     label_names = sorted(list(set([shape['label'] for shape in data['shapes']])))
+    label_names.insert(0, '_background_')
     colormap = imgviz.label_colormap(len(label_names))
 
     # 영상 생산
@@ -269,10 +269,10 @@ def makeLabelmeVis2(json_file, out_dir, font_size=30):
     ax.imshow(img)
     ax.axis('off')
 
-    legend_labels_added = set()
+    legendList = set()
     for shape in sorted(data["shapes"], key=lambda x: x["label"]):
-        label_name = shape["label"]
-        if not label_name or label_name == "_background_":
+        labelName = shape["label"]
+        if not labelName or labelName == "_background_":
             continue
 
         points = np.array(shape["points"])
@@ -282,7 +282,7 @@ def makeLabelmeVis2(json_file, out_dir, font_size=30):
         width = xmax - xmin
         height = ymax - ymin
 
-        label_index = label_names.index(label_name)
+        label_index = label_names.index(labelName)
         color = np.array(colormap[label_index]) / 255.0
 
         rect = patches.Rectangle(
@@ -291,14 +291,14 @@ def makeLabelmeVis2(json_file, out_dir, font_size=30):
         )
 
         ax.add_patch(rect)
-        # ax.text(xmin, ymin - 10, label_name, color=color, fontsize=12, weight='bold')
+        # ax.text(xmin, ymin - 10, labelName, color=color, fontsize=12, weight='bold')
 
-        if label_name not in legend_labels_added:
-            rect.set_label(label_name)
-            legend_labels_added.add(label_name)
+        if labelName not in legendList:
+            rect.set_label(labelName)
+            legendList.add(labelName)
 
-    ax.legend(loc='lower right')
-    saveImg = osp.join(out_dir, "label_viz.png")
+    ax.legend(loc='lower right', fontsize=font_size)
+    saveImg = osp.join(out_dir, 'label_viz.png')
     os.makedirs(os.path.dirname(saveImg), exist_ok=True)
     fig.subplots_adjust(left=0, bottom=0, right=1, top=1, wspace=0, hspace=0)
     fig.savefig(saveImg, dpi=dpi, pad_inches=0, transparent=True)
@@ -370,13 +370,15 @@ class DtaProcess(object):
                 # 'fileInfo': '/SYSTEMS/PROG/PYTHON/IDE/src/proj/bdwide/2025/MNTRG/apc2016_obj3.json',
                 'fileInfo': '/DATA/INPUT/BDWIDE2025/MNTRG/0000017_as-2579102.json',
                 'tmpPath': tempfile.TemporaryDirectory().name,
+                'fontInfo': '/HDD/SYSTEMS/PROG/PYTHON/IDE/resources/config/fontInfo/malgun.ttf',
             }
 
             # **********************************************************************************************************
             # /SYSTEMS/LIB/anaconda3/envs/py38/lib/python3.8/site-packages/labelme/cli/export_json.py 코드 참조
             # **********************************************************************************************************
+
             # makeLabelmeVis(json_file=sysOpt['fileInfo'], out_dir=sysOpt['tmpPath'], font_size=20)
-            makeLabelmeVis2(json_file=sysOpt['fileInfo'], out_dir=sysOpt['tmpPath'], font_size=20)
+            makeLabelmeBbox(json_file=sysOpt['fileInfo'], out_dir=sysOpt['tmpPath'], font_size='medium')
 
         except Exception as e:
             log.error(f"Exception : {e}")

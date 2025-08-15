@@ -5,12 +5,17 @@
 
 # 프로그램 종료
 # ps -ef | grep python | grep TalentPlatform-bdwide-FileWatch.py | awk '{print $2}' | xargs kill -9
+# pkill -f TalentPlatform-bdwide-FileWatch.py
 
 # 프로그램 시작
 # conda activate py38
 # cd /SYSTEMS/PROG/PYTHON/IDE/src/proj/bdwide/2023
 # cd /SYSTEMS/PROG/PYTHON/IDE/src/proj/bdwide/2025/MNTRG
 # nohup python TalentPlatform-bdwide-FileWatch.py &
+# tail -f nohup.out
+
+# cd /SYSTEMS/PROG/PYTHON/IDE/src/proj/bdwide/2025/MNTRG
+# nohup /SYSTEMS/LIB/anaconda3/envs/py38/bin/python TalentPlatform-bdwide-FileWatch.py &
 # tail -f nohup.out
 
 # 입력 자료
@@ -81,6 +86,9 @@ import asyncio
 from apscheduler.schedulers.asyncio import AsyncIOScheduler
 from apscheduler.executors.asyncio import AsyncIOExecutor
 import threading
+import matplotlib.pyplot as plt
+import numpy as np
+import matplotlib.patches as patches
 
 # =================================================
 # 사용자 매뉴얼
@@ -101,7 +109,7 @@ import threading
 warnings.filterwarnings("ignore")
 # font_manager._rebuild()
 
-plt.rc('font', family='Malgun Gothic')
+# plt.rc('font', family='Malgun Gothic')
 plt.rc('axes', unicode_minus=False)
 # sns.set(font="Malgun Gothic", rc={"axes.unicode_minus": False}, style='darkgrid')
 
@@ -249,7 +257,10 @@ def makeFileProc(fileInfo):
 
             # /SYSTEMS/LIB/anaconda3/envs/py38/lib/python3.8/site-packages/labelme/cli/export_json.py 수행
             try:
-                makeLabelmeVis(json_file=fileInfo, out_dir=tmpPath, font_size=20)
+                if re.search('bbox', fileRegDate, re.IGNORECASE):
+                    makeLabelmeBbox(json_file=fileInfo, out_dir=tmpPath, font_size='medium')
+                else:
+                    makeLabelmePolygon(json_file=fileInfo, out_dir=tmpPath, font_size=20)
             except Exception as e:
                 raise ValueError(f'실행 프로그램 실패 : {e}')
 
@@ -349,7 +360,7 @@ async def asyncSchdl(sysOpt):
             scheduler.shutdown()
 
 # /SYSTEMS/LIB/anaconda3/envs/py38/lib/python3.8/site-packages/labelme/cli/export_json.py 코드 참조
-def makeLabelmeVis(json_file, out_dir, font_size=30):
+def makeLabelmePolygon(json_file, out_dir, font_size=30):
 
     if not osp.exists(out_dir):
         os.mkdir(out_dir)
@@ -383,12 +394,79 @@ def makeLabelmeVis(json_file, out_dir, font_size=30):
         lbl, imgviz.asgray(img), label_names=label_names, loc="rb", font_size=font_size
     )
 
-    PIL.Image.fromarray(lbl_viz).save(osp.join(out_dir, "label_viz.png"))
+    # PIL.Image.fromarray(lbl_viz).save(osp.join(out_dir, "label_viz.png"))
+    saveImg = osp.join(out_dir, "label_viz.png")
+    PIL.Image.fromarray(lbl_viz).save(saveImg)
+
     # PIL.Image.fromarray(img).save(osp.join(out_dir, "img.png"))
     # utils.lblsave(osp.join(out_dir, "label.png"), lbl)
     # with open(osp.join(out_dir, "label_names.txt"), "w") as f:
     #     for lbl_name in label_names:
     #         f.write(lbl_name + "\n")
+
+def makeLabelmeBbox(json_file, out_dir, font_size):
+
+    if not osp.exists(out_dir):
+        os.mkdir(out_dir)
+
+    data = json.load(open(json_file))
+    imageData = data.get("imageData")
+
+    if not imageData:
+        imagePath = os.path.join(os.path.dirname(json_file), data["imagePath"])
+        with open(imagePath, "rb") as f:
+            imageData = f.read()
+            imageData = base64.b64encode(imageData).decode("utf-8")
+    img = utils.img_b64_to_arr(imageData)
+    imgObj = PIL.Image.fromarray(img)
+
+    label_names = sorted(list(set([shape['label'] for shape in data['shapes']])))
+    label_names.insert(0, '_background_')
+    colormap = imgviz.label_colormap(len(label_names))
+
+    # 영상 생산
+    dpi = 100
+    figsizeInch = (imgObj.width / dpi, imgObj.height / dpi)
+
+    fig, ax = plt.subplots(1, figsize=figsizeInch, dpi=dpi)
+    ax.imshow(img)
+    ax.axis('off')
+
+    legendList = set()
+    for shape in sorted(data["shapes"], key=lambda x: x["label"]):
+        labelName = shape["label"]
+        if not labelName or labelName == "_background_":
+            continue
+
+        points = np.array(shape["points"])
+        xmin, ymin = points.min(axis=0)
+        xmax, ymax = points.max(axis=0)
+
+        width = xmax - xmin
+        height = ymax - ymin
+
+        label_index = label_names.index(labelName)
+        color = np.array(colormap[label_index]) / 255.0
+
+        rect = patches.Rectangle(
+            (xmin, ymin), width, height,
+            linewidth=2, edgecolor=color, facecolor='none'
+        )
+
+        ax.add_patch(rect)
+        # ax.text(xmin, ymin - 10, labelName, color=color, fontsize=12, weight='bold')
+
+        if labelName not in legendList:
+            rect.set_label(labelName)
+            legendList.add(labelName)
+
+    ax.legend(loc='lower right', fontsize=font_size)
+    saveImg = osp.join(out_dir, 'label_viz.png')
+    os.makedirs(os.path.dirname(saveImg), exist_ok=True)
+    fig.subplots_adjust(left=0, bottom=0, right=1, top=1, wspace=0, hspace=0)
+    fig.savefig(saveImg, dpi=dpi, pad_inches=0, transparent=True)
+    log.info(f'[CHECK] saveImg : {saveImg}')
+    # plt.show()
 
 # ================================================
 # 4. 부 프로그램
