@@ -40,6 +40,19 @@
 # * soft nofile 65536
 # * hard nofile 65536
 
+# 20250816_Python을 이용한 라벨링 영상 개선 (폴리곤, 경계선박스)
+# 최상위 경로 (/HDD/DATA/LABEL/LABEL/ORG)에서 키워드 (bbox) 유무에 따라 폴리곤/경계선박스 생산 처리
+
+# [폴리곤 생산]
+# 입력경로 /HDD/DATA/LABEL/LABEL/ORG/20250816
+# JPG 출력경로 /HDD/DATA/LABEL/LABEL/OLD/20250816
+# JSON 출력경로 /HDD/DATA/LABEL/LABEL/NEW/20250816
+
+# [경계선박스 생산] 폴더 키워드 추가 (bbox)
+# 입력경로 /HDD/DATA/LABEL/LABEL/ORG/20250816_bbox
+# JPG 출력경로 /HDD/DATA/LABEL/LABEL/OLD/20250816_bbox
+# JSON 출력경로 /HDD/DATA/LABEL/LABEL/NEW/20250816_bbox
+
 import argparse
 import glob
 import json
