@@ -4,6 +4,11 @@ echo "[$(date +"%Y-%m-%d %H:%M:%S")] [START] Main Shell : $0"
 echo
 
 #========================================
+# DOC
+#========================================
+#0 */12 * * * bash /home/guest_user1/SYSTEMS/KIER/PROG/SHELL/RunShell-INDI2023-Main.sh "$(date -d "2 days ago" +\%Y-\%m-\%d\ 00:00)" "$(date +\%Y-\%m-\%d\ 00:00)"
+
+#========================================
 # Init Config
 #========================================
 ulimit -s unlimited
