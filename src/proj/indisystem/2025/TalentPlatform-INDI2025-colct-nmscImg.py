@@ -9,7 +9,7 @@
 # /vol01/SYSTEMS/INDIAI/LIB/anaconda3/envs/py38/bin/python /vol01/SYSTEMS/DMS02/PROG/PYTHON/TalentPlatform-INDI2025-colct-nmscImg.py --modelList 'NMSC' --cpuCoreNum '5' --srtDate '2025-08-20 00:00' --endDate '2025-08-20 08:22'
 # nohup /vol01/SYSTEMS/INDIAI/LIB/anaconda3/envs/py38/bin/python /vol01/SYSTEMS/DMS02/PROG/PYTHON/TalentPlatform-INDI2025-colct-nmscImg.py --modelList 'NMSC' --cpuCoreNum '5' --srtDate '2025-08-20 00:00' --endDate '2025-08-20 08:22' &
 
-# */2 * * * * cd /vol01/SYSTEMS/DMS02/PROG/PYTHON && /vol01/SYSTEMS/INDIAI/LIB/anaconda3/envs/py38/bin/python /vol01/SYSTEMS/DMS02/PROG/PYTHON/TalentPlatform-INDI2025-colct-nmscImg.py --modelList 'NMSC' --cpuCoreNum '5' --srtDate "$(date -d "9 hours ago + 10 minutes" +\%Y-\%m-\%d\ 00:00)" --endDate "$(date -d "9 hours ago" +\%Y-\%m-\%d\ \%H:\%M)"
+# */2 * * * * cd /vol01/SYSTEMS/DMS02/PROG/PYTHON && /vol01/SYSTEMS/INDIAI/LIB/anaconda3/envs/py38/bin/python /vol01/SYSTEMS/DMS02/PROG/PYTHON/TalentPlatform-INDI2025-colct-nmscImg.py --modelList 'NMSC' --cpuCoreNum '5' --srtDate "$(date -d "9 hours ago - 10 minutes" +\%Y-\%m-\%d\ \%H:\%M)" --endDate "$(date -d "9 hours ago" +\%Y-\%m-\%d\ \%H:\%M)"
 
 import argparse
 import glob
