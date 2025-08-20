@@ -431,18 +431,18 @@ class DtaProcess(object):
             # 옵션 설정
             sysOpt = {
                 # 예보시간 시작일, 종료일, 시간 간격 (연 1y, 월 1m, 일 1d, 시간 1h, 분 1t, 초 1s)
-                'srtDate': '2025-08-20 00:00',
-                'endDate': '2025-08-20 01:00',
-                # 'srtDate': globalVar['srtDate'],
-                # 'endDate': globalVar['endDate'],
+                # 'srtDate': '2025-08-20 00:00',
+                # 'endDate': '2025-08-20 01:00',
+                'srtDate': globalVar['srtDate'],
+                'endDate': globalVar['endDate'],
 
                 # 수행 목록
-                'modelList': ['NMSC'],
-                # 'modelList': [globalVar['modelList']],
+                # 'modelList': ['NMSC'],
+                'modelList': [globalVar['modelList']],
 
                 # 비동기 다중 프로세스 개수
-                'cpuCoreNum': '5',
-                # 'cpuCoreNum': globalVar['cpuCoreNum'],
+                # 'cpuCoreNum': '5',
+                'cpuCoreNum': globalVar['cpuCoreNum'],
 
                 'NMSC': {
                     'request': {
