@@ -448,6 +448,21 @@ class DtaProcess(object):
                     'request': {
                         'urlRoot': 'https://nmsc.kma.go.kr',
                         'urlList': [
+                            # 서비스
+                            '/IMG/GK2A/AMI/PRIMARY/L1B/COMPLETE/EA/%Y%m/%d/%H/gk2a_ami_le1b_rgb-s-true_ea020lc_%Y%m%d%H%M.srv.png',
+                            '/IMG/GK2A/AMI/PRIMARY/L1B/COMPLETE/EA/%Y%m/%d/%H/gk2a_ami_le1b_enhc-color-ir105_ea020lc_%Y%m%d%H%M.srv.png',
+                            '/IMG/GK2A/AMI/PRIMARY/L1B/COMPLETE/EA/%Y%m/%d/%H/gk2a_ami_le1b_rgb-s-daynight_ea020lc_%Y%m%d%H%M.srv.png',
+                            '/IMG/GK2A/AMI/L3/SST/EA/%Y%m/%d/00/gk2a_ami_le3_sst-1dm_ea020lc_%Y%m%d0000.srv.png',
+                            '/IMG/GK2A/AMI/L2/CTPS/EA/%Y%m/%d/%H/gk2a_ami_le2_ctps-ctt_ea020lc_%Y%m%d%H%M.srv.png',
+                            '/IMG/GK2A/AMI/PRIMARY/L1B/COMPLETE/EA/%Y%m/%d/%H/gk2a_ami_le1b_rgb-dust_ea020lc_%Y%m%d%H%M.srv.png',
+                            '/IMG/GK2A/AMI/L2/ADPS/EA/%Y%m/%d/%H/gk2a_ami_le2_adps_ea020lc_%Y%m%d%H%M.srv.png',
+                            '/IMG/GK2A/AMI/L2/APPS/EA/%Y%m/%d/%H/gk2a_ami_le2_apps-aod_ea020lc_%Y%m%d%H%M.srv.png',
+                            '/IMG/GK2A/AMI/L2/FOG/KO/%Y%m/%d/%H/gk2a_ami_le2_fog_ko020lc_%Y%m%d%H%M.srv.png',
+                            '/IMG/GK2A/AMI/PRIMARY/L1B/COMPLETE/KO/%Y%m/%d/%H/gk2a_ami_le1b_rgb-daynight_ko020lc_%Y%m%d%H%M.srv.png',
+                            '/IMG/GK2A/AMI/PRIMARY/L1B/COMPLETE/KO/%Y%m/%d/%H/gk2a_ami_le1b_rgb-s-true_ko020lc_%Y%m%d%H%M.srv.png',
+                            '/IMG/GK2A/AMI/L3/SST/KO/%Y%m/%d/00/gk2a_ami_le3_sst-1dm_ko020lc_%Y%m%d0000.srv.png',
+                            '/IMG/GK2A/AMI/PRIMARY/L1B/COMPLETE/EA/%Y%m/%d/%H/gk2a_ami_le1b_rgb-s-true_ea020lc_%Y%m%d%H%M.srv.png',
+                            # 썸네일
                             '/IMG/GK2A/AMI/PRIMARY/L1B/COMPLETE/EA/%Y%m/%d/%H/gk2a_ami_le1b_rgb-s-true_ea020lc_%Y%m%d%H%M.thn.png',
                             '/IMG/GK2A/AMI/PRIMARY/L1B/COMPLETE/EA/%Y%m/%d/%H/gk2a_ami_le1b_enhc-color-ir105_ea020lc_%Y%m%d%H%M.thn.png',
                             '/IMG/GK2A/AMI/PRIMARY/L1B/COMPLETE/EA/%Y%m/%d/%H/gk2a_ami_le1b_rgb-s-daynight_ea020lc_%Y%m%d%H%M.thn.png',
