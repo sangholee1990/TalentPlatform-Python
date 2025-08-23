@@ -345,7 +345,10 @@ def makeFileList(mntrgFileInfo):
     # log.info(f"[CHECK] fileList : {fileList}")
 
     for fileInfo in fileList:
-        makeFileProc(fileInfo)
+        try:
+            makeFileProc(fileInfo)
+        except Exception as e:
+            log.error(f'Exception : {e}')
 
 async def asyncSchdl(sysOpt):
     scheduler = AsyncIOScheduler()
