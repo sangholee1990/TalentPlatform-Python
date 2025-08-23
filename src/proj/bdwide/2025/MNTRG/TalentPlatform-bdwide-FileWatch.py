@@ -255,8 +255,8 @@ def makeFileProc(fileInfo):
                 raise ValueError(f'파일 관리 실패 : {e}')
 
         if re.search('json', fileExt, re.IGNORECASE):
-            tmpPath = globalVar['tmpPath']
-            # tmpPath = tempfile.TemporaryDirectory().name
+            # tmpPath = globalVar['tmpPath']
+            tmpPath = tempfile.TemporaryDirectory().name
             os.makedirs(tmpPath, exist_ok=True)
 
             # # cmdProc = f"labelme_export_json '{fileInfo}' -o '{tmpPath}'"
@@ -557,7 +557,7 @@ class DtaProcess(object):
                 globalVar['orgPath'] = '/HDD/DATA/LABEL/LABEL/ORG'
                 globalVar['oldPath'] = '/HDD/DATA/LABEL/LABEL/OLD'
                 globalVar['newPath'] = '/HDD/DATA/LABEL/LABEL/NEW'
-                globalVar['tmpPath'] = tempfile.TemporaryDirectory().name
+                # globalVar['tmpPath'] = tempfile.TemporaryDirectory().name
 
             # 옵션 설정
             sysOpt = {
