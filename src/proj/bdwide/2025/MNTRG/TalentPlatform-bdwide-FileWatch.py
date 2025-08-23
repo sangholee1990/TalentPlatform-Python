@@ -102,6 +102,7 @@ import threading
 import matplotlib.pyplot as plt
 import numpy as np
 import matplotlib.patches as patches
+from concurrent.futures import ProcessPoolExecutor, as_completed
 
 # =================================================
 # 사용자 매뉴얼
@@ -255,6 +256,7 @@ def makeFileProc(fileInfo):
 
         if re.search('json', fileExt, re.IGNORECASE):
             tmpPath = globalVar['tmpPath']
+            # tmpPath = tempfile.TemporaryDirectory().name
             os.makedirs(tmpPath, exist_ok=True)
 
             # # cmdProc = f"labelme_export_json '{fileInfo}' -o '{tmpPath}'"
@@ -349,6 +351,9 @@ def makeFileList(mntrgFileInfo):
             makeFileProc(fileInfo)
         except Exception as e:
             log.error(f'Exception : {e}')
+
+    # with ProcessPoolExecutor() as executor:
+    #     list(executor.map(makeFileProc, fileList))
 
 async def asyncSchdl(sysOpt):
     scheduler = AsyncIOScheduler()
@@ -557,9 +562,9 @@ class DtaProcess(object):
             # 옵션 설정
             sysOpt = {
                 'mntrgFileList': [
-                    f'{globalVar["orgPath"]}/*/*.jpg'
-                    , f'{globalVar["orgPath"]}/*/*.json'
-                ]
+                    f'{globalVar["orgPath"]}/*/*.jpg',
+                    f'{globalVar["orgPath"]}/*/*.json',
+                ],
             }
 
             # 파일 감시
