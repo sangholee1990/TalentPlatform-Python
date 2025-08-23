@@ -10,6 +10,8 @@
 # nohup /vol01/SYSTEMS/INDIAI/LIB/anaconda3/envs/py38/bin/python /vol01/SYSTEMS/DMS02/PROG/PYTHON/TalentPlatform-INDI2025-colct-nmscImg.py --modelList 'NMSC' --cpuCoreNum '5' --srtDate '2025-08-20 00:00' --endDate '2025-08-20 08:22' &
 
 # */2 * * * * cd /vol01/SYSTEMS/DMS02/PROG/PYTHON && /vol01/SYSTEMS/INDIAI/LIB/anaconda3/envs/py38/bin/python /vol01/SYSTEMS/DMS02/PROG/PYTHON/TalentPlatform-INDI2025-colct-nmscImg.py --modelList 'NMSC' --cpuCoreNum '5' --srtDate "$(date -d "9 hours ago - 10 minutes" +\%Y-\%m-\%d\ \%H:\%M)" --endDate "$(date -d "9 hours ago" +\%Y-\%m-\%d\ \%H:\%M)"
+# */2 * * * * cd /vol01/SYSTEMS/DMS02/PROG/PYTHON && /vol01/SYSTEMS/INDIAI/LIB/anaconda3/envs/py38/bin/python /vol01/SYSTEMS/DMS02/PROG/PYTHON/TalentPlatform-INDI2025-colct-nmscImg.py --modelList 'NMSC' --cpuCoreNum '5' --srtDate "$(date -u -d "1 hours ago" +\%Y-\%m-\%d\ \%H:\%M)" --endDate "$(date -u +\%Y-\%m-\%d\ \%H:\%M)"
+# */2 * * * * cd /vol01/SYSTEMS/DMS02/PROG/PYTHON && /vol01/SYSTEMS/INDIAI/LIB/anaconda3/envs/py38/bin/python /vol01/SYSTEMS/DMS02/PROG/PYTHON/TalentPlatform-INDI2025-colct-nmscImg.py --modelList 'NMSC' --cpuCoreNum '5' --srtDate "$(date -u -d "1 hours ago" +\%Y-\%m-\%d\ \%H:00)" --endDate "$(date -u +\%Y-\%m-\%d\ \%H:\%M)"
 
 import argparse
 import glob
@@ -323,39 +325,42 @@ def colctNmsc(modelInfo, dtDateInfo):
         urlRoot = modelInfo['request']['urlRoot']
         urlList = modelInfo['request']['urlList']
         for urlInfo in urlList:
-            tmpFileInfo = dtDateInfo.strftime(modelInfo['tmp'].format(urlInfo=urlInfo))
-            updFileInfo = dtDateInfo.strftime(modelInfo['target'].format(urlInfo=urlInfo))
-
-            # 파일 검사
-            fileList = sorted(glob.glob(updFileInfo))
-            if len(fileList) > 0: return
-
-            reqUrl = dtDateInfo.strftime(f"{urlRoot}{urlInfo}")
-
-            # res = requests.get(reqUrl)
-            # if not (res.status_code == 200): return
-
-            os.makedirs(os.path.dirname(tmpFileInfo), exist_ok=True)
-            os.makedirs(os.path.dirname(updFileInfo), exist_ok=True)
-
-            if os.path.exists(tmpFileInfo):
-                os.remove(tmpFileInfo)
-
-            cmd = f"curl -s -C - '{reqUrl}' --retry 10 -o {tmpFileInfo}"
-            log.info(f'[CHECK] cmd : {cmd}')
-
             try:
-                subprocess.run(cmd, shell=True, check=True, executable='/bin/bash')
-            except subprocess.CalledProcessError as e:
-                raise ValueError(f'[ERROR] 실행 프로그램 실패 : {str(e)}')
+                tmpFileInfo = dtDateInfo.strftime(modelInfo['tmp'].format(urlInfo=urlInfo))
+                updFileInfo = dtDateInfo.strftime(modelInfo['target'].format(urlInfo=urlInfo))
 
-            if os.path.exists(tmpFileInfo):
-                if os.path.getsize(tmpFileInfo) > 2000:
-                    shutil.move(tmpFileInfo, updFileInfo)
-                    log.info(f'[CHECK] CMD : mv -f {tmpFileInfo} {updFileInfo}')
-                else:
+                # 파일 검사
+                fileList = sorted(glob.glob(updFileInfo))
+                if len(fileList) > 0: return
+
+                reqUrl = dtDateInfo.strftime(f"{urlRoot}{urlInfo}")
+
+                res = requests.get(reqUrl)
+                if not (res.status_code == 200): continue
+
+                os.makedirs(os.path.dirname(tmpFileInfo), exist_ok=True)
+                os.makedirs(os.path.dirname(updFileInfo), exist_ok=True)
+
+                if os.path.exists(tmpFileInfo):
                     os.remove(tmpFileInfo)
-                    log.info(f'[CHECK] CMD : rm -f {tmpFileInfo}')
+
+                cmd = f"curl -s -C - '{reqUrl}' --retry 10 -o {tmpFileInfo}"
+                log.info(f'[CHECK] cmd : {cmd}')
+
+                try:
+                    subprocess.run(cmd, shell=True, check=True, executable='/bin/bash')
+                except subprocess.CalledProcessError as e:
+                    raise ValueError(f'[ERROR] 실행 프로그램 실패 : {str(e)}')
+
+                if os.path.exists(tmpFileInfo):
+                    if os.path.getsize(tmpFileInfo) != 1161:
+                        shutil.move(tmpFileInfo, updFileInfo)
+                        log.info(f'[CHECK] CMD : mv -f {tmpFileInfo} {updFileInfo}')
+                    else:
+                        os.remove(tmpFileInfo)
+                        log.info(f'[CHECK] CMD : rm -f {tmpFileInfo}')
+            except Exception as e:
+                log.error(f'Exception : {e}')
 
         log.info(f'[END] colctNmsc : {dtDateInfo} / pid : {procInfo.pid}')
 
@@ -452,35 +457,38 @@ class DtaProcess(object):
                             '/IMG/GK2A/AMI/PRIMARY/L1B/COMPLETE/EA/%Y%m/%d/%H/gk2a_ami_le1b_rgb-s-true_ea020lc_%Y%m%d%H%M.srv.png',
                             '/IMG/GK2A/AMI/PRIMARY/L1B/COMPLETE/EA/%Y%m/%d/%H/gk2a_ami_le1b_enhc-color-ir105_ea020lc_%Y%m%d%H%M.srv.png',
                             '/IMG/GK2A/AMI/PRIMARY/L1B/COMPLETE/EA/%Y%m/%d/%H/gk2a_ami_le1b_rgb-s-daynight_ea020lc_%Y%m%d%H%M.srv.png',
-                            '/IMG/GK2A/AMI/L3/SST/EA/%Y%m/%d/00/gk2a_ami_le3_sst-1dm_ea020lc_%Y%m%d0000.srv.png',
-                            '/IMG/GK2A/AMI/L2/CTPS/EA/%Y%m/%d/%H/gk2a_ami_le2_ctps-ctt_ea020lc_%Y%m%d%H%M.srv.png',
                             '/IMG/GK2A/AMI/PRIMARY/L1B/COMPLETE/EA/%Y%m/%d/%H/gk2a_ami_le1b_rgb-dust_ea020lc_%Y%m%d%H%M.srv.png',
-                            '/IMG/GK2A/AMI/L2/ADPS/EA/%Y%m/%d/%H/gk2a_ami_le2_adps_ea020lc_%Y%m%d%H%M.srv.png',
                             '/IMG/GK2A/AMI/L2/APPS/EA/%Y%m/%d/%H/gk2a_ami_le2_apps-aod_ea020lc_%Y%m%d%H%M.srv.png',
+                            '/IMG/GK2A/AMI/L2/CTPS/EA/%Y%m/%d/%H/gk2a_ami_le2_ctps-cth_ea020lc_%Y%m%d%H%M.srv.png',
+                            '/IMG/GK2A/AMI/L2/CTPS/EA/%Y%m/%d/%H/gk2a_ami_le2_ctps-ctt_ea020lc_%Y%m%d%H%M.srv.png',
                             '/IMG/GK2A/AMI/L2/FOG/KO/%Y%m/%d/%H/gk2a_ami_le2_fog_ko020lc_%Y%m%d%H%M.srv.png',
+                            '/IMG/GK2A/AMI/L2/FOG/EA/%Y%m/%d/%H/gk2a_ami_le2_fog_ea020lc_%Y%m%d%H%M.srv.png',
                             '/IMG/GK2A/AMI/PRIMARY/L1B/COMPLETE/KO/%Y%m/%d/%H/gk2a_ami_le1b_rgb-daynight_ko020lc_%Y%m%d%H%M.srv.png',
                             '/IMG/GK2A/AMI/PRIMARY/L1B/COMPLETE/KO/%Y%m/%d/%H/gk2a_ami_le1b_rgb-s-true_ko020lc_%Y%m%d%H%M.srv.png',
                             '/IMG/GK2A/AMI/L3/SST/KO/%Y%m/%d/00/gk2a_ami_le3_sst-1dm_ko020lc_%Y%m%d0000.srv.png',
+                            '/IMG/GK2A/AMI/L3/SST/EA/%Y%m/%d/00/gk2a_ami_le3_sst-1dm_ea020lc_%Y%m%d0000.srv.png',
                             '/IMG/GK2A/AMI/PRIMARY/L1B/COMPLETE/EA/%Y%m/%d/%H/gk2a_ami_le1b_rgb-s-true_ea020lc_%Y%m%d%H%M.png',
                             '/IMG/GK2A/AMI/PRIMARY/L1B/COMPLETE/EA/%Y%m/%d/%H/gk2a_ami_le1b_rgb-s-true_ea020lc_%Y%m%d%H%M.srv.png',
                             # 썸네일
                             '/IMG/GK2A/AMI/PRIMARY/L1B/COMPLETE/EA/%Y%m/%d/%H/gk2a_ami_le1b_rgb-s-true_ea020lc_%Y%m%d%H%M.thn.png',
                             '/IMG/GK2A/AMI/PRIMARY/L1B/COMPLETE/EA/%Y%m/%d/%H/gk2a_ami_le1b_enhc-color-ir105_ea020lc_%Y%m%d%H%M.thn.png',
                             '/IMG/GK2A/AMI/PRIMARY/L1B/COMPLETE/EA/%Y%m/%d/%H/gk2a_ami_le1b_rgb-s-daynight_ea020lc_%Y%m%d%H%M.thn.png',
-                            '/IMG/GK2A/AMI/L3/SST/EA/%Y%m/%d/00/gk2a_ami_le3_sst-1dm_ea020lc_%Y%m%d0000.thn.png',
-                            '/IMG/GK2A/AMI/L2/CTPS/EA/%Y%m/%d/%H/gk2a_ami_le2_ctps-ctt_ea020lc_%Y%m%d%H%M.thn.png',
                             '/IMG/GK2A/AMI/PRIMARY/L1B/COMPLETE/EA/%Y%m/%d/%H/gk2a_ami_le1b_rgb-dust_ea020lc_%Y%m%d%H%M.thn.png',
-                            '/IMG/GK2A/AMI/L2/ADPS/EA/%Y%m/%d/%H/gk2a_ami_le2_adps_ea020lc_%Y%m%d%H%M.thn.png',
                             '/IMG/GK2A/AMI/L2/APPS/EA/%Y%m/%d/%H/gk2a_ami_le2_apps-aod_ea020lc_%Y%m%d%H%M.thn.png',
+                            '/IMG/GK2A/AMI/L2/CTPS/EA/%Y%m/%d/%H/gk2a_ami_le2_ctps-cth_ea020lc_%Y%m%d%H%M.thn.png',
+                            '/IMG/GK2A/AMI/L2/CTPS/EA/%Y%m/%d/%H/gk2a_ami_le2_ctps-ctt_ea020lc_%Y%m%d%H%M.thn.png',
                             '/IMG/GK2A/AMI/L2/FOG/KO/%Y%m/%d/%H/gk2a_ami_le2_fog_ko020lc_%Y%m%d%H%M.thn.png',
+                            '/IMG/GK2A/AMI/L2/FOG/EA/%Y%m/%d/%H/gk2a_ami_le2_fog_ea020lc_%Y%m%d%H%M.thn.png',
                             '/IMG/GK2A/AMI/PRIMARY/L1B/COMPLETE/KO/%Y%m/%d/%H/gk2a_ami_le1b_rgb-daynight_ko020lc_%Y%m%d%H%M.thn.png',
                             '/IMG/GK2A/AMI/PRIMARY/L1B/COMPLETE/KO/%Y%m/%d/%H/gk2a_ami_le1b_rgb-s-true_ko020lc_%Y%m%d%H%M.thn.png',
                             '/IMG/GK2A/AMI/L3/SST/KO/%Y%m/%d/00/gk2a_ami_le3_sst-1dm_ko020lc_%Y%m%d0000.thn.png',
+                            '/IMG/GK2A/AMI/L3/SST/EA/%Y%m/%d/00/gk2a_ami_le3_sst-1dm_ea020lc_%Y%m%d0000.thn.png',
                             '/IMG/GK2A/AMI/PRIMARY/L1B/COMPLETE/EA/202508/01/05/gk2a_ami_le1b_rgb-s-daynight_ea020lc_202508010520.jpg',
                             '/IMG/GK2A/AMI/PRIMARY/L1B/COMPLETE/EA/202508/01/05/gk2a_ami_le1b_enhc-color-ir105_ea020lc_202508010520.jpg',
                             '/IMG/GK2A/AMI/PRIMARY/L1B/COMPLETE/EA/202508/01/05/gk2a_ami_le1b_enhc-color-ir105_ea020lc_202508010530.jpg',
                         ]
-                        , 'invDate': '2t'
+                        # , 'invDate': '2t'
+                        , 'invDate': '10t'
                     }
                     , 'cmd': 'curl -s -C - {reqUrl} --retry 10 -o {tmpFileInfo}'
                     , 'tmp': '/vol01/DATA/.{urlInfo}'
