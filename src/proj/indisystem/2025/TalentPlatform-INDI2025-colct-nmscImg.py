@@ -181,10 +181,6 @@ def initArgument(globalVar):
 def colctProc(modelType, modelInfo, dtDateInfo):
     try:
         colctFunList = {
-            'UMKR': colctNwp,
-            'KIMG': colctNwp,
-            'ASOS': colctObs,
-            'AWS': colctObs,
             'NMSC': colctNmsc,
         }
 
@@ -213,109 +209,6 @@ def parseDateOffset(invDate):
         return DateOffset(seconds=value)
     else:
         raise ValueError(f"날짜 파싱 오류 : {unit}")
-
-@retry(stop_max_attempt_number=10)
-def colctObs(modelInfo, dtDateInfo):
-    try:
-        procInfo = mp.current_process()
-
-        tmpFileInfo = dtDateInfo.strftime(modelInfo['tmp'])
-        updFileInfo = dtDateInfo.strftime(modelInfo['target'])
-
-        # 파일 검사
-        fileList = sorted(glob.glob(updFileInfo))
-        if len(fileList) > 0: return
-
-        reqUrl = dtDateInfo.strftime(f"{modelInfo['request']['url']}").format(
-            tmfc=dtDateInfo.strftime('%Y%m%d%H%M'),
-            tmfc2=(dtDateInfo + parseDateOffset(modelInfo['request']['invDate']) - parseDateOffset('1s')).strftime('%Y%m%d%H%M'),
-            authKey=modelInfo['request']['authKey']
-        )
-
-        # res = requests.get(reqUrl)
-        # if not (res.status_code == 200): return
-
-        os.makedirs(os.path.dirname(tmpFileInfo), exist_ok=True)
-        os.makedirs(os.path.dirname(updFileInfo), exist_ok=True)
-
-        if os.path.exists(tmpFileInfo):
-            os.remove(tmpFileInfo)
-
-        cmd = f"curl -s -C - '{reqUrl}' --retry 10 -o {tmpFileInfo}"
-        log.info(f'[CHECK] cmd : {cmd}')
-
-        try:
-            subprocess.run(cmd, shell=True, check=True, executable='/bin/bash')
-        except subprocess.CalledProcessError as e:
-            raise ValueError(f'[ERROR] 실행 프로그램 실패 : {str(e)}')
-
-        if os.path.exists(tmpFileInfo):
-            if os.path.getsize(tmpFileInfo) > 1000:
-                shutil.move(tmpFileInfo, updFileInfo)
-                log.info(f'[CHECK] CMD : mv -f {tmpFileInfo} {updFileInfo}')
-            else:
-                os.remove(tmpFileInfo)
-                log.info(f'[CHECK] CMD : rm -f {tmpFileInfo}')
-
-        log.info(f'[END] colctKmaApiHub : {dtDateInfo} / pid : {procInfo.pid}')
-
-    except Exception as e:
-        log.error(f'Exception : {str(e)}')
-        raise e
-    finally:
-        if os.path.exists(tmpFileInfo):
-            os.remove(tmpFileInfo)
-
-@retry(stop_max_attempt_number=10)
-def colctNwp(modelInfo, dtDateInfo):
-    try:
-        procInfo = mp.current_process()
-
-        for ef in modelInfo['request']['ef']:
-            log.info(f'[CHECK] dtDateInfo : {dtDateInfo} / ef : {ef}')
-
-            tmpFileInfo = dtDateInfo.strftime(modelInfo['tmp']).format(ef=ef)
-            updFileInfo = dtDateInfo.strftime(modelInfo['target']).format(ef=ef)
-
-            # 파일 검사
-            fileList = sorted(glob.glob(updFileInfo))
-            if len(fileList) > 0: return
-
-            reqUrl = dtDateInfo.strftime(f"{modelInfo['request']['url']}").format(tmfc=dtDateInfo.strftime('%Y%m%d%H'), ef=ef, authKey=modelInfo['request']['authKey'])
-            # res = requests.get(reqUrl)
-            # if not (res.status_code == 200): return
-
-            os.makedirs(os.path.dirname(tmpFileInfo), exist_ok=True)
-            os.makedirs(os.path.dirname(updFileInfo), exist_ok=True)
-
-            if os.path.exists(tmpFileInfo):
-                os.remove(tmpFileInfo)
-
-            # cmd = f"curl -s -C - '{reqUrl}' --retry 10 -o {tmpFileInfo}"
-            cmd = modelInfo['request'].format(reqUrl=reqUrl, tmpFileInfo=tmpFileInfo)
-            log.info(f'[CHECK] cmd : {cmd}')
-
-            try:
-                subprocess.run(cmd, shell=True, check=True, executable='/bin/bash')
-            except subprocess.CalledProcessError as e:
-                raise ValueError(f'[ERROR] 실행 프로그램 실패 : {str(e)}')
-
-            if os.path.exists(tmpFileInfo):
-                if os.path.getsize(tmpFileInfo) > 1000:
-                    shutil.move(tmpFileInfo, updFileInfo)
-                    log.info(f'[CHECK] CMD : mv -f {tmpFileInfo} {updFileInfo}')
-                else:
-                    os.remove(tmpFileInfo)
-                    log.info(f'[CHECK] CMD : rm -f {tmpFileInfo}')
-
-        log.info(f'[END] colctKmaApiHub : {dtDateInfo} / pid : {procInfo.pid}')
-
-    except Exception as e:
-        log.error(f'Exception : {str(e)}')
-        raise e
-    finally:
-        if os.path.exists(tmpFileInfo):
-            os.remove(tmpFileInfo)
 
 @retry(stop_max_attempt_number=10)
 def colctNmsc(modelInfo, dtDateInfo):
