@@ -4,6 +4,15 @@ import requests
 import pandas as pd
 from datetime import timedelta
 import mysql.connector as mysql
+import configparser
+
+# 옵션 설정
+sysOpt = {
+    'sysPath': '/HDD/SYSTEMS/PROG/PYTHON/IDE/resources/config/system.cfg',
+}
+
+config = configparser.ConfigParser()
+config.read(sysOpt['sysPath'], encoding='utf-8')
 
 # -------------------------
 # 로깅 설정
@@ -21,24 +30,24 @@ logging.basicConfig(
 # DB 설정
 # -------------------------
 DB_CONFIG = {
-    "host": "",
-    "user": "",
-    "password": "",
-    "database": ""
+    "host": config.get('mysql-iwin-dms01user01-DMS03', 'host'),
+    "user": config.get('mysql-iwin-dms01user01-DMS03', 'user'),
+    "password": config.get('mysql-iwin-dms01user01-DMS03', 'pwd'),
+    "database":  config.get('mysql-iwin-dms01user01-DMS03', 'dbName')
 }
 
 # -------------------------
 # API 설정
 # -------------------------
-BASE_URL = ""
-APPLICATION_KEY = ""
-API_KEY = ""
+BASE_URL =  config.get('ecowitt-device1', 'BASE_URL')
+APPLICATION_KEY = config.get('ecowitt-device1', 'APPLICATION_KEY')
+API_KEY = config.get('ecowitt-device1', 'API_KEY')
 
 # -------------------------
 # 기본값 설정 (2025.09.18 기준 장비 1개로 인한 기본값 설정)
 # -------------------------
-DEFAULT_MAC = "1C:69:20:E3:A9:97"
-DEFAULT_DEVICE_ID = 1
+DEFAULT_MAC = config.get('ecowitt-device1', 'DEFAULT_MAC')
+DEFAULT_DEVICE_ID = config.get('ecowitt-device1', 'DEFAULT_DEVICE_ID')
 
 # -------------------------
 # 데이터 필터 및 매핑
