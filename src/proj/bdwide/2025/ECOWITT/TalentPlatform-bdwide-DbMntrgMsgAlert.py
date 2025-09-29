@@ -13,7 +13,6 @@
 # nohup /SYSTEMS/LIB/anaconda3/envs/py38/bin/python TalentPlatform-bdwide-DbMntrgMsgAlert.py &
 # tail -f nohup.out
 
-# -*- coding: utf-8 -*-
 import argparse
 import glob
 import json
@@ -552,8 +551,8 @@ class DtaProcess(object):
                 'mntrgMinInv': 1,
 
                 # 데이터 적재 검사
-                'thrMinList': [60 * 24 * 7, 60 * 24, 60 * 12, 60, 30, 10, 5],
-                'thrMsgList': ['7일', '1일', '12시간', '1시간', '30분', '10분', '5분'],
+                'thrMinList': [60 * 24 * 7, 60 * 24, 60 * 12, 60, 30],
+                'thrMsgList': ['7일', '1일', '12시간', '1시간', '30분'],
 
                 # 메시지 알림 이력
                 'msgAlertHist': {},
