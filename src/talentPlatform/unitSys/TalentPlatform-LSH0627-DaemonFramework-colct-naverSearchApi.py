@@ -236,11 +236,11 @@ class DtaProcess(object):
 
                 # 세부 정보
                 'SHOP': {
-                    'client_id': '',
-                    'client_secret': '',
+                    'client_id': 'BNDqTQqb0NECaQN56flk',
+                    'client_secret': '5t2GECIt1m',
                     'display': '100',
                     'sort': 'date',
-                    # 중고:렌탈:해외직구, 구매대행
+                    # 중고:렌탈:해외직구,구매대행
                     'exclude': 'used:rental:cbshop',
                     'preDt': datetime.now(),
                     'queryList': ['알톤 자전거'],
@@ -249,21 +249,6 @@ class DtaProcess(object):
                     'saveFnlFile': '/DATA/OUTPUT/LSH0627/naverShopL1_{queryInfo}_%Y%m%d.csv',
                 },
             }
-
-            # =================================================================
-            # 전처리
-            # =================================================================
-            # data = pd.read_csv('/HDD/DATA/OUTPUT/LSH0627/naverShop_자전거_20251003.csv')
-            # dataL1 = data.drop_duplicates(subset=['title', 'link', 'image', 'lprice', 'hprice', 'mallName', 'productId', 'productType', 'brand', 'maker', 'category1', 'category2', 'category3', 'category4', 'date']).sort_values(['title', 'date'], ascending=False)
-            # dataL1.to_csv('/HDD/DATA/OUTPUT/LSH0627/naverShopL1_자전거_20251003.csv', index=False)
-            #
-            # data = pd.read_csv('/HDD/DATA/OUTPUT/LSH0627/naverShop_알톤 자전거_20251003.csv')
-            # dataL1 = data.drop_duplicates(subset=['title', 'link', 'image', 'lprice', 'hprice', 'mallName', 'productId', 'productType', 'brand', 'maker', 'category1', 'category2', 'category3', 'category4', 'date']).sort_values(['title', 'date'], ascending=False)
-            # dataL1.to_csv('/HDD/DATA/OUTPUT/LSH0627/naverShopL1_알톤 자전거_20251003.csv', index=False)
-
-            # data = pd.read_csv('/HDD/DATA/OUTPUT/LSH0627/naverShop_알톤_20251003.csv')
-            # dataL1 = data.drop_duplicates(subset=['title', 'link', 'image', 'lprice', 'hprice', 'mallName', 'productId', 'productType', 'brand', 'maker', 'category1', 'category2', 'category3', 'category4', 'date']).sort_values(['title', 'date'], ascending=False)
-            # dataL1.to_csv('/HDD/DATA/OUTPUT/LSH0627/naverShopL1_알톤_20251003.csv', index=False)
 
             # =================================================================
             # 네이버 API 수집
@@ -320,6 +305,30 @@ class DtaProcess(object):
                         os.makedirs(os.path.dirname(saveFnlFile), exist_ok=True)
                         dataL2.to_csv(saveFnlFile, index=False)
                         log.info(f"[CHECK] saveFnlFile : {saveFnlFile}")
+
+            # =================================================================
+            # 전처리
+            # =================================================================
+            # data = pd.read_csv('/HDD/DATA/OUTPUT/LSH0627/naverShop_자전거_20251003.csv')
+            # dataL1 = data.drop_duplicates(subset=['title', 'link', 'image', 'lprice', 'hprice', 'mallName', 'productId', 'productType', 'brand', 'maker', 'category1', 'category2', 'category3', 'category4', 'date']).sort_values(['title', 'date'], ascending=False)
+            # dataL1.to_csv('/HDD/DATA/OUTPUT/LSH0627/naverShopL1_자전거_20251003.csv', index=False)
+            #
+            # data = pd.read_csv('/HDD/DATA/OUTPUT/LSH0627/naverShop_알톤 자전거_20251003.csv')
+            # dataL1 = data.drop_duplicates(subset=['title', 'link', 'image', 'lprice', 'hprice', 'mallName', 'productId', 'productType', 'brand', 'maker', 'category1', 'category2', 'category3', 'category4', 'date']).sort_values(['title', 'date'], ascending=False)
+            # dataL1.to_csv('/HDD/DATA/OUTPUT/LSH0627/naverShopL1_알톤 자전거_20251003.csv', index=False)
+
+            # data = pd.read_csv('/HDD/DATA/OUTPUT/LSH0627/naverShop_알톤_20251003.csv')
+            # dataL1 = data.drop_duplicates(subset=['title', 'link', 'image', 'lprice', 'hprice', 'mallName', 'productId', 'productType', 'brand', 'maker', 'category1', 'category2', 'category3', 'category4', 'date']).sort_values(['title', 'date'], ascending=False)
+            # dataL1.to_csv('/HDD/DATA/OUTPUT/LSH0627/naverShopL1_알톤_20251003.csv', index=False)
+
+            fileList = sorted(glob.glob('/HDD/DATA/OUTPUT/LSH0627/naverShop_알톤 자전거_*.csv'), reverse=True)
+            data = pd.DataFrame()
+            for fileInfo in fileList:
+                orgData = pd.read_csv(fileInfo)
+                data = pd.concat([data, orgData], ignore_index=False)
+            dataL1 = data.drop_duplicates(subset=['title', 'link', 'image', 'lprice', 'hprice', 'mallName', 'productId', 'productType', 'brand', 'maker', 'category1', 'category2', 'category3', 'category4', 'date']).sort_values(['title', 'date'], ascending=False)
+            dataL1.to_csv('/HDD/DATA/OUTPUT/LSH0627/naverShopL1_알톤 자전거.csv', index=False)
+
         except Exception as e:
             log.error(f"Exception : {str(e)}")
             raise e
