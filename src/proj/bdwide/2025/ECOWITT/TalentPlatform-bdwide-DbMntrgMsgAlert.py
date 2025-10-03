@@ -11,6 +11,7 @@
 # conda activate py38
 # cd /SYSTEMS/PROG/PYTHON/IDE/src/proj/bdwide/2025/ECOWITT
 # nohup /SYSTEMS/LIB/anaconda3/envs/py38/bin/python TalentPlatform-bdwide-DbMntrgMsgAlert.py &
+# nohup /SYSTEMS/LIB/anaconda3/envs/py38/bin/python TalentPlatform-bdwide-DbMntrgMsgAlert.py > /dev/null 2>&1 &
 # tail -f nohup.out
 
 import argparse
@@ -116,14 +117,13 @@ def initLog(env=None, contextPath=None, prjName=None):
     if contextPath is None: contextPath = os.getcwd()
     if prjName is None: prjName = 'test'
 
-    saveLogFile = "{}/{}_{}_{}_{}_{}_{}.log".format(
+    saveLogFile = "{}/{}_{}_{}_{}_{}.log".format(
         contextPath if env in 'local' else os.path.join(contextPath, 'resources', 'log', prjName)
         , platform.system()
         , platform.machine()
         , platform.architecture()[0]
         , platform.node()
         , prjName
-        , datetime.now().strftime("%Y%m%d")
     )
 
     os.makedirs(os.path.dirname(saveLogFile), exist_ok=True)
@@ -139,8 +139,7 @@ def initLog(env=None, contextPath=None, prjName=None):
 
     # handler 생성
     streamHandler = logging.StreamHandler()
-    # fileHandler = logging.FileHandler(saveLogFile, encoding='utf-8')
-    fileHandler = logging.handlers.TimedRotatingFileHandler(filename=saveLogFile, when='D', interval=1, backupCount=30, encoding='utf-8')
+    fileHandler = logging.handlers.TimedRotatingFileHandler(filename=saveLogFile, when='midnight', interval=1, backupCount=30, encoding='utf-8')
 
     # logger instance에 format 설정
     streamHandler.setFormatter(format)
