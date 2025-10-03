@@ -8,6 +8,9 @@
 # nohup /HDD/SYSTEMS/LIB/anaconda3/envs/py38/bin/python TalentPlatform-LSH0627-DaemonFramework-colct-naverSearchApi.py &
 # tail -f nohup.out
 
+# pkill -f TalentPlatform-LSH0627-DaemonFramework-colct-naverSearchApi.py
+
+
 # 0 0 * * * cd /HDD/SYSTEMS/PROG/PYTHON/IDE/src/talentPlatform/unitSys && /HDD/SYSTEMS/LIB/anaconda3/envs/py38/bin/python TalentPlatform-LSH0627-DaemonFramework-colct-naverSearchApi.py
 
 import argparse
@@ -243,7 +246,7 @@ class DtaProcess(object):
                     # 중고:렌탈:해외직구,구매대행
                     'exclude': 'used:rental:cbshop',
                     'preDt': datetime.now(),
-                    'typeList': ['알톤'],
+                    'typeList': ['알톤 자전거', '삼천리 자전거', '스마트 자전거'],
                     'cateList': ['전기자전거', '하이브리드', 'MTB', '사이클', '일반자전거', '미니벨로'],
                     'url': 'https://openapi.naver.com/v1/search/shop.json',
                     'saveCsvFile': '/DATA/OUTPUT/LSH0627/naverShop_{queryInfo}_%Y%m%d.csv',
