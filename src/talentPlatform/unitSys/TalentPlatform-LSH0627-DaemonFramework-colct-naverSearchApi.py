@@ -243,7 +243,8 @@ class DtaProcess(object):
                     # 중고:렌탈:해외직구,구매대행
                     'exclude': 'used:rental:cbshop',
                     'preDt': datetime.now(),
-                    'queryList': ['알톤 자전거'],
+                    'typeList': ['알톤'],
+                    'cateList': ['전기자전거', '하이브리드', 'MTB', '사이클', '일반자전거', '미니벨로'],
                     'url': 'https://openapi.naver.com/v1/search/shop.json',
                     'saveCsvFile': '/DATA/OUTPUT/LSH0627/naverShop_{queryInfo}_%Y%m%d.csv',
                     'saveFnlFile': '/DATA/OUTPUT/LSH0627/naverShopL1_{queryInfo}_%Y%m%d.csv',
@@ -259,52 +260,57 @@ class DtaProcess(object):
                 modelInfo = sysOpt.get(modelType)
                 if modelInfo is None: continue
 
-                queryList = modelInfo['queryList']
-                for queryInfo in queryList:
+                typeList = modelInfo['typeList']
+                cateList = modelInfo['cateList']
+                for typeInfo in typeList:
+                    for cateInfo in cateList:
+                        queryInfo = f"{typeInfo} {cateInfo}"
 
-                    dataL1 = pd.DataFrame()
-                    pageList = np.arange(1, 1001, 1)
-                    for pageInfo in pageList:
-                        try:
-                            headers = {
-                                'X-Naver-Client-Id': modelInfo['client_id'],
-                                'X-Naver-Client-Secret': modelInfo['client_secret'],
-                            }
+                        dataL1 = pd.DataFrame()
+                        pageList = np.arange(1, 1001, 1)
+                        for pageInfo in pageList:
+                            try:
+                                headers = {
+                                    'X-Naver-Client-Id': modelInfo['client_id'],
+                                    'X-Naver-Client-Secret': modelInfo['client_secret'],
+                                }
 
-                            params = {
-                                'query': queryInfo,
-                                'display': modelInfo['display'],
-                                'sort': modelInfo['sort'],
-                                'exclude': modelInfo['exclude'],
-                                'start': pageInfo,
-                            }
+                                params = {
+                                    'query': queryInfo,
+                                    'display': modelInfo['display'],
+                                    'sort': modelInfo['sort'],
+                                    'exclude': modelInfo['exclude'],
+                                    'start': pageInfo,
+                                }
 
-                            res = requests.get(modelInfo['url'], headers=headers, params=params)
-                            if res.status_code != 200: continue
+                                res = requests.get(modelInfo['url'], headers=headers, params=params)
+                                if res.status_code != 200: continue
 
-                            resJson = res.json().get('items')
-                            if resJson is None or len(resJson) < 1: continue
+                                resJson = res.json().get('items')
+                                if resJson is None or len(resJson) < 1: continue
 
-                            resData = pd.DataFrame(resJson)
+                                resData = pd.DataFrame(resJson)
 
-                            dataL1 = pd.concat([dataL1, resData], ignore_index=True)
-                            dataL1['date'] = modelInfo['preDt'].strftime('%Y%m%d')
-                            log.info(f'[CHECK] modelType : {modelType} / queryInfo : {queryInfo} / per : {round((pageInfo / 1001) * 100, 1)}  / cnt : {len(dataL1)}')
+                                dataL1 = pd.concat([dataL1, resData], ignore_index=True)
+                                dataL1['type'] = typeInfo
+                                dataL1['cate'] = cateInfo
+                                dataL1['date'] = modelInfo['preDt'].strftime('%Y%m%d')
+                                log.info(f'[CHECK] modelType : {modelType} / queryInfo : {queryInfo} / per : {round((pageInfo / 1001) * 100, 1)}  / cnt : {len(dataL1)}')
 
-                        except Exception as e:
-                            log.error(f"Exception : {e}")
+                            except Exception as e:
+                                log.error(f"Exception : {e}")
 
-                    if len(dataL1) > 0:
-                        saveCsvFile = modelInfo['preDt'].strftime(modelInfo['saveCsvFile']).format(queryInfo=queryInfo)
-                        os.makedirs(os.path.dirname(saveCsvFile), exist_ok=True)
-                        dataL1.to_csv(saveCsvFile, index=False)
-                        log.info(f"[CHECK] saveCsvFile : {saveCsvFile}")
+                        if len(dataL1) > 0:
+                            saveCsvFile = modelInfo['preDt'].strftime(modelInfo['saveCsvFile']).format(queryInfo=queryInfo)
+                            os.makedirs(os.path.dirname(saveCsvFile), exist_ok=True)
+                            dataL1.to_csv(saveCsvFile, index=False)
+                            log.info(f"[CHECK] saveCsvFile : {saveCsvFile}")
 
-                        dataL2 = dataL1.drop_duplicates(subset=['title', 'link', 'image', 'lprice', 'hprice', 'mallName', 'productId', 'productType', 'brand', 'maker', 'category1', 'category2', 'category3', 'category4', 'date']).sort_values(['title', 'date'], ascending=False)
-                        saveFnlFile = modelInfo['preDt'].strftime(modelInfo['saveFnlFile']).format(queryInfo=queryInfo)
-                        os.makedirs(os.path.dirname(saveFnlFile), exist_ok=True)
-                        dataL2.to_csv(saveFnlFile, index=False)
-                        log.info(f"[CHECK] saveFnlFile : {saveFnlFile}")
+                            dataL2 = dataL1.drop_duplicates(subset=['title', 'link', 'image', 'lprice', 'hprice', 'mallName', 'productId', 'productType', 'brand', 'maker', 'category1', 'category2', 'category3', 'category4', 'type', 'cate', 'date']).sort_values(['type', 'cate', 'title', 'date'], ascending=False)
+                            saveFnlFile = modelInfo['preDt'].strftime(modelInfo['saveFnlFile']).format(queryInfo=queryInfo)
+                            os.makedirs(os.path.dirname(saveFnlFile), exist_ok=True)
+                            dataL2.to_csv(saveFnlFile, index=False)
+                            log.info(f"[CHECK] saveFnlFile : {saveFnlFile}")
 
             # =================================================================
             # 전처리
@@ -316,18 +322,19 @@ class DtaProcess(object):
             # data = pd.read_csv('/HDD/DATA/OUTPUT/LSH0627/naverShop_알톤 자전거_20251003.csv')
             # dataL1 = data.drop_duplicates(subset=['title', 'link', 'image', 'lprice', 'hprice', 'mallName', 'productId', 'productType', 'brand', 'maker', 'category1', 'category2', 'category3', 'category4', 'date']).sort_values(['title', 'date'], ascending=False)
             # dataL1.to_csv('/HDD/DATA/OUTPUT/LSH0627/naverShopL1_알톤 자전거_20251003.csv', index=False)
-
+            #
             # data = pd.read_csv('/HDD/DATA/OUTPUT/LSH0627/naverShop_알톤_20251003.csv')
             # dataL1 = data.drop_duplicates(subset=['title', 'link', 'image', 'lprice', 'hprice', 'mallName', 'productId', 'productType', 'brand', 'maker', 'category1', 'category2', 'category3', 'category4', 'date']).sort_values(['title', 'date'], ascending=False)
             # dataL1.to_csv('/HDD/DATA/OUTPUT/LSH0627/naverShopL1_알톤_20251003.csv', index=False)
 
-            fileList = sorted(glob.glob('/HDD/DATA/OUTPUT/LSH0627/naverShop_알톤 자전거_*.csv'), reverse=True)
-            data = pd.DataFrame()
-            for fileInfo in fileList:
-                orgData = pd.read_csv(fileInfo)
-                data = pd.concat([data, orgData], ignore_index=False)
-            dataL1 = data.drop_duplicates(subset=['title', 'link', 'image', 'lprice', 'hprice', 'mallName', 'productId', 'productType', 'brand', 'maker', 'category1', 'category2', 'category3', 'category4', 'date']).sort_values(['title', 'date'], ascending=False)
-            dataL1.to_csv('/HDD/DATA/OUTPUT/LSH0627/naverShopL1_알톤 자전거.csv', index=False)
+            # fileList = sorted(glob.glob('/HDD/DATA/OUTPUT/LSH0627/naverShop_알톤 자전거_*.csv'), reverse=True)
+            # fileList = sorted(glob.glob('/HDD/DATA/OUTPUT/LSH0627/naverShop_알톤*_20251004.csv'), reverse=True)
+            # data = pd.DataFrame()
+            # for fileInfo in fileList:
+            #     orgData = pd.read_csv(fileInfo)
+            #     data = pd.concat([data, orgData], ignore_index=False)
+            # dataL1 = data.drop_duplicates(subset=['title', 'link', 'image', 'lprice', 'hprice', 'mallName', 'productId', 'productType', 'brand', 'maker', 'category1', 'category2', 'category3', 'category4', 'brand', 'cate', 'date']).sort_values(['brand', 'cate', 'title', 'date'], ascending=False)
+            # dataL1.to_csv('/HDD/DATA/OUTPUT/LSH0627/naverShopL1_알톤 자전거.csv', index=False)
 
         except Exception as e:
             log.error(f"Exception : {str(e)}")
