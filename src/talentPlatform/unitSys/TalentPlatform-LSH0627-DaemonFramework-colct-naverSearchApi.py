@@ -3,10 +3,12 @@
 # ================================================
 # Python을 이용한 청소년 인터넷 게임 중독 관련 소셜데이터 수집과 분석을 위한 한국형 온톨로지 개발 및 평가
 
-# cd /SYSTEMS/PROG/PYTHON/IDE/src/talentPlatform/unitSys
-# /SYSTEMS/LIB/anaconda3/envs/py38/bin/python TalentPlatform-LSH0627-DaemonFramework-colct-naverSearchApi.py
-# nohup /SYSTEMS/LIB/anaconda3/envs/py38/bin/python TalentPlatform-LSH0627-DaemonFramework-colct-naverSearchApi.py &
+# cd /HDD/SYSTEMS/PROG/PYTHON/IDE/src/talentPlatform/unitSys
+# /HDD/SYSTEMS/LIB/anaconda3/envs/py38/bin/python TalentPlatform-LSH0627-DaemonFramework-colct-naverSearchApi.py
+# nohup /HDD/SYSTEMS/LIB/anaconda3/envs/py38/bin/python TalentPlatform-LSH0627-DaemonFramework-colct-naverSearchApi.py &
 # tail -f nohup.out
+
+# 0 0 * * * cd /HDD/SYSTEMS/PROG/PYTHON/IDE/src/talentPlatform/unitSys && /HDD/SYSTEMS/LIB/anaconda3/envs/py38/bin/python TalentPlatform-LSH0627-DaemonFramework-colct-naverSearchApi.py
 
 import argparse
 import glob
