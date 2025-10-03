@@ -53,23 +53,20 @@ mpl.rcParams['axes.unicode_minus'] = False
 # =================================================
 # 로그 설정
 def initLog(env=None, contextPath=None, prjName=None):
-
     if env is None: env = 'local'
     if contextPath is None: contextPath = os.getcwd()
     if prjName is None: prjName = 'test'
 
-    saveLogFile = "{}/{}_{}_{}_{}_{}_{}.log".format(
+    saveLogFile = "{}/{}_{}_{}_{}_{}.log".format(
         contextPath if env in 'local' else os.path.join(contextPath, 'resources', 'log', prjName)
         , platform.system()
         , platform.machine()
         , platform.architecture()[0]
         , platform.node()
         , prjName
-        , datetime.now().strftime("%Y%m%d")
     )
 
-    if not os.path.exists(os.path.dirname(saveLogFile)):
-        os.makedirs(os.path.dirname(saveLogFile))
+    os.makedirs(os.path.dirname(saveLogFile), exist_ok=True)
 
     # logger instance 생성
     log = logging.getLogger(prjName)
@@ -82,7 +79,7 @@ def initLog(env=None, contextPath=None, prjName=None):
 
     # handler 생성
     streamHandler = logging.StreamHandler()
-    fileHandler = logging.FileHandler(saveLogFile)
+    fileHandler = logging.handlers.TimedRotatingFileHandler(filename=saveLogFile, when='midnight', interval=1, backupCount=30, encoding='utf-8')
 
     # logger instance에 format 설정
     streamHandler.setFormatter(format)
@@ -96,7 +93,6 @@ def initLog(env=None, contextPath=None, prjName=None):
     log.setLevel(level=logging.INFO)
 
     return log
-
 
 #  초기 변수 설정
 def initGlobalVar(env=None, contextPath=None, prjName=None):
