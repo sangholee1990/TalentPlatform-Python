@@ -293,14 +293,6 @@ class DtaProcess(object):
             # =================================================================
             # 모델링
             # =================================================================
-            mlModel = Prophet()
-            dlModel = DLinearModel(
-                input_chunk_length=sysOpt['model']['dl']['input_chunk_length'],
-                output_chunk_length=sysOpt['model']['dl']['output_chunk_length'],
-                n_epochs=sysOpt['model']['dl']['n_epochs'],
-                random_state=None,
-            )
-
             orgData = pd.read_csv(sysOpt['inpFile'])
             data = orgData.sort_values(by='lprice', ascending=True).drop_duplicates(subset=['title', 'date'], keep='first')
             data['dtDate'] = pd.to_datetime(data['date'], format='%Y%m%d')
@@ -325,6 +317,7 @@ class DtaProcess(object):
                 selDataL1 = TimeSeries.from_dataframe(selData, time_col='dtDate', value_cols='lprice', freq='D')
 
                 try:
+                    mlModel = Prophet()
                     mlModel.fit(selDataL1)
                     mlPrd = mlModel.predict(n=sysOpt['model']['prdCnt'])
                     mlPrdData = pd.DataFrame({
@@ -339,6 +332,12 @@ class DtaProcess(object):
                     log.error(f'Exception : {e}')
 
                 try:
+                    dlModel = DLinearModel(
+                        input_chunk_length=sysOpt['model']['dl']['input_chunk_length'],
+                        output_chunk_length=sysOpt['model']['dl']['output_chunk_length'],
+                        n_epochs=sysOpt['model']['dl']['n_epochs'],
+                        random_state=None,
+                    )
                     dlModel.fit(selDataL1)
                     dlPrd = dlModel.predict(n=sysOpt['model']['prdCnt'])
                     dlPrdData = pd.DataFrame({
@@ -354,7 +353,7 @@ class DtaProcess(object):
 
             dataL1 = data
             if (len(mlPrdDataL1) > 0) & (len(dlPrdDataL1) > 0):
-                prdData = pd.merge(mlPrdDataL1, dlPrdDataL1, on=['title', 'dtDate'], how='inner').drop_duplicates(subset=['title', 'dtDate'], keep='first')
+                prdData = pd.merge(mlPrdDataL1, dlPrdDataL1, on=['title', 'dtDate'], how='outer').drop_duplicates(subset=['title', 'dtDate'], keep='first')
                 dataL1 = pd.merge(dataL1, prdData, on=['title', 'dtDate'], how='outer')
 
             dataL2 = dataL1.sort_values(['title', 'date'], ascending=False).reset_index(drop=True)
