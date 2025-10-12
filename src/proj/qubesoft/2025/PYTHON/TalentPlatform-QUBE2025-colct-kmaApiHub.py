@@ -50,6 +50,7 @@ from datetime import datetime
 import subprocess
 from isodate import parse_duration
 from pandas.tseries.offsets import DateOffset
+import configparser
 
 # =================================================
 # 사용자 매뉴얼
@@ -448,7 +449,20 @@ class DtaProcess(object):
                     , 'tmp': '/DATA/MODEL/%Y%m/%d/.KIMG_k128_unis_H{ef}_%Y%m%d%H%M.grb2'
                     , 'target': '/DATA/MODEL/%Y%m/%d/KIMG_k128_unis_H{ef}_%Y%m%d%H%M.grb2'
                 },
+
+                # 설정 정보
+                'cfgFile': '/HDD/SYSTEMS/PROG/PYTHON/IDE/resources/config/system.cfg',
             }
+
+            # **********************************************************************************************************
+            # 설정 정보
+            # **********************************************************************************************************
+            config = configparser.ConfigParser()
+            config.read(sysOpt['cfgFile'], encoding='utf-8')
+            sysOpt['ASOS']['request']['authKey'] = config.get('apihub-api-key', 'asos')
+            sysOpt['AWS']['request']['authKey'] = config.get('apihub-api-key', 'aws')
+            sysOpt['UMKR']['request']['authKey'] = config.get('apihub-api-key', 'umkr')
+            sysOpt['KIMG']['request']['authKey'] = config.get('apihub-api-key', 'kimg')
 
             # **************************************************************************************************************
             # 비동기 다중 프로세스 수행

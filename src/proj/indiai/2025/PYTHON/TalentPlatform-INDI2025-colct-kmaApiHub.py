@@ -53,6 +53,7 @@ from datetime import datetime
 import subprocess
 from isodate import parse_duration
 from pandas.tseries.offsets import DateOffset
+import configparser
 
 # =================================================
 # 사용자 매뉴얼
@@ -391,12 +392,16 @@ class DtaProcess(object):
                 # 'endDate': globalVar['endDate'],
 
                 # 수행 목록
-                'modelList': ['AWS', 'ASOS', 'UMKR', 'KIMG'],
+                # 'modelList': ['AWS', 'ASOS', 'UMKR', 'KIMG'],
+                'modelList': ['UMKR'],
                 # 'modelList': [globalVar['modelList']],
 
                 # 비동기 다중 프로세스 개수
                 'cpuCoreNum': '5',
                 # 'cpuCoreNum': globalVar['cpuCoreNum'],
+
+                # 설정 정보
+                'cfgFile': '/HDD/SYSTEMS/PROG/PYTHON/IDE/resources/config/system.cfg',
 
                 'ASOS': {
                     'request': {
@@ -420,7 +425,8 @@ class DtaProcess(object):
                 },
                 'UMKR': {
                     'request': {
-                        'url': 'https://apihub-org.kma.go.kr/api/typ06/url/nwp_file_down.php?nwp=l015&sub=unis&tmfc={tmfc}&ef={ef}&authKey={authKey}'
+                        # 'url': 'https://apihub-org.kma.go.kr/api/typ06/url/nwp_file_down.php?nwp=l015&sub=unis&tmfc={tmfc}&ef={ef}&authKey={authKey}'
+                        'url': 'https://apihub-pub.kma.go.kr/api/typ06/url/nwp_file_down.php?nwp=l015&sub=unis&tmfc={tmfc}&ef={ef}&authKey={authKey}'
                         , 'ef': ['00', '01', '02', '03', '04', '05']
                         , 'authKey': None
                         , 'invDate': '6h'
@@ -431,7 +437,8 @@ class DtaProcess(object):
                 },
                 'KIMG': {
                     'request': {
-                        'url': 'https://apihub-org.kma.go.kr/api/typ06/url/nwp_file_down.php?nwp=k128&sub=unis&tmfc={tmfc}&ef={ef}&authKey={authKey}'
+                        # 'url': 'https://apihub-org.kma.go.kr/api/typ06/url/nwp_file_down.php?nwp=k128&sub=unis&tmfc={tmfc}&ef={ef}&authKey={authKey}'
+                        'url': 'https://apihub-pub.kma.go.kr/api/typ06/url/nwp_file_down.php?nwp=k128&sub=unis&tmfc={tmfc}&ef={ef}&authKey={authKey}'
                         , 'ef': ['00', '03', '06']
                         , 'authKey': None
                         , 'invDate': '6h'
@@ -442,9 +449,17 @@ class DtaProcess(object):
                 },
             }
 
-            # **************************************************************************************************************
+            # **********************************************************************************************************
+            # 설정 정보
+            # **********************************************************************************************************
+            sysOpt['ASOS']['request']['authKey'] = config.get('apihub-api-key', 'asos')
+            sysOpt['AWS']['request']['authKey'] = config.get('apihub-api-key', 'aws')
+            sysOpt['UMKR']['request']['authKey'] = config.get('apihub-api-key', 'umkr')
+            sysOpt['KIMG']['request']['authKey'] = config.get('apihub-api-key', 'kimg')
+
+            # **********************************************************************************************************
             # 비동기 다중 프로세스 수행
-            # **************************************************************************************************************
+            # **********************************************************************************************************
             # 비동기 다중 프로세스 개수
             pool = Pool(int(sysOpt['cpuCoreNum']))
 

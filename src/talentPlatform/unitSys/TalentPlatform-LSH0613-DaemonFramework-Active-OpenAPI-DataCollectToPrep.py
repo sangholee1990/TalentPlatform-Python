@@ -33,6 +33,7 @@ import requests
 import csv
 import io
 import dask.dataframe as dd
+import configparser
 
 # =================================================
 # 사용자 매뉴얼
@@ -227,10 +228,10 @@ class DtaProcess(object):
                 , 'endDate': datetime.now().strftime("%Y-%m-%d")
 
                 # 공공데이터포털 API 디코딩
-                , 'apiKey': '' # 상호
+                , 'apiKey': None
 
                 # 구글 API 정보
-                , 'googleApiKey': ''
+                , 'googleApiKey': None
 
                 , '건축인허가': {
                     # 국토교통부_건축HUB_건축인허가정보 서비스 > 건축HUB 주택인허가 기본개요 조회
@@ -284,6 +285,8 @@ class DtaProcess(object):
 
                 # 설정 정보
                 , 'cfgFile': '/SYSTEMS/PROG/PYTHON/IDE/resources/config/mapInfo/admCode/법정동코드_전체자료.txt'
+                , 'cfgFile2': '/HDD'
+                              '/SYSTEMS/PROG/PYTHON/IDE/resources/config/system.cfg'
             }
 
             dtSrtDate = pd.to_datetime(sysOpt['srtDate'], format='%Y-%m-%d')
@@ -293,8 +296,13 @@ class DtaProcess(object):
             # dtDayList = pd.date_range(start=dtSrtDate, end=dtEndDate, freq=Day(1))
             # dt3HourList = pd.date_range(start=dtSrtDate, end=dtEndDate, freq=Hour(3))
 
-            # 구글 API 설정
-            # gmap = googlemaps.Client(key=sysOpt['googleApiKey'])
+            # 설정 정보
+            config = configparser.ConfigParser()
+            config.read(sysOpt['cfgFile2'], encoding='utf-8')
+            sysOpt['apiKey'] = config.get('dataApi', 'key')
+
+            # 구글 API
+            # gmap = googlemaps.Client(key=config.get('googleApi', 'key'))
 
             # *********************************************************************************
             # 법정동 코드 읽기

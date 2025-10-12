@@ -18,6 +18,7 @@ import numpy as np
 import pandas as pd
 import xmltodict
 from sklearn.neighbors import BallTree
+import configparser
 
 # =================================================
 # 사용자 매뉴얼
@@ -220,88 +221,64 @@ class DtaProcess(object):
         log.info('[START] {}'.format("exec"))
 
         try:
-
-            if (platform.system() == 'Windows'):
-                # 옵션 설정
-                sysOpt = {
-                    # 시작/종료 시간
-                    'srtDate': '2014-01-01'
-                    , 'endDate': datetime.now().strftime("%Y-%m-%d")
-                    #, 'endDate': '2023-07-01'
-
-                    # 공공데이터포털 API
-                    ,
-                    #'apiKey': 'bf9fH0KLgr65zXKT5D/dcgUBIj1znJKnUPrzDVZEe6g4gquylOjmt65R5cjivLPfOKXWcRcAWU0SN7KKXBGDKA==' #상호
-                    #'apiKey': 'OZt4/yRFmIB75XnywK0mWWLivk+ZwkwIpNj1pB9uQT2uACBh53WLeGNOuiE0PvQ6iM7C7/GlU3+GDSbmGZUtyw==' #주형
-                    #'apiKey': 'OZt4%2FyRFmIB75XnywK0mWWLivk%2BZwkwIpNj1pB9uQT2uACBh53WLeGNOuiE0PvQ6iM7C7%2FGlU3%2BGDSbmGZUtyw%3D%3D' #?
-                    'apiKey': 'LO%2FPM7UaWcr9d2ypUzQzjYK3KyEoRZtKIKuvrDfhg51mXlk2eFriN%2FWCZV249GrQorog5Fv12iOUeWx9nhwDWA%3D%3D'
-
-                    # 건축 인허가
-                    , 'apiUrl': 'https://apis.data.go.kr/1613000/ArchPmsService_v2/getApBasisOulnInfo'
-                    # 아파트 실거래
-                    ,
-                    'apiUrl2': 'http://openapi.molit.go.kr/OpenAPI_ToolInstallPackage/service/rest/RTMSOBJSvc/getRTMSDataSvcAptTradeDev'
-                    #  아파트 전월세
-                    ,
-                    'apiUrl3': 'http://openapi.molit.go.kr:8081/OpenAPI_ToolInstallPackage/service/rest/RTMSOBJSvc/getRTMSDataSvcAptRent'
-
-                    # 검색 목록
-                    #, 'addrList': ['서울특별시 강북구', '서울특별시 송파구', '서울특별시 강남구', '서울특별시 양천구', '서울특별시 서초구']
-                    #, 'addrList': ['서울특별시 강남구', '서울특별시 서초구', '서울특별시 송파구', '서울특별시 양천구', '서울특별시 용산구']
-                    #, 'addrList': ['서울특별시 강서구', '서울특별시 구로구', '서울특별시 동작구', '서울특별시 영등포구']
-                    , 'addrList': ['서울특별시 금천구']
-
-                    # 네이버 API 정보
-                    # , 'naverId': 'q6rz1sjycu'
-                    # , 'naverPw': 'KYof7RAjdDffoyEyQPFzb0mUiiPc3DKy2qxvaaZf'
-                    # , 'naverApi': 'https://naveropenapi.apigw.ntruss.com/map-geocode/v2/geocode'
-
-                    # 구글 API 정보
-                    #, 'googleApiKey': 'AIzaSyCkYokUFIcH5OYDaYU0IrFLX89wX1o7-qc'    # 상호
-                    , 'googleApiKey': 'AIzaSyBq4ZkoyoXaD0pt9TYwdfNctrAwyO1DDuk'     # 유민
-                }
+            if platform.system() == 'Windows':
+                pass
             else:
-                # 옵션 설정
-                sysOpt = {
-                    # 시작/종료 시간
-                    'srtDate': '2010-01-01'
-                    , 'endDate': datetime.now().strftime("%Y-%m-%d")
-
-                    # 공공데이터포털 API
-                    , 'apiKey': 'bf9fH0KLgr65zXKT5D/dcgUBIj1znJKnUPrzDVZEe6g4gquylOjmt65R5cjivLPfOKXWcRcAWU0SN7KKXBGDKA=='
-
-                    # 건축 인허가
-                    , 'apiUrl': 'https://apis.data.go.kr/1613000/ArchPmsService_v2/getApBasisOulnInfo'
-                    # 아파트 실거래
-                    , 'apiUrl2': 'http://openapi.molit.go.kr/OpenAPI_ToolInstallPackage/service/rest/RTMSOBJSvc/getRTMSDataSvcAptTradeDev'
-                    #  아파트 전월세
-                    , 'apiUrl3': 'http://openapi.molit.go.kr:8081/OpenAPI_ToolInstallPackage/service/rest/RTMSOBJSvc/getRTMSDataSvcAptRent'
-
-                    # 검색 목록
-                    , 'addrList': ['서울특별시 강북구', '서울특별시 송파구', '서울특별시 강남구', '서울특별시 양천구', '서울특별시 서초구']
-
-                    # 네이버 API 정보
-                    , 'naverId': 'q6rz1sjycu'
-                    , 'naverPw': 'KYof7RAjdDffoyEyQPFzb0mUiiPc3DKy2qxvaaZf'
-                    , 'naverApi': 'https://naveropenapi.apigw.ntruss.com/map-geocode/v2/geocode'
-
-                    # 구글 API 정보
-                    , 'googleApiKey': 'AIzaSyCkYokUFIcH5OYDaYU0IrFLX89wX1o7-qc'
-                }
-
                 globalVar['inpPath'] = '/DATA/INPUT'
                 globalVar['outPath'] = '/DATA/OUTPUT'
                 globalVar['figPath'] = '/DATA/FIG'
 
+            # 옵션 설정
+            sysOpt = {
+                # 시작/종료 시간
+                'srtDate': '2014-01-01'
+                , 'endDate': datetime.now().strftime("%Y-%m-%d")
+                #, 'endDate': '2023-07-01'
+
+                # 공공데이터포털 API
+                , 'apiKey': None
+
+                # 건축 인허가
+                , 'apiUrl': 'https://apis.data.go.kr/1613000/ArchPmsService_v2/getApBasisOulnInfo'
+                # 아파트 실거래
+                ,
+                'apiUrl2': 'http://openapi.molit.go.kr/OpenAPI_ToolInstallPackage/service/rest/RTMSOBJSvc/getRTMSDataSvcAptTradeDev'
+                #  아파트 전월세
+                ,
+                'apiUrl3': 'http://openapi.molit.go.kr:8081/OpenAPI_ToolInstallPackage/service/rest/RTMSOBJSvc/getRTMSDataSvcAptRent'
+
+                # 검색 목록
+                #, 'addrList': ['서울특별시 강북구', '서울특별시 송파구', '서울특별시 강남구', '서울특별시 양천구', '서울특별시 서초구']
+                #, 'addrList': ['서울특별시 강남구', '서울특별시 서초구', '서울특별시 송파구', '서울특별시 양천구', '서울특별시 용산구']
+                #, 'addrList': ['서울특별시 강서구', '서울특별시 구로구', '서울특별시 동작구', '서울특별시 영등포구']
+                , 'addrList': ['서울특별시 금천구']
+
+                # 네이버 API 정보
+                # , 'naverId': 'q6rz1sjycu'
+                # , 'naverPw': 'KYof7RAjdDffoyEyQPFzb0mUiiPc3DKy2qxvaaZf'
+                # , 'naverApi': 'https://naveropenapi.apigw.ntruss.com/map-geocode/v2/geocode'
+
+                # 구글 API 정보
+                , 'googleApiKey': None
+
+                # 설정 정보
+                , 'cfgFile': '/HDD/SYSTEMS/PROG/PYTHON/IDE/resources/config/system.cfg'
+            }
+
             dtSrtDate = pd.to_datetime(sysOpt['srtDate'], format='%Y-%m-%d')
             dtEndDate = pd.to_datetime(sysOpt['endDate'], format='%Y-%m-%d')
             dtMonthList = pd.date_range(start=dtSrtDate, end=dtEndDate, freq='1M')
-            # # dt6HourList = pd.date_range(start=dtSrtDate, end=dtEndDate, freq=Hour(6))
-            # # dtDayList = pd.date_range(start=dtSrtDate, end=dtEndDate, freq=Day(1))
-            # # dt3HourList = pd.date_range(start=dtSrtDate, end=dtEndDate, freq=Hour(3))
+            # dt6HourList = pd.date_range(start=dtSrtDate, end=dtEndDate, freq=Hour(6))
+            # dtDayList = pd.date_range(start=dtSrtDate, end=dtEndDate, freq=Day(1))
+            # dt3HourList = pd.date_range(start=dtSrtDate, end=dtEndDate, freq=Hour(3))
 
-            # 구글 API 설정
-            gmap = googlemaps.Client(key=sysOpt['googleApiKey'])
+            # 설정 정보
+            config = configparser.ConfigParser()
+            config.read(sysOpt['cfgFile'], encoding='utf-8')
+            sysOpt['apiKey'] = config.get('dataApi', 'local')
+
+            # 구글 API
+            gmap = googlemaps.Client(key=config.get('googleApi', 'oper'))
 
             # *********************************************************************************
             # 법정동 코드 읽기

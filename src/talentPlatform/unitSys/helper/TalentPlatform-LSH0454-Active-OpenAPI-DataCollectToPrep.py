@@ -18,6 +18,7 @@ import numpy as np
 import pandas as pd
 import xmltodict
 from sklearn.neighbors import BallTree
+import configparser
 
 # =================================================
 # 사용자 매뉴얼
@@ -237,10 +238,7 @@ class DtaProcess(object):
                 , 'endDate': datetime.now().strftime("%Y-%m-%d")
 
                 # 공공데이터포털 API
-                # , 'apiKey': ''
-                #, 'apiKey': 'bf9fH0KLgr65zXKT5D/dcgUBIj1znJKnUPrzDVZEe6g4gquylOjmt65R5cjivLPfOKXWcRcAWU0SN7KKXBGDKA=='         # 상호
-                #, 'apiKey': 'OZt4/yRFmIB75XnywK0mWWLivk+ZwkwIpNj1pB9uQT2uACBh53WLeGNOuiE0PvQ6iM7C7/GlU3+GDSbmGZUtyw=='         # 주형
-                , 'apiKey': 'LO%2FPM7UaWcr9d2ypUzQzjYK3KyEoRZtKIKuvrDfhg51mXlk2eFriN%2FWCZV249GrQorog5Fv12iOUeWx9nhwDWA%3D%3D'  # TOP BDS
+                , 'apiKey': None
 
                 # 건축 인허가
                 , 'apiUrl': 'https://apis.data.go.kr/1613000/ArchPmsService_v2/getApBasisOulnInfo'
@@ -259,9 +257,10 @@ class DtaProcess(object):
                 # , 'addrList': [globalVar['addrList']]
 
                 # 구글 API 정보
-                # , 'googleApiKey': ''
-                #, 'googleApiKey': 'AIzaSyCkYokUFIcH5OYDaYU0IrFLX89wX1o7-qc'    # 상호
-                , 'googleApiKey': 'AIzaSyBq4ZkoyoXaD0pt9TYwdfNctrAwyO1DDuk'     # 유민
+                , 'googleApiKey': None
+
+                # 설정 정보
+                , 'cfgFile': '/HDD/SYSTEMS/PROG/PYTHON/IDE/resources/config/system.cfg'
             }
 
             dtSrtDate = pd.to_datetime(sysOpt['srtDate'], format='%Y-%m-%d')
@@ -271,8 +270,13 @@ class DtaProcess(object):
             # dtDayList = pd.date_range(start=dtSrtDate, end=dtEndDate, freq=Day(1))
             # dt3HourList = pd.date_range(start=dtSrtDate, end=dtEndDate, freq=Hour(3))
 
-            # 구글 API 설정
-            gmap = googlemaps.Client(key=sysOpt['googleApiKey'])
+            # 설정 정보
+            config = configparser.ConfigParser()
+            config.read(sysOpt['cfgFile'], encoding='utf-8')
+            sysOpt['apiKey'] = config.get('dataApi', 'local')
+
+            # 구글 API
+            gmap = googlemaps.Client(key=config.get('googleApi', 'oper'))
 
             # *********************************************************************************
             # 법정동 코드 읽기
@@ -297,79 +301,78 @@ class DtaProcess(object):
             # *********************************************************************************
             # [자료 수집] 오픈API를 이용하여 건축 인허가
             # *********************************************************************************
-            # # 요청 API
-            # apiUrl = sysOpt['apiUrl']
-            # apiKey = sysOpt['apiKey']
-            #
-            # for ii, addrInfo in enumerate(sysOpt['addrList']):
-            #     log.info(f'[CHECK] addrInfo : {addrInfo}')
-            #
-            #     # admDataL1 = admData[admData['법정동명'].str.contains('서울')]
-            #     admDataL1 = admData[admData['법정동명'].str.contains(addrInfo)]
-            #     if (len(admDataL1) < 1): continue
-            #
-            #     # 시군구 목록
-            #     sigunguCdList = set(admDataL1['sigunguCd'])
-            #
-            #     # 법정동 목록
-            #     bjdongCdList = set(admDataL1['bjdongCd'])
-            #
-            #     # 페이지 설정
-            #     pageList = np.arange(0, 9999, 1)
-            #
-            #     # sigunguCdInfo = 11710
-            #     # bjdongCdInfo = 11000
-            #     # pageInfo = 1
-            #
-            #     dataL1 = pd.DataFrame()
-            #     for i, sigunguCdInfo in enumerate(sigunguCdList):
-            #         for j, bjdongCdInfo in enumerate(bjdongCdList):
-            #             log.info(f'[CHECK] sigunguCdInfo / bjdongCdInfo : {sigunguCdInfo} / {bjdongCdInfo}')
-            #
-            #             for k, pageInfo in enumerate(pageList):
-            #                 # log.info(f'[CHECK] pageInfo : {pageInfo}')
-            #
-            #                 try:
-            #                     reqUrl = f'{apiUrl}?serviceKey={apiKey}&sigunguCd={sigunguCdInfo}&bjdongCd={bjdongCdInfo}&numOfRows=999&pageNo=1'
-            #
-            #                     res = urllib.request.urlopen(reqUrl)
-            #                     resCode = res.getcode()
-            #                     if resCode != 200: continue
-            #
-            #                     # json 읽기
-            #                     # resData = json.loads(res.read().decode('utf-8'))
-            #
-            #                     # xml to json 읽기
-            #                     resData = xmltodict.parse(res.read().decode('utf-8'))
-            #                     resultCode = resData['response']['header']['resultCode']
-            #                     if (resultCode != '00'): continue
-            #
-            #                     resBody = resData['response']['body']
-            #                     totalCnt = int(resBody['totalCount'])
-            #                     if (totalCnt < 1): break
-            #
-            #                     itemList = resBody['items']['item']
-            #                     if (len(itemList) < 1): break
-            #
-            #                     data = pd.DataFrame.from_dict(itemList)
-            #                     data['addrInfo'] = addrInfo
-            #                     data['sigunguCdInfo'] = sigunguCdInfo
-            #                     data['bjdongCdInfo'] = bjdongCdInfo
-            #                     data['pageInfo'] = pageInfo
-            #
-            #                     dataL1 = pd.concat([dataL1, data], ignore_index=False)
-            #
-            #                     if (totalCnt < (pageInfo * 100)): break
-            #
-            #                 except Exception as e:
-            #                     log.error("Exception : {}".format(e))
-            #
-            #     # 자료 저장
-            #     saveFile = '{}/{}/{}/{}/{}_{}_{}.csv'.format(globalVar['outPath'], serviceName, '건축 인허가', addrInfo, '건축 인허가', addrInfo, len(dataL1))
-            #     os.makedirs(os.path.dirname(saveFile), exist_ok=True)
-            #     if (len(dataL1) > 0):
-            #         dataL1.to_csv(saveFile, index=False)
-            #         log.info(f'[CHECK] saveFile : {saveFile}')
+            # 요청 API
+            apiUrl = sysOpt['apiUrl']
+            apiKey = sysOpt['apiKey']
+
+            for ii, addrInfo in enumerate(sysOpt['addrList']):
+                log.info(f'[CHECK] addrInfo : {addrInfo}')
+
+                # admDataL1 = admData[admData['법정동명'].str.contains('서울')]
+                admDataL1 = admData[admData['법정동명'].str.contains(addrInfo)]
+                if len(admDataL1) < 1: continue
+
+                # 시군구 목록
+                sigunguCdList = set(admDataL1['sigunguCd'])
+
+                # 법정동 목록
+                bjdongCdList = set(admDataL1['bjdongCd'])
+
+                # 페이지 설정
+                pageList = np.arange(0, 9999, 1)
+
+                # sigunguCdInfo = 11710
+                # bjdongCdInfo = 11000
+                # pageInfo = 0
+                dataL1 = pd.DataFrame()
+                for i, sigunguCdInfo in enumerate(sigunguCdList):
+                    for j, bjdongCdInfo in enumerate(bjdongCdList):
+                        log.info(f'[CHECK] sigunguCdInfo / bjdongCdInfo : {sigunguCdInfo} / {bjdongCdInfo}')
+
+                        for k, pageInfo in enumerate(pageList):
+                            # log.info(f'[CHECK] pageInfo : {pageInfo}')
+
+                            try:
+                                reqUrl = f'{apiUrl}?serviceKey={apiKey}&sigunguCd={sigunguCdInfo}&bjdongCd={bjdongCdInfo}&numOfRows=999&pageNo=1'
+
+                                res = urllib.request.urlopen(reqUrl)
+                                resCode = res.getcode()
+                                if resCode != 200: continue
+
+                                # json 읽기
+                                # resData = json.loads(res.read().decode('utf-8'))
+
+                                # xml to json 읽기
+                                resData = xmltodict.parse(res.read().decode('utf-8'))
+                                resultCode = resData['response']['header']['resultCode']
+                                if (resultCode != '00'): continue
+
+                                resBody = resData['response']['body']
+                                totalCnt = int(resBody['totalCount'])
+                                if (totalCnt < 1): break
+
+                                itemList = resBody['items']['item']
+                                if (len(itemList) < 1): break
+
+                                data = pd.DataFrame.from_dict(itemList)
+                                data['addrInfo'] = addrInfo
+                                data['sigunguCdInfo'] = sigunguCdInfo
+                                data['bjdongCdInfo'] = bjdongCdInfo
+                                data['pageInfo'] = pageInfo
+
+                                dataL1 = pd.concat([dataL1, data], ignore_index=False)
+
+                                if (totalCnt < (pageInfo * 100)): break
+
+                            except Exception as e:
+                                log.error("Exception : {}".format(e))
+
+                # 자료 저장
+                saveFile = '{}/{}/{}/{}/{}_{}_{}.csv'.format(globalVar['outPath'], serviceName, '건축 인허가', addrInfo, '건축 인허가', addrInfo, len(dataL1))
+                os.makedirs(os.path.dirname(saveFile), exist_ok=True)
+                if (len(dataL1) > 0):
+                    dataL1.to_csv(saveFile, index=False)
+                    log.info(f'[CHECK] saveFile : {saveFile}')
 
             # *********************************************************************************
             # [자료 수집] 오픈API를 이용하여 아파트매매 실거래
@@ -576,324 +579,324 @@ class DtaProcess(object):
             # *********************************************************************************
             # [자료 전처리] 아파트 실거래
             # *********************************************************************************
-            #inpFile = '{}/{}/{}'.format(globalVar['inpPath'], serviceName, '????1101*.xlsx')
-            #inpFile = '{}/{}/{}'.format(globalVar['inpPath'], serviceName, '????1101*.xlsx')
-            addrInfo = sysOpt['addrList'][0]
-            for ii, addrInfo in enumerate(sysOpt['addrList']):
-                log.info(f'[CHECK] addrInfo : {addrInfo}')
-
-                inpFile = '{}/{}/{}/{}/{}.csv'.format(globalVar['outPath'], serviceName, '아파트 실거래', addrInfo, '아파트 실거래_*_*')
-                fileList = sorted(glob.glob(inpFile))
-                if fileList is None or len(fileList) < 1:
-                    log.error('[ERROR] inpFile : {} / {}'.format(inpFile, '입력 자료를 확인해주세요.'))
-                    raise Exception('[ERROR] inpFile : {} / {}'.format(inpFile, '입력 자료를 확인해주세요.'))
-
-                posData = pd.DataFrame()
-                for fileInfo in fileList:
-                    # tmpData = pd.read_excel(fileInfo, skiprows=16)
-                    # posData = posData.append(tmpData)
-                    tmpData = pd.read_csv(fileInfo)
-                    posData = pd.concat([posData, tmpData], ignore_index=True)
-
-                # posData = posData.reset_index()
-                # posData['주소'] = addrInfo + ' ' + posData['도로명'] + ' ' + posData['단지명']
-                # posData['addrDtlInfo'] = posData['addrInfo'] + ' ' + posData['법정동'] + ' ' + posData['아파트'] + ' ' + posData['지번'].astype('string')
-                posData['addrDtlInfo'] = posData['addrInfo'] + ' ' + posData['법정동'] + ' ' + posData['지번'].astype('string') + ' ' + posData['아파트']
-
-                # addrList = posData['주소'].unique()
-                addDtlrList = set(posData['addrDtlInfo'])
-
-                posDataL1 = pd.DataFrame()
-                for i, addrDtlInfo in enumerate(addDtlrList):
-                    log.info(f'[CHECK] addrDtlInfo : {addrDtlInfo}')
-
-                    posDataL1.loc[i, 'addrDtlInfo'] = addrDtlInfo
-                    posDataL1.loc[i, 'lat'] = None
-                    posDataL1.loc[i, 'lon'] = None
-
-                    try:
-                        rtnGeo = gmap.geocode(addrDtlInfo, language='ko')
-                        if (len(rtnGeo) < 1): continue
-
-                        # 위/경도 반환
-                        posDataL1.loc[i, 'lat'] = rtnGeo[0]['geometry']['location']['lat']
-                        posDataL1.loc[i, 'lon'] = rtnGeo[0]['geometry']['location']['lng']
-
-                    except Exception as e:
-                        log.error("Exception : {}".format(e))
-
-                # 기존 네이버 주석처리
-                # for i, addrInfo in enumerate(addrList):
-                #     log.info(f'[CHECK] addrInfo : {addrInfo}')
-                #
-                #     addUrlenc = parse.quote(addrInfo)
-                #     url = f'{sysOpt["naverApi"]}?query={addUrlenc}'
-                #     request = Request(url)
-                #     request.add_header('X-NCP-APIGW-API-KEY-ID', sysOpt['naverId'])
-                #     request.add_header('X-NCP-APIGW-API-KEY', sysOpt['naverPw'])
-                #
-                #     # posDataL1.loc[i, '주소'] = addrInfo
-                #     # posDataL1.loc[i, 'lat'] = None
-                #     # posDataL1.loc[i, 'lon'] = None
-                #
-                #     try:
-                #         response = urlopen(request)
-                #         resCode = response.getcode()
-                #
-                #         if (resCode != 200): continue
-                #
-                #         responseBody = response.read().decode('utf-8')
-                #         responseBody = json.loads(responseBody)
-                #
-                #         resCnt = responseBody['meta']['count']
-                #         if (resCnt < 1): continue
-                #
-                #         log.info("[CHECK] [{}] {}".format(i, addrInfo))
-                #
-                #         posDataL1.loc[i, 'lat'] = responseBody['addresses'][0]['y']
-                #         posDataL1.loc[i, 'lon'] = responseBody['addresses'][0]['x']
-                #
-                #     except HTTPError as e:
-                #         log.error("Exception : {}".format(e))
-
-                posDataL2 = pd.merge(left=posData, right=posDataL1, how='left', left_on='addrDtlInfo', right_on='addrDtlInfo')
-                # posDataL2.drop(['index'], axis=1, inplace=True)
-
-                saveFile = '{}/{}/{}/{}/{}_{}_{}.csv'.format(globalVar['outPath'], serviceName, '전처리', addrInfo, '아파트 실거래', addrInfo, datetime.now().strftime('%Y%m%d'))
-                os.makedirs(os.path.dirname(saveFile), exist_ok=True)
-                posDataL2.to_csv(saveFile, index_label=False, index=False)
-                log.info('[CHECK] saveFile : {}'.format(saveFile))
+            # #inpFile = '{}/{}/{}'.format(globalVar['inpPath'], serviceName, '????1101*.xlsx')
+            # #inpFile = '{}/{}/{}'.format(globalVar['inpPath'], serviceName, '????1101*.xlsx')
+            # addrInfo = sysOpt['addrList'][0]
+            # for ii, addrInfo in enumerate(sysOpt['addrList']):
+            #     log.info(f'[CHECK] addrInfo : {addrInfo}')
+            #
+            #     inpFile = '{}/{}/{}/{}/{}.csv'.format(globalVar['outPath'], serviceName, '아파트 실거래', addrInfo, '아파트 실거래_*_*')
+            #     fileList = sorted(glob.glob(inpFile))
+            #     if fileList is None or len(fileList) < 1:
+            #         log.error('[ERROR] inpFile : {} / {}'.format(inpFile, '입력 자료를 확인해주세요.'))
+            #         raise Exception('[ERROR] inpFile : {} / {}'.format(inpFile, '입력 자료를 확인해주세요.'))
+            #
+            #     posData = pd.DataFrame()
+            #     for fileInfo in fileList:
+            #         # tmpData = pd.read_excel(fileInfo, skiprows=16)
+            #         # posData = posData.append(tmpData)
+            #         tmpData = pd.read_csv(fileInfo)
+            #         posData = pd.concat([posData, tmpData], ignore_index=True)
+            #
+            #     # posData = posData.reset_index()
+            #     # posData['주소'] = addrInfo + ' ' + posData['도로명'] + ' ' + posData['단지명']
+            #     # posData['addrDtlInfo'] = posData['addrInfo'] + ' ' + posData['법정동'] + ' ' + posData['아파트'] + ' ' + posData['지번'].astype('string')
+            #     posData['addrDtlInfo'] = posData['addrInfo'] + ' ' + posData['법정동'] + ' ' + posData['지번'].astype('string') + ' ' + posData['아파트']
+            #
+            #     # addrList = posData['주소'].unique()
+            #     addDtlrList = set(posData['addrDtlInfo'])
+            #
+            #     posDataL1 = pd.DataFrame()
+            #     for i, addrDtlInfo in enumerate(addDtlrList):
+            #         log.info(f'[CHECK] addrDtlInfo : {addrDtlInfo}')
+            #
+            #         posDataL1.loc[i, 'addrDtlInfo'] = addrDtlInfo
+            #         posDataL1.loc[i, 'lat'] = None
+            #         posDataL1.loc[i, 'lon'] = None
+            #
+            #         try:
+            #             rtnGeo = gmap.geocode(addrDtlInfo, language='ko')
+            #             if (len(rtnGeo) < 1): continue
+            #
+            #             # 위/경도 반환
+            #             posDataL1.loc[i, 'lat'] = rtnGeo[0]['geometry']['location']['lat']
+            #             posDataL1.loc[i, 'lon'] = rtnGeo[0]['geometry']['location']['lng']
+            #
+            #         except Exception as e:
+            #             log.error("Exception : {}".format(e))
+            #
+            #     # 기존 네이버 주석처리
+            #     # for i, addrInfo in enumerate(addrList):
+            #     #     log.info(f'[CHECK] addrInfo : {addrInfo}')
+            #     #
+            #     #     addUrlenc = parse.quote(addrInfo)
+            #     #     url = f'{sysOpt["naverApi"]}?query={addUrlenc}'
+            #     #     request = Request(url)
+            #     #     request.add_header('X-NCP-APIGW-API-KEY-ID', sysOpt['naverId'])
+            #     #     request.add_header('X-NCP-APIGW-API-KEY', sysOpt['naverPw'])
+            #     #
+            #     #     # posDataL1.loc[i, '주소'] = addrInfo
+            #     #     # posDataL1.loc[i, 'lat'] = None
+            #     #     # posDataL1.loc[i, 'lon'] = None
+            #     #
+            #     #     try:
+            #     #         response = urlopen(request)
+            #     #         resCode = response.getcode()
+            #     #
+            #     #         if (resCode != 200): continue
+            #     #
+            #     #         responseBody = response.read().decode('utf-8')
+            #     #         responseBody = json.loads(responseBody)
+            #     #
+            #     #         resCnt = responseBody['meta']['count']
+            #     #         if (resCnt < 1): continue
+            #     #
+            #     #         log.info("[CHECK] [{}] {}".format(i, addrInfo))
+            #     #
+            #     #         posDataL1.loc[i, 'lat'] = responseBody['addresses'][0]['y']
+            #     #         posDataL1.loc[i, 'lon'] = responseBody['addresses'][0]['x']
+            #     #
+            #     #     except HTTPError as e:
+            #     #         log.error("Exception : {}".format(e))
+            #
+            #     posDataL2 = pd.merge(left=posData, right=posDataL1, how='left', left_on='addrDtlInfo', right_on='addrDtlInfo')
+            #     # posDataL2.drop(['index'], axis=1, inplace=True)
+            #
+            #     saveFile = '{}/{}/{}/{}/{}_{}_{}.csv'.format(globalVar['outPath'], serviceName, '전처리', addrInfo, '아파트 실거래', addrInfo, datetime.now().strftime('%Y%m%d'))
+            #     os.makedirs(os.path.dirname(saveFile), exist_ok=True)
+            #     posDataL2.to_csv(saveFile, index_label=False, index=False)
+            #     log.info('[CHECK] saveFile : {}'.format(saveFile))
 
             # *********************************************************************************
             # [자료 전처리] 아파트 전월세
             # *********************************************************************************
-            addrInfo = sysOpt['addrList'][0]
-            for ii, addrInfo in enumerate(sysOpt['addrList']):
-                log.info(f'[CHECK] addrInfo : {addrInfo}')
-
-                # inpFile = '{}/{}/{}'.format(globalVar['inpPath'], serviceName, '아파트(전월세)_????.xlsx')
-                inpFile = '{}/{}/{}/{}/{}.csv'.format(globalVar['outPath'], serviceName, '아파트 전월세', addrInfo, '아파트 전월세_*_*')
-                fileList = sorted(glob.glob(inpFile))
-                if fileList is None or len(fileList) < 1:
-                    log.error('[ERROR] inpFile : {} / {}'.format(inpFile, '입력 자료를 확인해주세요.'))
-                    raise Exception('[ERROR] inpFile : {} / {}'.format(inpFile, '입력 자료를 확인해주세요.'))
-
-                posData = pd.DataFrame()
-                for fileInfo in fileList:
-                    # tmpData = pd.read_excel(fileInfo, skiprows=16)
-                    # posData = posData.append(tmpData)
-                    tmpData = pd.read_csv(fileInfo)
-                    posData = pd.concat([posData, tmpData], ignore_index=True)
-
-                # posData = posData.reset_index()
-                # posData['주소'] = '서울특별시 강북구' + ' ' + posData['도로명'] + ' ' + posData['단지명']
-                # posData['addrDtlInfo'] = posData['addrInfo'] + ' ' + posData['법정동'] + ' ' + posData['아파트'] + ' ' + posData['지번']
-                posData['addrDtlInfo'] = posData['addrInfo'] + ' ' + posData['법정동'] + ' ' + posData['지번'].astype('string') + ' ' + posData['아파트']
-
-                # addrList = posData['주소'].unique()
-                addrDtlList = set(posData['addrDtlInfo'])
-
-                posDataL1 = pd.DataFrame()
-                for i, addrDtlInfo in enumerate(addrDtlList):
-                    log.info(f'[CHECK] addrDtlInfo : {addrDtlInfo}')
-
-                    posDataL1.loc[i, 'addrDtlInfo'] = addrDtlInfo
-                    posDataL1.loc[i, 'lat'] = None
-                    posDataL1.loc[i, 'lon'] = None
-
-                    try:
-                        rtnGeo = gmap.geocode(addrDtlInfo, language='ko')
-                        if (len(rtnGeo) < 1): continue
-
-                        # 위/경도 반환
-                        posDataL1.loc[i, 'lat'] = rtnGeo[0]['geometry']['location']['lat']
-                        posDataL1.loc[i, 'lon'] = rtnGeo[0]['geometry']['location']['lng']
-
-                    except Exception as e:
-                        log.error("Exception : {}".format(e))
-
-                # for i, addrInfo in enumerate(addrList):
-                #     log.info(f'[CHECK] addrInfo : {addrInfo}')
-                #
-                #     addUrlenc = parse.quote(addrInfo)
-                #     url = f'{sysOpt["naverApi"]}?query={addUrlenc}'
-                #     request = Request(url)
-                #     request.add_header('X-NCP-APIGW-API-KEY-ID', sysOpt['naverId'])
-                #     request.add_header('X-NCP-APIGW-API-KEY', sysOpt['naverPw'])
-                #
-                #     # posDataL1.loc[i, '주소'] = addrInfo
-                #     # posDataL1.loc[i, 'lat'] = None
-                #     # posDataL1.loc[i, 'lon'] = None
-                #
-                #     try:
-                #         response = urlopen(request)
-                #         resCode = response.getcode()
-                #
-                #         if (resCode != 200): continue
-                #
-                #         responseBody = response.read().decode('utf-8')
-                #         responseBody = json.loads(responseBody)
-                #
-                #         resCnt = responseBody['meta']['count']
-                #         if (resCnt < 1): continue
-                #
-                #         log.info("[CHECK] [{}] {}".format(i, addrInfo))
-                #
-                #         posDataL1.loc[i, 'lat'] = responseBody['addresses'][0]['y']
-                #         posDataL1.loc[i, 'lon'] = responseBody['addresses'][0]['x']
-                #
-                #     except HTTPError as e:
-                #         log.error("Exception : {}".format(e))
-
-                posDataL2 = pd.merge(left=posData, right=posDataL1, how='left', left_on='addrDtlInfo', right_on='addrDtlInfo')
-                # posDataL2.drop(['index'], axis=1, inplace=True)
-
-                saveFile = '{}/{}/{}/{}/{}_{}_{}.csv'.format(globalVar['outPath'], serviceName, '전처리', addrInfo, '아파트 전월세', addrInfo, datetime.now().strftime('%Y%m%d'))
-                os.makedirs(os.path.dirname(saveFile), exist_ok=True)
-                posDataL2.to_csv(saveFile, index_label=False, index=False)
-                log.info('[CHECK] saveFile : {}'.format(saveFile))
+            # addrInfo = sysOpt['addrList'][0]
+            # for ii, addrInfo in enumerate(sysOpt['addrList']):
+            #     log.info(f'[CHECK] addrInfo : {addrInfo}')
+            #
+            #     # inpFile = '{}/{}/{}'.format(globalVar['inpPath'], serviceName, '아파트(전월세)_????.xlsx')
+            #     inpFile = '{}/{}/{}/{}/{}.csv'.format(globalVar['outPath'], serviceName, '아파트 전월세', addrInfo, '아파트 전월세_*_*')
+            #     fileList = sorted(glob.glob(inpFile))
+            #     if fileList is None or len(fileList) < 1:
+            #         log.error('[ERROR] inpFile : {} / {}'.format(inpFile, '입력 자료를 확인해주세요.'))
+            #         raise Exception('[ERROR] inpFile : {} / {}'.format(inpFile, '입력 자료를 확인해주세요.'))
+            #
+            #     posData = pd.DataFrame()
+            #     for fileInfo in fileList:
+            #         # tmpData = pd.read_excel(fileInfo, skiprows=16)
+            #         # posData = posData.append(tmpData)
+            #         tmpData = pd.read_csv(fileInfo)
+            #         posData = pd.concat([posData, tmpData], ignore_index=True)
+            #
+            #     # posData = posData.reset_index()
+            #     # posData['주소'] = '서울특별시 강북구' + ' ' + posData['도로명'] + ' ' + posData['단지명']
+            #     # posData['addrDtlInfo'] = posData['addrInfo'] + ' ' + posData['법정동'] + ' ' + posData['아파트'] + ' ' + posData['지번']
+            #     posData['addrDtlInfo'] = posData['addrInfo'] + ' ' + posData['법정동'] + ' ' + posData['지번'].astype('string') + ' ' + posData['아파트']
+            #
+            #     # addrList = posData['주소'].unique()
+            #     addrDtlList = set(posData['addrDtlInfo'])
+            #
+            #     posDataL1 = pd.DataFrame()
+            #     for i, addrDtlInfo in enumerate(addrDtlList):
+            #         log.info(f'[CHECK] addrDtlInfo : {addrDtlInfo}')
+            #
+            #         posDataL1.loc[i, 'addrDtlInfo'] = addrDtlInfo
+            #         posDataL1.loc[i, 'lat'] = None
+            #         posDataL1.loc[i, 'lon'] = None
+            #
+            #         try:
+            #             rtnGeo = gmap.geocode(addrDtlInfo, language='ko')
+            #             if (len(rtnGeo) < 1): continue
+            #
+            #             # 위/경도 반환
+            #             posDataL1.loc[i, 'lat'] = rtnGeo[0]['geometry']['location']['lat']
+            #             posDataL1.loc[i, 'lon'] = rtnGeo[0]['geometry']['location']['lng']
+            #
+            #         except Exception as e:
+            #             log.error("Exception : {}".format(e))
+            #
+            #     # for i, addrInfo in enumerate(addrList):
+            #     #     log.info(f'[CHECK] addrInfo : {addrInfo}')
+            #     #
+            #     #     addUrlenc = parse.quote(addrInfo)
+            #     #     url = f'{sysOpt["naverApi"]}?query={addUrlenc}'
+            #     #     request = Request(url)
+            #     #     request.add_header('X-NCP-APIGW-API-KEY-ID', sysOpt['naverId'])
+            #     #     request.add_header('X-NCP-APIGW-API-KEY', sysOpt['naverPw'])
+            #     #
+            #     #     # posDataL1.loc[i, '주소'] = addrInfo
+            #     #     # posDataL1.loc[i, 'lat'] = None
+            #     #     # posDataL1.loc[i, 'lon'] = None
+            #     #
+            #     #     try:
+            #     #         response = urlopen(request)
+            #     #         resCode = response.getcode()
+            #     #
+            #     #         if (resCode != 200): continue
+            #     #
+            #     #         responseBody = response.read().decode('utf-8')
+            #     #         responseBody = json.loads(responseBody)
+            #     #
+            #     #         resCnt = responseBody['meta']['count']
+            #     #         if (resCnt < 1): continue
+            #     #
+            #     #         log.info("[CHECK] [{}] {}".format(i, addrInfo))
+            #     #
+            #     #         posDataL1.loc[i, 'lat'] = responseBody['addresses'][0]['y']
+            #     #         posDataL1.loc[i, 'lon'] = responseBody['addresses'][0]['x']
+            #     #
+            #     #     except HTTPError as e:
+            #     #         log.error("Exception : {}".format(e))
+            #
+            #     posDataL2 = pd.merge(left=posData, right=posDataL1, how='left', left_on='addrDtlInfo', right_on='addrDtlInfo')
+            #     # posDataL2.drop(['index'], axis=1, inplace=True)
+            #
+            #     saveFile = '{}/{}/{}/{}/{}_{}_{}.csv'.format(globalVar['outPath'], serviceName, '전처리', addrInfo, '아파트 전월세', addrInfo, datetime.now().strftime('%Y%m%d'))
+            #     os.makedirs(os.path.dirname(saveFile), exist_ok=True)
+            #     posDataL2.to_csv(saveFile, index_label=False, index=False)
+            #     log.info('[CHECK] saveFile : {}'.format(saveFile))
 
             # *********************************************************************************
             # [자료 전처리] 건축 인허가
             # *********************************************************************************
-            addrInfo = sysOpt['addrList'][0]
-            for ii, addrInfo in enumerate(sysOpt['addrList']):
-                log.info(f'[CHECK] addrInfo : {addrInfo}')
-
-                inpFile = '{}/{}/{}/{}/{}.csv'.format(globalVar['outPath'], serviceName, '건축 인허가', addrInfo, '건축 인허가_*_*')
-                fileList = sorted(glob.glob(inpFile))
-                if fileList is None or len(fileList) < 1:
-                    log.error('[ERROR] inpFile : {} / {}'.format(inpFile, '입력 자료를 확인해주세요.'))
-                    raise Exception('[ERROR] inpFile : {} / {}'.format(inpFile, '입력 자료를 확인해주세요.'))
-
-
-                posData = pd.read_csv(fileList[0])
-                posData['addrDtlInfo'] = posData['platPlc']
-
-                addrDtlList = set(posData['addrDtlInfo'])
-
-                posDataL1 = pd.DataFrame()
-                for i, addrDtlInfo in enumerate(addrDtlList):
-                    log.info(f'[CHECK] addrDtlInfo : {addrDtlInfo}')
-
-                    posDataL1.loc[i, 'addrDtlInfo'] = addrDtlInfo
-                    posDataL1.loc[i, 'lat'] = None
-                    posDataL1.loc[i, 'lon'] = None
-
-                    try:
-                        rtnGeo = gmap.geocode(addrDtlInfo, language='ko')
-                        if (len(rtnGeo) < 1): continue
-
-                        # 위/경도 반환
-                        posDataL1.loc[i, 'lat'] = rtnGeo[0]['geometry']['location']['lat']
-                        posDataL1.loc[i, 'lon'] = rtnGeo[0]['geometry']['location']['lng']
-
-                    except Exception as e:
-                        log.error("Exception : {}".format(e))
-
-                posDataL2 = pd.merge(left=posData, right=posDataL1, how='left', left_on='addrDtlInfo', right_on='addrDtlInfo')
-
-                saveFile = '{}/{}/{}/{}/{}_{}_{}.csv'.format(globalVar['outPath'], serviceName, '전처리', addrInfo, '건축 인허가', addrInfo, datetime.now().strftime('%Y%m%d'))
-                os.makedirs(os.path.dirname(saveFile), exist_ok=True)
-                posDataL2.to_csv(saveFile, index_label=False, index=False)
-                log.info('[CHECK] saveFile : {}'.format(saveFile))
+            # addrInfo = sysOpt['addrList'][0]
+            # for ii, addrInfo in enumerate(sysOpt['addrList']):
+            #     log.info(f'[CHECK] addrInfo : {addrInfo}')
+            #
+            #     inpFile = '{}/{}/{}/{}/{}.csv'.format(globalVar['outPath'], serviceName, '건축 인허가', addrInfo, '건축 인허가_*_*')
+            #     fileList = sorted(glob.glob(inpFile))
+            #     if fileList is None or len(fileList) < 1:
+            #         log.error('[ERROR] inpFile : {} / {}'.format(inpFile, '입력 자료를 확인해주세요.'))
+            #         raise Exception('[ERROR] inpFile : {} / {}'.format(inpFile, '입력 자료를 확인해주세요.'))
+            #
+            #
+            #     posData = pd.read_csv(fileList[0])
+            #     posData['addrDtlInfo'] = posData['platPlc']
+            #
+            #     addrDtlList = set(posData['addrDtlInfo'])
+            #
+            #     posDataL1 = pd.DataFrame()
+            #     for i, addrDtlInfo in enumerate(addrDtlList):
+            #         log.info(f'[CHECK] addrDtlInfo : {addrDtlInfo}')
+            #
+            #         posDataL1.loc[i, 'addrDtlInfo'] = addrDtlInfo
+            #         posDataL1.loc[i, 'lat'] = None
+            #         posDataL1.loc[i, 'lon'] = None
+            #
+            #         try:
+            #             rtnGeo = gmap.geocode(addrDtlInfo, language='ko')
+            #             if (len(rtnGeo) < 1): continue
+            #
+            #             # 위/경도 반환
+            #             posDataL1.loc[i, 'lat'] = rtnGeo[0]['geometry']['location']['lat']
+            #             posDataL1.loc[i, 'lon'] = rtnGeo[0]['geometry']['location']['lng']
+            #
+            #         except Exception as e:
+            #             log.error("Exception : {}".format(e))
+            #
+            #     posDataL2 = pd.merge(left=posData, right=posDataL1, how='left', left_on='addrDtlInfo', right_on='addrDtlInfo')
+            #
+            #     saveFile = '{}/{}/{}/{}/{}_{}_{}.csv'.format(globalVar['outPath'], serviceName, '전처리', addrInfo, '건축 인허가', addrInfo, datetime.now().strftime('%Y%m%d'))
+            #     os.makedirs(os.path.dirname(saveFile), exist_ok=True)
+            #     posDataL2.to_csv(saveFile, index_label=False, index=False)
+            #     log.info('[CHECK] saveFile : {}'.format(saveFile))
 
 
             # *********************************************************************************
             # [자료 가공] 건축 인허가 및 아파트 실거래 간의 공간 일치
             # *********************************************************************************
-            addrInfo = sysOpt['addrList'][0]
-            for ii, addrInfo in enumerate(sysOpt['addrList']):
-                log.info(f'[CHECK] addrInfo : {addrInfo}')
-
-                inpFile = '{}/{}/{}/{}/{}.csv'.format(globalVar['outPath'], serviceName, '전처리', addrInfo, '건축 인허가_*_*')
-                fileList = sorted(glob.glob(inpFile))
-                if fileList is None or len(fileList) < 1:
-                    log.error('[ERROR] inpFile : {} / {}'.format(inpFile, '입력 자료를 확인해주세요.'))
-                    raise Exception('[ERROR] inpFile : {} / {}'.format(inpFile, '입력 자료를 확인해주세요.'))
-
-                houseConsData = pd.read_csv(fileList[0])
-
-                inpFile = '{}/{}/{}/{}/{}.csv'.format(globalVar['outPath'], serviceName, '전처리', addrInfo, '아파트 실거래_*_*')
-                fileList = sorted(glob.glob(inpFile))
-                if fileList is None or len(fileList) < 1:
-                    log.error('[ERROR] inpFile : {} / {}'.format(inpFile, '입력 자료를 확인해주세요.'))
-                    raise Exception('[ERROR] inpFile : {} / {}'.format(inpFile, '입력 자료를 확인해주세요.'))
-
-                aptPriceData = pd.read_csv(fileList[0])
-
-                # *********************************************************************************
-                # 최근접 좌표
-                # *********************************************************************************
-                # BallTree를 위한 초기 데이터
-                houseConsRef = houseConsData[['addrDtlInfo', 'lat', 'lon']].dropna().reset_index(drop=True)
-                baTree = BallTree(np.deg2rad(houseConsRef[['lat', 'lon']].values), metric='haversine')
-
-                aptPriceDataL1 = aptPriceData
-                for i, posInfo in aptPriceDataL1.iterrows():
-                    if (pd.isna(posInfo['lat']) or pd.isna(posInfo['lon'])): continue
-
-                    closest = baTree.query(np.deg2rad(np.c_[posInfo['lat'], posInfo['lon']]), k=1)
-                    cloDist = closest[0][0][0] * 1000.0
-                    cloIdx = closest[1][0][0]
-
-                    aptPriceDataL1.loc[i, '인허가addrDtlInfo'] = houseConsRef.loc[cloIdx, 'addrDtlInfo']
-                    aptPriceDataL1.loc[i, '인허가lat'] = houseConsRef.loc[cloIdx, 'lat']
-                    aptPriceDataL1.loc[i, '인허가lon'] = houseConsRef.loc[cloIdx, 'lon']
-                    aptPriceDataL1.loc[i, '인허가distKm'] = cloDist
-
-                saveFile = '{}/{}/{}/{}/{}_{}_{}.csv'.format(globalVar['outPath'], serviceName, '전처리', addrInfo, '건축 인허가-아파트 실거래', addrInfo, datetime.now().strftime('%Y%m%d'))
-                os.makedirs(os.path.dirname(saveFile), exist_ok=True)
-                aptPriceDataL1.to_csv(saveFile, index_label=False, index=False)
-                log.info('[CHECK] saveFile : {}'.format(saveFile))
+            # addrInfo = sysOpt['addrList'][0]
+            # for ii, addrInfo in enumerate(sysOpt['addrList']):
+            #     log.info(f'[CHECK] addrInfo : {addrInfo}')
+            #
+            #     inpFile = '{}/{}/{}/{}/{}.csv'.format(globalVar['outPath'], serviceName, '전처리', addrInfo, '건축 인허가_*_*')
+            #     fileList = sorted(glob.glob(inpFile))
+            #     if fileList is None or len(fileList) < 1:
+            #         log.error('[ERROR] inpFile : {} / {}'.format(inpFile, '입력 자료를 확인해주세요.'))
+            #         raise Exception('[ERROR] inpFile : {} / {}'.format(inpFile, '입력 자료를 확인해주세요.'))
+            #
+            #     houseConsData = pd.read_csv(fileList[0])
+            #
+            #     inpFile = '{}/{}/{}/{}/{}.csv'.format(globalVar['outPath'], serviceName, '전처리', addrInfo, '아파트 실거래_*_*')
+            #     fileList = sorted(glob.glob(inpFile))
+            #     if fileList is None or len(fileList) < 1:
+            #         log.error('[ERROR] inpFile : {} / {}'.format(inpFile, '입력 자료를 확인해주세요.'))
+            #         raise Exception('[ERROR] inpFile : {} / {}'.format(inpFile, '입력 자료를 확인해주세요.'))
+            #
+            #     aptPriceData = pd.read_csv(fileList[0])
+            #
+            #     # *********************************************************************************
+            #     # 최근접 좌표
+            #     # *********************************************************************************
+            #     # BallTree를 위한 초기 데이터
+            #     houseConsRef = houseConsData[['addrDtlInfo', 'lat', 'lon']].dropna().reset_index(drop=True)
+            #     baTree = BallTree(np.deg2rad(houseConsRef[['lat', 'lon']].values), metric='haversine')
+            #
+            #     aptPriceDataL1 = aptPriceData
+            #     for i, posInfo in aptPriceDataL1.iterrows():
+            #         if (pd.isna(posInfo['lat']) or pd.isna(posInfo['lon'])): continue
+            #
+            #         closest = baTree.query(np.deg2rad(np.c_[posInfo['lat'], posInfo['lon']]), k=1)
+            #         cloDist = closest[0][0][0] * 1000.0
+            #         cloIdx = closest[1][0][0]
+            #
+            #         aptPriceDataL1.loc[i, '인허가addrDtlInfo'] = houseConsRef.loc[cloIdx, 'addrDtlInfo']
+            #         aptPriceDataL1.loc[i, '인허가lat'] = houseConsRef.loc[cloIdx, 'lat']
+            #         aptPriceDataL1.loc[i, '인허가lon'] = houseConsRef.loc[cloIdx, 'lon']
+            #         aptPriceDataL1.loc[i, '인허가distKm'] = cloDist
+            #
+            #     saveFile = '{}/{}/{}/{}/{}_{}_{}.csv'.format(globalVar['outPath'], serviceName, '전처리', addrInfo, '건축 인허가-아파트 실거래', addrInfo, datetime.now().strftime('%Y%m%d'))
+            #     os.makedirs(os.path.dirname(saveFile), exist_ok=True)
+            #     aptPriceDataL1.to_csv(saveFile, index_label=False, index=False)
+            #     log.info('[CHECK] saveFile : {}'.format(saveFile))
 
             # *********************************************************************************
             # [자료 가공] 건축 인허가 및 아파트 전월세 간의 공간 일치
             # *********************************************************************************
-            addrInfo = sysOpt['addrList'][0]
-            for ii, addrInfo in enumerate(sysOpt['addrList']):
-                log.info(f'[CHECK] addrInfo : {addrInfo}')
-
-                inpFile = '{}/{}/{}/{}/{}.csv'.format(globalVar['outPath'], serviceName, '전처리', addrInfo, '건축 인허가_*_*')
-                fileList = sorted(glob.glob(inpFile))
-                if fileList is None or len(fileList) < 1:
-                    log.error('[ERROR] inpFile : {} / {}'.format(inpFile, '입력 자료를 확인해주세요.'))
-                    raise Exception('[ERROR] inpFile : {} / {}'.format(inpFile, '입력 자료를 확인해주세요.'))
-
-                houseConsData = pd.read_csv(fileList[0])
-
-                inpFile = '{}/{}/{}/{}/{}.csv'.format(globalVar['outPath'], serviceName, '전처리', addrInfo, '아파트 전월세_*_*')
-                fileList = sorted(glob.glob(inpFile))
-                if fileList is None or len(fileList) < 1:
-                    log.error('[ERROR] inpFile : {} / {}'.format(inpFile, '입력 자료를 확인해주세요.'))
-                    raise Exception('[ERROR] inpFile : {} / {}'.format(inpFile, '입력 자료를 확인해주세요.'))
-
-                aptPriceData = pd.read_csv(fileList[0])
-
-                # *********************************************************************************
-                # 최근접 좌표
-                # *********************************************************************************
-                # BallTree를 위한 초기 데이터
-                houseConsRef = houseConsData[['addrDtlInfo', 'lat', 'lon']].dropna().reset_index(drop=True)
-                baTree = BallTree(np.deg2rad(houseConsRef[['lat', 'lon']].values), metric='haversine')
-
-                aptPriceDataL1 = aptPriceData
-                for i, posInfo in aptPriceDataL1.iterrows():
-                    if (pd.isna(posInfo['lat']) or pd.isna(posInfo['lon'])): continue
-
-                    closest = baTree.query(np.deg2rad(np.c_[posInfo['lat'], posInfo['lon']]), k=1)
-                    cloDist = closest[0][0][0] * 1000.0
-                    cloIdx = closest[1][0][0]
-
-                    aptPriceDataL1.loc[i, '인허가addrDtlInfo'] = houseConsRef.loc[cloIdx, 'addrDtlInfo']
-                    aptPriceDataL1.loc[i, '인허가lat'] = houseConsRef.loc[cloIdx, 'lat']
-                    aptPriceDataL1.loc[i, '인허가lon'] = houseConsRef.loc[cloIdx, 'lon']
-                    aptPriceDataL1.loc[i, '인허가distKm'] = cloDist
-
-                saveFile = '{}/{}/{}/{}/{}_{}_{}.csv'.format(globalVar['outPath'], serviceName, '전처리', addrInfo, '건축 인허가-아파트 전월세', addrInfo, datetime.now().strftime('%Y%m%d'))
-                os.makedirs(os.path.dirname(saveFile), exist_ok=True)
-                aptPriceDataL1.to_csv(saveFile, index_label=False, index=False)
-                log.info(f'[CHECK] saveFile : {saveFile}')
+            # addrInfo = sysOpt['addrList'][0]
+            # for ii, addrInfo in enumerate(sysOpt['addrList']):
+            #     log.info(f'[CHECK] addrInfo : {addrInfo}')
+            #
+            #     inpFile = '{}/{}/{}/{}/{}.csv'.format(globalVar['outPath'], serviceName, '전처리', addrInfo, '건축 인허가_*_*')
+            #     fileList = sorted(glob.glob(inpFile))
+            #     if fileList is None or len(fileList) < 1:
+            #         log.error('[ERROR] inpFile : {} / {}'.format(inpFile, '입력 자료를 확인해주세요.'))
+            #         raise Exception('[ERROR] inpFile : {} / {}'.format(inpFile, '입력 자료를 확인해주세요.'))
+            #
+            #     houseConsData = pd.read_csv(fileList[0])
+            #
+            #     inpFile = '{}/{}/{}/{}/{}.csv'.format(globalVar['outPath'], serviceName, '전처리', addrInfo, '아파트 전월세_*_*')
+            #     fileList = sorted(glob.glob(inpFile))
+            #     if fileList is None or len(fileList) < 1:
+            #         log.error('[ERROR] inpFile : {} / {}'.format(inpFile, '입력 자료를 확인해주세요.'))
+            #         raise Exception('[ERROR] inpFile : {} / {}'.format(inpFile, '입력 자료를 확인해주세요.'))
+            #
+            #     aptPriceData = pd.read_csv(fileList[0])
+            #
+            #     # *********************************************************************************
+            #     # 최근접 좌표
+            #     # *********************************************************************************
+            #     # BallTree를 위한 초기 데이터
+            #     houseConsRef = houseConsData[['addrDtlInfo', 'lat', 'lon']].dropna().reset_index(drop=True)
+            #     baTree = BallTree(np.deg2rad(houseConsRef[['lat', 'lon']].values), metric='haversine')
+            #
+            #     aptPriceDataL1 = aptPriceData
+            #     for i, posInfo in aptPriceDataL1.iterrows():
+            #         if (pd.isna(posInfo['lat']) or pd.isna(posInfo['lon'])): continue
+            #
+            #         closest = baTree.query(np.deg2rad(np.c_[posInfo['lat'], posInfo['lon']]), k=1)
+            #         cloDist = closest[0][0][0] * 1000.0
+            #         cloIdx = closest[1][0][0]
+            #
+            #         aptPriceDataL1.loc[i, '인허가addrDtlInfo'] = houseConsRef.loc[cloIdx, 'addrDtlInfo']
+            #         aptPriceDataL1.loc[i, '인허가lat'] = houseConsRef.loc[cloIdx, 'lat']
+            #         aptPriceDataL1.loc[i, '인허가lon'] = houseConsRef.loc[cloIdx, 'lon']
+            #         aptPriceDataL1.loc[i, '인허가distKm'] = cloDist
+            #
+            #     saveFile = '{}/{}/{}/{}/{}_{}_{}.csv'.format(globalVar['outPath'], serviceName, '전처리', addrInfo, '건축 인허가-아파트 전월세', addrInfo, datetime.now().strftime('%Y%m%d'))
+            #     os.makedirs(os.path.dirname(saveFile), exist_ok=True)
+            #     aptPriceDataL1.to_csv(saveFile, index_label=False, index=False)
+            #     log.info(f'[CHECK] saveFile : {saveFile}')
 
         except Exception as e:
             log.error("Exception : {}".format(e))
