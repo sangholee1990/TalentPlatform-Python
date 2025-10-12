@@ -1,7 +1,7 @@
 # ============================================
 # 요구사항
 # ============================================
-# LSH0627. Python을 이용한 AI 기반 랜딩 페이지 제작 및 API 연계 서비스
+# LSH0627. Python을 이용한 알톤 바이크매트릭스AI 데이터 API
 
 # =================================================
 # 도움말
@@ -301,10 +301,19 @@ async def redirect_to_docs():
 @app.post(f"/api/sel-brandModel")
 async def selBrandModel(
     year: str = Form(..., description='연식 (최소-최대)', examples=['2015-2025']),
-    status: str = Form(..., description='자전거 상태', examples=['중'], enum=['상', '중', '하']),
+    status: str = Form(..., description='자전거 상태 (상/중/하)', examples=['중'], enum=['상', '중', '하']),
     limit: int = Form(..., description="1쪽당 개수", examples=[10]),
     page: int = Form(..., description="현재 쪽", examples=[1]),
 ):
+    """
+    기능\n
+        알톤 바이크메트릭스AI - AI 시세 조회하기 - 브랜드/모델명 목록 조회\n
+    테스트\n
+        year: 연식 (최소-최대)\n
+        status: 자전거 상태 (상/중/하)\n
+        limit: 1쪽당 개수\n
+        page: 현재 쪽\n
+    """
     try:
         # year = request.year
         minYear, maxYear  = year.split('-')
@@ -344,9 +353,17 @@ async def selBrandModel(
 @app.post(f"/api/sel-prd")
 async def selPrd(
     year: str = Form(..., description='연식 (최소-최대)', examples=['2015-2025']),
-    status: str = Form(..., description='자전거 상태', examples=['중'], enum=['상', '중', '하']),
+    status: str = Form(..., description='자전거 상태 (상/중/하)', examples=['중'], enum=['상', '중', '하']),
     brandModel: str = Form(..., description='자전거 모델', examples=['2020 알톤 스로틀 FS 전기자전거 앞뒤 서스펜션 20인치 미니벨로']),
 ):
+    """
+    기능\n
+        알톤 바이크메트릭스AI - AI 시세 조회하기 - 브랜드/모델명의 AI시세 결과 조회\n
+    테스트\n
+        year: 연식 (최소-최대)\n
+        status: 자전거 상태 (상/중/하)\n
+        brandModel: 자전거 모델\n
+    """
     try:
         # year = request.year
         minYear, maxYear  = year.split('-')
@@ -385,6 +402,13 @@ async def selChatModelCont(
     chatModel: str = Form(..., description='생성형 AI 종류', examples=['gemini-2.5-flash'], enum=['gemini-2.5-pro', 'gemini-2.5-flash', 'gemini-2.5-flash-lite']),
     cont: str = Form(..., description='비교 리포트 (종합 성능, 상세 스펙, 종합 분석)', examples=['자전거 비교 리포트 (종합 성능, 상세 스펙, 종합 분석)']),
 ):
+    """
+    기능\n
+        알톤 바이크메트릭스AI - AI 맞춤 자전거 찾기 - AI 비교 리포트\n
+    테스트\n
+        chatModel: 생성형 AI 종류 (gemini-2.5-pro, gemini-2.5-flash, gemini-2.5-flash-lite)\n
+        cont: 비교 리포트 (종합 성능, 상세 스펙, 종합 분석)\n
+    """
     try:
         # model = request.model
         if chatModel is None or len(chatModel) < 1:
