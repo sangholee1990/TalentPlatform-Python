@@ -262,7 +262,8 @@ class DtaProcess(object):
             data['dtDate'] = pd.to_datetime(data['date'], format='%Y%m%d')
 
             # 자전거 상품 별로 최저가 2개 이상인 경우
-            modTitleList = sorted(data.groupby("title").filter(lambda x: x['lprice'].nunique() > 1)['title'].unique())
+            # modTitleList = sorted(data.groupby("title").filter(lambda x: x['lprice'].nunique() > 1)['title'].unique())
+            modTitleList = sorted(data['title'].unique())
 
             # modTitleInfo = modTitleList[0]
             mlPrdDataL1 = pd.DataFrame()
