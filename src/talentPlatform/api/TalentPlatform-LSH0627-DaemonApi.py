@@ -170,7 +170,7 @@ def initLog(env=None, contextPath=None, prjName=None):
 
 # 인증키 검사
 def chkApiKey(api_key: str = Depends(APIKeyHeader(name="api"))):
-    if api_key != '20250811-topbds':
+    if api_key != '20251012-topbds':
         raise HTTPException(status_code=400, detail="API 인증 실패")
 
 def resResponse(status: str, code: int, message: str, cnt: Any = None, data: Any = None) -> dict:
@@ -182,6 +182,25 @@ def resResponse(status: str, code: int, message: str, cnt: Any = None, data: Any
         , "data": data
     }
 
+def getPageDict(data, page=1, limit=10):
+    result = {}
+    start_index = (page - 1) * limit
+    end_index = start_index + limit
+
+    if data.empty:
+        return result
+
+    for (brand, type), list in zip(data.index, data.values):
+        cnt = len(list)
+        if cnt > 0:
+            key = f"{brand}-{type}"
+            result[key] = {
+                'cnt': cnt,
+                'item': list[start_index:end_index]
+            }
+
+    return result
+
 # ============================================
 # 주요 설정
 # ============================================
@@ -189,8 +208,8 @@ env = 'local'
 serviceName = 'LSH0627'
 prjName = 'test'
 
-ctxPath = os.getcwd()
-# ctxPath = f"/SYSTEMS/PROG/PYTHON/IDE"
+# ctxPath = os.getcwd()
+ctxPath = '/HDD/SYSTEMS/PROG/PYTHON/IDE/src/talentPlatform/api'
 
 log = initLog(env, ctxPath, prjName)
 
@@ -202,8 +221,9 @@ log = initLog(env, ctxPath, prjName)
 sysOpt = {
     # CORS 설정
     'oriList': ['*'],
+
     # 입력 데이터
-    'saveFile': '/HDD/DATA/OUTPUT/LSH0627/naverShop_prd.csv',
+    'csvFile': '/HDD/DATA/OUTPUT/LSH0627/naverShop_prd.csv',
 
     # 설정 정보
     'cfgFile': '/HDD/SYSTEMS/PROG/PYTHON/IDE/resources/config/system.cfg',
@@ -238,29 +258,64 @@ config = configparser.ConfigParser()
 config.read(sysOpt['cfgFile'], encoding='utf-8')
 client = config.get(sysOpt['cfgKey'], sysOpt['cfgVal'])
 
+# 설정 파일
+try:
+    csvFile = sysOpt['csvFile']
+    csvList = sorted(glob.glob(csvFile))
+    if csvList is None or len(csvList) < 1:
+        log.error(f'설정 파일 없음, csvFile : {csvFile}')
+        exit(1)
+
+    csvInfo = csvList[0]
+    csvData = pd.read_csv(csvInfo)
+
+    # 주요 전처리
+    csvData['title'] = csvData['title'].str.replace('<[^>]*>', '', regex=True).str.strip()
+    csvData['isDlPrd'] = csvData['dlPrd'].notna()
+    csvData['isMlPrd'] = csvData['mlPrd'].notna()
+    csvData['isLprice'] = csvData['lprice'].notna()
+    csvData['typeByTitle'] = csvData['typeByTitle'].replace({'전기자전거': '전기', '일반자전거': '일반'})
+    csvData['brandByTitle'] = pd.Categorical(csvData['brandByTitle'], categories=['알톤 자전거', '삼천리 자전거', '스마트 자전거', '기타'], ordered=True)
+    csvData['typeByTitle'] = pd.Categorical(csvData['typeByTitle'], categories=['전기', '하이브리드', 'MTB', '사이클', '일반', '미니벨로'], ordered=True)
+
+    tmpData = csvData.copy()
+    tmpDataL1 = tmpData.sort_values(by=['title', 'isDlPrd', 'isMlPrd', 'isLprice'], ascending=[True, False, False, False])
+    csvDataL1 = tmpDataL1.drop_duplicates(subset=['title'], keep='first')
+
+
+except Exception as e:
+    log.error(f'설정 파일 실패, csvFile : {csvFile} : {e}')
+    exit(1)
+
+minYear = 2015
+maxYear = 2025
+selData = csvDataL1.loc[
+    (csvDataL1['yearByTitle'] >= float(minYear)) & (csvDataL1['yearByTitle'] <= float(maxYear))
+    ]
+#
+# selDataL2 = selData.groupby(['brandByTitle', 'typeByTitle'], observed=False)['title'].apply(list)
+# selData = csvData[(csvData['title'] == '2020 알톤 스로틀 FS 전기자전거 앞뒤 서스펜션 20인치 미니벨로')]
+# result = getPageDict(selDataL2, page=1, limit=10)
+
+
 # ============================================
 # 비즈니스 로직
 # ============================================
-class modelTypeContData(BaseModel):
-    model: str = Query(default=..., description='생성형 AI 종류', example='gemini-2.5-pro', enum=['gemini-2.5-pro', 'gemini-1.5-flash-latest'])
-    type: str = Query(default=..., description='축제', example='gemini-2.5-pro', enum=['축제', '행사', '광고'])
-    cont: str = Field(default=..., example='''
-이벤트명: 국립해양생물자원관 개관10주년 캠페인 (한산모시축제)
-이벤트 유형: 축제
-이벤트 개요: 이벤트 진행, 사은품 제공, 부스 운영
-날짜: 2025년 6월 13일 (금) - 6월 15일 (일)
-장소: 국립해양생물자원관
-원하는 분위기: 밝음
-    ''', description='요청사항')
+class cfgBrandModel(BaseModel):
+    year: str = Field(..., description='연식 (최소-최대)', examples=['2015-2025']),
+    status: str = Query(default=..., description='자전거 상태', example='중', enum=['상', '중', '하']),
+    limit: int = Query(10, description="1쪽당 개수"),
+    page: int = Query(1, description="현재 쪽"),
 
-class contData(BaseModel):
-    cont: str = Field(default=..., example='없음', description='요청사항')
+class cfgPrd(BaseModel):
+    year: str = Field(..., description='연식 (최소-최대)', examples=['2015-2025']),
+    status: str = Query(default=..., description='자전거 상태', example='중', enum=['상', '중', '하']),
+    model: str = Field(..., description='자전거 모델', examples=['2020 알톤 스로틀 FS 전기자전거 앞뒤 서스펜션 20인치 미니벨로']),
 
-class imageData(BaseModel):
-    keyword: str = Field(default=..., example='자연+바다', description='검색어')
-
-class videoData(BaseModel):
-    keyword: str = Field(default=..., example='자연+바다', description='검색어')
+class cfgChatTypeCont(BaseModel):
+    model: str = Query(default=..., description='생성형 AI 종류', example='gemini-2.5-pro', enum=['gemini-2.5-pro', 'gemini-1.5-flash-latest']),
+    cont: str = Field(default=..., description='요청사항', example='''테스트
+    '''),
 
 # ============================================
 # API URL 주소
@@ -269,95 +324,108 @@ class videoData(BaseModel):
 async def redirect_to_docs():
     return RedirectResponse(url="/docs")
 
-# @app.post(f"/api/sel-blogTypePost", dependencies=[Depends(chkApiKey)])
-@app.post(f"/api/sel-modelTypeContData")
-async def selModelTypeContData(request: modelTypeContData = Form(...)):
+# @app.post(f"/api/sel-brandModel", dependencies=[Depends(chkApiKey)])
+@app.post(f"/api/sel-brandModel")
+async def selBrandModel(request: cfgBrandModel = Form(...)):
+    try:
+        year = request.year
+        minYear, maxYear  = year.split('-')
+        if year is None or len(year) < 1 or minYear is None or maxYear is None:
+            return resResponse("fail", 400, f"연식 없음, year : {year}", None)
+
+        status = request.status
+        if status is None or len(status) < 1:
+            return resResponse("fail", 400, f"자전거 상태 없음, status : {status}")
+
+        page = request.page
+        if page is None or len(page) < 1:
+            return resResponse("fail", 400, f"현재 쪽 없음, page : {page}")
+
+        limit = request.limit
+        if limit is None or len(limit) < 1:
+            return resResponse("fail", 400, f"1쪽당 개수 없음, limit : {limit}")
+
+        selData = csvDataL1.loc[
+            (csvDataL1['yearByTitle'] >= float(minYear)) & (csvDataL1['yearByTitle'] <= float(maxYear))
+            ]
+
+        if len(selData) < 1:
+            return resResponse("fail", 400, f"브랜드/모델명 없음", None)
+
+        selDataL2 = selData.groupby(['brandByTitle', 'typeByTitle'], observed=False)['title'].apply(list)
+        result = getPageDict(selDataL2, page=page, limit=limit)
+        log.info(f"result : {result}")
+
+        return resResponse("succ", 200, "처리 완료", len(result), len(result), result)
+
+    except Exception as e:
+        log.error(f'Exception : {e}')
+        raise HTTPException(status_code=400, detail=str(e))
+
+# @app.post(f"/api/sel-prd", dependencies=[Depends(chkApiKey)])
+@app.post(f"/api/sel-prd")
+async def selPrd(request: cfgPrd = Form(...)):
+    try:
+        year = request.year
+        minYear, maxYear  = year.split('-')
+        if year is None or len(year) < 1 or minYear is None or maxYear is None:
+            return resResponse("fail", 400, f"연식 없음, year : {year}", None)
+
+        status = request.status
+        if status is None or len(status) < 1:
+            return resResponse("fail", 400, f"자전거 상태 없음, status : {status}")
+
+        model = request.status
+        if model is None or len(model) < 1:
+            return resResponse("fail", 400, f"자전거 모델 없음, model : {model}")
+
+        selData = csvData.loc[
+            (csvData['yearByTitle'] >= float(minYear)) & (csvData['yearByTitle'] <= float(maxYear))
+            ]
+
+        if len(selData) < 1:
+            return resResponse("fail", 400, f"데이터 없음", None)
+
+        result = getPageDict(selDataL2, page=page, limit=limit)
+        log.info(f"result : {result}")
+
+        return resResponse("succ", 200, "처리 완료", len(result), len(result), result)
+
+    except Exception as e:
+        log.error(f'Exception : {e}')
+        raise HTTPException(status_code=400, detail=str(e))
+
+@app.post(f"/api/sel-chatTypeCont")
+async def selChatTypeCont(request: cfgChatTypeCont = Form(...)):
     """
     기능\n
-        생성형 AI 종류 및 분야별 랜딩 페이지 생성\n
+        생성형 AI 모델 기반 비교 리포트 (종합 성능, 상세 스펙, 종합 분석)\n
     테스트\n
-        model: 생성형 AI 종류\n
-        type: 분야 (축제)\n
+        model: 생성형 AI 모델 종류\n
         cont: 요청사항\n
-            이벤트명: 국립해양생물자원관 개관10주년 캠페인 (한산모시축제)\n
-            이벤트 유형: 축제\n
-            이벤트 개요: 이벤트 진행, 사은품 제공, 부스 운영\n
-            날짜: 2025년 6월 13일 (금) - 6월 15일 (일)\n
-            장소: 국립해양생물자원관\n
-            원하는 분위기: 밝음\n
     """
     try:
         model = request.model
         if model is None or len(model) < 1:
-            return resResponse("fail", 400, f"생성형 AI 모델 종류가 없습니다 : {model}")
-
-        type = request.type
-        if type is None or len(type) < 1:
-            return resResponse("fail", 400, f"분야가 없습니다 : {type}")
+            return resResponse("fail", 400, f"생성형 AI 모델 종류 없음, model : {model}")
 
         cont = request.cont
         if cont is None or len(cont) < 1:
-            return resResponse("fail", 400, f"요청사항이 없습니다 : {cont}")
+            return resResponse("fail", 400, f"요청사항 없음, cont : {cont}")
 
         contTemplate = '''%type% 랜딩 페이지를 html 파일로 제작해조
             요청사항
                 %cont%
-            고려사항
-                스타일링 Tailwind CSS의 CDN 버전을 사용하여 전체적인 디자인을 구현
-                에디터 TinyMCE 6의 커뮤니티 버전(CDN)을 사용하여 모든 콘텐츠 편집 기능을 구현
-                이미지 pixabay 사용
-            핵심기능
-                편집모드 (TinyMCE 에디터 툴바를 통해 색상, 폰트 등 즉시 수정 지원)
-                    <script src="https://cdn.jsdelivr.net/npm/tinymce@6/tinymce.min.js"></script>
-                    tinymce.init({
-                        selector: '.editable',
-                        inline: true, // 인라인 모드 활성화 (핵심 기능)
-                        plugins: 'lists link image table code help wordcount autoresize',
-                        toolbar: 'undo redo | blocks fontfamily fontsize | bold italic underline strikethrough forecolor backcolor | alignleft aligncenter alignright alignjustify | bullist numlist outdent indent | link image media table hr charmap emoticons codesample | searchreplace visualblocks code fullscreen | removeformat | help',
-                        menubar: false, // 상단 메뉴바 비활성화
-                        language: 'ko_KR', // 언어 설정 (필요 시 cdn에서 추가 로드 필요)
-                        autoresize_bottom_margin: 20,
-                        automatic_uploads: true,
-                        image_title: true,
-                        file_picker_types: 'image',
-                          file_picker_callback: (cb, value, meta) => {
-                            const input = document.createElement('input');
-                            input.setAttribute('type', 'file');
-                            input.setAttribute('accept', 'image/*');
-        
-                            input.addEventListener('change', (e) => {
-                                const file = e.target.files[0];
-        
-                                const reader = new FileReader();
-                                reader.addEventListener('load', () => {
-                                    // TinyMCE의 이미지 캐시에 파일을 등록합니다.
-                                    const id = 'blobid' + (new Date()).getTime();
-                                    const blobCache =  tinymce.activeEditor.editorUpload.blobCache;
-                                    const base64 = reader.result.split(',')[1];
-                                    const blobInfo = blobCache.create(id, file, base64);
-                                    blobCache.add(blobInfo);
-        
-                                    // 콜백 함수를 호출하여 에디터에 이미지를 삽입합니다.
-                                    cb(blobInfo.blobUri(), { title: file.name });
-                                });
-                                reader.readAsDataURL(file);
-                            });
-        
-                            input.click();
-                        },
-                    });
-                미리보기
            '''
-
-        contents = contTemplate.replace('%type%', type).replace('%cont%', cont)
-        log.info(f"[CHECK] contents : {contents}")
+        contents = contTemplate.replace('%cont%', cont)
+        log.info(f"contents : {contents}")
 
         response = client.models.generate_content(
-            model='gemini-2.5-pro',
+            model=model,
             contents=contents
         )
         result = response.text
-        log.info(f"[CHECK] result : {result}")
+        log.info(f"result : {result}")
 
         if result is None or len(result) < 1:
             return resResponse("fail", 400, "처리 실패")
@@ -370,126 +438,6 @@ async def selModelTypeContData(request: modelTypeContData = Form(...)):
                 "Content-Disposition": "attachment; filename=generated_content.txt"
             }
         )
-
-    except Exception as e:
-        log.error(f'Exception : {e}')
-        raise HTTPException(status_code=400, detail=str(e))
-
-# @app.post(f"/api/sel-blogPost", dependencies=[Depends(chkApiKey)])
-@app.post(f"/api/sel-contData")
-async def selContData(request: contData = Form(...)):
-    """
-    기능\n
-        요청사항을 기반으로 문의사항\n
-    테스트\n
-        cont: 요청사항\n
-    """
-    try:
-        cont = request.cont
-        if cont is None or len(cont) < 1:
-            return resResponse("fail", 400, f"요청사항이 없습니다 : {cont}")
-
-        response = client.models.generate_content(
-            model='gemini-2.5-pro',
-            contents=cont
-        )
-
-        result = response.text
-        # log.info(f"[CHECK] result : {result}")
-
-        if result is None or len(result) < 1:
-            return resResponse("fail", 400, "처리 실패")
-
-        return resResponse("succ", 200, "처리 완료", len(result), result)
-
-    except Exception as e:
-        log.error(f'Exception : {e}')
-        raise HTTPException(status_code=400, detail=str(e))
-
-# @app.post(f"/api/sel-blogPost", dependencies=[Depends(chkApiKey)])
-@app.post(f"/api/sel-contData")
-async def selContData(request: contData = Form(...)):
-    """
-    기능\n
-        요청사항을 기반으로 문의사항\n
-    테스트\n
-        cont: 요청사항\n
-    """
-    try:
-        cont = request.cont
-        if cont is None or len(cont) < 1:
-            return resResponse("fail", 400, f"요청사항이 없습니다 : {cont}")
-
-        response = client.models.generate_content(
-            model='gemini-2.5-pro',
-            contents=cont
-        )
-
-        result = response.text
-        # log.info(f"[CHECK] result : {result}")
-
-        if result is None or len(result) < 1:
-            return resResponse("fail", 400, "처리 실패")
-
-        return resResponse("succ", 200, "처리 완료", len(result), result)
-
-    except Exception as e:
-        log.error(f'Exception : {e}')
-        raise HTTPException(status_code=400, detail=str(e))
-
-# @app.post(f"/api/sel-imageData", dependencies=[Depends(chkApiKey)])
-@app.post(f"/api/sel-imageData")
-async def selImageData(request: imageData = Form(...)):
-    """
-    기능\n
-        검색어를 기반으로 오픈소스 이미지 가져오기\n
-    테스트\n
-        keyword: 검색어\n
-    """
-    try:
-        keyword = request.keyword
-        if keyword is None or len(keyword) < 1:
-            return resResponse("fail", 400, f"검색어가 없습니다 : {keyword}")
-
-        imageUrl = sysOpt['imageUrl'].replace('%keyword%', keyword)
-        response = requests.get(imageUrl)
-        response.raise_for_status()
-        result = response.json()
-        # log.info(f"[CHECK] result : {result}")
-
-        if result is None or len(result) < 1:
-            return resResponse("fail", 400, "처리 실패")
-
-        return resResponse("succ", 200, "처리 완료", len(result), result)
-
-    except Exception as e:
-        log.error(f'Exception : {e}')
-        raise HTTPException(status_code=400, detail=str(e))
-
-# @app.post(f"/api/sel-videoData", dependencies=[Depends(chkApiKey)])
-@app.post(f"/api/sel-videoData")
-async def selVideoData(request: videoData = Form(...)):
-    """
-    기능\n
-        검색어를 기반으로 오픈소스 영상 가져오기\n
-    테스트\n
-        keyword: 검색어\n
-    """
-    try:
-        keyword = request.keyword
-        if keyword is None or len(keyword) < 1:
-            return resResponse("fail", 400, f"검색어가 없습니다 : {keyword}")
-
-        imageUrl = sysOpt['videoUrl'].replace('%keyword%', keyword)
-        response = requests.get(imageUrl)
-        response.raise_for_status()
-        result = response.json()
-        # log.info(f"[CHECK] result : {result}")
-
-        if result is None or len(result) < 1:
-            return resResponse("fail", 400, "처리 실패")
-
-        return resResponse("succ", 200, "처리 완료", len(result), result)
 
     except Exception as e:
         log.error(f'Exception : {e}')
