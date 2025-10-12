@@ -1,8 +1,6 @@
 # ================================================
 # 요구사항
 # ================================================
-# Python을 이용한 청소년 인터넷 게임 중독 관련 소셜데이터 수집과 분석을 위한 한국형 온톨로지 개발 및 평가
-
 # cd /HDD/SYSTEMS/PROG/PYTHON/IDE/src/talentPlatform/unitSys
 # /HDD/SYSTEMS/LIB/anaconda3/envs/py38/bin/python TalentPlatform-LSH0627-DaemonFramework-colct-naverSearchApi.py
 # nohup /HDD/SYSTEMS/LIB/anaconda3/envs/py38/bin/python TalentPlatform-LSH0627-DaemonFramework-colct-naverSearchApi.py &
@@ -249,7 +247,7 @@ class DtaProcess(object):
                     'typeList': ['알톤 자전거', '삼천리 자전거', '스마트 자전거'],
                     'cateList': ['전기자전거', '하이브리드', 'MTB', '사이클', '일반자전거', '미니벨로'],
                     'url': 'https://openapi.naver.com/v1/search/shop.json',
-                    'saveCsvFile': '/DATA/OUTPUT/LSH0627/%Y%m/%d/naverShop_{queryInfo}_%Y%m%d.csv',
+                    'saveCsvFile': '/HDD/DATA/OUTPUT/LSH0627/%Y%m/%d/naverShop_{queryInfo}_%Y%m%d.csv',
                 },
             }
 
