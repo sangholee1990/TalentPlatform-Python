@@ -31,18 +31,12 @@ import pandas as pd
 import re
 import json
 from datetime import datetime, timedelta
-# from konlpy.tag import Okt
-from collections import Counter
 import pytz
 import os
 import sys
-import urllib.request
 import os
 import sys
-import requests
 import json
-from konlpy.tag import Okt
-from newspaper import Article
 from darts import TimeSeries
 from darts.models import Prophet
 from darts.models import DLinearModel
@@ -242,8 +236,8 @@ class DtaProcess(object):
                     # 시계열 딥러닝
                     'dl': {
                         'input_chunk_length': 2,
-                        'input_chunk_length': 7,
-                        'input_chunk_length': 50,
+                        'output_chunk_length': 7,
+                        'n_epochs': 50,
                     },
                     # 예측
                     'prdCnt': 7,
@@ -258,13 +252,13 @@ class DtaProcess(object):
             # =================================================================
             mlModel = Prophet()
             dlModel = DLinearModel(
-                input_chunk_length=sysOpt['model']['dl']['output_chunk_length'],
+                input_chunk_length=sysOpt['model']['dl']['input_chunk_length'],
                 output_chunk_length=sysOpt['model']['dl']['output_chunk_length'],
                 n_epochs=sysOpt['model']['dl']['n_epochs'],
             )
 
             orgData = pd.read_csv(sysOpt['inpFile'])
-            data = orgData
+            data = orgData.sort_values(by='lprice', ascending=True).drop_duplicates(subset=['title', 'date'], keep='first')
             data['dtDate'] = pd.to_datetime(data['date'], format='%Y%m%d')
 
             # 자전거 상품 별로 최저가 2개 이상인 경우
@@ -277,7 +271,10 @@ class DtaProcess(object):
                 log.info(f'i : {i}, per : {per}%')
 
                 selData = data[(data['title'] == modTitleInfo)]
-                selDataL1 = TimeSeries.from_dataframe(selData, time_col='dtDate', value_cols='lprice')
+                if len(selData) < 1: continue
+
+                # selDataL1 = TimeSeries.from_dataframe(selData, time_col='dtDate', value_cols='lprice', fill_missing_dates=True, freq='D')
+                selDataL1 = TimeSeries.from_dataframe(selData, time_col='dtDate', value_cols='lprice', freq='D')
 
                 try:
                     mlModel.fit(selDataL1)
