@@ -167,6 +167,48 @@ def initArgument(globalVar):
 
     return globalVar
 
+def extYear(title):
+    match = re.search(r'\(?(\d{4})\)?', str(title))
+    if match:
+        year = int(match.group(1))
+        current_year = datetime.now().year
+
+        if 2000 <= year <= current_year + 1:
+            return str(year)
+    return None
+
+def clsBrand(title):
+    title = str(title)
+    if '알톤' in title:
+        return '알톤 자전거'
+    elif '삼천리' in title:
+        return '삼천리 자전거'
+    elif '스마트' in title:
+        return '스마트 자전거'
+    else:
+        return '기타'
+
+def clsType(title):
+    title = str(title)
+    if '전기' in title:
+        return '전기자전거'
+    elif '하이브리드' in title:
+        return '하이브리드'
+    elif 'MTB' in title:
+        return 'MTB'
+    elif '사이클' in title or '로드' in title:
+        return '사이클'
+    elif '미니벨로' in title:
+        return '미니벨로'
+    else:
+        return '일반자전거'
+
+def extKeyword(title, extKeywordList):
+    title = str(title)
+    incKeyword = [keyword for keyword in extKeywordList if keyword in title]
+    if incKeyword:
+        return ",".join(incKeyword)
+    return None
 
 # ================================================
 # 4. 부 프로그램
@@ -245,6 +287,7 @@ class DtaProcess(object):
                 # 예측 데이터
                 'saveFile': '/HDD/DATA/OUTPUT/LSH0627/naverShop_prd.csv',
                 'preDt': datetime.now(),
+                'extKeywordList': ['호환', '할인', '부품', '액세서리', '안장', '헬멧', '거치대', '펌프', '공구', '수리', '세팅', '대여', '렌탈', '전시'],
             }
 
             # =================================================================
@@ -315,10 +358,16 @@ class DtaProcess(object):
 
             dataL2 = dataL1.sort_values(['title', 'date'], ascending=False).reset_index(drop=True)
             # dataL2[(dataL2['title'] == modTitleInfo)]
-            if len(dataL2) > 0:
+
+            dataL2['yearByTitle'] = dataL2['title'].apply(extYear)
+            dataL2['brandByTitle'] = dataL2['title'].apply(clsBrand)
+            dataL2['typeByTitle'] = dataL2['title'].apply(clsType)
+            dataL2['keywordByTitle'] = dataL2['title'].apply(lambda x: extKeyword(x, sysOpt['extKeywordList']))
+            dataL3 = dataL2[dataL2['keywordByTitle'].isna() & dataL2['yearByTitle'].notna()].sort_values(['title', 'date'], ascending=False).reset_index(drop=True)
+            if len(dataL3) > 0:
                 saveFile = sysOpt['preDt'].strftime(sysOpt['saveFile'])
                 os.makedirs(os.path.dirname(saveFile), exist_ok=True)
-                dataL2.to_csv(saveFile, index=False)
+                dataL3.to_csv(saveFile, index=False)
                 log.info(f"[CHECK] saveFile : {saveFile}")
                 
         except Exception as e:
