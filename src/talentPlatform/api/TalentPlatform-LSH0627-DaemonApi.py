@@ -379,10 +379,10 @@ async def selPrd(
         log.error(f'Exception : {e}')
         raise HTTPException(status_code=400, detail=str(e))
 
-# @app.post(f"/api/sel-chatTypeCont", dependencies=[Depends(chkApiKey)])
-@app.post(f"/api/sel-chatTypeCont")
-async def selChatTypeCont(
-    chatModel: str = Form(..., description='생성형 AI 종류', examples=['gemini-2.5-pro'], enum=['gemini-2.5-pro', 'gemini-1.5-pro-latest', 'gemini-1.5-flash-latest']),
+# @app.post(f"/api/sel-chatModelCont", dependencies=[Depends(chkApiKey)])
+@app.post(f"/api/sel-chatModelCont")
+async def selChatModelCont(
+    chatModel: str = Form(..., description='생성형 AI 종류', examples=['gemini-2.5-flash'], enum=['gemini-2.5-pro', 'gemini-2.5-flash', 'gemini-2.5-flash-lite']),
     cont: str = Form(..., description='비교 리포트 (종합 성능, 상세 스펙, 종합 분석)', examples=['자전거 비교 리포트 (종합 성능, 상세 스펙, 종합 분석)']),
 ):
     try:
@@ -405,7 +405,7 @@ async def selChatTypeCont(
             contents=contents
         )
         result = response.text
-        log.info(f"result : {result}")
+        # log.info(f"result : {result}")
 
         if result is None or len(result) < 1:
             return resResponse("fail", 400, "처리 실패")
