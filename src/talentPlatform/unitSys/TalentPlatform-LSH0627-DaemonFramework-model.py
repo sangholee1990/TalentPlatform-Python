@@ -298,6 +298,7 @@ class DtaProcess(object):
                 input_chunk_length=sysOpt['model']['dl']['input_chunk_length'],
                 output_chunk_length=sysOpt['model']['dl']['output_chunk_length'],
                 n_epochs=sysOpt['model']['dl']['n_epochs'],
+                random_state=None,
             )
 
             orgData = pd.read_csv(sysOpt['inpFile'])
