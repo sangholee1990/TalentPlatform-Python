@@ -262,8 +262,9 @@ class DtaProcess(object):
             data['dtDate'] = pd.to_datetime(data['date'], format='%Y%m%d')
 
             # 자전거 상품 별로 최저가 2개 이상인 경우
-            modTitleList = sorted(orgData.groupby("title").filter(lambda x: x['lprice'].nunique() > 1)['title'].unique())
+            modTitleList = sorted(data.groupby("title").filter(lambda x: x['lprice'].nunique() > 1)['title'].unique())
 
+            # modTitleInfo = modTitleList[0]
             mlPrdDataL1 = pd.DataFrame()
             dlPrdDataL1 = pd.DataFrame()
             for i, modTitleInfo in enumerate(modTitleList):
@@ -304,11 +305,15 @@ class DtaProcess(object):
                 except Exception as e:
                     log.error(f'Exception : {e}')
 
+            dataL1 = data
+            # dataL1[(dataL1['title'] == modTitleInfo)]
             if len(mlPrdDataL1) > 0:
-                dataL1 = pd.merge(data, mlPrdDataL1, on=['title', 'dtDate'], how='outer')
+                dataL1 = pd.merge(dataL1, mlPrdDataL1, on=['title', 'dtDate'], how='outer')
             if len(dlPrdDataL1) > 0:
-                dataL2 = pd.merge(dataL1, dlPrdDataL1, on=['title', 'dtDate'], how='outer')
+                dataL1 = pd.merge(dataL1, dlPrdDataL1, on=['title', 'dtDate'], how='outer')
 
+            dataL2 = dataL1.sort_values(['title', 'date'], ascending=False).reset_index(drop=True)
+            # dataL2[(dataL2['title'] == modTitleInfo)]
             if len(dataL2) > 0:
                 saveFile = sysOpt['preDt'].strftime(sysOpt['saveFile'])
                 os.makedirs(os.path.dirname(saveFile), exist_ok=True)
