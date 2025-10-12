@@ -404,7 +404,7 @@ async def selChatModelCont(
 ):
     """
     기능\n
-        알톤 바이크메트릭스AI - AI 맞춤 자전거 찾기 - AI 비교 리포트\n
+        알톤 바이크메트릭스AI - AI 맞춤 자전거 찾기 - AI 비교 리포트 헬퍼\n
     테스트\n
         chatModel: 생성형 AI 종류 (gemini-2.5-pro, gemini-2.5-flash, gemini-2.5-flash-lite)\n
         cont: 비교 리포트 (종합 성능, 상세 스펙, 종합 분석)\n
