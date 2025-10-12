@@ -1,3 +1,32 @@
+# ================================================
+# 요구사항
+# ================================================
+# Python을 이용한 셀레늄 기반 유니콘팩토리 스타트업 정보 수집 및 추출
+
+# 원도우 X11 (X Window System) 프로토콜 지원
+# xming
+
+# 리눅스 CLI 실행
+# google-chrome --no-sandbo
+
+# 크롬 다운로드
+# https://googlechromelabs.github.io/chrome-for-testing
+
+# /DATA/INPUT/LSH0602/chrome-linux64/chrome --version
+# Google Chrome for Testing 131.0.6778.264
+
+# /DATA/INPUT/LSH0602/chromedriver-linux64/chromedriver --version
+# ChromeDriver 131.0.6778.264 (2d05e31515360f4da764174f7c448b33e36da871-refs/branch-heads/6778@{#4323})
+
+# 프로그램 실행
+# cd /SYSTEMS/PROG/PYTHON/IDE/src/talentPlatform/unitSys
+# nohup /HDD/SYSTEMS/LIB/anaconda3/envs/py38/bin/python /SYSTEMS/PROG/PYTHON/IDE/src/talentPlatform/unitSys/TalentPlatform-LSH0602-DaemonFramework.py &
+# tail -f nohup.out
+
+# 프로그램 종료
+# ps -ef | grep "TalentPlatform-LSH0602-DaemonFramework" | awk '{print $2}' | xargs kill -9
+# ps -ef | grep "chrome" | awk '{print $2}' | xargs kill -9
+
 # -*- coding: utf-8 -*-
 import argparse
 import glob
@@ -207,39 +236,11 @@ def initArgument(globalVar, inParams):
 
     return globalVar
 
+
 # ================================================
 # 4. 부 프로그램
 # ================================================
 class DtaProcess(object):
-
-    # ================================================
-    # 요구사항
-    # ================================================
-    # Python을 이용한 셀레늄 기반 유니콘팩토리 스타트업 정보 수집 및 추출
-
-    # 원도우 X11 (X Window System) 프로토콜 지원
-    # xming
-
-    # 리눅스 CLI 실행
-    # google-chrome --no-sandbo
-
-    # 크롬 다운로드
-    # https://googlechromelabs.github.io/chrome-for-testing
-
-    # /DATA/INPUT/LSH0602/chrome-linux64/chrome --version
-    # Google Chrome for Testing 131.0.6778.264
-
-    # /DATA/INPUT/LSH0602/chromedriver-linux64/chromedriver --version
-    # ChromeDriver 131.0.6778.264 (2d05e31515360f4da764174f7c448b33e36da871-refs/branch-heads/6778@{#4323})
-
-    # 프로그램 실행
-    # cd /SYSTEMS/PROG/PYTHON/IDE/src/talentPlatform/unitSys
-    # nohup /HDD/SYSTEMS/LIB/anaconda3/envs/py38/bin/python /SYSTEMS/PROG/PYTHON/IDE/src/talentPlatform/unitSys/TalentPlatform-LSH0602-DaemonFramework.py &
-    # tail -f nohup.out
-
-    # 프로그램 종료
-    # ps -ef | grep "TalentPlatform-LSH0602-DaemonFramework" | awk '{print $2}' | xargs kill -9
-    # ps -ef | grep "chrome" | awk '{print $2}' | xargs kill -9
 
     # ================================================================================================
     # 환경변수 설정
@@ -298,6 +299,7 @@ class DtaProcess(object):
                 globalVar['outPath'] = '/DATA/OUTPUT'
                 globalVar['figPath'] = '/DATA/FIG'
 
+            # https://www.unicornfactory.co.kr/datalab/startup/company-search?search=&unicorn=on&business=&tech=&cert=&stage=&amount=&location=&revenue=&history=&sort=A&limit=20&page=2
             # 옵션 설정
             sysOpt = {
                 'loginUrl': "https://www.unicornfactory.co.kr/login",
@@ -379,6 +381,7 @@ class DtaProcess(object):
             time.sleep(sysOpt['defTimeout'])
 
             wait = WebDriverWait(driver, sysOpt['loadTimeout'])
+            # //*[@id="dlab_wrap02-scroll-in"]/div[1]/span/strong//*[@id="dlab_wrap02-scroll-in"]/div[1]/span/strong
             tagCnt = wait.until(EC.presence_of_element_located((By.CLASS_NAME, "total")))
             maxCnt = int(re.search(r'\d+', tagCnt.text).group())
 

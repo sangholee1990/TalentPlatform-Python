@@ -386,7 +386,7 @@ def process_single_time(end_time, data_L1, time_deltas):
 # 병렬 처리 적용
 def process_in_parallel(data_L1, time_range, time_deltas):
     final_results = []
-    maxWorker = min(32, len(time_deltas))
+    maxWorker = min(2, len(time_deltas))
     with concurrent.futures.ThreadPoolExecutor(max_workers=maxWorker) as executor:
         futures = [executor.submit(process_single_time, end_time, data_L1, time_deltas) for end_time in time_range]
         for future in concurrent.futures.as_completed(futures):
