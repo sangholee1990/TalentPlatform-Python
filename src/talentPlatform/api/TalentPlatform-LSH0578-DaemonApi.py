@@ -105,10 +105,8 @@ import json
 from fastapi.responses import RedirectResponse
 from fastapi import FastAPI, HTTPException, Query, Depends
 from fastapi.middleware.cors import CORSMiddleware
-
 import pandas as pd
 import urllib
-
 import google.generativeai as genai
 import os
 import shutil
@@ -135,6 +133,7 @@ import xml.etree.ElementTree as et
 from pytrends.request import TrendReq
 from fastapi.responses import StreamingResponse
 from io import BytesIO
+import configparser
 
 # ============================================
 # 유틸리티 함수
@@ -231,7 +230,7 @@ log = initLog(env, ctxPath, prjName)
 # 옵션 설정
 sysOpt = {
     # 설정 파일
-    'csvFile': '/DATA/INPUT/LSH0578/20241103_13개 분야 별로 대표 템플릿 생성형 AI 4종 결과 - 최종.csv',
+    'csvFile': '/SYSTEMS/PROG/PYTHON/IDE/resources/input/test/LSH0578/20241103_13개 분야 별로 대표 템플릿 생성형 AI 4종 결과 - 최종.csv',
 
     # CORS 설정
     'oriList': [
@@ -285,6 +284,11 @@ sysOpt = {
     'filter': {
         'stopWordFileInfo': '/SYSTEMS/PROG/PYTHON/IDE/resources/config/word/stopwords-ko.txt',
     },
+    # 설정 정보
+    'cfgFile': '/HDD/SYSTEMS/PROG/PYTHON/IDE/resources/config/system.cfg',
+    'cfgKey': 'gemini-api-key',
+    'cfgVal': 'oper',
+    # 'cfgVal': 'local',
 }
 
 app = FastAPI(
@@ -309,8 +313,11 @@ app.add_middleware(
 tzKst = pytz.timezone('Asia/Seoul')
 tzUtc = pytz.timezone('UTC')
 
-# Gemini Advanced
-genai.configure(api_key=None)
+# Gemini API키
+config = configparser.ConfigParser()
+config.read(sysOpt['cfgFile'], encoding='utf-8')
+apiKey = config.get(sysOpt['cfgKey'], sysOpt['cfgVal'])
+genai.configure(api_key=apiKey)
 model = genai.GenerativeModel('gemini-1.5-pro')
 
 # 설정 파일

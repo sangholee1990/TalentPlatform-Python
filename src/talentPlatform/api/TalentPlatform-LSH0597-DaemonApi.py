@@ -21,7 +21,7 @@
 # lsof -i :9300
 # lsof -i :9300 | awk '{print $2}' | xargs kill -9
 
-# nohup uvicorn TalentPlatform-LSH0597-DaemonApi:app --reload --host=0.0.0.0 --port=9400 &
+# uvicorn TalentPlatform-LSH0597-DaemonApi:app --reload --host=0.0.0.0 --port=9400
 # lsof -i :9400 | awk '{print $2}' | xargs kill -9
 
 # ============================================
@@ -92,6 +92,7 @@ import uuid
 import subprocess
 import google.generativeai as genai
 import json
+import configparser
 
 # ============================================
 # 유틸리티 함수
@@ -238,16 +239,20 @@ oriList = [
 
 app.add_middleware(
     CORSMiddleware
-    # , allow_origins=["*"]
     , allow_origins=oriList
     , allow_credentials=True
     , allow_methods=["*"]
     , allow_headers=["*"]
 )
 
-# genai.configure(api_key=None)
-genai.configure(api_key='')
+# Gemini API키
+config = configparser.ConfigParser()
+config.read(sysOpt['cfgFile'], encoding='utf-8')
+apiKey = config.get(sysOpt['cfgKey'], sysOpt['cfgVal'])
+
+genai.configure(api_key=apiKey)
 model = genai.GenerativeModel('gemini-1.5-pro')
+# model = genai.GenerativeModel('gemini-2.5-pro-preview-05-06')
 
 # ============================================
 # 비즈니스 로직

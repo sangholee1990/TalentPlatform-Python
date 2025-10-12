@@ -10,6 +10,7 @@
 # cd /HDD/SYSTEMS/PROG/PYTHON/IDE/src/talentPlatform/api
 # conda activate py39
 # uvicorn TalentPlatform-LSH0577-DaemonApi:app --reload --host=0.0.0.0 --port=9000
+# /HDD/SYSTEMS/LIB/anaconda3/envs/py39/bin/uvicorn /HDD/SYSTEMS/PROG/PYTHON/IDE/src/talentPlatform/api/TalentPlatform-LSH0577-DaemonApi:app --reload --host=0.0.0.0 --port=9000
 # nohup uvicorn TalentPlatform-LSH0577-DaemonApi:app --host=0.0.0.0 --port=9000 &
 # tail -f nohup.out
 
@@ -117,6 +118,7 @@ import json
 import requests
 import time
 from concurrent.futures import ProcessPoolExecutor
+import configparser
 
 # ============================================
 # 유틸리티 함수
@@ -218,11 +220,14 @@ sysOpt = {
     # 빅쿼리 설정 정보
     'jsonFile': '/SYSTEMS/PROG/PYTHON/IDE/resources/config/iconic-ruler-239806-7f6de5759012.json',
 
+    # 설정 정보
+    'cfgFile': '/HDD/SYSTEMS/PROG/PYTHON/IDE/resources/config/system.cfg',
+    'cfgKey': 'gemini-api-key',
+    'cfgVal': 'oper',
+    # 'cfgVal': 'local',
+
     # CORS 설정
-    'oriList': [
-        'http://localhost:9000'
-        , 'http://49.247.41.71:9000'
-    ],
+    'oriList': ['*'],
 
     'rcmd': {
         'apiCfUrl': 'http://125.251.52.42:9010/recommends_cf',

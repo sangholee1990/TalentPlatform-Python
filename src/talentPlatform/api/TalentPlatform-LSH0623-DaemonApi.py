@@ -120,6 +120,7 @@ from pytrends.request import TrendReq
 from fastapi.responses import StreamingResponse
 from io import BytesIO
 from google import genai
+import configparser
 
 # ============================================
 # 유틸리티 함수
@@ -130,18 +131,16 @@ def initLog(env=None, contextPath=None, prjName=None):
     if contextPath is None: contextPath = os.getcwd()
     if prjName is None: prjName = 'test'
 
-    saveLogFile = "{}/{}_{}_{}_{}_{}_{}.log".format(
+    saveLogFile = "{}/{}_{}_{}_{}_{}.log".format(
         contextPath if env in 'local' else os.path.join(contextPath, 'resources', 'log', prjName)
         , platform.system()
         , platform.machine()
         , platform.architecture()[0]
         , platform.node()
         , prjName
-        , datetime.now().strftime("%Y%m%d")
     )
 
-    if not os.path.exists(os.path.dirname(saveLogFile)):
-        os.makedirs(os.path.dirname(saveLogFile))
+    os.makedirs(os.path.dirname(saveLogFile), exist_ok=True)
 
     # logger instance 생성
     log = logging.getLogger(prjName)
@@ -154,7 +153,7 @@ def initLog(env=None, contextPath=None, prjName=None):
 
     # handler 생성
     streamHandler = logging.StreamHandler()
-    fileHandler = logging.FileHandler(saveLogFile)
+    fileHandler = logging.handlers.TimedRotatingFileHandler(filename=saveLogFile, when='midnight', interval=1, backupCount=30, encoding='utf-8')
 
     # logger instance에 format 설정
     streamHandler.setFormatter(format)
@@ -202,15 +201,15 @@ log = initLog(env, ctxPath, prjName)
 # 옵션 설정
 sysOpt = {
     # CORS 설정
-    'oriList': [
-        # 'http://localhost:9200',
-        # 'http://49.247.41.71:9200',
-        # 'http://localhost:9400',
-        # 'http://49.247.41.71:9400',
-        '*'
-    ],
+    'oriList': ['*'],
     'imageUrl': f'https://pixabay.com/api/?key=14824120-f852820b33507a12ff4cdd8bf&q=%keyword%&image_type=photo&pretty=true&lang=kr&per_page=200',
     'videoUrl': f'https://pixabay.com/api/videos/?key=14824120-f852820b33507a12ff4cdd8bf&q=%keyword%&pretty=true&lang=kr&per_page=200',
+
+    # 설정 정보
+    'cfgFile': '/HDD/SYSTEMS/PROG/PYTHON/IDE/resources/config/system.cfg',
+    'cfgKey': 'gemini-api-key',
+    'cfgVal': 'oper',
+    # 'cfgVal': 'local',
 }
 
 app = FastAPI(
@@ -224,7 +223,6 @@ app = FastAPI(
 
 app.add_middleware(
     CORSMiddleware
-    # , allow_origins=["*"]
     , allow_origins=sysOpt['oriList']
     , allow_credentials=True
     , allow_methods=["*"]
@@ -236,7 +234,9 @@ tzKst = pytz.timezone('Asia/Seoul')
 tzUtc = pytz.timezone('UTC')
 
 # Gemini API키
-client = genai.Client(api_key=None)
+config = configparser.ConfigParser()
+config.read(sysOpt['cfgFile'], encoding='utf-8')
+client = config.get(sysOpt['cfgKey'], sysOpt['cfgVal'])
 
 # ============================================
 # 비즈니스 로직
