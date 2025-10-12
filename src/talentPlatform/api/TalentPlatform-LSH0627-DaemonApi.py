@@ -11,12 +11,12 @@
 # conda activate py39
 
 # 운영 서버
-# uvicorn TalentPlatform-LSH0627-DaemonApi:app --host=0.0.0.0 --port=9030
-# nohup uvicorn TalentPlatform-LSH0627-DaemonApi:app --host=0.0.0.0 --port=9030 &
+# /HDD/SYSTEMS/LIB/anaconda3/envs/py39/bin/uvicorn TalentPlatform-LSH0627-DaemonApi:app --host=0.0.0.0 --port=9030
+# nohup /HDD/SYSTEMS/LIB/anaconda3/envs/py39/bin/uvicorn TalentPlatform-LSH0627-DaemonApi:app --host=0.0.0.0 --port=9030 &
 # tail -f nohup.out
 
 # 테스트 서버
-# uvicorn TalentPlatform-LSH0627-DaemonApi:app --reload --host=0.0.0.0 --port=9030
+# /HDD/SYSTEMS/LIB/anaconda3/envs/py39/bin/uvicorn TalentPlatform-LSH0627-DaemonApi:app --reload --host=0.0.0.0 --port=9030
 
 # 프로그램 종료
 # ps -ef | grep "TalentPlatform-LSH0627-DaemonApi" | awk '{print $2}' | xargs kill -9
@@ -208,8 +208,8 @@ env = 'local'
 serviceName = 'LSH0627'
 prjName = 'test'
 
-# ctxPath = os.getcwd()
-ctxPath = '/HDD/SYSTEMS/PROG/PYTHON/IDE/src/talentPlatform/api'
+ctxPath = os.getcwd()
+# ctxPath = '/HDD/SYSTEMS/PROG/PYTHON/IDE/src/talentPlatform/api'
 
 log = initLog(env, ctxPath, prjName)
 
@@ -249,6 +249,9 @@ app.add_middleware(
     , allow_headers=["*"]
 )
 
+# ============================================
+# 비즈니스 로직
+# ============================================
 # 타임존 설정
 tzKst = pytz.timezone('Asia/Seoul')
 tzUtc = pytz.timezone('UTC')
@@ -256,7 +259,8 @@ tzUtc = pytz.timezone('UTC')
 # Gemini API키
 config = configparser.ConfigParser()
 config.read(sysOpt['cfgFile'], encoding='utf-8')
-client = config.get(sysOpt['cfgKey'], sysOpt['cfgVal'])
+apiKey = config.get(sysOpt['cfgKey'], sysOpt['cfgVal'])
+client = genai.Client(api_key=apiKey)
 
 # 설정 파일
 try:
@@ -282,40 +286,9 @@ try:
     tmpDataL1 = tmpData.sort_values(by=['title', 'isDlPrd', 'isMlPrd', 'isLprice'], ascending=[True, False, False, False])
     csvDataL1 = tmpDataL1.drop_duplicates(subset=['title'], keep='first')
 
-
 except Exception as e:
     log.error(f'설정 파일 실패, csvFile : {csvFile} : {e}')
     exit(1)
-
-minYear = 2015
-maxYear = 2025
-selData = csvDataL1.loc[
-    (csvDataL1['yearByTitle'] >= float(minYear)) & (csvDataL1['yearByTitle'] <= float(maxYear))
-    ]
-#
-# selDataL2 = selData.groupby(['brandByTitle', 'typeByTitle'], observed=False)['title'].apply(list)
-# selData = csvData[(csvData['title'] == '2020 알톤 스로틀 FS 전기자전거 앞뒤 서스펜션 20인치 미니벨로')]
-# result = getPageDict(selDataL2, page=1, limit=10)
-
-
-# ============================================
-# 비즈니스 로직
-# ============================================
-class cfgBrandModel(BaseModel):
-    year: str = Field(..., description='연식 (최소-최대)', examples=['2015-2025']),
-    status: str = Query(default=..., description='자전거 상태', example='중', enum=['상', '중', '하']),
-    limit: int = Query(10, description="1쪽당 개수"),
-    page: int = Query(1, description="현재 쪽"),
-
-class cfgPrd(BaseModel):
-    year: str = Field(..., description='연식 (최소-최대)', examples=['2015-2025']),
-    status: str = Query(default=..., description='자전거 상태', example='중', enum=['상', '중', '하']),
-    model: str = Field(..., description='자전거 모델', examples=['2020 알톤 스로틀 FS 전기자전거 앞뒤 서스펜션 20인치 미니벨로']),
-
-class cfgChatTypeCont(BaseModel):
-    model: str = Query(default=..., description='생성형 AI 종류', example='gemini-2.5-pro', enum=['gemini-2.5-pro', 'gemini-1.5-flash-latest']),
-    cont: str = Field(default=..., description='요청사항', example='''테스트
-    '''),
 
 # ============================================
 # API URL 주소
@@ -326,23 +299,28 @@ async def redirect_to_docs():
 
 # @app.post(f"/api/sel-brandModel", dependencies=[Depends(chkApiKey)])
 @app.post(f"/api/sel-brandModel")
-async def selBrandModel(request: cfgBrandModel = Form(...)):
+async def selBrandModel(
+    year: str = Form(..., description='연식 (최소-최대)', examples=['2015-2025']),
+    status: str = Form(..., description='자전거 상태', examples=['중'], enum=['상', '중', '하']),
+    limit: int = Form(..., description="1쪽당 개수", examples=[10]),
+    page: int = Form(..., description="현재 쪽", examples=[1]),
+):
     try:
-        year = request.year
+        # year = request.year
         minYear, maxYear  = year.split('-')
         if year is None or len(year) < 1 or minYear is None or maxYear is None:
             return resResponse("fail", 400, f"연식 없음, year : {year}", None)
 
-        status = request.status
+        # status = request.status
         if status is None or len(status) < 1:
             return resResponse("fail", 400, f"자전거 상태 없음, status : {status}")
 
-        page = request.page
-        if page is None or len(page) < 1:
+        # page = request.page
+        if page is None:
             return resResponse("fail", 400, f"현재 쪽 없음, page : {page}")
 
-        limit = request.limit
-        if limit is None or len(limit) < 1:
+        # limit = request.limit
+        if limit is None:
             return resResponse("fail", 400, f"1쪽당 개수 없음, limit : {limit}")
 
         selData = csvDataL1.loc[
@@ -354,9 +332,9 @@ async def selBrandModel(request: cfgBrandModel = Form(...)):
 
         selDataL2 = selData.groupby(['brandByTitle', 'typeByTitle'], observed=False)['title'].apply(list)
         result = getPageDict(selDataL2, page=page, limit=limit)
-        log.info(f"result : {result}")
+        # log.info(f"result : {result}")
 
-        return resResponse("succ", 200, "처리 완료", len(result), len(result), result)
+        return resResponse("succ", 200, "처리 완료", len(result), result)
 
     except Exception as e:
         log.error(f'Exception : {e}')
@@ -364,64 +342,66 @@ async def selBrandModel(request: cfgBrandModel = Form(...)):
 
 # @app.post(f"/api/sel-prd", dependencies=[Depends(chkApiKey)])
 @app.post(f"/api/sel-prd")
-async def selPrd(request: cfgPrd = Form(...)):
+async def selPrd(
+    year: str = Form(..., description='연식 (최소-최대)', examples=['2015-2025']),
+    status: str = Form(..., description='자전거 상태', examples=['중'], enum=['상', '중', '하']),
+    brandModel: str = Form(..., description='자전거 모델', examples=['2020 알톤 스로틀 FS 전기자전거 앞뒤 서스펜션 20인치 미니벨로']),
+):
     try:
-        year = request.year
+        # year = request.year
         minYear, maxYear  = year.split('-')
         if year is None or len(year) < 1 or minYear is None or maxYear is None:
             return resResponse("fail", 400, f"연식 없음, year : {year}", None)
 
-        status = request.status
+        # status = request.status
         if status is None or len(status) < 1:
             return resResponse("fail", 400, f"자전거 상태 없음, status : {status}")
 
-        model = request.status
-        if model is None or len(model) < 1:
-            return resResponse("fail", 400, f"자전거 모델 없음, model : {model}")
+        # brandModel = request.brandModel
+        if brandModel is None or len(brandModel) < 1:
+            return resResponse("fail", 400, f"자전거 모델 없음, brandModel : {brandModel}")
 
         selData = csvData.loc[
             (csvData['yearByTitle'] >= float(minYear)) & (csvData['yearByTitle'] <= float(maxYear))
+            & (csvData['title'] == brandModel)
             ]
 
         if len(selData) < 1:
             return resResponse("fail", 400, f"데이터 없음", None)
 
-        result = getPageDict(selDataL2, page=page, limit=limit)
-        log.info(f"result : {result}")
+        jsonData = selData.to_json(orient='records')
+        result = json.loads(jsonData)
+        # log.info(f"result : {result}")
 
-        return resResponse("succ", 200, "처리 완료", len(result), len(result), result)
+        return resResponse("succ", 200, "처리 완료", len(result), result)
 
     except Exception as e:
         log.error(f'Exception : {e}')
         raise HTTPException(status_code=400, detail=str(e))
 
+# @app.post(f"/api/sel-chatTypeCont", dependencies=[Depends(chkApiKey)])
 @app.post(f"/api/sel-chatTypeCont")
-async def selChatTypeCont(request: cfgChatTypeCont = Form(...)):
-    """
-    기능\n
-        생성형 AI 모델 기반 비교 리포트 (종합 성능, 상세 스펙, 종합 분석)\n
-    테스트\n
-        model: 생성형 AI 모델 종류\n
-        cont: 요청사항\n
-    """
+async def selChatTypeCont(
+    chatModel: str = Form(..., description='생성형 AI 종류', examples=['gemini-2.5-pro'], enum=['gemini-2.5-pro', 'gemini-1.5-pro-latest', 'gemini-1.5-flash-latest']),
+    cont: str = Form(..., description='비교 리포트 (종합 성능, 상세 스펙, 종합 분석)', examples=['자전거 비교 리포트 (종합 성능, 상세 스펙, 종합 분석)']),
+):
     try:
-        model = request.model
-        if model is None or len(model) < 1:
-            return resResponse("fail", 400, f"생성형 AI 모델 종류 없음, model : {model}")
+        # model = request.model
+        if chatModel is None or len(chatModel) < 1:
+            return resResponse("fail", 400, f"생성형 AI 모델 종류 없음, chatModel : {chatModel}")
 
-        cont = request.cont
+        # cont = request.cont
         if cont is None or len(cont) < 1:
             return resResponse("fail", 400, f"요청사항 없음, cont : {cont}")
 
-        contTemplate = '''%type% 랜딩 페이지를 html 파일로 제작해조
-            요청사항
-                %cont%
+        contTemplate = '''
+            %cont%
            '''
         contents = contTemplate.replace('%cont%', cont)
         log.info(f"contents : {contents}")
 
         response = client.models.generate_content(
-            model=model,
+            model=chatModel,
             contents=contents
         )
         result = response.text
@@ -430,14 +410,7 @@ async def selChatTypeCont(request: cfgChatTypeCont = Form(...)):
         if result is None or len(result) < 1:
             return resResponse("fail", 400, "처리 실패")
 
-        # return resResponse("succ", 200, "처리 완료", len(result), result)
-        return Response(
-            content=result,
-            media_type="text/plain",
-            headers={
-                "Content-Disposition": "attachment; filename=generated_content.txt"
-            }
-        )
+        return resResponse("succ", 200, "처리 완료", len(result), result)
 
     except Exception as e:
         log.error(f'Exception : {e}')

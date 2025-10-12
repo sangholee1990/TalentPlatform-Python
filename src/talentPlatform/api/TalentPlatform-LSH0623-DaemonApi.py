@@ -236,7 +236,8 @@ tzUtc = pytz.timezone('UTC')
 # Gemini API키
 config = configparser.ConfigParser()
 config.read(sysOpt['cfgFile'], encoding='utf-8')
-client = config.get(sysOpt['cfgKey'], sysOpt['cfgVal'])
+apiKey = config.get(sysOpt['cfgKey'], sysOpt['cfgVal'])
+client = genai.Client(api_key=apiKey)
 
 # ============================================
 # 비즈니스 로직

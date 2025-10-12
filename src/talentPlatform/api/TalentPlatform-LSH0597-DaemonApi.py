@@ -249,7 +249,6 @@ app.add_middleware(
 config = configparser.ConfigParser()
 config.read(sysOpt['cfgFile'], encoding='utf-8')
 apiKey = config.get(sysOpt['cfgKey'], sysOpt['cfgVal'])
-
 genai.configure(api_key=apiKey)
 model = genai.GenerativeModel('gemini-1.5-pro')
 # model = genai.GenerativeModel('gemini-2.5-pro-preview-05-06')
