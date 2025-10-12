@@ -544,7 +544,7 @@ class DtaProcess(object):
                 'cfgTgKey': 'telegram-smartHiveMntrg',
                 'cfgDb': None,
                 'cfgTg': None,
-                'sysPath': '/HDD/SYSTEMS/PROG/PYTHON/IDE/resources/config/system.cfg',
+                'cfgFile': '/HDD/SYSTEMS/PROG/PYTHON/IDE/resources/config/system.cfg',
 
                 # 모니터링 주기 1분
                 'mntrgMinInv': 1,
@@ -577,7 +577,7 @@ class DtaProcess(object):
             }
 
             config = configparser.ConfigParser()
-            config.read(sysOpt['sysPath'], encoding='utf-8')
+            config.read(sysOpt['cfgFile'], encoding='utf-8')
             
             sysOpt['cfgDb'] = initCfgInfo(config, sysOpt['cfgDbKey'])
             sysOpt['cfgTg'] = {
