@@ -310,6 +310,8 @@ class DtaProcess(object):
             modTitleList = sorted(data['title'].unique())
 
             # modTitleInfo = modTitleList[0]
+            # modTitleInfo = '하운드 2025 <b>삼천리자전거</b> 시애틀F 21단 26 접이식 자전거'
+            # modTitleInfo = '하운드 2022 <b>삼천리자전거</b> 하운드 주니어 <b>자전거</b> 시애틀MT 20인치'
             mlPrdDataL1 = pd.DataFrame()
             dlPrdDataL1 = pd.DataFrame()
             for i, modTitleInfo in enumerate(modTitleList):
@@ -351,11 +353,9 @@ class DtaProcess(object):
                     log.error(f'Exception : {e}')
 
             dataL1 = data
-            # dataL1[(dataL1['title'] == modTitleInfo)]
-            if len(mlPrdDataL1) > 0:
-                dataL1 = pd.merge(dataL1, mlPrdDataL1, on=['title', 'dtDate'], how='outer')
-            if len(dlPrdDataL1) > 0:
-                dataL1 = pd.merge(dataL1, dlPrdDataL1, on=['title', 'dtDate'], how='outer')
+            if (len(mlPrdDataL1) > 0) & (len(dlPrdDataL1) > 0):
+                prdData = pd.merge(mlPrdDataL1, dlPrdDataL1, on=['title', 'dtDate'], how='inner').drop_duplicates(subset=['title', 'dtDate'], keep='first')
+                dataL1 = pd.merge(dataL1, prdData, on=['title', 'dtDate'], how='outer')
 
             dataL2 = dataL1.sort_values(['title', 'date'], ascending=False).reset_index(drop=True)
             # dataL2[(dataL2['title'] == modTitleInfo)]
