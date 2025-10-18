@@ -1,4 +1,4 @@
-# ================================================
+﻿# ================================================
 # 요구사항
 # ================================================
 # cd /HDD/SYSTEMS/PROG/PYTHON/IDE/src/talentPlatform/unitSys
@@ -173,9 +173,9 @@ def load_and_standardize_columns(filepath):
     """
     try:
         df = pd.read_excel(filepath, dtype=str)
-        print(f"데이터 로드 성공: '{filepath}' ({df.shape})")
+        log.info(f"데이터 로드 성공: '{filepath}' ({df.shape})")
     except FileNotFoundError:
-        print(f"파일을 찾을 수 없습니다: '{filepath}'")
+        log.info(f"파일을 찾을 수 없습니다: '{filepath}'")
         return pd.DataFrame()
 
     # --- 1. 유사/중복된 '한글' 컬럼을 대표 '한글' 컬럼으로 통합 ---
@@ -440,15 +440,15 @@ def calculate_stat_scores_final(df):
     return stat_df
 
 
-def recommend_alton_bikes(usage, budget_min=None, budget_max=None, height=None, base_bike_title=None, top_n=5,
-                          ranking_method='spec_score'):
+def recommend_alton_bikes(usage=None, budget_min=None, budget_max=None, height=None, base_bike_title=None, top_n=5,
+                          ranking_method='spec_score', df_processed=None, indices=None):
     """
     조건 완화 전략과 모든 랭킹 기능을 포함한 최종 추천 함수.
     """
     if 'df_processed' not in globals() or df_processed.empty:
         return "추천 시스템이 준비되지 않았습니다."
 
-    print("\n--- 조건 기반 후보 탐색 시작 ---")
+    log.info("\n--- 조건 기반 후보 탐색 시작 ---")
     purpose_map = {"출퇴근": "하이브리드|폴딩|미니벨로|전기", "운동": "로드|MTB|하이브리드", "여행": "하이브리드|전기|MTB",
                    "산악": "MTB|산악", "로드": "로드"}
     if usage not in purpose_map: return f"'{usage}'는 지원하지 않는 용도입니다."
@@ -462,7 +462,7 @@ def recommend_alton_bikes(usage, budget_min=None, budget_max=None, height=None, 
     if budget_max: strict_df = strict_df[strict_df['price'] <= budget_max]
     if height: strict_df = strict_df[(strict_df['height'] >= height - 7) & (strict_df['height'] <= height + 7)]
     candidate_groups[1] = strict_df
-    print(f"  - 1단계 (모든 조건 만족): {len(strict_df)}개 발견")
+    log.info(f"  - 1단계 (모든 조건 만족): {len(strict_df)}개 발견")
 
     # 2단계: 키 조건 완화
     if len(strict_df) < top_n:
@@ -471,7 +471,7 @@ def recommend_alton_bikes(usage, budget_min=None, budget_max=None, height=None, 
         if budget_max: height_relaxed_df = height_relaxed_df[height_relaxed_df['price'] <= budget_max]
         height_relaxed_df = height_relaxed_df.drop(strict_df.index, errors='ignore')
         candidate_groups[2] = height_relaxed_df
-        print(f"  - 2단계 (키 조건 완화): 추가 {len(height_relaxed_df)}개 발견")
+        log.info(f"  - 2단계 (키 조건 완화): 추가 {len(height_relaxed_df)}개 발견")
 
     # 3단계: 예산 조건 완화
     total_found = sum(len(df) for df in candidate_groups.values())
@@ -486,7 +486,7 @@ def recommend_alton_bikes(usage, budget_min=None, budget_max=None, height=None, 
         existing_indices = pd.concat(candidate_groups.values()).index
         budget_relaxed_df = budget_relaxed_df.drop(existing_indices, errors='ignore')
         candidate_groups[3] = budget_relaxed_df
-        print(f"  - 3단계 (최대 예산 20% 초과 허용): 추가 {len(budget_relaxed_df)}개 발견")
+        log.info(f"  - 3단계 (최대 예산 20% 초과 허용): 추가 {len(budget_relaxed_df)}개 발견")
 
     all_candidates = []
     match_scores = {1: 1.0, 2: 0.7, 3: 0.5}
@@ -499,7 +499,7 @@ def recommend_alton_bikes(usage, budget_min=None, budget_max=None, height=None, 
 
     # 랭킹 로직
     if not (base_bike_title and base_bike_title in indices):
-        print("\n 기준 자전거 없음. '종합 점수(스펙x조건부합)' 기반 랭킹 적용")
+        log.info("\n 기준 자전거 없음. '종합 점수(스펙x조건부합)' 기반 랭킹 적용")
         max_spec, min_spec = final_candidates_df['spec_score'].max(), final_candidates_df['spec_score'].min()
         if max_spec > min_spec:
             final_candidates_df['spec_score_scaled'] = (final_candidates_df['spec_score'] - min_spec) / (
@@ -512,7 +512,7 @@ def recommend_alton_bikes(usage, budget_min=None, budget_max=None, height=None, 
         score_type = '종합 점수'
         score_value = recommend_df['final_score'].round(3)
     else:
-        print("\n 기준 자전거 기반 유사도 랭킹 적용")
+        log.info("\n 기준 자전거 기반 유사도 랭킹 적용")
         base_idx = indices[base_bike_title]
 
         # 후보군 내에서만 유사도 계산
@@ -542,7 +542,7 @@ def recommend_alton_bikes(usage, budget_min=None, budget_max=None, height=None, 
     stat_cols = ['stat_value', 'stat_overall', 'stat_braking', 'stat_maintenance', 'stat_xfactor']
     display_cols = ['model_name', 'category', 'price', 'score_type', 'score', 'match_score', 'similarity'] + stat_cols
 
-    recommend_df.to_excel(f'./output/{usage}_{budget_max}_{height}_recommend_df.xlsx')
+    # recommend_df.to_excel(f'./output/{usage}_{budget_max}_{height}_recommend_df.xlsx')
 
     return recommend_df.reindex(columns=display_cols)
 
@@ -629,12 +629,12 @@ class DtaProcess(object):
             # 전처리
             # =================================================================
             df_std = load_and_standardize_columns(sysOpt['inpFile'])
-            print(f"데이터 로드 및 표준화 완료. 최종 데이터 형태: {df_std.shape}")
-            print("\n--- 표준화된 컬럼 목록 (샘플) ---")
-            print(df_std.columns[:10].tolist())
+            log.info(f"데이터 로드 및 표준화 완료. 최종 데이터 형태: {df_std.shape}")
+            log.info("\n--- 표준화된 컬럼 목록 (샘플) ---")
+            log.info(df_std.columns[:10].tolist())
 
             df_processed = preprocess_features(df_std)
-            print("Feature Engineering 완료.")
+            log.info("Feature Engineering 완료.")
 
             # 한글 컬럼명을 표준 영문명으로 변경함
             # 벡터화할 컬럼 정의
@@ -648,10 +648,10 @@ class DtaProcess(object):
             if text_features not in df_processed.columns:
                 text_features = None  # features 컬럼이 없으면 텍스트 처리를 건너뜀
 
-            print(f"사용될 숫자형 특징: {existing_numeric}")
-            print(f"사용될 범주형 특징: {existing_categorical}")
+            log.info(f"사용될 숫자형 특징: {existing_numeric}")
+            log.info(f"사용될 범주형 특징: {existing_categorical}")
             if text_features:
-                print(f"사용될 텍스트 특징: {text_features}")
+                log.info(f"사용될 텍스트 특징: {text_features}")
 
             # 결측치 처리
             for col in existing_numeric:
@@ -676,7 +676,7 @@ class DtaProcess(object):
                 transformers.append(('tfidf', text_transformer, text_features))
 
             if not transformers:
-                print("벡터화할 특징이 하나도 없습니다. 컬럼명을 확인해주세요.")
+                log.info("벡터화할 특징이 하나도 없습니다. 컬럼명을 확인해주세요.")
             else:
                 preprocessor = ColumnTransformer(
                     transformers=transformers,
@@ -696,17 +696,17 @@ class DtaProcess(object):
                 # 모델명으로 인덱스 찾기 위한 딕셔너리 (이제 'model_name' 사용)
                 indices = pd.Series(df_processed.index, index=df_processed['model_name']).drop_duplicates()
 
-                print("\n 특징 벡터화 및 SVD 모델링 완료.")
-                print(f"  - 잠재 벡터 형태: {X_svd.shape}")
-                print(f"  - 최종 유사도 행렬 형태: {similarity_matrix.shape}")
+                log.info("\n 특징 벡터화 및 SVD 모델링 완료.")
+                log.info(f"  - 잠재 벡터 형태: {X_svd.shape}")
+                log.info(f"  - 최종 유사도 행렬 형태: {similarity_matrix.shape}")
 
             # 함수 실행
             df_processed['spec_score'] = df_processed.apply(calculate_total_spec_score, axis=1)
             stat_scores_df = calculate_stat_scores_final(df_processed)
             df_processed = pd.concat([df_processed, stat_scores_df], axis=1)
-            df_processed.to_excel('df_processed.xlsx')
+            # df_processed.to_excel('df_processed.xlsx')
 
-            print("최종 5각형 스탯 점수 계산 완료 ('유지보수 편의성' 지표 적용).")
+            log.info("최종 5각형 스탯 점수 계산 완료 ('유지보수 편의성' 지표 적용).")
 
             user_usage = '출퇴근'
             user_budget_min = 80000
@@ -719,108 +719,13 @@ class DtaProcess(object):
                 budget_max=user_budget_max,
                 height=user_height,
                 ranking_method='spec_score',
-                top_n=20
+                top_n=4,
+                df_processed=df_processed,
+                indices=indices
             )
-            display(recommendations)
 
-            #
-            #
-            # fileList = sorted(glob.glob(sysOpt['inpFilePattern']), reverse=True)
-            # data = pd.DataFrame()
-            # for fileInfo in fileList:
-            #     orgData = pd.read_csv(fileInfo)
-            #     orgDataL1 = orgData[(orgData['category1'] == '스포츠/레저') & (orgData['category2'] == '자전거') & (
-            #                 orgData['category3'] == '자전거/MTB')]
-            #     data = pd.concat([data, orgDataL1], ignore_index=False)
-            # dataL1 = data.drop_duplicates(
-            #     subset=['title', 'link', 'image', 'lprice', 'hprice', 'mallName', 'productId', 'productType', 'brand',
-            #             'maker', 'category1', 'category2', 'category3', 'category4', 'type', 'cate',
-            #             'date']).sort_values(['title', 'date'], ascending=False)
-            # dataL1.to_csv(sysOpt['inpFile'], index=False)
-
-            # =================================================================
-            # 모델링
-            # =================================================================
-            # orgData = pd.read_csv(sysOpt['inpFile'])
-            # data = orgData.sort_values(by='lprice', ascending=True).drop_duplicates(subset=['title', 'date'],
-            #                                                                         keep='first')
-            # data['dtDate'] = pd.to_datetime(data['date'], format='%Y%m%d')
-            #
-            # # 자전거 상품 별로 최저가 2개 이상인 경우
-            # # modTitleList = sorted(data.groupby("title").filter(lambda x: x['lprice'].nunique() > 1)['title'].unique())
-            # modTitleList = sorted(data['title'].unique())
-            #
-            # # modTitleInfo = modTitleList[0]
-            # # modTitleInfo = '하운드 2025 <b>삼천리자전거</b> 시애틀F 21단 26 접이식 자전거'
-            # # modTitleInfo = '하운드 2022 <b>삼천리자전거</b> 하운드 주니어 <b>자전거</b> 시애틀MT 20인치'
-            # mlPrdDataL1 = pd.DataFrame()
-            # dlPrdDataL1 = pd.DataFrame()
-            # for i, modTitleInfo in enumerate(modTitleList):
-            #     per = round(i / len(modTitleList) * 100, 1)
-            #     log.info(f'i : {i}, per : {per}%')
-            #
-            #     selData = data[(data['title'] == modTitleInfo)].sort_values(['title', 'date'],
-            #                                                                 ascending=False).reset_index(drop=True)
-            #     if len(selData) < 1: continue
-            #
-            #     # selDataL1 = TimeSeries.from_dataframe(selData, time_col='dtDate', value_cols='lprice', fill_missing_dates=True, freq='D')
-            #     selDataL1 = TimeSeries.from_dataframe(selData, time_col='dtDate', value_cols='lprice', freq='D')
-            #
-            #     try:
-            #         mlModel = Prophet()
-            #         mlModel.fit(selDataL1)
-            #         mlPrd = mlModel.predict(n=sysOpt['model']['prdCnt'])
-            #         mlPrdData = pd.DataFrame({
-            #             'title': modTitleInfo,
-            #             'dtDate': mlPrd.time_index,
-            #             'mlPrd': mlPrd.values().flatten()
-            #         })
-            #
-            #         if len(mlPrdData) > 0:
-            #             mlPrdDataL1 = pd.concat([mlPrdDataL1, mlPrdData], ignore_index=True)
-            #     except Exception as e:
-            #         log.error(f'Exception : {e}')
-            #
-            #     try:
-            #         dlModel = DLinearModel(
-            #             input_chunk_length=sysOpt['model']['dl']['input_chunk_length'],
-            #             output_chunk_length=sysOpt['model']['dl']['output_chunk_length'],
-            #             n_epochs=sysOpt['model']['dl']['n_epochs'],
-            #             random_state=None,
-            #         )
-            #         dlModel.fit(selDataL1)
-            #         dlPrd = dlModel.predict(n=sysOpt['model']['prdCnt'])
-            #         dlPrdData = pd.DataFrame({
-            #             'title': modTitleInfo,
-            #             'dtDate': dlPrd.time_index,
-            #             'dlPrd': dlPrd.values().flatten()
-            #         })
-            #
-            #         if len(dlPrdData) > 0:
-            #             dlPrdDataL1 = pd.concat([dlPrdDataL1, dlPrdData], ignore_index=True)
-            #     except Exception as e:
-            #         log.error(f'Exception : {e}')
-            #
-            # dataL1 = data
-            # if (len(mlPrdDataL1) > 0) & (len(dlPrdDataL1) > 0):
-            #     prdData = pd.merge(mlPrdDataL1, dlPrdDataL1, on=['title', 'dtDate'], how='outer').drop_duplicates(
-            #         subset=['title', 'dtDate'], keep='first')
-            #     dataL1 = pd.merge(dataL1, prdData, on=['title', 'dtDate'], how='outer')
-            #
-            # dataL2 = dataL1.sort_values(['title', 'date'], ascending=False).reset_index(drop=True)
-            # # dataL2[(dataL2['title'] == modTitleInfo)]
-            #
-            # dataL2['yearByTitle'] = dataL2['title'].apply(extYear)
-            # dataL2['brandByTitle'] = dataL2['title'].apply(clsBrand)
-            # dataL2['typeByTitle'] = dataL2['title'].apply(clsType)
-            # dataL2['keywordByTitle'] = dataL2['title'].apply(lambda x: extKeyword(x, sysOpt['extKeywordList']))
-            # dataL3 = dataL2[dataL2['keywordByTitle'].isna() & dataL2['yearByTitle'].notna()].sort_values(
-            #     ['title', 'date'], ascending=False).reset_index(drop=True)
-            # if len(dataL3) > 0:
-            #     saveFile = sysOpt['preDt'].strftime(sysOpt['saveFile'])
-            #     os.makedirs(os.path.dirname(saveFile), exist_ok=True)
-            #     dataL3.to_csv(saveFile, index=False)
-            #     log.info(f"[CHECK] saveFile : {saveFile}")
+            rcmdData = pd.merge(recommendations, df_std, on=['model_name'], how='left')
+            log.info(f"rcmdData : {rcmdData}")
 
         except Exception as e:
             log.error(f"Exception : {str(e)}")
@@ -835,7 +740,7 @@ class DtaProcess(object):
 # ================================================
 if __name__ == '__main__':
 
-    print('[START] {}'.format("main"))
+    log.info('[START] {}'.format("main"))
 
     try:
         # 부 프로그램 호출
@@ -843,8 +748,8 @@ if __name__ == '__main__':
         subDtaProcess.exec()
 
     except Exception as e:
-        print(traceback.format_exc())
+        log.info(traceback.format_exc())
         sys.exit(1)
 
     finally:
-        print('[END] {}'.format("main"))
+        log.info('[END] {}'.format("main"))
