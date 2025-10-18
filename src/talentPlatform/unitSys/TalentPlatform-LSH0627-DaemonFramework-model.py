@@ -1,7 +1,6 @@
 # ================================================
 # 요구사항
 # ================================================
-
 # cd /HDD/SYSTEMS/PROG/PYTHON/IDE/src/talentPlatform/unitSys
 # /HDD/SYSTEMS/LIB/anaconda3/envs/py38/bin/python TalentPlatform-LSH0627-DaemonFramework-model.py
 # nohup /HDD/SYSTEMS/LIB/anaconda3/envs/py38/bin/python TalentPlatform-LSH0627-DaemonFramework-model.py &
@@ -273,7 +272,8 @@ class DtaProcess(object):
             # 옵션 설정
             sysOpt = {
                 # 입력 데이터
-                'inpFile': '/HDD/DATA/OUTPUT/LSH0627/naverShop_자전거.csv',
+                'inpFilePattern': '/HDD/DATA/OUTPUT/LSH0627/*/*/naverShop_*자전거*_*.csv',
+                'inpFile': '/HDD/DATA/OUTPUT/LSH0627/naverShop_colct.csv',
                 'model': {
                     # 시계열 딥러닝
                     'dl': {
@@ -282,7 +282,7 @@ class DtaProcess(object):
                         'n_epochs': 50,
                     },
                     # 예측
-                    'prdCnt': 7,
+                    'prdCnt': 10,
                 },
                 # 예측 데이터
                 'saveFile': '/HDD/DATA/OUTPUT/LSH0627/naverShop_prd.csv',
@@ -310,7 +310,7 @@ class DtaProcess(object):
                 per = round(i / len(modTitleList) * 100, 1)
                 log.info(f'i : {i}, per : {per}%')
 
-                selData = data[(data['title'] == modTitleInfo)]
+                selData = data[(data['title'] == modTitleInfo)].sort_values(['title', 'date'], ascending=False).reset_index(drop=True)
                 if len(selData) < 1: continue
 
                 # selDataL1 = TimeSeries.from_dataframe(selData, time_col='dtDate', value_cols='lprice', fill_missing_dates=True, freq='D')
