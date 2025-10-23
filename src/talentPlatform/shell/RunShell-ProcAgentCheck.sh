@@ -45,6 +45,7 @@ metaData["TalentPlatform-LSH0577-DaemonApi"]="cd /HDD/SYSTEMS/PROG/PYTHON/IDE/sr
 metaData["TalentPlatform-LSH0578-DaemonApi"]="cd /HDD/SYSTEMS/PROG/PYTHON/IDE/src/talentPlatform/api && /HDD/SYSTEMS/LIB/anaconda3/envs/py39/bin/python -m uvicorn TalentPlatform-LSH0578-DaemonApi:app --reload --host=0.0.0.0 --port=9200"
 metaData["TalentPlatform-LSH0597-DaemonApi"]="cd /HDD/SYSTEMS/PROG/PYTHON/IDE/src/talentPlatform/api && /HDD/SYSTEMS/LIB/anaconda3/envs/py39/bin/python -m uvicorn TalentPlatform-LSH0597-DaemonApi:app --reload --host=0.0.0.0 --port=9300"
 metaData["TalentPlatform-LSH0623-DaemonApi"]="cd /HDD/SYSTEMS/PROG/PYTHON/IDE/src/talentPlatform/api && /HDD/SYSTEMS/LIB/anaconda3/envs/py39/bin/python -m uvicorn TalentPlatform-LSH0623-DaemonApi:app --reload --host=0.0.0.0 --port=9400"
+metaData["TalentPlatform-LSH0627-DaemonApi"]="cd /HDD/SYSTEMS/PROG/PYTHON/IDE/src/talentPlatform/api && /HDD/SYSTEMS/LIB/anaconda3/envs/py39/bin/python -m uvicorn TalentPlatform-LSH0627-DaemonApi:app --reload --host=0.0.0.0 --port=9030"
 metaData["rcmdapt-ai-server"]="/HDD/SYSTEMS/LIB/anaconda3/envs/py38/bin/python /HDD/SYSTEMS/PROG/PYTHON/IDE/src/talentPlatform/rcmdapt/rcmdapt_ai_server.py"
 metaData["TalentPlatform-bdwide-FileWatch"]="/HDD/SYSTEMS/LIB/anaconda3/envs/py38/bin/python /SYSTEMS/PROG/PYTHON/IDE/src/proj/bdwide/2025/MNTRG/TalentPlatform-bdwide-FileWatch.py"
 #metaData["rclone mount"]="rclone mount 'gd-bdwide:/DATA/LABEL' '/HDD/DATA/LABEL' --daemon"

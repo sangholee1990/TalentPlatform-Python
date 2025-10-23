@@ -41,7 +41,7 @@ from sqlalchemy import Boolean, Column, ForeignKey, Integer, String, DateTime, c
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import sessionmaker
 from datetime import datetime
-from fastapi import FastAPI, Depends, HTTPException
+from fastapi import FastAPI, Depends, HTTPException, BackgroundTasks
 from sqlalchemy.orm import Session
 from fastapi import FastAPI, HTTPException, Depends
 from fastapi.responses import JSONResponse
@@ -121,6 +121,7 @@ from fastapi.responses import StreamingResponse
 from io import BytesIO
 from google import genai
 import configparser
+import httpx
 
 # ============================================
 # 유틸리티 함수
@@ -248,6 +249,8 @@ app.add_middleware(
     , allow_methods=["*"]
     , allow_headers=["*"]
 )
+
+clientAsync = httpx.AsyncClient()
 
 # ============================================
 # 비즈니스 로직
@@ -436,6 +439,34 @@ async def selChatModelCont(
 
         return resResponse("succ", 200, "처리 완료", len(result), result)
 
+    except Exception as e:
+        log.error(f'Exception : {e}')
+        raise HTTPException(status_code=400, detail=str(e))
+
+# @app.post(f"/api/sel-img", dependencies=[Depends(chkApiKey)])
+@app.post(f"/api/sel-img")
+async def selImg(
+    background_tasks: BackgroundTasks,
+    url: str = Form(..., description='이미지 외부 주소', examples=['https://shopping-phinf.pstatic.net/main_5466078/54660787576.jpg'])
+):
+    """
+    기능\n
+        알톤 바이크메트릭스AI - AI 시세 조회하기 - 외부 이미지 조회\n
+    테스트\n
+        url: 외부 이미지 주소\n
+    """
+    response = None
+    stream = None
+    try:
+        if url is None or len(url) < 1:
+            return resResponse("fail", 400, f"외부 이미지 주소 없음, url : {url}")
+
+        stream = clientAsync.stream("GET", url)
+        response = await stream.__aenter__()
+        response.raise_for_status()
+        media_type = response.headers.get("Content-Type")
+        background_tasks.add_task(stream.__aexit__, None, None, None)
+        return StreamingResponse(response.aiter_bytes(), media_type=media_type)
     except Exception as e:
         log.error(f'Exception : {e}')
         raise HTTPException(status_code=400, detail=str(e))
