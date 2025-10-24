@@ -301,6 +301,7 @@ class DtaProcess(object):
                 data = pd.concat([data, orgDataL1], ignore_index=False)
             dataL1 = data.drop_duplicates(subset=['title', 'link', 'image', 'lprice', 'hprice', 'mallName', 'productId', 'productType', 'brand', 'maker', 'category1', 'category2', 'category3', 'category4', 'type', 'cate', 'date']).sort_values(['title', 'date'], ascending=False)
             dataL1.to_csv(sysOpt['inpFile'], index=False)
+            log.info(f"[CHECK] saveFile : {sysOpt['inpFile']}")
 
             # =================================================================
             # 모델링
