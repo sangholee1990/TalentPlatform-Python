@@ -296,9 +296,11 @@ class DtaProcess(object):
             fileList = sorted(glob.glob(sysOpt['inpFilePattern']), reverse=True)
             data = pd.DataFrame()
             for fileInfo in fileList:
+                log.info(f"[CHECK] fileInfo : {fileInfo}")
                 orgData = pd.read_csv(fileInfo)
                 orgDataL1 = orgData[(orgData['category1'] == '스포츠/레저') & (orgData['category2'] == '자전거') & (orgData['category3'] == '자전거/MTB')]
-                data = pd.concat([data, orgDataL1], ignore_index=False)
+                orgDataL2 = orgDataL1.drop_duplicates(subset=['title', 'link', 'image', 'lprice', 'hprice', 'mallName', 'productId', 'productType', 'brand', 'maker', 'category1', 'category2', 'category3', 'category4', 'type', 'cate', 'date']).sort_values(['title', 'date'], ascending=False)
+                data = pd.concat([data, orgDataL2], ignore_index=False)
             dataL1 = data.drop_duplicates(subset=['title', 'link', 'image', 'lprice', 'hprice', 'mallName', 'productId', 'productType', 'brand', 'maker', 'category1', 'category2', 'category3', 'category4', 'type', 'cate', 'date']).sort_values(['title', 'date'], ascending=False)
             dataL1.to_csv(sysOpt['inpFile'], index=False)
             log.info(f"[CHECK] saveFile : {sysOpt['inpFile']}")
@@ -382,7 +384,7 @@ class DtaProcess(object):
                 os.makedirs(os.path.dirname(saveFile), exist_ok=True)
                 dataL3.to_csv(saveFile, index=False)
                 log.info(f"[CHECK] saveFile : {saveFile}")
-                
+
         except Exception as e:
             log.error(f"Exception : {str(e)}")
             raise e
