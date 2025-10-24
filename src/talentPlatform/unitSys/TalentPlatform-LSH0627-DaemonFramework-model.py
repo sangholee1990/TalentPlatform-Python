@@ -291,6 +291,18 @@ class DtaProcess(object):
             }
 
             # =================================================================
+            # 전처리
+            # =================================================================
+            fileList = sorted(glob.glob(sysOpt['inpFilePattern']), reverse=True)
+            data = pd.DataFrame()
+            for fileInfo in fileList:
+                orgData = pd.read_csv(fileInfo)
+                orgDataL1 = orgData[(orgData['category1'] == '스포츠/레저') & (orgData['category2'] == '자전거') & (orgData['category3'] == '자전거/MTB')]
+                data = pd.concat([data, orgDataL1], ignore_index=False)
+            dataL1 = data.drop_duplicates(subset=['title', 'link', 'image', 'lprice', 'hprice', 'mallName', 'productId', 'productType', 'brand', 'maker', 'category1', 'category2', 'category3', 'category4', 'type', 'cate', 'date']).sort_values(['title', 'date'], ascending=False)
+            dataL1.to_csv(sysOpt['inpFile'], index=False)
+
+            # =================================================================
             # 모델링
             # =================================================================
             orgData = pd.read_csv(sysOpt['inpFile'])
