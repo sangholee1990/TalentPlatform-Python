@@ -282,7 +282,7 @@ class DtaProcess(object):
                         'n_epochs': 50,
                     },
                     # 예측
-                    'prdCnt': 10,
+                    'prdCnt': 30,
                 },
                 # 예측 데이터
                 'saveFile': '/HDD/DATA/OUTPUT/LSH0627/naverShop_prd.csv',
@@ -293,18 +293,17 @@ class DtaProcess(object):
             # =================================================================
             # 전처리
             # =================================================================
-            fileList = sorted(glob.glob(sysOpt['inpFilePattern']), reverse=True)
-            data = pd.DataFrame()
-            for fileInfo in fileList:
-                log.info(f"[CHECK] fileInfo : {fileInfo}")
-                orgData = pd.read_csv(fileInfo)
-                orgDataL1 = orgData[(orgData['category1'] == '스포츠/레저') & (orgData['category2'] == '자전거') & (orgData['category3'] == '자전거/MTB')]
-                orgDataL2 = orgDataL1.drop_duplicates(subset=['title', 'link', 'image', 'lprice', 'hprice', 'mallName', 'productId', 'productType', 'brand', 'maker', 'category1', 'category2', 'category3', 'category4', 'type', 'cate', 'date']).sort_values(['title', 'date'], ascending=False)
-                data = pd.concat([data, orgDataL2], ignore_index=True)
-            dataL1 = data.drop_duplicates(subset=['title', 'link', 'image', 'lprice', 'hprice', 'mallName', 'productId', 'productType', 'brand', 'maker', 'category1', 'category2', 'category3', 'category4', 'type', 'cate', 'date']).sort_values(['title', 'date'], ascending=False)
-            dataL1.to_csv(sysOpt['inpFile'], index=False)
-            log.info(f"[CHECK] inpFile : {sysOpt['inpFile']}")
-            sys.exit(0)
+            # fileList = sorted(glob.glob(sysOpt['inpFilePattern']), reverse=True)
+            # data = pd.DataFrame()
+            # for fileInfo in fileList:
+            #     log.info(f"[CHECK] fileInfo : {fileInfo}")
+            #     orgData = pd.read_csv(fileInfo)
+            #     orgDataL1 = orgData[(orgData['category1'] == '스포츠/레저') & (orgData['category2'] == '자전거') & (orgData['category3'] == '자전거/MTB')]
+            #     orgDataL2 = orgDataL1.drop_duplicates(subset=['title', 'link', 'image', 'lprice', 'hprice', 'mallName', 'productId', 'productType', 'brand', 'maker', 'category1', 'category2', 'category3', 'category4', 'type', 'cate', 'date']).sort_values(['title', 'date'], ascending=False)
+            #     data = pd.concat([data, orgDataL2], ignore_index=True)
+            # dataL1 = data.drop_duplicates(subset=['title', 'link', 'image', 'lprice', 'hprice', 'mallName', 'productId', 'productType', 'brand', 'maker', 'category1', 'category2', 'category3', 'category4', 'type', 'cate', 'date']).sort_values(['title', 'date'], ascending=False)
+            # dataL1.to_csv(sysOpt['inpFile'], index=False)
+            # log.info(f"[CHECK] inpFile : {sysOpt['inpFile']}")
 
             # =================================================================
             # 모델링
