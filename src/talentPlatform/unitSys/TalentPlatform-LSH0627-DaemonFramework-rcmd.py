@@ -631,7 +631,7 @@ class DtaProcess(object):
             df_std = load_and_standardize_columns(sysOpt['inpFile'])
             log.info(f"데이터 로드 및 표준화 완료. 최종 데이터 형태: {df_std.shape}")
             log.info("\n--- 표준화된 컬럼 목록 (샘플) ---")
-            log.info(df_std.columns[:10].tolist())
+            log.info(df_std.columns.tolist())
 
             df_processed = preprocess_features(df_std)
             log.info("Feature Engineering 완료.")
@@ -707,6 +707,9 @@ class DtaProcess(object):
             # df_processed.to_excel('df_processed.xlsx')
 
             log.info("최종 5각형 스탯 점수 계산 완료 ('유지보수 편의성' 지표 적용).")
+
+            # np.max(df_processed['price'])
+            # np.min(df_processed['price'])
 
             user_usage = '출퇴근'
             user_budget_min = 80000
