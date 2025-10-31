@@ -9,15 +9,14 @@
 
 # 프로그램 시작
 # conda activate py38
-# /SYSTEMS/LIB/anaconda3/envs/py39/bin/python TalentPlatform-QUBE2025-db-prop-for-real.py --srtDate "2019-01-01" --endDate "2019-01-02"
-# /SYSTEMS/LIB/anaconda3/envs/py39/bin/python TalentPlatform-QUBE2025-db-prop-for-real.py --srtDate "2020-01-01" --endDate "2020-01-02" &
+# /SYSTEMS/LIB/anaconda3/envs/py39/bin/python TalentPlatform-QUBE2025-db-prop-for-real.py --srtDate "2021-01-01" --endDate "2023-01-01"
 
 # /vol01/SYSTEMS/INDIAI/LIB/anaconda3/envs/py38/bin/python TalentPlatform-QUBE2025-db-prop-for-real.py --srtDate "2019-01-01" --endDate "2019-01-02"
 # nohup /vol01/SYSTEMS/INDIAI/LIB/anaconda3/envs/py38/bin/python TalentPlatform-QUBE2025-db-prop-for-real.py --srtDate "2019-01-01" --endDate "2020-01-01" &
 # nohup /vol01/SYSTEMS/INDIAI/LIB/anaconda3/envs/py38/bin/python TalentPlatform-QUBE2025-db-prop-for-real.py --srtDate "2020-01-01" --endDate "2021-01-01" &
 # tail -f nohup.out
 
-# /SYSTEMS/LIB/anaconda3/envs/py38/bin/python TalentPlatform-QUBE2025-db-prop-for-real.py --srtDate "2019-01-01" --endDate "2019-01-02"
+# /SYSTEMS/LIB/anaconda3/envs/py38/bin/python TalentPlatform-QUBE2025-db-prop-for-real.py --srtDate "2025-10-01" --endDate "2025-11-01"
 # nohup /SYSTEMS/LIB/anaconda3/envs/py38/bin/python TalentPlatform-QUBE2025-db-prop-for-real.py --srtDate "2021-01-01" --endDate "2022-01-01" &
 # nohup /SYSTEMS/LIB/anaconda3/envs/py38/bin/python TalentPlatform-QUBE2025-db-prop-for-real.py --srtDate "2022-01-01" --endDate "2023-01-01" &
 # nohup /SYSTEMS/LIB/anaconda3/envs/py38/bin/python TalentPlatform-QUBE2025-db-prop-for-real.py --srtDate "2023-01-01" --endDate "2024-01-01" &
@@ -374,6 +373,7 @@ def propUmkr(sysOpt, cfgDb, dtDateInfo):
                     solPosInfo = pvlib.solarposition.get_solarposition(umDataL3['DATE_TIME'], posLat, posLon,
                                                                        pressure=umDataL3['PA'] * 100.0,
                                                                        temperature=umDataL3['TA'], method='nrel_numpy')
+                    umDataL3['EXT_RAD'] = pvlib.irradiance.get_extra_radiation(solPosInfo.index.dayofyear)
                     umDataL3['SZA'] = solPosInfo['zenith'].values
                     umDataL3['AZA'] = solPosInfo['azimuth'].values
                     umDataL3['ET'] = solPosInfo['equation_of_time'].values
@@ -422,14 +422,14 @@ def propUmkr(sysOpt, cfgDb, dtDateInfo):
                                                           "SRV", "ANA_DATE", "DATE_TIME", "DATE_TIME_KST",
                                                           "CA_TOT", "HM", "PA", "TA", "TD", "WD", "WS",
                                                           "SZA", "AZA", "ET", "TURB",
-                                                          "GHI_CLR", "DNI_CLR", "DHI_CLR", "SWR", 
+                                                          "GHI_CLR", "DNI_CLR", "DHI_CLR", "SWR", "EXT_RAD",
                                                           "REG_DATE"
                                                       )
                                                       SELECT
                                                           "SRV", "ANA_DATE", "DATE_TIME", "DATE_TIME_KST",
                                                           "CA_TOT", "HM", "PA", "TA", "TD", "WD", "WS",
                                                           "SZA", "AZA", "ET", "TURB",
-                                                          "GHI_CLR", "DNI_CLR", "DHI_CLR", "SWR",
+                                                          "GHI_CLR", "DNI_CLR", "DHI_CLR", "SWR", "EXT_RAD",
                                                           now()
                                                       FROM "{tbTmp}"
                                                       ON CONFLICT ("SRV", "ANA_DATE", "DATE_TIME")
@@ -450,7 +450,8 @@ def propUmkr(sysOpt, cfgDb, dtDateInfo):
                                                           "DNI_CLR" = excluded."DNI_CLR", 
                                                           "DHI_CLR" = excluded."DHI_CLR", 
                                                           "SWR" = excluded."SWR",
-                                                          "MOD_DATE" = now(); -- 수정일 업데이트
+                                                          "EXT_RAD" = excluded."EXT_RAD",
+                                                          "MOD_DATE" = now();
                                                   """)
                                 session.execute(query)
                                 session.execute(text(f'DROP TABLE IF EXISTS "{tbTmp}"'))
