@@ -9,18 +9,11 @@
 # cd /SYSTEMS/PROG/PYTHON
 # /SYSTEMS/LIB/anaconda3/envs/py38/bin/python /SYSTEMS/PROG/PYTHON/TalentPlatform-QUBE2025-colct-kmaApiHub.py --modelList 'UMKR' --cpuCoreNum '5' --srtDate '2024-12-01' --endDate '2024-12-05'
 # /SYSTEMS/LIB/anaconda3/envs/py38/bin/python /SYSTEMS/PROG/PYTHON/TalentPlatform-QUBE2025-colct-kmaApiHub.py --modelList 'UMKR' --cpuCoreNum '5' --srtDate '2024-01-01' --endDate '2025-01-01'
-# nohup /SYSTEMS/LIB/anaconda3/envs/py38/bin/python /SYSTEMS/PROG/PYTHON/TalentPlatform-QUBE2025-colct-kmaApiHub.py --modelList 'UMKR' --cpuCoreNum '5' --srtDate '2025-01-01' --endDate '2026-01-01' &
-# /SYSTEMS/LIB/anaconda3/envs/py38/bin/python /SYSTEMS/PROG/PYTHON/TalentPlatform-QUBE2025-colct-kmaApiHub.py --modelList 'KIMG' --cpuCoreNum '5' --srtDate '2024-12-01' --endDate '2024-12-05'
-# /SYSTEMS/LIB/anaconda3/envs/py38/bin/python /SYSTEMS/PROG/PYTHON/TalentPlatform-QUBE2025-colct-kmaApiHub.py --modelList 'AWS,ASOS,UMKR,KIMG' --cpuCoreNum '5' --srtDate '2024-12-01' --endDate '2024-12-05'
 
-# cd /SYSTEMS/PROG/PYTHON
-# /SYSTEMS/LIB/anaconda3/envs/py38/bin/python /SYSTEMS/PROG/PYTHON/TalentPlatform-QUBE2025-colct-kmaApiHub.py --modelList 'UMKR' --cpuCoreNum '5' --srtDate '2010-01-01' --endDate '2025-01-01'
-# /SYSTEMS/LIB/anaconda3/envs/py38/bin/python /SYSTEMS/PROG/PYTHON/TalentPlatform-QUBE2025-colct-kmaApiHub.py --modelList 'KIMG' --cpuCoreNum '5' --srtDate '2010-01-01' --endDate '2025-01-01'
-# /SYSTEMS/LIB/anaconda3/envs/py38/bin/python /SYSTEMS/PROG/PYTHON/TalentPlatform-QUBE2025-colct-kmaApiHub.py --modelList 'AWS,ASOS' --cpuCoreNum '5' --srtDate '2010-01-01' --endDate '2025-01-01'
+# nohup /SYSTEMS/LIB/anaconda3/envs/py38/bin/python /SYSTEMS/PROG/PYTHON/TalentPlatform-QUBE2025-colct-kmaApiHub.py --modelList 'UMKR' --cpuCoreNum '5' --srtDate '2025-01-01' --endDate "$(date -u +\%Y-\%m-\%d)" &
 
-# nohup /SYSTEMS/LIB/anaconda3/envs/py38/bin/python /SYSTEMS/PROG/PYTHON/TalentPlatform-QUBE2025-colct-kmaApiHub.py --modelList 'UMKR' --cpuCoreNum '5' --srtDate '2020-01-01' --endDate '2025-01-01' &
-# nohup /SYSTEMS/LIB/anaconda3/envs/py38/bin/python /SYSTEMS/PROG/PYTHON/TalentPlatform-QUBE2025-colct-kmaApiHub.py --modelList 'KIMG' --cpuCoreNum '5' --srtDate '2010-01-01' --endDate '2025-01-01' &
-# nohup /SYSTEMS/LIB/anaconda3/envs/py38/bin/python /SYSTEMS/PROG/PYTHON/TalentPlatform-QUBE2025-colct-kmaApiHub.py --modelList 'AWS,ASOS' --cpuCoreNum '5' --srtDate '2020-01-01' --endDate '2025-01-01' &
+# 2025.11.02
+# */10 * * * * cd /SYSTEMS/PROG/PYTHON && /SYSTEMS/LIB/anaconda3/envs/py38/bin/python /SYSTEMS/PROG/PYTHON/TalentPlatform-QUBE2025-colct-kmaApiHub.py --modelList 'UMKR' --cpuCoreNum '5' --srtDate "$(date -d "2 days ago" +\%Y-\%m-\%d)" --endDate "$(date -d "2 days" +\%Y-\%m-\%d)"
 
 import argparse
 import glob
