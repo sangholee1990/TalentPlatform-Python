@@ -9,19 +9,19 @@
 
 # 프로그램 시작
 # conda activate py38
+
+# cd /SYSTEMS/PROG/PYTHON
 # /SYSTEMS/LIB/anaconda3/envs/py39/bin/python TalentPlatform-QUBE2025-db-prop-for-real.py --srtDate "2021-01-01" --endDate "2023-01-01"
+# /SYSTEMS/LIB/anaconda3/envs/py38/bin/python /SYSTEMS/PROG/PYTHON/TalentPlatform-QUBE2025-colct-kmaApiHub.py --modelList 'UMKR' --cpuCoreNum '5' --srtDate '2024-12-01' --endDate '2024-12-05'
+# /SYSTEMS/LIB/anaconda3/envs/py38/bin/python /SYSTEMS/PROG/PYTHON/TalentPlatform-QUBE2025-colct-kmaApiHub.py --modelList 'KIMG' --cpuCoreNum '5' --srtDate '2024-12-01' --endDate '2024-12-05'
+# /SYSTEMS/LIB/anaconda3/envs/py38/bin/python /SYSTEMS/PROG/PYTHON/TalentPlatform-QUBE2025-colct-kmaApiHub.py --modelList 'AWS,ASOS,UMKR,KIMG' --cpuCoreNum '5' --srtDate '2024-12-01' --endDate '2024-12-05'
 
-# /vol01/SYSTEMS/INDIAI/LIB/anaconda3/envs/py38/bin/python TalentPlatform-QUBE2025-db-prop-for-real.py --srtDate "2019-01-01" --endDate "2019-01-02"
-# nohup /vol01/SYSTEMS/INDIAI/LIB/anaconda3/envs/py38/bin/python TalentPlatform-QUBE2025-db-prop-for-real.py --srtDate "2019-01-01" --endDate "2020-01-01" &
-# nohup /vol01/SYSTEMS/INDIAI/LIB/anaconda3/envs/py38/bin/python TalentPlatform-QUBE2025-db-prop-for-real.py --srtDate "2020-01-01" --endDate "2021-01-01" &
-# tail -f nohup.out
 
-# /SYSTEMS/LIB/anaconda3/envs/py38/bin/python TalentPlatform-QUBE2025-db-prop-for-real.py --srtDate "2025-10-01" --endDate "2025-11-01"
-# nohup /SYSTEMS/LIB/anaconda3/envs/py38/bin/python TalentPlatform-QUBE2025-db-prop-for-real.py --srtDate "2021-01-01" --endDate "2022-01-01" &
-# nohup /SYSTEMS/LIB/anaconda3/envs/py38/bin/python TalentPlatform-QUBE2025-db-prop-for-real.py --srtDate "2022-01-01" --endDate "2023-01-01" &
-# nohup /SYSTEMS/LIB/anaconda3/envs/py38/bin/python TalentPlatform-QUBE2025-db-prop-for-real.py --srtDate "2023-01-01" --endDate "2024-01-01" &
-# nohup /SYSTEMS/LIB/anaconda3/envs/py38/bin/python TalentPlatform-QUBE2025-db-prop-for-real.py --srtDate "2024-01-01" --endDate "2025-01-01" &
-# nohup /SYSTEMS/LIB/anaconda3/envs/py38/bin/python TalentPlatform-QUBE2025-db-prop-for-real.py --srtDate "2025-01-01" --endDate "2026-01-01" &
+# nohup /SYSTEMS/LIB/anaconda3/envs/py38/bin/python /SYSTEMS/PROG/PYTHON/TalentPlatform-QUBE2025-colct-kmaApiHub.py --modelList 'UMKR' --cpuCoreNum '5' --srtDate '2025-01-01' --endDate "$(date -u +\%Y-\%m-\%d)" &
+
+
+# 스케줄러
+# */10 * * * * cd /SYSTEMS/PROG/PYTHON && /SYSTEMS/LIB/anaconda3/envs/py38/bin/python /SYSTEMS/PROG/PYTHON/TalentPlatform-QUBE2025-colct-kmaApiHub.py --modelList 'UMKR' --cpuCoreNum '5' --srtDate "$(date -d "2 days ago" +\%Y-\%m-\%d)" --endDate "$(date -d "2 days" +\%Y-\%m-\%d)"
 
 import glob
 # import seaborn as sns
@@ -418,41 +418,41 @@ def propUmkr(sysOpt, cfgDb, dtDateInfo):
                                 )
 
                                 query = text(f"""
-                                                      INSERT INTO "TB_FOR_DATA" (
-                                                          "SRV", "ANA_DATE", "DATE_TIME", "DATE_TIME_KST",
-                                                          "CA_TOT", "HM", "PA", "TA", "TD", "WD", "WS",
-                                                          "SZA", "AZA", "ET", "TURB",
-                                                          "GHI_CLR", "DNI_CLR", "DHI_CLR", "SWR", "EXT_RAD",
-                                                          "REG_DATE"
-                                                      )
-                                                      SELECT
-                                                          "SRV", "ANA_DATE", "DATE_TIME", "DATE_TIME_KST",
-                                                          "CA_TOT", "HM", "PA", "TA", "TD", "WD", "WS",
-                                                          "SZA", "AZA", "ET", "TURB",
-                                                          "GHI_CLR", "DNI_CLR", "DHI_CLR", "SWR", "EXT_RAD",
-                                                          now()
-                                                      FROM "{tbTmp}"
-                                                      ON CONFLICT ("SRV", "ANA_DATE", "DATE_TIME")
-                                                      DO UPDATE SET
-                                                          "DATE_TIME_KST" = excluded."DATE_TIME_KST",
-                                                          "CA_TOT" = excluded."CA_TOT", 
-                                                          "HM" = excluded."HM", 
-                                                          "PA" = excluded."PA", 
-                                                          "TA" = excluded."TA", 
-                                                          "TD" = excluded."TD", 
-                                                          "WD" = excluded."WD", 
-                                                          "WS" = excluded."WS",
-                                                          "SZA" = excluded."SZA", 
-                                                          "AZA" = excluded."AZA", 
-                                                          "ET" = excluded."ET", 
-                                                          "TURB" = excluded."TURB",
-                                                          "GHI_CLR" = excluded."GHI_CLR", 
-                                                          "DNI_CLR" = excluded."DNI_CLR", 
-                                                          "DHI_CLR" = excluded."DHI_CLR", 
-                                                          "SWR" = excluded."SWR",
-                                                          "EXT_RAD" = excluded."EXT_RAD",
-                                                          "MOD_DATE" = now();
-                                                  """)
+                                    INSERT INTO "TB_FOR_DATA" (
+                                          "SRV", "ANA_DATE", "DATE_TIME", "DATE_TIME_KST",
+                                          "CA_TOT", "HM", "PA", "TA", "TD", "WD", "WS",
+                                          "SZA", "AZA", "ET", "TURB",
+                                          "GHI_CLR", "DNI_CLR", "DHI_CLR", "SWR", "EXT_RAD",
+                                          "REG_DATE"
+                                    )
+                                    SELECT
+                                          "SRV", "ANA_DATE", "DATE_TIME", "DATE_TIME_KST",
+                                          "CA_TOT", "HM", "PA", "TA", "TD", "WD", "WS",
+                                          "SZA", "AZA", "ET", "TURB",
+                                          "GHI_CLR", "DNI_CLR", "DHI_CLR", "SWR", "EXT_RAD",
+                                          now()
+                                    FROM "{tbTmp}"
+                                    ON CONFLICT ("SRV", "ANA_DATE", "DATE_TIME")
+                                    DO UPDATE SET
+                                          "DATE_TIME_KST" = excluded."DATE_TIME_KST",
+                                          "CA_TOT" = excluded."CA_TOT", 
+                                          "HM" = excluded."HM", 
+                                          "PA" = excluded."PA", 
+                                          "TA" = excluded."TA", 
+                                          "TD" = excluded."TD", 
+                                          "WD" = excluded."WD", 
+                                          "WS" = excluded."WS",
+                                          "SZA" = excluded."SZA", 
+                                          "AZA" = excluded."AZA", 
+                                          "ET" = excluded."ET", 
+                                          "TURB" = excluded."TURB",
+                                          "GHI_CLR" = excluded."GHI_CLR", 
+                                          "DNI_CLR" = excluded."DNI_CLR", 
+                                          "DHI_CLR" = excluded."DHI_CLR", 
+                                          "SWR" = excluded."SWR",
+                                          "EXT_RAD" = excluded."EXT_RAD",
+                                          "MOD_DATE" = now();
+                                      """)
                                 session.execute(query)
                                 session.execute(text(f'DROP TABLE IF EXISTS "{tbTmp}"'))
                     except Exception as e:

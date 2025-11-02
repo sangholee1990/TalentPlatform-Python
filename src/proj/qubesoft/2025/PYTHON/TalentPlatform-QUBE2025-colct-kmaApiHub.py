@@ -3,7 +3,15 @@
 # ================================================
 # Python을 이용한 기상청 API 허브 다운로드
 
-# ps -ef | grep "TalentPlatform-QUBE2025-colct-kmaApiHub.pyy" | awk '{print $2}' | xargs kill -9
+# ps -ef | grep "TalentPlatform-QUBE2025-colct-kmaApiHub.py" | awk '{print $2}' | xargs kill -9
+# pkill -f "TalentPlatform-QUBE2025-colct-kmaApiHub.py"
+
+# cd /SYSTEMS/PROG/PYTHON
+# /SYSTEMS/LIB/anaconda3/envs/py38/bin/python /SYSTEMS/PROG/PYTHON/TalentPlatform-QUBE2025-colct-kmaApiHub.py --modelList 'UMKR' --cpuCoreNum '5' --srtDate '2024-12-01' --endDate '2024-12-05'
+# /SYSTEMS/LIB/anaconda3/envs/py38/bin/python /SYSTEMS/PROG/PYTHON/TalentPlatform-QUBE2025-colct-kmaApiHub.py --modelList 'UMKR' --cpuCoreNum '5' --srtDate '2024-01-01' --endDate '2025-01-01'
+# nohup /SYSTEMS/LIB/anaconda3/envs/py38/bin/python /SYSTEMS/PROG/PYTHON/TalentPlatform-QUBE2025-colct-kmaApiHub.py --modelList 'UMKR' --cpuCoreNum '5' --srtDate '2025-01-01' --endDate '2026-01-01' &
+# /SYSTEMS/LIB/anaconda3/envs/py38/bin/python /SYSTEMS/PROG/PYTHON/TalentPlatform-QUBE2025-colct-kmaApiHub.py --modelList 'KIMG' --cpuCoreNum '5' --srtDate '2024-12-01' --endDate '2024-12-05'
+# /SYSTEMS/LIB/anaconda3/envs/py38/bin/python /SYSTEMS/PROG/PYTHON/TalentPlatform-QUBE2025-colct-kmaApiHub.py --modelList 'AWS,ASOS,UMKR,KIMG' --cpuCoreNum '5' --srtDate '2024-12-01' --endDate '2024-12-05'
 
 # cd /SYSTEMS/PROG/PYTHON
 # /SYSTEMS/LIB/anaconda3/envs/py38/bin/python /SYSTEMS/PROG/PYTHON/TalentPlatform-QUBE2025-colct-kmaApiHub.py --modelList 'UMKR' --cpuCoreNum '5' --srtDate '2010-01-01' --endDate '2025-01-01'
@@ -51,6 +59,8 @@ import subprocess
 from isodate import parse_duration
 from pandas.tseries.offsets import DateOffset
 import configparser
+from urllib.parse import urlparse, parse_qs
+from lxml import etree
 
 # =================================================
 # 사용자 매뉴얼
@@ -92,14 +102,13 @@ def initLog(env=None, contextPath=None, prjName=None):
     if contextPath is None: contextPath = os.getcwd()
     if prjName is None: prjName = 'test'
 
-    saveLogFile = "{}/{}_{}_{}_{}_{}_{}.log".format(
-        os.path.join(contextPath, 'log') if env in 'local' else os.path.join(contextPath, 'resources', 'log', prjName)
+    saveLogFile = "{}/{}_{}_{}_{}_{}.log".format(
+        contextPath if env in 'local' else os.path.join(contextPath, 'resources', 'log', prjName)
         , platform.system()
         , platform.machine()
         , platform.architecture()[0]
         , platform.node()
         , prjName
-        , datetime.now().strftime("%Y%m%d")
     )
 
     os.makedirs(os.path.dirname(saveLogFile), exist_ok=True)
@@ -115,7 +124,7 @@ def initLog(env=None, contextPath=None, prjName=None):
 
     # handler 생성
     streamHandler = logging.StreamHandler()
-    fileHandler = logging.FileHandler(saveLogFile)
+    fileHandler = logging.handlers.TimedRotatingFileHandler(filename=saveLogFile, when='midnight', interval=1, backupCount=30, encoding='utf-8')
 
     # logger instance에 format 설정
     streamHandler.setFormatter(format)
@@ -129,7 +138,6 @@ def initLog(env=None, contextPath=None, prjName=None):
     log.setLevel(level=logging.INFO)
 
     return log
-
 
 #  초기 변수 설정
 def initGlobalVar(env=None, contextPath=None, prjName=None):
@@ -230,12 +238,8 @@ def colctObs(modelInfo, dtDateInfo):
         fileList = sorted(glob.glob(updFileInfo))
         if len(fileList) > 0: return
 
-        reqUrl = dtDateInfo.strftime(f"{modelInfo['request']['url']}").format(
-            tmfc=dtDateInfo.strftime('%Y%m%d%H%M'),
-            tmfc2=(dtDateInfo + parseDateOffset(modelInfo['request']['invDate']) - parseDateOffset('1s')).strftime(
-                '%Y%m%d%H%M'),
-            authKey=modelInfo['request']['authKey']
-        )
+        # reqUrl = dtDateInfo.strftime(f"{modelInfo['request']['url']}").format(tmfc=dtDateInfo.strftime('%Y%m%d%H%M'), tmfc2=(dtDateInfo + parseDateOffset(modelInfo['request']['invDate']) - parseDateOffset('1s')).strftime('%Y%m%d%H%M'), authKey=modelInfo['request']['authKey'])
+        reqUrl = dtDateInfo.strftime(f"{modelInfo['request']['url']}").format(tmfc=dtDateInfo.strftime('%Y%m%d%H%M'), tmfc2=(dtDateInfo + parseDateOffset(modelInfo['request']['invDate']) - parseDateOffset('1s')).strftime('%Y%m%d%H%M'), authKey=extAuthKey())
 
         # res = requests.get(reqUrl)
         # if not (res.status_code == 200): return
@@ -289,9 +293,8 @@ def colctNwp(modelInfo, dtDateInfo):
             fileList = sorted(glob.glob(updFileInfo))
             if len(fileList) > 0: return
 
-            reqUrl = dtDateInfo.strftime(f"{modelInfo['request']['url']}").format(tmfc=dtDateInfo.strftime('%Y%m%d%H'),
-                                                                                  ef=ef, authKey=modelInfo['request'][
-                    'authKey'])
+            # reqUrl = dtDateInfo.strftime(f"{modelInfo['request']['url']}").format(tmfc=dtDateInfo.strftime('%Y%m%d%H'), ef=ef, authKey=modelInfo['request']['authKey'])
+            reqUrl = dtDateInfo.strftime(f"{modelInfo['request']['url']}").format(tmfc=dtDateInfo.strftime('%Y%m%d%H'), ef=ef, authKey=extAuthKey())
             # res = requests.get(reqUrl)
             # if not (res.status_code == 200): return
 
@@ -328,6 +331,30 @@ def colctNwp(modelInfo, dtDateInfo):
         if os.path.exists(tmpFileInfo):
             os.remove(tmpFileInfo)
 
+def extAuthKey():
+
+    authKey = None
+
+    try:
+        url = "https://apihub.kma.go.kr/apiList.do"
+        res = requests.get(url)
+        if res.status_code != 200: return authKey
+
+        soup = BeautifulSoup(res.text, 'html.parser')
+        lxml = etree.HTML(str(soup))
+
+        tagList = lxml.xpath('/html/body/div/div[1]/div/p[6]/a')
+        for tagInfo in tagList:
+            urlHref = tagInfo.get('href')
+            urlPar = urlparse(urlHref)
+            urlQuery = parse_qs(urlPar.query)
+            authKey = urlQuery['authKey'][0]
+
+    except Exception as e:
+        log.error(f'Exception : {str(e)}')
+        raise e
+
+    return authKey
 
 # ================================================
 # 4. 부 프로그램
@@ -393,20 +420,19 @@ class DtaProcess(object):
             # 옵션 설정
             sysOpt = {
                 # 예보시간 시작일, 종료일, 시간 간격 (연 1y, 월 1m, 일 1d, 시간 1h, 분 1t, 초 1s)
-                # 'srtDate': '2024-12-01',
-                # 'endDate': '2024-12-04',
-                'srtDate': globalVar['srtDate'],
-                'endDate': globalVar['endDate'],
+                'srtDate': '2024-12-01',
+                'endDate': '2024-12-04',
+                # 'srtDate': globalVar['srtDate'],
+                # 'endDate': globalVar['endDate'],
 
                 # 수행 목록
                 # 'modelList': ['AWS', 'ASOS', 'UMKR', 'KIMG'],
-                # 'modelList': ['UMKR', 'KIMG'],
-                'modelList': globalVar['modelList'].split(','),
+                'modelList': ['UMKR', 'KIMG'],
+                # 'modelList': globalVar['modelList'].split(','),
 
                 # 비동기 다중 프로세스 개수
-                # 'cpuCoreNum': '1',
-                'cpuCoreNum': globalVar['cpuCoreNum'],
-
+                'cpuCoreNum': '1',
+                # 'cpuCoreNum': globalVar['cpuCoreNum'],
                 'ASOS': {
                     'request': {
                         'url': 'https://apihub.kma.go.kr/api/typ01/url/kma_sfctm3.php?tm1={tmfc}&tm2={tmfc2}&stn=0&help=0&authKey={authKey}'
