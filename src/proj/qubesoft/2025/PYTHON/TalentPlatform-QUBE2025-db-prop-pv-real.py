@@ -330,8 +330,10 @@ class DtaProcess(object):
                 # 시작/종료 시간
                 # 'srtDate': globalVar['srtDate'],
                 # 'endDate': globalVar['endDate'],
-                'srtDate': '2020-01-01',
-                'endDate': '2025-11-03',
+                'srtDate': '2010-01-01',
+                'endDate': '2020-01-01',
+                # 'srtDate': '2020-01-01',
+                # 'endDate': '2025-11-03',
                 'invDate': '1d',
 
                 # 비동기 다중 프로세스 개수
