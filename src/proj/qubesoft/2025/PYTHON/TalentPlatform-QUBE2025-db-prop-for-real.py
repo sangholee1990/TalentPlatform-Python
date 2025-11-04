@@ -11,17 +11,7 @@
 # conda activate py38
 
 # cd /SYSTEMS/PROG/PYTHON
-# /SYSTEMS/LIB/anaconda3/envs/py39/bin/python TalentPlatform-QUBE2025-db-prop-for-real.py --srtDate "2021-01-01" --endDate "2023-01-01"
-# /SYSTEMS/LIB/anaconda3/envs/py38/bin/python /SYSTEMS/PROG/PYTHON/TalentPlatform-QUBE2025-colct-kmaApiHub.py --modelList 'UMKR' --cpuCoreNum '5' --srtDate '2024-12-01' --endDate '2024-12-05'
-# /SYSTEMS/LIB/anaconda3/envs/py38/bin/python /SYSTEMS/PROG/PYTHON/TalentPlatform-QUBE2025-colct-kmaApiHub.py --modelList 'KIMG' --cpuCoreNum '5' --srtDate '2024-12-01' --endDate '2024-12-05'
-# /SYSTEMS/LIB/anaconda3/envs/py38/bin/python /SYSTEMS/PROG/PYTHON/TalentPlatform-QUBE2025-colct-kmaApiHub.py --modelList 'AWS,ASOS,UMKR,KIMG' --cpuCoreNum '5' --srtDate '2024-12-01' --endDate '2024-12-05'
-
-
-# nohup /SYSTEMS/LIB/anaconda3/envs/py38/bin/python /SYSTEMS/PROG/PYTHON/TalentPlatform-QUBE2025-colct-kmaApiHub.py --modelList 'UMKR' --cpuCoreNum '5' --srtDate '2025-01-01' --endDate "$(date -u +\%Y-\%m-\%d)" &
-
-
-# 스케줄러
-# */10 * * * * cd /SYSTEMS/PROG/PYTHON && /SYSTEMS/LIB/anaconda3/envs/py38/bin/python /SYSTEMS/PROG/PYTHON/TalentPlatform-QUBE2025-colct-kmaApiHub.py --modelList 'UMKR' --cpuCoreNum '5' --srtDate "$(date -d "2 days ago" +\%Y-\%m-\%d)" --endDate "$(date -d "2 days" +\%Y-\%m-\%d)"
+# nohup /SYSTEMS/LIB/anaconda3/envs/py38/bin/python TalentPlatform-QUBE2025-db-prop-for-real.py --srtDate "2022-02-18" --endDate "2025-11-04" &
 
 import glob
 # import seaborn as sns
@@ -480,6 +470,7 @@ class DtaProcess(object):
         contextPath = os.getcwd() if env in 'local' else 'E:/04. TalentPlatform/Github/TalentPlatform-Python'
     else:
         contextPath = os.getcwd() if env in 'local' else '/SYSTEMS/PROG/PYTHON/IDE'
+        # contextPath = os.getcwd() if env in 'local' else '/SYSTEMS/PROG/PYTHON'
 
     prjName = 'test'
     serviceName = 'LSH0255'
@@ -528,10 +519,10 @@ class DtaProcess(object):
             # 옵션 설정
             sysOpt = {
                 # 시작/종료 시간
-                # 'srtDate': globalVar['srtDate'],
-                # 'endDate': globalVar['endDate'],
-                'srtDate': '2021-01-01',
-                'endDate': '2022-11-01',
+                'srtDate': globalVar['srtDate'],
+                'endDate': globalVar['endDate'],
+                # 'srtDate': '2021-01-01',
+                # 'endDate': '2022-11-01',
 
                 # 비동기 다중 프로세스 개수
                 # 'cpuCoreNum': globalVar['cpuCoreNum'],
