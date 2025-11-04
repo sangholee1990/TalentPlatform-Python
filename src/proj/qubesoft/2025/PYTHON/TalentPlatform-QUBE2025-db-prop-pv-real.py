@@ -11,13 +11,8 @@
 # conda activate py38
 
 # cd /SYSTEMS/PROG/PYTHON
-# /SYSTEMS/LIB/anaconda3/envs/py39/bin/python TalentPlatform-QUBE2025-db-prop-for-real.py --srtDate "2021-01-01" --endDate "2023-01-01"
-# /SYSTEMS/LIB/anaconda3/envs/py38/bin/python /SYSTEMS/PROG/PYTHON/TalentPlatform-QUBE2025-colct-kmaApiHub.py --modelList 'UMKR' --cpuCoreNum '5' --srtDate '2024-12-01' --endDate '2024-12-05'
-# /SYSTEMS/LIB/anaconda3/envs/py38/bin/python /SYSTEMS/PROG/PYTHON/TalentPlatform-QUBE2025-colct-kmaApiHub.py --modelList 'KIMG' --cpuCoreNum '5' --srtDate '2024-12-01' --endDate '2024-12-05'
-# /SYSTEMS/LIB/anaconda3/envs/py38/bin/python /SYSTEMS/PROG/PYTHON/TalentPlatform-QUBE2025-colct-kmaApiHub.py --modelList 'AWS,ASOS,UMKR,KIMG' --cpuCoreNum '5' --srtDate '2024-12-01' --endDate '2024-12-05'
-
-# 스케줄러
-# */10 * * * * cd /SYSTEMS/PROG/PYTHON && /SYSTEMS/LIB/anaconda3/envs/py38/bin/python /SYSTEMS/PROG/PYTHON/TalentPlatform-QUBE2025-colct-kmaApiHub.py --modelList 'UMKR' --cpuCoreNum '5' --srtDate "$(date -d "2 days ago" +\%Y-\%m-\%d)" --endDate "$(date -d "2 days" +\%Y-\%m-\%d)"
+# /SYSTEMS/LIB/anaconda3/envs/py38/bin/python TalentPlatform-QUBE2025-db-prop-pv-real.py --srtDate "2022-02-18" --endDate "2025-11-04"
+# nohup /SYSTEMS/LIB/anaconda3/envs/py38/bin/python TalentPlatform-QUBE2025-db-prop-pv-real.py --srtDate "2022-02-18" --endDate "2025-11-04" &
 
 import glob
 # import seaborn as sns
@@ -328,10 +323,10 @@ class DtaProcess(object):
             # 옵션 설정
             sysOpt = {
                 # 시작/종료 시간
-                # 'srtDate': globalVar['srtDate'],
-                # 'endDate': globalVar['endDate'],
-                'srtDate': '2010-01-01',
-                'endDate': '2020-01-01',
+                'srtDate': globalVar['srtDate'],
+                'endDate': globalVar['endDate'],
+                # 'srtDate': '2010-01-01',
+                # 'endDate': '2020-01-01',
                 # 'srtDate': '2020-01-01',
                 # 'endDate': '2025-11-03',
                 'invDate': '1d',
@@ -367,7 +362,7 @@ class DtaProcess(object):
             query = text("""
                          SELECT *
                          FROM "TB_STN_INFO"
-                         WHERE "OPER_YN" = 'Y' AND "ID" NOT IN (1, 2);
+                         WHERE "OPER_YN" = 'Y';
                          """)
 
             posDataL1 = pd.DataFrame(cfgDb['sessionMake']().execute(query))
