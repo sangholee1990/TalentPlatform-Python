@@ -223,6 +223,8 @@ def dbMntrgIndoor(sysOpt):
         query = text("""
                      WITH PRE_ECO_DATA AS (SELECT ECO.*,
                                                   dev.device_name,
+                                                  dev.bot_token,
+                                                  dev.chat_id,
                                                   ROW_NUMBER() OVER (PARTITION BY ECO.device_id ORDER BY ECO.tm DESC) AS rn
                                            FROM TB_ECOWITT_DATA AS ECO
                                                     LEFT OUTER JOIN
@@ -231,7 +233,8 @@ def dbMntrgIndoor(sysOpt):
                                              AND ECO.indoor_temp <> -999)
                      SELECT tm          AS tm,
                             device_id   AS device_id,
-                            device_name AS device_name,
+                            bot_token   AS bot_token,
+                            chat_id   AS chat_id,
                             indoor_temp AS indoor_temp,
                             CASE
                                 WHEN indoor_temp >= 38.0 THEN '내부 고온 경보'
@@ -249,13 +252,16 @@ def dbMntrgIndoor(sysOpt):
         with sysOpt['cfgDb']['sessionMake']() as session:
             dataList = session.execute(query, {"srtDate": srtDate, "endDate": endDate}).all()
             for dataInfo in dataList:
+                if not dataInfo.bot_token or not dataInfo.chat_id: continue
                 if dataInfo.state is None: continue
                 log.info(f"[CHECK] dataInfo : {dataInfo}")
 
                 key = f"{dataInfo.state}-{dataInfo.device_id}-{dataInfo.device_name}"
                 msgAlertDate = sysOpt['msgAlertHist'].get(key)
                 if (msgAlertDate is None) or (endDate - msgAlertDate) >= timedelta(minutes=sysOpt['msgAlertMinInv']):
-                    sendTgApi(sysOpt['cfgTg'], sysOpt['msgAlertTemplate'][dataInfo.state].format(device_id=dataInfo.device_id, device_name=dataInfo.device_name, indoor_temp=dataInfo.indoor_temp))
+                    # sendTgApi(sysOpt['cfgTg'], sysOpt['msgAlertTemplate'][dataInfo.state].format(device_id=dataInfo.device_id, device_name=dataInfo.device_name, indoor_temp=dataInfo.indoor_temp))
+                    cfgTg = {'bot_token': dataInfo.bot_token, 'chat_id': dataInfo.chat_id}
+                    sendTgApi(cfgTg, sysOpt['msgAlertTemplate'][dataInfo.state].format(device_id=dataInfo.device_id, device_name=dataInfo.device_name, indoor_temp=dataInfo.indoor_temp))
                     sysOpt['msgAlertHist'][key] = endDate
                     log.info(f"[CHECK] msgAlertHist : {sysOpt['msgAlertHist'].keys()}")
     except Exception as e:
@@ -312,6 +318,8 @@ def dbMntrgOutdoor(sysOpt):
                      SELECT calcs.tm           AS tm,
                             dev.device_id      AS device_id,
                             dev.device_name    AS device_name,
+                            dev.bot_token    AS bot_token,
+                            dev.chat_id    AS chat_id,
                             calcs.outdoor_temp AS outdoor_temp,
                             CASE
                                 WHEN calcs.measurement_month BETWEEN 5 AND 9 THEN calcs.summer_feels_like
@@ -340,16 +348,16 @@ def dbMntrgOutdoor(sysOpt):
             dataList = session.execute(query, {"srtDate": srtDate, "endDate": endDate}).all()
 
             for dataInfo in dataList:
+                if not dataInfo.bot_token or not dataInfo.chat_id: continue
                 if dataInfo.state is None: continue
                 log.info(f"[CHECK] dataInfo : {dataInfo}")
 
                 key = f"{dataInfo.state}-{dataInfo.device_id}-{dataInfo.device_name}"
                 msgAlertDate = sysOpt['msgAlertHist'].get(key)
                 if (msgAlertDate is None) or (endDate - msgAlertDate) >= timedelta(minutes=sysOpt['msgAlertMinInv']):
-                    sendTgApi(sysOpt['cfgTg'], sysOpt['msgAlertTemplate'][dataInfo.state].format(device_id=dataInfo.device_id,
-                                                                                             device_name=dataInfo.device_name,
-                                                                                             outdoor_temp=dataInfo.outdoor_temp,
-                                                                                             fill_temp=dataInfo.fill_temp))
+                    # sendTgApi(sysOpt['cfgTg'], sysOpt['msgAlertTemplate'][dataInfo.state].format(device_id=dataInfo.device_id, device_name=dataInfo.device_name, outdoor_temp=dataInfo.outdoor_temp, fill_temp=dataInfo.fill_temp))
+                    cfgTg = {'bot_token': dataInfo.bot_token, 'chat_id': dataInfo.chat_id}
+                    sendTgApi(cfgTg, sysOpt['msgAlertTemplate'][dataInfo.state].format(device_id=dataInfo.device_id, device_name=dataInfo.device_name, outdoor_temp=dataInfo.outdoor_temp, fill_temp=dataInfo.fill_temp))
                     sysOpt['msgAlertHist'][key] = endDate
                     log.info(f"[CHECK] msgAlertHist : {sysOpt['msgAlertHist'].keys()}")
     except Exception as e:
@@ -361,6 +369,8 @@ def dbMntrgData(sysOpt):
         query = text("""
                      WITH RANK_DATA AS (SELECT ECO.*,
                                                dev.device_name,
+                                               dev.bot_token,
+                                               dev.chat_id,
                                                dev.location,
                                                ROW_NUMBER() OVER (PARTITION BY ECO.device_id ORDER BY ECO.tm DESC) AS rn
                                         FROM TB_ECOWITT_DATA AS ECO
@@ -376,6 +386,7 @@ def dbMntrgData(sysOpt):
             endDate = datetime.now()
 
             for dataInfo in dataList:
+                if not dataInfo.bot_token or not dataInfo.chat_id: continue
                 delayMin = (datetime.now() - dataInfo.tm).total_seconds() / 60
                 log.info(f"[CHECK] id : {dataInfo.device_id} / tm : {dataInfo.tm} / preMin : {delayMin:.1f}")
 
@@ -385,12 +396,9 @@ def dbMntrgData(sysOpt):
                     key = f"데이터 적재 실패-{dataInfo.device_id}-{dataInfo.device_name}"
                     msgAlertDate = sysOpt['msgAlertHist'].get(key)
                     if (msgAlertDate is None) or (endDate - msgAlertDate) >= timedelta(minutes=sysOpt['msgAlertMinInv']):
-                        sendTgApi(sysOpt['cfgTg'],
-                                  sysOpt['msgAlertTemplate']['데이터 적재 실패'].format(device_id=dataInfo.device_id,
-                                                                                 device_name=dataInfo.device_name,
-                                                                                 tm=dataInfo.tm.strftime(
-                                                                                     "%Y-%m-%d %H:%M"),
-                                                                                 thrMsgInfo=thrMsgInfo))
+                        # sendTgApi(sysOpt['cfgTg'], sysOpt['msgAlertTemplate']['데이터 적재 실패'].format(device_id=dataInfo.device_id, device_name=dataInfo.device_name, tm=dataInfo.tm.strftime("%Y-%m-%d %H:%M"), thrMsgInfo=thrMsgInfo))
+                        cfgTg = {'bot_token': dataInfo.bot_token, 'chat_id': dataInfo.chat_id}
+                        sendTgApi(cfgTg, sysOpt['msgAlertTemplate']['데이터 적재 실패'].format(device_id=dataInfo.device_id, device_name=dataInfo.device_name, tm=dataInfo.tm.strftime("%Y-%m-%d %H:%M"), thrMsgInfo=thrMsgInfo))
                         sysOpt['msgAlertHist'][key] = endDate
                         log.info(f"[CHECK] msgAlertHist : {sysOpt['msgAlertHist'].keys()}")
                         break
