@@ -14,6 +14,8 @@
 # /SYSTEMS/LIB/anaconda3/envs/py38/bin/python TalentPlatform-QUBE2025-db-prop-pv-real.py --srtDate "2022-02-18" --endDate "2025-11-04"
 # nohup /SYSTEMS/LIB/anaconda3/envs/py38/bin/python TalentPlatform-QUBE2025-db-prop-pv-real.py --srtDate "2022-02-18" --endDate "2025-11-04" &
 
+# * 1 * * * cd /SYSTEMS/PROG/PYTHON && /SYSTEMS/LIB/anaconda3/envs/py38/bin/python /SYSTEMS/PROG/PYTHON/TalentPlatform-QUBE2025-db-prop-pv-real.py --srtDate "$(date -d "2 days ago" +\%Y-\%m-\%d)" --endDate "$(date -d "2 days" +\%Y-\%m-\%d)"
+
 import glob
 # import seaborn as sns
 import logging
@@ -323,12 +325,12 @@ class DtaProcess(object):
             # 옵션 설정
             sysOpt = {
                 # 시작/종료 시간
-                'srtDate': globalVar['srtDate'],
-                'endDate': globalVar['endDate'],
+                # 'srtDate': globalVar['srtDate'],
+                # 'endDate': globalVar['endDate'],
                 # 'srtDate': '2010-01-01',
                 # 'endDate': '2020-01-01',
-                # 'srtDate': '2020-01-01',
-                # 'endDate': '2025-11-03',
+                'srtDate': '2020-01-01',
+                'endDate': '2025-11-10',
                 'invDate': '1d',
 
                 # 비동기 다중 프로세스 개수
@@ -378,7 +380,7 @@ class DtaProcess(object):
 
                     reqUrl = dtDateInfo.strftime(cfgApi['url']).format(id=id, token=cfgApi['token'])
                     res = requests.get(reqUrl)
-                    if not (res.status_code == 200): continue
+                    if not res.status_code == 200: continue
                     resJson = res.json()
 
                     if not (resJson['success'] == True): continue

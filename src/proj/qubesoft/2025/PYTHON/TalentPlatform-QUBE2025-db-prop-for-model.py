@@ -13,7 +13,7 @@
 # cd /SYSTEMS/PROG/PYTHON
 # nohup /SYSTEMS/LIB/anaconda3/envs/py38/bin/python TalentPlatform-QUBE2025-db-prop-for-real.py --srtDate "2022-02-18" --endDate "2025-11-04" &
 
-# 10 1 * * * cd /SYSTEMS/PROG/PYTHON && /SYSTEMS/LIB/anaconda3/envs/py38/bin/python /SYSTEMS/PROG/PYTHON/TalentPlatform-QUBE2025-db-prop-for-real.py --srtDate "$(date -d "2 days ago" +\%Y-\%m-\%d)" --endDate "$(date -d "2 days" +\%Y-\%m-\%d)"
+# * 1 * * * cd /SYSTEMS/PROG/PYTHON && /SYSTEMS/LIB/anaconda3/envs/py38/bin/python /SYSTEMS/PROG/PYTHON/TalentPlatform-QUBE2025-db-prop-for-real.py --srtDate "$(date -d "2 days ago" +\%Y-\%m-\%d)" --endDate "$(date -d "2 days" +\%Y-\%m-\%d)"
 
 import glob
 # import seaborn as sns
@@ -44,8 +44,8 @@ from pandas.tseries.offsets import Day, Hour, Minute, Second
 from scipy.interpolate import Rbf
 from numpy import zeros, newaxis
 
-import pygrib
-import haversine as hs
+# import pygrib
+# import haversine as hs
 import pytz
 import datetime
 # import h2o
@@ -523,10 +523,10 @@ class DtaProcess(object):
             # 옵션 설정
             sysOpt = {
                 # 시작/종료 시간
-                'srtDate': globalVar['srtDate'],
-                'endDate': globalVar['endDate'],
-                # 'srtDate': '2021-01-01',
-                # 'endDate': '2022-11-01',
+                # 'srtDate': globalVar['srtDate'],
+                # 'endDate': globalVar['endDate'],
+                'srtDate': '2021-01-01',
+                'endDate': '2025-11-01',
 
                 # 비동기 다중 프로세스 개수
                 # 'cpuCoreNum': globalVar['cpuCoreNum'],
@@ -570,64 +570,86 @@ class DtaProcess(object):
             query = text("""
                          SELECT *
                          FROM "TB_STN_INFO"
-                         WHERE "OPER_YN" = 'Y';
+                         WHERE "OPER_YN" = 'Y'
+                         ORDER BY "ID" ASC;
                          """)
             posDataL1 = pd.DataFrame(cfgDb['sessionMake']().execute(query))
-            lat1D = np.array(posDataL1['LAT'])
-            lon1D = np.array(posDataL1['LON'])
 
-            sysOpt['posDataL1'] = posDataL1
-            sysOpt['lat1D'] = lat1D
-            sysOpt['lon1D'] = lon1D
+            for i, posInfo in posDataL1.iterrows():
+                posId = posInfo['ID']
+                srvId = f"SRV{posId:05d}"
+
+                query = text("""
+                            SELECT
+                                pv."PV",
+                                lf.*
+                            FROM
+                                "TB_PV_DATA" AS pv
+                            LEFT JOIN
+                                "TB_FOR_DATA" AS lf ON pv."SRV" = lf."SRV" AND pv."DATE_TIME" = lf."DATE_TIME"
+                            WHERE pv."SRV" = :srvId
+                            ORDER BY "SRV", "DATE_TIME_KST" DESC;
+                             """)
+                data = pd.DataFrame(cfgDb['sessionMake']().execute(query, {'srvId':srvId}))
+
+                # data is None
+                # len(data) < 1
+
+            # lat1D = np.array(posDataL1['LAT'])
+            # lon1D = np.array(posDataL1['LON'])
+            #
+            # sysOpt['posDataL1'] = posDataL1
+            # sysOpt['lat1D'] = lat1D
+            # sysOpt['lon1D'] = lon1D
 
             # *******************************************************
             # UM 자료 읽기
-            # *******************************************************
-            cfgUmFile = sysOpt['UMKR']['cfgUmFile']
-            log.info(f"[CHECK] cfgUmFile : {cfgUmFile}")
-
-            cfgInfo = pygrib.open(cfgUmFile).select(name='Temperature')[1]
-            lat2D, lon2D = cfgInfo.latlons()
-
-            # 최근접 좌표
-            posList = []
-
-            # kdTree를 위한 초기 데이터
-            for i in range(0, lon2D.shape[0]):
-                for j in range(0, lon2D.shape[1]):
-                    coord = [lat2D[i, j], lon2D[i, j]]
-                    posList.append(cartesian(*coord))
-
-            tree = spatial.KDTree(posList)
-
-            # coord = cartesian(posInfo['lat'], posInfo['lon'])
-            row1D = []
-            col1D = []
-            for ii, posInfo in posDataL1.iterrows():
-                coord = cartesian(posInfo['LAT'], posInfo['LON'])
-                closest = tree.query([coord], k=1)
-                cloIdx = closest[1][0]
-                row = int(cloIdx / lon2D.shape[1])
-                col = cloIdx % lon2D.shape[1]
-                row1D.append(row)
-                col1D.append(col)
-            sysOpt['row2D'], sysOpt['col2D'] = np.meshgrid(row1D, col1D)
-
-            # **************************************************************************************************************
-            # 비동기 다중 프로세스 수행
-            # **************************************************************************************************************
-            # 비동기 다중 프로세스 개수
-            # pool = Pool(int(sysOpt['cpuCoreNum']))
-
-            dtSrtDate = pd.to_datetime(sysOpt['srtDate'], format='%Y-%m-%d')
-            dtEndDate = pd.to_datetime(sysOpt['endDate'], format='%Y-%m-%d')
-            dtDateList = pd.date_range(start=dtSrtDate, end=dtEndDate, freq=sysOpt['UMKR']['invDate'])
-            for dtDateInfo in reversed(dtDateList):
-                propUmkr(sysOpt, cfgDb, dtDateInfo)
-                # pool.apply_async(propUmkr, args=(sysOpt, cfgDb, dtDateInfo))
-
-            # pool.close()
-            # pool.join()
+            # # *******************************************************
+            # cfgUmFile = sysOpt['UMKR']['cfgUmFile']
+            # log.info(f"[CHECK] cfgUmFile : {cfgUmFile}")
+            #
+            # cfgInfo = pygrib.open(cfgUmFile).select(name='Temperature')[1]
+            # lat2D, lon2D = cfgInfo.latlons()
+            #
+            # # 최근접 좌표
+            # posList = []
+            #
+            # # kdTree를 위한 초기 데이터
+            # for i in range(0, lon2D.shape[0]):
+            #     for j in range(0, lon2D.shape[1]):
+            #         coord = [lat2D[i, j], lon2D[i, j]]
+            #         posList.append(cartesian(*coord))
+            #
+            # tree = spatial.KDTree(posList)
+            #
+            # # coord = cartesian(posInfo['lat'], posInfo['lon'])
+            # row1D = []
+            # col1D = []
+            # for ii, posInfo in posDataL1.iterrows():
+            #     coord = cartesian(posInfo['LAT'], posInfo['LON'])
+            #     closest = tree.query([coord], k=1)
+            #     cloIdx = closest[1][0]
+            #     row = int(cloIdx / lon2D.shape[1])
+            #     col = cloIdx % lon2D.shape[1]
+            #     row1D.append(row)
+            #     col1D.append(col)
+            # sysOpt['row2D'], sysOpt['col2D'] = np.meshgrid(row1D, col1D)
+            #
+            # # **************************************************************************************************************
+            # # 비동기 다중 프로세스 수행
+            # # **************************************************************************************************************
+            # # 비동기 다중 프로세스 개수
+            # # pool = Pool(int(sysOpt['cpuCoreNum']))
+            #
+            # dtSrtDate = pd.to_datetime(sysOpt['srtDate'], format='%Y-%m-%d')
+            # dtEndDate = pd.to_datetime(sysOpt['endDate'], format='%Y-%m-%d')
+            # dtDateList = pd.date_range(start=dtSrtDate, end=dtEndDate, freq=sysOpt['UMKR']['invDate'])
+            # for dtDateInfo in reversed(dtDateList):
+            #     propUmkr(sysOpt, cfgDb, dtDateInfo)
+            #     # pool.apply_async(propUmkr, args=(sysOpt, cfgDb, dtDateInfo))
+            #
+            # # pool.close()
+            # # pool.join()
 
         except Exception as e:
             log.error("Exception : {}".format(e))
