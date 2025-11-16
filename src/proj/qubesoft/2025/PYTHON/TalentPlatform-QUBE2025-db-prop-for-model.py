@@ -295,7 +295,7 @@ def makeLgbModel(subOpt=None, xCol=None, yCol=None, trainData=None, testData=Non
                 # 'metric': 'auc',
 
                 'boosting_type': 'gbdt',
-                "learning_rate": 0.01,  # 낮은 학습률로 성능 안정화
+                "learning_rate": 0.05,  # 낮은 학습률로 성능 안정화
                 "num_leaves": 31,  # 트리 복잡도 제어
                 "max_depth": -1,  # 깊이 제한 (-1: 제한 없음)
                 "feature_fraction": 0.8,  # 랜덤하게 80%의 특성을 사용
@@ -321,11 +321,10 @@ def makeLgbModel(subOpt=None, xCol=None, yCol=None, trainData=None, testData=Non
                 valid_sets=[lgbTrainData, lgbTestData],
                 valid_names=["train", "valid"],
                 callbacks=[
-                    early_stopping(stopping_rounds=10000),
+                    # early_stopping(stopping_rounds=10000),
+                    early_stopping(stopping_rounds=1000),
                     log_evaluation(period=200),
-                ]
-                # early_stopping_rounds=100,
-                # verbose_eval=200
+                ],
             )
 
             # 학습 모형 저장
@@ -546,13 +545,12 @@ def makeH2oModel(subOpt=None, xCol=None, yCol=None, trainData=None, testData=Non
         # 학습 모델이 없을 경우
         if (subOpt['isOverWrite']) or (len(saveModelList) < 1):
 
-            dlModel = H2OAutoML(max_models=20, max_runtime_secs=600, balance_classes=True, seed=int(datetime.now().strftime('%Y%m%d%H%M%S')))
-            dlModel.train(x=xCol, y=yCol, training_frame=h2o.H2OFrame(trainDataL1), validation_frame=h2o.H2OFrame(trainDataL1))
-            fnlModel = dlModel.get_best_model()
+            dlModel = H2OAutoML(max_models=20, max_runtime_secs=60 * 1, balance_classes=True, seed=int(datetime.datetime.now().strftime('%Y%m%d%H%M%S')))
 
             # 각 모형에 따른 자동 머신러닝
-            fnlModel.fit(X_train=trainDataL1[xCol], y_train=trainDataL1[yCol])
-            # fnlModel.fit(X_train=trainData[xCol], y_train=trainData[yCol], n_jobs=12, n_concurrent_trials=4)
+            dlModel.train(x=xCol, y=yCol, training_frame=h2o.H2OFrame(trainDataL1), validation_frame=h2o.H2OFrame(trainDataL1))
+
+            fnlModel = dlModel.get_best_model()
 
             # 학습 모형 저장
             saveModel = subOpt['preDt'].strftime(subOpt['saveModel']).format(srvId = subOpt['srvId'])
@@ -687,24 +685,24 @@ class DtaProcess(object):
                         'saveModelList': "/DATA/AI/*/*/QUBE2025-{srvId}-final-lgb-for-*.model",
                         'saveModel': "/DATA/AI/%Y%m/%d/QUBE2025-{srvId}-final-lgb-for-%Y%m%d.model",
                         'saveImg': "/DATA/AI/%Y%m/%d/QUBE2025-{srvId}-final-lgb-for-%Y%m%d.png",
-                        'isOverWrite': True,
-                        # 'isOverWrite': False,
+                        # 'isOverWrite': True,
+                        'isOverWrite': False,
                         'srvId': None,
                         'preDt': datetime.datetime.now(),
                     },
                     'flaml': {
-                        'saveModelList': "/DATA/AI/*/*/QUBE2025-{srvId}-final-lgb-for-*.model",
-                        'saveModel': "/DATA/AI/%Y%m/%d/QUBE2025-{srvId}-final-lgb-for-%Y%m%d.model",
-                        'saveImg': "/DATA/AI/%Y%m/%d/QUBE2025-{srvId}-final-lgb-for-%Y%m%d.png",
+                        'saveModelList': "/DATA/AI/*/*/QUBE2025-{srvId}-final-flaml-for-*.model",
+                        'saveModel': "/DATA/AI/%Y%m/%d/QUBE2025-{srvId}-final-flaml-for-%Y%m%d.model",
+                        'saveImg': "/DATA/AI/%Y%m/%d/QUBE2025-{srvId}-final-flaml-for-%Y%m%d.png",
                         # 'isOverWrite': True,
                         'isOverWrite': False,
                         'srvId': None,
                         'preDt': datetime.datetime.now(),
                     },
                     'pycaret': {
-                        'saveModelList': "/DATA/AI/*/*/QUBE2025-{srvId}-final-lgb-for-*.model.pkl",
-                        'saveModel': "/DATA/AI/%Y%m/%d/QUBE2025-{srvId}-final-lgb-for-%Y%m%d.model",
-                        'saveImg': "/DATA/AI/%Y%m/%d/QUBE2025-{srvId}-final-lgb-for-%Y%m%d.png",
+                        'saveModelList': "/DATA/AI/*/*/QUBE2025-{srvId}-final-pycaret-for-*.model.pkl",
+                        'saveModel': "/DATA/AI/%Y%m/%d/QUBE2025-{srvId}-final-pycaret-for-%Y%m%d.model",
+                        'saveImg': "/DATA/AI/%Y%m/%d/QUBE2025-{srvId}-final-pycaret-for-%Y%m%d.png",
                         # 'isOverWrite': True,
                         'isOverWrite': False,
                         'srvId': None,
@@ -734,8 +732,8 @@ class DtaProcess(object):
                 posDataL1 = pd.DataFrame(session.execute(query))
 
                 for i, posInfo in posDataL1.iterrows():
-                    # posId = posInfo['ID']
-                    posId = 17
+                    posId = posInfo['ID']
+                    # posId = 17
                     srvId = f"SRV{posId:05d}"
 
                     query = text("""
@@ -747,7 +745,8 @@ class DtaProcess(object):
                         LEFT JOIN
                             "TB_FOR_DATA" AS lf ON pv."SRV" = lf."SRV" AND pv."DATE_TIME" = lf."DATE_TIME"
                         WHERE pv."SRV" = :srvId AND (EXTRACT(EPOCH FROM (lf."DATE_TIME" - lf."ANA_DATE")) / 3600.0) <= 5
-                        ORDER BY "SRV", "DATE_TIME_KST" DESC;
+                        ORDER BY "SRV", "DATE_TIME_KST" DESC
+                        LIMIT 500;
                      """)
                     trainData = pd.DataFrame(session.execute(query, {'srvId':srvId}))
                     # trainData = data[data['DATE_TIME_KST'] < pd.to_datetime('2025-01-01')].reset_index(drop=True)
@@ -785,8 +784,9 @@ class DtaProcess(object):
                     resOrgPycaret = makePycaretModel(sysOpt['MODEL']['orgPycaret'], xColOrg, yColOrg, trainData, trainData)
                     # log.info(f'resOrgPycaret : {resOrgPycaret}')
 
-                    prdVal = predict_model(resOrgPycaret['mlModel'], data=prdData[xCol])['prediction_label']
-                    prdData['ML'] = np.where(prdVal > 0, prdVal, 0)
+                    if resOrgPycaret:
+                        prdVal = predict_model(resOrgPycaret['mlModel'], data=prdData[xCol])['prediction_label']
+                        prdData['ML'] = np.where(prdVal > 0, prdVal, 0)
 
                     # ****************************************************************************
                     # 과거 학습 모델링 (orgH2o)
@@ -794,8 +794,9 @@ class DtaProcess(object):
                     resOrgH2o = makeH2oModel(sysOpt['MODEL']['orgH2o'], xColOrg, yColOrg, trainData, trainData)
                     # log.info(f'resOrgH2o : {resOrgH2o}')
 
-                    prdVal = resOrgH2o['mlModel'].predict(h2o.H2OFrame(prdData)).as_data_frame()
-                    prdData['DL'] = np.where(prdVal > 0, prdVal, 0)
+                    if resOrgH2o:
+                        prdVal = resOrgH2o['mlModel'].predict(h2o.H2OFrame(prdData)).as_data_frame()
+                        prdData['DL'] = np.where(prdVal > 0, prdVal, 0)
 
                     # ****************************************************************************
                     # 수동 학습 모델링 (lgb)
@@ -803,8 +804,9 @@ class DtaProcess(object):
                     resLgb = makeLgbModel(sysOpt['MODEL']['lgb'], xCol, yCol, trainData, trainData)
                     # log.info(f'resLgb : {resLgb}')
 
-                    prdVal = resLgb['mlModel'].predict(data=prdData[xCol])
-                    prdData['AI'] = np.where(prdVal > 0, prdVal, 0)
+                    if resLgb:
+                        prdVal = resLgb['mlModel'].predict(data=prdData[xCol])
+                        prdData['AI'] = np.where(prdVal > 0, prdVal, 0)
 
                     # ****************************************************************************
                     # 자동 학습 모델링 (flaml)
@@ -812,8 +814,9 @@ class DtaProcess(object):
                     resFlaml = makeFlamlModel(sysOpt['MODEL']['flaml'], xCol, yCol, trainData, trainData)
                     # log.info(f'resFlaml : {resFlaml}')
 
-                    prdVal = resFlaml['mlModel'].predict(prdData)
-                    prdData['AI2'] = np.where(prdVal > 0, prdVal, 0)
+                    if resFlaml:
+                        prdVal = resFlaml['mlModel'].predict(prdData)
+                        prdData['AI2'] = np.where(prdVal > 0, prdVal, 0)
 
                     # ****************************************************************************
                     # 자동 학습 모델링 (pycaret)
@@ -821,12 +824,14 @@ class DtaProcess(object):
                     resPycaret = makePycaretModel(sysOpt['MODEL']['pycaret'], xCol, yCol, trainData, trainData)
                     # log.info(f'resPycaret : {resPycaret}')
 
-                    prdVal = predict_model(resPycaret['mlModel'], data=prdData[xCol])['prediction_label']
-                    prdData['AI3'] = np.where(prdVal > 0, prdVal, 0)
+                    if resPycaret:
+                        prdVal = predict_model(resPycaret['mlModel'], data=prdData[xCol])['prediction_label']
+                        prdData['AI3'] = np.where(prdVal > 0, prdVal, 0)
 
                     # *******************************************************
                     # DB 적재
                     # *******************************************************
+                    sys.exit(1)
                     try:
                         tbTmp = f"tbTm_{uuid.uuid4().hex}"
                         with cfgDb['sessionMake']() as session:
