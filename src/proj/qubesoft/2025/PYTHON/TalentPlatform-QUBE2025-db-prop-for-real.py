@@ -248,7 +248,7 @@ def initCfgInfo(config, key):
         dbPort = config.get(key, 'port')
         dbName = config.get(key, 'dbName')
 
-        engine = sqlalchemy.create_engine(f"postgresql+psycopg2://{dbUser}:{dbPwd}@{dbHost}:{dbPort}/{dbName}", echo=False)
+        engine = sqlalchemy.create_engine(f"postgresql+psycopg2://{dbUser}:{dbPwd}@{dbHost}:{dbPort}/{dbName}", echo=False, pool_size=10, max_overflow=20)
         sessionMake = sessionmaker(bind=engine, autocommit=False, autoflush=False)
         # session = sessionMake()
 
@@ -275,7 +275,8 @@ def propUmkr(sysOpt, cfgDb, dtDateInfo):
     try:
         procInfo = mp.current_process()
 
-        for ef in sysOpt['UMKR']['ef']:
+        efList = sysOpt['UMKR'][f"ef{dtDateInfo.strftime('%H')}"]
+        for ef in efList:
             inpFile = dtDateInfo.strftime(sysOpt['UMKR']['inpUmFile']).format(ef=ef)
             fileList = sorted(glob.glob(inpFile))
             if len(fileList) < 1: continue
@@ -346,17 +347,40 @@ def propUmkr(sysOpt, cfgDb, dtDateInfo):
                     posLat = posInfo['LAT']
                     posLon = posInfo['LON']
 
+                    dtAnaTimeInfo = umData['anaTime'].values
+                    dtDateTimeInfo = pd.to_datetime(dtAnaTimeInfo) + (validIdx * datetime.timedelta(hours=1))
+                    srvId = 'SRV{:05d}'.format(posId)
+
                     # log.info(f"[CHECK] posId (posLon, posLat) : {posId} ({posLon}. {posLat})")
 
-                    dtAnaTimeInfo = umData['anaTime'].values
+                    # DB 적재 여부
+                    query = text(f"""
+                        SELECT * 
+                        FROM "TB_FOR_DATA"
+                        WHERE "SRV" = :srvId 
+                          AND "ANA_DATE" = :anaDate 
+                          AND "DATE_TIME" = :dateTime;
+                        """)
+
+                    params = {
+                        'srvId': srvId,
+                        'anaDate': pd.to_datetime(dtAnaTimeInfo[0]).to_pydatetime(),
+                        'dateTime': dtDateTimeInfo[0].to_pydatetime(),
+                    }
+
+                    selData = pd.DataFrame(cfgDb['sessionMake']().execute(query, params))
+                    if len(selData[(selData[['TURB']] > 0).any(axis=1)]) > 0: continue
+                    log.info(f"selData : {selData}")
+
+                    # 가공 데이터
                     umDataL2 = umData.sel(lat=posLat, lon=posLon, anaTime=dtAnaTimeInfo)
                     umDataL3 = umDataL2.to_dataframe().dropna().reset_index(drop=True)
                     # umDataL3['dtDate'] = pd.to_datetime(dtAnaTimeInfo) + (umDataL3.index.values * datetime.timedelta(hours=1))
-                    umDataL3['DATE_TIME'] = pd.to_datetime(dtAnaTimeInfo) + (validIdx * datetime.timedelta(hours=1))
+                    umDataL3['DATE_TIME'] = dtDateTimeInfo
                     # umDataL3['dtDateKst'] = umDataL3.index.tz_localize(tzUtc).tz_convert(tzKst)
                     umDataL3['DATE_TIME_KST'] = umDataL3['DATE_TIME'] + dtKst
                     umDataL3['ANA_DATE'] = pd.to_datetime(dtAnaTimeInfo)
-                    umDataL3['SRV'] = 'SRV{:05d}'.format(posId)
+                    umDataL3['SRV'] = srvId
                     umDataL3['TA'] = umDataL3['TA'] - 273.15
                     umDataL3['TD'] = umDataL3['TD'] - 273.15
                     umDataL3['PA'] = umDataL3['PA'] / 100.0
@@ -403,10 +427,10 @@ def propUmkr(sysOpt, cfgDb, dtDateInfo):
                         tbTmp = f"tbTm_{uuid.uuid4().hex}"
                         with cfgDb['sessionMake']() as session:
                             with session.begin():
-                                db_engine = session.get_bind()
+                                dbEngine = session.get_bind()
                                 umDataL3.to_sql(
                                     name=tbTmp,
-                                    con=db_engine,
+                                    con=dbEngine,
                                     if_exists="replace",
                                     index=False
                                 )
@@ -523,10 +547,10 @@ class DtaProcess(object):
             # 옵션 설정
             sysOpt = {
                 # 시작/종료 시간
-                'srtDate': globalVar['srtDate'],
-                'endDate': globalVar['endDate'],
-                # 'srtDate': '2021-01-01',
-                # 'endDate': '2022-11-01',
+                # 'srtDate': globalVar['srtDate'],
+                # 'endDate': globalVar['endDate'],
+                'srtDate': '2021-01-01',
+                'endDate': '2022-11-01',
 
                 # 비동기 다중 프로세스 개수
                 # 'cpuCoreNum': globalVar['cpuCoreNum'],
@@ -552,7 +576,11 @@ class DtaProcess(object):
                     # 'inpUmFile': '/DATA/COLCT/UMKR/%Y%m/%d/UMKR_l015_unis_H{ef}_%Y%m%d%H%M.grb2',
                     # 'cfgUmFile': '/DATA/MODEL/202001/01/UMKR_l015_unis_H00_202001010000.grb2',
                     # 'inpUmFile': '/DATA/MODEL/%Y%m/%d/UMKR_l015_unis_H{ef}_%Y%m%d%H%M.grb2',
-                    'ef': ['00', '01', '02', '03', '04', '05'],
+                    # 'ef': ['00', '01', '02', '03', '04', '05']
+                    'ef00': ['00', '01', '02', '03', '04', '05'],
+                    'ef06': ['00', '01', '02', '03', '04', '05'],
+                    'ef12': ['00', '01', '02', '03', '04', '05'],
+                    'ef18': ['00', '01', '02', '03', '04', '05', '06', '07', '08', '09', '10', '11', '12', '13', '14', '15', '16', '17', '18', '19', '20', '21', '22', '23', '24', '25', '26', '27', '28', '29', '30', '31', '32', '33', '34', '35', '36', '37', '38', '39', '40', '41', '42', '43', '44', '45', '46', '47'],
                     'invDate': '6h',
                 },
             }
