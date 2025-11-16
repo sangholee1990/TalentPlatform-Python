@@ -276,7 +276,8 @@ def colctNwp(modelInfo, dtDateInfo):
     try:
         procInfo = mp.current_process()
 
-        for ef in modelInfo['request']['ef']:
+        efList = modelInfo['request'][f"ef{dtDateInfo.strftime('%H')}"]
+        for ef in efList:
             log.info(f'[CHECK] dtDateInfo : {dtDateInfo} / ef : {ef}')
 
             tmpFileInfo = dtDateInfo.strftime(modelInfo['tmp']).format(ef=ef)
@@ -284,9 +285,11 @@ def colctNwp(modelInfo, dtDateInfo):
 
             # 파일 검사
             fileList = sorted(glob.glob(updFileInfo))
-            if len(fileList) > 0: return
+            # if len(fileList) > 0: return
+            if len(fileList) > 0: continue
 
             # reqUrl = dtDateInfo.strftime(f"{modelInfo['request']['url']}").format(tmfc=dtDateInfo.strftime('%Y%m%d%H'), ef=ef, authKey=modelInfo['request']['authKey'])
+            # reqUrl = dtDateInfo.strftime(f"{modelInfo['request']['url']}").format(tmfc=dtDateInfo.strftime('%Y%m%d%H'), ef=ef, authKey='hQDU-t1aQHaA1PrdWvB2eA')
             reqUrl = dtDateInfo.strftime(f"{modelInfo['request']['url']}").format(tmfc=dtDateInfo.strftime('%Y%m%d%H'), ef=ef, authKey=extAuthKey())
             # res = requests.get(reqUrl)
             # if not (res.status_code == 200): return
@@ -415,12 +418,14 @@ class DtaProcess(object):
                 # 예보시간 시작일, 종료일, 시간 간격 (연 1y, 월 1m, 일 1d, 시간 1h, 분 1t, 초 1s)
                 'srtDate': '2024-12-01',
                 'endDate': '2024-12-04',
-                # 'srtDate': globalVar['srtDate'],
+                # 'srtDate': globalVar['srtDat
+                # e'],
                 # 'endDate': globalVar['endDate'],
 
                 # 수행 목록
                 # 'modelList': ['AWS', 'ASOS', 'UMKR', 'KIMG'],
-                'modelList': ['UMKR', 'KIMG'],
+                # 'modelList': ['UMKR', 'KIMG'],
+                'modelList': ['UMKR'],
                 # 'modelList': globalVar['modelList'].split(','),
 
                 # 비동기 다중 프로세스 개수
@@ -448,8 +453,13 @@ class DtaProcess(object):
                 },
                 'UMKR': {
                     'request': {
-                        'url': 'https://apihub-org.kma.go.kr/api/typ06/url/nwp_file_down.php?nwp=l015&sub=unis&tmfc={tmfc}&ef={ef}&authKey={authKey}'
-                        , 'ef': ['00', '01', '02', '03', '04', '05']
+                        # 'url': 'https://apihub-org.kma.go.kr/api/typ06/url/nwp_file_down.php?nwp=l015&sub=unis&tmfc={tmfc}&ef={ef}&authKey={authKey}'
+                        'url': 'https://apihub.kma.go.kr/api/typ06/url/nwp_file_down.php?nwp=l015&sub=unis&tmfc={tmfc}&ef={ef}&authKey={authKey}'
+                        # , 'ef': ['00', '01', '02', '03', '04', '05']
+                        , 'ef00': ['00', '01', '02', '03', '04', '05']
+                        , 'ef06': ['00', '01', '02', '03', '04', '05']
+                        , 'ef12': ['00', '01', '02', '03', '04', '05']
+                        , 'ef18': ['00', '01', '02', '03', '04', '05', '06', '07', '08', '09', '10', '11', '12', '13', '14', '15', '16', '17', '18', '19', '20', '21', '22', '23', '24', '25', '26', '27', '28', '29', '30', '31', '32', '33', '34', '35', '36', '37', '38', '39', '40', '41', '42', '43', '44', '45', '46', '47']
                         , 'authKey': None
                         , 'invDate': '6h'
                     }
@@ -459,8 +469,13 @@ class DtaProcess(object):
                 },
                 'KIMG': {
                     'request': {
+                        # 'url': 'https://apihub-org.kma.go.kr/api/typ06/url/nwp_file_down.php?nwp=k128&sub=unis&tmfc={tmfc}&ef={ef}&authKey={authKey}'
                         'url': 'https://apihub-org.kma.go.kr/api/typ06/url/nwp_file_down.php?nwp=k128&sub=unis&tmfc={tmfc}&ef={ef}&authKey={authKey}'
-                        , 'ef': ['00', '03', '06']
+                        # , 'ef': ['00', '03', '06']
+                        , 'ef00': ['00', '03', '06']
+                        , 'ef06': ['00', '03', '06']
+                        , 'ef12': ['00', '03', '06']
+                        , 'ef18': ['00', '03', '06']
                         , 'authKey': None
                         , 'invDate': '6h'
                     }
@@ -478,10 +493,10 @@ class DtaProcess(object):
             # **********************************************************************************************************
             config = configparser.ConfigParser()
             config.read(sysOpt['cfgFile'], encoding='utf-8')
-            sysOpt['ASOS']['request']['authKey'] = config.get('apihub-api-key', 'asos')
-            sysOpt['AWS']['request']['authKey'] = config.get('apihub-api-key', 'aws')
-            sysOpt['UMKR']['request']['authKey'] = config.get('apihub-api-key', 'umkr')
-            sysOpt['KIMG']['request']['authKey'] = config.get('apihub-api-key', 'kimg')
+            # sysOpt['ASOS']['request']['authKey'] = config.get('apihub-api-key', 'asos')
+            # sysOpt['AWS']['request']['authKey'] = config.get('apihub-api-key', 'aws')
+            # sysOpt['UMKR']['request']['authKey'] = config.get('apihub-api-key', 'umkr')
+            # sysOpt['KIMG']['request']['authKey'] = config.get('apihub-api-key', 'kimg')
 
             # **************************************************************************************************************
             # 비동기 다중 프로세스 수행
