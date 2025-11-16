@@ -334,6 +334,9 @@ def makeLgbModel(subOpt=None, xCol=None, yCol=None, trainData=None, testData=Non
             with open(saveModel, 'wb') as file:
                 pickle.dump(fnlModel, file, pickle.HIGHEST_PROTOCOL)
 
+            with open(saveModel, 'rb') as file:
+                fnlModel = pickle.load(file)
+
             # 변수 중요도 저장
             # try:
             #     mainTitle = '{}'.format('lgb-importnce')
@@ -368,7 +371,6 @@ def makeLgbModel(subOpt=None, xCol=None, yCol=None, trainData=None, testData=Non
 
     finally:
         log.info(f'[END] makeLgbModel')
-
 
 def makePycaretModel(subOpt=None, xCol=None, yCol=None, trainData=None, testData=None):
 
@@ -425,7 +427,7 @@ def makePycaretModel(subOpt=None, xCol=None, yCol=None, trainData=None, testData
             log.info(f'[CHECK] saveModel : {saveModel}')
             os.makedirs(os.path.dirname(saveModel), exist_ok=True)
             save_model(fnlModel, saveModel)
-
+            fnlModel = load_model(os.path.splitext(saveModel)[0])
         else:
             saveModel = saveModelList[0]
             log.info(f'[CHECK] saveModel : {saveModel}')
@@ -499,6 +501,8 @@ def makeFlamlModel(subOpt=None, xCol=None, yCol=None, trainData=None, testData=N
             with open(saveModel, 'wb') as file:
                 pickle.dump(fnlModel, file, pickle.HIGHEST_PROTOCOL)
 
+            with open(saveModel, 'rb') as f:
+                fnlModel = pickle.load(f)
         else:
             saveModel = saveModelList[0]
             log.info(f"[CHECK] saveModel : {saveModel}")
@@ -559,6 +563,8 @@ def makeH2oModel(subOpt=None, xCol=None, yCol=None, trainData=None, testData=Non
 
             # h2o.save_model(model=fnlModel, path=os.path.dirname(saveModel), filename=os.path.basename(saveModel), force=True)
             fnlModel.save_mojo(path=os.path.dirname(saveModel), filename=os.path.basename(saveModel), force=True)
+
+            fnlModel = h2o.import_mojo(saveModel)
         else:
             saveModel = saveModelList[0]
             log.info(f"[CHECK] saveModel : {saveModel}")
@@ -745,8 +751,7 @@ class DtaProcess(object):
                         LEFT JOIN
                             "TB_FOR_DATA" AS lf ON pv."SRV" = lf."SRV" AND pv."DATE_TIME" = lf."DATE_TIME"
                         WHERE pv."SRV" = :srvId AND (EXTRACT(EPOCH FROM (lf."DATE_TIME" - lf."ANA_DATE")) / 3600.0) <= 5
-                        ORDER BY "SRV", "DATE_TIME_KST" DESC
-                        LIMIT 500;
+                        ORDER BY "SRV", "DATE_TIME_KST" DESC;
                      """)
                     trainData = pd.DataFrame(session.execute(query, {'srvId':srvId}))
                     # trainData = data[data['DATE_TIME_KST'] < pd.to_datetime('2025-01-01')].reset_index(drop=True)
@@ -831,7 +836,7 @@ class DtaProcess(object):
                     # *******************************************************
                     # DB 적재
                     # *******************************************************
-                    sys.exit(1)
+                    # sys.exit(1)
                     try:
                         tbTmp = f"tbTm_{uuid.uuid4().hex}"
                         with cfgDb['sessionMake']() as session:
