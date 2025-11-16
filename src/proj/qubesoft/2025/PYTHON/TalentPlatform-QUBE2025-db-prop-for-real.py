@@ -248,7 +248,7 @@ def initCfgInfo(config, key):
         dbPort = config.get(key, 'port')
         dbName = config.get(key, 'dbName')
 
-        engine = sqlalchemy.create_engine(f"postgresql+psycopg2://{dbUser}:{dbPwd}@{dbHost}:{dbPort}/{dbName}", echo=False, pool_size=10, max_overflow=20)
+        engine = sqlalchemy.create_engine(f"postgresql+psycopg2://{dbUser}:{dbPwd}@{dbHost}:{dbPort}/{dbName}", echo=False, pool_timeout=60*5, pool_recycle=3600)
         sessionMake = sessionmaker(bind=engine, autocommit=False, autoflush=False)
         # session = sessionMake()
 
@@ -354,78 +354,79 @@ def propUmkr(sysOpt, cfgDb, dtDateInfo):
                     # log.info(f"[CHECK] posId (posLon, posLat) : {posId} ({posLon}. {posLat})")
 
                     # DB 적재 여부
-                    query = text(f"""
-                        SELECT * 
-                        FROM "TB_FOR_DATA"
-                        WHERE "SRV" = :srvId 
-                          AND "ANA_DATE" = :anaDate 
-                          AND "DATE_TIME" = :dateTime;
-                        """)
+                    with cfgDb['sessionMake']() as session:
+                        query = text(f"""
+                            SELECT * 
+                            FROM "TB_FOR_DATA"
+                            WHERE "SRV" = :srvId 
+                              AND "ANA_DATE" = :anaDate 
+                              AND "DATE_TIME" = :dateTime;
+                            """)
 
-                    params = {
-                        'srvId': srvId,
-                        'anaDate': pd.to_datetime(dtAnaTimeInfo[0]).to_pydatetime(),
-                        'dateTime': dtDateTimeInfo[0].to_pydatetime(),
-                    }
+                        params = {
+                            'srvId': srvId,
+                            'anaDate': pd.to_datetime(dtAnaTimeInfo[0]).to_pydatetime(),
+                            'dateTime': dtDateTimeInfo[0].to_pydatetime(),
+                        }
 
-                    selData = pd.DataFrame(cfgDb['sessionMake']().execute(query, params))
-                    if len(selData[(selData[['TURB']] > 0).any(axis=1)]) > 0: continue
-                    log.info(f"selData : {selData}")
+                        selData = pd.DataFrame(session.execute(query, params))
+                        if len(selData[(selData[['TURB']] > 0).any(axis=1)]) > 0: continue
+                        log.info(f"selData : {selData}")
 
-                    # 가공 데이터
-                    umDataL2 = umData.sel(lat=posLat, lon=posLon, anaTime=dtAnaTimeInfo)
-                    umDataL3 = umDataL2.to_dataframe().dropna().reset_index(drop=True)
-                    # umDataL3['dtDate'] = pd.to_datetime(dtAnaTimeInfo) + (umDataL3.index.values * datetime.timedelta(hours=1))
-                    umDataL3['DATE_TIME'] = dtDateTimeInfo
-                    # umDataL3['dtDateKst'] = umDataL3.index.tz_localize(tzUtc).tz_convert(tzKst)
-                    umDataL3['DATE_TIME_KST'] = umDataL3['DATE_TIME'] + dtKst
-                    umDataL3['ANA_DATE'] = pd.to_datetime(dtAnaTimeInfo)
-                    umDataL3['SRV'] = srvId
-                    umDataL3['TA'] = umDataL3['TA'] - 273.15
-                    umDataL3['TD'] = umDataL3['TD'] - 273.15
-                    umDataL3['PA'] = umDataL3['PA'] / 100.0
-                    umDataL3['CA_TOT'] = np.where(umDataL3['CA_TOT'] < 0, 0, umDataL3['CA_TOT'])
-                    umDataL3['CA_TOT'] = np.where(umDataL3['CA_TOT'] > 1, 1, umDataL3['CA_TOT'])
+                        # 가공 데이터
+                        umDataL2 = umData.sel(lat=posLat, lon=posLon, anaTime=dtAnaTimeInfo)
+                        umDataL3 = umDataL2.to_dataframe().dropna().reset_index(drop=True)
+                        # umDataL3['dtDate'] = pd.to_datetime(dtAnaTimeInfo) + (umDataL3.index.values * datetime.timedelta(hours=1))
+                        umDataL3['DATE_TIME'] = dtDateTimeInfo
+                        # umDataL3['dtDateKst'] = umDataL3.index.tz_localize(tzUtc).tz_convert(tzKst)
+                        umDataL3['DATE_TIME_KST'] = umDataL3['DATE_TIME'] + dtKst
+                        umDataL3['ANA_DATE'] = pd.to_datetime(dtAnaTimeInfo)
+                        umDataL3['SRV'] = srvId
+                        umDataL3['TA'] = umDataL3['TA'] - 273.15
+                        umDataL3['TD'] = umDataL3['TD'] - 273.15
+                        umDataL3['PA'] = umDataL3['PA'] / 100.0
+                        umDataL3['CA_TOT'] = np.where(umDataL3['CA_TOT'] < 0, 0, umDataL3['CA_TOT'])
+                        umDataL3['CA_TOT'] = np.where(umDataL3['CA_TOT'] > 1, 1, umDataL3['CA_TOT'])
 
-                    solPosInfo = pvlib.solarposition.get_solarposition(umDataL3['DATE_TIME'], posLat, posLon,
-                                                                       pressure=umDataL3['PA'] * 100.0,
-                                                                       temperature=umDataL3['TA'], method='nrel_numpy')
-                    umDataL3['EXT_RAD'] = pvlib.irradiance.get_extra_radiation(solPosInfo.index.dayofyear)
-                    umDataL3['SZA'] = solPosInfo['zenith'].values
-                    umDataL3['AZA'] = solPosInfo['azimuth'].values
-                    umDataL3['ET'] = solPosInfo['equation_of_time'].values
+                        solPosInfo = pvlib.solarposition.get_solarposition(umDataL3['DATE_TIME'], posLat, posLon,
+                                                                           pressure=umDataL3['PA'] * 100.0,
+                                                                           temperature=umDataL3['TA'], method='nrel_numpy')
+                        umDataL3['EXT_RAD'] = pvlib.irradiance.get_extra_radiation(solPosInfo.index.dayofyear)
+                        umDataL3['SZA'] = solPosInfo['zenith'].values
+                        umDataL3['AZA'] = solPosInfo['azimuth'].values
+                        umDataL3['ET'] = solPosInfo['equation_of_time'].values
 
-                    site = location.Location(latitude=posLat, longitude=posLon, tz='Asia/Seoul')
-                    clearInsInfo = site.get_clearsky(pd.to_datetime(umDataL3['DATE_TIME'].values))
-                    umDataL3['GHI_CLR'] = clearInsInfo['ghi'].values
-                    umDataL3['DNI_CLR'] = clearInsInfo['dni'].values
-                    umDataL3['DHI_CLR'] = clearInsInfo['dhi'].values
-                    #
-                    # poaInsInfo = irradiance.get_total_irradiance(
-                    #     surface_tilt=posInfo['STN_SZA'],
-                    #     surface_azimuth=posInfo['STN_AZA'],
-                    #     dni=clearInsInfo['dni'],
-                    #     ghi=clearInsInfo['ghi'],
-                    #     dhi=clearInsInfo['dhi'],
-                    #     solar_zenith=solPosInfo['apparent_zenith'].values,
-                    #     solar_azimuth=solPosInfo['azimuth'].values
-                    # )
-                    # umDataL3['GHI_POA'] = poaInsInfo['poa_global'].values
-                    # umDataL3['DNI_POA'] = poaInsInfo['poa_direct'].values
-                    # umDataL3['DHI_POA'] = poaInsInfo['poa_diffuse'].values
+                        site = location.Location(latitude=posLat, longitude=posLon, tz='Asia/Seoul')
+                        clearInsInfo = site.get_clearsky(pd.to_datetime(umDataL3['DATE_TIME'].values))
+                        umDataL3['GHI_CLR'] = clearInsInfo['ghi'].values
+                        umDataL3['DNI_CLR'] = clearInsInfo['dni'].values
+                        umDataL3['DHI_CLR'] = clearInsInfo['dhi'].values
+                        #
+                        # poaInsInfo = irradiance.get_total_irradiance(
+                        #     surface_tilt=posInfo['STN_SZA'],
+                        #     surface_azimuth=posInfo['STN_AZA'],
+                        #     dni=clearInsInfo['dni'],
+                        #     ghi=clearInsInfo['ghi'],
+                        #     dhi=clearInsInfo['dhi'],
+                        #     solar_zenith=solPosInfo['apparent_zenith'].values,
+                        #     solar_azimuth=solPosInfo['azimuth'].values
+                        # )
+                        # umDataL3['GHI_POA'] = poaInsInfo['poa_global'].values
+                        # umDataL3['DNI_POA'] = poaInsInfo['poa_direct'].values
+                        # umDataL3['DHI_POA'] = poaInsInfo['poa_diffuse'].values
 
-                    # 혼탁도
-                    turbidity = pvlib.clearsky.lookup_linke_turbidity(pd.to_datetime(umDataL3['DATE_TIME'].values), posLat, posLon, interp_turbidity=True)
-                    umDataL3['TURB'] = turbidity.values
+                        # 혼탁도
+                        turbidity = pvlib.clearsky.lookup_linke_turbidity(pd.to_datetime(umDataL3['DATE_TIME'].values), posLat, posLon, interp_turbidity=True)
+                        umDataL3['TURB'] = turbidity.values
 
-                    # *******************************************************
-                    # DB 적재
-                    # *******************************************************
-                    try:
-                        # fileName = os.path.basename(fileInfo)
-                        # tbTmp = f"tbTm_{fileName}"
-                        tbTmp = f"tbTm_{uuid.uuid4().hex}"
-                        with cfgDb['sessionMake']() as session:
+                        # *******************************************************
+                        # DB 적재
+                        # *******************************************************
+                        try:
+                            # fileName = os.path.basename(fileInfo)
+                            # tbTmp = f"tbTm_{fileName}"
+                            tbTmp = f"tbTm_{uuid.uuid4().hex}"
+
                             with session.begin():
                                 dbEngine = session.get_bind()
                                 umDataL3.to_sql(
@@ -473,8 +474,8 @@ def propUmkr(sysOpt, cfgDb, dtDateInfo):
                                       """)
                                 session.execute(query)
                                 session.execute(text(f'DROP TABLE IF EXISTS "{tbTmp}"'))
-                    except Exception as e:
-                        log.error(f"Exception : {e}")
+                        except Exception as e:
+                            log.error(f"Exception : {e}")
             # log.info(f'[END] propUmkr : {dtDateInfo} / pid : {procInfo.pid}')
     except Exception as e:
         log.error(f'Exception : {e}')
@@ -600,7 +601,10 @@ class DtaProcess(object):
                          FROM "TB_STN_INFO"
                          WHERE "OPER_YN" = 'Y';
                          """)
-            posDataL1 = pd.DataFrame(cfgDb['sessionMake']().execute(query))
+
+            with cfgDb['sessionMake']() as session:
+                posDataL1 = pd.DataFrame(session.execute(query))
+
             lat1D = np.array(posDataL1['LAT'])
             lon1D = np.array(posDataL1['LON'])
 
