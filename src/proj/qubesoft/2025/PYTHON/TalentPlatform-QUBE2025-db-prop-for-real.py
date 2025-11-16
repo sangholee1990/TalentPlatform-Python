@@ -271,9 +271,13 @@ def initCfgInfo(config, key):
         return result
 
 
-def propUmkr(sysOpt, cfgDb, dtDateInfo):
+def propUmkr(sysOpt, dtDateInfo):
     try:
         procInfo = mp.current_process()
+
+        config = configparser.ConfigParser()
+        config.read(sysOpt['cfgFile'], encoding='utf-8')
+        cfgDb = initCfgInfo(config, sysOpt['cfgDbKey'])
 
         efList = sysOpt['UMKR'][f"ef{dtDateInfo.strftime('%H')}"]
         for ef in efList:
@@ -649,17 +653,17 @@ class DtaProcess(object):
             # 비동기 다중 프로세스 수행
             # **************************************************************************************************************
             # 비동기 다중 프로세스 개수
-            # pool = Pool(int(sysOpt['cpuCoreNum']))
+            pool = Pool(int(sysOpt['cpuCoreNum']))
 
             dtSrtDate = pd.to_datetime(sysOpt['srtDate'], format='%Y-%m-%d')
             dtEndDate = pd.to_datetime(sysOpt['endDate'], format='%Y-%m-%d')
             dtDateList = pd.date_range(start=dtSrtDate, end=dtEndDate, freq=sysOpt['UMKR']['invDate'])
             for dtDateInfo in reversed(dtDateList):
-                propUmkr(sysOpt, cfgDb, dtDateInfo)
-                # pool.apply_async(propUmkr, args=(sysOpt, cfgDb, dtDateInfo))
+                # propUmkr(sysOpt, cfgDb, dtDateInfo)
+                pool.apply_async(propUmkr, args=(sysOpt, dtDateInfo))
 
-            # pool.close()
-            # pool.join()
+            pool.close()
+            pool.join()
 
         except Exception as e:
             log.error("Exception : {}".format(e))
