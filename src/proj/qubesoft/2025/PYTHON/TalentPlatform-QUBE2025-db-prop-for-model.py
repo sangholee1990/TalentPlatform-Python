@@ -277,13 +277,13 @@ def makeLgbModel(subOpt=None, xCol=None, yCol=None, trainData=None, testData=Non
     try:
 
         saveModelList = sorted(glob.glob(subOpt['saveModelList'].format(srvId = subOpt['srvId'])), reverse=True)
-        xyCol = xCol.copy()
-        xyCol.append(yCol)
-        trainDataL1 = trainData[xyCol].dropna()
-        testDataL1 = testData[xyCol].dropna()
 
         # 학습 모델이 없을 경우
         if (subOpt['isOverWrite']) or (len(saveModelList) < 1):
+            xyCol = xCol.copy()
+            xyCol.append(yCol)
+            trainDataL1 = trainData[xyCol].dropna().copy()
+            testDataL1 = testData[xyCol].dropna().copy()
 
             lgbParams = {
                 # 연속 예측
@@ -381,14 +381,13 @@ def makePycaretModel(subOpt=None, xCol=None, yCol=None, trainData=None, testData
 
     try:
         saveModelList = sorted(glob.glob(subOpt['saveModelList'].format(srvId = subOpt['srvId'])), reverse=True)
-        xyCol = xCol.copy()
-        xyCol.append(yCol)
-        data = trainData[xyCol].dropna()
-        trainDataL1 = trainData[xyCol].dropna()
-        testDataL1 = testData[xyCol].dropna()
 
         # 학습 모델이 없을 경우
         if (subOpt['isOverWrite']) or (len(saveModelList) < 1):
+            xyCol = xCol.copy()
+            xyCol.append(yCol)
+            trainDataL1 = trainData[xyCol].dropna().copy()
+            testDataL1 = testData[xyCol].dropna().copy()
 
             # 7:3에 대한 학습/테스트 분류
             # trainData, validData = train_test_split(data, test_size=0.3)
@@ -458,14 +457,13 @@ def makeFlamlModel(subOpt=None, xCol=None, yCol=None, trainData=None, testData=N
 
     try:
         saveModelList = sorted(glob.glob(subOpt['saveModelList'].format(srvId = subOpt['srvId'])), reverse=True)
-        xyCol = xCol.copy()
-        xyCol.append(yCol)
-        data = trainData[xyCol].dropna()
-        trainDataL1 = trainData[xyCol].dropna()
-        testDataL1 = testData[xyCol].dropna()
 
         # 학습 모델이 없을 경우
         if (subOpt['isOverWrite']) or (len(saveModelList) < 1):
+            xyCol = xCol.copy()
+            xyCol.append(yCol)
+            trainDataL1 = trainData[xyCol].dropna().copy()
+            testDataL1 = testData[xyCol].dropna().copy()
 
             # 7:3에 대한 학습/테스트 분류
             # trainData, validData = train_test_split(dataL1, test_size=0.3)
@@ -490,7 +488,7 @@ def makeFlamlModel(subOpt=None, xCol=None, yCol=None, trainData=None, testData=N
             )
 
             # 각 모형에 따른 자동 머신러닝
-            fnlModel.fit(X_train=trainDataL1[xCol], y_train=trainDataL1[yCol])
+            fnlModel.fit(X_train=trainDataL1[xCol], y_train=testDataL1[yCol])
             # fnlModel.fit(X_train=trainData[xCol], y_train=trainData[yCol], n_jobs=12, n_concurrent_trials=4)
 
             # 학습 모형 저장
@@ -535,11 +533,6 @@ def makeH2oModel(subOpt=None, xCol=None, yCol=None, trainData=None, testData=Non
 
     try:
         saveModelList = sorted(glob.glob(subOpt['saveModelList'].format(srvId = subOpt['srvId'])), reverse=True)
-        xyCol = xCol.copy()
-        xyCol.append(yCol)
-        data = trainData[xyCol].dropna()
-        trainDataL1 = trainData[xyCol].dropna()
-        testDataL1 = testData[xyCol].dropna()
 
         if (not subOpt['isInit']):
             h2o.init()
@@ -548,11 +541,15 @@ def makeH2oModel(subOpt=None, xCol=None, yCol=None, trainData=None, testData=Non
 
         # 학습 모델이 없을 경우
         if (subOpt['isOverWrite']) or (len(saveModelList) < 1):
+            xyCol = xCol.copy()
+            xyCol.append(yCol)
+            trainDataL1 = trainData[xyCol].dropna().copy()
+            testDataL1 = testData[xyCol].dropna().copy()
 
             dlModel = H2OAutoML(max_models=20, max_runtime_secs=60 * 1, balance_classes=True, seed=int(datetime.datetime.now().strftime('%Y%m%d%H%M%S')))
 
             # 각 모형에 따른 자동 머신러닝
-            dlModel.train(x=xCol, y=yCol, training_frame=h2o.H2OFrame(trainDataL1), validation_frame=h2o.H2OFrame(trainDataL1))
+            dlModel.train(x=xCol, y=yCol, training_frame=h2o.H2OFrame(trainDataL1), validation_frame=h2o.H2OFrame(testDataL1))
 
             fnlModel = dlModel.get_best_model()
 
