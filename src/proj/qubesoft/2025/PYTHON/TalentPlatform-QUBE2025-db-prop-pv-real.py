@@ -279,7 +279,7 @@ class DtaProcess(object):
         contextPath = os.getcwd() if env in 'local' else '/SYSTEMS/PROG/PYTHON/IDE'
 
     prjName = 'test'
-    serviceName = 'LSH0255'
+    serviceName = 'QUBE2025'
 
     # 4.1. 환경 변수 설정 (로그 설정)
     log = initLog(env, contextPath, prjName)
@@ -367,7 +367,8 @@ class DtaProcess(object):
                          WHERE "OPER_YN" = 'Y';
                          """)
 
-            posDataL1 = pd.DataFrame(cfgDb['sessionMake']().execute(query))
+            with cfgDb['sessionMake']() as session:
+                posDataL1 = pd.DataFrame(session.execute(query))
 
             dtSrtDate = pd.to_datetime(sysOpt['srtDate'], format='%Y-%m-%d')
             dtEndDate = pd.to_datetime(sysOpt['endDate'], format='%Y-%m-%d')
@@ -404,11 +405,11 @@ class DtaProcess(object):
                         tbTmp = f"tbTm_{uuid.uuid4().hex}"
                         with cfgDb['sessionMake']() as session:
                             with session.begin():
-                                db_engine = session.get_bind()
+                                dbEngine = session.get_bind()
 
                                 resData.to_sql(
                                     name=tbTmp,
-                                    con=db_engine,
+                                    con=dbEngine,
                                     if_exists="replace",
                                     index=False
                                 )
@@ -416,16 +417,16 @@ class DtaProcess(object):
                                 query = text(f"""
                                    INSERT INTO "TB_PV_DATA" (
                                         "SRV", "DATE_TIME", "DATE_TIME_KST", "PV", "REG_DATE"
-                                    )
-                                    SELECT 
-                                        "SRV", "DATE_TIME", "DATE_TIME_KST", "PV", now()
-                                    FROM "{tbTmp}"
-                                    ON CONFLICT ("SRV", "DATE_TIME")
-                                    DO UPDATE SET
-                                        "DATE_TIME_KST" = excluded."DATE_TIME_KST",
-                                        "PV" = excluded."PV", 
-                                        "MOD_DATE" = now();
-                                             """)
+                                        )
+                                        SELECT 
+                                            "SRV", "DATE_TIME", "DATE_TIME_KST", "PV", now()
+                                        FROM "{tbTmp}"
+                                        ON CONFLICT ("SRV", "DATE_TIME")
+                                        DO UPDATE SET
+                                            "DATE_TIME_KST" = excluded."DATE_TIME_KST",
+                                            "PV" = excluded."PV", 
+                                            "MOD_DATE" = now();
+                                    """)
                                 session.execute(query)
                                 session.execute(text(f'DROP TABLE IF EXISTS "{tbTmp}"'))
                     except Exception as e:
