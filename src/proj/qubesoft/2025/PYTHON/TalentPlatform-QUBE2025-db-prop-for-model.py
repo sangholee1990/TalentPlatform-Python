@@ -83,11 +83,13 @@ from lightgbm import early_stopping, log_evaluation
 import pickle
 from flaml import AutoML
 # from sklearn.model_selection import train_test_split
-from pycaret.regression import *
+# from pycaret.regression import *
 # import pvlib
 import h2o
 from h2o.automl import H2OAutoML
 import uuid
+from sklearn.model_selection import train_test_split
+from pycaret.regression import RegressionExperiment
 
 # =================================================
 # 사용자 매뉴얼
@@ -282,32 +284,23 @@ def makeLgbModel(subOpt=None, xCol=None, yCol=None, trainData=None, testData=Non
         if (subOpt['isOverWrite']) or (len(saveModelList) < 1):
             xyCol = xCol.copy()
             xyCol.append(yCol)
+
             trainDataL1 = trainData[xyCol].dropna().copy()
             testDataL1 = testData[xyCol].dropna().copy()
 
             lgbParams = {
                 # 연속 예측
-                'objective': 'regression', # 회귀/분류 선택
-                'metric': 'rmse', # 평가 지표
+                'objective': 'regression',
+                'metric': 'rmse',
 
                 # 이진 분류
                 # 'objective': 'binary',
                 # 'metric': 'auc',
 
-                'boosting_type': 'gbdt',
-                "learning_rate": 0.05,  # 낮은 학습률로 성능 안정화
-                "num_leaves": 31,  # 트리 복잡도 제어
-                "max_depth": -1,  # 깊이 제한 (-1: 제한 없음)
-                "feature_fraction": 0.8,  # 랜덤하게 80%의 특성을 사용
-                "bagging_fraction": 0.8,  # 샘플링 비율
-                "bagging_freq": 5,  # 매 5회 학습마다 샘플링 수행
-                "lambda_l1": 0.1,  # L1 정규화
-                "lambda_l2": 0.1,  # L2 정규화
-                "min_data_in_leaf": 20,  # 최소 잎사귀 데이터 수
-                "verbose": -1 , # 로그 출력 수준
-                'verbosity': -1,
                 'n_jobs': -1,
-                'seed': 123,
+                'verbosity': -1,
+                # 'seed': int(subOpt['preDt'].timestamp()),
+                'seed': int(datetime.datetime.now().timestamp()),
             }
 
             lgbTrainData = lgb.Dataset(trainDataL1[xCol], trainDataL1[yCol])
@@ -333,9 +326,6 @@ def makeLgbModel(subOpt=None, xCol=None, yCol=None, trainData=None, testData=Non
             os.makedirs(os.path.dirname(saveModel), exist_ok=True)
             with open(saveModel, 'wb') as file:
                 pickle.dump(fnlModel, file, pickle.HIGHEST_PROTOCOL)
-
-            with open(saveModel, 'rb') as file:
-                fnlModel = pickle.load(file)
 
             # 변수 중요도 저장
             # try:
@@ -382,55 +372,43 @@ def makePycaretModel(subOpt=None, xCol=None, yCol=None, trainData=None, testData
     try:
         saveModelList = sorted(glob.glob(subOpt['saveModelList'].format(srvId = subOpt['srvId'])), reverse=True)
 
+
         # 학습 모델이 없을 경우
+        exp = RegressionExperiment()
         if (subOpt['isOverWrite']) or (len(saveModelList) < 1):
             xyCol = xCol.copy()
             xyCol.append(yCol)
             trainDataL1 = trainData[xyCol].dropna().copy()
             testDataL1 = testData[xyCol].dropna().copy()
 
-            # 7:3에 대한 학습/테스트 분류
-            # trainData, validData = train_test_split(data, test_size=0.3)
-
-            setup(
+            exp.setup(
                 data=trainDataL1,
-                session_id=123,
+                test_data=testDataL1,
+                session_id=int(datetime.datetime.now().timestamp()),
                 target=yCol,
             )
 
-            # trainIdx = trainData.index
-            # testIdx = testData.index
-            #
-            # setup(
-            #     data=pd.concat([trainData, testData]),
-            #     target=yCol,
-            #     session_id=123,
-            #     fold_strategy='custom',
-            #     fold_groups=pd.Series([0 if i in trainIdx else 1 for i in pd.concat([trainData, testData]).index])
-            # )
-
             # 각 모형에 따른 자동 머신러닝
-            modelList = compare_models(sort='RMSE', n_select=3, budget_time=1)
+            modelList = exp.compare_models(sort='RMSE', n_select=3, budget_time=60)
 
             # 앙상블 모형
-            blendModel = blend_models(estimator_list=modelList, fold=10)
+            blendModel = exp.blend_models(estimator_list=modelList, fold=10)
 
             # 앙상블 파라미터 튜닝
-            tuneModel = tune_model(blendModel, fold=10, choose_better=True)
+            tuneModel = exp.tune_model(blendModel, fold=10, choose_better=True)
 
             # 학습 모형
-            fnlModel = finalize_model(tuneModel)
+            fnlModel = exp.finalize_model(tuneModel)
 
             # 학습 모형 저장
             saveModel = subOpt['preDt'].strftime(subOpt['saveModel']).format(srvId = subOpt['srvId'])
             log.info(f'[CHECK] saveModel : {saveModel}')
             os.makedirs(os.path.dirname(saveModel), exist_ok=True)
-            save_model(fnlModel, saveModel)
-            fnlModel = load_model(os.path.splitext(saveModel)[0])
+            exp.save_model(fnlModel, saveModel)
         else:
             saveModel = saveModelList[0]
             log.info(f'[CHECK] saveModel : {saveModel}')
-            fnlModel = load_model(os.path.splitext(saveModel)[0])
+            fnlModel = exp.load_model(os.path.splitext(saveModel)[0])
 
         result = {
             'msg': 'succ'
@@ -480,16 +458,17 @@ def makeFlamlModel(subOpt=None, xCol=None, yCol=None, trainData=None, testData=N
                 # task="classification"
                 # , metric='accuracy'
 
-                , ensemble = False
-                # , ensemble = True
-                , seed = 123
+                # , ensemble = False
+                , ensemble = True
+                # , seed = int(subOpt['preDt'].timestamp())
+                , seed = int(datetime.datetime.now().timestamp())
                 , time_budget=60
                 # , time_budget=600
             )
 
             # 각 모형에 따른 자동 머신러닝
-            fnlModel.fit(X_train=trainDataL1[xCol], y_train=testDataL1[yCol])
-            # fnlModel.fit(X_train=trainData[xCol], y_train=trainData[yCol], n_jobs=12, n_concurrent_trials=4)
+            fnlModel.fit(X_train=trainDataL1[xCol], y_train=trainDataL1[yCol], X_val=testDataL1[xCol], y_val=testDataL1[yCol])
+            # fnlModel.fit(X_train=trainDataL1[xCol], y_train=trainDataL1[yCol], n_jobs=12, n_concurrent_trials=4)
 
             # 학습 모형 저장
             saveModel = subOpt['preDt'].strftime(subOpt['saveModel']).format(srvId = subOpt['srvId'])
@@ -498,9 +477,6 @@ def makeFlamlModel(subOpt=None, xCol=None, yCol=None, trainData=None, testData=N
 
             with open(saveModel, 'wb') as file:
                 pickle.dump(fnlModel, file, pickle.HIGHEST_PROTOCOL)
-
-            with open(saveModel, 'rb') as f:
-                fnlModel = pickle.load(f)
         else:
             saveModel = saveModelList[0]
             log.info(f"[CHECK] saveModel : {saveModel}")
@@ -546,7 +522,9 @@ def makeH2oModel(subOpt=None, xCol=None, yCol=None, trainData=None, testData=Non
             trainDataL1 = trainData[xyCol].dropna().copy()
             testDataL1 = testData[xyCol].dropna().copy()
 
-            dlModel = H2OAutoML(max_models=20, max_runtime_secs=60 * 1, balance_classes=True, seed=int(datetime.datetime.now().strftime('%Y%m%d%H%M%S')))
+            #dlModel = H2OAutoML(max_models=20, max_runtime_secs=60 * 1, balance_classes=True, seed=int(datetime.datetime.now().strftime('%Y%m%d%H%M%S')))
+            # dlModel = H2OAutoML(max_models=20, max_runtime_secs=60 * 1, balance_classes=True, seed=int(subOpt['preDt'].timestamp()))
+            dlModel = H2OAutoML(max_models=20, max_runtime_secs=60 * 1, balance_classes=True, seed=int(datetime.datetime.now().timestamp()))
 
             # 각 모형에 따른 자동 머신러닝
             dlModel.train(x=xCol, y=yCol, training_frame=h2o.H2OFrame(trainDataL1), validation_frame=h2o.H2OFrame(testDataL1))
@@ -560,8 +538,6 @@ def makeH2oModel(subOpt=None, xCol=None, yCol=None, trainData=None, testData=Non
 
             # h2o.save_model(model=fnlModel, path=os.path.dirname(saveModel), filename=os.path.basename(saveModel), force=True)
             fnlModel.save_mojo(path=os.path.dirname(saveModel), filename=os.path.basename(saveModel), force=True)
-
-            fnlModel = h2o.import_mojo(saveModel)
         else:
             saveModel = saveModelList[0]
             log.info(f"[CHECK] saveModel : {saveModel}")
@@ -672,6 +648,7 @@ class DtaProcess(object):
                     'orgPycaret': {
                         'saveModelList': "/DATA/AI/*/*/LSH0255-{srvId}-final-pycaret-for-*.model.pkl",
                         'saveModel': "/DATA/AI/%Y%m/%d/LSH0255-{srvId}-final-pycaret-for-%Y%m%d.model",
+                        # 'isOverWrite': True,
                         'isOverWrite': False,
                         'srvId': None,
                         'preDt': datetime.datetime.now(),
@@ -680,6 +657,7 @@ class DtaProcess(object):
                         'saveModelList': "/DATA/AI/*/*/LSH0255-{srvId}-final-h2o-for-*.model",
                         'saveModel': "/DATA/AI/%Y%m/%d/LSH0255-{srvId}-final-h2o-for-%Y%m%d.model",
                         'isInit': False,
+                        # 'isOverWrite': True,
                         'isOverWrite': False,
                         'srvId': None,
                         'preDt': datetime.datetime.now(),
@@ -750,9 +728,12 @@ class DtaProcess(object):
                         WHERE pv."SRV" = :srvId AND (EXTRACT(EPOCH FROM (lf."DATE_TIME" - lf."ANA_DATE")) / 3600.0) <= 5
                         ORDER BY "SRV", "DATE_TIME_KST" DESC;
                      """)
-                    trainData = pd.DataFrame(session.execute(query, {'srvId':srvId}))
+
+                    # trainData = pd.DataFrame(session.execute(query, {'srvId':srvId}))
                     # trainData = data[data['DATE_TIME_KST'] < pd.to_datetime('2025-01-01')].reset_index(drop=True)
                     # testData = data[data['DATE_TIME_KST'] >= pd.to_datetime('2025-01-01')].reset_index(drop=True)
+                    data = pd.DataFrame(session.execute(query, {'srvId':srvId}))
+                    trainData, testData = train_test_split(data, test_size=0.2, random_state=int(datetime.datetime.now().timestamp()))
 
                     query = text("""
                          SELECT lf.*
@@ -783,7 +764,7 @@ class DtaProcess(object):
                     # ****************************************************************************
                     # 과거 학습 모델링 (orgPycaret)
                     # ****************************************************************************
-                    resOrgPycaret = makePycaretModel(sysOpt['MODEL']['orgPycaret'], xColOrg, yColOrg, trainData, trainData)
+                    resOrgPycaret = makePycaretModel(sysOpt['MODEL']['orgPycaret'], xColOrg, yColOrg, trainData, testData)
                     # log.info(f'resOrgPycaret : {resOrgPycaret}')
 
                     if resOrgPycaret:
@@ -793,7 +774,7 @@ class DtaProcess(object):
                     # ****************************************************************************
                     # 과거 학습 모델링 (orgH2o)
                     # ****************************************************************************
-                    resOrgH2o = makeH2oModel(sysOpt['MODEL']['orgH2o'], xColOrg, yColOrg, trainData, trainData)
+                    resOrgH2o = makeH2oModel(sysOpt['MODEL']['orgH2o'], xColOrg, yColOrg, trainData, testData)
                     # log.info(f'resOrgH2o : {resOrgH2o}')
 
                     if resOrgH2o:
@@ -803,7 +784,7 @@ class DtaProcess(object):
                     # ****************************************************************************
                     # 수동 학습 모델링 (lgb)
                     # ****************************************************************************
-                    resLgb = makeLgbModel(sysOpt['MODEL']['lgb'], xCol, yCol, trainData, trainData)
+                    resLgb = makeLgbModel(sysOpt['MODEL']['lgb'], xCol, yCol, trainData, testData)
                     # log.info(f'resLgb : {resLgb}')
 
                     if resLgb:
@@ -813,7 +794,7 @@ class DtaProcess(object):
                     # ****************************************************************************
                     # 자동 학습 모델링 (flaml)
                     # ****************************************************************************
-                    resFlaml = makeFlamlModel(sysOpt['MODEL']['flaml'], xCol, yCol, trainData, trainData)
+                    resFlaml = makeFlamlModel(sysOpt['MODEL']['flaml'], xCol, yCol, trainData, testData)
                     # log.info(f'resFlaml : {resFlaml}')
 
                     if resFlaml:
@@ -823,11 +804,12 @@ class DtaProcess(object):
                     # ****************************************************************************
                     # 자동 학습 모델링 (pycaret)
                     # ****************************************************************************
-                    resPycaret = makePycaretModel(sysOpt['MODEL']['pycaret'], xCol, yCol, trainData, trainData)
+                    resPycaret = makePycaretModel(sysOpt['MODEL']['pycaret'], xCol, yCol, trainData, testData)
                     # log.info(f'resPycaret : {resPycaret}')
 
                     if resPycaret:
-                        prdVal = predict_model(resPycaret['mlModel'], data=prdData[xCol])['prediction_label']
+                        exp = RegressionExperiment()
+                        prdVal = exp.predict_model(resPycaret['mlModel'], data=prdData[xCol])['prediction_label']
                         prdData['AI3'] = np.where(prdVal > 0, prdVal, 0)
 
                     # *******************************************************
