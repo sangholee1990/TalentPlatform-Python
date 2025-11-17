@@ -768,7 +768,8 @@ class DtaProcess(object):
                     # log.info(f'resOrgPycaret : {resOrgPycaret}')
 
                     if resOrgPycaret:
-                        prdVal = predict_model(resOrgPycaret['mlModel'], data=prdData[xCol])['prediction_label']
+                        exp = RegressionExperiment()
+                        prdVal = exp.predict_model(resOrgPycaret['mlModel'], data=prdData[xCol])['prediction_label']
                         prdData['ML'] = np.where(prdVal > 0, prdVal, 0)
 
                     # ****************************************************************************
