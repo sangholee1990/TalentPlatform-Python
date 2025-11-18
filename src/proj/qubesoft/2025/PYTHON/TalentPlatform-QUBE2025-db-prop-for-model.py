@@ -841,7 +841,7 @@ class DtaProcess(object):
                                 session.execute(query)
 
                                 query = text(f"""
-                                    DROP TABLE IF EXISTS "{tbTmp}
+                                    DROP TABLE IF EXISTS "{tbTmp}"
                                 """)
                                 session.execute(query)
 
