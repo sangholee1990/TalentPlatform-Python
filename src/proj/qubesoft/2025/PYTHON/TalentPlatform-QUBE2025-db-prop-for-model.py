@@ -370,7 +370,7 @@ def makePycaretModel(subOpt=None, xCol=None, yCol=None, trainData=None, testData
         saveModelList = sorted(glob.glob(subOpt['saveModelList'].format(srvId = subOpt['srvId'])), reverse=True)
 
         # 학습 모델이 없을 경우
-        exp = RegressionExperiment()
+        exp = subOpt['exp']
         if (subOpt['isOverWrite']) or (len(saveModelList) < 1):
             xyCol = xCol.copy()
             xyCol.append(yCol)
@@ -394,7 +394,8 @@ def makePycaretModel(subOpt=None, xCol=None, yCol=None, trainData=None, testData
             tuneModel = exp.tune_model(blendModel, fold=10, choose_better=True)
 
             # 학습 모형
-            fnlModel = exp.finalize_model(tuneModel)
+            # fnlModel = exp.finalize_model(tuneModel)
+            fnlModel = tuneModel
 
             # 학습 모형 저장
             saveModel = subOpt['preDt'].strftime(subOpt['saveModel']).format(srvId = subOpt['srvId'])
@@ -638,6 +639,7 @@ class DtaProcess(object):
                         'isOverWrite': False,
                         'srvId': None,
                         'preDt': datetime.datetime.now(),
+                        'exp': None
                     },
                     'orgH2o': {
                         'saveModelList': "/DATA/AI/*/*/LSH0255-{srvId}-final-h2o-for-*.model",
@@ -674,6 +676,7 @@ class DtaProcess(object):
                         'isOverWrite': False,
                         'srvId': None,
                         'preDt': datetime.datetime.now(),
+                        'exp': None
                     },
                 },
             }
@@ -731,6 +734,7 @@ class DtaProcess(object):
                                 OR "DL" IS NULL
                                 OR "AI" IS NULL
                                 OR "AI2" IS NULL
+                                OR "AI3" IS NULL
                             )
                         ORDER BY "SRV", "DATE_TIME_KST" DESC;
                          """)
@@ -739,6 +743,10 @@ class DtaProcess(object):
 
                     for key in ['orgPycaret', 'orgH2o', 'lgb', 'flaml', 'pycaret']:
                         sysOpt['MODEL'][key]['srvId'] = srvId
+
+                    exp = RegressionExperiment()
+                    sysOpt['MODEL']['orgPycaret']['exp'] = exp
+                    sysOpt['MODEL']['pycaret']['exp'] = exp
 
                     # ****************************************************************************
                     # 독립/종속 변수 설정
@@ -796,7 +804,6 @@ class DtaProcess(object):
                     # log.info(f'resPycaret : {resPycaret}')
 
                     if resPycaret:
-                        exp = RegressionExperiment()
                         prdVal = exp.predict_model(resPycaret['mlModel'], data=prdData[xCol])['prediction_label']
                         prdData['AI3'] = np.where(prdVal > 0, prdVal, 0)
 
