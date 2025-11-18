@@ -800,20 +800,20 @@ class DtaProcess(object):
                     # ****************************************************************************
                     # 자동 학습 모델링 (pycaret)
                     # ****************************************************************************
-                    resPycaret = makePycaretModel(sysOpt['MODEL']['pycaret'], xCol, yCol, trainData, testData)
-                    # log.info(f'resPycaret : {resPycaret}')
-
-                    if resPycaret:
-                        prdVal = exp.predict_model(resPycaret['mlModel'], data=prdData[xCol])['prediction_label']
-                        prdData['AI3'] = np.where(prdVal > 0, prdVal, 0)
+                    # resPycaret = makePycaretModel(sysOpt['MODEL']['pycaret'], xCol, yCol, trainData, testData)
+                    # # log.info(f'resPycaret : {resPycaret}')
+                    #
+                    # if resPycaret:
+                    #     prdVal = exp.predict_model(resPycaret['mlModel'], data=prdData[xCol])['prediction_label']
+                    #     prdData['AI3'] = np.where(prdVal > 0, prdVal, 0)
 
                     # *******************************************************
                     # DB 적재
                     # *******************************************************
                     # sys.exit(1)
-                    try:
-                        tbTmp = f"tbTm_{uuid.uuid4().hex}"
-                        with cfgDb['sessionMake']() as session:
+                    with cfgDb['sessionMake']() as session:
+                        try:
+                            tbTmp = f"tbTm_{uuid.uuid4().hex}"
                             with session.begin():
                                 dbEngine = session.get_bind()
 
@@ -833,16 +833,22 @@ class DtaProcess(object):
                                     FROM "{tbTmp}"
                                     ON CONFLICT ("SRV", "ANA_DATE", "DATE_TIME")
                                     DO UPDATE SET
-                                          "DL" = COALESCE(excluded."DL", "TB_FOR_DATA"."DL"),
-                                          "ML" = COALESCE(excluded."ML", "TB_FOR_DATA"."ML"), 
-                                          "AI" = COALESCE(excluded."AI", "TB_FOR_DATA"."AI"), 
-                                          "AI2" = COALESCE(excluded."AI2", "TB_FOR_DATA"."AI2"), 
-                                          "AI3" = COALESCE(excluded."AI3", "TB_FOR_DATA"."AI3")
+                                        "DL" = excluded."DL",
+                                        "ML" = excluded."ML",
+                                        "AI" = excluded."AI",
+                                        "AI2" = excluded."AI2"
                                       """)
                                 session.execute(query)
-                                session.execute(text(f'DROP TABLE IF EXISTS "{tbTmp}"'))
-                    except Exception as e:
-                        log.error(f"Exception : {e}")
+
+                                query = text(f"""
+                                    DROP TABLE IF EXISTS "{tbTmp}
+                                """)
+                                session.execute(query)
+
+                                session.commit()
+                        except Exception as e:
+                            log.error(f"Exception : {e}")
+                            session.rollback()
 
         except Exception as e:
             log.error("Exception : {}".format(e))
