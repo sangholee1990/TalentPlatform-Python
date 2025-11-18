@@ -369,7 +369,6 @@ def makePycaretModel(subOpt=None, xCol=None, yCol=None, trainData=None, testData
     try:
         saveModelList = sorted(glob.glob(subOpt['saveModelList'].format(srvId = subOpt['srvId'])), reverse=True)
 
-
         # 학습 모델이 없을 경우
         exp = RegressionExperiment()
         if (subOpt['isOverWrite']) or (len(saveModelList) < 1):
@@ -724,7 +723,7 @@ class DtaProcess(object):
                     trainData, testData = train_test_split(data, test_size=0.2, random_state=int(datetime.datetime.now().timestamp()))
 
                     query = text("""
-                         SELECT lf.*
+                        SELECT lf.*
                         FROM "TB_FOR_DATA" AS lf
                         WHERE lf."SRV" = :srvId
                           AND (
