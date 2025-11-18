@@ -14,7 +14,7 @@
 # /SYSTEMS/LIB/anaconda3/envs/py39/bin/python TalentPlatform-QUBE2025-db-prop-for-model.py
 # nohup /SYSTEMS/LIB/anaconda3/envs/py39/bin/python TalentPlatform-QUBE2025-db-prop-for-model.py &
 
-# * 1 * * * cd /SYSTEMS/PROG/PYTHON && /SYSTEMS/LIB/anaconda3/envs/py39/bin/python /SYSTEMS/PROG/PYTHON/TalentPlatform-QUBE2025-db-prop-for-model.py"
+# 20,50 * * * * cd /SYSTEMS/PROG/PYTHON && /SYSTEMS/LIB/anaconda3/envs/py38/bin/python /SYSTEMS/PROG/PYTHON/TalentPlatform-QUBE2025-db-prop-for-model.py
 
 import glob
 # import seaborn as sns
@@ -271,8 +271,8 @@ def initCfgInfo(config, key):
 
 def makeLgbModel(subOpt=None, xCol=None, yCol=None, trainData=None, testData=None):
 
-    log.info(f'[START] makeLgbModel')
-    log.info(f'[CHECK] subOpt : {subOpt}')
+    # log.info(f'[START] makeLgbModel')
+    # log.info(f'[CHECK] subOpt : {subOpt}')
 
     result = None
 
@@ -356,16 +356,13 @@ def makeLgbModel(subOpt=None, xCol=None, yCol=None, trainData=None, testData=Non
         return result
 
     except Exception as e:
-        log.error('Exception : {}'.format(e))
+        log.error(f"Exception : {e}")
         return result
-
-    finally:
-        log.info(f'[END] makeLgbModel')
 
 def makePycaretModel(subOpt=None, xCol=None, yCol=None, trainData=None, testData=None):
 
-    log.info(f'[START] makePycaretModel')
-    log.info(f'[CHECK] subOpt : {subOpt}')
+    # log.info(f'[START] makePycaretModel')
+    # log.info(f'[CHECK] subOpt : {subOpt}')
 
     result = None
 
@@ -420,16 +417,13 @@ def makePycaretModel(subOpt=None, xCol=None, yCol=None, trainData=None, testData
         return result
 
     except Exception as e:
-        log.error('Exception : {}'.format(e))
+        log.error(f"Exception : {e}")
         return result
-
-    finally:
-        log.info(f'[END] makePycaretModel')
 
 def makeFlamlModel(subOpt=None, xCol=None, yCol=None, trainData=None, testData=None):
 
-    log.info(f'[START] makeFlamlModel')
-    log.info(f'[CHECK] subOpt : {subOpt}')
+    # log.info(f'[START] makeFlamlModel')
+    # log.info(f'[CHECK] subOpt : {subOpt}')
 
     result = None
 
@@ -494,16 +488,13 @@ def makeFlamlModel(subOpt=None, xCol=None, yCol=None, trainData=None, testData=N
         return result
 
     except Exception as e:
-        log.error('Exception : {}'.format(e))
+        log.error(f"Exception : {e}")
         return result
-
-    finally:
-        log.info(f'[END] makeFlamlModel')
 
 def makeH2oModel(subOpt=None, xCol=None, yCol=None, trainData=None, testData=None):
 
-    log.info(f'[START] makeH2oModel')
-    log.info(f'[CHECK] subOpt : {subOpt}')
+    # log.info(f'[START] makeH2oModel')
+    # log.info(f'[CHECK] subOpt : {subOpt}')
 
     result = None
 
@@ -553,12 +544,8 @@ def makeH2oModel(subOpt=None, xCol=None, yCol=None, trainData=None, testData=Non
         return result
 
     except Exception as e:
-        log.error('Exception : {}'.format(e))
+        log.error(f"Exception : {e}")
         return result
-
-    finally:
-        log.info(f'[END] makeH2oModel')
-
 
 # ================================================
 # 4. 부 프로그램
@@ -702,21 +689,22 @@ class DtaProcess(object):
             cfgDb = initCfgInfo(config, sysOpt['cfgDbKey'])
 
             # 관측소 정보
-            query = text("""
-                         SELECT *
-                         FROM "TB_STN_INFO"
-                         WHERE "OPER_YN" = 'Y'
-                         ORDER BY "ID" ASC;
-                         """)
-
             with cfgDb['sessionMake']() as session:
+                query = text("""
+                             SELECT *
+                             FROM "TB_STN_INFO"
+                             WHERE "OPER_YN" = 'Y'
+                             ORDER BY "ID" ASC;
+                             """)
+
                 posDataL1 = pd.DataFrame(session.execute(query))
 
-                for i, posInfo in posDataL1.iterrows():
-                    posId = posInfo['ID']
-                    # posId = 17
-                    srvId = f"SRV{posId:05d}"
+            for i, posInfo in posDataL1.iterrows():
+                posId = posInfo['ID']
+                # posId = 17
+                srvId = f"SRV{posId:05d}"
 
+                with cfgDb['sessionMake']() as session:
                     query = text("""
                         SELECT
                             pv."PV",
@@ -744,11 +732,11 @@ class DtaProcess(object):
                                 OR "DL" IS NULL
                                 OR "AI" IS NULL
                                 OR "AI2" IS NULL
-                                OR "AI3" IS NULL
                             )
                         ORDER BY "SRV", "DATE_TIME_KST" DESC;
                          """)
                     prdData = pd.DataFrame(session.execute(query, {'srvId':srvId}))
+                    if len(prdData) < 1: continue
 
                     for key in ['orgPycaret', 'orgH2o', 'lgb', 'flaml', 'pycaret']:
                         sysOpt['MODEL'][key]['srvId'] = srvId
