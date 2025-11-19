@@ -610,19 +610,6 @@ class DtaProcess(object):
             sysOpt = {
                 # 입력 데이터
                 'inpFile': '/HDD/DATA/OUTPUT/LSH0627/alton_bikes_web_v2.xlsx',
-                # 'model': {
-                #     # 시계열 딥러닝
-                #     'dl': {
-                #         'input_chunk_length': 2,
-                #         'output_chunk_length': 7,
-                #         'n_epochs': 50,
-                #     },
-                #     # 예측
-                #     'prdCnt': 10,
-                # },
-                # 예측 데이터
-                'saveFile': '/HDD/DATA/OUTPUT/LSH0627/naverShop_prd.csv',
-                'preDt': datetime.now(),
             }
 
             # =================================================================

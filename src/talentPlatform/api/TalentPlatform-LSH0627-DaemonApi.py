@@ -20,6 +20,7 @@
 
 # 프로그램 종료
 # ps -ef | grep "TalentPlatform-LSH0627-DaemonApi" | awk '{print $2}' | xargs kill -9
+# pkill -f TalentPlatform-LSH0627-DaemonApi
 
 # 포트 종료
 # yum install lsof -y
