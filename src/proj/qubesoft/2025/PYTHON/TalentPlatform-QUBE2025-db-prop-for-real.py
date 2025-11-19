@@ -374,8 +374,8 @@ def propUmkr(sysOpt, dtDateInfo):
                         }
 
                         selData = pd.DataFrame(session.execute(query, params))
-                        if len(selData[(selData[['TURB']] > 0).any(axis=1)]) > 0: continue
-                        log.info(f"selData : {selData}")
+                        # log.info(f"selData : {selData}")
+                        if 'TURB' in selData.columns and (selData['TURB'] > 0).any(): continue
 
                         # 가공 데이터
                         umDataL2 = umData.sel(lat=posLat, lon=posLon, anaTime=dtAnaTimeInfo)
@@ -427,10 +427,7 @@ def propUmkr(sysOpt, dtDateInfo):
                         # DB 적재
                         # *******************************************************
                         try:
-                            # fileName = os.path.basename(fileInfo)
-                            # tbTmp = f"tbTm_{fileName}"
                             tbTmp = f"tbTm_{uuid.uuid4().hex}"
-
                             with session.begin():
                                 dbEngine = session.get_bind()
                                 umDataL3.to_sql(
@@ -480,6 +477,7 @@ def propUmkr(sysOpt, dtDateInfo):
                                 session.execute(text(f'DROP TABLE IF EXISTS "{tbTmp}"'))
                         except Exception as e:
                             log.error(f"Exception : {e}")
+
             # log.info(f'[END] propUmkr : {dtDateInfo} / pid : {procInfo.pid}')
     except Exception as e:
         log.error(f'Exception : {e}')

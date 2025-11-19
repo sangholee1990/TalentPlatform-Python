@@ -839,16 +839,9 @@ class DtaProcess(object):
                                         "AI2" = excluded."AI2"
                                       """)
                                 session.execute(query)
-
-                                query = text(f"""
-                                    DROP TABLE IF EXISTS "{tbTmp}"
-                                """)
-                                session.execute(query)
-
-                                session.commit()
+                                session.execute(text(f'DROP TABLE IF EXISTS "{tbTmp}"'))
                         except Exception as e:
                             log.error(f"Exception : {e}")
-                            session.rollback()
 
         except Exception as e:
             log.error("Exception : {}".format(e))
