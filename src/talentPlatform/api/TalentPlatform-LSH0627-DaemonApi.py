@@ -678,10 +678,16 @@ try:
     csvData['brandByTitle'] = pd.Categorical(csvData['brandByTitle'], categories=['알톤 자전거', '삼천리 자전거', '스마트 자전거', '기타'], ordered=True)
     csvData['typeByTitle'] = pd.Categorical(csvData['typeByTitle'], categories=['전기', '하이브리드', 'MTB', '사이클', '일반', '미니벨로'], ordered=True)
 
-    tmpData = csvData.copy()
-    tmpDataL1 = tmpData.sort_values(by=['title', 'isDlPrd', 'isMlPrd', 'isLprice'], ascending=[True, False, False, False])
-    csvDataL1 = tmpDataL1.drop_duplicates(subset=['title'], keep='first')
+    prdColList = ['mlPrd', 'dlPrd', 'lprice']
+    meanDataByTitle = csvData.groupby('title')[prdColList].mean()
+    diffMl = (meanDataByTitle['mlPrd'] - meanDataByTitle['lprice']).abs()
+    diffDl = (meanDataByTitle['dlPrd'] - meanDataByTitle['lprice']).abs()
+    meanDataByTitle['maxPrdDiff'] = np.maximum(diffMl, diffDl)
 
+    # tmpData = csvData.copy()
+    tmpData = pd.merge(csvData.copy(), meanDataByTitle, on='title', how='left')
+    tmpDataL1 = tmpData.sort_values(by=['maxPrdDiff', 'title'], ascending=[False, False])
+    csvDataL1 = tmpDataL1.drop_duplicates(subset=['title'], keep='first')
 except Exception as e:
     log.error(f'설정 파일 실패, csvFile : {csvFile} : {e}')
     exit(1)
