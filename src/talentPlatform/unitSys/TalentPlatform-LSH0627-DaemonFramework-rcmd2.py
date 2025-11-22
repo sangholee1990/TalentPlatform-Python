@@ -201,14 +201,14 @@ def clean_weight(weight_str):
         match = re.search(r'\d+(\.\d+)?', weight_str)
         if match:
             try:
-                # # 간혹 '11.5. ' 처럼 .이 여러개 있는 경우 방지
-                # # 숫자와 .으로 이루어진 첫번째 유효한 숫자열을 찾도록 좀 더 정교하게
-                # # 첫 번째 유효한 부동소수점 숫자를 찾음.
-                # match = re.search(r'\d+(\.\d+)?', weight_str)
-                # if match:
-                #     return float(match.group(0))
-                # else:
-                #     return np.nan
+                # 간혹 '11.5. ' 처럼 .이 여러개 있는 경우 방지
+                # 숫자와 .으로 이루어진 첫번째 유효한 숫자열을 찾도록 좀 더 정교하게
+                # 첫 번째 유효한 부동소수점 숫자를 찾음.
+                match = re.search(r'\d+(\.\d+)?', weight_str)
+                if match:
+                    return float(match.group(0))
+                else:
+                    return np.nan
                 match = re.search(r'\d+(\.\d+)?', weight_str)
             except ValueError:
                 return np.nan
@@ -255,8 +255,8 @@ def recommend_by_query(user_budget_min, user_budget_max, user_height, user_purpo
     # 2. 랭킹 (AI-Based Ranking)
     candidate_indices = df_filtered.index.tolist()
 
-    if len(candidate_indices) == 1:
-        return df_filtered
+    # if len(candidate_indices) == 1:
+    #     return df_filtered
 
     sim_subset = cosine_sim[np.ix_(candidate_indices, candidate_indices)]
     avg_similarity_to_group = sim_subset.mean(axis=1)
@@ -316,6 +316,174 @@ def get_recommendations_from_selection(selected_titles_list, top_n, df, indices,
     result_df['유사도(%)'] = [round(s, 2) for s in final_scores]
 
     return result_df
+
+
+def score_braking(row):
+    # Combine brake related columns text for search
+    brake_text = (
+                str(row.get('브레이크', '')) + " " + str(row.get('뒷 브레이크', '')) + " " + str(row.get('앞 브레이크', ''))).lower()
+
+    if '유압' in brake_text or 'hydraulic' in brake_text or 'mt200' in brake_text:
+        return 5
+    elif '기계식' in brake_text or 'mechanical' in brake_text or 'disc' in brake_text or '디스크' in brake_text:
+        return 4
+    elif '듀얼피봇' in brake_text or 'dual pivot' in brake_text or 'v-brake' in brake_text or 'v-브레이크' in brake_text or '브이' in brake_text:
+        return 3
+    elif '캘리퍼' in brake_text or 'caliper' in brake_text:
+        # Single pivot assumed if not specified as dual, but usually acceptable for road
+        if '싱글' in brake_text: return 2
+        return 3
+    elif '밴드' in brake_text or 'band' in brake_text or '드럼' in brake_text:
+        return 2
+    else:
+        # Default for unspecified or coaster
+        return 2
+
+
+def score_convenience(row):
+    cat = str(row.get('카테고리', '')).lower()
+    desc = str(row.get('기타', '')) + str(row.get('제품특징', ''))
+
+    score = 3  # Base score
+
+    # Electric bikes are convenient for riding effort
+    if '전기' in cat or '스마트모빌리티' in cat:
+        score += 1.5
+
+    # Folding is convenient for storage
+    if '폴딩' in cat or '접이식' in desc or 'folding' in desc:
+        score += 1
+
+    # Utility features
+    if '바구니' in desc or '짐받이' in desc:
+        score += 0.5
+
+    # Penalty for aggressive geometry (less convenient for casuals)
+    if '로드' in cat or '픽시' in cat:
+        score -= 1.5
+
+    # Cap at 5, floor at 1
+    return max(1, min(5, round(score)))
+
+
+def score_performance(row):
+    cat = str(row.get('카테고리', '')).lower()
+    frame = str(row.get('프레임', '')).lower()
+    gear = (str(row.get('변속기', '')) + str(row.get('뒷 변속기', ''))).lower()
+    desc = str(row.get('기타', '')) + str(row.get('제품특징', ''))
+
+    score = 3  # Base
+
+    # Material
+    if '카본' in frame or 'carbon' in frame:
+        score += 1.5
+    elif '티타늄' in frame:
+        score += 2
+    elif '스틸' in frame and '크로몰리' not in frame:
+        score -= 1
+
+    # Components (Hierarchy check)
+    if 'xtr' in gear or 'dura-ace' in gear:
+        score += 2
+    elif 'xt' in gear or 'ultegra' in gear or '울테그라' in gear:
+        score += 1.5
+    elif '105' in gear or 'slx' in gear:
+        score += 1
+    elif 'deore' in gear or '데오레' in gear or 'tiagra' in gear or '티아그라' in gear:
+        score += 0.5
+    elif 'sora' in gear or '소라' in gear:
+        score += 0.5
+    elif 'tourney' in gear or '투어니' in gear or '생활' in cat:
+        score -= 0.5
+
+    # Electric boost
+    if '전기' in cat or '스마트모빌리티' in cat:
+        if '500w' in desc:
+            score += 1.5
+        else:
+            score += 1
+
+    return max(1, min(5, round(score)))
+
+
+def score_maintenance(row):
+    # Simpler = Better maintenance score (Easy to fix)
+    cat = str(row.get('카테고리', '')).lower()
+    brake_text = (str(row.get('브레이크', '')) + " " + str(row.get('뒷 브레이크', ''))).lower()
+    desc = str(row.get('기타', '')).lower()
+
+    score = 3  # Base
+
+    # Electric components are harder to maintain
+    if '전기' in cat or '스마트모빌리티' in cat:
+        score -= 1.5
+
+    # Hydraulic brakes require bleeding (harder than cable)
+    if '유압' in brake_text or 'hydraulic' in brake_text:
+        score -= 0.5
+
+    # Full suspension involves more pivots/shocks
+    if 'fs' in str(row.get('제품명', '')) or '풀 서스펜션' in desc:
+        score -= 0.5
+
+    # Pixie/Single gear is very simple
+    if '픽시' in cat:
+        score += 2
+
+    # V-brakes are easy to adjust
+    if 'v-브레이크' in brake_text or 'v-brake' in brake_text:
+        score += 1
+
+    return max(1, min(5, round(score)))
+
+
+def score_value(row):
+    # Heuristic: Performance per Price
+    # Avoid division by zero
+    price = row['판매가_clean']
+    if price == 0:
+        return 3  # Neutral if price unknown
+
+    perf = row['성능']
+    brake = row['제동력']
+
+    # Simple Ratio: (Performance + Brake) / Price
+    # We need to normalize this.
+    # Low price (e.g. 200k) with score 3+3=6 -> ratio high
+    # High price (e.g. 2m) with score 5+5=10 -> ratio low
+
+    # Let's categorize price brackets
+    if price < 300000:
+        price_score = 5
+    elif price < 600000:
+        price_score = 4
+    elif price < 1200000:
+        price_score = 3
+    elif price < 2500000:
+        price_score = 2
+    else:
+        price_score = 1
+
+    # Compare specs to price bracket
+    # If spec is high for the bracket, bonus.
+    spec_avg = (perf + brake) / 2
+
+    # Adjust matrix
+    val_score = 3
+    if price_score >= 4 and spec_avg >= 3:
+        val_score = 5  # Cheap but good
+    elif price_score >= 4 and spec_avg < 2:
+        val_score = 3  # Cheap and bad
+    elif price_score == 3 and spec_avg >= 4:
+        val_score = 5  # Mid price, great specs
+    elif price_score == 3 and spec_avg == 3:
+        val_score = 4
+    elif price_score <= 2 and spec_avg >= 4.5:
+        val_score = 4  # Expensive but top tier
+    elif price_score <= 2 and spec_avg < 4:
+        val_score = 2  # Expensive and mid specs
+
+    return val_score
 
 # ================================================
 # 4. 부 프로그램
@@ -426,6 +594,14 @@ class DtaProcess(object):
                 df[col] = df[col].fillna('')  # NaN을 빈 문자열로
             df['features_text'] = df[spec_cols].apply(lambda x: ' '.join(x.astype(str)), axis=1)
 
+            df['제동력'] = df.apply(score_braking, axis=1)
+            df['편의성'] = df.apply(score_convenience, axis=1)
+            df['성능'] = df.apply(score_performance, axis=1)
+            df['유지보수'] = df.apply(score_maintenance, axis=1)
+            df['가성비'] = df.apply(score_value, axis=1)
+
+            log.info(df[['제동력', '편의성', '성능', '유지보수', '가성비']].describe().to_markdown())
+
             tfidf = TfidfVectorizer(min_df=2, max_df=0.95, stop_words='english')
             text_matrix = tfidf.fit_transform(df['features_text'])
 
@@ -438,13 +614,6 @@ class DtaProcess(object):
             cosine_sim = cosine_similarity(combined_features)
             # print("... 코사인 유사도 계산 완료 (Shape: {})".format(cosine_sim.shape))
 
-            # (제품명 <-> 인덱스) 매핑 생성
-            indices_map = pd.Series(df.index, index=df['제품명']).drop_duplicates()
-
-            # --- 5단계: 추천 함수 정의 ---
-            # print("\n--- (5/6) 추천 함수 정의 ---")
-
-            # 5-1. '용도' -> '카테고리' 매핑
             purpose_map_fixed = {
                 "출퇴근": "하이브리드|폴딩/미니벨로|전기자전거|씨티",
                 "운동": "로드|컴포트 산악자전거|하이브리드",
@@ -452,13 +621,7 @@ class DtaProcess(object):
                 "산악": "컴포트 산악자전거|MTB",
                 "로드": "로드"
             }
-            # print("... '용도' 맵핑 정의 완료")
 
-            # pandas 설정으로 모든 컬럼이 보이도록 보장합니다.
-            # pd.set_option('display.max_columns', None)
-            # pd.set_option('display.width', 1000)  # 터미널 출력 너비 설정
-
-            print("\n--- [Test 1 & 2]: '출퇴근' 용도, 30~50만원, 키 170cm (1/2번 화면) ---")
             test_budget_min_1 = 300000
             test_budget_max_1 = 500000
             test_height_1 = 170
@@ -466,155 +629,6 @@ class DtaProcess(object):
 
             # 2번 화면에 보여줄 4개 자전거
             recommendations_1 = recommend_by_query(test_budget_min_1, test_budget_max_1, test_height_1, test_purpose_1, top_n=4, df=df, cosine_sim=cosine_sim, purpose_map=purpose_map_fixed)
-
-            selected_bikes_from_screen2 = []
-
-            if isinstance(recommendations_1, pd.DataFrame):
-                print(f"--- [2번 화면 결과] (상위 {len(recommendations_1)}개) ---")
-
-                display_cols = ['제품명', '카테고리', '판매가', 'AI_Rank_Score']
-                remaining_cols = [col for col in recommendations_1.columns if col not in display_cols]
-
-                # display(recommendations_1[display_cols + remaining_cols])
-                # 테스트를 위해 상위 2개 자전거 이름을 리스트로 저장
-                selected_bikes_from_screen2 = recommendations_1['제품명'].head(2).tolist()
-            else:
-                print(f"--- [2번 화면 결과 없음] ---")
-                print(recommendations_1)
-
-            # --- 3번 화면 테스트 ---
-            if selected_bikes_from_screen2:
-                print(f"\n--- [Test 3]: 사용자가 '{', '.join(selected_bikes_from_screen2)}' 2개 선택 (3번 화면) ---")
-
-                recommendations_2 = get_recommendations_from_selection(selected_bikes_from_screen2, top_n=4)
-
-                if isinstance(recommendations_2, pd.DataFrame):
-                    print(f"--- [3번 화면 AI 추천 결과] (상위 {len(recommendations_2)}개) ---")
-
-                    display_cols_3 = ['제품명', '카테고리', '판매가', '유사도(%)']
-                    remaining_cols = [col for col in recommendations_1.columns if col not in display_cols]
-
-                    # display(recommendations_2[display_cols_3 + remaining_cols])
-                else:
-                    print(f"--- [3번 화면 추천 결과 없음] ---")
-                    # display(recommendations_2)
-            else:
-                print("\n--- [Test 3]: 2번 화면 결과가 없어 3번 화면 테스트를 건너뜁니다. ---")
-
-
-
-
-
-
-
-
-
-
-
-
-            #
-            #
-            #
-            # log.info(f"데이터 로드 및 표준화 완료. 최종 데이터 형태: {df_std.shape}")
-            # log.info("\n--- 표준화된 컬럼 목록 (샘플) ---")
-            # log.info(df_std.columns.tolist())
-            #
-            # df_processed = preprocess_features(df_std)
-            # log.info("Feature Engineering 완료.")
-            #
-            # # 한글 컬럼명을 표준 영문명으로 변경함
-            # # 벡터화할 컬럼 정의
-            # numeric_features = ['price', 'weight', 'height', 'motor_power', 'battery_capacity']
-            # categorical_features = ['category', 'gears', 'brake_type', 'frame_material']
-            # text_features = 'features'
-            #
-            # # 전처리 과정에서 생성된 컬럼들이 df_processed에 있는지 확인하고 없는 경우를 대비
-            # existing_numeric = [col for col in numeric_features if col in df_processed.columns]
-            # existing_categorical = [col for col in categorical_features if col in df_processed.columns]
-            # if text_features not in df_processed.columns:
-            #     text_features = None  # features 컬럼이 없으면 텍스트 처리를 건너뜀
-            #
-            # log.info(f"사용될 숫자형 특징: {existing_numeric}")
-            # log.info(f"사용될 범주형 특징: {existing_categorical}")
-            # if text_features:
-            #     log.info(f"사용될 텍스트 특징: {text_features}")
-            #
-            # # 결측치 처리
-            # for col in existing_numeric:
-            #     df_processed[col].fillna(df_processed[col].median(), inplace=True)
-            # for col in existing_categorical:
-            #     df_processed[col].fillna('Unknown', inplace=True)
-            # if text_features:
-            #     df_processed[text_features].fillna('', inplace=True)
-            #
-            # # 파이프라인 구성
-            # numeric_transformer = StandardScaler()
-            # categorical_transformer = OneHotEncoder(handle_unknown='ignore')
-            # text_transformer = TfidfVectorizer(max_features=500)
-            #
-            # # ColumnTransformer의 transformer 리스트를 동적으로 구성
-            # transformers = []
-            # if existing_numeric:
-            #     transformers.append(('num', numeric_transformer, existing_numeric))
-            # if existing_categorical:
-            #     transformers.append(('cat', categorical_transformer, existing_categorical))
-            # if text_features:
-            #     transformers.append(('tfidf', text_transformer, text_features))
-            #
-            # if not transformers:
-            #     log.info("벡터화할 특징이 하나도 없습니다. 컬럼명을 확인해주세요.")
-            # else:
-            #     preprocessor = ColumnTransformer(
-            #         transformers=transformers,
-            #         remainder='drop')  # 위에서 정의하지 않은 컬럼은 버림
-            #
-            #     # 전체 모델링 파이프라인: 전처리 -> SVD
-            #     svd_pipeline = Pipeline(steps=[
-            #         ('preprocessor', preprocessor),
-            #         ('svd', TruncatedSVD(n_components=30, random_state=42))])
-            #
-            #     # 데이터에 파이프라인 적용하여 잠재 벡터 생성
-            #     X_svd = svd_pipeline.fit_transform(df_processed)
-            #
-            #     # 최종 유사도 행렬 계산
-            #     similarity_matrix = cosine_similarity(X_svd)
-            #
-            #     # 모델명으로 인덱스 찾기 위한 딕셔너리 (이제 'model_name' 사용)
-            #     indices = pd.Series(df_processed.index, index=df_processed['model_name']).drop_duplicates()
-            #
-            #     log.info("\n 특징 벡터화 및 SVD 모델링 완료.")
-            #     log.info(f"  - 잠재 벡터 형태: {X_svd.shape}")
-            #     log.info(f"  - 최종 유사도 행렬 형태: {similarity_matrix.shape}")
-            #
-            # # 함수 실행
-            # df_processed['spec_score'] = df_processed.apply(calculate_total_spec_score, axis=1)
-            # stat_scores_df = calculate_stat_scores_final(df_processed)
-            # df_processed = pd.concat([df_processed, stat_scores_df], axis=1)
-            # # df_processed.to_excel('df_processed.xlsx')
-            #
-            # log.info("최종 5각형 스탯 점수 계산 완료 ('유지보수 편의성' 지표 적용).")
-            #
-            # # np.max(df_processed['price'])
-            # # np.min(df_processed['price'])
-            #
-            # user_usage = '출퇴근'
-            # user_budget_min = 80000
-            # user_budget_max = 500000
-            # user_height = 180
-            #
-            # recommendations = recommend_alton_bikes(
-            #     usage=user_usage,
-            #     budget_min=user_budget_min,
-            #     budget_max=user_budget_max,
-            #     height=user_height,
-            #     ranking_method='spec_score',
-            #     top_n=4,
-            #     df_processed=df_processed,
-            #     indices=indices
-            # )
-            #
-            # rcmdData = pd.merge(recommendations, df_std, on=['model_name'], how='left')
-            # log.info(f"rcmdData : {rcmdData}")
 
         except Exception as e:
             log.error(f"Exception : {str(e)}")
@@ -629,7 +643,7 @@ class DtaProcess(object):
 # ================================================
 if __name__ == '__main__':
 
-    log.info('[START] {}'.format("main"))
+    print('[START] {}'.format("main"))
 
     try:
         # 부 프로그램 호출
@@ -637,8 +651,8 @@ if __name__ == '__main__':
         subDtaProcess.exec()
 
     except Exception as e:
-        log.info(traceback.format_exc())
+        print(traceback.format_exc())
         sys.exit(1)
 
     finally:
-        log.info('[END] {}'.format("main"))
+        print('[END] {}'.format("main"))

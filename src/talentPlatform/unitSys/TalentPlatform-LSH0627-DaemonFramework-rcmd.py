@@ -730,7 +730,7 @@ class DtaProcess(object):
 # ================================================
 if __name__ == '__main__':
 
-    log.info('[START] {}'.format("main"))
+    print('[START] {}'.format("main"))
 
     try:
         # 부 프로그램 호출
@@ -738,8 +738,8 @@ if __name__ == '__main__':
         subDtaProcess.exec()
 
     except Exception as e:
-        log.info(traceback.format_exc())
+        print(traceback.format_exc())
         sys.exit(1)
 
     finally:
-        log.info('[END] {}'.format("main"))
+        print('[END] {}'.format("main"))

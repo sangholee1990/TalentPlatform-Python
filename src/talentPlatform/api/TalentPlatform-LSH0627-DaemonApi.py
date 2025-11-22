@@ -133,6 +133,11 @@ from sklearn.pipeline import Pipeline
 from sklearn.decomposition import TruncatedSVD
 from sklearn.metrics.pairwise import cosine_similarity
 import warnings
+from sklearn.preprocessing import MinMaxScaler
+from sklearn.feature_extraction.text import TfidfVectorizer
+from sklearn.metrics.pairwise import cosine_similarity
+from scipy.sparse import hstack
+import scipy.sparse
 warnings.filterwarnings('ignore')
 
 # ============================================
@@ -594,6 +599,309 @@ def recommend_alton_bikes(usage=None, budget_min=None, budget_max=None, height=N
 
     return recommend_df.reindex(columns=display_cols)
 
+# 2-1. '판매가' 및 '무게' 전처리 함수 정의
+def clean_price(price_str):
+    if isinstance(price_str, str):
+        # [수정] '원', ',', ' ' 및 기타 문자를 모두 제거하고 숫자만
+        digits_only = re.sub(r'\D', '', price_str)
+        if digits_only:
+            try:
+                return float(digits_only)
+            except ValueError:
+                return np.nan
+    return np.nan
+
+def clean_weight(weight_str):
+    if isinstance(weight_str, str):
+        # 'kg', 'Kg', 'KG', ' ', '약' 등의 문자 제거
+        # 숫자와 소수점(.)만 추출 (혹은 첫 번째 숫자 그룹만 추출)
+        match = re.search(r'\d+(\.\d+)?', weight_str)
+        if match:
+            try:
+                # 간혹 '11.5. ' 처럼 .이 여러개 있는 경우 방지
+                # 숫자와 .으로 이루어진 첫번째 유효한 숫자열을 찾도록 좀 더 정교하게
+                # 첫 번째 유효한 부동소수점 숫자를 찾음.
+                match = re.search(r'\d+(\.\d+)?', weight_str)
+                if match:
+                    return float(match.group(0))
+                else:
+                    return np.nan
+                match = re.search(r'\d+(\.\d+)?', weight_str)
+            except ValueError:
+                return np.nan
+    return np.nan
+
+# 2-4. '권장신장(최적설계)' 파싱 및 Imputation (결측치 채우기)
+def parse_height(height_str):
+    if isinstance(height_str, str):
+        match = re.search(r'\D*(\d+).*', height_str) # 문자열의 첫 번째 숫자 추출
+        if match:
+            try:
+                return float(match.group(1))
+            except ValueError:
+                return np.nan
+    return np.nan
+
+# 5-2. [1/2번 화면]
+def recommend_by_query(user_budget_min, user_budget_max, user_height, user_purpose, top_n, df, cosine_sim, purpose_map):
+
+    # 1. 필터링
+    if user_purpose not in purpose_map:
+        return f"'{user_purpose}'는 유효한 용도가 아닙니다. (선택: {list(purpose_map.keys())})"
+
+    allowed_categories = purpose_map[user_purpose].split('|')
+    df_filtered = df[df['카테고리'].isin(allowed_categories)].copy()
+
+    if df_filtered.empty: return f"'{user_purpose}' 용도에 맞는 카테고리의 자전거가 없습니다."
+
+    df_filtered = df_filtered[
+        (df_filtered['판매가_clean'] >= user_budget_min) &
+        (df_filtered['판매가_clean'] <= user_budget_max)
+    ]
+
+    if df_filtered.empty: return f"'{user_purpose}' 용도 + {user_budget_min}원 ~ {user_budget_max}원 예산에 맞는 자전거가 없습니다."
+
+    height_range = 15.0 # (최소신장 ~ 최소신장+15) 범위로 가정
+    df_filtered = df_filtered[
+        (df_filtered['신장_clean'] <= user_height) &
+        (user_height <= (df_filtered['신장_clean'] + height_range))
+    ]
+
+    if df_filtered.empty: return f"'{user_purpose}' 용도 + 예산 + 키 {user_height}cm에 맞는 자전거가 없습니다."
+
+    # 2. 랭킹 (AI-Based Ranking)
+    candidate_indices = df_filtered.index.tolist()
+
+    # if len(candidate_indices) == 1:
+    #     return df_filtered
+
+    sim_subset = cosine_sim[np.ix_(candidate_indices, candidate_indices)]
+    avg_similarity_to_group = sim_subset.mean(axis=1)
+    rank_scores = pd.Series(avg_similarity_to_group, index=candidate_indices)
+    df_filtered['AI_Rank_Score'] = rank_scores
+
+    # 3. 결과 반환
+    df_ranked = df_filtered.sort_values(by='AI_Rank_Score', ascending=False)
+    return df_ranked.head(top_n)
+
+# 5-3. [3번 화면]
+def get_recommendations_from_selection(selected_titles_list, top_n, df, indices, cosine_sim):
+    """
+    2번 화면에서 선택한 자전거 리스트(1~4개)를 기반으로
+    '평균 유사도'가 가장 높은 새로운 자전거 4개를 추천합니다.
+    """
+
+    # 1. 선택한 자전거들의 인덱스 찾기
+    try:
+        # 리스트에 없는 자전거가 포함될 경우를 대비
+        valid_titles = [title for title in selected_titles_list if title in indices]
+        if not valid_titles:
+            return "선택한 자전거를 찾을 수 없습니다."
+
+        group_indices = indices[valid_titles].tolist()
+        # 1개만 선택되어도 list로 만듦
+        if isinstance(group_indices, (int, np.integer)):
+            group_indices = [group_indices]
+    except Exception as e:
+        return f"인덱스 검색 오류: {e}"
+
+    # 2. 이 그룹의 '평균 유사도' 계산
+    # (예: 2개 선택시) 2개 자전거의 유사도 벡터를 가져와서 평균을 냄
+    group_sim_vectors = cosine_sim[group_indices, :]
+    avg_group_sim = group_sim_vectors.mean(axis=0)
+
+    # 3. 평균 유사도 점수를 (인덱스, 점수) 리스트로 변환
+    sim_scores = list(enumerate(avg_group_sim))
+
+    # 4. 점수 기준으로 내림차순 정렬
+    sorted_scores = sorted(sim_scores, key=lambda x: x[1], reverse=True)
+
+    # 5. 추천 리스트 생성 (자기 자신 제외)
+    recommended_indices = []
+    for idx, score in sorted_scores:
+        if idx not in group_indices: # 이미 선택한 자전거는 제외
+            recommended_indices.append(idx)
+
+        if len(recommended_indices) == top_n:
+            break # top_n 개수만큼 채우면 중단
+
+    # 6. 결과 반환 (모든 열 포함)
+    result_df = df.iloc[recommended_indices].copy()
+
+    # 결과 DataFrame에 '유사도 점수(%)' 추가
+    final_scores = [avg_group_sim[i] * 100 for i in recommended_indices]
+    result_df['유사도(%)'] = [round(s, 2) for s in final_scores]
+
+    return result_df
+
+
+def score_braking(row):
+    # Combine brake related columns text for search
+    brake_text = (
+                str(row.get('브레이크', '')) + " " + str(row.get('뒷 브레이크', '')) + " " + str(row.get('앞 브레이크', ''))).lower()
+
+    if '유압' in brake_text or 'hydraulic' in brake_text or 'mt200' in brake_text:
+        return 5
+    elif '기계식' in brake_text or 'mechanical' in brake_text or 'disc' in brake_text or '디스크' in brake_text:
+        return 4
+    elif '듀얼피봇' in brake_text or 'dual pivot' in brake_text or 'v-brake' in brake_text or 'v-브레이크' in brake_text or '브이' in brake_text:
+        return 3
+    elif '캘리퍼' in brake_text or 'caliper' in brake_text:
+        # Single pivot assumed if not specified as dual, but usually acceptable for road
+        if '싱글' in brake_text: return 2
+        return 3
+    elif '밴드' in brake_text or 'band' in brake_text or '드럼' in brake_text:
+        return 2
+    else:
+        # Default for unspecified or coaster
+        return 2
+
+
+def score_convenience(row):
+    cat = str(row.get('카테고리', '')).lower()
+    desc = str(row.get('기타', '')) + str(row.get('제품특징', ''))
+
+    score = 3  # Base score
+
+    # Electric bikes are convenient for riding effort
+    if '전기' in cat or '스마트모빌리티' in cat:
+        score += 1.5
+
+    # Folding is convenient for storage
+    if '폴딩' in cat or '접이식' in desc or 'folding' in desc:
+        score += 1
+
+    # Utility features
+    if '바구니' in desc or '짐받이' in desc:
+        score += 0.5
+
+    # Penalty for aggressive geometry (less convenient for casuals)
+    if '로드' in cat or '픽시' in cat:
+        score -= 1.5
+
+    # Cap at 5, floor at 1
+    return max(1, min(5, round(score)))
+
+
+def score_performance(row):
+    cat = str(row.get('카테고리', '')).lower()
+    frame = str(row.get('프레임', '')).lower()
+    gear = (str(row.get('변속기', '')) + str(row.get('뒷 변속기', ''))).lower()
+    desc = str(row.get('기타', '')) + str(row.get('제품특징', ''))
+
+    score = 3  # Base
+
+    # Material
+    if '카본' in frame or 'carbon' in frame:
+        score += 1.5
+    elif '티타늄' in frame:
+        score += 2
+    elif '스틸' in frame and '크로몰리' not in frame:
+        score -= 1
+
+    # Components (Hierarchy check)
+    if 'xtr' in gear or 'dura-ace' in gear:
+        score += 2
+    elif 'xt' in gear or 'ultegra' in gear or '울테그라' in gear:
+        score += 1.5
+    elif '105' in gear or 'slx' in gear:
+        score += 1
+    elif 'deore' in gear or '데오레' in gear or 'tiagra' in gear or '티아그라' in gear:
+        score += 0.5
+    elif 'sora' in gear or '소라' in gear:
+        score += 0.5
+    elif 'tourney' in gear or '투어니' in gear or '생활' in cat:
+        score -= 0.5
+
+    # Electric boost
+    if '전기' in cat or '스마트모빌리티' in cat:
+        if '500w' in desc:
+            score += 1.5
+        else:
+            score += 1
+
+    return max(1, min(5, round(score)))
+
+
+def score_maintenance(row):
+    # Simpler = Better maintenance score (Easy to fix)
+    cat = str(row.get('카테고리', '')).lower()
+    brake_text = (str(row.get('브레이크', '')) + " " + str(row.get('뒷 브레이크', ''))).lower()
+    desc = str(row.get('기타', '')).lower()
+
+    score = 3  # Base
+
+    # Electric components are harder to maintain
+    if '전기' in cat or '스마트모빌리티' in cat:
+        score -= 1.5
+
+    # Hydraulic brakes require bleeding (harder than cable)
+    if '유압' in brake_text or 'hydraulic' in brake_text:
+        score -= 0.5
+
+    # Full suspension involves more pivots/shocks
+    if 'fs' in str(row.get('제품명', '')) or '풀 서스펜션' in desc:
+        score -= 0.5
+
+    # Pixie/Single gear is very simple
+    if '픽시' in cat:
+        score += 2
+
+    # V-brakes are easy to adjust
+    if 'v-브레이크' in brake_text or 'v-brake' in brake_text:
+        score += 1
+
+    return max(1, min(5, round(score)))
+
+
+def score_value(row):
+    # Heuristic: Performance per Price
+    # Avoid division by zero
+    price = row['판매가_clean']
+    if price == 0:
+        return 3  # Neutral if price unknown
+
+    perf = row['성능']
+    brake = row['제동력']
+
+    # Simple Ratio: (Performance + Brake) / Price
+    # We need to normalize this.
+    # Low price (e.g. 200k) with score 3+3=6 -> ratio high
+    # High price (e.g. 2m) with score 5+5=10 -> ratio low
+
+    # Let's categorize price brackets
+    if price < 300000:
+        price_score = 5
+    elif price < 600000:
+        price_score = 4
+    elif price < 1200000:
+        price_score = 3
+    elif price < 2500000:
+        price_score = 2
+    else:
+        price_score = 1
+
+    # Compare specs to price bracket
+    # If spec is high for the bracket, bonus.
+    spec_avg = (perf + brake) / 2
+
+    # Adjust matrix
+    val_score = 3
+    if price_score >= 4 and spec_avg >= 3:
+        val_score = 5  # Cheap but good
+    elif price_score >= 4 and spec_avg < 2:
+        val_score = 3  # Cheap and bad
+    elif price_score == 3 and spec_avg >= 4:
+        val_score = 5  # Mid price, great specs
+    elif price_score == 3 and spec_avg == 3:
+        val_score = 4
+    elif price_score <= 2 and spec_avg >= 4.5:
+        val_score = 4  # Expensive but top tier
+    elif price_score <= 2 and spec_avg < 4:
+        val_score = 2  # Expensive and mid specs
+
+    return val_score
+
 # ============================================
 # 주요 설정
 # ============================================
@@ -618,6 +926,7 @@ sysOpt = {
     # 입력 데이터
     'csvFile': '/HDD/DATA/OUTPUT/LSH0627/naverShop_prd.csv',
     'inpFile': '/HDD/DATA/OUTPUT/LSH0627/alton_bikes_web_v2.xlsx',
+    'inpFile2': '/HDD/DATA/OUTPUT/LSH0627/alton_bikes_web_v3.xlsx',
 
     # 설정 정보
     'cfgFile': '/HDD/SYSTEMS/PROG/PYTHON/IDE/resources/config/system.cfg',
@@ -701,12 +1010,12 @@ try:
         exit(1)
 
     df_std = load_and_standardize_columns(inpFile)
-    log.info(f"데이터 로드 및 표준화 완료. 최종 데이터 형태: {df_std.shape}")
-    log.info("\n--- 표준화된 컬럼 목록 (샘플) ---")
+    # log.info(f"데이터 로드 및 표준화 완료. 최종 데이터 형태: {df_std.shape}")
+    # log.info("\n--- 표준화된 컬럼 목록 (샘플) ---")
     log.info(df_std.columns[:10].tolist())
 
     df_processed = preprocess_features(df_std)
-    log.info("Feature Engineering 완료.")
+    # log.info("Feature Engineering 완료.")
 
     # 한글 컬럼명을 표준 영문명으로 변경함
     # 벡터화할 컬럼 정의
@@ -720,8 +1029,8 @@ try:
     if text_features not in df_processed.columns:
         text_features = None  # features 컬럼이 없으면 텍스트 처리를 건너뜀
 
-    log.info(f"사용될 숫자형 특징: {existing_numeric}")
-    log.info(f"사용될 범주형 특징: {existing_categorical}")
+    # log.info(f"사용될 숫자형 특징: {existing_numeric}")
+    # log.info(f"사용될 범주형 특징: {existing_categorical}")
     if text_features:
         log.info(f"사용될 텍스트 특징: {text_features}")
 
@@ -768,15 +1077,95 @@ try:
         # 모델명으로 인덱스 찾기 위한 딕셔너리 (이제 'model_name' 사용)
         indices = pd.Series(df_processed.index, index=df_processed['model_name']).drop_duplicates()
 
-        log.info("\n 특징 벡터화 및 SVD 모델링 완료.")
-        log.info(f"  - 잠재 벡터 형태: {X_svd.shape}")
-        log.info(f"  - 최종 유사도 행렬 형태: {similarity_matrix.shape}")
+        # log.info("\n 특징 벡터화 및 SVD 모델링 완료.")
+        # log.info(f"  - 잠재 벡터 형태: {X_svd.shape}")
+        # log.info(f"  - 최종 유사도 행렬 형태: {similarity_matrix.shape}")
 
     # 함수 실행
     df_processed['spec_score'] = df_processed.apply(calculate_total_spec_score, axis=1)
     stat_scores_df = calculate_stat_scores_final(df_processed)
     df_processed = pd.concat([df_processed, stat_scores_df], axis=1)
     # df_processed.to_excel('df_processed.xlsx')
+
+except Exception as e:
+    log.error(f'입력 파일 실패, inpFile : {inpFile} : {e}')
+    exit(1)
+
+# 입력 파일
+try:
+    inpFile = sysOpt['inpFile2']
+    inpList = sorted(glob.glob(inpFile))
+    if inpList is None or len(inpList) < 1:
+        log.error(f'입력 파일 없음, inpFile : {inpFile}')
+        exit(1)
+
+    df = pd.read_excel(sysOpt['inpFile'])
+
+    # 2-2. 전처리 적용
+    df['판매가_clean'] = df['판매가'].apply(clean_price)
+    df['무게_clean'] = df['무게'].apply(clean_weight)
+
+    # 2-3. '판매가', '무게' 결측치 채우기 (중간값)
+    price_median = df['판매가_clean'].median()
+    df['판매가_clean'] = df['판매가_clean'].fillna(price_median)
+
+    weight_median = df['무게_clean'].median()
+    df['무게_clean'] = df['무게_clean'].fillna(weight_median)
+
+    df['신장_clean'] = df['권장신장(최적설계)'].apply(parse_height)
+    df['신장_clean'] = df['신장_clean'].fillna(df.groupby('카테고리')['신장_clean'].transform('median'))
+    total_height_median = df['신장_clean'].median()
+    if pd.isna(total_height_median):
+        total_height_median = 165.0  # Fallback
+    df['신장_clean'] = df['신장_clean'].fillna(total_height_median)
+    # print("... '신장_clean' 파싱 및 결측치 채우기 완료")
+
+    # --- 3단계: CBF 피처 생성 (숫자 + 텍스트) ---
+    # print("\n--- (3/6) CBF 피처 생성 시작 ---")
+
+    # 3-1. 숫자 피처 스케일링
+    numerical_cols = ['판매가_clean', '무게_clean', '신장_clean']
+    scaler = MinMaxScaler()
+    numerical_scaled = scaler.fit_transform(df[numerical_cols])
+    numerical_sparse = scipy.sparse.csr_matrix(numerical_scaled)
+
+    # 3-2. 텍스트 피처 생성 및 벡터화
+    spec_cols = [
+        '카테고리', '제품명', '뒷 변속기', '림', '변속 레버',
+        '브레이크', '스템', '시트포스트', '안장', '크랭크 세트',
+        '타이어/튜브', '포크', '핸들바', '프리휠'
+    ]
+    for col in spec_cols:
+        df[col] = df[col].fillna('')  # NaN을 빈 문자열로
+    df['features_text'] = df[spec_cols].apply(lambda x: ' '.join(x.astype(str)), axis=1)
+
+    df['제동력'] = df.apply(score_braking, axis=1)
+    df['편의성'] = df.apply(score_convenience, axis=1)
+    df['성능'] = df.apply(score_performance, axis=1)
+    df['유지보수'] = df.apply(score_maintenance, axis=1)
+    df['가성비'] = df.apply(score_value, axis=1)
+
+    log.info(df[['제동력', '편의성', '성능', '유지보수', '가성비']].describe().to_markdown())
+
+    tfidf = TfidfVectorizer(min_df=2, max_df=0.95, stop_words='english')
+    text_matrix = tfidf.fit_transform(df['features_text'])
+
+    # 3-3. 피처 결합
+    combined_features = hstack([numerical_sparse, text_matrix])
+    # print("... 최종 피처 행렬 결합 완료 (Shape: {})".format(combined_features.shape))
+
+    # --- 4단계: 코사인 유사도 계산 (Bike-to-Bike) ---
+    # print("\n--- (4/6) 코사인 유사도 계산 시작 ---")
+    cosine_sim = cosine_similarity(combined_features)
+    # print("... 코사인 유사도 계산 완료 (Shape: {})".format(cosine_sim.shape))
+
+    purpose_map_fixed = {
+        "출퇴근": "하이브리드|폴딩/미니벨로|전기자전거|씨티",
+        "운동": "로드|컴포트 산악자전거|하이브리드",
+        "여행": "하이브리드|전기자전거|컴포트 산악자전거",
+        "산악": "컴포트 산악자전거|MTB",
+        "로드": "로드"
+    }
 
 except Exception as e:
     log.error(f'입력 파일 실패, inpFile : {inpFile} : {e}')
@@ -793,7 +1182,6 @@ async def redirect_to_docs():
 @app.post(f"/api/sel-brandModel")
 async def selBrandModel(
     year: str = Form(..., description='연식 (최소-최대)', examples=['2015-2025']),
-    status: str = Form(..., description='자전거 상태 (상/중/하)', examples=['중'], enum=['상', '중', '하']),
     limit: int = Form(..., description="1쪽당 개수", examples=[10]),
     page: int = Form(..., description="현재 쪽", examples=[1]),
 ):
@@ -802,7 +1190,6 @@ async def selBrandModel(
         알톤 바이크메트릭스AI - AI 시세 조회하기 - 브랜드/모델명 목록 조회\n
     테스트\n
         year: 연식 (최소-최대)\n
-        status: 자전거 상태 (상/중/하)\n
         limit: 1쪽당 개수\n
         page: 현재 쪽\n
     """
@@ -811,10 +1198,6 @@ async def selBrandModel(
         minYear, maxYear  = year.split('-')
         if year is None or len(year) < 1 or minYear is None or maxYear is None:
             return resResponse("fail", 400, f"연식 없음, year : {year}", None)
-
-        # status = request.status
-        if status is None or len(status) < 1:
-            return resResponse("fail", 400, f"자전거 상태 없음, status : {status}")
 
         # page = request.page
         if page is None:
@@ -845,7 +1228,6 @@ async def selBrandModel(
 @app.post(f"/api/sel-prd")
 async def selPrd(
     year: str = Form(..., description='연식 (최소-최대)', examples=['2015-2025']),
-    status: str = Form(..., description='자전거 상태 (상/중/하)', examples=['중'], enum=['상', '중', '하']),
     brandModel: str = Form(..., description='자전거 모델', examples=['2020 알톤 스로틀 FS 전기자전거 앞뒤 서스펜션 20인치 미니벨로']),
 ):
     """
@@ -853,7 +1235,6 @@ async def selPrd(
         알톤 바이크메트릭스AI - AI 시세 조회하기 - 브랜드/모델명의 AI시세 결과 조회\n
     테스트\n
         year: 연식 (최소-최대)\n
-        status: 자전거 상태 (상/중/하)\n
         brandModel: 자전거 모델\n
     """
     try:
@@ -861,10 +1242,6 @@ async def selPrd(
         minYear, maxYear  = year.split('-')
         if year is None or len(year) < 1 or minYear is None or maxYear is None:
             return resResponse("fail", 400, f"연식 없음, year : {year}", None)
-
-        # status = request.status
-        if status is None or len(status) < 1:
-            return resResponse("fail", 400, f"자전거 상태 없음, status : {status}")
 
         # brandModel = request.brandModel
         if brandModel is None or len(brandModel) < 1:
@@ -933,7 +1310,7 @@ async def selChatModelCont(
         raise HTTPException(status_code=400, detail=str(e))
 
 
-# @app.post(f"/api/sel-chatModelCont", dependencies=[Depends(chkApiKey)])
+# @app.post(f"/api/sel-rcmd", dependencies=[Depends(chkApiKey)])
 @app.post(f"/api/sel-rcmd")
 async def selRcmd(
     usage: str = Form(..., description='용도', examples=['출퇴근'], enum=['출퇴근', '운동', '여행', '산악', '로드']),
@@ -971,6 +1348,56 @@ async def selRcmd(
         )
 
         selData = pd.merge(recommendations, df_std, on=['model_name'], how='left')
+
+        if len(selData) < 1:
+            return resResponse("fail", 400, f"데이터 없음", None)
+
+        jsonData = selData.to_json(orient='records')
+        result = json.loads(jsonData)
+        # log.info(f"result : {result}")
+
+        return resResponse("succ", 200, "처리 완료", len(result), result)
+
+    except Exception as e:
+        log.error(f'Exception : {e}')
+        raise HTTPException(status_code=400, detail=str(e))
+
+# @app.post(f"/api/sel-rcmd2", dependencies=[Depends(chkApiKey)])
+@app.post(f"/api/sel-rcmd2")
+async def selRcmd(
+    usage: str = Form(..., description='용도', examples=['출퇴근'], enum=['출퇴근', '운동', '여행', '산악', '로드']),
+    budget: str = Form(..., description='예산 (최소-최대)', examples=['80000-500000']),
+    height: str = Form(..., description='키', examples=['170']),
+):
+    """
+    기능\n
+        알톤 바이크메트릭스AI - AI 맞춤 자전거 찾기 개선\n
+    테스트\n
+        usage: 용도 (출퇴근, 운동, 여행, 산악, 로드)\n
+        budget: 예산 (최소-최대)\n
+        height: 키\n
+    """
+    try:
+        minBudget, maxBudget  = budget.split('-')
+        if budget is None or len(budget) < 1 or minBudget is None or maxBudget is None:
+            return resResponse("fail", 400, f"예산 없음, budget : {budget}", None)
+
+        if usage is None or len(usage) < 1:
+            return resResponse("fail", 400, f"용도 없음, usage : {usage}")
+
+        if height is None or len(height) < 1:
+            return resResponse("fail", 400, f"키 없음, height : {height}")
+
+        selData = recommend_by_query(
+            float(minBudget),
+            float(maxBudget),
+            float(height),
+            usage,
+            top_n=4,
+            df=df,
+            cosine_sim=cosine_sim,
+            purpose_map=purpose_map_fixed
+        )
 
         if len(selData) < 1:
             return resResponse("fail", 400, f"데이터 없음", None)
