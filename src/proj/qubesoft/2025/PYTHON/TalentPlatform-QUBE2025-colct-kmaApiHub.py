@@ -234,8 +234,8 @@ def colctObs(modelInfo, dtDateInfo):
         # reqUrl = dtDateInfo.strftime(f"{modelInfo['request']['url']}").format(tmfc=dtDateInfo.strftime('%Y%m%d%H%M'), tmfc2=(dtDateInfo + parseDateOffset(modelInfo['request']['invDate']) - parseDateOffset('1s')).strftime('%Y%m%d%H%M'), authKey=modelInfo['request']['authKey'])
         reqUrl = dtDateInfo.strftime(f"{modelInfo['request']['url']}").format(tmfc=dtDateInfo.strftime('%Y%m%d%H%M'), tmfc2=(dtDateInfo + parseDateOffset(modelInfo['request']['invDate']) - parseDateOffset('1s')).strftime('%Y%m%d%H%M'), authKey=extAuthKey())
 
-        # res = requests.get(reqUrl)
-        # if not (res.status_code == 200): return
+        res = requests.get(reqUrl)
+        if not (res.status_code == 200): return
 
         os.makedirs(os.path.dirname(tmpFileInfo), exist_ok=True)
         os.makedirs(os.path.dirname(updFileInfo), exist_ok=True)
