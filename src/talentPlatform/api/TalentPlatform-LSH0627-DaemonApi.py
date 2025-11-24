@@ -991,12 +991,23 @@ try:
     meanDataByTitle = csvData.groupby('title')[prdColList].mean()
     diffMl = (meanDataByTitle['mlPrd'] - meanDataByTitle['lprice']).abs()
     diffDl = (meanDataByTitle['dlPrd'] - meanDataByTitle['lprice']).abs()
-    meanDataByTitle['maxPrdDiff'] = np.maximum(diffMl, diffDl)
+    # meanDataByTitle['maxPrdDiff'] = np.maximum(diffMl, diffDl)
+    meanDataByTitle['minPrdDiff'] = np.minimum(diffMl, diffDl)
+
+    minDataByTitle = csvData.groupby('title')[prdColList].min()
+    minDataByTitle['minPrd'] = np.minimum( minDataByTitle['mlPrd'], minDataByTitle['dlPrd'])
+
 
     # tmpData = csvData.copy()
-    tmpData = pd.merge(csvData.copy(), meanDataByTitle, on='title', how='left')
-    tmpDataL1 = tmpData.sort_values(by=['maxPrdDiff', 'title'], ascending=[False, False])
-    csvDataL1 = tmpDataL1.drop_duplicates(subset=['title'], keep='first')
+    # tmpData = pd.merge(csvData.copy(), meanDataByTitle, on='title', how='left')
+    # tmpDataL1 = tmpData.sort_values(by=['maxPrdDiff', 'title'], ascending=[False, False])
+    # csvDataL1 = tmpDataL1.drop_duplicates(subset=['title'], keep='first')
+
+    tmpData = pd.merge(csvData.copy(), meanDataByTitle[['minPrdDiff']], on='title', how='left')
+    tmpDataL1 = pd.merge(tmpData, minDataByTitle[['minPrd']], on='title', how='left')
+    tmpDataL2 = tmpDataL1.sort_values(by=['minPrdDiff', 'title'], ascending=[True, True])
+    tmpDataL3 = tmpDataL2[tmpDataL2['minPrd'] > 0].reset_index(drop=True)
+    csvDataL1 = tmpDataL3.drop_duplicates(subset=['title'], keep='first')
 except Exception as e:
     log.error(f'설정 파일 실패, csvFile : {csvFile} : {e}')
     exit(1)
@@ -1250,7 +1261,7 @@ async def selPrd(
         selData = csvData.loc[
             (csvData['yearByTitle'] >= float(minYear)) & (csvData['yearByTitle'] <= float(maxYear))
             & (csvData['title'] == brandModel)
-            ]
+            ].sort_values(by='dtDate', ascending=False)
 
         if len(selData) < 1:
             return resResponse("fail", 400, f"데이터 없음", None)
