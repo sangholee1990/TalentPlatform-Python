@@ -138,6 +138,7 @@ from sklearn.feature_extraction.text import TfidfVectorizer
 from sklearn.metrics.pairwise import cosine_similarity
 from scipy.sparse import hstack
 import scipy.sparse
+from playwright.async_api import async_playwright
 warnings.filterwarnings('ignore')
 
 # ============================================
@@ -1014,96 +1015,6 @@ except Exception as e:
 
 # 입력 파일
 try:
-    inpFile = sysOpt['inpFile']
-    inpList = sorted(glob.glob(inpFile))
-    if inpList is None or len(inpList) < 1:
-        log.error(f'입력 파일 없음, inpFile : {inpFile}')
-        exit(1)
-
-    df_std = load_and_standardize_columns(inpFile)
-    # log.info(f"데이터 로드 및 표준화 완료. 최종 데이터 형태: {df_std.shape}")
-    # log.info("\n--- 표준화된 컬럼 목록 (샘플) ---")
-    log.info(df_std.columns[:10].tolist())
-
-    df_processed = preprocess_features(df_std)
-    # log.info("Feature Engineering 완료.")
-
-    # 한글 컬럼명을 표준 영문명으로 변경함
-    # 벡터화할 컬럼 정의
-    numeric_features = ['price', 'weight', 'height', 'motor_power', 'battery_capacity']
-    categorical_features = ['category', 'gears', 'brake_type', 'frame_material']
-    text_features = 'features'
-
-    # 전처리 과정에서 생성된 컬럼들이 df_processed에 있는지 확인하고 없는 경우를 대비
-    existing_numeric = [col for col in numeric_features if col in df_processed.columns]
-    existing_categorical = [col for col in categorical_features if col in df_processed.columns]
-    if text_features not in df_processed.columns:
-        text_features = None  # features 컬럼이 없으면 텍스트 처리를 건너뜀
-
-    # log.info(f"사용될 숫자형 특징: {existing_numeric}")
-    # log.info(f"사용될 범주형 특징: {existing_categorical}")
-    if text_features:
-        log.info(f"사용될 텍스트 특징: {text_features}")
-
-    # 결측치 처리
-    for col in existing_numeric:
-        df_processed[col].fillna(df_processed[col].median(), inplace=True)
-    for col in existing_categorical:
-        df_processed[col].fillna('Unknown', inplace=True)
-    if text_features:
-        df_processed[text_features].fillna('', inplace=True)
-
-    # 파이프라인 구성
-    numeric_transformer = StandardScaler()
-    categorical_transformer = OneHotEncoder(handle_unknown='ignore')
-    text_transformer = TfidfVectorizer(max_features=500)
-
-    # ColumnTransformer의 transformer 리스트를 동적으로 구성
-    transformers = []
-    if existing_numeric:
-        transformers.append(('num', numeric_transformer, existing_numeric))
-    if existing_categorical:
-        transformers.append(('cat', categorical_transformer, existing_categorical))
-    if text_features:
-        transformers.append(('tfidf', text_transformer, text_features))
-
-    if not transformers:
-        log.info("벡터화할 특징이 하나도 없습니다. 컬럼명을 확인해주세요.")
-    else:
-        preprocessor = ColumnTransformer(
-            transformers=transformers,
-            remainder='drop')  # 위에서 정의하지 않은 컬럼은 버림
-
-        # 전체 모델링 파이프라인: 전처리 -> SVD
-        svd_pipeline = Pipeline(steps=[
-            ('preprocessor', preprocessor),
-            ('svd', TruncatedSVD(n_components=30, random_state=42))])
-
-        # 데이터에 파이프라인 적용하여 잠재 벡터 생성
-        X_svd = svd_pipeline.fit_transform(df_processed)
-
-        # 최종 유사도 행렬 계산
-        similarity_matrix = cosine_similarity(X_svd)
-
-        # 모델명으로 인덱스 찾기 위한 딕셔너리 (이제 'model_name' 사용)
-        indices = pd.Series(df_processed.index, index=df_processed['model_name']).drop_duplicates()
-
-        # log.info("\n 특징 벡터화 및 SVD 모델링 완료.")
-        # log.info(f"  - 잠재 벡터 형태: {X_svd.shape}")
-        # log.info(f"  - 최종 유사도 행렬 형태: {similarity_matrix.shape}")
-
-    # 함수 실행
-    df_processed['spec_score'] = df_processed.apply(calculate_total_spec_score, axis=1)
-    stat_scores_df = calculate_stat_scores_final(df_processed)
-    df_processed = pd.concat([df_processed, stat_scores_df], axis=1)
-    # df_processed.to_excel('df_processed.xlsx')
-
-except Exception as e:
-    log.error(f'입력 파일 실패, inpFile : {inpFile} : {e}')
-    exit(1)
-
-# 입력 파일
-try:
     inpFile = sysOpt['inpFile2']
     inpList = sorted(glob.glob(inpFile))
     if inpList is None or len(inpList) < 1:
@@ -1111,6 +1022,7 @@ try:
         exit(1)
 
     df = pd.read_excel(sysOpt['inpFile'])
+    df = df[df['연식'] >= 2023].reset_index(drop=True)
 
     # 2-2. 전처리 적용
     df['판매가_clean'] = df['판매가'].apply(clean_price)
@@ -1321,57 +1233,57 @@ async def selChatModelCont(
         raise HTTPException(status_code=400, detail=str(e))
 
 
-# @app.post(f"/api/sel-rcmd", dependencies=[Depends(chkApiKey)])
-@app.post(f"/api/sel-rcmd")
-async def selRcmd(
-    usage: str = Form(..., description='용도', examples=['출퇴근'], enum=['출퇴근', '운동', '여행', '산악', '로드']),
-    budget: str = Form(..., description='예산 (최소-최대)', examples=['80000-500000']),
-    height: str = Form(..., description='키', examples=['170']),
-):
-    """
-    기능\n
-        알톤 바이크메트릭스AI - AI 맞춤 자전거 찾기\n
-    테스트\n
-        usage: 용도 (출퇴근, 운동, 여행, 산악, 로드)\n
-        budget: 예산 (최소-최대)\n
-        height: 키\n
-    """
-    try:
-        minBudget, maxBudget  = budget.split('-')
-        if budget is None or len(budget) < 1 or minBudget is None or maxBudget is None:
-            return resResponse("fail", 400, f"예산 없음, budget : {budget}", None)
-
-        if usage is None or len(usage) < 1:
-            return resResponse("fail", 400, f"용도 없음, usage : {usage}")
-
-        if height is None or len(height) < 1:
-            return resResponse("fail", 400, f"키 없음, height : {height}")
-
-        recommendations = recommend_alton_bikes(
-            usage=usage,
-            budget_min=float(minBudget),
-            budget_max=float(maxBudget),
-            height=float(height),
-            ranking_method='spec_score',
-            top_n=4,
-            df_processed=df_processed,
-            indices=indices
-        )
-
-        selData = pd.merge(recommendations, df_std, on=['model_name'], how='left')
-
-        if len(selData) < 1:
-            return resResponse("fail", 400, f"데이터 없음", None)
-
-        jsonData = selData.to_json(orient='records')
-        result = json.loads(jsonData)
-        # log.info(f"result : {result}")
-
-        return resResponse("succ", 200, "처리 완료", len(result), result)
-
-    except Exception as e:
-        log.error(f'Exception : {e}')
-        raise HTTPException(status_code=400, detail=str(e))
+# # @app.post(f"/api/sel-rcmd", dependencies=[Depends(chkApiKey)])
+# @app.post(f"/api/sel-rcmd")
+# async def selRcmd(
+#     usage: str = Form(..., description='용도', examples=['출퇴근'], enum=['출퇴근', '운동', '여행', '산악', '로드']),
+#     budget: str = Form(..., description='예산 (최소-최대)', examples=['80000-500000']),
+#     height: str = Form(..., description='키', examples=['170']),
+# ):
+#     """
+#     기능\n
+#         알톤 바이크메트릭스AI - AI 맞춤 자전거 찾기\n
+#     테스트\n
+#         usage: 용도 (출퇴근, 운동, 여행, 산악, 로드)\n
+#         budget: 예산 (최소-최대)\n
+#         height: 키\n
+#     """
+#     try:
+#         minBudget, maxBudget  = budget.split('-')
+#         if budget is None or len(budget) < 1 or minBudget is None or maxBudget is None:
+#             return resResponse("fail", 400, f"예산 없음, budget : {budget}", None)
+#
+#         if usage is None or len(usage) < 1:
+#             return resResponse("fail", 400, f"용도 없음, usage : {usage}")
+#
+#         if height is None or len(height) < 1:
+#             return resResponse("fail", 400, f"키 없음, height : {height}")
+#
+#         recommendations = recommend_alton_bikes(
+#             usage=usage,
+#             budget_min=float(minBudget),
+#             budget_max=float(maxBudget),
+#             height=float(height),
+#             ranking_method='spec_score',
+#             top_n=4,
+#             df_processed=df_processed,
+#             indices=indices
+#         )
+#
+#         selData = pd.merge(recommendations, df_std, on=['model_name'], how='left')
+#
+#         if len(selData) < 1:
+#             return resResponse("fail", 400, f"데이터 없음", None)
+#
+#         jsonData = selData.to_json(orient='records')
+#         result = json.loads(jsonData)
+#         # log.info(f"result : {result}")
+#
+#         return resResponse("succ", 200, "처리 완료", len(result), result)
+#
+#     except Exception as e:
+#         log.error(f'Exception : {e}')
+#         raise HTTPException(status_code=400, detail=str(e))
 
 # @app.post(f"/api/sel-rcmd2", dependencies=[Depends(chkApiKey)])
 @app.post(f"/api/sel-rcmd2")
@@ -1426,7 +1338,7 @@ async def selRcmd(
 # @app.post(f"/api/sel-img", dependencies=[Depends(chkApiKey)])
 @app.post(f"/api/sel-img")
 async def selImg(
-    background_tasks: BackgroundTasks,
+    backTask: BackgroundTasks,
     url: str = Form(..., description='이미지 외부 주소', examples=['https://shopping-phinf.pstatic.net/main_5466078/54660787576.jpg'])
 ):
     """
@@ -1442,9 +1354,81 @@ async def selImg(
         stream = clientAsync.stream("GET", url)
         response = await stream.__aenter__()
         response.raise_for_status()
-        media_type = response.headers.get("Content-Type")
-        background_tasks.add_task(stream.__aexit__, None, None, None)
-        return StreamingResponse(response.aiter_bytes(), media_type=media_type)
+        mediaType = response.headers.get("Content-Type")
+        backTask.add_task(stream.__aexit__, None, None, None)
+        return StreamingResponse(response.aiter_bytes(), media_type=mediaType)
+    except Exception as e:
+        log.error(f'Exception : {e}')
+        raise HTTPException(status_code=400, detail=str(e))
+
+# @app.post(f"/api/sel-isPage", dependencies=[Depends(chkApiKey)])
+@app.post(f"/api/sel-isPage")
+async def selImg(
+    backTask: BackgroundTasks,
+    url: str = Form(..., description='외부 주소', examples=['https://smartstore.naver.com/main/products/12053606391'])
+):
+    """
+    기능\n
+        알톤 바이크메트릭스AI - AI 시세 조회하기 - 외부 주소 정상/이상여부\n
+    테스트\n
+        url: 외부 주소\n
+        https://smartstore.naver.com/smartbicycle/products/8401877446222\n
+        https://smartstore.naver.com/main/products/12053606391\n
+    """
+    try:
+        if url is None or len(url) < 1:
+            return resResponse("fail", 400, f"외부 주소 없음, url : {url}", [])
+
+        keywordList = [
+            "현재 서비스 접속이 불가합니다",
+            "상품이 존재하지 않습니다",
+            "존재하지 않는 상품입니다",
+            "판매 중지",
+            "삭제된 상품",
+            "판매자가 판매를 중지",
+            "요청하신 페이지를 찾을 수 없습니다",
+        ]
+
+        async with async_playwright() as p:
+            browser = await p.chromium.launch(headless=True)
+
+            context = await browser.new_context(
+                user_agent="Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/114.0.0.0 Safari/537.36"
+            )
+            page = await context.new_page()
+
+            result = {}
+
+            try:
+                await page.goto(url, wait_until="domcontentloaded", timeout=2000)
+
+                pageUrl = page.url
+                content = await page.content()
+
+                isValid = True
+                reason = ""
+
+                for keyword in keywordList:
+                    if keyword in content:
+                        isValid = False
+                        reason = keyword
+                        break
+
+                result = {
+                    "isValid": isValid,
+                    "url": pageUrl,
+                    "reason": reason if not isValid else ""
+                }
+
+            except Exception as e:
+                log.error(f'Exception : {e}')
+                return resResponse("fail", 400, f"접속 실패 : {e}")
+
+            finally:
+                await browser.close()
+
+            return resResponse("succ", 200, "처리 완료", 1, result)
+
     except Exception as e:
         log.error(f'Exception : {e}')
         raise HTTPException(status_code=400, detail=str(e))
