@@ -248,6 +248,7 @@ class DtaProcess(object):
             sysOpt = {
                 'fontInfo': '/SYSTEMS/PROG/PYTHON/IDE/resources/config/fontInfo/malgun.ttf',
                 'shpFile': '/HDD/DATA/INPUT/BDWIDE2025/20251203_대축적_산림_임상도(2024)/가평군_농장/37702095.shp',
+                'saveImg': '/HDD/DATA/FIG/BDWIDE2025/가평군_농장_37702095.png',
 
                 # 경기도 가평군 상면 축령로 99
                 'posLat': 37.7738688,
@@ -329,7 +330,10 @@ class DtaProcess(object):
             plt.xticks([])
             plt.yticks([])
 
-            plt.savefig('forest_analysis_1km.png', dpi=600, bbox_inches='tight', pad_inches=0, transparent=True)
+            saveImg = sysOpt['saveImg']
+            os.makedirs(os.path.dirname(saveImg), exist_ok=True)
+            plt.savefig(saveImg, dpi=600, bbox_inches='tight', pad_inches=0, transparent=True)
+            log.info(f"saveImg : {saveImg}")
             plt.show()
             plt.close()
 
