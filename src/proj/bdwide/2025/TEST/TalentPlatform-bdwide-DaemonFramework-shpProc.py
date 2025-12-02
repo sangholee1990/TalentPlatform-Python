@@ -251,8 +251,7 @@ class DtaProcess(object):
                 'saveImgPattern': '/HDD/DATA/FIG/BDWIDE2025/{type}_{key}.png',
 
                 # 경기도 가평군 상면 축령로 99
-                'posLat': 37.7738688,
-                'posLon': 127.3618844,
+                '가평군_농장': {'posLat': 37.7738688, 'posLon': 127.3618844},
 
                 # 지점 대비 반경 1km
                 'posDist': 1,
@@ -269,6 +268,21 @@ class DtaProcess(object):
                 log.info(f"shpInfo : {shpInfo}")
 
                 partList = re.split(r'[./]', shpInfo)
+                type = partList[6]
+                key = partList[7]
+                log.info(f"type : {type}, key : {key}")
+
+                # 지점, 반경 설정
+                posInfo = sysOpt.get(type)
+                if not posInfo: continue
+
+                posLat = posInfo['posLat']
+                posLon = posInfo['posLon']
+
+                posDist = sysOpt['posDist']
+                log.info(f"posLat : {posLat}, posLon : {posLon}, posDist : {posDist} km")
+                centerPointGeom = Point(posLon, posLat)
+
                 gdf = gpd.read_file(shpInfo, encoding='euc-kr')
                 log.info(f"shape : {gdf.shape}")
                 log.info(f"columns : {gdf.columns}")
@@ -279,15 +293,7 @@ class DtaProcess(object):
                 # plt.axis('off')
                 # plt.show()
 
-                # 지점, 반경 설정
-                posLat = sysOpt['posLat']
-                posLon = sysOpt['posLon']
-                posDist = sysOpt['posDist']
-                log.info(f"posLat : {posLat}, posLon : {posLon}, posDist : {posDist} km")
-
-                centerPointGeom = Point(posLon, posLat)
                 centerGdf = gpd.GeoDataFrame([{'geometry': centerPointGeom}], crs='EPSG:4326')
-
                 centerConverted = centerGdf.to_crs(gdf.crs)
 
                 bufferGeom = centerConverted.geometry.buffer(posDist * 1000)
@@ -296,7 +302,7 @@ class DtaProcess(object):
 
                 if radiusGdf.empty:
                     log.info(f"분석 자료 없음")
-                    return
+                    continue
 
                 radiusGdf['newArea'] = radiusGdf.geometry.area
                 statsRadius = radiusGdf.groupby('KOFTR_NM')['newArea'].sum().sort_values(ascending=False)
@@ -335,7 +341,7 @@ class DtaProcess(object):
                 plt.xticks([])
                 plt.yticks([])
 
-                saveImg = sysOpt['saveImgPattern'].format(type=partList[6], key=partList[7])
+                saveImg = sysOpt['saveImgPattern'].format(type=type, key=key)
                 os.makedirs(os.path.dirname(saveImg), exist_ok=True)
                 plt.savefig(saveImg, dpi=600, bbox_inches='tight', pad_inches=0, transparent=True)
                 log.info(f"saveImg : {saveImg}")
