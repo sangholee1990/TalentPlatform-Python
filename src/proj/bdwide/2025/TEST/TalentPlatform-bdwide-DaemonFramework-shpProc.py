@@ -305,6 +305,7 @@ class DtaProcess(object):
                     continue
 
                 radiusGdf['newArea'] = radiusGdf.geometry.area
+                radiusGdf = radiusGdf.sort_values(by='newArea', ascending=False)
                 statsRadius = radiusGdf.groupby('KOFTR_NM')['newArea'].sum().sort_values(ascending=False)
                 totalAreaRadius = statsRadius.sum()
 
@@ -319,23 +320,38 @@ class DtaProcess(object):
                 fig, ax = plt.subplots(figsize=(12, 10))
                 plt.subplots_adjust(left=0, right=1, top=1, bottom=0)
                 gdf.plot(ax=ax, color='lightgray', alpha=0.4)
+
                 # radiusGdf.plot(column='KOFTR_NM', ax=ax, cmap='Set3', alpha=1.0, legend=True, legend_kwds={'loc': 'center left', 'bbox_to_anchor': (1, 0.5)})
                 # radiusGdf.plot(column='KOFTR_NM', ax=ax, cmap=cm.get_cmap('jet'), alpha=1.0, legend=True, legend_kwds={'loc': 'center left', 'bbox_to_anchor': (1, 0.5)})
-                radiusGdf.plot(column='KOFTR_NM', ax=ax, cmap=cm.get_cmap('jet'), alpha=1.0, legend=True, legend_kwds={'loc': 'lower right', 'borderaxespad': 0})
+                # radiusGdf.plot(column='KOFTR_NM', ax=ax, cmap=cm.get_cmap('jet'), alpha=1.0, legend=True, legend_kwds={'loc': 'lower right', 'borderaxespad': 0})
 
-                leg = ax.get_legend()
+                cmap = cm.get_cmap('jet')
+                categories = statsRadius.index.tolist()
+                count = len(categories)
+
+                legendList = []
+                for i, name in enumerate(categories):
+                    subset = radiusGdf[radiusGdf['KOFTR_NM'] == name]
+                    if count > 1:
+                        color = cmap(i / (count - 1))
+                    else:
+                        color = cmap(0.5)
+                    subset.plot(
+                        ax=ax,
+                        color=color,
+                        alpha=1.0
+                    )
+                    patch = mpl.patches.Patch(color=color, label=labelMapping[name])
+                    legendList.append(patch)
+
+                leg = ax.legend(handles=legendList, loc='lower right', borderaxespad=0)
                 if leg:
-                    for text in leg.get_texts():
-                        originalLabel = text.get_text()
-                        if originalLabel in labelMapping:
-                            text.set_text(labelMapping[originalLabel])
                     leg.get_frame().set_facecolor('white')
                     leg.get_frame().set_alpha(1.0)
-                    # leg.get_frame().set_alpha(0.0)
                     leg.get_frame().set_edgecolor('white')
 
                 # bufferGdf.boundary.plot(ax=ax, color='red', linestyle='--', linewidth=2, label='1km 반경')
-                centerConverted.plot(ax=ax, color='black', marker='*', markersize=150, zorder=5)
+                centerConverted.plot(ax=ax, color='grey', marker='*', markersize=150, zorder=5)
                 # ax.set_title("지점 반경 1km 산림정보 분석")
                 ax.margins(0)
                 plt.axis('off')
