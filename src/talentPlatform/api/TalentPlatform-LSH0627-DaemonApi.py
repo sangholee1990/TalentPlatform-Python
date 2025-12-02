@@ -926,8 +926,9 @@ sysOpt = {
 
     # 입력 데이터
     'csvFile': '/HDD/DATA/OUTPUT/LSH0627/naverShop_prd.csv',
-    'inpFile': '/HDD/DATA/OUTPUT/LSH0627/alton_bikes_web_v2.xlsx',
-    'inpFile2': '/HDD/DATA/OUTPUT/LSH0627/alton_bikes_web_v3.xlsx',
+    # 'inpFile': '/HDD/DATA/OUTPUT/LSH0627/alton_bikes_web_v2.xlsx',
+    # 'inpFile': '/HDD/DATA/OUTPUT/LSH0627/alton_bikes_web_v3.xlsx',
+    'inpFile': '/HDD/DATA/OUTPUT/LSH0627/alton_bikes_web_v4.xlsx',
 
     # 설정 정보
     'cfgFile': '/HDD/SYSTEMS/PROG/PYTHON/IDE/resources/config/system.cfg',
@@ -1015,13 +1016,13 @@ except Exception as e:
 
 # 입력 파일
 try:
-    inpFile = sysOpt['inpFile2']
+    inpFile = sysOpt['inpFile']
     inpList = sorted(glob.glob(inpFile))
     if inpList is None or len(inpList) < 1:
         log.error(f'입력 파일 없음, inpFile : {inpFile}')
         exit(1)
 
-    df = pd.read_excel(sysOpt['inpFile'])
+    df = pd.read_excel(inpList[0])
     df = df[df['연식'] >= 2023].reset_index(drop=True)
 
     # 2-2. 전처리 적용
@@ -1082,12 +1083,19 @@ try:
     cosine_sim = cosine_similarity(combined_features)
     # print("... 코사인 유사도 계산 완료 (Shape: {})".format(cosine_sim.shape))
 
+    # purpose_map_fixed = {
+    #     "출퇴근": "하이브리드|폴딩/미니벨로|전기자전거|씨티",
+    #     "운동": "로드|컴포트 산악자전거|하이브리드",
+    #     "여행": "하이브리드|전기자전거|컴포트 산악자전거",
+    #     "산악": "컴포트 산악자전거|MTB",
+    #     "로드": "로드"
+    # }
     purpose_map_fixed = {
-        "출퇴근": "하이브리드|폴딩/미니벨로|전기자전거|씨티",
-        "운동": "로드|컴포트 산악자전거|하이브리드",
-        "여행": "하이브리드|전기자전거|컴포트 산악자전거",
-        "산악": "컴포트 산악자전거|MTB",
-        "로드": "로드"
+        "출퇴근": "하이브리드|폴딩/미니벨로|전기자전거|씨티|픽시|주니어",
+        "운동": "로드|컴포트 산악자전거|하이브리드|픽시|주니어|키즈",
+        "여행": "하이브리드|전기자전거|컴포트 산악자전거|로드",
+        "산악": "컴포트 산악자전거",
+        "로드": "로드|픽시"
     }
 
 except Exception as e:
@@ -1188,7 +1196,7 @@ async def selPrd(
         log.error(f'Exception : {e}')
         raise HTTPException(status_code=400, detail=str(e))
 
-# @app.post(f"/api/sel-rcmd", dependencies=[Depends(chkApiKey)])
+# @app.post(f"/api/sel-chatModelCont", dependencies=[Depends(chkApiKey)])
 @app.post(f"/api/sel-chatModelCont")
 async def selChatModelCont(
     chatModel: str = Form(..., description='생성형 AI 종류', examples=['gemini-2.5-flash'], enum=['gemini-2.5-pro', 'gemini-2.5-flash', 'gemini-2.5-flash-lite']),

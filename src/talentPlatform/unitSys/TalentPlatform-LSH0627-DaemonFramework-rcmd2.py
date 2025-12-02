@@ -548,13 +548,15 @@ class DtaProcess(object):
             # 옵션 설정
             sysOpt = {
                 # 입력 데이터
-                'inpFile': '/HDD/DATA/OUTPUT/LSH0627/alton_bikes_web_v3.xlsx',
+                # 'inpFile': '/HDD/DATA/OUTPUT/LSH0627/alton_bikes_web_v3.xlsx',
+                'inpFile': '/HDD/DATA/OUTPUT/LSH0627/alton_bikes_web_v4.xlsx',
             }
 
             # =================================================================
             # 전처리
             # =================================================================
             df = pd.read_excel(sysOpt['inpFile'])
+            df = df[df['연식'] >= 2023].reset_index(drop=True)
 
             # 2-2. 전처리 적용
             df['판매가_clean'] = df['판매가'].apply(clean_price)
@@ -615,17 +617,18 @@ class DtaProcess(object):
             # print("... 코사인 유사도 계산 완료 (Shape: {})".format(cosine_sim.shape))
 
             purpose_map_fixed = {
-                "출퇴근": "하이브리드|폴딩/미니벨로|전기자전거|씨티",
-                "운동": "로드|컴포트 산악자전거|하이브리드",
-                "여행": "하이브리드|전기자전거|컴포트 산악자전거",
-                "산악": "컴포트 산악자전거|MTB",
-                "로드": "로드"
+                "출퇴근": "하이브리드|폴딩/미니벨로|전기자전거|씨티|픽시|주니어",
+                "운동": "로드|컴포트 산악자전거|하이브리드|픽시|주니어|키즈",
+                "여행": "하이브리드|전기자전거|컴포트 산악자전거|로드",
+                "산악": "컴포트 산악자전거",
+                "로드": "로드|픽시"
             }
 
-            test_budget_min_1 = 300000
+            test_budget_min_1 = 0
             test_budget_max_1 = 500000
-            test_height_1 = 170
-            test_purpose_1 = "출퇴근"
+            # test_height_1 = 170
+            test_height_1 = 140
+            test_purpose_1 = "운동"
 
             # 2번 화면에 보여줄 4개 자전거
             recommendations_1 = recommend_by_query(test_budget_min_1, test_budget_max_1, test_height_1, test_purpose_1, top_n=4, df=df, cosine_sim=cosine_sim, purpose_map=purpose_map_fixed)
