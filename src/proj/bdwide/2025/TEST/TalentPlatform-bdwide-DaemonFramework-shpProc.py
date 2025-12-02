@@ -247,8 +247,8 @@ class DtaProcess(object):
             # 옵션 설정
             sysOpt = {
                 'fontInfo': '/SYSTEMS/PROG/PYTHON/IDE/resources/config/fontInfo/malgun.ttf',
-                'shpFile': '/HDD/DATA/INPUT/BDWIDE2025/20251203_대축적_산림_임상도(2024)/가평군_농장/37702095.shp',
-                'saveImg': '/HDD/DATA/FIG/BDWIDE2025/가평군_농장_37702095.png',
+                'shpFilePattern': '/HDD/DATA/INPUT/BDWIDE2025/20251203_대축적_산림_임상도(2024)/*/*.shp',
+                'saveImgPattern': '/HDD/DATA/FIG/BDWIDE2025/{type}_{key}.png',
 
                 # 경기도 가평군 상면 축령로 99
                 'posLat': 37.7738688,
@@ -264,78 +264,83 @@ class DtaProcess(object):
             plt.rcParams['font.family'] = fontName
 
             # shp 파일
-            gdf = gpd.read_file(sysOpt['shpFile'], encoding='euc-kr')
-            log.info(f"shape : {gdf.shape}")
-            log.info(f"columns : {gdf.columns}")
+            shpList = sorted(glob.glob(sysOpt['shpFilePattern']))
+            for shpInfo in shpList:
+                log.info(f"shpInfo : {shpInfo}")
 
-            # 테스트
-            # fig, ax = plt.subplots(figsize=(10, 10))
-            # gdf.plot(column='KOFTR_NM', ax=ax, legend=True, cmap='Set3', legend_kwds={'loc': 'center left', 'bbox_to_anchor': (1, 0.5)})
-            # plt.axis('off')
-            # plt.show()
+                partList = re.split(r'[./]', shpInfo)
+                gdf = gpd.read_file(shpInfo, encoding='euc-kr')
+                log.info(f"shape : {gdf.shape}")
+                log.info(f"columns : {gdf.columns}")
 
-            # 지점, 반경 설정
-            posLat = sysOpt['posLat']
-            posLon = sysOpt['posLon']
-            posDist = sysOpt['posDist']
-            log.info(f"posLat : {posLat}, posLon : {posLon}, posDist : {posDist} km")
+                # 테스트
+                # fig, ax = plt.subplots(figsize=(10, 10))
+                # gdf.plot(column='KOFTR_NM', ax=ax, legend=True, cmap='Set3', legend_kwds={'loc': 'center left', 'bbox_to_anchor': (1, 0.5)})
+                # plt.axis('off')
+                # plt.show()
 
-            centerPointGeom = Point(posLon, posLat)
-            centerGdf = gpd.GeoDataFrame([{'geometry': centerPointGeom}], crs='EPSG:4326')
+                # 지점, 반경 설정
+                posLat = sysOpt['posLat']
+                posLon = sysOpt['posLon']
+                posDist = sysOpt['posDist']
+                log.info(f"posLat : {posLat}, posLon : {posLon}, posDist : {posDist} km")
 
-            centerConverted = centerGdf.to_crs(gdf.crs)
+                centerPointGeom = Point(posLon, posLat)
+                centerGdf = gpd.GeoDataFrame([{'geometry': centerPointGeom}], crs='EPSG:4326')
 
-            bufferGeom = centerConverted.geometry.buffer(posDist * 1000)
-            bufferGdf = gpd.GeoDataFrame([{'geometry': bufferGeom[0]}], crs=gdf.crs)
-            radiusGdf = gpd.clip(gdf, bufferGdf)
+                centerConverted = centerGdf.to_crs(gdf.crs)
 
-            if radiusGdf.empty:
-                log.info(f"분석 자료 없음")
-                return
+                bufferGeom = centerConverted.geometry.buffer(posDist * 1000)
+                bufferGdf = gpd.GeoDataFrame([{'geometry': bufferGeom[0]}], crs=gdf.crs)
+                radiusGdf = gpd.clip(gdf, bufferGdf)
 
-            radiusGdf['newArea'] = radiusGdf.geometry.area
-            statsRadius = radiusGdf.groupby('KOFTR_NM')['newArea'].sum().sort_values(ascending=False)
-            totalAreaRadius = statsRadius.sum()
+                if radiusGdf.empty:
+                    log.info(f"분석 자료 없음")
+                    return
 
-            labelMapping = {}
-            for name, area in statsRadius.items():
-                ratio = (area / totalAreaRadius) * 100
-                # labelText = f"{name} {int(area):,} m² ({ratio:.1f}%)"
-                labelText = f"{name} ({ratio:.1f}%)"
-                labelMapping[name] = labelText
+                radiusGdf['newArea'] = radiusGdf.geometry.area
+                statsRadius = radiusGdf.groupby('KOFTR_NM')['newArea'].sum().sort_values(ascending=False)
+                totalAreaRadius = statsRadius.sum()
 
-            fig, ax = plt.subplots(figsize=(12, 10))
-            plt.subplots_adjust(left=0, right=1, top=1, bottom=0)
-            gdf.plot(ax=ax, color='lightgray', alpha=0.4)
-            # radiusGdf.plot(column='KOFTR_NM', ax=ax, cmap='Set3', alpha=1.0, legend=True, legend_kwds={'loc': 'center left', 'bbox_to_anchor': (1, 0.5)})
-            # radiusGdf.plot(column='KOFTR_NM', ax=ax, cmap=cm.get_cmap('jet'), alpha=1.0, legend=True, legend_kwds={'loc': 'center left', 'bbox_to_anchor': (1, 0.5)})
-            radiusGdf.plot(column='KOFTR_NM', ax=ax, cmap=cm.get_cmap('jet'), alpha=1.0, legend=True, legend_kwds={'loc': 'lower right', 'borderaxespad': 0})
+                labelMapping = {}
+                for name, area in statsRadius.items():
+                    ratio = (area / totalAreaRadius) * 100
+                    # labelText = f"{name} {int(area):,} m² ({ratio:.1f}%)"
+                    labelText = f"{name} ({ratio:.1f}%)"
+                    labelMapping[name] = labelText
 
-            leg = ax.get_legend()
-            if leg:
-                for text in leg.get_texts():
-                    originalLabel = text.get_text()
-                    if originalLabel in labelMapping:
-                        text.set_text(labelMapping[originalLabel])
-                leg.get_frame().set_facecolor('white')
-                leg.get_frame().set_alpha(1.0)
-                # leg.get_frame().set_alpha(0.0)
-                leg.get_frame().set_edgecolor('white')
+                fig, ax = plt.subplots(figsize=(12, 10))
+                plt.subplots_adjust(left=0, right=1, top=1, bottom=0)
+                gdf.plot(ax=ax, color='lightgray', alpha=0.4)
+                # radiusGdf.plot(column='KOFTR_NM', ax=ax, cmap='Set3', alpha=1.0, legend=True, legend_kwds={'loc': 'center left', 'bbox_to_anchor': (1, 0.5)})
+                # radiusGdf.plot(column='KOFTR_NM', ax=ax, cmap=cm.get_cmap('jet'), alpha=1.0, legend=True, legend_kwds={'loc': 'center left', 'bbox_to_anchor': (1, 0.5)})
+                radiusGdf.plot(column='KOFTR_NM', ax=ax, cmap=cm.get_cmap('jet'), alpha=1.0, legend=True, legend_kwds={'loc': 'lower right', 'borderaxespad': 0})
 
-            # bufferGdf.boundary.plot(ax=ax, color='red', linestyle='--', linewidth=2, label='1km 반경')
-            centerConverted.plot(ax=ax, color='black', marker='*', markersize=150, zorder=5)
-            # ax.set_title("지점 반경 1km 산림정보 분석")
-            ax.margins(0)
-            plt.axis('off')
-            plt.xticks([])
-            plt.yticks([])
+                leg = ax.get_legend()
+                if leg:
+                    for text in leg.get_texts():
+                        originalLabel = text.get_text()
+                        if originalLabel in labelMapping:
+                            text.set_text(labelMapping[originalLabel])
+                    leg.get_frame().set_facecolor('white')
+                    leg.get_frame().set_alpha(1.0)
+                    # leg.get_frame().set_alpha(0.0)
+                    leg.get_frame().set_edgecolor('white')
 
-            saveImg = sysOpt['saveImg']
-            os.makedirs(os.path.dirname(saveImg), exist_ok=True)
-            plt.savefig(saveImg, dpi=600, bbox_inches='tight', pad_inches=0, transparent=True)
-            log.info(f"saveImg : {saveImg}")
-            plt.show()
-            plt.close()
+                # bufferGdf.boundary.plot(ax=ax, color='red', linestyle='--', linewidth=2, label='1km 반경')
+                centerConverted.plot(ax=ax, color='black', marker='*', markersize=150, zorder=5)
+                # ax.set_title("지점 반경 1km 산림정보 분석")
+                ax.margins(0)
+                plt.axis('off')
+                plt.xticks([])
+                plt.yticks([])
+
+                saveImg = sysOpt['saveImgPattern'].format(type=partList[6], key=partList[7])
+                os.makedirs(os.path.dirname(saveImg), exist_ok=True)
+                plt.savefig(saveImg, dpi=600, bbox_inches='tight', pad_inches=0, transparent=True)
+                log.info(f"saveImg : {saveImg}")
+                plt.show()
+                plt.close()
 
         except Exception as e:
             log.error(f"Exception : {e}")
