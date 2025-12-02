@@ -313,6 +313,7 @@ class DtaProcess(object):
                     ratio = (area / totalAreaRadius) * 100
                     # labelText = f"{name} {int(area):,} m² ({ratio:.1f}%)"
                     labelText = f"{name} ({ratio:.1f}%)"
+                    log.info(f"labelText : {labelText}")
                     labelMapping[name] = labelText
 
                 fig, ax = plt.subplots(figsize=(12, 10))
