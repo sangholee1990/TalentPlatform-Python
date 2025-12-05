@@ -1,20 +1,20 @@
 # ================================================
 # 요구사항
 # ================================================
-# Python을 이용한 데이터베이스
+# Python을 이용한 실측 데이터 수집 및 DB 적재
 
 # 프로그램 종료
-# ps -ef | grep python | grep TalentPlatform-QUBE2025-db-prop-pv-real.py | awk '{print $2}' | xargs kill -9
-# pkill -f TalentPlatform-QUBE2025-db-prop-pv-real.py
+# ps -ef | grep python | grep TalentPlatform-QUBE2025-colct-save-pv.py | awk '{print $2}' | xargs kill -9
+# pkill -f TalentPlatform-QUBE2025-colct-save-pv.py
 
 # 프로그램 시작
 # conda activate py38
 
 # cd /SYSTEMS/PROG/PYTHON
-# /SYSTEMS/LIB/anaconda3/envs/py38/bin/python TalentPlatform-QUBE2025-db-prop-pv-real.py --srtDate "2022-02-18" --endDate "2025-11-04"
-# nohup /SYSTEMS/LIB/anaconda3/envs/py38/bin/python TalentPlatform-QUBE2025-db-prop-pv-real.py --srtDate "2022-02-18" --endDate "2025-11-04" &
+# /SYSTEMS/LIB/anaconda3/envs/py38/bin/python TalentPlatform-QUBE2025-colct-save-pv.py --srtDate "2022-02-18" --endDate "2025-11-04"
+# nohup /SYSTEMS/LIB/anaconda3/envs/py38/bin/python TalentPlatform-QUBE2025-colct-save-pv.py --srtDate "2022-02-18" --endDate "2025-11-04" &
 
-# * 1 * * * cd /SYSTEMS/PROG/PYTHON && /SYSTEMS/LIB/anaconda3/envs/py38/bin/python /SYSTEMS/PROG/PYTHON/TalentPlatform-QUBE2025-db-prop-pv-real.py --srtDate "$(date -d "2 days ago" +\%Y-\%m-\%d)" --endDate "$(date -d "2 days" +\%Y-\%m-\%d)"
+# * 1 * * * cd /SYSTEMS/PROG/PYTHON && /SYSTEMS/LIB/anaconda3/envs/py38/bin/python /SYSTEMS/PROG/PYTHON/TalentPlatform-QUBE2025-colct-save-pv.py --srtDate "$(date -d "2 days ago" +\%Y-\%m-\%d)" --endDate "$(date -d "2 days" +\%Y-\%m-\%d)"
 
 import glob
 # import seaborn as sns
