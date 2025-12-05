@@ -629,54 +629,25 @@ class DtaProcess(object):
                 'cfgDb': None,
                 'posDataL1': None,
 
-                # LSH0255-SRV00017-final-pycaret-for-20230805.model.pkl
                 # 자동화/수동화 모델링
                 'MODEL': {
-                    'orgPycaret': {
-                        'saveModelList': "/DATA/AI/*/*/LSH0255-{srvId}-final-pycaret-for-*.model.pkl",
-                        'saveModel': "/DATA/AI/%Y%m/%d/LSH0255-{srvId}-final-pycaret-for-%Y%m%d.model",
+                    'pycaret': {
+                        'saveModelList': "/DATA/AI/*/*/QUBE2025-{srvId}-final-pycaret-ano-*.model.pkl",
+                        'saveModel': "/DATA/AI/%Y%m/%d/QUBE2025-{srvId}-final-pycaret-ano-%Y%m%d.model",
                         # 'isOverWrite': True,
                         'isOverWrite': False,
                         'srvId': None,
                         'preDt': datetime.datetime.now(),
                         'exp': None
                     },
-                    'orgH2o': {
-                        'saveModelList': "/DATA/AI/*/*/LSH0255-{srvId}-final-h2o-for-*.model",
-                        'saveModel': "/DATA/AI/%Y%m/%d/LSH0255-{srvId}-final-h2o-for-%Y%m%d.model",
+                    'h2o': {
+                        'saveModelList': "/DATA/AI/*/*/QUBE2025-{srvId}-final-h2o-ano-*.model",
+                        'saveModel': "/DATA/AI/%Y%m/%d/QUBE2025-{srvId}-final-h2o-ano-%Y%m%d.model",
                         'isInit': False,
                         # 'isOverWrite': True,
                         'isOverWrite': False,
                         'srvId': None,
                         'preDt': datetime.datetime.now(),
-                    },
-                    'lgb': {
-                        'saveModelList': "/DATA/AI/*/*/QUBE2025-{srvId}-final-lgb-for-*.model",
-                        'saveModel': "/DATA/AI/%Y%m/%d/QUBE2025-{srvId}-final-lgb-for-%Y%m%d.model",
-                        'saveImg': "/DATA/AI/%Y%m/%d/QUBE2025-{srvId}-final-lgb-for-%Y%m%d.png",
-                        # 'isOverWrite': True,
-                        'isOverWrite': False,
-                        'srvId': None,
-                        'preDt': datetime.datetime.now(),
-                    },
-                    'flaml': {
-                        'saveModelList': "/DATA/AI/*/*/QUBE2025-{srvId}-final-flaml-for-*.model",
-                        'saveModel': "/DATA/AI/%Y%m/%d/QUBE2025-{srvId}-final-flaml-for-%Y%m%d.model",
-                        'saveImg': "/DATA/AI/%Y%m/%d/QUBE2025-{srvId}-final-flaml-for-%Y%m%d.png",
-                        # 'isOverWrite': True,
-                        'isOverWrite': False,
-                        'srvId': None,
-                        'preDt': datetime.datetime.now(),
-                    },
-                    'pycaret': {
-                        'saveModelList': "/DATA/AI/*/*/QUBE2025-{srvId}-final-pycaret-for-*.model.pkl",
-                        'saveModel': "/DATA/AI/%Y%m/%d/QUBE2025-{srvId}-final-pycaret-for-%Y%m%d.model",
-                        'saveImg': "/DATA/AI/%Y%m/%d/QUBE2025-{srvId}-final-pycaret-for-%Y%m%d.png",
-                        # 'isOverWrite': True,
-                        'isOverWrite': False,
-                        'srvId': None,
-                        'preDt': datetime.datetime.now(),
-                        'exp': None
                     },
                 },
             }
@@ -708,14 +679,9 @@ class DtaProcess(object):
 
                 with cfgDb['sessionMake']() as session:
                     query = text("""
-                        SELECT
-                            pv."PV",
-                            lf.*
-                        FROM
-                            "TB_PV_DATA" AS pv
-                        LEFT JOIN
-                            "TB_FOR_DATA" AS lf ON pv."SRV" = lf."SRV" AND pv."DATE_TIME" = lf."DATE_TIME"
-                        WHERE pv."SRV" = :srvId AND (EXTRACT(EPOCH FROM (lf."DATE_TIME" - lf."ANA_DATE")) / 3600.0) <= 5
+                        SELECT "DATE_TIME_KST", "PV"
+                        FROM "TB_PV_DATA"
+                        WHERE "SRV" = :srvId
                         ORDER BY "SRV", "DATE_TIME_KST" DESC;
                      """)
 
@@ -723,6 +689,108 @@ class DtaProcess(object):
                     # trainData = data[data['DATE_TIME_KST'] < pd.to_datetime('2025-01-01')].reset_index(drop=True)
                     # testData = data[data['DATE_TIME_KST'] >= pd.to_datetime('2025-01-01')].reset_index(drop=True)
                     data = pd.DataFrame(session.execute(query, {'srvId':srvId}))
+                    dataL1 = data[data['PV'] > 0].reset_index(drop=True)
+
+                    # df = data
+                    df = dataL1
+                    df['value_lag1'] = df['PV'].shift(1)
+                    df['value_lag2'] = df['PV'].shift(2)
+
+                    # 이동 평균 (Rolling Features): 최근 데이터의 흐름
+                    df['rolling_mean_3'] = df['PV'].rolling(window=3).mean()
+
+                    # 결측치 제거 (shift로 인해 앞부분에 NaN 발생)
+                    df.dropna(inplace=True)
+
+
+
+                    from pycaret.anomaly import AnomalyExperiment
+
+                    # dataL1 = data[data['PV'] > 0].reset_index(drop=True)
+
+                    exp = AnomalyExperiment()
+                    exp.setup(
+                        # data=dataL1,
+                        # data=data,
+                        data=df,
+                        # ignore_features=['DATE_TIME_KST'],
+                        # test_data=testDataL1,
+                        normalize=True,
+                        session_id=int(datetime.datetime.now().timestamp()),
+                    )
+
+                    # exp.setup(
+                    #     data=trainDataL1,
+                    #     test_data=testDataL1,
+                    #     session_id=int(datetime.datetime.now().timestamp()),
+                    #     target=yCol,
+                    # )
+                    #
+                    # from pycaret.anomaly import *
+                    # models()
+
+                    # pycaret.anomaly
+
+                    # model = exp.models()
+                    # # exp.evaluate_model()
+                    #
+                    # votes = pd.DataFrame()
+                    #
+                    # for model_id, df_result in all_results.items():
+                    #     # 컬럼명을 'iforest', 'knn' 등으로 변경하여 병합
+                    #     votes[model_id] = df_result['Anomaly']
+
+                    # exp.models()
+
+                    model = exp.create_model("iforest")
+                    # model.info
+                    df_anomaly = exp.assign_model(model)
+                    print(df_anomaly.head())
+
+                    df_anomaly2 = df_anomaly[df_anomaly['Anomaly'] == 1].reset_index(drop=True)
+
+
+
+
+
+                    # exp.evaluate_model(model)
+                    prd = exp.predict_model(model, data = data.copy())
+
+
+
+
+
+
+                    model = exp.create_model("pca")
+                    # model.info
+                    df_anomaly = exp.assign_model(model)
+                    print(df_anomaly.head())
+
+                    df_anomaly2 = df_anomaly[df_anomaly['Anomaly'] == 1].reset_index(drop=True)
+
+
+
+
+
+
+
+                    exp.evaluate_model(model)
+                    prd = exp.predict_model(model, data = dataL1.copy())
+
+                    # model.evaluate(df_anomaly)
+
+                    # new_data = data.copy()
+                    # prd = model.predict(model, new_data)
+
+                    plt.figure(figsize=(12, 6))
+                    plt.plot(df_anomaly.index, df_anomaly['PV'], label='시계열 데이터')
+                    anomalies = df_anomaly[df_anomaly['Anomaly'] == 1]
+                    plt.scatter(anomalies.index, anomalies['PV'], color='red', label='Anomaly', marker='o')
+                    plt.legend()
+                    plt.show()
+
+
+
                     trainData, testData = train_test_split(data, test_size=0.2, random_state=int(datetime.datetime.now().timestamp()))
 
                     query = text("""
@@ -741,7 +809,7 @@ class DtaProcess(object):
                     prdData = pd.DataFrame(session.execute(query, {'srvId':srvId}))
                     if len(prdData) < 1: continue
 
-                    for key in ['orgPycaret', 'orgH2o', 'lgb', 'flaml', 'pycaret']:
+                    for key in ['pycaret', 'h2o']:
                         sysOpt['MODEL'][key]['srvId'] = srvId
 
                     exp = RegressionExperiment()
