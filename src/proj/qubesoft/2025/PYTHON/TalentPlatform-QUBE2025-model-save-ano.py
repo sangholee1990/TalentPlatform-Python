@@ -691,16 +691,16 @@ class DtaProcess(object):
                     data = pd.DataFrame(session.execute(query, {'srvId':srvId}))
                     dataL1 = data[data['PV'] > 0].reset_index(drop=True)
 
-                    # df = data
-                    df = dataL1
-                    df['value_lag1'] = df['PV'].shift(1)
-                    df['value_lag2'] = df['PV'].shift(2)
-
-                    # 이동 평균 (Rolling Features): 최근 데이터의 흐름
-                    df['rolling_mean_3'] = df['PV'].rolling(window=3).mean()
-
-                    # 결측치 제거 (shift로 인해 앞부분에 NaN 발생)
-                    df.dropna(inplace=True)
+                    # # df = data
+                    # df = dataL1
+                    # df['value_lag1'] = df['PV'].shift(1)
+                    # df['value_lag2'] = df['PV'].shift(2)
+                    #
+                    # # 이동 평균 (Rolling Features): 최근 데이터의 흐름
+                    # df['rolling_mean_3'] = df['PV'].rolling(window=3).mean()
+                    #
+                    # # 결측치 제거 (shift로 인해 앞부분에 NaN 발생)
+                    # df.dropna(inplace=True)
 
 
 
@@ -710,9 +710,9 @@ class DtaProcess(object):
 
                     exp = AnomalyExperiment()
                     exp.setup(
-                        # data=dataL1,
+                        data=dataL1,
                         # data=data,
-                        data=df,
+                        # data=df,
                         # ignore_features=['DATE_TIME_KST'],
                         # test_data=testDataL1,
                         normalize=True,
@@ -750,6 +750,34 @@ class DtaProcess(object):
                     df_anomaly2 = df_anomaly[df_anomaly['Anomaly'] == 1].reset_index(drop=True)
 
 
+
+
+                    import h2o
+                    from h2o.estimators import H2OIsolationForestEstimator
+
+                    # 1. H2O 초기화
+                    h2o.init()
+
+                    # 2. 데이터 로드 (예시)
+                    # H2OFrame 형태로 데이터를 불러옵니다.
+                    # data = h2o.import_file("your_data.csv")
+
+                    # 3. 모델 정의 및 학습
+                    iso_forest = H2OIsolationForestEstimator(
+                        ntrees=100,  # 생성할 나무의 개수 (기본값: 50)
+                        max_depth=8,  # 나무의 최대 깊이 (너무 깊으면 과적합 가능성)
+                        sample_rate=0.8,  # 각 나무를 학습할 때 사용할 데이터 비율
+                        seed=42
+                    )
+
+                    # 학습 (비지도 학습이므로 y(타겟) 지정 불필요)
+                    iso_forest.train(training_frame=h2o.H2OFrame(data))
+
+                    # 4. 예측 (이상치 점수 및 평균 경로 길이 반환)
+                    predictions = iso_forest.predict(h2o.H2OFrame(data))
+
+                    # 결과 확인 (predict 컬럼은 정규화된 이상치 점수, mean_length는 평균 경로 길이)
+                    print(predictions.head())
 
 
 

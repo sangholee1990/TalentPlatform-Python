@@ -273,7 +273,7 @@ def initCfgInfo(config, key):
 
 def propUmkr(sysOpt, dtDateInfo):
     try:
-        procInfo = mp.current_process()
+        # procInfo = mp.current_process()
 
         config = configparser.ConfigParser()
         config.read(sysOpt['cfgFile'], encoding='utf-8')
