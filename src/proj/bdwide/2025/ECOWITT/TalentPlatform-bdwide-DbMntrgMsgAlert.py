@@ -14,6 +14,8 @@
 # nohup /SYSTEMS/LIB/anaconda3/envs/py38/bin/python TalentPlatform-bdwide-DbMntrgMsgAlert.py > /dev/null 2>&1 &
 # tail -f nohup.out
 
+# tail -f /SYSTEMS/PROG/PYTHON/IDE/resources/log/test/Linux_x86_64_64bit_solarmy-253048.novalocal_test.log
+
 import argparse
 import glob
 import json
@@ -229,8 +231,7 @@ def dbMntrgIndoor(sysOpt):
                                            FROM TB_ECOWITT_DATA AS ECO
                                                     LEFT OUTER JOIN
                                                 TB_DEVICE_MASTER AS dev ON ECO.device_id = dev.device_id
-                                           WHERE ECO.tm BETWEEN :srtDate AND :endDate
-                                             AND ECO.indoor_temp <> -999)
+                                           WHERE ECO.indoor_temp <> -999)
                      SELECT tm          AS tm,
                             device_id   AS device_id,
                             bot_token   AS bot_token,
@@ -250,7 +251,8 @@ def dbMntrgIndoor(sysOpt):
         srtDate = endDate - timedelta(minutes=sysOpt['mntrgMinInv'])
 
         with sysOpt['cfgDb']['sessionMake']() as session:
-            dataList = session.execute(query, {"srtDate": srtDate, "endDate": endDate}).all()
+            # dataList = session.execute(query, {"srtDate": srtDate, "endDate": endDate}).all()
+            dataList = session.execute(query).all()
             for dataInfo in dataList:
                 if not dataInfo.bot_token or not dataInfo.chat_id: continue
                 if dataInfo.state is None: continue
@@ -277,8 +279,7 @@ def dbMntrgOutdoor(sysOpt):
                                            FROM TB_ECOWITT_DATA AS ECO
                                                     LEFT OUTER JOIN
                                                 TB_DEVICE_MASTER AS dev ON ECO.device_id = dev.device_id
-                                           WHERE ECO.tm BETWEEN :srtDate AND :endDate
-                                             AND ECO.outdoor_temp <> -999
+                                           WHERE ECO.outdoor_temp <> -999
                                              AND ECO.outdoor_hmdty <> -999
                                              AND ECO.wind_speed <> -999),
                           CALC_TEMP_DATA AS (SELECT tm,
@@ -345,7 +346,8 @@ def dbMntrgOutdoor(sysOpt):
         endDate = datetime.now()
         srtDate = endDate - timedelta(minutes=sysOpt['mntrgMinInv'])
         with sysOpt['cfgDb']['sessionMake']() as session:
-            dataList = session.execute(query, {"srtDate": srtDate, "endDate": endDate}).all()
+            # dataList = session.execute(query, {"srtDate": srtDate, "endDate": endDate}).all()
+            dataList = session.execute(query).all()
 
             for dataInfo in dataList:
                 if not dataInfo.bot_token or not dataInfo.chat_id: continue
