@@ -233,6 +233,7 @@ def dbMntrgIndoor(sysOpt):
                                                 TB_DEVICE_MASTER AS dev ON ECO.device_id = dev.device_id
                                            WHERE ECO.indoor_temp <> -999)
                      SELECT tm          AS tm,
+                            device_name AS device_name,
                             device_id   AS device_id,
                             bot_token   AS bot_token,
                             chat_id   AS chat_id,
