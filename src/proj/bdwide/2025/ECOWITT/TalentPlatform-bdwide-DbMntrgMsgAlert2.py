@@ -666,10 +666,18 @@ class DtaProcess(object):
                             },
                             {
                                 'sensors': {
-                                    'console_battery': 'WS6210_C 센서',
+                                    'console_battery': 'WS6210_C 센서', 'haptic_array_battery': 'WS90 센서 건전지', 'haptic_array_capacitor': 'WS90 센서 충전', 'aqi_battey': 'WH46D 센서',
                                 },
                                 'rules': [
-                                    {'check': lambda v, m: v <=0.1 and m in [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12], 'state': '전원 차단'},
+                                    {'check': lambda v, m: v == 0.0 and m in [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12], 'state': '전원 차단'},
+                                ]
+                            },
+                            {
+                                'sensors': {
+                                    'temp1_battery': 'WN31 센서 CH1',
+                                },
+                                'rules': [
+                                    {'check': lambda v, m: v == 0.0 and m in [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12], 'state': '온습도 측정 전원 차단'},
                                 ]
                             },
                         ]
@@ -707,7 +715,23 @@ class DtaProcess(object):
                                     {'check': lambda v, m: v >= 4500.0 and m in [3, 4, 5, 6, 7, 8, 9, 10], 'state': '벌통내부 이산화탄소 4500ppm 이상'},
                                     {'check': lambda v, m: v >= 1800.0 and m in [3, 4, 5, 6, 7, 8, 9, 10], 'state': '벌통내부 이산화탄소 1800ppm 이상'},
                                 ]
-                            }
+                            },
+                            {
+                                'sensors': {
+                                    'console_battery': 'WN1920_C 센서', 'aqi_battey': 'WH46D 센서',
+                                },
+                                'rules': [
+                                    {'check': lambda v, m: v == 0.0 and m in [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12], 'state': '전원 차단'},
+                                ]
+                            },
+                            {
+                                'sensors': {
+                                    'temp2_battery': 'WN31_EP 센서 CH2', 'temp3_battery': 'WN31_EP 센서 CH3', 'temp4_battery': 'WN31_EP 센서 CH4', 'temp5_battery': 'WN31_EP 센서 CH5',
+                                },
+                                'rules': [
+                                    {'check': lambda v, m: v == 0.0 and m in [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12], 'state': '온습도 측정 전원 차단'},
+                                ]
+                            },
                         ]
                     },
                     {
@@ -741,6 +765,22 @@ class DtaProcess(object):
                                 },
                                 'rules': [
                                     {'check': lambda v, m: v >= 0.1 and m in [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12], 'state': '실외기상 강수량 0.1mm 이상'},
+                                ]
+                            },
+                            {
+                                'sensors': {
+                                    'console_battery': 'WN1700 센서',
+                                },
+                                'rules': [
+                                    {'check': lambda v, m: v == 0.0 and m in [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12], 'state': '전원 차단'},
+                                ]
+                            },
+                            {
+                                'sensors': {
+                                    'rainfall_battery': 'WN20 센서',
+                                },
+                                'rules': [
+                                    {'check': lambda v, m: v == 2.2 and m in [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12], 'state': '배터리 부족'},
                                 ]
                             },
                         ]
