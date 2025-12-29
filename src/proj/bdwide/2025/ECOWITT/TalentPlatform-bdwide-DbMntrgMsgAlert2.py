@@ -640,7 +640,7 @@ class DtaProcess(object):
                         'groups': [
                             {
                                 'sensors': {
-                                    'outdoor_temp': 'WS6210_C', 'temp1': 'WN31', 'aqi_temp': 'WH46D',
+                                    'outdoor_temp': 'WS6210_C 센서', 'temp1': 'WN31 센서', 'aqi_temp': 'WH46D 센서',
                                 },
                                 'rules': [
                                     {'check': lambda v, m: v <= 7.0 and m in [3, 4, 5], 'state': '실외기상 온도 7도 이하'},
@@ -649,7 +649,7 @@ class DtaProcess(object):
                             },
                             {
                                 'sensors': {
-                                    'wind_speed': 'WS90',
+                                    'wind_speed': 'WS90 센서',
                                 },
                                 'rules': [
                                     {'check': lambda v, m: v >= 10.0 and m in [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12], 'state': '실외기상 풍속 10m/s 이상'},
@@ -658,7 +658,7 @@ class DtaProcess(object):
                             },
                             {
                                 'sensors': {
-                                    'rain_rate': 'WS90',
+                                    'rain_rate': 'WS90 센서',
                                 },
                                 'rules': [
                                     {'check': lambda v, m: v >= 0.1 and m in [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12], 'state': '실외기상 강수량 0.1mm 이상'},
@@ -666,7 +666,7 @@ class DtaProcess(object):
                             },
                             {
                                 'sensors': {
-                                    'console_battery': 'WS6210_C',
+                                    'console_battery': 'WS6210_C 센서',
                                 },
                                 'rules': [
                                     {'check': lambda v, m: v >= 0.1 and m in [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12], 'state': '실외기상 강수량 0.1mm 이상'},
@@ -680,7 +680,7 @@ class DtaProcess(object):
                         'groups': [
                             {
                                 'sensors': {
-                                    'indoor_temp': '1~5', 'aqi_temp': '하부1', 'temp2': '하부2', 'temp3': '하부3', 'temp4': '하부4', 'temp5': '하부5',
+                                    'indoor_temp': '1~5번 벌통', 'aqi_temp': '하부1번 벌통', 'temp2': '하부2번 벌통', 'temp3': '하부3번 벌통', 'temp4': '하부4번 벌통', 'temp5': '하부5번 벌통',
                                 },
                                 'rules': [
                                     {'check': lambda v, m: v >= 38.0 and m in [3, 4, 5, 6, 7, 8, 9, 10], 'state': '벌통내부 온도 38도 이상'},
@@ -691,7 +691,7 @@ class DtaProcess(object):
                             },
                             {
                                 'sensors': {
-                                    'indoor_hmdty': '1~5', 'aqi_hmdty': '하부1', 'hmdty2': '하부2', 'hmdty3': '하부3', 'hmdty4': '하부4', 'hmdty5': '하부5',
+                                    'indoor_hmdty': '1~5번 벌통', 'aqi_hmdty': '하부1번 벌통', 'hmdty2': '하부2번 벌통', 'hmdty3': '하부3번 벌통', 'hmdty4': '하부4번 벌통', 'hmdty5': '하부5번 벌통',
                                 },
                                 'rules': [
                                     {'check': lambda v, m: v >= 80.0 and m in [3, 4, 5, 6, 7, 8, 9, 10], 'state': '벌통내부 습도 80% 이상'},
@@ -701,7 +701,7 @@ class DtaProcess(object):
                             },
                             {
                                 'sensors': {
-                                    'co2': '1~5'
+                                    'co2': '1~5번 벌통'
                                 },
                                 'rules': [
                                     {'check': lambda v, m: v >= 4500.0 and m in [3, 4, 5, 6, 7, 8, 9, 10], 'state': '벌통내부 이산화탄소 4500ppm 이상'},
@@ -710,27 +710,62 @@ class DtaProcess(object):
                             }
                         ]
                     },
+                    {
+                        'deviceId': '5',
+                        'deviceName': '가평이수근',
+                        'groups': [
+                            {
+                                'sensors': {
+                                    'indoor_temp': 'WN1700 센서',
+                                },
+                                'rules': [
+                                    {'check': lambda v, m: v >= 38.0 and m in [3, 4, 5, 6, 7, 8, 9, 10], 'state': '벌통내부 온도 38도 이상'},
+                                    {'check': lambda v, m: v >= 33.0 and m in [3, 4, 5, 6, 7, 8, 9, 10], 'state': '벌통내부 온도 33도 이상'},
+                                    {'check': lambda v, m: v >= 21.0 and m in [1, 2, 11, 12], 'state': '벌통내부 온도 21도 이상'},
+                                    {'check': lambda v, m: v <= 10.0 and m in [1, 2, 11, 12], 'state': '벌통내부 온도 10도 이하'},
+                                ]
+                            },
+                            {
+                                'sensors': {
+                                    'indoor_hmdty': 'WN1700 센서',
+                                },
+                                'rules': [
+                                    {'check': lambda v, m: v >= 80.0 and m in [3, 4, 5, 6, 7, 8, 9, 10], 'state': '벌통내부 습도 80% 이상'},
+                                    {'check': lambda v, m: v >= 70.0 and m in [11, 12, 1, 2], 'state': '벌통내부 습도 70% 이상'},
+                                    {'check': lambda v, m: v <= 50.0 and m in [3, 4, 5, 6, 7, 8, 9, 10], 'state': '벌통내부 습도 50% 이하'},
+                                ]
+                            },
+                            {
+                                'sensors': {
+                                    'rain_rate': 'WN1700 센서',
+                                },
+                                'rules': [
+                                    {'check': lambda v, m: v >= 0.1 and m in [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12], 'state': '실외기상 강수량 0.1mm 이상'},
+                                ]
+                            },
+                        ]
+                    },
                 ],
 
                 # 메시지 알림 템플릿
                 'msgAlertTemplate': {
                     # 실외기상
-                    '실외기상 온도 7도 이하': '[실외기상 온도 7도 이하] {deviceName} 농장 / {deviceDtlNum} 센서\n외부 온도가 {val:.1f}도 입니다. 5도이하 일 경우, 내검 작업을 중지 해야합니다.',
+                    '실외기상 온도 7도 이하': '[실외기상 온도 7도 이하] {deviceName} 농장 / {deviceDtlNum}\n외부 온도가 {val:.1f}도 입니다. 5도이하 일 경우, 내검 작업을 중지 해야합니다.',
                     '실외기상 온도 -4도 이하': '[실외기상 온도 -4도 이하] {deviceName} 농장 / {deviceDtlNum} 센서\n외부 온도가 영하 {val:.1f}도입니다. 월동시기에 주의 바랍니다.',
                     '실외기상 풍속 10m/s 이상': '[실외기상 풍속 10m/s 이상] {deviceName} 농장 / {deviceDtlNum} 센서\n강풍 {val:.1f}m/s 입니다 벌통이 넘어질 위험이 있습니다. 안전관리가 필요합니다.',
                     '실외기상 풍속 5m/s 이상': '[실외기상 풍속 5m/s 이상] {deviceName} 농장 / {deviceDtlNum} 센서\n강풍 {val:.1f}m/s 입니다 내검 작업이 어려운 상황이며, 벌통 안전관리가 필요합니다.',
                     '실외기상 강수량 0.1mm 이상': '[실외기상 강수량 0.1mm 이상] {deviceName} 농장 / {deviceDtlNum} 센서\n현재까지 강수량이 {val:.1f}mm 입니다 내검 작업에 참고해주세요.',
 
                     # 벌통내부
-                    '벌통내부 온도 21도 이상': '[벌통내부 온도 21도 이상] {deviceName} 농장 / {deviceDtlNum}번 벌통\n벌통 내부 온도가 {val:.1f}도입니다. 25도 이상시, 여왕벌이 산란 할 수 있습니다. 주의 바랍니다.',
-                    '벌통내부 온도 10도 이하': '[벌통내부 온도 10도 이하] {deviceName} 농장 / {deviceDtlNum}번 벌통\n현재 내부 온도가 {val:.1f}도입니다. 5도 이하일 경우 동사 할 수 있습니다 주의 바랍니다.',
-                    '벌통내부 온도 33도 이상': '[벌통내부 온도 33도 이상] {deviceName} 농장 / {deviceDtlNum}번 벌통\n현재 {val:.1f}도입니다. 주의 바랍니다. 벌통 내부 온도는 34~35도가 적정입니다.',
-                    '벌통내부 온도 38도 이상': '[벌통내부 온도 38도 이상] {deviceName} 농장 / {deviceDtlNum}번 벌통\n현재 {val:.1f}도입니다. 주의 바랍니다. 벌통 내부 온도는 34~35도가 적정입니다.',
-                    '벌통내부 습도 80% 이상': '[벌통내부 습도 80% 이상] {deviceName} 농장 / {deviceDtlNum}번 벌통\n벌통 내부 습도가 {val:.1f}%로 위험합니다. 벌통 내부 습도는 60%~65%가 적정입니다.',
-                    '벌통내부 습도 70% 이상': '[벌통내부 습도 70% 이상] {deviceName} 농장 / {deviceDtlNum}번 벌통\n벌통 내부 습도가 {val:.1f}%로 결로 발생시 위험합니다. 월동 벌통 내부 습도는 45%~60%가 적정입니다.',
-                    '벌통내부 습도 50% 이하': '[벌통내부 습도 50% 이하] {deviceName} 농장 / {deviceDtlNum}번 벌통\n벌통 내부 습도가 {val:.1f}%로 건조합니다. 유충시 말라 죽을 수 있습니다. 벌통 내부 습도는 60%~65%가 적정입니다.',
-                    '벌통내부 이산화탄소 4500ppm 이상': '[벌통내부 이산화탄소 4500ppm 이상] {deviceName} 농장 / {deviceDtlNum}번 벌통\n벌통 내부 이산화탄소가 {val:.0f}ppm입니다. 이산화탄소는 5,000ppm 이상일 경우, 벌들의 활동력이 떨어지고 특히, 고온다습한 환경과 겹칠 경우 질병에 취약해지거나 산란이 저해될 수 있습니다.',
-                    '벌통내부 이산화탄소 1800ppm 이상': '[벌통내부 이산화탄소 1800ppm 이상] {deviceName} 농장 / {deviceDtlNum}번 벌통\n벌통 내부 이산화탄소가 {val:.0f}ppm입니다. 꿀 숙성이 지연되거나 벌의 날개짓 활동으로 불필요한 에너지를 소모합니다.\n3월~10월에서 이산화탄소는 400ppm~1500ppm 이하로 권장합니다.',
+                    '벌통내부 온도 21도 이상': '[벌통내부 온도 21도 이상] {deviceName} 농장 / {deviceDtlNum}\n벌통 내부 온도가 {val:.1f}도입니다. 25도 이상시, 여왕벌이 산란 할 수 있습니다. 주의 바랍니다.',
+                    '벌통내부 온도 10도 이하': '[벌통내부 온도 10도 이하] {deviceName} 농장 / {deviceDtlNum}\n현재 내부 온도가 {val:.1f}도입니다. 5도 이하일 경우 동사 할 수 있습니다 주의 바랍니다.',
+                    '벌통내부 온도 33도 이상': '[벌통내부 온도 33도 이상] {deviceName} 농장 / {deviceDtlNum}\n현재 {val:.1f}도입니다. 주의 바랍니다. 벌통 내부 온도는 34~35도가 적정입니다.',
+                    '벌통내부 온도 38도 이상': '[벌통내부 온도 38도 이상] {deviceName} 농장 / {deviceDtlNum}\n현재 {val:.1f}도입니다. 주의 바랍니다. 벌통 내부 온도는 34~35도가 적정입니다.',
+                    '벌통내부 습도 80% 이상': '[벌통내부 습도 80% 이상] {deviceName} 농장 / {deviceDtlNum}\n벌통 내부 습도가 {val:.1f}%로 위험합니다. 벌통 내부 습도는 60%~65%가 적정입니다.',
+                    '벌통내부 습도 70% 이상': '[벌통내부 습도 70% 이상] {deviceName} 농장 / {deviceDtlNum}\n벌통 내부 습도가 {val:.1f}%로 결로 발생시 위험합니다. 월동 벌통 내부 습도는 45%~60%가 적정입니다.',
+                    '벌통내부 습도 50% 이하': '[벌통내부 습도 50% 이하] {deviceName} 농장 / {deviceDtlNum}\n벌통 내부 습도가 {val:.1f}%로 건조합니다. 유충시 말라 죽을 수 있습니다. 벌통 내부 습도는 60%~65%가 적정입니다.',
+                    '벌통내부 이산화탄소 4500ppm 이상': '[벌통내부 이산화탄소 4500ppm 이상] {deviceName} 농장 / {deviceDtlNum}\n벌통 내부 이산화탄소가 {val:.0f}ppm입니다. 이산화탄소는 5,000ppm 이상일 경우, 벌들의 활동력이 떨어지고 특히, 고온다습한 환경과 겹칠 경우 질병에 취약해지거나 산란이 저해될 수 있습니다.',
+                    '벌통내부 이산화탄소 1800ppm 이상': '[벌통내부 이산화탄소 1800ppm 이상] {deviceName} 농장 / {deviceDtlNum}\n벌통 내부 이산화탄소가 {val:.0f}ppm입니다. 꿀 숙성이 지연되거나 벌의 날개짓 활동으로 불필요한 에너지를 소모합니다.\n3월~10월에서 이산화탄소는 400ppm~1500ppm 이하로 권장합니다.',
 
                     # 배터리
 
