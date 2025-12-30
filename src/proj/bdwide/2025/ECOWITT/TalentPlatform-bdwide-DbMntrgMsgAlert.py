@@ -219,6 +219,69 @@ def initArgument(globalVar):
 
     return globalVar
 
+def dbMntrgInit(sysOpt):
+    try:
+        sysOpt['msgAlertHist'] = {}
+    except Exception as e:
+        log.error(f'Exception : {e}')
+
+def dbMntrgProfile(sysOpt):
+    try:
+        query = text("""
+                     WITH PRE_ECO_DATA AS (
+                         SELECT ECO.*,
+                                dev.device_name,
+                                dev.bot_token,
+                                dev.chat_id,
+                                ROW_NUMBER() OVER (PARTITION BY ECO.device_id ORDER BY ECO.tm DESC) AS rn
+                         FROM TB_ECOWITT_DATA AS ECO
+                         LEFT OUTER JOIN TB_DEVICE_MASTER AS dev ON ECO.device_id = dev.device_id
+                     )
+                     SELECT *
+                     FROM PRE_ECO_DATA
+                     WHERE rn = 1;
+                     """)
+
+        endDate = datetime.now()
+        srtDate = endDate - timedelta(minutes=sysOpt['mntrgMinInv'])
+
+        with sysOpt['cfgDb']['sessionMake']() as session:
+            # dataList = session.execute(query, {"srtDate": srtDate, "endDate": endDate}).all()
+            dataList = session.execute(query).all()
+            for dataInfo in dataList:
+                if not dataInfo.bot_token or not dataInfo.chat_id: continue
+                # log.info(f"[CHECK] dataInfo : {dataInfo}")
+
+                for monitorProfile in sysOpt['monitorProfile']:
+                    deviceName = monitorProfile['deviceName']
+                    if not re.fullmatch(monitorProfile['deviceId'], str(dataInfo['device_id']), re.IGNORECASE): continue
+
+                    for group in monitorProfile['groups']:
+                        for colName, deviceDtlNum in group['sensors'].items():
+                            try:
+                                val = getattr(dataInfo, colName)
+                                month = getattr(dataInfo, 'tm').month
+                            except Exception:
+                                continue
+
+                            if val is None or val == -999: continue
+
+                            state = None
+                            for rule in group['rules']:
+                                if rule['check'](val, month):
+                                    state = rule['state']
+                                    break
+
+                            if state is None: continue
+                            key = f"{state}-{deviceDtlNum}-{deviceName}"
+                            msgAlertDate = sysOpt['msgAlertHist'].get(key)
+                            if (msgAlertDate is None) or (endDate - msgAlertDate) >= timedelta(minutes=sysOpt['msgAlertMinInv']):
+                                cfgTg = {'bot_token': dataInfo.bot_token, 'chat_id': dataInfo.chat_id}
+                                sendTgApi(cfgTg, sysOpt['msgAlertTemplate'][state].format(deviceDtlNum=deviceDtlNum, deviceName=deviceName, val=val))
+                                sysOpt['msgAlertHist'][key] = endDate
+    except Exception as e:
+        log.error(f'Exception : {e}')
+
 # 벌통 내부 검사
 def dbMntrgIndoor(sysOpt):
     try:
@@ -266,7 +329,7 @@ def dbMntrgIndoor(sysOpt):
                     cfgTg = {'bot_token': dataInfo.bot_token, 'chat_id': dataInfo.chat_id}
                     sendTgApi(cfgTg, sysOpt['msgAlertTemplate'][dataInfo.state].format(device_id=dataInfo.device_id, device_name=dataInfo.device_name, indoor_temp=dataInfo.indoor_temp))
                     sysOpt['msgAlertHist'][key] = endDate
-                    log.info(f"[CHECK] msgAlertHist : {sysOpt['msgAlertHist'].keys()}")
+                    # log.info(f"[CHECK] msgAlertHist : {sysOpt['msgAlertHist'].keys()}")
     except Exception as e:
         log.error(f'Exception : {e}')
 
@@ -362,7 +425,7 @@ def dbMntrgOutdoor(sysOpt):
                     cfgTg = {'bot_token': dataInfo.bot_token, 'chat_id': dataInfo.chat_id}
                     sendTgApi(cfgTg, sysOpt['msgAlertTemplate'][dataInfo.state].format(device_id=dataInfo.device_id, device_name=dataInfo.device_name, outdoor_temp=dataInfo.outdoor_temp, fill_temp=dataInfo.fill_temp))
                     sysOpt['msgAlertHist'][key] = endDate
-                    log.info(f"[CHECK] msgAlertHist : {sysOpt['msgAlertHist'].keys()}")
+                    # log.info(f"[CHECK] msgAlertHist : {sysOpt['msgAlertHist'].keys()}")
     except Exception as e:
         log.error(f'Exception : {e}')
 
@@ -403,7 +466,7 @@ def dbMntrgData(sysOpt):
                         cfgTg = {'bot_token': dataInfo.bot_token, 'chat_id': dataInfo.chat_id}
                         sendTgApi(cfgTg, sysOpt['msgAlertTemplate']['데이터 적재 실패'].format(device_id=dataInfo.device_id, device_name=dataInfo.device_name, tm=dataInfo.tm.strftime("%Y-%m-%d %H:%M"), thrMsgInfo=thrMsgInfo))
                         sysOpt['msgAlertHist'][key] = endDate
-                        log.info(f"[CHECK] msgAlertHist : {sysOpt['msgAlertHist'].keys()}")
+                        # log.info(f"[CHECK] msgAlertHist : {sysOpt['msgAlertHist'].keys()}")
                         break
     except Exception as e:
         log.error(f'Exception : {e}')
@@ -412,10 +475,14 @@ async def asyncSchdl(sysOpt):
     scheduler = AsyncIOScheduler()
 
     jobList = [
+        # (dbMntrgInit, 'cron', {'minute': '*/1', 'second': '0'}, {'args': [sysOpt]}),
+        (dbMntrgInit, 'cron', {'hour': '0', 'minute': '0', 'second': '0'}, {'args': [sysOpt]}),
         (dbMntrgIndoor, 'cron', {'minute': '*/1', 'second': '0'}, {'args': [sysOpt]}),
         (dbMntrgOutdoor, 'cron', {'minute': '*/1', 'second': '0'}, {'args': [sysOpt]}),
         (dbMntrgData, 'cron', {'minute': '*/1', 'second': '0'}, {'args': [sysOpt]}),
+        (dbMntrgProfile, 'cron', {'minute': '*/1', 'second': '0'}, {'args': [sysOpt]}),
     ]
+
 
     for fun, trigger, triggerArgs, kwargs in jobList:
         try:
@@ -548,7 +615,6 @@ class DtaProcess(object):
                 globalVar['outPath'] = '/HDD/DATA/OUTPUT'
                 globalVar['figPath'] = '/HDD/DATA/FIG'
 
-            # 옵션 설정
             sysOpt = {
                 # 설정 파일
                 'cfgDbKey': 'mysql-iwin-dms01user01-DMS03',
@@ -557,9 +623,6 @@ class DtaProcess(object):
                 'cfgTg': None,
                 'cfgFile': '/HDD/SYSTEMS/PROG/PYTHON/IDE/resources/config/system.cfg',
 
-                # 모니터링 주기 1분
-                'mntrgMinInv': 1,
-
                 # 데이터 적재 검사
                 'thrMinList': [60 * 24 * 7, 60 * 24, 60 * 12, 60, 30],
                 'thrMsgList': ['7일', '1일', '12시간', '1시간', '30분'],
@@ -567,25 +630,275 @@ class DtaProcess(object):
                 # 메시지 알림 이력
                 'msgAlertHist': {},
 
-                # 모니터링 주기 60분
-                'msgAlertMinInv': 60,
+                # 모니터링 주기 60분 * 24
+                'msgAlertMinInv': 60 * 24,
+
+                'monitorProfile': [
+                    {
+                        'deviceId': '1',
+                        'deviceName': '여주산숲팜',
+                        'groups': [
+                            {
+                                'sensors': {
+                                    'outdoor_temp': 'WS90', 'temp3': 'WN31 CH3', 'aqi_temp': 'WH46D',
+                                },
+                                'rules': [
+                                    {'check': lambda v, m: v <= 7.0 and m in [3, 4, 5], 'state': '실외기상 온도 7도 이하'},
+                                    {'check': lambda v, m: v <= -4.0 and m in [1, 2, 11, 12], 'state': '실외기상 온도 -4도 이하'},
+                                ]
+                            },
+                            {
+                                'sensors': {
+                                    'wind_speed': 'WS90',
+                                },
+                                'rules': [
+                                    {'check': lambda v, m: v >= 10.0 and m in [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12], 'state': '실외기상 풍속 10m/s 이상'},
+                                    {'check': lambda v, m: v >= 5.0 and m in [3, 4, 5, 6, 7, 8, 9, 10], 'state': '실외기상 풍속 5m/s 이상'},
+                                ]
+                            },
+                            {
+                                'sensors': {
+                                    'rain_rate': 'WS90',
+                                },
+                                'rules': [
+                                    {'check': lambda v, m: v >= 0.1 and m in [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12], 'state': '실외기상 강수량 0.1mm 이상'},
+                                ]
+                            },
+                            {
+                                'sensors': {
+                                    'indoor_temp': 'GW3000 게이트웨이', 'temp_ch1': 'WN34D 상부1번 벌통', 'temp1': 'WN31 CH1 하부1번 벌통', 'temp2': 'WN31 CH2 하부2번 벌통',
+                                },
+                                'rules': [
+                                    {'check': lambda v, m: v >= 38.0 and m in [3, 4, 5, 6, 7, 8, 9, 10], 'state': '벌통내부 온도 38도 이상'},
+                                    {'check': lambda v, m: v >= 33.0 and m in [3, 4, 5, 6, 7, 8, 9, 10], 'state': '벌통내부 온도 33도 이상'},
+                                    {'check': lambda v, m: v >= 21.0 and m in [1, 2, 11, 12], 'state': '벌통내부 온도 21도 이상'},
+                                    {'check': lambda v, m: v <= 10.0 and m in [1, 2, 11, 12], 'state': '벌통내부 온도 10도 이하'},
+                                ]
+                            },
+                            {
+                                'sensors': {
+                                    'indoor_hmdty': 'GW3000 게이트웨이', 'hmdty1': 'WN31 CH1 하부1번 벌통', 'hmdty2': 'WN31 CH2 하부2번 벌통',
+                                },
+                                'rules': [
+                                    {'check': lambda v, m: v >= 80.0 and m in [3, 4, 5, 6, 7, 8, 9, 10], 'state': '벌통내부 습도 80% 이상'},
+                                    {'check': lambda v, m: v >= 70.0 and m in [11, 12, 1, 2], 'state': '벌통내부 습도 70% 이상'},
+                                    {'check': lambda v, m: v <= 50.0 and m in [3, 4, 5, 6, 7, 8, 9, 10], 'state': '벌통내부 습도 50% 이하'},
+                                ]
+                            },
+                            {
+                                'sensors': {
+                                    'temp_ch1_battery': 'WN34D', 'temp1_battery': 'WN31 CH1', 'temp2_battery': 'WN31 CH2', 'temp3_battery': 'WN31 CH3',
+                                },
+                                'rules': [
+                                    {'check': lambda v, m: v == 0.0 and m in [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12], 'state': '온습도 측정 전원 차단'},
+                                ]
+                            },
+                            {
+                                'sensors': {
+                                    'haptic_array_battery': 'WS90 건전지', 'haptic_array_capacitor': 'WS90 충전지', 'aqi_battey': 'WH45',
+                                },
+                                'rules': [
+                                    {'check': lambda v, m: v == 0.0 and m in [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12], 'state': '전원 차단'},
+                                ]
+                            },
+                        ]
+                    },
+                    {
+                        'deviceId': '3',
+                        'deviceName': '가평이수근',
+                        'groups': [
+                            {
+                                'sensors': {
+                                    'outdoor_temp': 'WS6210_C', 'temp1': 'WN31 CH1', 'aqi_temp': 'WH46D',
+                                },
+                                'rules': [
+                                    {'check': lambda v, m: v <= 7.0 and m in [3, 4, 5], 'state': '실외기상 온도 7도 이하'},
+                                    {'check': lambda v, m: v <= -4.0 and m in [1, 2, 11, 12], 'state': '실외기상 온도 -4도 이하'},
+                                ]
+                            },
+                            {
+                                'sensors': {
+                                    'wind_speed': 'WS90',
+                                },
+                                'rules': [
+                                    {'check': lambda v, m: v >= 10.0 and m in [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12], 'state': '실외기상 풍속 10m/s 이상'},
+                                    {'check': lambda v, m: v >= 5.0 and m in [3, 4, 5, 6, 7, 8, 9, 10], 'state': '실외기상 풍속 5m/s 이상'},
+                                ]
+                            },
+                            {
+                                'sensors': {
+                                    'rain_rate': 'WS90',
+                                },
+                                'rules': [
+                                    {'check': lambda v, m: v >= 0.1 and m in [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12], 'state': '실외기상 강수량 0.1mm 이상'},
+                                ]
+                            },
+                            {
+                                'sensors': {
+                                    'console_battery': 'WS6210_C', 'haptic_array_battery': 'WS90 건전지', 'haptic_array_capacitor': 'WS90 충전지', 'aqi_battey': 'WH46D',
+                                },
+                                'rules': [
+                                    {'check': lambda v, m: v == 0.0 and m in [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12], 'state': '전원 차단'},
+                                ]
+                            },
+                            {
+                                'sensors': {
+                                    'temp1_battery': 'WN31 CH1',
+                                },
+                                'rules': [
+                                    {'check': lambda v, m: v == 0.0 and m in [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12], 'state': '온습도 측정 전원 차단'},
+                                ]
+                            },
+                        ]
+                    },
+                    {
+                        'deviceId': '4',
+                        'deviceName': '가평이수근',
+                        'groups': [
+                            {
+                                'sensors': {
+                                    'indoor_temp': 'WN1920_C 1~5번 벌통', 'aqi_temp': 'WH46D 하부1번 벌통', 'temp2': 'WN31_EP CH2 하부2번 벌통', 'temp3': 'WN31_EP CH3 하부3번 벌통', 'temp4': 'WN31_EP CH4 하부4번 벌통', 'temp5': 'WN31 CH5 하부5번 벌통',
+                                },
+                                'rules': [
+                                    {'check': lambda v, m: v >= 38.0 and m in [3, 4, 5, 6, 7, 8, 9, 10], 'state': '벌통내부 온도 38도 이상'},
+                                    {'check': lambda v, m: v >= 33.0 and m in [3, 4, 5, 6, 7, 8, 9, 10], 'state': '벌통내부 온도 33도 이상'},
+                                    {'check': lambda v, m: v >= 21.0 and m in [1, 2, 11, 12], 'state': '벌통내부 온도 21도 이상'},
+                                    {'check': lambda v, m: v <= 10.0 and m in [1, 2, 11, 12], 'state': '벌통내부 온도 10도 이하'},
+                                ]
+                            },
+                            {
+                                'sensors': {
+                                    'indoor_hmdty': 'WN1920_C 1~5번 벌통', 'aqi_hmdty': 'WH46D 하부1번 벌통', 'hmdty2': 'WN31_EP CH2 하부2번 벌통', 'hmdty3': 'WN31_EP CH3 하부3번 벌통', 'hmdty4': 'WN31_EP CH4 하부4번 벌통', 'hmdty5': 'WN31 CH5 하부5번 벌통',
+                                },
+                                'rules': [
+                                    {'check': lambda v, m: v >= 80.0 and m in [3, 4, 5, 6, 7, 8, 9, 10], 'state': '벌통내부 습도 80% 이상'},
+                                    {'check': lambda v, m: v >= 70.0 and m in [11, 12, 1, 2], 'state': '벌통내부 습도 70% 이상'},
+                                    {'check': lambda v, m: v <= 50.0 and m in [3, 4, 5, 6, 7, 8, 9, 10], 'state': '벌통내부 습도 50% 이하'},
+                                ]
+                            },
+                            {
+                                'sensors': {
+                                    'co2': 'WH46D 1~5번 벌통'
+                                },
+                                'rules': [
+                                    {'check': lambda v, m: v >= 4500.0 and m in [3, 4, 5, 6, 7, 8, 9, 10], 'state': '벌통내부 이산화탄소 4500ppm 이상'},
+                                    {'check': lambda v, m: v >= 1800.0 and m in [3, 4, 5, 6, 7, 8, 9, 10], 'state': '벌통내부 이산화탄소 1800ppm 이상'},
+                                ]
+                            },
+                            {
+                                'sensors': {
+                                    'console_battery': 'WN1920_C', 'aqi_battey': 'WH46D',
+                                },
+                                'rules': [
+                                    {'check': lambda v, m: v == 0.0 and m in [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12], 'state': '전원 차단'},
+                                ]
+                            },
+                            {
+                                'sensors': {
+                                    'temp2_battery': 'WN31_EP CH2', 'temp3_battery': 'WN31_EP CH3', 'temp4_battery': 'WN31_EP CH4', 'temp5_battery': 'WN31_EP CH5',
+                                },
+                                'rules': [
+                                    {'check': lambda v, m: v == 0.0 and m in [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12], 'state': '온습도 측정 전원 차단'},
+                                ]
+                            },
+                        ]
+                    },
+                    {
+                        'deviceId': '5',
+                        'deviceName': '가평이수근',
+                        'groups': [
+                            {
+                                'sensors': {
+                                    'indoor_temp': 'WN1700',
+                                },
+                                'rules': [
+                                    {'check': lambda v, m: v >= 38.0 and m in [3, 4, 5, 6, 7, 8, 9, 10], 'state': '벌통내부 온도 38도 이상'},
+                                    {'check': lambda v, m: v >= 33.0 and m in [3, 4, 5, 6, 7, 8, 9, 10], 'state': '벌통내부 온도 33도 이상'},
+                                    {'check': lambda v, m: v >= 21.0 and m in [1, 2, 11, 12], 'state': '벌통내부 온도 21도 이상'},
+                                    {'check': lambda v, m: v <= 10.0 and m in [1, 2, 11, 12], 'state': '벌통내부 온도 10도 이하'},
+                                ]
+                            },
+                            {
+                                'sensors': {
+                                    'indoor_hmdty': 'WN1700',
+                                },
+                                'rules': [
+                                    {'check': lambda v, m: v >= 80.0 and m in [3, 4, 5, 6, 7, 8, 9, 10], 'state': '벌통내부 습도 80% 이상'},
+                                    {'check': lambda v, m: v >= 70.0 and m in [11, 12, 1, 2], 'state': '벌통내부 습도 70% 이상'},
+                                    {'check': lambda v, m: v <= 50.0 and m in [3, 4, 5, 6, 7, 8, 9, 10], 'state': '벌통내부 습도 50% 이하'},
+                                ]
+                            },
+                            {
+                                'sensors': {
+                                    'rain_rate': 'WN1700',
+                                },
+                                'rules': [
+                                    {'check': lambda v, m: v >= 0.1 and m in [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12], 'state': '실외기상 강수량 0.1mm 이상'},
+                                ]
+                            },
+                            {
+                                'sensors': {
+                                    'console_battery': 'WN1700',
+                                },
+                                'rules': [
+                                    {'check': lambda v, m: v == 0.0 and m in [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12], 'state': '전원 차단'},
+                                ]
+                            },
+                            {
+                                'sensors': {
+                                    'rainfall_battery': 'WN20',
+                                },
+                                'rules': [
+                                    {'check': lambda v, m: v == 2.2 and m in [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12], 'state': '배터리 부족'},
+                                ]
+                            },
+                        ]
+                    },
+                ],
 
                 # 메시지 알림 템플릿
                 'msgAlertTemplate': {
+                    # 실외기상
+                    '실외기상 온도 7도 이하': '[실외기상 온도 7도 이하] {deviceName} 농장 / {deviceDtlNum}\n외부 온도가 {val:.1f}도 입니다. 5도이하 일 경우, 내검 작업을 중지 해야합니다.',
+                    '실외기상 온도 -4도 이하': '[실외기상 온도 -4도 이하] {deviceName} 농장 / {deviceDtlNum}\n외부 온도가 영하 {val:.1f}도입니다. 월동시기에 주의 바랍니다.',
+                    '실외기상 풍속 10m/s 이상': '[실외기상 풍속 10m/s 이상] {deviceName} 농장 / {deviceDtlNum}\n강풍 {val:.1f}m/s 입니다 벌통이 넘어질 위험이 있습니다. 안전관리가 필요합니다.',
+                    '실외기상 풍속 5m/s 이상': '[실외기상 풍속 5m/s 이상] {deviceName} 농장 / {deviceDtlNum}\n강풍 {val:.1f}m/s 입니다 내검 작업이 어려운 상황이며, 벌통 안전관리가 필요합니다.',
+                    '실외기상 강수량 0.1mm 이상': '[실외기상 강수량 0.1mm 이상] {deviceName} 농장 / {deviceDtlNum}\n현재까지 강수량이 {val:.1f}mm 입니다 내검 작업에 참고해주세요.',
+
+                    # 벌통내부
+                    '벌통내부 온도 21도 이상': '[벌통내부 온도 21도 이상] {deviceName} 농장 / {deviceDtlNum}\n벌통 내부 온도가 {val:.1f}도입니다. 25도 이상시, 여왕벌이 산란 할 수 있습니다. 주의 바랍니다.',
+                    '벌통내부 온도 10도 이하': '[벌통내부 온도 10도 이하] {deviceName} 농장 / {deviceDtlNum}\n현재 내부 온도가 {val:.1f}도입니다. 5도 이하일 경우 동사 할 수 있습니다 주의 바랍니다.',
+                    '벌통내부 온도 33도 이상': '[벌통내부 온도 33도 이상] {deviceName} 농장 / {deviceDtlNum}\n현재 {val:.1f}도입니다. 주의 바랍니다. 벌통 내부 온도는 34~35도가 적정입니다.',
+                    '벌통내부 온도 38도 이상': '[벌통내부 온도 38도 이상] {deviceName} 농장 / {deviceDtlNum}\n현재 {val:.1f}도입니다. 주의 바랍니다. 벌통 내부 온도는 34~35도가 적정입니다.',
+                    '벌통내부 습도 80% 이상': '[벌통내부 습도 80% 이상] {deviceName} 농장 / {deviceDtlNum}\n벌통 내부 습도가 {val:.1f}%로 위험합니다. 벌통 내부 습도는 60%~65%가 적정입니다.',
+                    '벌통내부 습도 70% 이상': '[벌통내부 습도 70% 이상] {deviceName} 농장 / {deviceDtlNum}\n벌통 내부 습도가 {val:.1f}%로 결로 발생시 위험합니다. 월동 벌통 내부 습도는 45%~60%가 적정입니다.',
+                    '벌통내부 습도 50% 이하': '[벌통내부 습도 50% 이하] {deviceName} 농장 / {deviceDtlNum}\n벌통 내부 습도가 {val:.1f}%로 건조합니다. 유충시 말라 죽을 수 있습니다. 벌통 내부 습도는 60%~65%가 적정입니다.',
+                    '벌통내부 이산화탄소 4500ppm 이상': '[벌통내부 이산화탄소 4500ppm 이상] {deviceName} 농장 / {deviceDtlNum}\n벌통 내부 이산화탄소가 {val:.0f}ppm입니다. 이산화탄소는 5,000ppm 이상일 경우, 벌들의 활동력이 떨어지고 특히, 고온다습한 환경과 겹칠 경우 질병에 취약해지거나 산란이 저해될 수 있습니다.',
+                    '벌통내부 이산화탄소 1800ppm 이상': '[벌통내부 이산화탄소 1800ppm 이상] {deviceName} 농장 / {deviceDtlNum}\n벌통 내부 이산화탄소가 {val:.0f}ppm입니다. 꿀 숙성이 지연되거나 벌의 날개짓 활동으로 불필요한 에너지를 소모합니다.\n3월~10월에서 이산화탄소는 400ppm~1500ppm 이하로 권장합니다.',
+
+                    # 배터리
+                    '전원 차단': '[전원 차단] {deviceName} 농장 / {deviceDtlNum}\n전원이 차단입니다. 전원 연결 확인 해주세요',
+                    '배터리 부족': '[배터리 부족] {deviceName} 농장 / {deviceDtlNum}\n배터리 부족합니다. 배터리 교체해주시길 바랍니다',
+                    '온습도 측정 배터리 부족': '[배터리 부족] {deviceName} 농장 / {deviceDtlNum}\n배터리 부족합니다. 배터리 교체해주시길 바랍니다',
+                    '온습도 측정 전원 차단': '[전원 차단] {deviceName} 농장 / {deviceDtlNum}\n전원이 차단되어 중지 상황입니다. 배터리 교체해주시길 바랍니다.',
+
                     # 내부 온도
                     '내부 고온 경보': '[🚨내부 고온 경보] {device_name} 농장 / {device_id}번 벌통\n- 현재 상태: 내부 온도 {indoor_temp:.1f}℃ (경보 기준: 38℃)\n- 권장 조치:\n  ▶ 즉시 벌통 주변 환기 강화\n  ▶ 차광막 설치 또는 보강\n  ▶ 급수시설 확인 및 보충',
                     '내부 고온 주의보': '[🚨내부 고온 주의보] {device_name} 농장 / {device_id}번 벌통\n- 현재 상태: 내부 온도 {indoor_temp:.1f}℃ (주의보 기준: 35℃)\n- 권장 조치:\n  ▶ 즉시 벌통 주변 환기 강화\n  ▶ 차광막 설치 또는 보강\n  ▶ 급수시설 확인 및 보충',
                     '내부 저온 주의보': '[❄️내부 저온 주의보] {device_name} 농장 / {device_id}번 벌통\n- 현재 상태: 내부 온도 {indoor_temp:.1f}℃ (주의보 기준: 6℃)\n- 권장 조치:\n  ▶ 봉군 보온재 상태 점검\n  ▶ 비상 먹이(사양액) 잔량 확인 및 보충 준비',
                     '내부 저온 경보': '[❄️내부 저온 경보] {device_name} 농장 / {device_id}번 벌통\n- 현재 상태: 내부 온도 {indoor_temp:.1f}℃ (경보 기준: 0℃)\n- 권장 조치:\n  ▶ 봉군 보온재 상태 점검\n  ▶ 비상 먹이(사양액) 잔량 확인 및 보충 준비',
+
                     # 외부 폭염/한파
                     '외부 폭염 경보': '[☀️외부 폭염 경보] {device_name} 농장 / {device_id}번 벌통\n- 현재 상태: 외부 온도 {outdoor_temp:.1f}℃ / 체감 온도 {fill_temp:.1f}℃ (경보 기준: 35℃)\n- 권장 조치:\n  ▶ 전체 농가 차광막 설치\n  ▶ 차광막 설치 또는 보강\n  ▶ 급수 시설 점검 및 물 보충',
                     '외부 폭염 주의보': '[☀️외부 폭염 주의보] {device_name} 농장 / {device_id}번 벌통\n- 현재 상태: 외부 온도 {outdoor_temp:.1f}℃ / 체감 온도 {fill_temp:.1f}℃ (주의보 기준: 33℃)\n- 권장 조치:\n  ▶ 전체 농가 차광막 설치\n  ▶ 차광막 설치 또는 보강\n  ▶ 급수 시설 점검 및 물 보충',
                     '외부 한파 주의보': '[🧊외부 한파 주의보] {device_name} 농장 / {device_id}번 벌통\n- 현재 상태: 외부 온도 {outdoor_temp:.1f}℃ / 체감 온도 {fill_temp:.1f}℃ (주의보 기준: -12℃)\n- 권장 조치:\n  ▶ 벌통 덮개 및 고정장치 결박 상태 점검\n  ▶ 눈 가림막 및 방풍 시설 확인',
                     '외부 한파 경보': '[🧊외부 한파 경보] {device_name} 농장 / {device_id}번 벌통\n- 현재 상태: 외부 온도 {outdoor_temp:.1f}℃ / 체감 온도 {fill_temp:.1f}℃ (경보 기준: -15℃)\n- 권장 조치:\n  ▶ 벌통 덮개 및 고정장치 결박 상태 점검\n  ▶ 눈 가림막 및 방풍 시설 확인',
+
                     # 데이터 적재
                     '데이터 적재 실패': '[⚠️데이터 적재 실패] {device_name} 농장 / {device_id}번 벌통\n- 현재 상태: 최근 일시 {tm} ({thrMsgInfo} 이상 경과)',
                 }
             }
+            # 옵션 설정
 
             config = configparser.ConfigParser()
             config.read(sysOpt['cfgFile'], encoding='utf-8')
