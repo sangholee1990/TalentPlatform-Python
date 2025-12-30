@@ -4,14 +4,14 @@
 # Python을 이용한 데이터베이스 내부온도/외부온도/데이터 감시 및 텔레그램 알림 발송
 
 # 프로그램 종료
-# ps -ef | grep python | grep TalentPlatform-bdwide-DbMntrgMsgAlert.py | awk '{print $2}' | xargs kill -9
-# pkill -f TalentPlatform-bdwide-DbMntrgMsgAlert.py
+# ps -ef | grep python | grep TalentPlatform-bdwide-DbMntrgMsgAlert2.py | awk '{print $2}' | xargs kill -9
+# pkill -f TalentPlatform-bdwide-DbMntrgMsgAlert2.py
 
 # 프로그램 시작
 # conda activate py38
 # cd /SYSTEMS/PROG/PYTHON/IDE/src/proj/bdwide/2025/ECOWITT
-# nohup /SYSTEMS/LIB/anaconda3/envs/py38/bin/python TalentPlatform-bdwide-DbMntrgMsgAlert.py &
-# nohup /SYSTEMS/LIB/anaconda3/envs/py38/bin/python TalentPlatform-bdwide-DbMntrgMsgAlert.py > /dev/null 2>&1 &
+# nohup /SYSTEMS/LIB/anaconda3/envs/py38/bin/python TalentPlatform-bdwide-DbMntrgMsgAlert2.py &
+# nohup /SYSTEMS/LIB/anaconda3/envs/py38/bin/python TalentPlatform-bdwide-DbMntrgMsgAlert2.py > /dev/null 2>&1 &
 # tail -f nohup.out
 
 # tail -f /SYSTEMS/PROG/PYTHON/IDE/resources/log/test/Linux_x86_64_64bit_solarmy-253048.novalocal_test.log
@@ -218,6 +218,12 @@ def initArgument(globalVar):
         globalVar[key] = val
 
     return globalVar
+
+def dbMntrgInit(sysOpt):
+    try:
+        sysOpt['msgAlertHist'] = {}
+    except Exception as e:
+        log.error(f'Exception : {e}')
 
 def dbMntrgProfile(sysOpt):
     try:
@@ -469,9 +475,11 @@ async def asyncSchdl(sysOpt):
     scheduler = AsyncIOScheduler()
 
     jobList = [
-        # (dbMntrgIndoor, 'cron', {'minute': '*/1', 'second': '0'}, {'args': [sysOpt]}),
-        # (dbMntrgOutdoor, 'cron', {'minute': '*/1', 'second': '0'}, {'args': [sysOpt]}),
-        # (dbMntrgData, 'cron', {'minute': '*/1', 'second': '0'}, {'args': [sysOpt]}),
+        # (dbMntrgInit, 'cron', {'minute': '*/1', 'second': '0'}, {'args': [sysOpt]}),
+        (dbMntrgInit, 'cron', {'hour': '0', 'minute': '0', 'second': '0'}, {'args': [sysOpt]})
+        (dbMntrgIndoor, 'cron', {'minute': '*/1', 'second': '0'}, {'args': [sysOpt]}),
+        (dbMntrgOutdoor, 'cron', {'minute': '*/1', 'second': '0'}, {'args': [sysOpt]}),
+        (dbMntrgData, 'cron', {'minute': '*/1', 'second': '0'}, {'args': [sysOpt]}),
         (dbMntrgProfile, 'cron', {'minute': '*/1', 'second': '0'}, {'args': [sysOpt]}),
     ]
 
@@ -626,6 +634,7 @@ class DtaProcess(object):
 
                 # 모니터링 주기 60분 * 24
                 'msgAlertMinInv': 60 * 24,
+                # 'msgAlertMinInv': 1,
 
                 'monitorProfile': [
                     {
@@ -634,7 +643,7 @@ class DtaProcess(object):
                         'groups': [
                             {
                                 'sensors': {
-                                    'outdoor_temp': 'WS90', 'temp3': 'WN31/CH3', 'aqi_temp': 'WH46D',
+                                    'outdoor_temp': 'WS90', 'temp3': 'WN31 CH3', 'aqi_temp': 'WH46D',
                                 },
                                 'rules': [
                                     {'check': lambda v, m: v <= 7.0 and m in [3, 4, 5], 'state': '실외기상 온도 7도 이하'},
@@ -660,7 +669,7 @@ class DtaProcess(object):
                             },
                             {
                                 'sensors': {
-                                    'indoor_temp': 'GW3000 게이트웨이', 'temp_ch1': 'WN34D 상부1번 벌통', 'temp1': 'WN31/CH1 하부1번 벌통', 'temp2': 'WN31/CH2 하부2번 벌통',
+                                    'indoor_temp': 'GW3000 게이트웨이', 'temp_ch1': 'WN34D 상부1번 벌통', 'temp1': 'WN31 CH1 하부1번 벌통', 'temp2': 'WN31 CH2 하부2번 벌통',
                                 },
                                 'rules': [
                                     {'check': lambda v, m: v >= 38.0 and m in [3, 4, 5, 6, 7, 8, 9, 10], 'state': '벌통내부 온도 38도 이상'},
@@ -671,7 +680,7 @@ class DtaProcess(object):
                             },
                             {
                                 'sensors': {
-                                    'indoor_hmdty': 'GW3000 게이트웨이', 'hmdty1': 'WN31/CH1 하부1번 벌통', 'hmdty2': 'WN31/CH2 하부2번 벌통',
+                                    'indoor_hmdty': 'GW3000 게이트웨이', 'hmdty1': 'WN31 CH1 하부1번 벌통', 'hmdty2': 'WN31 CH2 하부2번 벌통',
                                 },
                                 'rules': [
                                     {'check': lambda v, m: v >= 80.0 and m in [3, 4, 5, 6, 7, 8, 9, 10], 'state': '벌통내부 습도 80% 이상'},
@@ -681,7 +690,7 @@ class DtaProcess(object):
                             },
                             {
                                 'sensors': {
-                                    'temp_ch1_battery': 'WN34D', 'temp1_battery': 'WN31/CH1', 'temp2_battery': 'WN31/CH2', 'temp3_battery': 'WN31/CH3',
+                                    'temp_ch1_battery': 'WN34D', 'temp1_battery': 'WN31 CH1', 'temp2_battery': 'WN31 CH2', 'temp3_battery': 'WN31 CH3',
                                 },
                                 'rules': [
                                     {'check': lambda v, m: v == 0.0 and m in [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12], 'state': '온습도 측정 전원 차단'},
@@ -703,7 +712,7 @@ class DtaProcess(object):
                         'groups': [
                             {
                                 'sensors': {
-                                    'outdoor_temp': 'WS6210_C', 'temp1': 'WN31/CH1', 'aqi_temp': 'WH46D',
+                                    'outdoor_temp': 'WS6210_C', 'temp1': 'WN31 CH1', 'aqi_temp': 'WH46D',
                                 },
                                 'rules': [
                                     {'check': lambda v, m: v <= 7.0 and m in [3, 4, 5], 'state': '실외기상 온도 7도 이하'},
@@ -737,7 +746,7 @@ class DtaProcess(object):
                             },
                             {
                                 'sensors': {
-                                    'temp1_battery': 'WN31/CH1',
+                                    'temp1_battery': 'WN31 CH1',
                                 },
                                 'rules': [
                                     {'check': lambda v, m: v == 0.0 and m in [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12], 'state': '온습도 측정 전원 차단'},
@@ -751,7 +760,7 @@ class DtaProcess(object):
                         'groups': [
                             {
                                 'sensors': {
-                                    'indoor_temp': 'WN1920_C 1~5번 벌통', 'aqi_temp': 'WH46D 하부1번 벌통', 'temp2': 'WN31_EP/CH2 하부2번 벌통', 'temp3': 'WN31_EP/CH3 하부3번 벌통', 'temp4': 'WN31_EP/CH4 하부4번 벌통', 'temp5': 'WN31/CH5 하부5번 벌통',
+                                    'indoor_temp': 'WN1920_C 1~5번 벌통', 'aqi_temp': 'WH46D 하부1번 벌통', 'temp2': 'WN31_EP CH2 하부2번 벌통', 'temp3': 'WN31_EP CH3 하부3번 벌통', 'temp4': 'WN31_EP CH4 하부4번 벌통', 'temp5': 'WN31 CH5 하부5번 벌통',
                                 },
                                 'rules': [
                                     {'check': lambda v, m: v >= 38.0 and m in [3, 4, 5, 6, 7, 8, 9, 10], 'state': '벌통내부 온도 38도 이상'},
@@ -762,7 +771,7 @@ class DtaProcess(object):
                             },
                             {
                                 'sensors': {
-                                    'indoor_hmdty': 'WN1920_C 1~5번 벌통', 'aqi_hmdty': 'WH46D 하부1번 벌통', 'hmdty2': 'WN31_EP/CH2 하부2번 벌통', 'hmdty3': 'WN31_EP/CH3 하부3번 벌통', 'hmdty4': 'WN31_EP/CH4 하부4번 벌통', 'hmdty5': 'WN31/CH5 하부5번 벌통',
+                                    'indoor_hmdty': 'WN1920_C 1~5번 벌통', 'aqi_hmdty': 'WH46D 하부1번 벌통', 'hmdty2': 'WN31_EP CH2 하부2번 벌통', 'hmdty3': 'WN31_EP CH3 하부3번 벌통', 'hmdty4': 'WN31_EP CH4 하부4번 벌통', 'hmdty5': 'WN31 CH5 하부5번 벌통',
                                 },
                                 'rules': [
                                     {'check': lambda v, m: v >= 80.0 and m in [3, 4, 5, 6, 7, 8, 9, 10], 'state': '벌통내부 습도 80% 이상'},
@@ -789,7 +798,7 @@ class DtaProcess(object):
                             },
                             {
                                 'sensors': {
-                                    'temp2_battery': 'WN31_EP/CH2', 'temp3_battery': 'WN31_EP/CH3', 'temp4_battery': 'WN31_EP/CH4', 'temp5_battery': 'WN31_EP/CH5',
+                                    'temp2_battery': 'WN31_EP CH2', 'temp3_battery': 'WN31_EP CH3', 'temp4_battery': 'WN31_EP CH4', 'temp5_battery': 'WN31_EP CH5',
                                 },
                                 'rules': [
                                     {'check': lambda v, m: v == 0.0 and m in [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12], 'state': '온습도 측정 전원 차단'},
