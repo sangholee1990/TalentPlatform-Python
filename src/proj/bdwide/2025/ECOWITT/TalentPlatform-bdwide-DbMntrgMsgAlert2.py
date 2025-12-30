@@ -623,9 +623,6 @@ class DtaProcess(object):
                 'cfgTg': None,
                 'cfgFile': '/HDD/SYSTEMS/PROG/PYTHON/IDE/resources/config/system.cfg',
 
-                # 모니터링 주기 1분
-                'mntrgMinInv': 1,
-
                 # 데이터 적재 검사
                 'thrMinList': [60 * 24 * 7, 60 * 24, 60 * 12, 60, 30],
                 'thrMsgList': ['7일', '1일', '12시간', '1시간', '30분'],
@@ -635,7 +632,6 @@ class DtaProcess(object):
 
                 # 모니터링 주기 60분 * 24
                 'msgAlertMinInv': 60 * 24,
-                # 'msgAlertMinInv': 1,
 
                 'monitorProfile': [
                     {
