@@ -273,7 +273,6 @@ def dbMntrgProfile(sysOpt):
                                 cfgTg = {'bot_token': dataInfo.bot_token, 'chat_id': dataInfo.chat_id}
                                 sendTgApi(cfgTg, sysOpt['msgAlertTemplate'][state].format(deviceDtlNum=deviceDtlNum, deviceName=deviceName, val=val))
                                 sysOpt['msgAlertHist'][key] = endDate
-                                # log.info(f"[CHECK] msgAlertHist : {sysOpt['msgAlertHist'].keys()}")
     except Exception as e:
         log.error(f'Exception : {e}')
 
@@ -625,22 +624,17 @@ class DtaProcess(object):
                 # 메시지 알림 이력
                 'msgAlertHist': {},
 
-                # 모니터링 주기 60분
-                'msgAlertMinInv': 60,
+                # 모니터링 주기 60분 * 24
+                'msgAlertMinInv': 60 * 24,
 
-                # 꿀 숙성이 지연되거나 벌의 날개짓 활동으로 불필요한 에너지를 소모합니다.
-                # 1,산숲팜 eco
-                # 3,이수근_외부_ecowitt
-                # 4,이수근_내부_ecowitt
-                # 5,이수근_강수량_ecowitt
                 'monitorProfile': [
                     {
-                        'deviceId': '3',
-                        'deviceName': '가평이수근',
+                        'deviceId': '1',
+                        'deviceName': '여주산숲팜',
                         'groups': [
                             {
                                 'sensors': {
-                                    'outdoor_temp': 'WS6210_C 센서', 'temp1': 'WN31 센서', 'aqi_temp': 'WH46D 센서',
+                                    'outdoor_temp': 'WS90', 'temp3': 'WN31/CH3', 'aqi_temp': 'WH46D',
                                 },
                                 'rules': [
                                     {'check': lambda v, m: v <= 7.0 and m in [3, 4, 5], 'state': '실외기상 온도 7도 이하'},
@@ -649,7 +643,7 @@ class DtaProcess(object):
                             },
                             {
                                 'sensors': {
-                                    'wind_speed': 'WS90 센서',
+                                    'wind_speed': 'WS90',
                                 },
                                 'rules': [
                                     {'check': lambda v, m: v >= 10.0 and m in [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12], 'state': '실외기상 풍속 10m/s 이상'},
@@ -658,7 +652,7 @@ class DtaProcess(object):
                             },
                             {
                                 'sensors': {
-                                    'rain_rate': 'WS90 센서',
+                                    'rain_rate': 'WS90',
                                 },
                                 'rules': [
                                     {'check': lambda v, m: v >= 0.1 and m in [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12], 'state': '실외기상 강수량 0.1mm 이상'},
@@ -666,7 +660,76 @@ class DtaProcess(object):
                             },
                             {
                                 'sensors': {
-                                    'console_battery': 'WS6210_C 센서', 'haptic_array_battery': 'WS90 센서 건전지', 'haptic_array_capacitor': 'WS90 센서 충전', 'aqi_battey': 'WH46D 센서',
+                                    'indoor_temp': 'GW3000 게이트웨이', 'temp_ch1': 'WN34D 상부1번 벌통', 'temp1': 'WN31/CH1 하부1번 벌통', 'temp2': 'WN31/CH2 하부2번 벌통',
+                                },
+                                'rules': [
+                                    {'check': lambda v, m: v >= 38.0 and m in [3, 4, 5, 6, 7, 8, 9, 10], 'state': '벌통내부 온도 38도 이상'},
+                                    {'check': lambda v, m: v >= 33.0 and m in [3, 4, 5, 6, 7, 8, 9, 10], 'state': '벌통내부 온도 33도 이상'},
+                                    {'check': lambda v, m: v >= 21.0 and m in [1, 2, 11, 12], 'state': '벌통내부 온도 21도 이상'},
+                                    {'check': lambda v, m: v <= 10.0 and m in [1, 2, 11, 12], 'state': '벌통내부 온도 10도 이하'},
+                                ]
+                            },
+                            {
+                                'sensors': {
+                                    'indoor_hmdty': 'GW3000 게이트웨이', 'hmdty1': 'WN31/CH1 하부1번 벌통', 'hmdty2': 'WN31/CH2 하부2번 벌통',
+                                },
+                                'rules': [
+                                    {'check': lambda v, m: v >= 80.0 and m in [3, 4, 5, 6, 7, 8, 9, 10], 'state': '벌통내부 습도 80% 이상'},
+                                    {'check': lambda v, m: v >= 70.0 and m in [11, 12, 1, 2], 'state': '벌통내부 습도 70% 이상'},
+                                    {'check': lambda v, m: v <= 50.0 and m in [3, 4, 5, 6, 7, 8, 9, 10], 'state': '벌통내부 습도 50% 이하'},
+                                ]
+                            },
+                            {
+                                'sensors': {
+                                    'temp_ch1_battery': 'WN34D', 'temp1_battery': 'WN31/CH1', 'temp2_battery': 'WN31/CH2', 'temp3_battery': 'WN31/CH3',
+                                },
+                                'rules': [
+                                    {'check': lambda v, m: v == 0.0 and m in [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12], 'state': '온습도 측정 전원 차단'},
+                                ]
+                            },
+                            {
+                                'sensors': {
+                                    'haptic_array_battery': 'WS90 건전지', 'haptic_array_capacitor': 'WS90 충전지', 'aqi_battey': 'WH45',
+                                },
+                                'rules': [
+                                    {'check': lambda v, m: v == 0.0 and m in [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12], 'state': '전원 차단'},
+                                ]
+                            },
+                        ]
+                    },
+                    {
+                        'deviceId': '3',
+                        'deviceName': '가평이수근',
+                        'groups': [
+                            {
+                                'sensors': {
+                                    'outdoor_temp': 'WS6210_C', 'temp1': 'WN31/CH1', 'aqi_temp': 'WH46D',
+                                },
+                                'rules': [
+                                    {'check': lambda v, m: v <= 7.0 and m in [3, 4, 5], 'state': '실외기상 온도 7도 이하'},
+                                    {'check': lambda v, m: v <= -4.0 and m in [1, 2, 11, 12], 'state': '실외기상 온도 -4도 이하'},
+                                ]
+                            },
+                            {
+                                'sensors': {
+                                    'wind_speed': 'WS90',
+                                },
+                                'rules': [
+                                    {'check': lambda v, m: v >= 10.0 and m in [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12], 'state': '실외기상 풍속 10m/s 이상'},
+                                    {'check': lambda v, m: v >= 5.0 and m in [3, 4, 5, 6, 7, 8, 9, 10], 'state': '실외기상 풍속 5m/s 이상'},
+                                ]
+                            },
+                            {
+                                'sensors': {
+                                    'rain_rate': 'WS90',
+                                },
+                                'rules': [
+                                    {'check': lambda v, m: v >= 0.1 and m in [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12], 'state': '실외기상 강수량 0.1mm 이상'},
+                                ]
+                            },
+                            {
+                                'sensors': {
+                                    'console_battery': 'WS6210_C', 'haptic_array_battery': 'WS90 건전지', 'haptic_array_capacitor': 'WS90 충전지', 'aqi_battey': 'WH46D',
                                 },
                                 'rules': [
                                     {'check': lambda v, m: v == 0.0 and m in [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12], 'state': '전원 차단'},
@@ -674,7 +737,7 @@ class DtaProcess(object):
                             },
                             {
                                 'sensors': {
-                                    'temp1_battery': 'WN31 센서 CH1',
+                                    'temp1_battery': 'WN31/CH1',
                                 },
                                 'rules': [
                                     {'check': lambda v, m: v == 0.0 and m in [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12], 'state': '온습도 측정 전원 차단'},
@@ -688,7 +751,7 @@ class DtaProcess(object):
                         'groups': [
                             {
                                 'sensors': {
-                                    'indoor_temp': '1~5번 벌통', 'aqi_temp': '하부1번 벌통', 'temp2': '하부2번 벌통', 'temp3': '하부3번 벌통', 'temp4': '하부4번 벌통', 'temp5': '하부5번 벌통',
+                                    'indoor_temp': 'WN1920_C 1~5번 벌통', 'aqi_temp': 'WH46D 하부1번 벌통', 'temp2': 'WN31_EP/CH2 하부2번 벌통', 'temp3': 'WN31_EP/CH3 하부3번 벌통', 'temp4': 'WN31_EP/CH4 하부4번 벌통', 'temp5': 'WN31/CH5 하부5번 벌통',
                                 },
                                 'rules': [
                                     {'check': lambda v, m: v >= 38.0 and m in [3, 4, 5, 6, 7, 8, 9, 10], 'state': '벌통내부 온도 38도 이상'},
@@ -699,7 +762,7 @@ class DtaProcess(object):
                             },
                             {
                                 'sensors': {
-                                    'indoor_hmdty': '1~5번 벌통', 'aqi_hmdty': '하부1번 벌통', 'hmdty2': '하부2번 벌통', 'hmdty3': '하부3번 벌통', 'hmdty4': '하부4번 벌통', 'hmdty5': '하부5번 벌통',
+                                    'indoor_hmdty': 'WN1920_C 1~5번 벌통', 'aqi_hmdty': 'WH46D 하부1번 벌통', 'hmdty2': 'WN31_EP/CH2 하부2번 벌통', 'hmdty3': 'WN31_EP/CH3 하부3번 벌통', 'hmdty4': 'WN31_EP/CH4 하부4번 벌통', 'hmdty5': 'WN31/CH5 하부5번 벌통',
                                 },
                                 'rules': [
                                     {'check': lambda v, m: v >= 80.0 and m in [3, 4, 5, 6, 7, 8, 9, 10], 'state': '벌통내부 습도 80% 이상'},
@@ -709,7 +772,7 @@ class DtaProcess(object):
                             },
                             {
                                 'sensors': {
-                                    'co2': '1~5번 벌통'
+                                    'co2': 'WH46D 1~5번 벌통'
                                 },
                                 'rules': [
                                     {'check': lambda v, m: v >= 4500.0 and m in [3, 4, 5, 6, 7, 8, 9, 10], 'state': '벌통내부 이산화탄소 4500ppm 이상'},
@@ -718,7 +781,7 @@ class DtaProcess(object):
                             },
                             {
                                 'sensors': {
-                                    'console_battery': 'WN1920_C 센서', 'aqi_battey': 'WH46D 센서',
+                                    'console_battery': 'WN1920_C', 'aqi_battey': 'WH46D',
                                 },
                                 'rules': [
                                     {'check': lambda v, m: v == 0.0 and m in [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12], 'state': '전원 차단'},
@@ -726,7 +789,7 @@ class DtaProcess(object):
                             },
                             {
                                 'sensors': {
-                                    'temp2_battery': 'WN31_EP 센서 CH2', 'temp3_battery': 'WN31_EP 센서 CH3', 'temp4_battery': 'WN31_EP 센서 CH4', 'temp5_battery': 'WN31_EP 센서 CH5',
+                                    'temp2_battery': 'WN31_EP/CH2', 'temp3_battery': 'WN31_EP/CH3', 'temp4_battery': 'WN31_EP/CH4', 'temp5_battery': 'WN31_EP/CH5',
                                 },
                                 'rules': [
                                     {'check': lambda v, m: v == 0.0 and m in [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12], 'state': '온습도 측정 전원 차단'},
@@ -740,7 +803,7 @@ class DtaProcess(object):
                         'groups': [
                             {
                                 'sensors': {
-                                    'indoor_temp': 'WN1700 센서',
+                                    'indoor_temp': 'WN1700',
                                 },
                                 'rules': [
                                     {'check': lambda v, m: v >= 38.0 and m in [3, 4, 5, 6, 7, 8, 9, 10], 'state': '벌통내부 온도 38도 이상'},
@@ -751,7 +814,7 @@ class DtaProcess(object):
                             },
                             {
                                 'sensors': {
-                                    'indoor_hmdty': 'WN1700 센서',
+                                    'indoor_hmdty': 'WN1700',
                                 },
                                 'rules': [
                                     {'check': lambda v, m: v >= 80.0 and m in [3, 4, 5, 6, 7, 8, 9, 10], 'state': '벌통내부 습도 80% 이상'},
@@ -761,7 +824,7 @@ class DtaProcess(object):
                             },
                             {
                                 'sensors': {
-                                    'rain_rate': 'WN1700 센서',
+                                    'rain_rate': 'WN1700',
                                 },
                                 'rules': [
                                     {'check': lambda v, m: v >= 0.1 and m in [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12], 'state': '실외기상 강수량 0.1mm 이상'},
@@ -769,7 +832,7 @@ class DtaProcess(object):
                             },
                             {
                                 'sensors': {
-                                    'console_battery': 'WN1700 센서',
+                                    'console_battery': 'WN1700',
                                 },
                                 'rules': [
                                     {'check': lambda v, m: v == 0.0 and m in [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12], 'state': '전원 차단'},
@@ -777,7 +840,7 @@ class DtaProcess(object):
                             },
                             {
                                 'sensors': {
-                                    'rainfall_battery': 'WN20 센서',
+                                    'rainfall_battery': 'WN20',
                                 },
                                 'rules': [
                                     {'check': lambda v, m: v == 2.2 and m in [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12], 'state': '배터리 부족'},
@@ -818,11 +881,13 @@ class DtaProcess(object):
                     '내부 고온 주의보': '[🚨내부 고온 주의보] {device_name} 농장 / {device_id}번 벌통\n- 현재 상태: 내부 온도 {indoor_temp:.1f}℃ (주의보 기준: 35℃)\n- 권장 조치:\n  ▶ 즉시 벌통 주변 환기 강화\n  ▶ 차광막 설치 또는 보강\n  ▶ 급수시설 확인 및 보충',
                     '내부 저온 주의보': '[❄️내부 저온 주의보] {device_name} 농장 / {device_id}번 벌통\n- 현재 상태: 내부 온도 {indoor_temp:.1f}℃ (주의보 기준: 6℃)\n- 권장 조치:\n  ▶ 봉군 보온재 상태 점검\n  ▶ 비상 먹이(사양액) 잔량 확인 및 보충 준비',
                     '내부 저온 경보': '[❄️내부 저온 경보] {device_name} 농장 / {device_id}번 벌통\n- 현재 상태: 내부 온도 {indoor_temp:.1f}℃ (경보 기준: 0℃)\n- 권장 조치:\n  ▶ 봉군 보온재 상태 점검\n  ▶ 비상 먹이(사양액) 잔량 확인 및 보충 준비',
+
                     # 외부 폭염/한파
                     '외부 폭염 경보': '[☀️외부 폭염 경보] {device_name} 농장 / {device_id}번 벌통\n- 현재 상태: 외부 온도 {outdoor_temp:.1f}℃ / 체감 온도 {fill_temp:.1f}℃ (경보 기준: 35℃)\n- 권장 조치:\n  ▶ 전체 농가 차광막 설치\n  ▶ 차광막 설치 또는 보강\n  ▶ 급수 시설 점검 및 물 보충',
                     '외부 폭염 주의보': '[☀️외부 폭염 주의보] {device_name} 농장 / {device_id}번 벌통\n- 현재 상태: 외부 온도 {outdoor_temp:.1f}℃ / 체감 온도 {fill_temp:.1f}℃ (주의보 기준: 33℃)\n- 권장 조치:\n  ▶ 전체 농가 차광막 설치\n  ▶ 차광막 설치 또는 보강\n  ▶ 급수 시설 점검 및 물 보충',
                     '외부 한파 주의보': '[🧊외부 한파 주의보] {device_name} 농장 / {device_id}번 벌통\n- 현재 상태: 외부 온도 {outdoor_temp:.1f}℃ / 체감 온도 {fill_temp:.1f}℃ (주의보 기준: -12℃)\n- 권장 조치:\n  ▶ 벌통 덮개 및 고정장치 결박 상태 점검\n  ▶ 눈 가림막 및 방풍 시설 확인',
                     '외부 한파 경보': '[🧊외부 한파 경보] {device_name} 농장 / {device_id}번 벌통\n- 현재 상태: 외부 온도 {outdoor_temp:.1f}℃ / 체감 온도 {fill_temp:.1f}℃ (경보 기준: -15℃)\n- 권장 조치:\n  ▶ 벌통 덮개 및 고정장치 결박 상태 점검\n  ▶ 눈 가림막 및 방풍 시설 확인',
+
                     # 데이터 적재
                     '데이터 적재 실패': '[⚠️데이터 적재 실패] {device_name} 농장 / {device_id}번 벌통\n- 현재 상태: 최근 일시 {tm} ({thrMsgInfo} 이상 경과)',
                 }
