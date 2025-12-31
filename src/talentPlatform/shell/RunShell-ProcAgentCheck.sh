@@ -35,10 +35,11 @@ declare -A metaData
 #metaData["open-webui"]="/HDD/SYSTEMS/LIB/anaconda3/envs/py311/bin/open-webui serve --host 0.0.0.0 --port 9310"
 #metaData["open-webui"]="/HDD/SYSTEMS/LIB/anaconda3/envs/py311/bin/open-webui serve --host 0.0.0.0 --port 9210"
 #metaData["port 9099"]="bash /DATA/TMP/pipelines/start.sh"
+#metaData["rclone mount"]="rclone mount 'gd-bdwide:/DATA/LABEL' '/HDD/DATA/LABEL' --daemon"
+
 metaData["nginx"]="systemctl restart nginx"
 metaData["SOLARMY_APP"]="/SYSTEMS/IOT/Roverdyn/daemon-iot-tcpipDb/build/SOLARMY_APP"
 metaData["TCP-Server-Bees"]="/SYSTEMS/IOT/Roverdyn/bee-iot/TCP-Server-Bees"
-
 metaData["open-webui"]="/HDD/SYSTEMS/LIB/anaconda3/envs/py311/bin/open-webui serve --host 0.0.0.0 --port 9210"
 metaData["pipelines-start"]="bash /HDD/SYSTEMS/PROG/PYTHON/IDE/src/proj/topbds/2025/pipelines/start.sh"
 metaData["TalentPlatform-LSH0577-DaemonApi"]="cd /HDD/SYSTEMS/PROG/PYTHON/IDE/src/talentPlatform/api && /HDD/SYSTEMS/LIB/anaconda3/envs/py39/bin/python -m uvicorn TalentPlatform-LSH0577-DaemonApi:app --host=0.0.0.0 --port=9000"
@@ -49,7 +50,7 @@ metaData["TalentPlatform-LSH0627-DaemonApi"]="cd /HDD/SYSTEMS/PROG/PYTHON/IDE/sr
 metaData["TalentPlatform-bdwide-DaemonApi-tripod"]="cd /HDD/SYSTEMS/PROG/PYTHON/IDE/src/proj/bdwide/2025/TRIPOD && /HDD/SYSTEMS/LIB/anaconda3/envs/py39/bin/python -m uvicorn TalentPlatform-bdwide-DaemonApi-tripod:app --host=0.0.0.0 --port=9900"
 metaData["rcmdapt-ai-server"]="/HDD/SYSTEMS/LIB/anaconda3/envs/py38/bin/python /HDD/SYSTEMS/PROG/PYTHON/IDE/src/talentPlatform/rcmdapt/rcmdapt_ai_server.py"
 metaData["TalentPlatform-bdwide-FileWatch"]="/HDD/SYSTEMS/LIB/anaconda3/envs/py38/bin/python /SYSTEMS/PROG/PYTHON/IDE/src/proj/bdwide/2025/MNTRG/TalentPlatform-bdwide-FileWatch.py"
-#metaData["rclone mount"]="rclone mount 'gd-bdwide:/DATA/LABEL' '/HDD/DATA/LABEL' --daemon"
+metaData["TalentPlatform-bdwide-DbMntrgMsgAlert"]="/HDD/SYSTEMS/LIB/anaconda3/envs/py38/bin/python /SYSTEMS/PROG/PYTHON/IDE/src/proj/bdwide/2025/ECOWITT/TalentPlatform-bdwide-DbMntrgMsgAlert.py"
 
 LOG_PATH=${CTX_PATH}/LOG
 #LOG_NAME=$(basename "$0" .sh)_$(date +"%Y%m%d").log
