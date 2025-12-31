@@ -10,8 +10,8 @@
 # 프로그램 시작
 # conda activate py38
 # cd /SYSTEMS/PROG/PYTHON/IDE/src/proj/bdwide/2025/ECOWITT
-# nohup /SYSTEMS/LIB/anaconda3/envs/py38/bin/python TalentPlatform-bdwide-DbMntrgMsgAlert.py &
-# nohup /SYSTEMS/LIB/anaconda3/envs/py38/bin/python TalentPlatform-bdwide-DbMntrgMsgAlert.py > /dev/null 2>&1 &
+# nohup /SYSTEMS/LIB/anaconda3/envs/py38/bin/python /SYSTEMS/PROG/PYTHON/IDE/src/proj/bdwide/2025/ECOWITT/TalentPlatform-bdwide-DbMntrgMsgAlert.py &
+# nohup /SYSTEMS/LIB/anaconda3/envs/py38/bin/python /SYSTEMS/PROG/PYTHON/IDE/src/proj/bdwide/2025/ECOWITT/TalentPlatform-bdwide-DbMntrgMsgAlert.py > /dev/null 2>&1 &
 # tail -f nohup.out
 
 # tail -f /SYSTEMS/PROG/PYTHON/IDE/resources/log/test/Linux_x86_64_64bit_solarmy-253048.novalocal_test.log
@@ -475,9 +475,8 @@ async def asyncSchdl(sysOpt):
     scheduler = AsyncIOScheduler()
 
     jobList = [
-        # (dbMntrgInit, 'cron', {'minute': '*/1', 'second': '0'}, {'args': [sysOpt]}),
         (dbMntrgInit, 'cron', {'hour': '0', 'minute': '0', 'second': '0'}, {'args': [sysOpt]}),
-        (dbMntrgIndoor, 'cron', {'minute': '*/1', 'second': '0'}, {'args': [sysOpt]}),
+        # (dbMntrgIndoor, 'cron', {'minute': '*/1', 'second': '0'}, {'args': [sysOpt]}),
         (dbMntrgOutdoor, 'cron', {'minute': '*/1', 'second': '0'}, {'args': [sysOpt]}),
         (dbMntrgData, 'cron', {'minute': '*/1', 'second': '0'}, {'args': [sysOpt]}),
         (dbMntrgProfile, 'cron', {'minute': '*/1', 'second': '0'}, {'args': [sysOpt]}),
