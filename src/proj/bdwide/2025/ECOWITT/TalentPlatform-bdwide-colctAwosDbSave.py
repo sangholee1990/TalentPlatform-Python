@@ -261,8 +261,7 @@ def colctObs(sysOpt, modelType, dtDateInfo):
                         SELECT {allColJoin}
                         FROM {tbTmp}
                         ON DUPLICATE KEY UPDATE
-                            {updColJoin},
-                            MOD_DT = CURRENT_TIMESTAMP
+                            {updColJoin}
                     """)
                     result = session.execute(query)
                     log.info(f"dtDateInfo : {dtDateInfo} / result : {result.rowcount}")
