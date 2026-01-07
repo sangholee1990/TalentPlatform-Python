@@ -257,7 +257,7 @@ def colctObs(sysOpt, modelType, dtDateInfo):
                     updColJoin = ", ".join([f"{c} = VALUES({c})" for c in valColList])
 
                     query = text(f"""
-                        INSERT INTO TB_ASOS_DATA ({allColJoin})
+                        INSERT INTO TB_AWS_DATA ({allColJoin})
                         SELECT {allColJoin}
                         FROM {tbTmp}
                         ON DUPLICATE KEY UPDATE
