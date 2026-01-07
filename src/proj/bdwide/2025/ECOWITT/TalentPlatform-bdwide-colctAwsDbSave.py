@@ -1,10 +1,20 @@
 ﻿# ================================================
 # 요구사항
 # ================================================
-# Python을 이용한 기상청 API 허브 다운로드
+# Python을 이용한 기상청 AWS 다운로드
 
-# ps -ef | grep "TalentPlatform-bdwide-colctAwosDbSave.py" | awk '{print $2}' | xargs kill -9
-# pkill -f "TalentPlatform-bdwide-colctAwosDbSave.py"
+# ps -ef | grep "TalentPlatform-bdwide-colctAwsDbSave.py" | awk '{print $2}' | xargs kill -9
+# pkill -f "TalentPlatform-bdwide-colctAwsDbSave.py"
+
+# 프로그램 시작
+# conda activate py38
+# cd /SYSTEMS/PROG/PYTHON/IDE/src/proj/bdwide/2025/ECOWITT
+# /SYSTEMS/LIB/anaconda3/envs/py38/bin/python /SYSTEMS/PROG/PYTHON/IDE/src/proj/bdwide/2025/ECOWITT/TalentPlatform-bdwide-colctAwsDbSave.py
+# nohup /SYSTEMS/LIB/anaconda3/envs/py38/bin/python /SYSTEMS/PROG/PYTHON/IDE/src/proj/bdwide/2025/ECOWITT/TalentPlatform-bdwide-colctAwsDbSave.py > /dev/null 2>&1 &
+# tail -f nohup.out
+
+# tail -f /SYSTEMS/PROG/PYTHON/IDE/resources/log/test/Linux_x86_64_64bit_solarmy-253048.novalocal_test.log
+
 
 import argparse
 import glob
@@ -54,6 +64,8 @@ from sqlalchemy.orm import sessionmaker
 from sqlalchemy.ext.automap import automap_base
 from sqlalchemy import text
 import pymysql
+import asyncio
+from apscheduler.schedulers.asyncio import AsyncIOScheduler
 
 # =================================================
 # 사용자 매뉴얼
@@ -180,21 +192,39 @@ def initArgument(globalVar):
 
     return globalVar
 
-
-def colctProc(sysOpt, modelType, dtDateInfo):
+def colctProc(sysOpt):
     try:
-        colctFunList = {
-            'ASOS': colctObs,
-            'AWS': colctObs,
-        }
+        for modelType in sysOpt['modelList']:
+            modelInfo = sysOpt.get(modelType)
+            if modelInfo is None: continue
 
-        colctFun = colctFunList.get(modelType)
-        if colctFun:
-            colctFun(sysOpt, modelType, dtDateInfo)
+            # 시작일/종료일 설정
+            # dtSrtDate = pd.to_datetime(sysOpt['srtDate'], format='%Y-%m-%d')
+            # dtEndDate = pd.to_datetime(sysOpt['endDate'], format='%Y-%m-%d')
+            dtEndDate = pd.to_datetime(datetime.now().strftime('%Y-%m-%d %H'), format='%Y-%m-%d %H')
+            dtSrtDate = dtEndDate - parseDateOffset('6h')
+            dtDateList = pd.date_range(start=dtSrtDate, end=dtEndDate, freq=modelInfo['request']['invDate'])
+
+            for dtDateInfo in reversed(dtDateList):
+                colctObs(sysOpt, modelType, dtDateInfo)
 
     except Exception as e:
-        log.error(f'Exception : {str(e)}')
-        raise e
+        log.error(f'Exception : {e}')
+
+# def colctProc(sysOpt, modelType, dtDateInfo):
+#     try:
+#         colctFunList = {
+#             'ASOS': colctObs,
+#             'AWS': colctObs,
+#         }
+#
+#         colctFun = colctFunList.get(modelType)
+#         if colctFun:
+#             colctFun(sysOpt, modelType, dtDateInfo)
+#
+#     except Exception as e:
+#         log.error(f'Exception : {str(e)}')
+#         raise e
 
 
 def parseDateOffset(invDate):
@@ -339,6 +369,30 @@ def initCfgInfo(config, key):
         log.error(f'Exception : {e}')
         return result
 
+async def asyncSchdl(sysOpt):
+    scheduler = AsyncIOScheduler()
+
+    jobList = [
+        (colctProc, 'cron', {'hour': '*/3', 'minute': '0'}, {'args': [sysOpt]}),
+    ]
+
+    for fun, trigger, triggerArgs, kwargs in jobList:
+        try:
+            scheduler.add_job(fun, trigger, **triggerArgs, **kwargs)
+        except Exception as e:
+            log.error(f"Exception : {e}")
+
+    scheduler.start()
+    asyncEvent = asyncio.Event()
+
+    try:
+        await asyncEvent.wait()
+    except Exception as e:
+        log.error(f"Exception : {e}")
+    finally:
+        if scheduler.running:
+            scheduler.shutdown()
+
 # ================================================
 # 4. 부 프로그램
 # ================================================
@@ -405,8 +459,8 @@ class DtaProcess(object):
                 # 예보시간 시작일, 종료일, 시간 간격 (연 1y, 월 1m, 일 1d, 시간 1h, 분 1t, 초 1s)
                 # 'srtDate': '2025-08-01',
                 # 'endDate': '2026-01-03',
-                'srtDate': '2026-01-03',
-                'endDate': '2026-01-07',
+                # 'srtDate': '2026-01-03',
+                # 'endDate': '2026-01-07',
 
                 'cfgDbKey': 'mysql-iwin-dms01user01-DMS03',
                 'cfgDb': None,
@@ -440,21 +494,8 @@ class DtaProcess(object):
 
             sysOpt['cfgDb'] = initCfgInfo(config, sysOpt['cfgDbKey'])
 
-            # **************************************************************************************************************
-            # 동기 프로세스 수행
-            # **************************************************************************************************************
-            for modelType in sysOpt['modelList']:
-                modelInfo = sysOpt.get(modelType)
-                if modelInfo is None: continue
-
-                # 시작일/종료일 설정
-                dtSrtDate = pd.to_datetime(sysOpt['srtDate'], format='%Y-%m-%d')
-                dtEndDate = pd.to_datetime(sysOpt['endDate'], format='%Y-%m-%d')
-                dtDateList = pd.date_range(start=dtSrtDate, end=dtEndDate, freq=modelInfo['request']['invDate'])
-
-                # for dtDateInfo in dtDateList:
-                for dtDateInfo in reversed(dtDateList):
-                    colctProc(sysOpt, modelType, dtDateInfo)
+            # 파일 스케줄러
+            asyncio.run(asyncSchdl(sysOpt))
 
         except Exception as e:
             log.error(f"Exception : {e}")
