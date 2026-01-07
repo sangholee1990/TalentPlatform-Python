@@ -415,19 +415,9 @@ class DtaProcess(object):
                 'modelList': ['AWS'],
 
                 # 비동기 다중 프로세스 개수
-                'cpuCoreNum': '1',
+                # 'cpuCoreNum': '1',
                 # 'cpuCoreNum': globalVar['cpuCoreNum'],
 
-                'ASOS': {
-                    'request': {
-                        'url': 'https://apihub.kma.go.kr/api/typ01/url/kma_sfctm3.php?tm1={tmfc}&tm2={tmfc2}&stn=0&help=0&authKey={authKey}'
-                        , 'authKey': None
-                        , 'invDate': '1d'
-                    }
-                    , 'cmd': 'curl -s -C - "{reqUrl}" --retry 10 -o "{tmpFileInfo}"'
-                    , 'tmp': '/DATA/OBS/%Y%m/%d/.ASOS_OBS_%Y%m%d%H%M.txt'
-                    , 'target': '/DATA/OBS/%Y%m/%d/ASOS_OBS_%Y%m%d%H%M.txt'
-                },
                 'AWS': {
                     'request': {
                         'url': 'https://apihub.kma.go.kr/api/typ01/cgi-bin/url/nph-aws2_min?tm1={tmfc}&tm2={tmfc2}&stn=0&disp=0&help=0&authKey={authKey}'
