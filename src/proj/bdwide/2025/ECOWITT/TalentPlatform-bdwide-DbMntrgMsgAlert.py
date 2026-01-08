@@ -110,6 +110,7 @@ tzKst = pytz.timezone('Asia/Seoul')
 tzUtc = pytz.timezone('UTC')
 dtKst = timedelta(hours=9)
 
+
 # =================================================
 # 2. 유틸리티 함수
 # =================================================
@@ -141,7 +142,8 @@ def initLog(env=None, contextPath=None, prjName=None):
 
     # handler 생성
     streamHandler = logging.StreamHandler()
-    fileHandler = logging.handlers.TimedRotatingFileHandler(filename=saveLogFile, when='midnight', interval=1, backupCount=30, encoding='utf-8')
+    fileHandler = logging.handlers.TimedRotatingFileHandler(filename=saveLogFile, when='midnight', interval=1,
+                                                            backupCount=30, encoding='utf-8')
 
     # logger instance에 format 설정
     streamHandler.setFormatter(format)
@@ -185,6 +187,7 @@ def initGlobalVar(env=None, contextPath=None, prjName=None):
 
     return globalVar
 
+
 def objToDict(obj):
     result = None
 
@@ -198,6 +201,7 @@ def objToDict(obj):
     except Exception as e:
         log.error(f'Exception : {e}')
         return result
+
 
 #  초기 전달인자 설정
 def initArgument(globalVar):
@@ -219,39 +223,42 @@ def initArgument(globalVar):
 
     return globalVar
 
+
 def dbMntrgInit(sysOpt):
     try:
         sysOpt['msgAlertHist'] = {}
     except Exception as e:
         log.error(f'Exception : {e}')
 
+
 def dbMntrgProfile(sysOpt):
     try:
         query = text("""
-                     WITH PRE_ECO_DATA AS (
-                         SELECT ECO.*,
-                                dev.device_name,
-                                dev.bot_token,
-                                dev.chat_id,
-                                ROW_NUMBER() OVER (PARTITION BY ECO.device_id ORDER BY ECO.tm DESC) AS rn
-                         FROM TB_ECOWITT_DATA AS ECO
-                         LEFT OUTER JOIN TB_DEVICE_MASTER AS dev ON ECO.device_id = dev.device_id
-                     )
+                     WITH PRE_ECO_DATA AS (SELECT ECO.*,
+                                                  dev.device_name,
+                                                  dev.bot_token,
+                                                  dev.chat_id,
+                                                  ROW_NUMBER() OVER (PARTITION BY ECO.device_id ORDER BY ECO.tm DESC) AS rn
+                                           FROM TB_ECOWITT_DATA AS ECO
+                                                    LEFT OUTER JOIN TB_DEVICE_MASTER AS dev ON ECO.device_id = dev.device_id)
                      SELECT *
                      FROM PRE_ECO_DATA
                      WHERE rn = 1;
                      """)
 
         endDate = datetime.now()
-        srtDate = endDate - timedelta(minutes=sysOpt['mntrgMinInv'])
+        # srtDate = endDate - timedelta(minutes=sysOpt['mntrgMinInv'])
+
+        # 알림 발송 생략
+        if not sysOpt['msgAlertHourRange']['check'](endDate.hour): return
 
         with sysOpt['cfgDb']['sessionMake']() as session:
             # dataList = session.execute(query, {"srtDate": srtDate, "endDate": endDate}).all()
             dataList = session.execute(query).all()
+            log.info(f"DB 조회, dataList : {dataList}")
+
             for dataInfo in dataList:
                 if not dataInfo.bot_token or not dataInfo.chat_id: continue
-                # log.info(f"[CHECK] dataInfo : {dataInfo}")
-
                 for monitorProfile in sysOpt['monitorProfile']:
                     deviceName = monitorProfile['deviceName']
                     if not re.fullmatch(monitorProfile['deviceId'], str(dataInfo['device_id']), re.IGNORECASE): continue
@@ -277,10 +284,13 @@ def dbMntrgProfile(sysOpt):
                             msgAlertDate = sysOpt['msgAlertHist'].get(key)
                             if (msgAlertDate is None) or (endDate - msgAlertDate) >= timedelta(minutes=sysOpt['msgAlertMinInv']):
                                 cfgTg = {'bot_token': dataInfo.bot_token, 'chat_id': dataInfo.chat_id}
-                                sendTgApi(cfgTg, sysOpt['msgAlertTemplate'][state].format(deviceDtlNum=deviceDtlNum, deviceName=deviceName, val=val))
+                                msg = sysOpt['msgAlertTemplate'][state].format(deviceDtlNum=deviceDtlNum, deviceName=deviceName, val=val)
+                                sendTgApi(cfgTg, msg)
                                 sysOpt['msgAlertHist'][key] = endDate
+                                log.info(f"알림 발송, key : {key}, msg : {msg}")
     except Exception as e:
         log.error(f'Exception : {e}')
+
 
 # 벌통 내부 검사
 def dbMntrgIndoor(sysOpt):
@@ -299,7 +309,7 @@ def dbMntrgIndoor(sysOpt):
                             device_name AS device_name,
                             device_id   AS device_id,
                             bot_token   AS bot_token,
-                            chat_id   AS chat_id,
+                            chat_id     AS chat_id,
                             indoor_temp AS indoor_temp,
                             CASE
                                 WHEN indoor_temp >= 38.0 THEN '내부 고온 경보'
@@ -312,26 +322,31 @@ def dbMntrgIndoor(sysOpt):
                      """)
 
         endDate = datetime.now()
-        srtDate = endDate - timedelta(minutes=sysOpt['mntrgMinInv'])
+        # srtDate = endDate - timedelta(minutes=sysOpt['mntrgMinInv'])
+
+        # 알림 발송 생략
+        if not sysOpt['msgAlertHourRange']['check'](endDate.hour): return
 
         with sysOpt['cfgDb']['sessionMake']() as session:
             # dataList = session.execute(query, {"srtDate": srtDate, "endDate": endDate}).all()
             dataList = session.execute(query).all()
+            log.info(f"DB 조회, dataList : {dataList}")
+
             for dataInfo in dataList:
                 if not dataInfo.bot_token or not dataInfo.chat_id: continue
                 if dataInfo.state is None: continue
-                log.info(f"[CHECK] dataInfo : {dataInfo}")
 
                 key = f"{dataInfo.state}-{dataInfo.device_id}-{dataInfo.device_name}"
                 msgAlertDate = sysOpt['msgAlertHist'].get(key)
                 if (msgAlertDate is None) or (endDate - msgAlertDate) >= timedelta(minutes=sysOpt['msgAlertMinInv']):
-                    # sendTgApi(sysOpt['cfgTg'], sysOpt['msgAlertTemplate'][dataInfo.state].format(device_id=dataInfo.device_id, device_name=dataInfo.device_name, indoor_temp=dataInfo.indoor_temp))
                     cfgTg = {'bot_token': dataInfo.bot_token, 'chat_id': dataInfo.chat_id}
-                    sendTgApi(cfgTg, sysOpt['msgAlertTemplate'][dataInfo.state].format(device_id=dataInfo.device_id, device_name=dataInfo.device_name, indoor_temp=dataInfo.indoor_temp))
+                    msg = sysOpt['msgAlertTemplate'][dataInfo.state].format(device_id=dataInfo.device_id, device_name=dataInfo.device_name, indoor_temp=dataInfo.indoor_temp)
+                    sendTgApi(cfgTg, msg)
                     sysOpt['msgAlertHist'][key] = endDate
-                    # log.info(f"[CHECK] msgAlertHist : {sysOpt['msgAlertHist'].keys()}")
+                    log.info(f"알림 발송, key : {key}, msg : {msg}")
     except Exception as e:
         log.error(f'Exception : {e}')
+
 
 # 벌통 외부 검사
 def dbMntrgOutdoor(sysOpt):
@@ -383,8 +398,8 @@ def dbMntrgOutdoor(sysOpt):
                      SELECT calcs.tm           AS tm,
                             dev.device_id      AS device_id,
                             dev.device_name    AS device_name,
-                            dev.bot_token    AS bot_token,
-                            dev.chat_id    AS chat_id,
+                            dev.bot_token      AS bot_token,
+                            dev.chat_id        AS chat_id,
                             calcs.outdoor_temp AS outdoor_temp,
                             CASE
                                 WHEN calcs.measurement_month BETWEEN 5 AND 9 THEN calcs.summer_feels_like
@@ -408,26 +423,31 @@ def dbMntrgOutdoor(sysOpt):
                      """)
 
         endDate = datetime.now()
-        srtDate = endDate - timedelta(minutes=sysOpt['mntrgMinInv'])
+        # srtDate = endDate - timedelta(minutes=sysOpt['mntrgMinInv'])
+
+        # 알림 발송 생략
+        if not sysOpt['msgAlertHourRange']['check'](endDate.hour): return
+
         with sysOpt['cfgDb']['sessionMake']() as session:
             # dataList = session.execute(query, {"srtDate": srtDate, "endDate": endDate}).all()
             dataList = session.execute(query).all()
+            log.info(f"DB 조회, dataList : {dataList}")
 
             for dataInfo in dataList:
                 if not dataInfo.bot_token or not dataInfo.chat_id: continue
                 if dataInfo.state is None: continue
-                log.info(f"[CHECK] dataInfo : {dataInfo}")
 
                 key = f"{dataInfo.state}-{dataInfo.device_id}-{dataInfo.device_name}"
                 msgAlertDate = sysOpt['msgAlertHist'].get(key)
                 if (msgAlertDate is None) or (endDate - msgAlertDate) >= timedelta(minutes=sysOpt['msgAlertMinInv']):
-                    # sendTgApi(sysOpt['cfgTg'], sysOpt['msgAlertTemplate'][dataInfo.state].format(device_id=dataInfo.device_id, device_name=dataInfo.device_name, outdoor_temp=dataInfo.outdoor_temp, fill_temp=dataInfo.fill_temp))
                     cfgTg = {'bot_token': dataInfo.bot_token, 'chat_id': dataInfo.chat_id}
-                    sendTgApi(cfgTg, sysOpt['msgAlertTemplate'][dataInfo.state].format(device_id=dataInfo.device_id, device_name=dataInfo.device_name, outdoor_temp=dataInfo.outdoor_temp, fill_temp=dataInfo.fill_temp))
+                    msg = sysOpt['msgAlertTemplate'][dataInfo.state].format(device_id=dataInfo.device_id, device_name=dataInfo.device_name, outdoor_temp=dataInfo.outdoor_temp, fill_temp=dataInfo.fill_temp)
+                    sendTgApi(cfgTg, msg)
                     sysOpt['msgAlertHist'][key] = endDate
-                    # log.info(f"[CHECK] msgAlertHist : {sysOpt['msgAlertHist'].keys()}")
+                    log.info(f"알림 발송, key : {key}, msg : {msg}")
     except Exception as e:
         log.error(f'Exception : {e}')
+
 
 # 데이터 적재 검사
 def dbMntrgData(sysOpt):
@@ -447,14 +467,16 @@ def dbMntrgData(sysOpt):
                      WHERE rn = 1;
                      """)
 
+        endDate = datetime.now()
+        # srtDate = endDate - timedelta(minutes=sysOpt['mntrgMinInv'])
         with sysOpt['cfgDb']['sessionMake']() as session:
             dataList = session.execute(query, {}).all()
-            endDate = datetime.now()
+            log.info(f"DB 조회, dataList : {dataList}")
 
             for dataInfo in dataList:
                 if not dataInfo.bot_token or not dataInfo.chat_id: continue
                 delayMin = (datetime.now() - dataInfo.tm).total_seconds() / 60
-                log.info(f"[CHECK] id : {dataInfo.device_id} / tm : {dataInfo.tm} / preMin : {delayMin:.1f}")
+                # log.info(f"[CHECK] id : {dataInfo.device_id} / tm : {dataInfo.tm} / preMin : {delayMin:.1f}")
 
                 for thrMinInfo, thrMsgInfo in zip(sysOpt['thrMinList'], sysOpt['thrMsgList']):
                     if delayMin <= thrMinInfo: continue
@@ -462,14 +484,15 @@ def dbMntrgData(sysOpt):
                     key = f"데이터 적재 실패-{dataInfo.device_id}-{dataInfo.device_name}"
                     msgAlertDate = sysOpt['msgAlertHist'].get(key)
                     if (msgAlertDate is None) or (endDate - msgAlertDate) >= timedelta(minutes=sysOpt['msgAlertMinInv']):
-                        # sendTgApi(sysOpt['cfgTg'], sysOpt['msgAlertTemplate']['데이터 적재 실패'].format(device_id=dataInfo.device_id, device_name=dataInfo.device_name, tm=dataInfo.tm.strftime("%Y-%m-%d %H:%M"), thrMsgInfo=thrMsgInfo))
                         cfgTg = {'bot_token': dataInfo.bot_token, 'chat_id': dataInfo.chat_id}
-                        sendTgApi(cfgTg, sysOpt['msgAlertTemplate']['데이터 적재 실패'].format(device_id=dataInfo.device_id, device_name=dataInfo.device_name, tm=dataInfo.tm.strftime("%Y-%m-%d %H:%M"), thrMsgInfo=thrMsgInfo))
+                        msg = sysOpt['msgAlertTemplate']['데이터 적재 실패'].format(device_id=dataInfo.device_id, device_name=dataInfo.device_name, tm=dataInfo.tm.strftime("%Y-%m-%d %H:%M"), thrMsgInfo=thrMsgInfo)
+                        sendTgApi(cfgTg, msg)
                         sysOpt['msgAlertHist'][key] = endDate
-                        # log.info(f"[CHECK] msgAlertHist : {sysOpt['msgAlertHist'].keys()}")
+                        # log.info(f"알림 발송, key : {key}, msg : {msg}")
                         break
     except Exception as e:
         log.error(f'Exception : {e}')
+
 
 async def asyncSchdl(sysOpt):
     scheduler = AsyncIOScheduler()
@@ -481,7 +504,6 @@ async def asyncSchdl(sysOpt):
         (dbMntrgData, 'cron', {'minute': '*/1', 'second': '0'}, {'args': [sysOpt]}),
         (dbMntrgProfile, 'cron', {'minute': '*/1', 'second': '0'}, {'args': [sysOpt]}),
     ]
-
 
     for fun, trigger, triggerArgs, kwargs in jobList:
         try:
@@ -500,8 +522,8 @@ async def asyncSchdl(sysOpt):
         if scheduler.running:
             scheduler.shutdown()
 
-def initCfgInfo(config, key):
 
+def initCfgInfo(config, key):
     result = None
 
     try:
@@ -540,6 +562,7 @@ def initCfgInfo(config, key):
         log.error(f'Exception : {e}')
         return result
 
+
 def sendTgApi(cfgTg, msg):
     try:
         url = f"https://api.telegram.org/bot{cfgTg['bot_token']}/sendMessage"
@@ -552,11 +575,11 @@ def sendTgApi(cfgTg, msg):
     except Exception as e:
         log.error(f"Exception : {e}")
 
+
 # ================================================
 # 4. 부 프로그램
 # ================================================
 class DtaProcess(object):
-
     # ================================================================================================
     # 환경변수 설정
     # ================================================================================================
@@ -622,7 +645,7 @@ class DtaProcess(object):
                 'cfgTg': None,
                 'cfgFile': '/HDD/SYSTEMS/PROG/PYTHON/IDE/resources/config/system.cfg',
 
-                # 모니터링 주기 1분
+                # DB 모니터링 주기 1분
                 'mntrgMinInv': 1,
 
                 # 데이터 적재 검사
@@ -632,9 +655,11 @@ class DtaProcess(object):
                 # 메시지 알림 이력
                 'msgAlertHist': {},
 
-                # 모니터링 주기 60분 * 24
+                # 메시지 알람 주기
                 'msgAlertMinInv': 60 * 24,
 
+                # 메시지 알림 시간 범위
+                'msgAlertHourRange': {'check': lambda h: 9 <= h <= 17},
                 'monitorProfile': [
                     {
                         'deviceId': '1',
@@ -919,7 +944,7 @@ class DtaProcess(object):
 
             config = configparser.ConfigParser()
             config.read(sysOpt['cfgFile'], encoding='utf-8')
-            
+
             sysOpt['cfgDb'] = initCfgInfo(config, sysOpt['cfgDbKey'])
             sysOpt['cfgTg'] = {
                 'bot_token': config.get(sysOpt['cfgTgKey'], 'bot_token'),
@@ -935,6 +960,7 @@ class DtaProcess(object):
 
         finally:
             log.info('[END] {}'.format("exec"))
+
 
 # ================================================
 # 3. 주 프로그램
