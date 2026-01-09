@@ -715,11 +715,21 @@ class DtaProcess(object):
                                 ]
                             },
                             {
+                                # 2026. 01. 09 수정 : WN34D와 WN31 배터리 알림 분리
                                 'sensors': {
-                                    'temp_ch1_battery': 'WN34D', 'temp1_battery': 'WN31 CH1', 'temp2_battery': 'WN31 CH2', 'temp3_battery': 'WN31 CH3',
+                                    'temp_ch1_battery': 'WN34D',
                                 },
                                 'rules': [
                                     {'check': lambda v, m: v == 0.0 and m in [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12], 'state': '온습도 측정 전원 차단'},
+                                ]
+                            },
+                            {
+                                # 2026. 01. 09 추가 : WN31 장비 배터리 부분 분리(0 : 정상, 이외의 값 : 비정상)
+                                'sensors': {
+                                    'temp1_battery': 'WN31 CH1', 'temp2_battery': 'WN31 CH2', 'temp3_battery': 'WN31 CH3',
+                                },
+                                'rules': [
+                                    {'check': lambda v, m: v != 0.0 and m in [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12], 'state': '온습도 측정 전원 차단'},
                                 ]
                             },
                             {
@@ -737,8 +747,10 @@ class DtaProcess(object):
                         'deviceName': '가평이수근',
                         'groups': [
                             {
+                                # 2026. 01. 09 수정 : WS6210_C 온도는 알림에서 제외
                                 'sensors': {
-                                    'outdoor_temp': 'WS6210_C', 'temp1': 'WN31 CH1',
+                                    # 'outdoor_temp': 'WS6210_C', 
+                                    'temp1': 'WN31 CH1',
                                 },
                                 'rules': [
                                     {'check': lambda v, m: v <= 7.0 and m in [3, 4, 5], 'state': '실외기상 온도 7도 이하'},
@@ -780,11 +792,12 @@ class DtaProcess(object):
                                 ]
                             },
                             {
+                                # 2026. 01. 09 수정 : WN31 장비 배터리 알림 기준 수정(0 : 정상, 이외의 값 : 비정상)
                                 'sensors': {
                                     'temp1_battery': 'WN31 CH1',
                                 },
                                 'rules': [
-                                    {'check': lambda v, m: v == 0.0 and m in [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12], 'state': '온습도 측정 전원 차단'},
+                                    {'check': lambda v, m: v != 0.0 and m in [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12], 'state': '온습도 측정 전원 차단'},
                                 ]
                             },
                         ]
@@ -794,8 +807,10 @@ class DtaProcess(object):
                         'deviceName': '가평이수근',
                         'groups': [
                             {
+                                # 2026. 01. 09 수정 : WN1920_C 온도는 알림에서 제외, 벌통에서 '하부' 텍스트 제외
                                 'sensors': {
-                                    'indoor_temp': 'WN1920_C 1~5번 벌통', 'aqi_temp': 'WH46D 하부1번 벌통', 'temp2': 'WN31_EP CH2 하부2번 벌통', 'temp3': 'WN31_EP CH3 하부3번 벌통', 'temp4': 'WN31_EP CH4 하부4번 벌통', 'temp5': 'WN31 CH5 하부5번 벌통',
+                                    # 'indoor_temp': 'WN1920_C 1~5번 벌통', 
+                                    'aqi_temp': 'WH46D 1번 벌통', 'temp2': 'WN31_EP CH2 2번 벌통', 'temp3': 'WN31_EP CH3 3번 벌통', 'temp4': 'WN31_EP CH4 4번 벌통', 'temp5': 'WN31 CH5 5번 벌통',
                                 },
                                 'rules': [
                                     {'check': lambda v, m: v >= 38.0 and m in [3, 4, 5, 6, 7, 8, 9, 10], 'state': '벌통내부 온도 38도 이상'},
@@ -805,8 +820,10 @@ class DtaProcess(object):
                                 ]
                             },
                             {
+                                # 2026. 01. 09 수정 : WN1920_C 습도는 알림에서 제외, 벌통에서 '하부' 텍스트 제외
                                 'sensors': {
-                                    'indoor_hmdty': 'WN1920_C 1~5번 벌통', 'aqi_hmdty': 'WH46D 하부1번 벌통', 'hmdty2': 'WN31_EP CH2 하부2번 벌통', 'hmdty3': 'WN31_EP CH3 하부3번 벌통', 'hmdty4': 'WN31_EP CH4 하부4번 벌통', 'hmdty5': 'WN31 CH5 하부5번 벌통',
+                                    # 'indoor_hmdty': 'WN1920_C 1~5번 벌통', 
+                                    'aqi_hmdty': 'WH46D 1번 벌통', 'hmdty2': 'WN31_EP CH2 2번 벌통', 'hmdty3': 'WN31_EP CH3 3번 벌통', 'hmdty4': 'WN31_EP CH4 4번 벌통', 'hmdty5': 'WN31 CH5 5번 벌통',
                                 },
                                 'rules': [
                                     {'check': lambda v, m: v >= 80.0 and m in [3, 4, 5, 6, 7, 8, 9, 10], 'state': '벌통내부 습도 80% 이상'},
@@ -832,11 +849,12 @@ class DtaProcess(object):
                                 ]
                             },
                             {
+                                # 2026. 01. 09 수정 : WN31 장비 배터리 알림 기준 수정(0 : 정상, 이외의 값 : 비정상)
                                 'sensors': {
                                     'temp2_battery': 'WN31_EP CH2', 'temp3_battery': 'WN31_EP CH3', 'temp4_battery': 'WN31_EP CH4', 'temp5_battery': 'WN31_EP CH5',
                                 },
                                 'rules': [
-                                    {'check': lambda v, m: v == 0.0 and m in [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12], 'state': '온습도 측정 전원 차단'},
+                                    {'check': lambda v, m: v != 0.0 and m in [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12], 'state': '온습도 측정 전원 차단'},
                                 ]
                             },
                         ]
@@ -845,18 +863,20 @@ class DtaProcess(object):
                         'deviceId': '5',
                         'deviceName': '가평이수근',
                         'groups': [
+                            # {
+                            #     # 2026. 01. 09 수정 : WN1700 온도 정보 알림 제공 불필요
+                            #     'sensors': {
+                            #         'indoor_temp': 'WN1700',
+                            #     },
+                            #     'rules': [
+                            #         {'check': lambda v, m: v >= 38.0 and m in [3, 4, 5, 6, 7, 8, 9, 10], 'state': '벌통내부 온도 38도 이상'},
+                            #         {'check': lambda v, m: v >= 33.0 and m in [3, 4, 5, 6, 7, 8, 9, 10], 'state': '벌통내부 온도 33도 이상'},
+                            #         {'check': lambda v, m: v >= 21.0 and m in [1, 2, 11, 12], 'state': '벌통내부 온도 21도 이상'},
+                            #         {'check': lambda v, m: v <= 10.0 and m in [1, 2, 11, 12], 'state': '벌통내부 온도 10도 이하'},
+                            #     ]
+                            # },
                             {
-                                'sensors': {
-                                    'indoor_temp': 'WN1700',
-                                },
-                                'rules': [
-                                    {'check': lambda v, m: v >= 38.0 and m in [3, 4, 5, 6, 7, 8, 9, 10], 'state': '벌통내부 온도 38도 이상'},
-                                    {'check': lambda v, m: v >= 33.0 and m in [3, 4, 5, 6, 7, 8, 9, 10], 'state': '벌통내부 온도 33도 이상'},
-                                    {'check': lambda v, m: v >= 21.0 and m in [1, 2, 11, 12], 'state': '벌통내부 온도 21도 이상'},
-                                    {'check': lambda v, m: v <= 10.0 and m in [1, 2, 11, 12], 'state': '벌통내부 온도 10도 이하'},
-                                ]
-                            },
-                            {
+                                # 2026. 01. 09 수정 : WN1700 습도 정보 알림 제공 불필요
                                 'sensors': {
                                     'indoor_hmdty': 'WN1700',
                                 },
@@ -867,8 +887,9 @@ class DtaProcess(object):
                                 ]
                             },
                             {
+                                # 2026. 01. 09 수정 : 강수 정보는 WN1700이 아닌 WN20 장비에서 제공
                                 'sensors': {
-                                    'rain_rate': 'WN1700',
+                                    'rain_rate': 'WN20',
                                 },
                                 'rules': [
                                     {'check': lambda v, m: v >= 0.1 and m in [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12], 'state': '실외기상 강수량 0.1mm 이상'},
