@@ -875,17 +875,17 @@ class DtaProcess(object):
                             #         {'check': lambda v, m: v <= 10.0 and m in [1, 2, 11, 12], 'state': '벌통내부 온도 10도 이하'},
                             #     ]
                             # },
-                            {
-                                # 2026. 01. 09 수정 : WN1700 습도 정보 알림 제공 불필요
-                                'sensors': {
-                                    'indoor_hmdty': 'WN1700',
-                                },
-                                'rules': [
-                                    {'check': lambda v, m: v >= 80.0 and m in [3, 4, 5, 6, 7, 8, 9, 10], 'state': '벌통내부 습도 80% 이상'},
-                                    {'check': lambda v, m: v >= 70.0 and m in [11, 12, 1, 2], 'state': '벌통내부 습도 70% 이상'},
-                                    {'check': lambda v, m: v <= 50.0 and m in [3, 4, 5, 6, 7, 8, 9, 10], 'state': '벌통내부 습도 50% 이하'},
-                                ]
-                            },
+                            # {
+                            #     # 2026. 01. 09 수정 : WN1700 습도 정보 알림 제공 불필요
+                            #     'sensors': {
+                            #         'indoor_hmdty': 'WN1700',
+                            #     },
+                            #     'rules': [
+                            #         {'check': lambda v, m: v >= 80.0 and m in [3, 4, 5, 6, 7, 8, 9, 10], 'state': '벌통내부 습도 80% 이상'},
+                            #         {'check': lambda v, m: v >= 70.0 and m in [11, 12, 1, 2], 'state': '벌통내부 습도 70% 이상'},
+                            #         {'check': lambda v, m: v <= 50.0 and m in [3, 4, 5, 6, 7, 8, 9, 10], 'state': '벌통내부 습도 50% 이하'},
+                            #     ]
+                            # },
                             {
                                 # 2026. 01. 09 수정 : 강수 정보는 WN1700이 아닌 WN20 장비에서 제공
                                 'sensors': {
