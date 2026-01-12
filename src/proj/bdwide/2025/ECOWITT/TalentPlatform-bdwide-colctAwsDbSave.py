@@ -250,7 +250,7 @@ def parseDateOffset(invDate):
 @retry(stop_max_attempt_number=10)
 def colctObs(sysOpt, modelType, dtDateInfo):
     try:
-        procInfo = mp.current_process()
+        # procInfo = mp.current_process()
         modelInfo = sysOpt[modelType]
 
         # reqUrl = dtDateInfo.strftime(f"{modelInfo['request']['url']}").format(tmfc=dtDateInfo.strftime('%Y%m%d%H%M'), tmfc2=(dtDateInfo + parseDateOffset(modelInfo['request']['invDate']) - parseDateOffset('1s')).strftime('%Y%m%d%H%M'), authKey=modelInfo['request']['authKey'])
