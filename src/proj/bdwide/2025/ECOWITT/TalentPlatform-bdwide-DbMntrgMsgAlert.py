@@ -271,7 +271,8 @@ def dbMntrgProfile(sysOpt):
                             except Exception:
                                 continue
 
-                            if val is None or val == -999: continue
+                            # if val is None or val == -999: continue
+                            if val is None: continue
 
                             state = None
                             for rule in group['rules']:
@@ -498,7 +499,7 @@ async def asyncSchdl(sysOpt):
     scheduler = AsyncIOScheduler()
 
     jobList = [
-        (dbMntrgInit, 'cron', {'hour': '9', 'minute': '0', 'second': '0'}, {'args': [sysOpt]}),
+        (dbMntrgInit, 'cron', {'hour': '0', 'minute': '0', 'second': '0'}, {'args': [sysOpt]}),
         # (dbMntrgIndoor, 'cron', {'minute': '*/1', 'second': '0'}, {'args': [sysOpt]}),
         (dbMntrgOutdoor, 'cron', {'minute': '*/1', 'second': '0'}, {'args': [sysOpt]}),
         (dbMntrgData, 'cron', {'minute': '*/1', 'second': '0'}, {'args': [sysOpt]}),
