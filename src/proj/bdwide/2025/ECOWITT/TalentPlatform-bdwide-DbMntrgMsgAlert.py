@@ -6,6 +6,7 @@
 # 프로그램 종료
 # ps -ef | grep python | grep TalentPlatform-bdwide-DbMntrgMsgAlert.py | awk '{print $2}' | xargs kill -9
 # pkill -f TalentPlatform-bdwide-DbMntrgMsgAlert.py
+# bash /HDD/SYSTEMS/PROG/PYTHON/IDE/src/talentPlatform/shell/RunShell-ProcAgentCheck.sh
 
 # 프로그램 시작
 # conda activate py38
@@ -671,8 +672,8 @@ class DtaProcess(object):
                                     'outdoor_temp': 'WS90', 'temp3': 'WN31 CH3', 'aqi_temp': 'WH46D',
                                 },
                                 'rules': [
-                                    {'check': lambda v, m: v <= 7.0 and m in [3, 4, 5], 'state': '실외기상 온도 7도 이하'},
-                                    {'check': lambda v, m: v <= -4.0 and m in [1, 2, 11, 12], 'state': '실외기상 온도 -4도 이하'},
+                                    {'check': lambda v, m: v != -999.0 and v <= 7.0 and m in [3, 4, 5], 'state': '실외기상 온도 7도 이하'},
+                                    {'check': lambda v, m: v != -999.0 and v <= -4.0 and m in [1, 2, 11, 12], 'state': '실외기상 온도 -4도 이하'},
                                 ]
                             },
                             {
@@ -680,8 +681,8 @@ class DtaProcess(object):
                                     'wind_speed': 'WS90',
                                 },
                                 'rules': [
-                                    {'check': lambda v, m: v >= 10.0 and m in [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12], 'state': '실외기상 풍속 10m/s 이상'},
-                                    {'check': lambda v, m: v >= 5.0 and m in [3, 4, 5, 6, 7, 8, 9, 10], 'state': '실외기상 풍속 5m/s 이상'},
+                                    {'check': lambda v, m: v != -999.0 and v >= 10.0 and m in [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12], 'state': '실외기상 풍속 10m/s 이상'},
+                                    {'check': lambda v, m: v != -999.0 and v >= 5.0 and m in [3, 4, 5, 6, 7, 8, 9, 10], 'state': '실외기상 풍속 5m/s 이상'},
                                 ]
                             },
                             {
@@ -689,7 +690,7 @@ class DtaProcess(object):
                                     'rain_rate': 'WS90',
                                 },
                                 'rules': [
-                                    {'check': lambda v, m: v >= 0.1 and m in [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12], 'state': '실외기상 강수량 0.1mm 이상'},
+                                    {'check': lambda v, m: v != -999.0 and v >= 0.1 and m in [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12], 'state': '실외기상 강수량 0.1mm 이상'},
                                 ]
                             },
                             {
@@ -698,10 +699,10 @@ class DtaProcess(object):
                                     'temp_ch1': 'WN34D 상부1번 벌통', 'temp1': 'WN31 CH1 하부1번 벌통', 'temp2': 'WN31 CH2 하부2번 벌통',
                                 },
                                 'rules': [
-                                    {'check': lambda v, m: v >= 38.0 and m in [3, 4, 5, 6, 7, 8, 9, 10], 'state': '벌통내부 온도 38도 이상'},
-                                    {'check': lambda v, m: v >= 33.0 and m in [3, 4, 5, 6, 7, 8, 9, 10], 'state': '벌통내부 온도 33도 이상'},
-                                    {'check': lambda v, m: v >= 21.0 and m in [1, 2, 11, 12], 'state': '벌통내부 온도 21도 이상'},
-                                    {'check': lambda v, m: v <= 10.0 and m in [1, 2, 11, 12], 'state': '벌통내부 온도 10도 이하'},
+                                    {'check': lambda v, m: v != -999.0 and v >= 38.0 and m in [3, 4, 5, 6, 7, 8, 9, 10], 'state': '벌통내부 온도 38도 이상'},
+                                    {'check': lambda v, m: v != -999.0 and v >= 33.0 and m in [3, 4, 5, 6, 7, 8, 9, 10], 'state': '벌통내부 온도 33도 이상'},
+                                    {'check': lambda v, m: v != -999.0 and v >= 21.0 and m in [1, 2, 11, 12], 'state': '벌통내부 온도 21도 이상'},
+                                    {'check': lambda v, m: v != -999.0 and v <= 10.0 and m in [1, 2, 11, 12], 'state': '벌통내부 온도 10도 이하'},
                                 ]
                             },
                             {
@@ -710,9 +711,9 @@ class DtaProcess(object):
                                     'hmdty1': 'WN31 CH1 하부1번 벌통', 'hmdty2': 'WN31 CH2 하부2번 벌통',
                                 },
                                 'rules': [
-                                    {'check': lambda v, m: v >= 80.0 and m in [3, 4, 5, 6, 7, 8, 9, 10], 'state': '벌통내부 습도 80% 이상'},
-                                    {'check': lambda v, m: v >= 70.0 and m in [11, 12, 1, 2], 'state': '벌통내부 습도 70% 이상'},
-                                    {'check': lambda v, m: v <= 50.0 and m in [3, 4, 5, 6, 7, 8, 9, 10], 'state': '벌통내부 습도 50% 이하'},
+                                    {'check': lambda v, m: v != -999.0 and v >= 80.0 and m in [3, 4, 5, 6, 7, 8, 9, 10], 'state': '벌통내부 습도 80% 이상'},
+                                    {'check': lambda v, m: v != -999.0 and v >= 70.0 and m in [11, 12, 1, 2], 'state': '벌통내부 습도 70% 이상'},
+                                    {'check': lambda v, m: v != -999.0 and v <= 50.0 and m in [3, 4, 5, 6, 7, 8, 9, 10], 'state': '벌통내부 습도 50% 이하'},
                                 ]
                             },
                             {
@@ -721,7 +722,7 @@ class DtaProcess(object):
                                     'temp_ch1_battery': 'WN34D',
                                 },
                                 'rules': [
-                                    {'check': lambda v, m: v == 0.0 and m in [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12], 'state': '온습도 측정 전원 차단'},
+                                    {'check': lambda v, m: v == -999.0 or v == 0.0 and m in [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12], 'state': '온습도 측정 전원 차단'},
                                 ]
                             },
                             {
@@ -730,7 +731,7 @@ class DtaProcess(object):
                                     'temp1_battery': 'WN31 CH1', 'temp2_battery': 'WN31 CH2', 'temp3_battery': 'WN31 CH3',
                                 },
                                 'rules': [
-                                    {'check': lambda v, m: v != 0.0 and m in [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12], 'state': '온습도 측정 전원 차단'},
+                                    {'check': lambda v, m: v == -999.0 or v != 0.0 and m in [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12], 'state': '온습도 측정 전원 차단'},
                                 ]
                             },
                             {
@@ -738,7 +739,7 @@ class DtaProcess(object):
                                     'haptic_array_battery': 'WS90 건전지', 'haptic_array_capacitor': 'WS90 충전지', 'aqi_battey': 'WH45',
                                 },
                                 'rules': [
-                                    {'check': lambda v, m: v == 0.0 and m in [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12], 'state': '전원 차단'},
+                                    {'check': lambda v, m: v == -999.0 or v == 0.0 and m in [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12], 'state': '전원 차단'},
                                 ]
                             },
                         ]
@@ -754,8 +755,8 @@ class DtaProcess(object):
                                     'temp1': 'WN31 CH1',
                                 },
                                 'rules': [
-                                    {'check': lambda v, m: v <= 7.0 and m in [3, 4, 5], 'state': '실외기상 온도 7도 이하'},
-                                    {'check': lambda v, m: v <= -4.0 and m in [1, 2, 11, 12], 'state': '실외기상 온도 -4도 이하'},
+                                    {'check': lambda v, m: v != -999.0 and v <= 7.0 and m in [3, 4, 5], 'state': '실외기상 온도 7도 이하'},
+                                    {'check': lambda v, m: v != -999.0 and v <= -4.0 and m in [1, 2, 11, 12], 'state': '실외기상 온도 -4도 이하'},
                                 ]
                             },
                             {
@@ -763,8 +764,8 @@ class DtaProcess(object):
                                     'wind_speed': 'WS90',
                                 },
                                 'rules': [
-                                    {'check': lambda v, m: v >= 10.0 and m in [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12], 'state': '실외기상 풍속 10m/s 이상'},
-                                    {'check': lambda v, m: v >= 5.0 and m in [3, 4, 5, 6, 7, 8, 9, 10], 'state': '실외기상 풍속 5m/s 이상'},
+                                    {'check': lambda v, m: v != -999.0 and v >= 10.0 and m in [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12], 'state': '실외기상 풍속 10m/s 이상'},
+                                    {'check': lambda v, m: v != -999.0 and v >= 5.0 and m in [3, 4, 5, 6, 7, 8, 9, 10], 'state': '실외기상 풍속 5m/s 이상'},
                                 ]
                             },
                             {
@@ -772,7 +773,7 @@ class DtaProcess(object):
                                     'rain_rate': 'WS90',
                                 },
                                 'rules': [
-                                    {'check': lambda v, m: v >= 0.1 and m in [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12], 'state': '실외기상 강수량 0.1mm 이상'},
+                                    {'check': lambda v, m: v != -999.0 and v >= 0.1 and m in [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12], 'state': '실외기상 강수량 0.1mm 이상'},
                                 ]
                             },
                             {
@@ -780,8 +781,8 @@ class DtaProcess(object):
                                     'aqi_temp': 'WH45',
                                 },
                                 'rules': [
-                                    {'check': lambda v, m: v <= 7.0 and m in [3, 4, 5], 'state': '봉장하우스 온도 7도 이하'},
-                                    {'check': lambda v, m: v <= -4.0 and m in [1, 2, 11, 12], 'state': '봉장하우스 온도 -4도 이하'},
+                                    {'check': lambda v, m: v != -999.0 and v <= 7.0 and m in [3, 4, 5], 'state': '봉장하우스 온도 7도 이하'},
+                                    {'check': lambda v, m: v != -999.0 and v <= -4.0 and m in [1, 2, 11, 12], 'state': '봉장하우스 온도 -4도 이하'},
                                 ]
                             },
                             {
@@ -789,7 +790,7 @@ class DtaProcess(object):
                                     'console_battery': 'WS6210_C', 'haptic_array_battery': 'WS90 건전지', 'haptic_array_capacitor': 'WS90 충전지', 'aqi_battey': 'WH46D',
                                 },
                                 'rules': [
-                                    {'check': lambda v, m: v == 0.0 and m in [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12], 'state': '전원 차단'},
+                                    {'check': lambda v, m: v == -999.0 or v == 0.0 and m in [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12], 'state': '전원 차단'},
                                 ]
                             },
                             {
@@ -798,7 +799,7 @@ class DtaProcess(object):
                                     'temp1_battery': 'WN31 CH1',
                                 },
                                 'rules': [
-                                    {'check': lambda v, m: v != 0.0 and m in [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12], 'state': '온습도 측정 전원 차단'},
+                                    {'check': lambda v, m: v == -999.0 or v != 0.0 and m in [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12], 'state': '온습도 측정 전원 차단'},
                                 ]
                             },
                         ]
@@ -814,10 +815,10 @@ class DtaProcess(object):
                                     'aqi_temp': 'WH46D 1번 벌통', 'temp2': 'WN31_EP CH2 2번 벌통', 'temp3': 'WN31_EP CH3 3번 벌통', 'temp4': 'WN31_EP CH4 4번 벌통', 'temp5': 'WN31 CH5 5번 벌통',
                                 },
                                 'rules': [
-                                    {'check': lambda v, m: v >= 38.0 and m in [3, 4, 5, 6, 7, 8, 9, 10], 'state': '벌통내부 온도 38도 이상'},
-                                    {'check': lambda v, m: v >= 33.0 and m in [3, 4, 5, 6, 7, 8, 9, 10], 'state': '벌통내부 온도 33도 이상'},
-                                    {'check': lambda v, m: v >= 21.0 and m in [1, 2, 11, 12], 'state': '벌통내부 온도 21도 이상'},
-                                    {'check': lambda v, m: v <= 10.0 and m in [1, 2, 11, 12], 'state': '벌통내부 온도 10도 이하'},
+                                    {'check': lambda v, m: v != -999.0 and v >= 38.0 and m in [3, 4, 5, 6, 7, 8, 9, 10], 'state': '벌통내부 온도 38도 이상'},
+                                    {'check': lambda v, m: v != -999.0 and v >= 33.0 and m in [3, 4, 5, 6, 7, 8, 9, 10], 'state': '벌통내부 온도 33도 이상'},
+                                    {'check': lambda v, m: v != -999.0 and v >= 21.0 and m in [1, 2, 11, 12], 'state': '벌통내부 온도 21도 이상'},
+                                    {'check': lambda v, m: v != -999.0 and v <= 10.0 and m in [1, 2, 11, 12], 'state': '벌통내부 온도 10도 이하'},
                                 ]
                             },
                             {
@@ -827,9 +828,9 @@ class DtaProcess(object):
                                     'aqi_hmdty': 'WH46D 1번 벌통', 'hmdty2': 'WN31_EP CH2 2번 벌통', 'hmdty3': 'WN31_EP CH3 3번 벌통', 'hmdty4': 'WN31_EP CH4 4번 벌통', 'hmdty5': 'WN31 CH5 5번 벌통',
                                 },
                                 'rules': [
-                                    {'check': lambda v, m: v >= 80.0 and m in [3, 4, 5, 6, 7, 8, 9, 10], 'state': '벌통내부 습도 80% 이상'},
-                                    {'check': lambda v, m: v >= 70.0 and m in [11, 12, 1, 2], 'state': '벌통내부 습도 70% 이상'},
-                                    {'check': lambda v, m: v <= 50.0 and m in [3, 4, 5, 6, 7, 8, 9, 10], 'state': '벌통내부 습도 50% 이하'},
+                                    {'check': lambda v, m: v != -999.0 and v >= 80.0 and m in [3, 4, 5, 6, 7, 8, 9, 10], 'state': '벌통내부 습도 80% 이상'},
+                                    {'check': lambda v, m: v != -999.0 and v >= 70.0 and m in [11, 12, 1, 2], 'state': '벌통내부 습도 70% 이상'},
+                                    {'check': lambda v, m: v != -999.0 and v <= 50.0 and m in [3, 4, 5, 6, 7, 8, 9, 10], 'state': '벌통내부 습도 50% 이하'},
                                 ]
                             },
                             {
@@ -837,8 +838,8 @@ class DtaProcess(object):
                                     'co2': 'WH46D 1~5번 벌통'
                                 },
                                 'rules': [
-                                    {'check': lambda v, m: v >= 4500.0 and m in [3, 4, 5, 6, 7, 8, 9, 10], 'state': '벌통내부 이산화탄소 4500ppm 이상'},
-                                    {'check': lambda v, m: v >= 1800.0 and m in [3, 4, 5, 6, 7, 8, 9, 10], 'state': '벌통내부 이산화탄소 1800ppm 이상'},
+                                    {'check': lambda v, m: v != -999.0 and v >= 4500.0 and m in [3, 4, 5, 6, 7, 8, 9, 10], 'state': '벌통내부 이산화탄소 4500ppm 이상'},
+                                    {'check': lambda v, m: v != -999.0 and v >= 1800.0 and m in [3, 4, 5, 6, 7, 8, 9, 10], 'state': '벌통내부 이산화탄소 1800ppm 이상'},
                                 ]
                             },
                             {
@@ -846,7 +847,7 @@ class DtaProcess(object):
                                     'console_battery': 'WN1920_C', 'aqi_battey': 'WH46D',
                                 },
                                 'rules': [
-                                    {'check': lambda v, m: v == 0.0 and m in [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12], 'state': '전원 차단'},
+                                    {'check': lambda v, m: v == -999.0 or v == 0.0 and m in [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12], 'state': '전원 차단'},
                                 ]
                             },
                             {
@@ -855,7 +856,7 @@ class DtaProcess(object):
                                     'temp2_battery': 'WN31_EP CH2', 'temp3_battery': 'WN31_EP CH3', 'temp4_battery': 'WN31_EP CH4', 'temp5_battery': 'WN31_EP CH5',
                                 },
                                 'rules': [
-                                    {'check': lambda v, m: v != 0.0 and m in [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12], 'state': '온습도 측정 전원 차단'},
+                                    {'check': lambda v, m: v == -999.0 or v != 0.0 and m in [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12], 'state': '온습도 측정 전원 차단'},
                                 ]
                             },
                         ]
@@ -893,7 +894,7 @@ class DtaProcess(object):
                                     'rain_rate': 'WN20',
                                 },
                                 'rules': [
-                                    {'check': lambda v, m: v >= 0.1 and m in [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12], 'state': '실외기상 강수량 0.1mm 이상'},
+                                    {'check': lambda v, m: v != -999.0 and v >= 0.1 and m in [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12], 'state': '실외기상 강수량 0.1mm 이상'},
                                 ]
                             },
                             {
@@ -901,7 +902,7 @@ class DtaProcess(object):
                                     'console_battery': 'WN1700',
                                 },
                                 'rules': [
-                                    {'check': lambda v, m: v == 0.0 and m in [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12], 'state': '전원 차단'},
+                                    {'check': lambda v, m: v == -999.0 or v == 0.0 and m in [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12], 'state': '전원 차단'},
                                 ]
                             },
                             {
