@@ -202,7 +202,7 @@ def colctProc(sysOpt):
             dtSrtDate = pd.to_datetime(sysOpt['srtDate'], format='%Y-%m-%d')
             dtEndDate = pd.to_datetime(sysOpt['endDate'], format='%Y-%m-%d')
             # dtEndDate = pd.to_datetime(datetime.now().strftime('%Y-%m-%d %H'), format='%Y-%m-%d %H')
-            # dtSrtDate = dtEndDate - parseDateOffset('6h')
+            # dtSrtDate = dtEndDate - parseDateOffset('1h')
             dtDateList = pd.date_range(start=dtSrtDate, end=dtEndDate, freq=modelInfo['request']['invDate'])
 
             for dtDateInfo in reversed(dtDateList):
@@ -260,6 +260,7 @@ def colctObs(sysOpt, modelType, dtDateInfo):
         if not (res.status_code == 200): return
         res.raise_for_status()
 
+        data = pd.read_csv(io.StringIO(res.text), sep='\s+', header=None, comment='#')
         data = pd.read_csv(io.StringIO(res.text), sep='\s+', header=None, names=modelInfo['colList'], comment='#')
         data['TM'] = pd.to_datetime(data['TM'], format='%Y%m%d%H%M', errors='coerce')
         filterDateList = pd.date_range(start=dtDateInfo, end=(dtDateInfo + parseDateOffset(modelInfo['request']['invDate']) - parseDateOffset('1s')), freq='5T')
@@ -459,24 +460,20 @@ class DtaProcess(object):
                 # 예보시간 시작일, 종료일, 시간 간격 (연 1y, 월 1m, 일 1d, 시간 1h, 분 1t, 초 1s)
                 # 'srtDate': '2025-08-01',
                 # 'endDate': '2026-01-03',
-                # 'srtDate': '2026-01-03',
-                # 'endDate': '2026-01-07',
+                'srtDate': '2026-01-03',
+                'endDate': '2026-01-07',
 
                 'cfgDbKey': 'mysql-iwin-dms01user01-DMS03',
                 'cfgDb': None,
 
                 # 수행 목록
-                'modelList': ['AWS'],
+                'modelList': ['ASOS'],
 
-                # 비동기 다중 프로세스 개수
-                # 'cpuCoreNum': '1',
-                # 'cpuCoreNum': globalVar['cpuCoreNum'],
-
-                'AWS': {
+                'ASOS': {
                     'request': {
-                        'url': 'https://apihub.kma.go.kr/api/typ01/cgi-bin/url/nph-aws2_min?tm1={tmfc}&tm2={tmfc2}&stn=0&disp=0&help=0&authKey={authKey}'
-                        , 'authKey': None
-                        , 'invDate': '3h'
+                        'url': 'https://apihub.kma.go.kr/api/typ01/url/kma_sfctm3.php?tm1={tmfc}&tm2={tmfc2}&stn=0&help=0&authKey={authKey}',
+                        'authKey': None,
+                        'invDate': '1d',
                     },
                     'stnList': [505, 533],
                     'colList': ["TM", "STN", "WD1", "WS1", "WDS", "WSS", "WD10", "WS10", "TA", "RE", "RN15M", "RN60M", "RN12H", "RN1D", "HM", "PA", "PS", "TD"]
