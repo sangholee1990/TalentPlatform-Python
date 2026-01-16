@@ -285,8 +285,7 @@ class DtaProcess(object):
 
                 # 설정 정보
                 , 'cfgFile': '/SYSTEMS/PROG/PYTHON/IDE/resources/config/mapInfo/admCode/법정동코드_전체자료.txt'
-                , 'cfgFile2': '/HDD'
-                              '/SYSTEMS/PROG/PYTHON/IDE/resources/config/system.cfg'
+                , 'cfgFile2': '/HDD/SYSTEMS/PROG/PYTHON/IDE/resources/config/system.cfg'
             }
 
             dtSrtDate = pd.to_datetime(sysOpt['srtDate'], format='%Y-%m-%d')
