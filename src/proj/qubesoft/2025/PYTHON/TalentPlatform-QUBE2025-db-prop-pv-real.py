@@ -379,7 +379,7 @@ class DtaProcess(object):
             dtEndDate = pd.to_datetime(sysOpt['endDate'], format='%Y-%m-%d')
             dtDateList = pd.date_range(start=dtSrtDate, end=dtEndDate, freq=sysOpt['invDate'])
             for dtDateInfo in reversed(dtDateList):
-                log.info(f"dtDateInfo : {dtDateInfo}")
+                # log.info(f"dtDateInfo : {dtDateInfo}")
 
                 for i, posInfo in posDataL1.iterrows():
                     # id = posInfo['ID']
@@ -436,7 +436,8 @@ class DtaProcess(object):
                                         pv = excluded.pv, 
                                         mod_date = now();
                                              """)
-                                session.execute(query)
+                                result = session.execute(query)
+                                log.info(f"dtDateInfo : {dtDateInfo} / result : {result.rowcount}")
                             except Exception as e:
                                 log.error(f"Exception : {e}")
                                 raise e
