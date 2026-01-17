@@ -3,17 +3,21 @@
 # ================================================
 # Python을 이용한 기상청 API 허브 다운로드
 
-# ps -ef | grep "TalentPlatform-QUBE2025-colct-kmaApiHub.py" | awk '{print $2}' | xargs kill -9
-# pkill -f "TalentPlatform-QUBE2025-colct-kmaApiHub.py"
+# ps -ef | grep "TalentPlatform-QUBE2025-colct-kmaApiHub.pyy" | awk '{print $2}' | xargs kill -9
 
 # cd /SYSTEMS/PROG/PYTHON
 # /SYSTEMS/LIB/anaconda3/envs/py38/bin/python /SYSTEMS/PROG/PYTHON/TalentPlatform-QUBE2025-colct-kmaApiHub.py --modelList 'UMKR' --cpuCoreNum '5' --srtDate '2024-12-01' --endDate '2024-12-05'
-# /SYSTEMS/LIB/anaconda3/envs/py38/bin/python /SYSTEMS/PROG/PYTHON/TalentPlatform-QUBE2025-colct-kmaApiHub.py --modelList 'UMKR' --cpuCoreNum '5' --srtDate '2024-01-01' --endDate '2025-01-01'
+# /SYSTEMS/LIB/anaconda3/envs/py38/bin/python /SYSTEMS/PROG/PYTHON/TalentPlatform-QUBE2025-colct-kmaApiHub.py --modelList 'KIMG' --cpuCoreNum '5' --srtDate '2024-12-01' --endDate '2024-12-05'
+# /SYSTEMS/LIB/anaconda3/envs/py38/bin/python /SYSTEMS/PROG/PYTHON/TalentPlatform-QUBE2025-colct-kmaApiHub.py --modelList 'AWS,ASOS,UMKR,KIMG' --cpuCoreNum '5' --srtDate '2024-12-01' --endDate '2024-12-05'
 
-# nohup /SYSTEMS/LIB/anaconda3/envs/py38/bin/python /SYSTEMS/PROG/PYTHON/TalentPlatform-QUBE2025-colct-kmaApiHub.py --modelList 'UMKR' --cpuCoreNum '5' --srtDate '2025-01-01' --endDate "$(date -u +\%Y-\%m-\%d)" &
+# nohup /vol01/SYSTEMS/INDIAI/LIB/anaconda3/envs/py38/bin/python /vol01/SYSTEMS/INDIAI/PROG/PYTHON/TalentPlatform-INDI2025-colct-kmaApiHub.py --modelList 'UMKR' --cpuCoreNum '5' --srtDate '2019-01-01' --endDate '2020-01-01' &
+# nohup /vol01/SYSTEMS/INDIAI/LIB/anaconda3/envs/py38/bin/python /vol01/SYSTEMS/INDIAI/PROG/PYTHON/TalentPlatform-INDI2025-colct-kmaApiHub.py --modelList 'UMKR' --cpuCoreNum '5' --srtDate '2020-01-01' --endDate '2021-01-01' &
+# nohup /vol01/SYSTEMS/INDIAI/LIB/anaconda3/envs/py38/bin/python /vol01/SYSTEMS/INDIAI/PROG/PYTHON/TalentPlatform-INDI2025-colct-kmaApiHub.py --modelList 'UMKR' --cpuCoreNum '5' --srtDate '2019-07-01' --endDate '2020-01-01' &
+# nohup /vol01/SYSTEMS/INDIAI/LIB/anaconda3/envs/py38/bin/python /vol01/SYSTEMS/INDIAI/PROG/PYTHON/TalentPlatform-INDI2025-colct-kmaApiHub.py --modelList 'UMKR' --cpuCoreNum '5' --srtDate '2020-07-01' --endDate '2021-01-01' &
 
-# 2025.11.02
-# */10 * * * * cd /SYSTEMS/PROG/PYTHON && /SYSTEMS/LIB/anaconda3/envs/py38/bin/python /SYSTEMS/PROG/PYTHON/TalentPlatform-QUBE2025-colct-kmaApiHub.py --modelList 'UMKR' --cpuCoreNum '5' --srtDate "$(date -d "2 days ago" +\%Y-\%m-\%d)" --endDate "$(date -d "2 days" +\%Y-\%m-\%d)"
+# nohup /vol01/SYSTEMS/INDIAI/LIB/anaconda3/envs/py38/bin/python /vol01/SYSTEMS/INDIAI/PROG/PYTHON/TalentPlatform-INDI2025-colct-kmaApiHub.py --modelList 'ASOS' --cpuCoreNum '5' --srtDate '2019-01-01' --endDate '2021-01-01' &
+# nohup /vol01/SYSTEMS/INDIAI/LIB/anaconda3/envs/py38/bin/python /vol01/SYSTEMS/INDIAI/PROG/PYTHON/TalentPlatform-INDI2025-colct-kmaApiHub.py --modelList 'AWS' --cpuCoreNum '5' --srtDate '2019-01-01' --endDate '2021-01-01' &
+# nohup /vol01/SYSTEMS/INDIAI/LIB/anaconda3/envs/py38/bin/python /vol01/SYSTEMS/INDIAI/PROG/PYTHON/TalentPlatform-INDI2025-colct-kmaApiHub.py --modelList 'AWS' --cpuCoreNum '10' --srtDate '2020-01-01' --endDate '2021-01-01' &
 
 import argparse
 import glob
@@ -36,7 +40,6 @@ import pandas as pd
 import pytz
 import xarray as xr
 from pandas.tseries.offsets import Hour
-import yaml
 from multiprocessing import Pool
 import multiprocessing as mp
 from retrying import retry
@@ -51,7 +54,6 @@ from datetime import datetime
 import subprocess
 from isodate import parse_duration
 from pandas.tseries.offsets import DateOffset
-import configparser
 from urllib.parse import urlparse, parse_qs
 from lxml import etree
 
@@ -231,9 +233,14 @@ def colctObs(modelInfo, dtDateInfo):
         fileList = sorted(glob.glob(updFileInfo))
         if len(fileList) > 0: return
 
-        # reqUrl = dtDateInfo.strftime(f"{modelInfo['request']['url']}").format(tmfc=dtDateInfo.strftime('%Y%m%d%H%M'), tmfc2=(dtDateInfo + parseDateOffset(modelInfo['request']['invDate']) - parseDateOffset('1s')).strftime('%Y%m%d%H%M'), authKey=modelInfo['request']['authKey'])
-        reqUrl = dtDateInfo.strftime(f"{modelInfo['request']['url']}").format(tmfc=dtDateInfo.strftime('%Y%m%d%H%M'), tmfc2=(dtDateInfo + parseDateOffset(modelInfo['request']['invDate']) - parseDateOffset('1s')).strftime('%Y%m%d%H%M'), authKey=extAuthKey())
+        reqUrl = dtDateInfo.strftime(f"{modelInfo['request']['url']}").format(
+            tmfc=dtDateInfo.strftime('%Y%m%d%H%M'),
+            tmfc2=(dtDateInfo + parseDateOffset(modelInfo['request']['invDate']) - parseDateOffset('1s')).strftime(
+                '%Y%m%d%H%M'),
+            authKey=extAuthKey()
+        )
 
+        #print(reqUrl)
         res = requests.get(reqUrl)
         if not (res.status_code == 200): return
 
@@ -259,7 +266,7 @@ def colctObs(modelInfo, dtDateInfo):
                 log.info(f'[CHECK] CMD : mv -f {tmpFileInfo} {updFileInfo}')
             else:
                 os.remove(tmpFileInfo)
-                log.info(f'[CHECK] CMD : rm -f {tmpFileInfo}')
+                #log.info(f'[CHECK] CMD : rm -f {tmpFileInfo}')
 
         log.info(f'[END] colctKmaApiHub : {dtDateInfo} / pid : {procInfo.pid}')
 
@@ -275,8 +282,8 @@ def colctObs(modelInfo, dtDateInfo):
 def colctNwp(modelInfo, dtDateInfo):
     try:
         procInfo = mp.current_process()
-
-        efList = modelInfo['request'][f"ef{dtDateInfo.strftime('%H')}"]
+        efKey = f"ef{dtDateInfo.strftime('%H')}"
+        efList = modelInfo['request'][efKey]
         for ef in efList:
             log.info(f'[CHECK] dtDateInfo : {dtDateInfo} / ef : {ef}')
 
@@ -285,14 +292,12 @@ def colctNwp(modelInfo, dtDateInfo):
 
             # 파일 검사
             fileList = sorted(glob.glob(updFileInfo))
-            # if len(fileList) > 0: return
             if len(fileList) > 0: continue
 
-            # reqUrl = dtDateInfo.strftime(f"{modelInfo['request']['url']}").format(tmfc=dtDateInfo.strftime('%Y%m%d%H'), ef=ef, authKey=modelInfo['request']['authKey'])
-            # reqUrl = dtDateInfo.strftime(f"{modelInfo['request']['url']}").format(tmfc=dtDateInfo.strftime('%Y%m%d%H'), ef=ef, authKey='hQDU-t1aQHaA1PrdWvB2eA')
             reqUrl = dtDateInfo.strftime(f"{modelInfo['request']['url']}").format(tmfc=dtDateInfo.strftime('%Y%m%d%H'), ef=ef, authKey=extAuthKey())
-            # res = requests.get(reqUrl)
-            # if not (res.status_code == 200): return
+            #reqUrl = dtDateInfo.strftime(f"{modelInfo['request']['url']}").format(tmfc=dtDateInfo.strftime('%Y%m%d%H'), ef=ef, authKey='hQDU-t1aQHaA1PrdWvB2eA')
+            #res = requests.get(reqUrl)
+            #if not (res.status_code == 200): return
 
             os.makedirs(os.path.dirname(tmpFileInfo), exist_ok=True)
             os.makedirs(os.path.dirname(updFileInfo), exist_ok=True)
@@ -361,8 +366,8 @@ class DtaProcess(object):
     # ================================================================================================
     global env, contextPath, prjName, serviceName, log, globalVar
 
-    env = 'local'  # 로컬 : 원도우 환경, 작업환경 (현재 소스 코드 환경 시 .) 설정
-    # env = 'dev'  # 개발 : 원도우 환경, 작업환경 (사용자 환경 시 contextPath) 설정
+    #env = 'local'  # 로컬 : 원도우 환경, 작업환경 (현재 소스 코드 환경 시 .) 설정
+    env = 'dev'  # 개발 : 원도우 환경, 작업환경 (사용자 환경 시 contextPath) 설정
     # env = 'oper'  # 운영 : 리눅스 환경, 작업환경 (사용자 환경 시 contextPath) 설정
 
     if platform.system() == 'Windows':
@@ -416,25 +421,25 @@ class DtaProcess(object):
             # 옵션 설정
             sysOpt = {
                 # 예보시간 시작일, 종료일, 시간 간격 (연 1y, 월 1m, 일 1d, 시간 1h, 분 1t, 초 1s)
-                'srtDate': '2024-12-01',
-                'endDate': '2024-12-04',
-                # 'srtDate': globalVar['srtDat
-                # e'],
-                # 'endDate': globalVar['endDate'],
+                # 'srtDate': '2024-12-01',
+                # 'endDate': '2024-12-04',
+                'srtDate': globalVar['srtDate'],
+                'endDate': globalVar['endDate'],
 
                 # 수행 목록
                 # 'modelList': ['AWS', 'ASOS', 'UMKR', 'KIMG'],
                 # 'modelList': ['UMKR', 'KIMG'],
-                'modelList': ['UMKR'],
-                # 'modelList': globalVar['modelList'].split(','),
+                'modelList': globalVar['modelList'].split(','),
 
                 # 비동기 다중 프로세스 개수
-                'cpuCoreNum': '1',
-                # 'cpuCoreNum': globalVar['cpuCoreNum'],
+                # 'cpuCoreNum': '1',
+                'cpuCoreNum': globalVar['cpuCoreNum'],
+
                 'ASOS': {
                     'request': {
                         'url': 'https://apihub.kma.go.kr/api/typ01/url/kma_sfctm3.php?tm1={tmfc}&tm2={tmfc2}&stn=0&help=0&authKey={authKey}'
-                        , 'authKey': None
+                        , 'authKey': 'SNtYDCmcQjSbWAwpnII0QA'
+                        #, 'authKey': 'aqv2zysIQ4mr9s8rCCOJOQ'
                         , 'invDate': '1d'
                     }
                     , 'cmd': 'curl -s -C - "{reqUrl}" --retry 10 -o "{tmpFileInfo}"'
@@ -444,7 +449,8 @@ class DtaProcess(object):
                 'AWS': {
                     'request': {
                         'url': 'https://apihub.kma.go.kr/api/typ01/cgi-bin/url/nph-aws2_min?tm1={tmfc}&tm2={tmfc2}&stn=0&disp=0&help=0&authKey={authKey}'
-                        , 'authKey': None
+                        , 'authKey': 'SNtYDCmcQjSbWAwpnII0QA'
+                        #, 'authKey': 'hQDU-t1aQHaA1PrdWvB2eA'
                         , 'invDate': '3h'
                     }
                     , 'cmd': 'curl -s -C - "{reqUrl}" --retry 10 -o "{tmpFileInfo}"'
@@ -453,17 +459,18 @@ class DtaProcess(object):
                 },
                 'UMKR': {
                     'request': {
-                        # 'url': 'https://apihub-org.kma.go.kr/api/typ06/url/nwp_file_down.php?nwp=l015&sub=unis&tmfc={tmfc}&ef={ef}&authKey={authKey}'
                         'url': 'https://apihub.kma.go.kr/api/typ06/url/nwp_file_down.php?nwp=l015&sub=unis&tmfc={tmfc}&ef={ef}&authKey={authKey}'
                         # , 'ef': ['00', '01', '02', '03', '04', '05']
-                        # , 'ef00': ['00', '01', '02', '03', '04', '05']
-                        # , 'ef00': ['00', '01', '02', '03', '04', '05', '06', '07', '08', '09', '10', '11', '12', '13', '14', '15', '16', '17', '18', '19', '20', '21', '22', '23', '24', '25', '26', '27', '28', '29', '30', '31', '32', '33', '34', '35', '36', '37', '38', '39', '40', '41', '42', '43', '44', '45', '46', '47']
-                        , 'ef00': ['00', '01', '02', '03', '04', '05', '15', '16', '17', '18', '19', '20', '21', '22', '23', '24', '25', '26', '27', '28', '29', '30', '31', '32', '33', '34', '35', '36', '37', '38']
+                        #, 'ef00': ['00', '01', '02', '03', '04', '05']
+                        #, 'ef00': ['00', '01', '02', '03', '04', '05', '06', '07', '08', '09', '10', '11', '12', '13', '14', '15', '16', '17', '18', '19', '20', '21', '22', '23', '24', '25', '26', '27', '28', '29', '30', '31', '32', '33', '34', '35', '36', '37', '38', '39', '40', '41', '42', '43', '44', '45', '46', '47']
+                         , 'ef00': ['00', '01', '02', '03', '04', '05', '15', '16', '17', '18', '19', '20', '21', '22', '23', '24', '25', '26', '27', '28', '29', '30', '31', '32', '33', '34', '35', '36', '37', '38']
                         , 'ef06': ['00', '01', '02', '03', '04', '05']
                         , 'ef12': ['00', '01', '02', '03', '04', '05']
-                        # , 'ef18': ['00', '01', '02', '03', '04', '05', '06', '07', '08', '09', '10', '11', '12', '13', '14', '15', '16', '17', '18', '19', '20', '21', '22', '23', '24', '25', '26', '27', '28', '29', '30', '31', '32', '33', '34', '35', '36', '37', '38', '39', '40', '41', '42', '43', '44', '45', '46', '47']
+                        #, 'ef18': ['00', '01', '02', '03', '04', '05', '06', '07', '08', '09', '10', '11', '12', '13', '14', '15', '16', '17', '18', '19', '20', '21', '22', '23', '24', '25', '26', '27', '28', '29', '30', '31', '32', '33', '34', '35', '36', '37', '38', '39', '40', '41', '42', '43', '44', '45', '46', '47']
                         , 'ef18': ['00', '01', '02', '03', '04', '05', '21', '22', '23', '24', '25', '26', '27', '28', '29', '30', '31', '32', '33', '34', '35', '36', '37', '38', '39', '40', '41', '42', '43', '44']
-                        , 'authKey': None
+                        # , 'authKey': None
+                        , 'authKey': '_n1x6n-5Sji9cep_uVo4Uw'
+                        #, 'authKey': 'ZZg2eTYPTzCYNnk2D-8wKQ'
                         , 'invDate': '6h'
                     }
                     , 'cmd': 'curl -s -C - "{reqUrl}" --retry 10 -o "{tmpFileInfo}"'
@@ -472,34 +479,22 @@ class DtaProcess(object):
                 },
                 'KIMG': {
                     'request': {
-                        # 'url': 'https://apihub-org.kma.go.kr/api/typ06/url/nwp_file_down.php?nwp=k128&sub=unis&tmfc={tmfc}&ef={ef}&authKey={authKey}'
                         'url': 'https://apihub-org.kma.go.kr/api/typ06/url/nwp_file_down.php?nwp=k128&sub=unis&tmfc={tmfc}&ef={ef}&authKey={authKey}'
                         # , 'ef': ['00', '03', '06']
                         , 'ef00': ['00', '03', '06']
                         , 'ef06': ['00', '03', '06']
                         , 'ef12': ['00', '03', '06']
                         , 'ef18': ['00', '03', '06']
-                        , 'authKey': None
+                        # , 'authKey': None
+                        , 'authKey': 'SNtYDCmcQjSbWAwpnII0QA'
+                        #, 'authKey': 'ZZg2eTYPTzCYNnk2D-8wKQ'
                         , 'invDate': '6h'
                     }
                     , 'cmd': 'curl -s -C - "{reqUrl}" --retry 10 -o "{tmpFileInfo}"'
                     , 'tmp': '/DATA/MODEL/%Y%m/%d/.KIMG_k128_unis_H{ef}_%Y%m%d%H%M.grb2'
                     , 'target': '/DATA/MODEL/%Y%m/%d/KIMG_k128_unis_H{ef}_%Y%m%d%H%M.grb2'
                 },
-
-                # 설정 정보
-                'cfgFile': '/HDD/SYSTEMS/PROG/PYTHON/IDE/resources/config/system.cfg',
             }
-
-            # **********************************************************************************************************
-            # 설정 정보
-            # **********************************************************************************************************
-            config = configparser.ConfigParser()
-            config.read(sysOpt['cfgFile'], encoding='utf-8')
-            # sysOpt['ASOS']['request']['authKey'] = config.get('apihub-api-key', 'asos')
-            # sysOpt['AWS']['request']['authKey'] = config.get('apihub-api-key', 'aws')
-            # sysOpt['UMKR']['request']['authKey'] = config.get('apihub-api-key', 'umkr')
-            # sysOpt['KIMG']['request']['authKey'] = config.get('apihub-api-key', 'kimg')
 
             # **************************************************************************************************************
             # 비동기 다중 프로세스 수행

@@ -1,20 +1,16 @@
 ﻿# ================================================
 # 요구사항
 # ================================================
-# Python을 이용한 기상청 ASOS 다운로드
+# Python을 이용한 기상청 ASOS 다운로드 및 DB 적재
 
-# ps -ef | grep "TalentPlatform-bdwide-colctAwsDbSave.py" | awk '{print $2}' | xargs kill -9
-# pkill -f "TalentPlatform-bdwide-colctAwsDbSave.py"
+# ps -ef | grep "TalentPlatform-QUBE2025-colctAsosDbSave.py" | awk '{print $2}' | xargs kill -9
+# pkill -f "TalentPlatform-QUBE2025-colctAsosDbSave.py"
 
 # 프로그램 시작
 # conda activate py38
-# cd /SYSTEMS/PROG/PYTHON/IDE/src/proj/bdwide/2025/ECOWITT
-# /SYSTEMS/LIB/anaconda3/envs/py38/bin/python /SYSTEMS/PROG/PYTHON/IDE/src/proj/bdwide/2025/ECOWITT/TalentPlatform-bdwide-colctAwsDbSave.py
-# nohup /SYSTEMS/LIB/anaconda3/envs/py38/bin/python /SYSTEMS/PROG/PYTHON/IDE/src/proj/bdwide/2025/ECOWITT/TalentPlatform-bdwide-colctAwsDbSave.py > /dev/null 2>&1 &
-# tail -f nohup.out
-
-# tail -f /SYSTEMS/PROG/PYTHON/IDE/resources/log/test/Linux_x86_64_64bit_solarmy-253048.novalocal_test.log
-
+# cd /SYSTEMS/PROG/PYTHON
+# /SYSTEMS/LIB/anaconda3/envs/py39/bin/python /SYSTEMS/PROG/PYTHON/TalentPlatform-QUBE2025-colctAsosDbSave.py
+# nohup /SYSTEMS/LIB/anaconda3/envs/py39/bin/python /SYSTEMS/PROG/PYTHON/TalentPlatform-QUBE2025-colctAsosDbSave.py > /dev/null 2>&1 &
 
 import argparse
 import glob
@@ -35,7 +31,6 @@ import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
 import pytz
-import xarray as xr
 from pandas.tseries.offsets import Hour
 import yaml
 from multiprocessing import Pool
@@ -63,7 +58,7 @@ import requests
 from sqlalchemy.orm import sessionmaker
 from sqlalchemy.ext.automap import automap_base
 from sqlalchemy import text
-import pymysql
+# import pymysql
 import asyncio
 from apscheduler.schedulers.asyncio import AsyncIOScheduler
 
@@ -199,10 +194,10 @@ def colctProc(sysOpt):
             if modelInfo is None: continue
 
             # 시작일/종료일 설정
-            dtSrtDate = pd.to_datetime(sysOpt['srtDate'], format='%Y-%m-%d')
-            dtEndDate = pd.to_datetime(sysOpt['endDate'], format='%Y-%m-%d')
-            # dtEndDate = pd.to_datetime(datetime.now().strftime('%Y-%m-%d %H'), format='%Y-%m-%d %H')
-            # dtSrtDate = dtEndDate - parseDateOffset('1h')
+            # dtSrtDate = pd.to_datetime(sysOpt['srtDate'], format='%Y-%m-%d')
+            # dtEndDate = pd.to_datetime(sysOpt['endDate'], format='%Y-%m-%d')
+            dtEndDate = pd.to_datetime(datetime.now().strftime('%Y-%m-%d %H'), format='%Y-%m-%d %H')
+            dtSrtDate = dtEndDate - parseDateOffset('1h')
             dtDateList = pd.date_range(start=dtSrtDate, end=dtEndDate, freq=modelInfo['request']['invDate'])
 
             for dtDateInfo in reversed(dtDateList):
@@ -250,7 +245,6 @@ def parseDateOffset(invDate):
 @retry(stop_max_attempt_number=10)
 def colctObs(sysOpt, modelType, dtDateInfo):
     try:
-        procInfo = mp.current_process()
         modelInfo = sysOpt[modelType]
 
         # reqUrl = dtDateInfo.strftime(f"{modelInfo['request']['url']}").format(tmfc=dtDateInfo.strftime('%Y%m%d%H%M'), tmfc2=(dtDateInfo + parseDateOffset(modelInfo['request']['invDate']) - parseDateOffset('1s')).strftime('%Y%m%d%H%M'), authKey=modelInfo['request']['authKey'])
@@ -260,19 +254,19 @@ def colctObs(sysOpt, modelType, dtDateInfo):
         if not (res.status_code == 200): return
         res.raise_for_status()
 
-        data = pd.read_csv(io.StringIO(res.text), sep='\s+', header=None, comment='#')
         data = pd.read_csv(io.StringIO(res.text), sep='\s+', header=None, names=modelInfo['colList'], comment='#')
-        data['TM'] = pd.to_datetime(data['TM'], format='%Y%m%d%H%M', errors='coerce')
-        filterDateList = pd.date_range(start=dtDateInfo, end=(dtDateInfo + parseDateOffset(modelInfo['request']['invDate']) - parseDateOffset('1s')), freq='5T')
+        data['tm'] = pd.to_datetime(data['tm'], format='%Y%m%d%H%M', errors='coerce')
+        filterDateList = pd.date_range(start=dtDateInfo, end=(dtDateInfo + parseDateOffset(modelInfo['request']['invDate']) - parseDateOffset('1s')), freq='1h')
 
-        dataL1 = data[(data['STN'].isin(modelInfo['stnList'])) & (data['TM'].isin(filterDateList))].reset_index(drop=True)
+        # dataL1 = data[(data['STN'].isin(modelInfo['stnList'])) & (data['TM'].isin(filterDateList))].reset_index(drop=True)
+        dataL1 = data[(data['tm'].isin(filterDateList))].reset_index(drop=True)
 
         with sysOpt['cfgDb']['sessionMake']() as session:
             with session.begin():
                 conn = session.connection()
                 tbTmp = f"tmp_{uuid.uuid4().hex}"
 
-                valColList = [x for x in modelInfo['colList'] if x not in ['TM', 'STN']]
+                valColList = [x for x in modelInfo['colList'] if x not in ['tm', 'stn']]
                 allColList = modelInfo['colList']
 
                 try:
@@ -285,14 +279,14 @@ def colctObs(sysOpt, modelType, dtDateInfo):
                     )
 
                     allColJoin = ", ".join(allColList)
-                    updColJoin = ", ".join([f"{c} = VALUES({c})" for c in valColList])
+                    updColJoin = ", ".join([f"{c} = EXCLUDED.{c}" for c in valColList])
 
                     query = text(f"""
-                        INSERT INTO TB_AWS_DATA ({allColJoin})
+                        INSERT INTO tb_asos_data ({allColJoin})
                         SELECT {allColJoin}
                         FROM {tbTmp}
-                        ON DUPLICATE KEY UPDATE
-                            {updColJoin}
+                        ON CONFLICT (tm, stn) DO UPDATE
+                        SET {updColJoin}
                     """)
                     result = session.execute(query)
                     log.info(f"dtDateInfo : {dtDateInfo} / result : {result.rowcount}")
@@ -336,19 +330,14 @@ def initCfgInfo(config, key):
     result = None
 
     try:
-        # DB 연결 정보
-        pymysql.install_as_MySQLdb()
-        log.info(f'[CHECK] key : {key}')
-
-        # DB 정보
+        # log.info(f'[CHECK] key : {key}')
         dbUser = config.get(key, 'user')
         dbPwd = urllib.parse.quote(config.get(key, 'pwd'))
         dbHost = config.get(key, 'host')
-        # dbHost = 'localhost'
         dbPort = config.get(key, 'port')
         dbName = config.get(key, 'dbName')
 
-        engine = sqlalchemy.create_engine('mysql+pymysql://{0}:{1}@{2}:{3}/{4}?charset=utf8'.format(dbUser, dbPwd, dbHost, dbPort, dbName), echo=False)
+        engine = sqlalchemy.create_engine(f"postgresql+psycopg2://{dbUser}:{dbPwd}@{dbHost}:{dbPort}/{dbName}", echo=False, pool_timeout=60*5, pool_recycle=3600)
         sessionMake = sessionmaker(bind=engine, autocommit=False, autoflush=False)
         # session = sessionMake()
 
@@ -360,8 +349,8 @@ def initCfgInfo(config, key):
             'engine': engine
             , 'sessionMake': sessionMake
             # , 'session': session
-            , 'tableList': tableList
-            , 'tableCls': base.classes
+            # , 'tableList': tableList
+            # , 'tableCls': base.classes
         }
 
         return result
@@ -374,7 +363,7 @@ async def asyncSchdl(sysOpt):
     scheduler = AsyncIOScheduler()
 
     jobList = [
-        (colctProc, 'cron', {'hour': '*/3', 'minute': '0'}, {'args': [sysOpt]}),
+        (colctProc, 'cron', {'hour': '*/1', 'minute': '0'}, {'args': [sysOpt]}),
     ]
 
     for fun, trigger, triggerArgs, kwargs in jobList:
@@ -460,10 +449,14 @@ class DtaProcess(object):
                 # 예보시간 시작일, 종료일, 시간 간격 (연 1y, 월 1m, 일 1d, 시간 1h, 분 1t, 초 1s)
                 # 'srtDate': '2025-08-01',
                 # 'endDate': '2026-01-03',
-                'srtDate': '2026-01-03',
-                'endDate': '2026-01-07',
+                # 'srtDate': '2026-01-01',
+                # 'endDate': '2026-01-17',
 
-                'cfgDbKey': 'mysql-iwin-dms01user01-DMS03',
+                # 설정 정보
+                # 'cfgFile': '/HDD/SYSTEMS/PROG/PYTHON/IDE/resources/config/system.cfg',
+                # 'cfgFile': '/vol01/SYSTEMS/INDIAI/PROG/PYTHON/resources/config/system.cfg',
+                'cfgFile': '/SYSTEMS/PROG/PYTHON/resources/config/system.cfg',
+                'cfgDbKey': 'postgresql-qubesoft.iptime.org-qubesoft-dms02',
                 'cfgDb': None,
 
                 # 수행 목록
@@ -475,12 +468,8 @@ class DtaProcess(object):
                         'authKey': None,
                         'invDate': '1d',
                     },
-                    'stnList': [505, 533],
-                    'colList': ["TM", "STN", "WD1", "WS1", "WDS", "WSS", "WD10", "WS10", "TA", "RE", "RN15M", "RN60M", "RN12H", "RN1D", "HM", "PA", "PS", "TD"]
+                    'colList': ["tm", "stn", "wd", "ws", "gst_wd", "gst_ws", "gst_tm", "pa", "ps", "pt", "pr", "ta", "td", "hm", "pv", "rn", "rn_day", "rn_jun", "rn_int", "sd_hr3", "sd_day", "sd_tot", "wc", "wp", "ww", "ca_tot", "ca_mid", "ch_min", "ct", "ct_top", "ct_mid", "ct_low", "vs", "ss", "si", "st_gd", "ts", "te_005", "te_01", "te_02", "te_03", "st_sea", "wh", "bf", "ir", "ix"]
                 },
-
-                # 설정 정보
-                'cfgFile': '/HDD/SYSTEMS/PROG/PYTHON/IDE/resources/config/system.cfg',
             }
 
             # **********************************************************************************************************
@@ -492,8 +481,8 @@ class DtaProcess(object):
             sysOpt['cfgDb'] = initCfgInfo(config, sysOpt['cfgDbKey'])
 
             # 파일 스케줄러
-            # asyncio.run(asyncSchdl(sysOpt))
-            colctProc(sysOpt)
+            asyncio.run(asyncSchdl(sysOpt))
+            # colctProc(sysOpt)
 
         except Exception as e:
             log.error(f"Exception : {e}")
