@@ -1206,7 +1206,7 @@ class DtaProcess(object):
                 # 'srtDate': globalVar['srtDate'],
                 # 'endDate': globalVar['endDate'],
                 'srtDate': '2020-01-01',
-                'endDate':  datetime.datetime.now().strftime('%Y-%m-%d'),
+                'endDate': None,
                 'invDate': '1d',
 
                 # 비동기 다중 프로세스 개수
@@ -1308,6 +1308,7 @@ class DtaProcess(object):
                 'token': config.get(sysOpt['cfgApiKey'], 'token'),
             }
             sysOpt['cfgApi'] = cfgApi
+            sysOpt['endDate'] = datetime.datetime.now().strftime('%Y-%m-%d')
 
             # 관측소 정보
             with sysOpt['cfgDb']['sessionMake']() as session:
