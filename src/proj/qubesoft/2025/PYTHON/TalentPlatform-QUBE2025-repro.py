@@ -1295,7 +1295,7 @@ class DtaProcess(object):
             # *******************************************************
             # 설정 정보
             # *******************************************************
-            config = configparser.ConfigParser()
+            config = configparser.ConfigParser(interpolation=None)
             config.read(sysOpt['cfgFile'], encoding='utf-8')
 
             sysOpt['cfgDb'] = initCfgInfo(config, sysOpt['cfgDbKey'])
