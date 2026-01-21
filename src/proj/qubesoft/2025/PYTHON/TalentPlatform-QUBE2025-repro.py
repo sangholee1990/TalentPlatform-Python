@@ -927,6 +927,7 @@ def subPvProc(sysOpt):
                             session.execute(text(f"DROP TABLE IF EXISTS {tbTmp}"))
     except Exception as e:
         log.error(f'Exception : {e}')
+        raise e
 
 def subPropProc(sysOpt):
     try:
@@ -978,6 +979,7 @@ def subPropProc(sysOpt):
         pool.join()
     except Exception as e:
         log.error(f'Exception : {e}')
+        raise e
 
 def subModelProc(sysOpt):
     try:
@@ -1134,6 +1136,7 @@ def subModelProc(sysOpt):
                         session.execute(text(f"DROP TABLE IF EXISTS {tbTmp}"))
     except Exception as e:
         log.error(f'Exception : {e}')
+        raise e
 
 # ================================================
 # 4. 부 프로그램
@@ -1297,13 +1300,14 @@ class DtaProcess(object):
 
             sysOpt['cfgDb'] = initCfgInfo(config, sysOpt['cfgDbKey'])
             # cfgDb = initCfgInfo(config, sysOpt['cfgDbKey'])
-            sysOpt['cfgApi']['url'] = config.get(sysOpt['cfgApiKey'], 'url'),
-            sysOpt['cfgApi']['token'] = config.get(sysOpt['cfgApiKey'], 'token'),
-            #
-            # cfgApi = {
-            #     'url': config.get(sysOpt['cfgApiKey'], 'url'),
-            #     'token': config.get(sysOpt['cfgApiKey'], 'token'),
-            # }
+            # sysOpt['cfgApi']['url'] = config.get(sysOpt['cfgApiKey'], 'url'),
+            # sysOpt['cfgApi']['token'] = config.get(sysOpt['cfgApiKey'], 'token'),
+
+            cfgApi = {
+                'url': config.get(sysOpt['cfgApiKey'], 'url'),
+                'token': config.get(sysOpt['cfgApiKey'], 'token'),
+            }
+            sysOpt['cfgApi'] = cfgApi
 
             # 관측소 정보
             with sysOpt['cfgDb']['sessionMake']() as session:
