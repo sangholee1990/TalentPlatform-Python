@@ -868,6 +868,7 @@ def subPvProc(sysOpt):
             for i, posInfo in sysOpt['posDataL1'].iterrows():
                 # id = posInfo['ID']
                 id = posInfo['id']
+                # id = 100
 
                 reqUrl = dtDateInfo.strftime(sysOpt['cfgApi']['url']).format(id=id, token=sysOpt['cfgApi']['token'])
                 res = requests.get(reqUrl)
@@ -919,7 +920,7 @@ def subPvProc(sysOpt):
                                     mod_date = now();
                                          """)
                             result = session.execute(query)
-                            log.info(f"dtDateInfo : {dtDateInfo} / id : {id} / result : {result.rowcount}")
+                            log.info(f"id : {id} / dtDateInfo : {dtDateInfo} / id : {id} / result : {result.rowcount}")
                         except Exception as e:
                             log.error(f"Exception : {e}")
                             raise e
@@ -1001,7 +1002,7 @@ def subModelProc(sysOpt):
                                      FROM "tb_pv_data" AS pv
                                               LEFT JOIN
                                           "tb_for_data" AS lf ON pv."srv" = lf."srv" AND pv."date_time" = lf."date_time"
-                                     WHERE pv."SRV" = :srvId
+                                     WHERE pv."srv" = :srvId
                                        AND (EXTRACT(EPOCH FROM (lf."date_time" - lf."ana_date")) / 3600.0) <= 5
                                      ORDER BY "srv", "date_time_kst" DESC;
                                      """)
@@ -1155,8 +1156,8 @@ class DtaProcess(object):
     if (platform.system() == 'Windows'):
         contextPath = os.getcwd() if env in 'local' else 'E:/04. TalentPlatform/Github/TalentPlatform-Python'
     else:
-        # contextPath = os.getcwd() if env in 'local' else '/SYSTEMS/PROG/PYTHON/IDE'
-        contextPath = os.getcwd() if env in 'local' else '/SYSTEMS/PROG/PYTHON'
+        contextPath = os.getcwd() if env in 'local' else '/SYSTEMS/PROG/PYTHON/IDE'
+        # contextPath = os.getcwd() if env in 'local' else '/SYSTEMS/PROG/PYTHON'
 
     prjName = 'test'
     serviceName = 'QUBE2025'
@@ -1214,9 +1215,9 @@ class DtaProcess(object):
                 'cpuCoreNum': '5',
 
                 # 설정 파일
-                # 'cfgFile': '/HDD/SYSTEMS/PROG/PYTHON/IDE/resources/config/system.cfg',
+                'cfgFile': '/HDD/SYSTEMS/PROG/PYTHON/IDE/resources/config/system.cfg',
                 # 'cfgFile': '/vol01/SYSTEMS/INDIAI/PROG/PYTHON/resources/config/system.cfg',
-                'cfgFile': '/SYSTEMS/PROG/PYTHON/resources/config/system.cfg',
+                # 'cfgFile': '/SYSTEMS/PROG/PYTHON/resources/config/system.cfg',
                 'cfgDbKey': 'postgresql-qubesoft.iptime.org-qubesoft-dms02',
                 'cfgDb': None,
                 'posDataL1': None,
@@ -1320,6 +1321,7 @@ class DtaProcess(object):
                              """)
 
                 posDataL1 = pd.DataFrame(session.execute(query))
+                log.info(f'posDataL1 : {posDataL1}')
 
             sysOpt['posDataL1'] = posDataL1
             sysOpt['lat1D'] = np.array(posDataL1['lat'])
