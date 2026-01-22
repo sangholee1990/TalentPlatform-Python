@@ -154,6 +154,7 @@ from pvlib import irradiance
 from multiprocessing import Pool
 import multiprocessing as mp
 import uuid
+from sqlalchemy.pool import NullPool
 
 # =================================================
 # 사용자 매뉴얼
@@ -322,7 +323,8 @@ def initCfgInfo(config, key):
         dbPort = config.get(key, 'port')
         dbName = config.get(key, 'dbName')
 
-        engine = sqlalchemy.create_engine(f"postgresql+psycopg2://{dbUser}:{dbPwd}@{dbHost}:{dbPort}/{dbName}", echo=False, pool_timeout=60*5, pool_recycle=3600)
+        # engine = sqlalchemy.create_engine(f"postgresql+psycopg2://{dbUser}:{dbPwd}@{dbHost}:{dbPort}/{dbName}", echo=False, pool_timeout=60*5, pool_recycle=3600)
+        engine = sqlalchemy.create_engine(f"postgresql+psycopg2://{dbUser}:{dbPwd}@{dbHost}:{dbPort}/{dbName}", echo=False, poolclass=NullPool)
         sessionMake = sessionmaker(bind=engine, autocommit=False, autoflush=False)
         # session = sessionMake()
 
@@ -625,13 +627,9 @@ def makeH2oModel(subOpt=None, xCol=None, yCol=None, trainData=None, testData=Non
 
 def propUmkr(sysOpt, dtDateInfo):
     try:
-        procInfo = mp.current_process()
-
-        config = configparser.ConfigParser()
-        config.read(sysOpt['cfgFile'], encoding='utf-8')
-        cfgDb = initCfgInfo(config, sysOpt['cfgDbKey'])
-
+        # procInfo = mp.current_process()
         efList = sysOpt['UMKR'][f"ef{dtDateInfo.strftime('%H')}"]
+
         for ef in efList:
             inpFile = dtDateInfo.strftime(sysOpt['UMKR']['inpUmFile']).format(ef=ef)
             fileList = sorted(glob.glob(inpFile))
@@ -678,12 +676,9 @@ def propUmkr(sysOpt, dtDateInfo):
                             , 'TA': (('anaTime', 'time', 'lat', 'lon'), (TA).reshape(1, 1, len(lat1D), len(lon1D)))
                             , 'TD': (('anaTime', 'time', 'lat', 'lon'), (TD).reshape(1, 1, len(lat1D), len(lon1D)))
                             , 'HM': (('anaTime', 'time', 'lat', 'lon'), (HM).reshape(1, 1, len(lat1D), len(lon1D)))
-                            ,
-                            'lowCA': (('anaTime', 'time', 'lat', 'lon'), (lowCA).reshape(1, 1, len(lat1D), len(lon1D)))
-                            ,
-                            'medCA': (('anaTime', 'time', 'lat', 'lon'), (medCA).reshape(1, 1, len(lat1D), len(lon1D)))
-                            ,
-                            'higCA': (('anaTime', 'time', 'lat', 'lon'), (higCA).reshape(1, 1, len(lat1D), len(lon1D)))
+                            , 'lowCA': (('anaTime', 'time', 'lat', 'lon'), (lowCA).reshape(1, 1, len(lat1D), len(lon1D)))
+                            , 'medCA': (('anaTime', 'time', 'lat', 'lon'), (medCA).reshape(1, 1, len(lat1D), len(lon1D)))
+                            , 'higCA': (('anaTime', 'time', 'lat', 'lon'), (higCA).reshape(1, 1, len(lat1D), len(lon1D)))
                             , 'CA_TOT': (('anaTime', 'time', 'lat', 'lon'),(CA_TOT).reshape(1, 1, len(lat1D), len(lon1D)))
                             , 'SWR': (('anaTime', 'time', 'lat', 'lon'), (SWR).reshape(1, 1, len(lat1D), len(lon1D)))
                         }
@@ -721,13 +716,6 @@ def propUmkr(sysOpt, dtDateInfo):
                             conn = session.connection()
 
                             try:
-                                # query = text(f"""
-                                #    SELECT *
-                                #    FROM "TB_FOR_DATA"
-                                #    WHERE "SRV" = :srvId
-                                #      AND "ANA_DATE" = :anaDate
-                                #      AND "DATE_TIME" = :dateTime;
-                                #    """)
                                 query = text(f"""
                                    SELECT * FROM tb_for_data
                                    WHERE srv = :srvId 
@@ -850,7 +838,8 @@ def propUmkr(sysOpt, dtDateInfo):
                                           ext_rad = excluded.ext_rad,
                                           mod_date = now();
                                       """)
-                                session.execute(query)
+                                result = session.execute(query)
+                                log.info(f"srvId : {srvId} / dtDateInfo : {dtDateInfo} / id : {id} / result : {result.rowcount}")
                             except Exception as e:
                                 log.error(f"Exception : {e}")
                                 raise e
@@ -859,7 +848,7 @@ def propUmkr(sysOpt, dtDateInfo):
     except Exception as e:
         log.error(f'Exception : {e}')
 
-def subPvProc(sysOpt):
+def subPvProc(sysOpt, cfgDb):
     try:
         dtSrtDate = pd.to_datetime(sysOpt['srtDate'], format='%Y-%m-%d')
         dtEndDate = pd.to_datetime(sysOpt['endDate'], format='%Y-%m-%d')
@@ -893,7 +882,7 @@ def subPvProc(sysOpt):
                 resData['date_time'] = resData['date_time_kst'] - dtKst
 
                 # DB 적재
-                with sysOpt['cfgDb']['sessionMake']() as session:
+                with cfgDb['sessionMake']() as session:
                     with session.begin():
                         tbTmp = f"tmp_{uuid.uuid4().hex}"
                         conn = session.connection()
@@ -930,7 +919,11 @@ def subPvProc(sysOpt):
         log.error(f'Exception : {e}')
         raise e
 
-def subPropProc(sysOpt):
+def initWorker(cfbDbInfo):
+    global cfgDb
+    cfgDb = cfbDbInfo
+
+def subPropProc(sysOpt, cfgDb):
     try:
         cfgUmFile = sysOpt['UMKR']['cfgUmFile']
         log.info(f"[CHECK] cfgUmFile : {cfgUmFile}")
@@ -967,13 +960,18 @@ def subPropProc(sysOpt):
         # 비동기 다중 프로세스 수행
         # **************************************************************************************************************
         # 비동기 다중 프로세스 개수
-        pool = Pool(int(sysOpt['cpuCoreNum']))
+        # pool = Pool(int(sysOpt['cpuCoreNum']))
+        pool = Pool(
+            processes=int(sysOpt['cpuCoreNum']),
+            initializer=initWorker,
+            initargs=(cfgDb,)
+        )
 
         dtSrtDate = pd.to_datetime(sysOpt['srtDate'], format='%Y-%m-%d')
         dtEndDate = pd.to_datetime(sysOpt['endDate'], format='%Y-%m-%d')
         dtDateList = pd.date_range(start=dtSrtDate, end=dtEndDate, freq=sysOpt['UMKR']['invDate'])
         for dtDateInfo in reversed(dtDateList):
-            # propUmkr(sysOpt, cfgDb, dtDateInfo)
+            # propUmkr(sysOpt, dtDateInfo)
             pool.apply_async(propUmkr, args=(sysOpt, dtDateInfo))
 
         pool.close()
@@ -982,7 +980,7 @@ def subPropProc(sysOpt):
         log.error(f'Exception : {e}')
         raise e
 
-def subModelProc(sysOpt):
+def subModelProc(sysOpt, cfgDb):
     try:
         # 학습
         for i, posInfo in sysOpt['posDataL1'].iterrows():
@@ -990,7 +988,7 @@ def subModelProc(sysOpt):
             # posId = 17
             srvId = f"SRV{posId:05d}"
 
-            with sysOpt['cfgDb']['sessionMake']() as session:
+            with cfgDb['sessionMake']() as session:
                 with session.begin():
                     conn = session.connection()
                     tbTmp = f"tmp_{uuid.uuid4().hex}"
@@ -1147,7 +1145,7 @@ class DtaProcess(object):
     # ================================================================================================
     # 환경변수 설정
     # ================================================================================================
-    global env, contextPath, prjName, serviceName, log, globalVar
+    global env, contextPath, prjName, serviceName, log, globalVar, cfgDb
 
     # env = 'local'  # 로컬 : 원도우 환경, 작업환경 (현재 소스 코드 환경 시 .) 설정
     env = 'dev'  # 개발 : 원도우 환경, 작업환경 (사용자 환경 시 contextPath) 설정
@@ -1215,11 +1213,10 @@ class DtaProcess(object):
                 'cpuCoreNum': '5',
 
                 # 설정 파일
-                'cfgFile': '/HDD/SYSTEMS/PROG/PYTHON/IDE/resources/config/system.cfg',
+                # 'cfgFile': '/HDD/SYSTEMS/PROG/PYTHON/IDE/resources/config/system.cfg',
                 # 'cfgFile': '/vol01/SYSTEMS/INDIAI/PROG/PYTHON/resources/config/system.cfg',
-                # 'cfgFile': '/SYSTEMS/PROG/PYTHON/resources/config/system.cfg',
+                'cfgFile': '/SYSTEMS/PROG/PYTHON/resources/config/system.cfg',
                 'cfgDbKey': 'postgresql-qubesoft.iptime.org-qubesoft-dms02',
-                'cfgDb': None,
                 'posDataL1': None,
                 'cfgApiKey': 'pv',
                 'cfgApi': None,
@@ -1299,11 +1296,8 @@ class DtaProcess(object):
             config = configparser.ConfigParser(interpolation=None)
             config.read(sysOpt['cfgFile'], encoding='utf-8')
 
-            sysOpt['cfgDb'] = initCfgInfo(config, sysOpt['cfgDbKey'])
-            # cfgDb = initCfgInfo(config, sysOpt['cfgDbKey'])
-            # sysOpt['cfgApi']['url'] = config.get(sysOpt['cfgApiKey'], 'url'),
-            # sysOpt['cfgApi']['token'] = config.get(sysOpt['cfgApiKey'], 'token'),
-
+            # sysOpt['cfgDb'] = initCfgInfo(config, sysOpt['cfgDbKey'])
+            cfgDb = initCfgInfo(config, sysOpt['cfgDbKey'])
             cfgApi = {
                 'url': config.get(sysOpt['cfgApiKey'], 'url'),
                 'token': config.get(sysOpt['cfgApiKey'], 'token'),
@@ -1312,7 +1306,7 @@ class DtaProcess(object):
             sysOpt['endDate'] = datetime.datetime.now().strftime('%Y-%m-%d')
 
             # 관측소 정보
-            with sysOpt['cfgDb']['sessionMake']() as session:
+            with cfgDb['sessionMake']() as session:
                 query = text("""
                              SELECT *
                              FROM "tb_stn_info"
@@ -1327,9 +1321,9 @@ class DtaProcess(object):
             sysOpt['lat1D'] = np.array(posDataL1['lat'])
             sysOpt['lon1D'] = np.array(posDataL1['lon'])
 
-            subPvProc(sysOpt)
-            subPropProc(sysOpt)
-            subModelProc(sysOpt)
+            # subPvProc(sysOpt, cfgDb)
+            subPropProc(sysOpt, cfgDb)
+            subModelProc(sysOpt, cfgDb)
 
         except Exception as e:
             log.error("Exception : {}".format(e))
