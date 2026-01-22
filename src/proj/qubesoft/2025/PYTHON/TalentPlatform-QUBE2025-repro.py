@@ -636,7 +636,7 @@ def propUmkr(sysOpt, dtDateInfo):
             if len(fileList) < 1: continue
 
             for jj, fileInfo in enumerate(fileList):
-                log.info(f"[CHECK] fileInfo : {fileInfo}")
+                # log.info(f"[CHECK] fileInfo : {fileInfo}")
 
                 umData = None
                 try:
@@ -647,6 +647,8 @@ def propUmkr(sysOpt, dtDateInfo):
                     validIdx = int(ef)
                     dtValidDate = grbInfo.validDate
                     dtAnalDate = grbInfo.analDate
+
+                    if validIdx > 5: continue
 
                     row2D = sysOpt['row2D']
                     col2D = sysOpt['col2D']
@@ -732,6 +734,18 @@ def propUmkr(sysOpt, dtDateInfo):
                                 selData = pd.DataFrame(session.execute(query, params))
                                 # if 'TURB' in selData.columns and (selData['TURB'] > 0).any(): continue
                                 if 'turb' in selData.columns and (selData['turb'] > 0).any(): continue
+
+                                query = text("""
+                                             SELECT pv."pv",
+                                                    lf.*
+                                             FROM "tb_pv_data" AS pv
+                                                      LEFT JOIN
+                                                  "tb_for_data" AS lf
+                                                  ON pv."srv" = lf."srv" AND pv."date_time" = lf."date_time"
+                                             WHERE pv."srv" = :srvId
+                                               AND (EXTRACT(EPOCH FROM (lf."date_time" - lf."ana_date")) / 3600.0) <= 5
+                                             ORDER BY "srv", "date_time_kst" DESC;
+                                             """)
 
                                 # dtAnaTimeInfo = umData['anaTime'].values
                                 umDataL2 = umData.sel(lat=posLat, lon=posLon, anaTime=dtAnaTimeInfo)
@@ -840,6 +854,7 @@ def propUmkr(sysOpt, dtDateInfo):
                                       """)
                                 result = session.execute(query)
                                 # log.info(f"srvId : {srvId} / dtDateInfo : {dtDateInfo} / result : {result.rowcount}")
+                                log.info(f"fileInfo : {fileInfo} / result : {result.rowcount}")
                             except Exception as e:
                                 log.error(f"Exception : {e}")
                                 raise e
