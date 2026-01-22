@@ -841,56 +841,55 @@ class DtaProcess(object):
                                 # prdData['AI2'] = np.where(prdVal > 0, prdVal, 0)
                                 prdData['ai2'] = np.where(prdVal > 0, prdVal, 0)
 
-                                # ****************************************************************************
-                                # 자동 학습 모델링 (pycaret)
-                                # ****************************************************************************
-                                # resPycaret = makePycaretModel(sysOpt['MODEL']['pycaret'], xCol, yCol, trainData, testData)
-                                ## log.info(f'resPycaret : {resPycaret}')
+                            # ****************************************************************************
+                            # 자동 학습 모델링 (pycaret)
+                            # ****************************************************************************
+                            # resPycaret = makePycaretModel(sysOpt['MODEL']['pycaret'], xCol, yCol, trainData, testData)
+                            ## log.info(f'resPycaret : {resPycaret}')
 
-                                # if resPycaret:
-                                #    prdVal = exp.predict_model(resPycaret['mlModel'], data=prdData[xCol])['prediction_label']
-                                #    prdData['AI3'] = np.where(prdVal > 0, prdVal, 0)
+                            # if resPycaret:
+                            #    prdVal = exp.predict_model(resPycaret['mlModel'], data=prdData[xCol])['prediction_label']
+                            #    prdData['AI3'] = np.where(prdVal > 0, prdVal, 0)
 
-                                # *******************************************************
-                                # DB 적재
-                                # *******************************************************
+                            # *******************************************************
+                            # DB 적재
+                            # *******************************************************
+                            prdData.to_sql(
+                                name=tbTmp,
+                                con=conn,
+                                if_exists="replace",
+                                index=False
+                            )
 
-                                prdData.to_sql(
-                                    name=tbTmp,
-                                    con=conn,
-                                    if_exists="replace",
-                                    index=False
-                                )
-
-                                # query = text(f"""
-                                #     INSERT INTO "TB_FOR_DATA" (
-                                #           "SRV", "ANA_DATE", "DATE_TIME", "DL", "ML", "AI", "AI2"
-                                #     )
-                                #     SELECT
-                                #           "SRV", "ANA_DATE", "DATE_TIME", "DL", "ML", "AI", "AI2"
-                                #     FROM "{tbTmp}"
-                                #     ON CONFLICT ("SRV", "ANA_DATE", "DATE_TIME")
-                                #     DO UPDATE SET
-                                #         "DL" = excluded."DL",
-                                #         "ML" = excluded."ML",
-                                #         "AI" = excluded."AI",
-                                #         "AI2" = excluded."AI2"
-                                #       """)
-                                query = text(f"""
-                                          INSERT INTO tb_for_data (
-                                                srv, ana_date, date_time, dl, ml, ai, ai2
-                                          )
-                                          SELECT
-                                                srv, ana_date, date_time, dl, ml, ai, ai2
-                                          FROM {tbTmp}
-                                          ON CONFLICT (srv, ana_date, date_time)
-                                          DO UPDATE SET
-                                              dl = excluded.dl,
-                                              ml = excluded.ml,
-                                              ai = excluded.ai,
-                                              ai2 = excluded.ai2
-                                       """)
-                                session.execute(query)
+                            # query = text(f"""
+                            #     INSERT INTO "TB_FOR_DATA" (
+                            #           "SRV", "ANA_DATE", "DATE_TIME", "DL", "ML", "AI", "AI2"
+                            #     )
+                            #     SELECT
+                            #           "SRV", "ANA_DATE", "DATE_TIME", "DL", "ML", "AI", "AI2"
+                            #     FROM "{tbTmp}"
+                            #     ON CONFLICT ("SRV", "ANA_DATE", "DATE_TIME")
+                            #     DO UPDATE SET
+                            #         "DL" = excluded."DL",
+                            #         "ML" = excluded."ML",
+                            #         "AI" = excluded."AI",
+                            #         "AI2" = excluded."AI2"
+                            #       """)
+                            query = text(f"""
+                                      INSERT INTO tb_for_data (
+                                            srv, ana_date, date_time, dl, ml, ai, ai2
+                                      )
+                                      SELECT
+                                            srv, ana_date, date_time, dl, ml, ai, ai2
+                                      FROM {tbTmp}
+                                      ON CONFLICT (srv, ana_date, date_time)
+                                      DO UPDATE SET
+                                          dl = excluded.dl,
+                                          ml = excluded.ml,
+                                          ai = excluded.ai,
+                                          ai2 = excluded.ai2
+                                   """)
+                            session.execute(query)
                         except Exception as e:
                             log.error(f"Exception : {e}")
                             raise e

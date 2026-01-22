@@ -507,6 +507,7 @@ def propUmkr(sysOpt, dtDateInfo):
     except Exception as e:
         log.error(f'Exception : {e}')
         raise e
+
 # ================================================
 # 4. 부 프로그램
 # ================================================
