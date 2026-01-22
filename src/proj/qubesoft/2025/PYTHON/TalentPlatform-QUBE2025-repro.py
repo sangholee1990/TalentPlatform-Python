@@ -839,7 +839,7 @@ def propUmkr(sysOpt, dtDateInfo):
                                           mod_date = now();
                                       """)
                                 result = session.execute(query)
-                                log.info(f"srvId : {srvId} / dtDateInfo : {dtDateInfo} / id : {id} / result : {result.rowcount}")
+                                # log.info(f"srvId : {srvId} / dtDateInfo : {dtDateInfo} / result : {result.rowcount}")
                             except Exception as e:
                                 log.error(f"Exception : {e}")
                                 raise e
