@@ -633,20 +633,15 @@ def propUmkr(sysOpt, dtDateInfo):
         for ef in efList:
             inpFile = dtDateInfo.strftime(sysOpt['UMKR']['inpUmFile']).format(ef=ef)
             fileList = sorted(glob.glob(inpFile))
-            if len(fileList) < 1: continue
 
-            validIdx = int(ef)
-            if validIdx > 5: continue
-
-            for jj, fileInfo in enumerate(fileList):
-                # log.info(f"[CHECK] fileInfo : {fileInfo}")
-
+            for fileInfo in fileList:
                 umData = None
                 try:
                     grb = pygrib.open(fileInfo)
                     grbInfo = grb.select(name='Temperature')[1]
 
                     # validIdx = int(re.findall('H\d{3}', fileInfo)[0].replace('H', ''))
+                    validIdx = int(ef)
                     dtValidDate = grbInfo.validDate
                     dtAnalDate = grbInfo.analDate
 
@@ -1211,7 +1206,8 @@ class DtaProcess(object):
 
                 # 비동기 다중 프로세스 개수
                 # 'cpuCoreNum': globalVar['cpuCoreNum'],
-                'cpuCoreNum': '5',
+                # 'cpuCoreNum': '1',
+                'cpuCoreNum': '10',
 
                 # 설정 파일
                 # 'cfgFile': '/HDD/SYSTEMS/PROG/PYTHON/IDE/resources/config/system.cfg',
@@ -1234,10 +1230,12 @@ class DtaProcess(object):
                     # 'inpUmFile': '/DATA/COLCT/UMKR/%Y%m/%d/UMKR_l015_unis_H{ef}_%Y%m%d%H%M.grb2',
                     'cfgUmFile': '/DATA/MODEL/202001/01/UMKR_l015_unis_H00_202001010000.grb2',
                     'inpUmFile': '/DATA/MODEL/%Y%m/%d/UMKR_l015_unis_H{ef}_%Y%m%d%H%M.grb2',
-                    'ef00': ['00', '01', '02', '03', '04', '05', '15', '16', '17', '18', '19', '20', '21', '22', '23','24', '25', '26', '27', '28', '29', '30', '31', '32', '33', '34', '35', '36', '37', '38'],
+                    # 'ef00': ['00', '01', '02', '03', '04', '05', '15', '16', '17', '18', '19', '20', '21', '22', '23','24', '25', '26', '27', '28', '29', '30', '31', '32', '33', '34', '35', '36', '37', '38'],
+                    'ef00': ['00', '01', '02', '03', '04', '05'],
                     'ef06': ['00', '01', '02', '03', '04', '05'],
                     'ef12': ['00', '01', '02', '03', '04', '05'],
-                    'ef18': ['00', '01', '02', '03', '04', '05', '21', '22', '23', '24', '25', '26', '27', '28', '29','30', '31', '32', '33', '34', '35', '36', '37', '38', '39', '40', '41', '42', '43', '44'],
+                    # 'ef18': ['00', '01', '02', '03', '04', '05', '21', '22', '23', '24', '25', '26', '27', '28', '29','30', '31', '32', '33', '34', '35', '36', '37', '38', '39', '40', '41', '42', '43', '44'],
+                    'ef18': ['00', '01', '02', '03', '04', '05'],
                     'invDate': '6h',
                 },
                 # 자동화/수동화 모델링
@@ -1322,9 +1320,9 @@ class DtaProcess(object):
             sysOpt['lat1D'] = np.array(posDataL1['lat'])
             sysOpt['lon1D'] = np.array(posDataL1['lon'])
 
-            subPvProc(sysOpt, cfgDb)
+            # subPvProc(sysOpt, cfgDb)
             subPropProc(sysOpt, cfgDb)
-            subModelProc(sysOpt, cfgDb)
+            # subModelProc(sysOpt, cfgDb)
 
         except Exception as e:
             log.error("Exception : {}".format(e))
