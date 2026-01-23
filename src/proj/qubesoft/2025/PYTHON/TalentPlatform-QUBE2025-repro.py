@@ -11,8 +11,8 @@
 # conda activate py39
 
 # cd /SYSTEMS/PROG/PYTHON
-# /SYSTEMS/LIB/anaconda3/envs/py39/bin/python TalentPlatform-QUBE2025-repro.py
-# nohup /SYSTEMS/LIB/anaconda3/envs/py39/bin/python TalentPlatform-QUBE2025-repro.py &
+# /SYSTEMS/LIB/anaconda3/envs/py39/bin/python /SYSTEMS/PROG/PYTHON/TalentPlatform-QUBE2025-repro.py
+# nohup /SYSTEMS/LIB/anaconda3/envs/py39/bin/python /SYSTEMS/PROG/PYTHON/TalentPlatform-QUBE2025-repro.py &
 
 # 20,50 * * * * cd /SYSTEMS/PROG/PYTHON && /SYSTEMS/LIB/anaconda3/envs/py38/bin/python /SYSTEMS/PROG/PYTHON/TalentPlatform-QUBE2025-repro.py
 
@@ -735,18 +735,6 @@ def propUmkr(sysOpt, dtDateInfo):
                                 # if 'TURB' in selData.columns and (selData['TURB'] > 0).any(): continue
                                 if 'turb' in selData.columns and (selData['turb'] > 0).any(): continue
 
-                                query = text("""
-                                             SELECT pv."pv",
-                                                    lf.*
-                                             FROM "tb_pv_data" AS pv
-                                                      LEFT JOIN
-                                                  "tb_for_data" AS lf
-                                                  ON pv."srv" = lf."srv" AND pv."date_time" = lf."date_time"
-                                             WHERE pv."srv" = :srvId
-                                               AND (EXTRACT(EPOCH FROM (lf."date_time" - lf."ana_date")) / 3600.0) <= 5
-                                             ORDER BY "srv", "date_time_kst" DESC;
-                                             """)
-
                                 # dtAnaTimeInfo = umData['anaTime'].values
                                 umDataL2 = umData.sel(lat=posLat, lon=posLon, anaTime=dtAnaTimeInfo)
                                 umDataL3 = umDataL2.to_dataframe().dropna().reset_index(drop=True)
@@ -911,7 +899,7 @@ def subPvProc(sysOpt, cfgDb):
                             )
 
                             query = text(f"""
-                               INSERT INTO tb_pv_data (
+                                INSERT INTO tb_pv_data (
                                     srv, date_time, date_time_kst, pv, reg_date
                                 )
                                 SELECT 
@@ -922,7 +910,7 @@ def subPvProc(sysOpt, cfgDb):
                                     date_time_kst = excluded.date_time_kst,
                                     pv = excluded.pv, 
                                     mod_date = now();
-                                         """)
+                                """)
                             result = session.execute(query)
                             log.info(f"id : {id} / dtDateInfo : {dtDateInfo} / id : {id} / result : {result.rowcount}")
                         except Exception as e:
@@ -941,7 +929,7 @@ def initWorker(cfbDbInfo):
 def subPropProc(sysOpt, cfgDb):
     try:
         cfgUmFile = sysOpt['UMKR']['cfgUmFile']
-        log.info(f"[CHECK] cfgUmFile : {cfgUmFile}")
+        log.info(f"cfgUmFile : {cfgUmFile}")
 
         cfgInfo = pygrib.open(cfgUmFile).select(name='Temperature')[1]
         lat2D, lon2D = cfgInfo.latlons()
@@ -957,7 +945,6 @@ def subPropProc(sysOpt, cfgDb):
 
         tree = spatial.KDTree(posList)
 
-        # coord = cartesian(posInfo['lat'], posInfo['lon'])
         row1D = []
         col1D = []
         for ii, posInfo in sysOpt['posDataL1'].iterrows():
@@ -997,7 +984,6 @@ def subPropProc(sysOpt, cfgDb):
 
 def subModelProc(sysOpt, cfgDb):
     try:
-        # 학습
         for i, posInfo in sysOpt['posDataL1'].iterrows():
             posId = posInfo['id']
             # posId = 17
@@ -1136,10 +1122,10 @@ def subModelProc(sysOpt, cfgDb):
 
                         if result.rowcount > 0:
                             query = text("""
-                                         UPDATE "tb_stn_info"
-                                         SET "init_yn"  = 'N',
-                                             "mod_date" = now()
-                                         WHERE "id" = :posId
+                                         UPDATE tb_stn_info
+                                         SET init_yn  = 'N',
+                                             mod_date = now()
+                                         WHERE id = :posId
                                          """)
                             session.execute(query, {'id': id})
 
@@ -1228,9 +1214,9 @@ class DtaProcess(object):
                 'cpuCoreNum': '5',
 
                 # 설정 파일
-                'cfgFile': '/HDD/SYSTEMS/PROG/PYTHON/IDE/resources/config/system.cfg',
+                # 'cfgFile': '/HDD/SYSTEMS/PROG/PYTHON/IDE/resources/config/system.cfg',
                 # 'cfgFile': '/vol01/SYSTEMS/INDIAI/PROG/PYTHON/resources/config/system.cfg',
-                # 'cfgFile': '/SYSTEMS/PROG/PYTHON/resources/config/system.cfg',
+                'cfgFile': '/SYSTEMS/PROG/PYTHON/resources/config/system.cfg',
                 'cfgDbKey': 'postgresql-qubesoft.iptime.org-qubesoft-dms02',
                 'posDataL1': None,
                 'cfgApiKey': 'pv',
@@ -1242,12 +1228,12 @@ class DtaProcess(object):
 
                 # 예보 모델
                 'UMKR': {
-                    'cfgUmFile': '/HDD/SYSTEMS/PROG/PYTHON/IDE/resources/config/modelInfo/UMKR_l015_unis_H000_202110010000.grb2',
-                    'inpUmFile': '/HDD/DATA/MODEL/%Y%m/%d/UMKR_l015_unis_H{ef}_%Y%m%d%H%M.grb2',
+                    # 'cfgUmFile': '/HDD/SYSTEMS/PROG/PYTHON/IDE/resources/config/modelInfo/UMKR_l015_unis_H000_202110010000.grb2',
+                    # 'inpUmFile': '/HDD/DATA/MODEL/%Y%m/%d/UMKR_l015_unis_H{ef}_%Y%m%d%H%M.grb2',
                     # 'cfgUmFile': '/DATA/COLCT/UMKR/201901/01/UMKR_l015_unis_H00_201901010000.grb2',
                     # 'inpUmFile': '/DATA/COLCT/UMKR/%Y%m/%d/UMKR_l015_unis_H{ef}_%Y%m%d%H%M.grb2',
-                    # 'cfgUmFile': '/DATA/MODEL/202001/01/UMKR_l015_unis_H00_202001010000.grb2',
-                    # 'inpUmFile': '/DATA/MODEL/%Y%m/%d/UMKR_l015_unis_H{ef}_%Y%m%d%H%M.grb2',
+                    'cfgUmFile': '/DATA/MODEL/202001/01/UMKR_l015_unis_H00_202001010000.grb2',
+                    'inpUmFile': '/DATA/MODEL/%Y%m/%d/UMKR_l015_unis_H{ef}_%Y%m%d%H%M.grb2',
                     'ef00': ['00', '01', '02', '03', '04', '05', '15', '16', '17', '18', '19', '20', '21', '22', '23','24', '25', '26', '27', '28', '29', '30', '31', '32', '33', '34', '35', '36', '37', '38'],
                     'ef06': ['00', '01', '02', '03', '04', '05'],
                     'ef12': ['00', '01', '02', '03', '04', '05'],
@@ -1324,9 +1310,9 @@ class DtaProcess(object):
             with cfgDb['sessionMake']() as session:
                 query = text("""
                              SELECT *
-                             FROM "tb_stn_info"
-                             WHERE "init_yn" = 'Y'
-                             ORDER BY "id" ASC;
+                             FROM tb_stn_info
+                             WHERE init_yn = 'Y'
+                             ORDER BY id ASC;
                              """)
 
                 posDataL1 = pd.DataFrame(session.execute(query))
@@ -1336,7 +1322,7 @@ class DtaProcess(object):
             sysOpt['lat1D'] = np.array(posDataL1['lat'])
             sysOpt['lon1D'] = np.array(posDataL1['lon'])
 
-            # subPvProc(sysOpt, cfgDb)
+            subPvProc(sysOpt, cfgDb)
             subPropProc(sysOpt, cfgDb)
             subModelProc(sysOpt, cfgDb)
 
