@@ -635,6 +635,9 @@ def propUmkr(sysOpt, dtDateInfo):
             fileList = sorted(glob.glob(inpFile))
             if len(fileList) < 1: continue
 
+            validIdx = int(ef)
+            if validIdx > 5: continue
+
             for jj, fileInfo in enumerate(fileList):
                 # log.info(f"[CHECK] fileInfo : {fileInfo}")
 
@@ -644,11 +647,8 @@ def propUmkr(sysOpt, dtDateInfo):
                     grbInfo = grb.select(name='Temperature')[1]
 
                     # validIdx = int(re.findall('H\d{3}', fileInfo)[0].replace('H', ''))
-                    validIdx = int(ef)
                     dtValidDate = grbInfo.validDate
                     dtAnalDate = grbInfo.analDate
-
-                    if validIdx > 5: continue
 
                     row2D = sysOpt['row2D']
                     col2D = sysOpt['col2D']
@@ -1228,9 +1228,9 @@ class DtaProcess(object):
                 'cpuCoreNum': '5',
 
                 # 설정 파일
-                # 'cfgFile': '/HDD/SYSTEMS/PROG/PYTHON/IDE/resources/config/system.cfg',
+                'cfgFile': '/HDD/SYSTEMS/PROG/PYTHON/IDE/resources/config/system.cfg',
                 # 'cfgFile': '/vol01/SYSTEMS/INDIAI/PROG/PYTHON/resources/config/system.cfg',
-                'cfgFile': '/SYSTEMS/PROG/PYTHON/resources/config/system.cfg',
+                # 'cfgFile': '/SYSTEMS/PROG/PYTHON/resources/config/system.cfg',
                 'cfgDbKey': 'postgresql-qubesoft.iptime.org-qubesoft-dms02',
                 'posDataL1': None,
                 'cfgApiKey': 'pv',
@@ -1242,12 +1242,12 @@ class DtaProcess(object):
 
                 # 예보 모델
                 'UMKR': {
-                    # 'cfgUmFile': '/HDD/SYSTEMS/PROG/PYTHON/IDE/resources/config/modelInfo/UMKR_l015_unis_H000_202110010000.grb2',
-                    # 'inpUmFile': '/HDD/DATA/MODEL/%Y%m/%d/UMKR_l015_unis_H{ef}_%Y%m%d%H%M.grb2',
+                    'cfgUmFile': '/HDD/SYSTEMS/PROG/PYTHON/IDE/resources/config/modelInfo/UMKR_l015_unis_H000_202110010000.grb2',
+                    'inpUmFile': '/HDD/DATA/MODEL/%Y%m/%d/UMKR_l015_unis_H{ef}_%Y%m%d%H%M.grb2',
                     # 'cfgUmFile': '/DATA/COLCT/UMKR/201901/01/UMKR_l015_unis_H00_201901010000.grb2',
                     # 'inpUmFile': '/DATA/COLCT/UMKR/%Y%m/%d/UMKR_l015_unis_H{ef}_%Y%m%d%H%M.grb2',
-                    'cfgUmFile': '/DATA/MODEL/202001/01/UMKR_l015_unis_H00_202001010000.grb2',
-                    'inpUmFile': '/DATA/MODEL/%Y%m/%d/UMKR_l015_unis_H{ef}_%Y%m%d%H%M.grb2',
+                    # 'cfgUmFile': '/DATA/MODEL/202001/01/UMKR_l015_unis_H00_202001010000.grb2',
+                    # 'inpUmFile': '/DATA/MODEL/%Y%m/%d/UMKR_l015_unis_H{ef}_%Y%m%d%H%M.grb2',
                     'ef00': ['00', '01', '02', '03', '04', '05', '15', '16', '17', '18', '19', '20', '21', '22', '23','24', '25', '26', '27', '28', '29', '30', '31', '32', '33', '34', '35', '36', '37', '38'],
                     'ef06': ['00', '01', '02', '03', '04', '05'],
                     'ef12': ['00', '01', '02', '03', '04', '05'],
