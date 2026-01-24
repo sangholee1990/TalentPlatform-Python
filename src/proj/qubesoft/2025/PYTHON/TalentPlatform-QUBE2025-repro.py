@@ -795,7 +795,7 @@ def propUmkr(sysOpt, dtDateInfo):
                                   mod_date = now();
                               """)
                         result = session.execute(query)
-                        log.info(f"fileInfo : {fileInfo} / srv : {srv} / result : {result.rowcount}")
+                        log.info(f"dtDateInfo : {dtDateInfo} / srv : {srv} / result : {result.rowcount}")
                     except Exception as e:
                         log.error(f"Exception : {e}")
                         raise e
@@ -951,7 +951,7 @@ def subPropProc(sysOpt, cfgDb):
         dtEndDate = pd.to_datetime(sysOpt['endDate'], format='%Y-%m-%d')
         dtDateList = pd.date_range(start=dtSrtDate, end=dtEndDate, freq=sysOpt['UMKR']['invDate'])
         for dtDateInfo in reversed(dtDateList):
-            # if (dtDateInfo.strftime('%Y-%m-%d %H:%M')) in cfgDataList: continue
+            if (dtDateInfo.strftime('%Y-%m-%d %H:%M')) in cfgDataList: continue
 
             # propUmkr(sysOpt, dtDateInfo)
             pool.apply_async(propUmkr, args=(sysOpt, dtDateInfo))
