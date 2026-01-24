@@ -696,50 +696,22 @@ def propUmkr(sysOpt, dtDateInfo):
 
         posDataL1 = sysOpt['posDataL1']
         for kk, posInfo in posDataL1.iterrows():
-            # posId = int(posInfo['ID'])
-            # posLat = posInfo['LAT']
-            # posLon = posInfo['LON']
-            posId = int(posInfo['id'])
             srv = posInfo['srv']
             posLat = posInfo['lat']
             posLon = posInfo['lon']
 
-            dtAnaTimeInfo = umDataL1['anaTime'].values
-            dtDateTimeInfo = pd.to_datetime(dtAnaTimeInfo) + (validIdx * datetime.timedelta(hours=1))
-            # if (srv, dtAnaTimeInfo.strftime('%Y-%m-%d %H:%M'), dtDateTimeInfo.strftime('%Y-%m-%d %H:%M')) in cfgDataList: continue
-
+            # DB 적재
             with cfgDb['sessionMake']() as session:
                 with session.begin():
                     tbTmp = f"tmp_{uuid.uuid4().hex}"
                     conn = session.connection()
 
                     try:
-                        query = text(f"""
-                           SELECT * FROM tb_for_data
-                           WHERE srv = :srv 
-                             AND ana_date = :anaDate 
-                             AND date_time = :dateTime;
-                        """)
-
-                        params = {
-                            'srv': srv,
-                            'anaDate': pd.to_datetime(dtAnaTimeInfo[0]).to_pydatetime(),
-                            'dateTime': dtDateTimeInfo[0].to_pydatetime(),
-                        }
-
-                        selData = pd.DataFrame(session.execute(query, params))
-                        # if 'TURB' in selData.columns and (selData['TURB'] > 0).any(): continue
-                        if 'turb' in selData.columns and (selData['turb'] > 0).any(): continue
-
-                        # dtAnaTimeInfo = umData['anaTime'].values
-                        umDataL2 = umDataL1.sel(lat=posLat, lon=posLon, anaTime=dtAnaTimeInfo)
-                        umDataL3 = umDataL2.to_dataframe().dropna().reset_index(drop=True)
-                        # umDataL3['dtDate'] = pd.to_datetime(dtAnaTimeInfo) + (umDataL3.index.values * datetime.timedelta(hours=1))
-                        umDataL3['date_time'] = dtDateTimeInfo
-                        # umDataL3['dtDateKst'] = umDataL3.index.tz_localize(tzUtc).tz_convert(tzKst)
-                        umDataL3['date_time_kst'] = umDataL3['date_time'] + dtKst
-                        umDataL3['ana_date'] = pd.to_datetime(dtAnaTimeInfo)
-                        # umDataL3['srv'] = 'SRV{:05d}'.format(posId)
+                        umDataL2 = umDataL1.sel(lat=posLat, lon=posLon)
+                        umDataL3 = umDataL2.to_dataframe().dropna().reset_index(drop=False)
+                        umDataL3['ana_date'] = umDataL3['anaTime']
+                        umDataL3['date_time'] = umDataL3['time']
+                        umDataL3['date_time_kst'] = umDataL3['time'] + dtKst
                         umDataL3['srv'] = srv
 
                         umDataL3['ta'] = umDataL3['TA'] - 273.15
@@ -766,20 +738,6 @@ def propUmkr(sysOpt, dtDateInfo):
                         umDataL3['dni_clr'] = clearInsInfo['dni'].values
                         umDataL3['dhi_clr'] = clearInsInfo['dhi'].values
 
-                        # poaInsInfo = irradiance.get_total_irradiance(
-                        #     surface_tilt=posInfo['STN_SZA'],
-                        #     surface_azimuth=posInfo['STN_AZA'],
-                        #     dni=clearInsInfo['dni'],
-                        #     ghi=clearInsInfo['ghi'],
-                        #     dhi=clearInsInfo['dhi'],
-                        #     solar_zenith=solPosInfo['apparent_zenith'].values,
-                        #     solar_azimuth=solPosInfo['azimuth'].values
-                        # )
-                        # umDataL3['GHI_POA'] = poaInsInfo['poa_global'].values
-                        # umDataL3['DNI_POA'] = poaInsInfo['poa_direct'].values
-                        # umDataL3['DHI_POA'] = poaInsInfo['poa_diffuse'].values
-
-                        # 혼탁도
                         turbidity = pvlib.clearsky.lookup_linke_turbidity(pd.to_datetime(umDataL3['date_time'].values), posLat, posLon, interp_turbidity=True)
                         umDataL3['turb'] = turbidity.values
 
@@ -837,7 +795,7 @@ def propUmkr(sysOpt, dtDateInfo):
                                   mod_date = now();
                               """)
                         result = session.execute(query)
-                        log.info(f"fileInfo : {fileInfo} / result : {result.rowcount}")
+                        log.info(f"fileInfo : {fileInfo} / srv : {srv} / result : {result.rowcount}")
                     except Exception as e:
                         log.error(f"Exception : {e}")
                         raise e
@@ -993,7 +951,7 @@ def subPropProc(sysOpt, cfgDb):
         dtEndDate = pd.to_datetime(sysOpt['endDate'], format='%Y-%m-%d')
         dtDateList = pd.date_range(start=dtSrtDate, end=dtEndDate, freq=sysOpt['UMKR']['invDate'])
         for dtDateInfo in reversed(dtDateList):
-            if (dtDateInfo.strftime('%Y-%m-%d %H:%M')) in cfgDataList: continue
+            # if (dtDateInfo.strftime('%Y-%m-%d %H:%M')) in cfgDataList: continue
 
             # propUmkr(sysOpt, dtDateInfo)
             pool.apply_async(propUmkr, args=(sysOpt, dtDateInfo))
@@ -1231,6 +1189,7 @@ class DtaProcess(object):
                 # 비동기 다중 프로세스 개수
                 # 'cpuCoreNum': globalVar['cpuCoreNum'],
                 'cpuCoreNum': '5',
+                # 'cpuCoreNum': '1',
 
                 # 설정 파일
                 # 'cfgFile': '/HDD/SYSTEMS/PROG/PYTHON/IDE/resources/config/system.cfg',
