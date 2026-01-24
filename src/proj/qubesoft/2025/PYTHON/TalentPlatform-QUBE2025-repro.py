@@ -1343,9 +1343,9 @@ class DtaProcess(object):
             sysOpt['lat1D'] = np.array(posDataL1['lat'])
             sysOpt['lon1D'] = np.array(posDataL1['lon'])
 
-            # subPvProc(sysOpt, cfgDb)
+            subPvProc(sysOpt, cfgDb)
             subPropProc(sysOpt, cfgDb)
-            # subModelProc(sysOpt, cfgDb)
+            subModelProc(sysOpt, cfgDb)
 
         except Exception as e:
             log.error("Exception : {}".format(e))
