@@ -1215,8 +1215,8 @@ class DtaProcess(object):
 
                 # 비동기 다중 프로세스 개수
                 # 'cpuCoreNum': globalVar['cpuCoreNum'],
-                'cpuCoreNum': '5',
-                #'cpuCoreNum': '10',
+                # 'cpuCoreNum': '5',
+                'cpuCoreNum': '10',
                 # 'cpuCoreNum': '1',
 
                 # 설정 파일
@@ -1253,8 +1253,8 @@ class DtaProcess(object):
                     'orgPycaret': {
                         'saveModelList': "/DATA/AI/*/*/LSH0255-{srv}-final-pycaret-for-*.model.pkl",
                         'saveModel': "/DATA/AI/%Y%m/%d/LSH0255-{srv}-final-pycaret-for-%Y%m%d.model",
-                        # 'isOverWrite': True,
-                        'isOverWrite': False,
+                        'isOverWrite': True,
+                        # 'isOverWrite': False,
                         'srv': None,
                         'preDt': datetime.datetime.now(),
                         'exp': None
@@ -1263,8 +1263,8 @@ class DtaProcess(object):
                         'saveModelList': "/DATA/AI/*/*/LSH0255-{srv}-final-h2o-for-*.model",
                         'saveModel': "/DATA/AI/%Y%m/%d/LSH0255-{srv}-final-h2o-for-%Y%m%d.model",
                         'isInit': False,
-                        # 'isOverWrite': True,
-                        'isOverWrite': False,
+                        'isOverWrite': True,
+                        # 'isOverWrite': False,
                         'srv': None,
                         'preDt': datetime.datetime.now(),
                     },
@@ -1281,8 +1281,8 @@ class DtaProcess(object):
                         'saveModelList': "/DATA/AI/*/*/QUBE2025-{srv}-final-flaml-for-*.model",
                         'saveModel': "/DATA/AI/%Y%m/%d/QUBE2025-{srv}-final-flaml-for-%Y%m%d.model",
                         'saveImg': "/DATA/AI/%Y%m/%d/QUBE2025-{srv}-final-flaml-for-%Y%m%d.png",
-                        # 'isOverWrite': True,
-                        'isOverWrite': False,
+                        'isOverWrite': True,
+                        # 'isOverWrite': False,
                         'srv': None,
                         'preDt': datetime.datetime.now(),
                     },
@@ -1290,8 +1290,8 @@ class DtaProcess(object):
                         'saveModelList': "/DATA/AI/*/*/QUBE2025-{srv}-final-pycaret-for-*.model.pkl",
                         'saveModel': "/DATA/AI/%Y%m/%d/QUBE2025-{srv}-final-pycaret-for-%Y%m%d.model",
                         'saveImg': "/DATA/AI/%Y%m/%d/QUBE2025-{srv}-final-pycaret-for-%Y%m%d.png",
-                        # 'isOverWrite': True,
-                        'isOverWrite': False,
+                        'isOverWrite': True,
+                        # 'isOverWrite': False,
                         'srv': None,
                         'preDt': datetime.datetime.now(),
                         'exp': None
