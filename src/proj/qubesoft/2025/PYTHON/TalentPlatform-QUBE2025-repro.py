@@ -958,7 +958,7 @@ def subPropProc(sysOpt, cfgDb):
             query = text("""
                          SELECT srv, ana_date, date_time
                          FROM tb_for_data
-                         where swr > 0
+                         WHERE swr > 0
                            AND ana_date BETWEEN :srtDate AND :endDate;
                          """)
             cfgData = pd.DataFrame(session.execute(query, {'srtDate': sysOpt['srtDate'], 'endDate': sysOpt['endDate']}))
