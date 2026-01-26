@@ -155,6 +155,7 @@ from multiprocessing import Pool
 import multiprocessing as mp
 import uuid
 from sqlalchemy.pool import NullPool
+from joblib import parallel_backend
 
 # =================================================
 # 사용자 매뉴얼
@@ -355,7 +356,7 @@ def makeLgbModel(subOpt=None, xCol=None, yCol=None, trainData=None, testData=Non
 
     try:
 
-        saveModelList = sorted(glob.glob(subOpt['saveModelList'].format(srvId = subOpt['srvId'])), reverse=True)
+        saveModelList = sorted(glob.glob(subOpt['saveModelList'].format(srv = subOpt['srv'])), reverse=True)
 
         # 학습 모델이 없을 경우
         if (subOpt['isOverWrite']) or (len(saveModelList) < 1):
@@ -398,7 +399,7 @@ def makeLgbModel(subOpt=None, xCol=None, yCol=None, trainData=None, testData=Non
             )
 
             # 학습 모형 저장
-            saveModel = subOpt['preDt'].strftime(subOpt['saveModel']).format(srvId = subOpt['srvId'])
+            saveModel = subOpt['preDt'].strftime(subOpt['saveModel']).format(srv = subOpt['srv'])
             log.info(f'[CHECK] saveModel : {saveModel}')
             os.makedirs(os.path.dirname(saveModel), exist_ok=True)
             with open(saveModel, 'wb') as file:
@@ -444,38 +445,54 @@ def makePycaretModel(subOpt=None, xCol=None, yCol=None, trainData=None, testData
     result = None
 
     try:
-        saveModelList = sorted(glob.glob(subOpt['saveModelList'].format(srvId = subOpt['srvId'])), reverse=True)
+        saveModelList = sorted(glob.glob(subOpt['saveModelList'].format(srv = subOpt['srv'])), reverse=True)
 
         # 학습 모델이 없을 경우
         exp = subOpt['exp']
         if (subOpt['isOverWrite']) or (len(saveModelList) < 1):
             xyCol = xCol.copy()
             xyCol.append(yCol)
+
             trainDataL1 = trainData[xyCol].dropna().copy()
             testDataL1 = testData[xyCol].dropna().copy()
+
+#            trainDataL2 = pd.DataFrame(trainDataL1.values, columns=trainDataL1.columns)
+#            testDataL2 = pd.DataFrame(testDataL1.values, columns=testDataL1.columns)
+
+#            trainDataL1 = trainData[xyCol].dropna().reset_index(drop=True)
+#            testDataL1 = testData[xyCol].dropna().reset_index(drop=True)
+
+#            trainDataL2 = pd.DataFrame(trainDataL1.values, columns=trainDataL1.columns).infer_objects()
+#            testDataL2 = pd.DataFrame(testDataL1.values, columns=testDataL1.columns).infer_objects()
+
 
             exp.setup(
                 data=trainDataL1,
                 test_data=testDataL1,
                 session_id=int(datetime.datetime.now().timestamp()),
-                target=yCol,
+                target=yCol
             )
 
-            # 각 모형에 따른 자동 머신러닝
-            modelList = exp.compare_models(sort='RMSE', n_select=3, budget_time=60)
-
-            # 앙상블 모형
-            blendModel = exp.blend_models(estimator_list=modelList, fold=10)
-
-            # 앙상블 파라미터 튜닝
-            tuneModel = exp.tune_model(blendModel, fold=10, choose_better=True)
-
-            # 학습 모형
-            # fnlModel = exp.finalize_model(tuneModel)
-            fnlModel = tuneModel
+            with parallel_backend('threading'):
+                modelList = exp.compare_models(sort='RMSE', n_select=3, budget_time=60)
+                blendModel = exp.blend_models(estimator_list=modelList, fold=10)
+                tuneModel = exp.tune_model(blendModel, fold=10, choose_better=True)
+                fnlModel = exp.finalize_model(tuneModel)
+#            # 각 모형에 따른 자동 머신러닝
+#            modelList = exp.compare_models(sort='RMSE', n_select=3, budget_time=60)
+#
+#            # 앙상블 모형
+#            blendModel = exp.blend_models(estimator_list=modelList, fold=10)
+#
+#            # 앙상블 파라미터 튜닝
+#            tuneModel = exp.tune_model(blendModel, fold=10, choose_better=True)
+#
+#            # 학습 모형
+#            fnlModel = exp.finalize_model(tuneModel)
+#            #fnlModel = tuneModel
 
             # 학습 모형 저장
-            saveModel = subOpt['preDt'].strftime(subOpt['saveModel']).format(srvId = subOpt['srvId'])
+            saveModel = subOpt['preDt'].strftime(subOpt['saveModel']).format(srv = subOpt['srv'])
             log.info(f'[CHECK] saveModel : {saveModel}')
             os.makedirs(os.path.dirname(saveModel), exist_ok=True)
             exp.save_model(fnlModel, saveModel)
@@ -505,7 +522,7 @@ def makeFlamlModel(subOpt=None, xCol=None, yCol=None, trainData=None, testData=N
     result = None
 
     try:
-        saveModelList = sorted(glob.glob(subOpt['saveModelList'].format(srvId = subOpt['srvId'])), reverse=True)
+        saveModelList = sorted(glob.glob(subOpt['saveModelList'].format(srv = subOpt['srv'])), reverse=True)
 
         # 학습 모델이 없을 경우
         if (subOpt['isOverWrite']) or (len(saveModelList) < 1):
@@ -542,7 +559,7 @@ def makeFlamlModel(subOpt=None, xCol=None, yCol=None, trainData=None, testData=N
             # fnlModel.fit(X_train=trainDataL1[xCol], y_train=trainDataL1[yCol], n_jobs=12, n_concurrent_trials=4)
 
             # 학습 모형 저장
-            saveModel = subOpt['preDt'].strftime(subOpt['saveModel']).format(srvId = subOpt['srvId'])
+            saveModel = subOpt['preDt'].strftime(subOpt['saveModel']).format(srv = subOpt['srv'])
             log.info(f"[CHECK] saveModel : {saveModel}")
             os.makedirs(os.path.dirname(saveModel), exist_ok=True)
 
@@ -576,7 +593,7 @@ def makeH2oModel(subOpt=None, xCol=None, yCol=None, trainData=None, testData=Non
     result = None
 
     try:
-        saveModelList = sorted(glob.glob(subOpt['saveModelList'].format(srvId = subOpt['srvId'])), reverse=True)
+        saveModelList = sorted(glob.glob(subOpt['saveModelList'].format(srv = subOpt['srv'])), reverse=True)
 
         if (not subOpt['isInit']):
             h2o.init()
@@ -600,7 +617,7 @@ def makeH2oModel(subOpt=None, xCol=None, yCol=None, trainData=None, testData=Non
             fnlModel = dlModel.get_best_model()
 
             # 학습 모형 저장
-            saveModel = subOpt['preDt'].strftime(subOpt['saveModel']).format(srvId = subOpt['srvId'])
+            saveModel = subOpt['preDt'].strftime(subOpt['saveModel']).format(srv = subOpt['srv'])
             log.info(f"[CHECK] saveModel : {saveModel}")
             os.makedirs(os.path.dirname(saveModel), exist_ok=True)
 
@@ -628,14 +645,13 @@ def makeH2oModel(subOpt=None, xCol=None, yCol=None, trainData=None, testData=Non
 def propUmkr(sysOpt, dtDateInfo):
     try:
         # procInfo = mp.current_process()
+        umDataList = []
         efList = sysOpt['UMKR'][f"ef{dtDateInfo.strftime('%H')}"]
-
         for ef in efList:
             inpFile = dtDateInfo.strftime(sysOpt['UMKR']['inpUmFile']).format(ef=ef)
             fileList = sorted(glob.glob(inpFile))
 
             for fileInfo in fileList:
-                umData = None
                 try:
                     grb = pygrib.open(fileInfo)
                     grbInfo = grb.select(name='Temperature')[1]
@@ -687,175 +703,148 @@ def propUmkr(sysOpt, dtDateInfo):
                         }
                     )
 
+                    # umDataL1 = xr.merge([umDataL1, umData])
+                    umDataList.append(umData)
                 except Exception as e:
                     log.error(f"Exception : {e}")
 
-                if umData is None: continue
+        if len(umDataList) < 1: return
+        umDataL1 = xr.concat(umDataList, dim='time')
 
-                posDataL1 = sysOpt['posDataL1']
-                for kk, posInfo in posDataL1.iterrows():
-                    # posId = int(posInfo['ID'])
-                    # posLat = posInfo['LAT']
-                    # posLon = posInfo['LON']
-                    posId = int(posInfo['id'])
-                    posLat = posInfo['lat']
-                    posLon = posInfo['lon']
+        posDataL1 = sysOpt['posDataL1']
+        for kk, posInfo in posDataL1.iterrows():
+            srv = posInfo['srv']
+            posLat = posInfo['lat']
+            posLon = posInfo['lon']
 
-                    dtAnaTimeInfo = umData['anaTime'].values
-                    dtDateTimeInfo = pd.to_datetime(dtAnaTimeInfo) + (validIdx * datetime.timedelta(hours=1))
-                    srvId = 'SRV{:05d}'.format(posId)
+            # DB 적재
+            with cfgDb['sessionMake']() as session:
+                with session.begin():
+                    tbTmp = f"tmp_{uuid.uuid4().hex}"
+                    conn = session.connection()
 
-                    # log.info(f"[CHECK] posId (posLon, posLat) : {posId} ({posLon}. {posLat})")
+                    try:
+                        umDataL2 = umDataL1.sel(lat=posLat, lon=posLon)
+                        umDataL3 = umDataL2.to_dataframe().dropna().reset_index(drop=False)
+                        umDataL3['ana_date'] = umDataL3['anaTime']
+                        umDataL3['date_time'] = umDataL3['time']
+                        umDataL3['date_time_kst'] = umDataL3['time'] + dtKst
+                        umDataL3['srv'] = srv
 
-                    with cfgDb['sessionMake']() as session:
-                        with session.begin():
-                            tbTmp = f"tmp_{uuid.uuid4().hex}"
-                            conn = session.connection()
+                        umDataL3['ta'] = umDataL3['TA'] - 273.15
+                        umDataL3['td'] = umDataL3['TD'] - 273.15
+                        umDataL3['pa'] = umDataL3['PA'] / 100.0
+                        umDataL3['ca_tot'] = np.where(umDataL3['CA_TOT'] < 0, 0, umDataL3['CA_TOT'])
+                        umDataL3['ca_tot'] = np.where(umDataL3['ca_tot'] > 1, 1, umDataL3['ca_tot'])
+                        umDataL3['wd'] = umDataL3['WD']
+                        umDataL3['ws'] = umDataL3['WS']
+                        umDataL3['hm'] = umDataL3['HM']
+                        umDataL3['swr'] = umDataL3['SWR']
 
-                            try:
-                                query = text(f"""
-                                   SELECT * FROM tb_for_data
-                                   WHERE srv = :srvId 
-                                     AND ana_date = :anaDate 
-                                     AND date_time = :dateTime;
-                                """)
+                        solPosInfo = pvlib.solarposition.get_solarposition(umDataL3['date_time'], posLat, posLon,
+                                                                           pressure=umDataL3['pa'] * 100.0,
+                                                                           temperature=umDataL3['ta'], method='nrel_numpy')
+                        umDataL3['ext_rad'] = pvlib.irradiance.get_extra_radiation(solPosInfo.index.dayofyear)
+                        umDataL3['sza'] = solPosInfo['zenith'].values
+                        umDataL3['aza'] = solPosInfo['azimuth'].values
+                        umDataL3['et'] = solPosInfo['equation_of_time'].values
 
-                                params = {
-                                    'srvId': srvId,
-                                    'anaDate': pd.to_datetime(dtAnaTimeInfo[0]).to_pydatetime(),
-                                    'dateTime': dtDateTimeInfo[0].to_pydatetime(),
-                                }
+                        site = location.Location(latitude=posLat, longitude=posLon, tz='Asia/Seoul')
+                        clearInsInfo = site.get_clearsky(pd.to_datetime(umDataL3['date_time'].values))
+                        umDataL3['ghi_clr'] = clearInsInfo['ghi'].values
+                        umDataL3['dni_clr'] = clearInsInfo['dni'].values
+                        umDataL3['dhi_clr'] = clearInsInfo['dhi'].values
 
-                                selData = pd.DataFrame(session.execute(query, params))
-                                # if 'TURB' in selData.columns and (selData['TURB'] > 0).any(): continue
-                                if 'turb' in selData.columns and (selData['turb'] > 0).any(): continue
+                        turbidity = pvlib.clearsky.lookup_linke_turbidity(pd.to_datetime(umDataL3['date_time'].values), posLat, posLon, interp_turbidity=True)
+                        umDataL3['turb'] = turbidity.values
 
-                                # dtAnaTimeInfo = umData['anaTime'].values
-                                umDataL2 = umData.sel(lat=posLat, lon=posLon, anaTime=dtAnaTimeInfo)
-                                umDataL3 = umDataL2.to_dataframe().dropna().reset_index(drop=True)
-                                # umDataL3['dtDate'] = pd.to_datetime(dtAnaTimeInfo) + (umDataL3.index.values * datetime.timedelta(hours=1))
-                                umDataL3['date_time'] = dtDateTimeInfo
-                                # umDataL3['dtDateKst'] = umDataL3.index.tz_localize(tzUtc).tz_convert(tzKst)
-                                umDataL3['date_time_kst'] = umDataL3['date_time'] + dtKst
-                                umDataL3['ana_date'] = pd.to_datetime(dtAnaTimeInfo)
-                                umDataL3['srv'] = 'SRV{:05d}'.format(posId)
+                        dbColList = [
+                            "srv", "ana_date", "date_time", "date_time_kst",
+                            "ca_tot", "hm", "pa", "ta", "td", "wd", "ws",
+                            "sza", "aza", "et", "turb",
+                            "ghi_clr", "dni_clr", "dhi_clr", "swr", "ext_rad"
+                        ]
+                        umDataL4 = umDataL3[dbColList].copy()
 
-                                umDataL3['ta'] = umDataL3['TA'] - 273.15
-                                umDataL3['td'] = umDataL3['TD'] - 273.15
-                                umDataL3['pa'] = umDataL3['PA'] / 100.0
-                                umDataL3['ca_tot'] = np.where(umDataL3['CA_TOT'] < 0, 0, umDataL3['CA_TOT'])
-                                umDataL3['ca_tot'] = np.where(umDataL3['ca_tot'] > 1, 1, umDataL3['ca_tot'])
-                                umDataL3['wd'] = umDataL3['WD']
-                                umDataL3['ws'] = umDataL3['WS']
-                                umDataL3['hm'] = umDataL3['HM']
-                                umDataL3['swr'] = umDataL3['SWR']
+                        # DB 적재
+                        umDataL4.to_sql(
+                            name=tbTmp,
+                            con=conn,
+                            if_exists="replace",
+                            index=False,
+                            chunksize=1000
+                        )
 
-                                solPosInfo = pvlib.solarposition.get_solarposition(umDataL3['date_time'], posLat, posLon,
-                                                                                   pressure=umDataL3['pa'] * 100.0,
-                                                                                   temperature=umDataL3['ta'], method='nrel_numpy')
-                                umDataL3['ext_rad'] = pvlib.irradiance.get_extra_radiation(solPosInfo.index.dayofyear)
-                                umDataL3['sza'] = solPosInfo['zenith'].values
-                                umDataL3['aza'] = solPosInfo['azimuth'].values
-                                umDataL3['et'] = solPosInfo['equation_of_time'].values
-
-                                site = location.Location(latitude=posLat, longitude=posLon, tz='Asia/Seoul')
-                                clearInsInfo = site.get_clearsky(pd.to_datetime(umDataL3['date_time'].values))
-                                umDataL3['ghi_clr'] = clearInsInfo['ghi'].values
-                                umDataL3['dni_clr'] = clearInsInfo['dni'].values
-                                umDataL3['dhi_clr'] = clearInsInfo['dhi'].values
-
-                                # poaInsInfo = irradiance.get_total_irradiance(
-                                #     surface_tilt=posInfo['STN_SZA'],
-                                #     surface_azimuth=posInfo['STN_AZA'],
-                                #     dni=clearInsInfo['dni'],
-                                #     ghi=clearInsInfo['ghi'],
-                                #     dhi=clearInsInfo['dhi'],
-                                #     solar_zenith=solPosInfo['apparent_zenith'].values,
-                                #     solar_azimuth=solPosInfo['azimuth'].values
-                                # )
-                                # umDataL3['GHI_POA'] = poaInsInfo['poa_global'].values
-                                # umDataL3['DNI_POA'] = poaInsInfo['poa_direct'].values
-                                # umDataL3['DHI_POA'] = poaInsInfo['poa_diffuse'].values
-
-                                # 혼탁도
-                                turbidity = pvlib.clearsky.lookup_linke_turbidity(pd.to_datetime(umDataL3['date_time'].values), posLat, posLon, interp_turbidity=True)
-                                umDataL3['turb'] = turbidity.values
-
-                                dbColList = [
-                                    "srv", "ana_date", "date_time", "date_time_kst",
-                                    "ca_tot", "hm", "pa", "ta", "td", "wd", "ws",
-                                    "sza", "aza", "et", "turb",
-                                    "ghi_clr", "dni_clr", "dhi_clr", "swr", "ext_rad"
-                                ]
-                                umDataL4 = umDataL3[dbColList].copy()
-
-                                # *******************************************************
-                                # DB 적재
-                                # *******************************************************
-                                umDataL4.to_sql(
-                                    name=tbTmp,
-                                    con=conn,
-                                    if_exists="replace",
-                                    index=False
-                                )
-
-                                query = text(f"""
-                                    INSERT INTO tb_for_data (
-                                          srv, ana_date, date_time, date_time_kst,
-                                          ca_tot, hm, pa, ta, td, wd, ws,
-                                          sza, aza, et, turb,
-                                          ghi_clr, dni_clr, dhi_clr, swr, ext_rad,
-                                          reg_date
-                                    )
-                                    SELECT
-                                          srv, ana_date, date_time, date_time_kst,
-                                          ca_tot, hm, pa, ta, td, wd, ws,
-                                          sza, aza, et, turb,
-                                          ghi_clr, dni_clr, dhi_clr, swr, ext_rad,
-                                          now()
-                                    FROM {tbTmp}
-                                    ON CONFLICT (srv, ana_date, date_time)
-                                    DO UPDATE SET
-                                          date_time_kst = excluded.date_time_kst,
-                                          ca_tot = excluded.ca_tot, 
-                                          hm = excluded.hm, 
-                                          pa = excluded.pa, 
-                                          ta = excluded.ta, 
-                                          td = excluded.td, 
-                                          wd = excluded.wd, 
-                                          ws = excluded.ws,
-                                          sza = excluded.sza, 
-                                          aza = excluded.aza, 
-                                          et = excluded.et, 
-                                          turb = excluded.turb,
-                                          ghi_clr = excluded.ghi_clr, 
-                                          dni_clr = excluded.dni_clr, 
-                                          dhi_clr = excluded.dhi_clr, 
-                                          swr = excluded.swr,
-                                          ext_rad = excluded.ext_rad,
-                                          mod_date = now();
-                                      """)
-                                result = session.execute(query)
-                                # log.info(f"srvId : {srvId} / dtDateInfo : {dtDateInfo} / result : {result.rowcount}")
-                                log.info(f"fileInfo : {fileInfo} / result : {result.rowcount}")
-                            except Exception as e:
-                                log.error(f"Exception : {e}")
-                                raise e
-                            finally:
-                                session.execute(text(f"DROP TABLE IF EXISTS {tbTmp}"))
+                        query = text(f"""
+                            INSERT INTO tb_for_data (
+                                  srv, ana_date, date_time, date_time_kst,
+                                  ca_tot, hm, pa, ta, td, wd, ws,
+                                  sza, aza, et, turb,
+                                  ghi_clr, dni_clr, dhi_clr, swr, ext_rad,
+                                  reg_date
+                            )
+                            SELECT
+                                  srv, ana_date, date_time, date_time_kst,
+                                  ca_tot, hm, pa, ta, td, wd, ws,
+                                  sza, aza, et, turb,
+                                  ghi_clr, dni_clr, dhi_clr, swr, ext_rad,
+                                  now()
+                            FROM {tbTmp}
+                            ON CONFLICT (srv, ana_date, date_time)
+                            DO UPDATE SET
+                                  date_time_kst = excluded.date_time_kst,
+                                  ca_tot = excluded.ca_tot, 
+                                  hm = excluded.hm, 
+                                  pa = excluded.pa, 
+                                  ta = excluded.ta, 
+                                  td = excluded.td, 
+                                  wd = excluded.wd, 
+                                  ws = excluded.ws,
+                                  sza = excluded.sza, 
+                                  aza = excluded.aza, 
+                                  et = excluded.et, 
+                                  turb = excluded.turb,
+                                  ghi_clr = excluded.ghi_clr, 
+                                  dni_clr = excluded.dni_clr, 
+                                  dhi_clr = excluded.dhi_clr, 
+                                  swr = excluded.swr,
+                                  ext_rad = excluded.ext_rad,
+                                  mod_date = now();
+                              """)
+                        result = session.execute(query)
+                        log.info(f"dtDateInfo : {dtDateInfo} / srv : {srv} / result : {result.rowcount}")
+                    except Exception as e:
+                        log.error(f"Exception : {e}")
+                        raise e
+                    finally:
+                        session.execute(text(f"DROP TABLE IF EXISTS {tbTmp}"))
     except Exception as e:
         log.error(f'Exception : {e}')
 
 def subPvProc(sysOpt, cfgDb):
     try:
+        with cfgDb['sessionMake']() as session:
+            query = text("""
+                         SELECT srv, date_time
+                         FROM tb_pv_data
+                         WHERE pv > 0 
+                           AND date_time BETWEEN :srtDate AND :endDate;
+                         """)
+            cfgData = pd.DataFrame(session.execute(query, {'srtDate': sysOpt['srtDate'], 'endDate': sysOpt['endDate']}))
+            cfgDataL1 = cfgData[cfgData['srv'].isin(sysOpt['posDataL1']['srv'])].reset_index(drop=True)
+            cfgDataList = set(zip(cfgDataL1['srv'], cfgDataL1['date_time'].dt.strftime('%Y-%m-%d')))
+
         dtSrtDate = pd.to_datetime(sysOpt['srtDate'], format='%Y-%m-%d')
         dtEndDate = pd.to_datetime(sysOpt['endDate'], format='%Y-%m-%d')
         dtDateList = pd.date_range(start=dtSrtDate, end=dtEndDate, freq=sysOpt['invDate'])
+
+        resDataL1 = pd.DataFrame()
         for dtDateInfo in reversed(dtDateList):
             for i, posInfo in sysOpt['posDataL1'].iterrows():
-                # id = posInfo['ID']
                 id = posInfo['id']
-                # id = 100
+                srv = posInfo['srv']
+
+                if (srv, dtDateInfo.strftime('%Y-%m-%d')) in cfgDataList: continue
 
                 reqUrl = dtDateInfo.strftime(sysOpt['cfgApi']['url']).format(id=id, token=sysOpt['cfgApi']['token'])
                 res = requests.get(reqUrl)
@@ -872,47 +861,48 @@ def subPvProc(sysOpt, cfgDb):
                     , axis='columns'
                 )
 
-                # resData['SRV'] = 'SRV{:05d}'.format(id)
-                # resData['DATE_TIME_KST'] = pd.to_datetime(resData['date'], format='%Y-%m-%d %H')
-                # resData['DATE_TIME'] = resData['DATE_TIME_KST'] - dtKst
-                resData['srv'] = 'SRV{:05d}'.format(id)
+                resData['srv'] = srv
                 resData['date_time_kst'] = pd.to_datetime(resData['date'], format='%Y-%m-%d %H')
                 resData['date_time'] = resData['date_time_kst'] - dtKst
 
-                # DB 적재
-                with cfgDb['sessionMake']() as session:
-                    with session.begin():
-                        tbTmp = f"tmp_{uuid.uuid4().hex}"
-                        conn = session.connection()
+                resDataL1 = pd.concat([resDataL1, resData], ignore_index=True)
 
-                        try:
-                            resData.to_sql(
-                                name=tbTmp,
-                                con=conn,
-                                if_exists="replace",
-                                index=False
-                            )
+        if len(resDataL1) < 1: return
+        with cfgDb['sessionMake']() as session:
+            with session.begin():
+                tbTmp = f"tmp_{uuid.uuid4().hex}"
+                conn = session.connection()
 
-                            query = text(f"""
-                                INSERT INTO tb_pv_data (
-                                    srv, date_time, date_time_kst, pv, reg_date
-                                )
-                                SELECT 
-                                    srv, date_time, date_time_kst, pv, now()
-                                FROM {tbTmp}
-                                ON CONFLICT (srv, date_time)
-                                DO UPDATE SET
-                                    date_time_kst = excluded.date_time_kst,
-                                    pv = excluded.pv, 
-                                    mod_date = now();
-                                """)
-                            result = session.execute(query)
-                            log.info(f"id : {id} / dtDateInfo : {dtDateInfo} / id : {id} / result : {result.rowcount}")
-                        except Exception as e:
-                            log.error(f"Exception : {e}")
-                            raise e
-                        finally:
-                            session.execute(text(f"DROP TABLE IF EXISTS {tbTmp}"))
+                try:
+                    # DB 적재
+                    resDataL1.to_sql(
+                        name=tbTmp,
+                        con=conn,
+                        if_exists="replace",
+                        index=False,
+                        chunksize=1000
+                    )
+
+                    query = text(f"""
+                        INSERT INTO tb_pv_data (
+                            srv, date_time, date_time_kst, pv, reg_date
+                        )
+                        SELECT 
+                            srv, date_time, date_time_kst, pv, now()
+                        FROM {tbTmp}
+                        ON CONFLICT (srv, date_time)
+                        DO UPDATE SET
+                            date_time_kst = excluded.date_time_kst,
+                            pv = excluded.pv, 
+                            mod_date = now();
+                        """)
+                    result = session.execute(query)
+                    log.info(f"id : {id} / dtDateInfo : {dtDateInfo} / id : {id} / result : {result.rowcount}")
+                except Exception as e:
+                    log.error(f"Exception : {e}")
+                    raise e
+                finally:
+                    session.execute(text(f"DROP TABLE IF EXISTS {tbTmp}"))
     except Exception as e:
         log.error(f'Exception : {e}')
         raise e
@@ -964,13 +954,28 @@ def subPropProc(sysOpt, cfgDb):
             initargs=(cfgDb,)
         )
 
+        with cfgDb['sessionMake']() as session:
+            query = text("""
+                         SELECT srv, ana_date, date_time
+                         FROM tb_for_data
+                         where swr > 0
+                           AND ana_date BETWEEN :srtDate AND :endDate;
+                         """)
+            cfgData = pd.DataFrame(session.execute(query, {'srtDate': sysOpt['srtDate'], 'endDate': sysOpt['endDate']}))
+            cfgDataL1 = cfgData[cfgData['srv'].isin(sysOpt['posDataL1']['srv'])].reset_index(drop=True)
+
+            cfgDataL2 = cfgDataL1.groupby(['ana_date', 'date_time']).size().reset_index(name='cnt')
+            cfgDataL3 = cfgDataL2[cfgDataL2['cnt'] == len(sysOpt['posDataL1']['srv'])]
+            cfgDataList = set(zip(cfgDataL3['ana_date'].dt.strftime('%Y-%m-%d %H:%M')))
+
         dtSrtDate = pd.to_datetime(sysOpt['srtDate'], format='%Y-%m-%d')
         dtEndDate = pd.to_datetime(sysOpt['endDate'], format='%Y-%m-%d')
         dtDateList = pd.date_range(start=dtSrtDate, end=dtEndDate, freq=sysOpt['UMKR']['invDate'])
         for dtDateInfo in reversed(dtDateList):
+            if (dtDateInfo.strftime('%Y-%m-%d %H:%M'), ) in cfgDataList: continue
+
             # propUmkr(sysOpt, dtDateInfo)
             pool.apply_async(propUmkr, args=(sysOpt, dtDateInfo))
-
         pool.close()
         pool.join()
     except Exception as e:
@@ -980,9 +985,8 @@ def subPropProc(sysOpt, cfgDb):
 def subModelProc(sysOpt, cfgDb):
     try:
         for i, posInfo in sysOpt['posDataL1'].iterrows():
-            posId = posInfo['id']
-            # posId = 17
-            srvId = f"SRV{posId:05d}"
+            id = posInfo['id']
+            srv = posInfo['srv']
 
             with cfgDb['sessionMake']() as session:
                 with session.begin():
@@ -996,34 +1000,40 @@ def subModelProc(sysOpt, cfgDb):
                                      FROM "tb_pv_data" AS pv
                                               LEFT JOIN
                                           "tb_for_data" AS lf ON pv."srv" = lf."srv" AND pv."date_time" = lf."date_time"
-                                     WHERE pv."srv" = :srvId
+                                     WHERE pv."srv" = :srv
+                                       AND pv.pv IS NOT NULL
                                        AND (EXTRACT(EPOCH FROM (lf."date_time" - lf."ana_date")) / 3600.0) <= 5
                                      ORDER BY "srv", "date_time_kst" DESC;
                                      """)
 
-                        # trainData = pd.DataFrame(session.execute(query, {'srvId':srvId}))
+                        # trainData = pd.DataFrame(session.execute(query, {'srv':srv}))
                         # trainData = data[data['DATE_TIME_KST'] < pd.to_datetime('2025-01-01')].reset_index(drop=True)
                         # testData = data[data['DATE_TIME_KST'] >= pd.to_datetime('2025-01-01')].reset_index(drop=True)
-                        data = pd.DataFrame(session.execute(query, {'srvId': srvId}))
+                        data = pd.DataFrame(session.execute(query, {'srv': srv}))
+                        if data['pv'].sum() == 0:
+                            log.info(f"srv : {srv} / pv : {data['pv'].sum()}")
+                            continue
+
                         trainData, testData = train_test_split(data, test_size=0.2, random_state=int(datetime.datetime.now().timestamp()))
 
                         query = text("""
                                      SELECT lf.*
                                      FROM "tb_for_data" AS lf
-                                     WHERE lf."srv" = :srvId
+                                     WHERE lf."srv" = :srv
                                        AND (
                                          "ml" IS NULL
                                              OR "dl" IS NULL
                                              OR "ai" IS NULL
                                              OR "ai2" IS NULL
+                                             OR "ai3" IS NULL
                                          )
                                      ORDER BY "srv", "date_time_kst" DESC;
                                      """)
-                        prdData = pd.DataFrame(session.execute(query, {'srvId': srvId}))
+                        prdData = pd.DataFrame(session.execute(query, {'srv': srv}))
                         if len(prdData) < 1: continue
 
                         for key in ['orgPycaret', 'orgH2o', 'lgb', 'flaml', 'pycaret']:
-                            sysOpt['MODEL'][key]['srvId'] = srvId
+                            sysOpt['MODEL'][key]['srv'] = srv
 
                         exp = RegressionExperiment()
                         sysOpt['MODEL']['orgPycaret']['exp'] = exp
@@ -1044,7 +1054,6 @@ def subModelProc(sysOpt, cfgDb):
                         # log.info(f'resOrgPycaret : {resOrgPycaret}')
 
                         if resOrgPycaret:
-                            exp = RegressionExperiment()
                             prdVal = exp.predict_model(resOrgPycaret['mlModel'], data=prdData[xCol])['prediction_label']
                             prdData['ml'] = np.where(prdVal > 0, prdVal, 0)
 
@@ -1081,21 +1090,20 @@ def subModelProc(sysOpt, cfgDb):
                         # ****************************************************************************
                         # 자동 학습 모델링 (pycaret)
                         # ****************************************************************************
-                        # resPycaret = makePycaretModel(sysOpt['MODEL']['pycaret'], xCol, yCol, trainData, testData)
-                        # # log.info(f'resPycaret : {resPycaret}')
-                        #
-                        # if resPycaret:
-                        #     prdVal = exp.predict_model(resPycaret['mlModel'], data=prdData[xCol])['prediction_label']
-                        #     prdData['AI3'] = np.where(prdVal > 0, prdVal, 0)
+                        resPycaret = makePycaretModel(sysOpt['MODEL']['pycaret'], xColOrg, yColOrg, trainData, testData)
+                        # log.info(f'resPycaret : {resPycaret}')
+                        
+                        if resPycaret:
+                            prdVal = exp.predict_model(resPycaret['mlModel'], data=prdData[xCol])['prediction_label']
+                            prdData['ai3'] = np.where(prdVal > 0, prdVal, 0)
 
-                        # *******************************************************
                         # DB 적재
-                        # *******************************************************
                         prdData.to_sql(
                             name=tbTmp,
                             con=conn,
                             if_exists="replace",
-                            index=False
+                            index=False,
+                            chunksize=1000
                         )
 
                         query = text(f"""
@@ -1110,17 +1118,18 @@ def subModelProc(sysOpt, cfgDb):
                                   dl = excluded.dl,
                                   ml = excluded.ml,
                                   ai = excluded.ai,
-                                  ai2 = excluded.ai2
+                                  ai2 = excluded.ai2,
+                                  ai3 = excluded.ai3,
                            """)
                         result = session.execute(query)
-                        log.info(f"posId : {posId} / result : {result.rowcount}")
+                        log.info(f"id : {id} / result : {result.rowcount}")
 
                         if result.rowcount > 0:
                             query = text("""
                                          UPDATE tb_stn_info
                                          SET init_yn  = 'N',
                                              mod_date = now()
-                                         WHERE id = :posId
+                                         WHERE id = :id
                                          """)
                             session.execute(query, {'id': id})
 
@@ -1206,8 +1215,9 @@ class DtaProcess(object):
 
                 # 비동기 다중 프로세스 개수
                 # 'cpuCoreNum': globalVar['cpuCoreNum'],
+                'cpuCoreNum': '5',
+                #'cpuCoreNum': '10',
                 # 'cpuCoreNum': '1',
-                'cpuCoreNum': '10',
 
                 # 설정 파일
                 # 'cfgFile': '/HDD/SYSTEMS/PROG/PYTHON/IDE/resources/config/system.cfg',
@@ -1241,48 +1251,48 @@ class DtaProcess(object):
                 # 자동화/수동화 모델링
                 'MODEL': {
                     'orgPycaret': {
-                        'saveModelList': "/DATA/AI/*/*/LSH0255-{srvId}-final-pycaret-for-*.model.pkl",
-                        'saveModel': "/DATA/AI/%Y%m/%d/LSH0255-{srvId}-final-pycaret-for-%Y%m%d.model",
+                        'saveModelList': "/DATA/AI/*/*/LSH0255-{srv}-final-pycaret-for-*.model.pkl",
+                        'saveModel': "/DATA/AI/%Y%m/%d/LSH0255-{srv}-final-pycaret-for-%Y%m%d.model",
                         # 'isOverWrite': True,
                         'isOverWrite': False,
-                        'srvId': None,
+                        'srv': None,
                         'preDt': datetime.datetime.now(),
                         'exp': None
                     },
                     'orgH2o': {
-                        'saveModelList': "/DATA/AI/*/*/LSH0255-{srvId}-final-h2o-for-*.model",
-                        'saveModel': "/DATA/AI/%Y%m/%d/LSH0255-{srvId}-final-h2o-for-%Y%m%d.model",
+                        'saveModelList': "/DATA/AI/*/*/LSH0255-{srv}-final-h2o-for-*.model",
+                        'saveModel': "/DATA/AI/%Y%m/%d/LSH0255-{srv}-final-h2o-for-%Y%m%d.model",
                         'isInit': False,
                         # 'isOverWrite': True,
                         'isOverWrite': False,
-                        'srvId': None,
+                        'srv': None,
                         'preDt': datetime.datetime.now(),
                     },
                     'lgb': {
-                        'saveModelList': "/DATA/AI/*/*/QUBE2025-{srvId}-final-lgb-for-*.model",
-                        'saveModel': "/DATA/AI/%Y%m/%d/QUBE2025-{srvId}-final-lgb-for-%Y%m%d.model",
-                        'saveImg': "/DATA/AI/%Y%m/%d/QUBE2025-{srvId}-final-lgb-for-%Y%m%d.png",
+                        'saveModelList': "/DATA/AI/*/*/QUBE2025-{srv}-final-lgb-for-*.model",
+                        'saveModel': "/DATA/AI/%Y%m/%d/QUBE2025-{srv}-final-lgb-for-%Y%m%d.model",
+                        'saveImg': "/DATA/AI/%Y%m/%d/QUBE2025-{srv}-final-lgb-for-%Y%m%d.png",
                         # 'isOverWrite': True,
                         'isOverWrite': False,
-                        'srvId': None,
+                        'srv': None,
                         'preDt': datetime.datetime.now(),
                     },
                     'flaml': {
-                        'saveModelList': "/DATA/AI/*/*/QUBE2025-{srvId}-final-flaml-for-*.model",
-                        'saveModel': "/DATA/AI/%Y%m/%d/QUBE2025-{srvId}-final-flaml-for-%Y%m%d.model",
-                        'saveImg': "/DATA/AI/%Y%m/%d/QUBE2025-{srvId}-final-flaml-for-%Y%m%d.png",
+                        'saveModelList': "/DATA/AI/*/*/QUBE2025-{srv}-final-flaml-for-*.model",
+                        'saveModel': "/DATA/AI/%Y%m/%d/QUBE2025-{srv}-final-flaml-for-%Y%m%d.model",
+                        'saveImg': "/DATA/AI/%Y%m/%d/QUBE2025-{srv}-final-flaml-for-%Y%m%d.png",
                         # 'isOverWrite': True,
                         'isOverWrite': False,
-                        'srvId': None,
+                        'srv': None,
                         'preDt': datetime.datetime.now(),
                     },
                     'pycaret': {
-                        'saveModelList': "/DATA/AI/*/*/QUBE2025-{srvId}-final-pycaret-for-*.model.pkl",
-                        'saveModel': "/DATA/AI/%Y%m/%d/QUBE2025-{srvId}-final-pycaret-for-%Y%m%d.model",
-                        'saveImg': "/DATA/AI/%Y%m/%d/QUBE2025-{srvId}-final-pycaret-for-%Y%m%d.png",
+                        'saveModelList': "/DATA/AI/*/*/QUBE2025-{srv}-final-pycaret-for-*.model.pkl",
+                        'saveModel': "/DATA/AI/%Y%m/%d/QUBE2025-{srv}-final-pycaret-for-%Y%m%d.model",
+                        'saveImg': "/DATA/AI/%Y%m/%d/QUBE2025-{srv}-final-pycaret-for-%Y%m%d.png",
                         # 'isOverWrite': True,
                         'isOverWrite': False,
-                        'srvId': None,
+                        'srv': None,
                         'preDt': datetime.datetime.now(),
                         'exp': None
                     },
@@ -1307,7 +1317,7 @@ class DtaProcess(object):
             # 관측소 정보
             with cfgDb['sessionMake']() as session:
                 query = text("""
-                             SELECT *
+                             SELECT *, 'SRV' || LPAD(id::text, 5, '0') as srv
                              FROM tb_stn_info
                              WHERE init_yn = 'Y'
                              ORDER BY id ASC;
@@ -1320,9 +1330,9 @@ class DtaProcess(object):
             sysOpt['lat1D'] = np.array(posDataL1['lat'])
             sysOpt['lon1D'] = np.array(posDataL1['lon'])
 
-            # subPvProc(sysOpt, cfgDb)
+            subPvProc(sysOpt, cfgDb)
             subPropProc(sysOpt, cfgDb)
-            # subModelProc(sysOpt, cfgDb)
+            subModelProc(sysOpt, cfgDb)
 
         except Exception as e:
             log.error("Exception : {}".format(e))
