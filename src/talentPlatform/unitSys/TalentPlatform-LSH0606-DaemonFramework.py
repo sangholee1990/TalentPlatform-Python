@@ -237,27 +237,6 @@ def initArgument(globalVar, inParams):
 # ================================================
 class DtaProcess(object):
 
-    # ================================================
-    # 요구사항
-    # ================================================
-    # Python을 이용한 중국 빅데이터 사이트 조사 및 셀레늄 기반 로그인, 기본 및 부가정보 수집 및 추출
-
-    # 원도우 X11 (X Window System) 프로토콜 지원
-    # xming
-
-    # 리눅스 CLI 실행
-    # google-chrome --no-sandbo
-
-    # 프로그램 실행
-    # cd /SYSTEMS/PROG/PYTHON/IDE/src/talentPlatform/unitSys
-    # /HDD/SYSTEMS/LIB/anaconda3/envs/py38/bin/python /SYSTEMS/PROG/PYTHON/IDE/src/talentPlatform/unitSys/TalentPlatform-LSH0605-DaemonFramework.py
-    # nohup /HDD/SYSTEMS/LIB/anaconda3/envs/py38/bin/python /SYSTEMS/PROG/PYTHON/IDE/src/talentPlatform/unitSys/TalentPlatform-LSH0605-DaemonFramework.py &
-    # tail -f nohup.out
-
-    # 프로그램 종료
-    # ps -ef | grep "TalentPlatform-LSH0605-DaemonFramework" | awk '{print $2}' | xargs kill -9
-    # ps -ef | grep "chrome" | awk '{print $2}' | xargs kill -9
-
     # ================================================================================================
     # 환경변수 설정
     # ================================================================================================

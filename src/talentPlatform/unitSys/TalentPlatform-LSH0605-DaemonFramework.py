@@ -44,6 +44,16 @@
 # C:\Users\indi\anaconda3\envs\py38\python.exe C:\SYSTEMS\PROG\PYTHON\TalentPlatform-Python\src\talentPlatform\unitSys\TalentPlatform-LSH0605-DaemonFramework.py --selIdx 0 --isRev True  --splitNum 1
 # C:\Users\indi\anaconda3\envs\py38\python.exe C:\SYSTEMS\PROG\PYTHON\TalentPlatform-Python\src\talentPlatform\unitSys\TalentPlatform-LSH0605-DaemonFramework.py --selIdx 0 --isRev False  --splitNum 1
 
+# C:\Users\sangh\anaconda3\envs\py38\python.exe C:\SYSTEMS\PROG\PYTHON\TalentPlatform-Python\src\talentPlatform\unitSys\TalentPlatform-LSH0605-DaemonFramework.py --selIdx 0 --isRev True  --splitNum 8
+# C:\Users\sangh\anaconda3\envs\py38\python.exe C:\SYSTEMS\PROG\PYTHON\TalentPlatform-Python\src\talentPlatform\unitSys\TalentPlatform-LSH0605-DaemonFramework.py --selIdx 0 --isRev True  --splitNum 8
+# C:\Users\sangh\anaconda3\envs\py38\python.exe C:\SYSTEMS\PROG\PYTHON\TalentPlatform-Python\src\talentPlatform\unitSys\TalentPlatform-LSH0605-DaemonFramework.py --selIdx 1 --isRev True  --splitNum 8
+# C:\Users\sangh\anaconda3\envs\py38\python.exe C:\SYSTEMS\PROG\PYTHON\TalentPlatform-Python\src\talentPlatform\unitSys\TalentPlatform-LSH0605-DaemonFramework.py --selIdx 2 --isRev True  --splitNum 8
+# C:\Users\sangh\anaconda3\envs\py38\python.exe C:\SYSTEMS\PROG\PYTHON\TalentPlatform-Python\src\talentPlatform\unitSys\TalentPlatform-LSH0605-DaemonFramework.py --selIdx 3 --isRev True  --splitNum 8
+# C:\Users\sangh\anaconda3\envs\py38\python.exe C:\SYSTEMS\PROG\PYTHON\TalentPlatform-Python\src\talentPlatform\unitSys\TalentPlatform-LSH0605-DaemonFramework.py --selIdx 4 --isRev True  --splitNum 8
+# C:\Users\sangh\anaconda3\envs\py38\python.exe C:\SYSTEMS\PROG\PYTHON\TalentPlatform-Python\src\talentPlatform\unitSys\TalentPlatform-LSH0605-DaemonFramework.py --selIdx 5 --isRev True  --splitNum 8
+# C:\Users\sangh\anaconda3\envs\py38\python.exe C:\SYSTEMS\PROG\PYTHON\TalentPlatform-Python\src\talentPlatform\unitSys\TalentPlatform-LSH0605-DaemonFramework.py --selIdx 6 --isRev True  --splitNum 8
+# C:\Users\sangh\anaconda3\envs\py38\python.exe C:\SYSTEMS\PROG\PYTHON\TalentPlatform-Python\src\talentPlatform\unitSys\TalentPlatform-LSH0605-DaemonFramework.py --selIdx 7 --isRev True  --splitNum 8
+
 import argparse
 import glob
 import logging
@@ -333,6 +343,14 @@ def initLogin(driver, sysOpt):
         except NoSuchElementException:
             pass
 
+        try:
+            isId = driver.find_element("id", "topSlider")
+            if isId:
+                btnId = wait.until(EC.element_to_be_clickable((By.CLASS_NAME, "close")))
+                btnId.click()
+        except NoSuchElementException:
+            pass
+
     except Exception as e:
         log.error(f"Exception : {e}")
 
@@ -439,8 +457,8 @@ class DtaProcess(object):
                 'loadTimeout': 30,
                 'defTimeout': 15,
 
-                # 'selIdx': 4,
-                # 'splitNum': 5,
+                # 'selIdx': 0,
+                # 'splitNum': 8,
                 # 'isRev': False,
                 'isRev': globalVar['isRev'] == 'True',
                 'selIdx': int(globalVar['selIdx']),
@@ -457,8 +475,8 @@ class DtaProcess(object):
                 # 자료 저장
                 # 'saveFileList': '/DATA/OUTPUT/LSH0605/*_{cityMat}.xlsx',
                 # 'saveFile': '/DATA/OUTPUT/LSH0605/%Y%m%d_{cityMat}.xlsx',
-                'saveFileList': 'G:/내 드라이브/shlee/04. TalentPlatform/[재능플랫폼] 최종납품/[완료] LSH0605. Python을 이용한 중국 빅데이터 사이트 조사 및 셀레늄 기반 로그인, 기본 및 부가정보 수집 및 추출/20250302_결과/*_{cityMat}.xlsx',
-                'saveFile': 'G:/내 드라이브/shlee/04. TalentPlatform/[재능플랫폼] 최종납품/[완료] LSH0605. Python을 이용한 중국 빅데이터 사이트 조사 및 셀레늄 기반 로그인, 기본 및 부가정보 수집 및 추출/20250302_결과/%Y%m%d_{cityMat}.xlsx',
+                'saveFileList': 'G:/내 드라이브/shlee/04. TalentPlatform/[재능플랫폼] 최종납품/[완료] LSH0605. Python을 이용한 중국 빅데이터 사이트 조사 및 셀레늄 기반 로그인, 기본 및 부가정보 수집 및 추출/20260127_결과/*_{cityMat}.xlsx',
+                'saveFile': 'G:/내 드라이브/shlee/04. TalentPlatform/[재능플랫폼] 최종납품/[완료] LSH0605. Python을 이용한 중국 빅데이터 사이트 조사 및 셀레늄 기반 로그인, 기본 및 부가정보 수집 및 추출/20260127_결과/%Y%m%d_{cityMat}.xlsx',
             }
 
             # ==========================================================================================================
@@ -492,7 +510,7 @@ class DtaProcess(object):
             # ==========================================================================================================
             # 로그인 기능
             # ==========================================================================================================
-            # initLogin(driver, sysOpt)
+            initLogin(driver, sysOpt)
 
             # ==========================================================================================================
             # 기본정보 수집
