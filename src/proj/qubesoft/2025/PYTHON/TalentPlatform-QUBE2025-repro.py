@@ -452,19 +452,8 @@ def makePycaretModel(subOpt=None, xCol=None, yCol=None, trainData=None, testData
         if (subOpt['isOverWrite']) or (len(saveModelList) < 1):
             xyCol = xCol.copy()
             xyCol.append(yCol)
-
             trainDataL1 = trainData[xyCol].dropna().copy()
             testDataL1 = testData[xyCol].dropna().copy()
-
-#            trainDataL2 = pd.DataFrame(trainDataL1.values, columns=trainDataL1.columns)
-#            testDataL2 = pd.DataFrame(testDataL1.values, columns=testDataL1.columns)
-
-#            trainDataL1 = trainData[xyCol].dropna().reset_index(drop=True)
-#            testDataL1 = testData[xyCol].dropna().reset_index(drop=True)
-
-#            trainDataL2 = pd.DataFrame(trainDataL1.values, columns=trainDataL1.columns).infer_objects()
-#            testDataL2 = pd.DataFrame(testDataL1.values, columns=testDataL1.columns).infer_objects()
-
 
             exp.setup(
                 data=trainDataL1,
@@ -473,23 +462,20 @@ def makePycaretModel(subOpt=None, xCol=None, yCol=None, trainData=None, testData
                 target=yCol
             )
 
+            # 각 모형에 따른 자동 머신러닝
+            # modelList = exp.compare_models(sort='RMSE', n_select=3, budget_time=60)
+            # 앙상블 모형
+            # blendModel = exp.blend_models(estimator_list=modelList, fold=10)
+            # 앙상블 파라미터 튜닝
+            # tuneModel = exp.tune_model(blendModel, fold=10, choose_better=True)
+            # 학습 모형
+            # fnlModel = exp.finalize_model(tuneModel)
+
             with parallel_backend('threading'):
                 modelList = exp.compare_models(sort='RMSE', n_select=3, budget_time=60)
                 blendModel = exp.blend_models(estimator_list=modelList, fold=10)
                 tuneModel = exp.tune_model(blendModel, fold=10, choose_better=True)
                 fnlModel = exp.finalize_model(tuneModel)
-#            # 각 모형에 따른 자동 머신러닝
-#            modelList = exp.compare_models(sort='RMSE', n_select=3, budget_time=60)
-#
-#            # 앙상블 모형
-#            blendModel = exp.blend_models(estimator_list=modelList, fold=10)
-#
-#            # 앙상블 파라미터 튜닝
-#            tuneModel = exp.tune_model(blendModel, fold=10, choose_better=True)
-#
-#            # 학습 모형
-#            fnlModel = exp.finalize_model(tuneModel)
-#            #fnlModel = tuneModel
 
             # 학습 모형 저장
             saveModel = subOpt['preDt'].strftime(subOpt['saveModel']).format(srv = subOpt['srv'])
@@ -973,8 +959,6 @@ def subPropProc(sysOpt, cfgDb):
         dtDateList = pd.date_range(start=dtSrtDate, end=dtEndDate, freq=sysOpt['UMKR']['invDate'])
         for dtDateInfo in reversed(dtDateList):
             if (dtDateInfo.strftime('%Y-%m-%d %H:%M'), ) in cfgDataList: continue
-
-            # propUmkr(sysOpt, dtDateInfo)
             pool.apply_async(propUmkr, args=(sysOpt, dtDateInfo))
         pool.close()
         pool.join()
@@ -1047,50 +1031,50 @@ def subModelProc(sysOpt, cfgDb):
                         xCol = ['ca_tot', 'hm', 'pa', 'ta', 'td', 'wd', 'ws', 'sza', 'aza', 'et', 'turb', 'ghi_clr', 'dni_clr', 'dhi_clr', 'swr', 'ext_rad']
                         yCol = 'pv'
 
-                        # ****************************************************************************
-                        # 과거 학습 모델링 (orgPycaret)
-                        # ****************************************************************************
-                        resOrgPycaret = makePycaretModel(sysOpt['MODEL']['orgPycaret'], xColOrg, yColOrg, trainData, testData)
-                        # log.info(f'resOrgPycaret : {resOrgPycaret}')
-
-                        if resOrgPycaret:
-                            prdVal = exp.predict_model(resOrgPycaret['mlModel'], data=prdData[xCol])['prediction_label']
-                            prdData['ml'] = np.where(prdVal > 0, prdVal, 0)
-
-                        # ****************************************************************************
-                        # 과거 학습 모델링 (orgH2o)
-                        # ****************************************************************************
-                        resOrgH2o = makeH2oModel(sysOpt['MODEL']['orgH2o'], xColOrg, yColOrg, trainData, testData)
-                        # log.info(f'resOrgH2o : {resOrgH2o}')
-
-                        if resOrgH2o:
-                            prdVal = resOrgH2o['mlModel'].predict(h2o.H2OFrame(prdData)).as_data_frame()
-                            prdData['dl'] = np.where(prdVal > 0, prdVal, 0)
-
-                        # ****************************************************************************
-                        # 수동 학습 모델링 (lgb)
-                        # ****************************************************************************
-                        resLgb = makeLgbModel(sysOpt['MODEL']['lgb'], xCol, yCol, trainData, testData)
-                        # log.info(f'resLgb : {resLgb}')
-
-                        if resLgb:
-                            prdVal = resLgb['mlModel'].predict(data=prdData[xCol])
-                            prdData['ai'] = np.where(prdVal > 0, prdVal, 0)
-
-                        # ****************************************************************************
-                        # 자동 학습 모델링 (flaml)
-                        # ****************************************************************************
-                        resFlaml = makeFlamlModel(sysOpt['MODEL']['flaml'], xCol, yCol, trainData, testData)
-                        # log.info(f'resFlaml : {resFlaml}')
-
-                        if resFlaml:
-                            prdVal = resFlaml['mlModel'].predict(prdData)
-                            prdData['ai2'] = np.where(prdVal > 0, prdVal, 0)
+                        # # ****************************************************************************
+                        # # 과거 학습 모델링 (orgPycaret)
+                        # # ****************************************************************************
+                        # resOrgPycaret = makePycaretModel(sysOpt['MODEL']['orgPycaret'], xColOrg, yColOrg, trainData, testData)
+                        # # log.info(f'resOrgPycaret : {resOrgPycaret}')
+                        #
+                        # if resOrgPycaret:
+                        #     prdVal = exp.predict_model(resOrgPycaret['mlModel'], data=prdData[xCol])['prediction_label']
+                        #     prdData['ml'] = np.where(prdVal > 0, prdVal, 0)
+                        #
+                        # # ****************************************************************************
+                        # # 과거 학습 모델링 (orgH2o)
+                        # # ****************************************************************************
+                        # resOrgH2o = makeH2oModel(sysOpt['MODEL']['orgH2o'], xColOrg, yColOrg, trainData, testData)
+                        # # log.info(f'resOrgH2o : {resOrgH2o}')
+                        #
+                        # if resOrgH2o:
+                        #     prdVal = resOrgH2o['mlModel'].predict(h2o.H2OFrame(prdData)).as_data_frame()
+                        #     prdData['dl'] = np.where(prdVal > 0, prdVal, 0)
+                        #
+                        # # ****************************************************************************
+                        # # 수동 학습 모델링 (lgb)
+                        # # ****************************************************************************
+                        # resLgb = makeLgbModel(sysOpt['MODEL']['lgb'], xCol, yCol, trainData, testData)
+                        # # log.info(f'resLgb : {resLgb}')
+                        #
+                        # if resLgb:
+                        #     prdVal = resLgb['mlModel'].predict(data=prdData[xCol])
+                        #     prdData['ai'] = np.where(prdVal > 0, prdVal, 0)
+                        #
+                        # # ****************************************************************************
+                        # # 자동 학습 모델링 (flaml)
+                        # # ****************************************************************************
+                        # resFlaml = makeFlamlModel(sysOpt['MODEL']['flaml'], xCol, yCol, trainData, testData)
+                        # # log.info(f'resFlaml : {resFlaml}')
+                        #
+                        # if resFlaml:
+                        #     prdVal = resFlaml['mlModel'].predict(prdData)
+                        #     prdData['ai2'] = np.where(prdVal > 0, prdVal, 0)
 
                         # ****************************************************************************
                         # 자동 학습 모델링 (pycaret)
                         # ****************************************************************************
-                        resPycaret = makePycaretModel(sysOpt['MODEL']['pycaret'], xColOrg, yColOrg, trainData, testData)
+                        resPycaret = makePycaretModel(sysOpt['MODEL']['pycaret'], xCol, yCol, trainData, testData)
                         # log.info(f'resPycaret : {resPycaret}')
                         
                         if resPycaret:
