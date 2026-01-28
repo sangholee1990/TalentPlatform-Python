@@ -460,16 +460,6 @@ def makePycaretModel(subOpt=None, xCol=None, yCol=None, trainData=None, testData
             trainDataL1 = trainData[xyCol].dropna().copy()
             testDataL1 = testData[xyCol].dropna().copy()
 
-#            trainDataL2 = pd.DataFrame(trainDataL1.values, columns=trainDataL1.columns)
-#            testDataL2 = pd.DataFrame(testDataL1.values, columns=testDataL1.columns)
-
-#            trainDataL1 = trainData[xyCol].dropna().reset_index(drop=True)
-#            testDataL1 = testData[xyCol].dropna().reset_index(drop=True)
-
-#            trainDataL2 = pd.DataFrame(trainDataL1.values, columns=trainDataL1.columns).infer_objects()
-#            testDataL2 = pd.DataFrame(testDataL1.values, columns=testDataL1.columns).infer_objects()
-
-
             exp.setup(
                 data=trainDataL1,
                 test_data=testDataL1,
@@ -477,23 +467,25 @@ def makePycaretModel(subOpt=None, xCol=None, yCol=None, trainData=None, testData
                 target=yCol
             )
 
+            # 각 모형에 따른 자동 머신러닝
+            # modelList = exp.compare_models(sort='RMSE', n_select=3, budget_time=60)
+
+            # 앙상블 모형
+            # blendModel = exp.blend_models(estimator_list=modelList, fold=10)
+
+            # 앙상블 파라미터 튜닝
+            # tuneModel = exp.tune_model(blendModel, fold=10, choose_better=True)
+
+            # 학습 모형
+            # fnlModel = exp.finalize_model(tuneModel)
+            # fnlModel = tuneModel
+
             with parallel_backend('threading'):
                 modelList = exp.compare_models(sort='RMSE', n_select=3, budget_time=60)
                 blendModel = exp.blend_models(estimator_list=modelList, fold=10)
                 tuneModel = exp.tune_model(blendModel, fold=10, choose_better=True)
                 fnlModel = exp.finalize_model(tuneModel)
-#            # 각 모형에 따른 자동 머신러닝
-#            modelList = exp.compare_models(sort='RMSE', n_select=3, budget_time=60)
-#
-#            # 앙상블 모형
-#            blendModel = exp.blend_models(estimator_list=modelList, fold=10)
-#
-#            # 앙상블 파라미터 튜닝
-#            tuneModel = exp.tune_model(blendModel, fold=10, choose_better=True)
-#
-#            # 학습 모형
-#            fnlModel = exp.finalize_model(tuneModel)
-#            #fnlModel = tuneModel
+
 
             # 학습 모형 저장
             saveModel = subOpt['preDt'].strftime(subOpt['saveModel']).format(srv = subOpt['srv'])
