@@ -993,6 +993,8 @@ def subModelProc(sysOpt, cfgDb):
                         #    continue
 
                         #trainData, testData = train_test_split(data, test_size=0.2, random_state=int(datetime.datetime.now().timestamp()))
+                        trainData = None
+                        testData = None
 
                         query = text("""
                                      SELECT lf.*
@@ -1195,7 +1197,7 @@ class DtaProcess(object):
                 # 'cpuCoreNum': globalVar['cpuCoreNum'],
                 #'cpuCoreNum': '5',
                 # 'cpuCoreNum': '10',
-                 'cpuCoreNum': '1',
+                 'cpuCoreNum': '5',
 
                 # 설정 파일
                 # 'cfgFile': '/HDD/SYSTEMS/PROG/PYTHON/IDE/resources/config/system.cfg',
