@@ -1099,7 +1099,7 @@ def subModelProc(sysOpt, cfgDb):
                                   ml = excluded.ml,
                                   ai = excluded.ai,
                                   ai2 = excluded.ai2,
-                                  ai3 = excluded.ai3,
+                                  ai3 = excluded.ai3;
                            """)
                         result = session.execute(query)
                         log.info(f"id : {id} / result : {result.rowcount}")
