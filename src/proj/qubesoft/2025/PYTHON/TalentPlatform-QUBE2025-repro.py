@@ -376,9 +376,11 @@ def makeLgbModel(subOpt=None, xCol=None, yCol=None, trainData=None, testData=Non
                 # 'metric': 'auc',
 
                 'n_jobs': -1,
-                'verbosity': -1,
+                #'verbosity': -1,
+                'verbosity': 1,
                 # 'seed': int(subOpt['preDt'].timestamp()),
                 'seed': int(datetime.datetime.now().timestamp()),
+                'learning_rate': 0.05,
             }
 
             lgbTrainData = lgb.Dataset(trainDataL1[xCol], trainDataL1[yCol])
@@ -393,8 +395,10 @@ def makeLgbModel(subOpt=None, xCol=None, yCol=None, trainData=None, testData=Non
                 valid_names=["train", "valid"],
                 callbacks=[
                     # early_stopping(stopping_rounds=10000),
-                    early_stopping(stopping_rounds=1000),
-                    log_evaluation(period=200),
+                    # early_stopping(stopping_rounds=1000),
+                    early_stopping(stopping_rounds=100),
+                    #log_evaluation(period=200),
+                    log_evaluation(period=50),
                 ],
             )
 
@@ -452,8 +456,19 @@ def makePycaretModel(subOpt=None, xCol=None, yCol=None, trainData=None, testData
         if (subOpt['isOverWrite']) or (len(saveModelList) < 1):
             xyCol = xCol.copy()
             xyCol.append(yCol)
+
             trainDataL1 = trainData[xyCol].dropna().copy()
             testDataL1 = testData[xyCol].dropna().copy()
+
+#            trainDataL2 = pd.DataFrame(trainDataL1.values, columns=trainDataL1.columns)
+#            testDataL2 = pd.DataFrame(testDataL1.values, columns=testDataL1.columns)
+
+#            trainDataL1 = trainData[xyCol].dropna().reset_index(drop=True)
+#            testDataL1 = testData[xyCol].dropna().reset_index(drop=True)
+
+#            trainDataL2 = pd.DataFrame(trainDataL1.values, columns=trainDataL1.columns).infer_objects()
+#            testDataL2 = pd.DataFrame(testDataL1.values, columns=testDataL1.columns).infer_objects()
+
 
             exp.setup(
                 data=trainDataL1,
@@ -462,20 +477,23 @@ def makePycaretModel(subOpt=None, xCol=None, yCol=None, trainData=None, testData
                 target=yCol
             )
 
-            # 각 모형에 따른 자동 머신러닝
-            # modelList = exp.compare_models(sort='RMSE', n_select=3, budget_time=60)
-            # 앙상블 모형
-            # blendModel = exp.blend_models(estimator_list=modelList, fold=10)
-            # 앙상블 파라미터 튜닝
-            # tuneModel = exp.tune_model(blendModel, fold=10, choose_better=True)
-            # 학습 모형
-            # fnlModel = exp.finalize_model(tuneModel)
-
             with parallel_backend('threading'):
                 modelList = exp.compare_models(sort='RMSE', n_select=3, budget_time=60)
                 blendModel = exp.blend_models(estimator_list=modelList, fold=10)
                 tuneModel = exp.tune_model(blendModel, fold=10, choose_better=True)
                 fnlModel = exp.finalize_model(tuneModel)
+#            # 각 모형에 따른 자동 머신러닝
+#            modelList = exp.compare_models(sort='RMSE', n_select=3, budget_time=60)
+#
+#            # 앙상블 모형
+#            blendModel = exp.blend_models(estimator_list=modelList, fold=10)
+#
+#            # 앙상블 파라미터 튜닝
+#            tuneModel = exp.tune_model(blendModel, fold=10, choose_better=True)
+#
+#            # 학습 모형
+#            fnlModel = exp.finalize_model(tuneModel)
+#            #fnlModel = tuneModel
 
             # 학습 모형 저장
             saveModel = subOpt['preDt'].strftime(subOpt['saveModel']).format(srv = subOpt['srv'])
@@ -599,7 +617,6 @@ def makeH2oModel(subOpt=None, xCol=None, yCol=None, trainData=None, testData=Non
 
             # 각 모형에 따른 자동 머신러닝
             dlModel.train(x=xCol, y=yCol, training_frame=h2o.H2OFrame(trainDataL1), validation_frame=h2o.H2OFrame(testDataL1))
-
             fnlModel = dlModel.get_best_model()
 
             # 학습 모형 저장
@@ -944,7 +961,7 @@ def subPropProc(sysOpt, cfgDb):
             query = text("""
                          SELECT srv, ana_date, date_time
                          FROM tb_for_data
-                         WHERE swr > 0
+                         where swr > 0
                            AND ana_date BETWEEN :srtDate AND :endDate;
                          """)
             cfgData = pd.DataFrame(session.execute(query, {'srtDate': sysOpt['srtDate'], 'endDate': sysOpt['endDate']}))
@@ -959,6 +976,8 @@ def subPropProc(sysOpt, cfgDb):
         dtDateList = pd.date_range(start=dtSrtDate, end=dtEndDate, freq=sysOpt['UMKR']['invDate'])
         for dtDateInfo in reversed(dtDateList):
             if (dtDateInfo.strftime('%Y-%m-%d %H:%M'), ) in cfgDataList: continue
+
+            # propUmkr(sysOpt, dtDateInfo)
             pool.apply_async(propUmkr, args=(sysOpt, dtDateInfo))
         pool.close()
         pool.join()
@@ -985,7 +1004,7 @@ def subModelProc(sysOpt, cfgDb):
                                               LEFT JOIN
                                           "tb_for_data" AS lf ON pv."srv" = lf."srv" AND pv."date_time" = lf."date_time"
                                      WHERE pv."srv" = :srv
-                                       AND pv.pv IS NOT NULL
+                                       AND pv.pv IS NOT NULL AND pv.pv > 0
                                        AND (EXTRACT(EPOCH FROM (lf."date_time" - lf."ana_date")) / 3600.0) <= 5
                                      ORDER BY "srv", "date_time_kst" DESC;
                                      """)
@@ -994,8 +1013,8 @@ def subModelProc(sysOpt, cfgDb):
                         # trainData = data[data['DATE_TIME_KST'] < pd.to_datetime('2025-01-01')].reset_index(drop=True)
                         # testData = data[data['DATE_TIME_KST'] >= pd.to_datetime('2025-01-01')].reset_index(drop=True)
                         data = pd.DataFrame(session.execute(query, {'srv': srv}))
-                        if data['pv'].sum() == 0:
-                            log.info(f"srv : {srv} / pv : {data['pv'].sum()}")
+                        if len(data) < 1 or len(data['pv']) < 10000:
+                            log.info(f"srv : {srv} / cnt : {len(data)}")
                             continue
 
                         trainData, testData = train_test_split(data, test_size=0.2, random_state=int(datetime.datetime.now().timestamp()))
@@ -1031,50 +1050,50 @@ def subModelProc(sysOpt, cfgDb):
                         xCol = ['ca_tot', 'hm', 'pa', 'ta', 'td', 'wd', 'ws', 'sza', 'aza', 'et', 'turb', 'ghi_clr', 'dni_clr', 'dhi_clr', 'swr', 'ext_rad']
                         yCol = 'pv'
 
-                        # # ****************************************************************************
-                        # # 과거 학습 모델링 (orgPycaret)
-                        # # ****************************************************************************
-                        # resOrgPycaret = makePycaretModel(sysOpt['MODEL']['orgPycaret'], xColOrg, yColOrg, trainData, testData)
-                        # # log.info(f'resOrgPycaret : {resOrgPycaret}')
-                        #
-                        # if resOrgPycaret:
-                        #     prdVal = exp.predict_model(resOrgPycaret['mlModel'], data=prdData[xCol])['prediction_label']
-                        #     prdData['ml'] = np.where(prdVal > 0, prdVal, 0)
-                        #
-                        # # ****************************************************************************
-                        # # 과거 학습 모델링 (orgH2o)
-                        # # ****************************************************************************
-                        # resOrgH2o = makeH2oModel(sysOpt['MODEL']['orgH2o'], xColOrg, yColOrg, trainData, testData)
-                        # # log.info(f'resOrgH2o : {resOrgH2o}')
-                        #
-                        # if resOrgH2o:
-                        #     prdVal = resOrgH2o['mlModel'].predict(h2o.H2OFrame(prdData)).as_data_frame()
-                        #     prdData['dl'] = np.where(prdVal > 0, prdVal, 0)
-                        #
-                        # # ****************************************************************************
-                        # # 수동 학습 모델링 (lgb)
-                        # # ****************************************************************************
-                        # resLgb = makeLgbModel(sysOpt['MODEL']['lgb'], xCol, yCol, trainData, testData)
-                        # # log.info(f'resLgb : {resLgb}')
-                        #
-                        # if resLgb:
-                        #     prdVal = resLgb['mlModel'].predict(data=prdData[xCol])
-                        #     prdData['ai'] = np.where(prdVal > 0, prdVal, 0)
-                        #
-                        # # ****************************************************************************
-                        # # 자동 학습 모델링 (flaml)
-                        # # ****************************************************************************
-                        # resFlaml = makeFlamlModel(sysOpt['MODEL']['flaml'], xCol, yCol, trainData, testData)
-                        # # log.info(f'resFlaml : {resFlaml}')
-                        #
-                        # if resFlaml:
-                        #     prdVal = resFlaml['mlModel'].predict(prdData)
-                        #     prdData['ai2'] = np.where(prdVal > 0, prdVal, 0)
+                        # ****************************************************************************
+                        # 과거 학습 모델링 (orgPycaret)
+                        # ****************************************************************************
+                        resOrgPycaret = makePycaretModel(sysOpt['MODEL']['orgPycaret'], xColOrg, yColOrg, trainData, testData)
+                        # log.info(f'resOrgPycaret : {resOrgPycaret}')
+
+                        if resOrgPycaret:
+                            prdVal = exp.predict_model(resOrgPycaret['mlModel'], data=prdData[xCol])['prediction_label']
+                            prdData['ml'] = np.where(prdVal > 0, prdVal, 0)
+
+                        # ****************************************************************************
+                        # 과거 학습 모델링 (orgH2o)
+                        # ****************************************************************************
+                        resOrgH2o = makeH2oModel(sysOpt['MODEL']['orgH2o'], xColOrg, yColOrg, trainData, testData)
+                        # log.info(f'resOrgH2o : {resOrgH2o}')
+
+                        if resOrgH2o:
+                            prdVal = resOrgH2o['mlModel'].predict(h2o.H2OFrame(prdData)).as_data_frame()
+                            prdData['dl'] = np.where(prdVal > 0, prdVal, 0)
+
+                        # ****************************************************************************
+                        # 수동 학습 모델링 (lgb)
+                        # ****************************************************************************
+                        resLgb = makeLgbModel(sysOpt['MODEL']['lgb'], xCol, yCol, trainData, testData)
+                        # log.info(f'resLgb : {resLgb}')
+
+                        if resLgb:
+                            prdVal = resLgb['mlModel'].predict(data=prdData[xCol])
+                            prdData['ai'] = np.where(prdVal > 0, prdVal, 0)
+
+                        # ****************************************************************************
+                        # 자동 학습 모델링 (flaml)
+                        # ****************************************************************************
+                        resFlaml = makeFlamlModel(sysOpt['MODEL']['flaml'], xCol, yCol, trainData, testData)
+                        # log.info(f'resFlaml : {resFlaml}')
+
+                        if resFlaml:
+                            prdVal = resFlaml['mlModel'].predict(prdData)
+                            prdData['ai2'] = np.where(prdVal > 0, prdVal, 0)
 
                         # ****************************************************************************
                         # 자동 학습 모델링 (pycaret)
                         # ****************************************************************************
-                        resPycaret = makePycaretModel(sysOpt['MODEL']['pycaret'], xCol, yCol, trainData, testData)
+                        resPycaret = makePycaretModel(sysOpt['MODEL']['pycaret'], xColOrg, yColOrg, trainData, testData)
                         # log.info(f'resPycaret : {resPycaret}')
                         
                         if resPycaret:
@@ -1092,10 +1111,10 @@ def subModelProc(sysOpt, cfgDb):
 
                         query = text(f"""
                               INSERT INTO tb_for_data (
-                                    srv, ana_date, date_time, dl, ml, ai, ai2
+                                    srv, ana_date, date_time, dl, ml, ai, ai2, ai3
                               )
                               SELECT
-                                    srv, ana_date, date_time, dl, ml, ai, ai2
+                                    srv, ana_date, date_time, dl, ml, ai, ai2, ai3
                               FROM {tbTmp}
                               ON CONFLICT (srv, ana_date, date_time)
                               DO UPDATE SET
@@ -1103,7 +1122,7 @@ def subModelProc(sysOpt, cfgDb):
                                   ml = excluded.ml,
                                   ai = excluded.ai,
                                   ai2 = excluded.ai2,
-                                  ai3 = excluded.ai3,
+                                  ai3 = excluded.ai3;
                            """)
                         result = session.execute(query)
                         log.info(f"id : {id} / result : {result.rowcount}")
@@ -1191,15 +1210,15 @@ class DtaProcess(object):
             # 옵션 설정
             sysOpt = {
                 # 시작/종료 시간
-                # 'srtDate': globalVar['srtDate'],
-                # 'endDate': globalVar['endDate'],
+                #'srtDate': globalVar['srtDate'],
+                #'endDate': globalVar['endDate'],
                 'srtDate': '2020-01-01',
                 'endDate': None,
                 'invDate': '1d',
 
                 # 비동기 다중 프로세스 개수
                 # 'cpuCoreNum': globalVar['cpuCoreNum'],
-                # 'cpuCoreNum': '5',
+                #'cpuCoreNum': '5',
                 'cpuCoreNum': '10',
                 # 'cpuCoreNum': '1',
 
@@ -1224,11 +1243,11 @@ class DtaProcess(object):
                     # 'inpUmFile': '/DATA/COLCT/UMKR/%Y%m/%d/UMKR_l015_unis_H{ef}_%Y%m%d%H%M.grb2',
                     'cfgUmFile': '/DATA/MODEL/202001/01/UMKR_l015_unis_H00_202001010000.grb2',
                     'inpUmFile': '/DATA/MODEL/%Y%m/%d/UMKR_l015_unis_H{ef}_%Y%m%d%H%M.grb2',
-                    # 'ef00': ['00', '01', '02', '03', '04', '05', '15', '16', '17', '18', '19', '20', '21', '22', '23','24', '25', '26', '27', '28', '29', '30', '31', '32', '33', '34', '35', '36', '37', '38'],
+                    #'ef00': ['00', '01', '02', '03', '04', '05', '15', '16', '17', '18', '19', '20', '21', '22', '23','24', '25', '26', '27', '28', '29', '30', '31', '32', '33', '34', '35', '36', '37', '38'],
                     'ef00': ['00', '01', '02', '03', '04', '05'],
                     'ef06': ['00', '01', '02', '03', '04', '05'],
                     'ef12': ['00', '01', '02', '03', '04', '05'],
-                    # 'ef18': ['00', '01', '02', '03', '04', '05', '21', '22', '23', '24', '25', '26', '27', '28', '29','30', '31', '32', '33', '34', '35', '36', '37', '38', '39', '40', '41', '42', '43', '44'],
+                    #'ef18': ['00', '01', '02', '03', '04', '05', '21', '22', '23', '24', '25', '26', '27', '28', '29','30', '31', '32', '33', '34', '35', '36', '37', '38', '39', '40', '41', '42', '43', '44'],
                     'ef18': ['00', '01', '02', '03', '04', '05'],
                     'invDate': '6h',
                 },
@@ -1237,8 +1256,8 @@ class DtaProcess(object):
                     'orgPycaret': {
                         'saveModelList': "/DATA/AI/*/*/LSH0255-{srv}-final-pycaret-for-*.model.pkl",
                         'saveModel': "/DATA/AI/%Y%m/%d/LSH0255-{srv}-final-pycaret-for-%Y%m%d.model",
-                        'isOverWrite': True,
-                        # 'isOverWrite': False,
+                        #'isOverWrite': True,
+                        'isOverWrite': False,
                         'srv': None,
                         'preDt': datetime.datetime.now(),
                         'exp': None
@@ -1247,8 +1266,8 @@ class DtaProcess(object):
                         'saveModelList': "/DATA/AI/*/*/LSH0255-{srv}-final-h2o-for-*.model",
                         'saveModel': "/DATA/AI/%Y%m/%d/LSH0255-{srv}-final-h2o-for-%Y%m%d.model",
                         'isInit': False,
-                        'isOverWrite': True,
-                        # 'isOverWrite': False,
+                        #'isOverWrite': True,
+                        'isOverWrite': False,
                         'srv': None,
                         'preDt': datetime.datetime.now(),
                     },
@@ -1256,7 +1275,7 @@ class DtaProcess(object):
                         'saveModelList': "/DATA/AI/*/*/QUBE2025-{srv}-final-lgb-for-*.model",
                         'saveModel': "/DATA/AI/%Y%m/%d/QUBE2025-{srv}-final-lgb-for-%Y%m%d.model",
                         'saveImg': "/DATA/AI/%Y%m/%d/QUBE2025-{srv}-final-lgb-for-%Y%m%d.png",
-                        # 'isOverWrite': True,
+                        #'isOverWrite': True,
                         'isOverWrite': False,
                         'srv': None,
                         'preDt': datetime.datetime.now(),
@@ -1265,8 +1284,8 @@ class DtaProcess(object):
                         'saveModelList': "/DATA/AI/*/*/QUBE2025-{srv}-final-flaml-for-*.model",
                         'saveModel': "/DATA/AI/%Y%m/%d/QUBE2025-{srv}-final-flaml-for-%Y%m%d.model",
                         'saveImg': "/DATA/AI/%Y%m/%d/QUBE2025-{srv}-final-flaml-for-%Y%m%d.png",
-                        'isOverWrite': True,
-                        # 'isOverWrite': False,
+                        #'isOverWrite': True,
+                        'isOverWrite': False,
                         'srv': None,
                         'preDt': datetime.datetime.now(),
                     },
@@ -1274,8 +1293,8 @@ class DtaProcess(object):
                         'saveModelList': "/DATA/AI/*/*/QUBE2025-{srv}-final-pycaret-for-*.model.pkl",
                         'saveModel': "/DATA/AI/%Y%m/%d/QUBE2025-{srv}-final-pycaret-for-%Y%m%d.model",
                         'saveImg': "/DATA/AI/%Y%m/%d/QUBE2025-{srv}-final-pycaret-for-%Y%m%d.png",
-                        'isOverWrite': True,
-                        # 'isOverWrite': False,
+                        #'isOverWrite': True,
+                        'isOverWrite': False,
                         'srv': None,
                         'preDt': datetime.datetime.now(),
                         'exp': None

@@ -12,9 +12,9 @@
 
 # cd /SYSTEMS/PROG/PYTHON
 # /SYSTEMS/LIB/anaconda3/envs/py39/bin/python /SYSTEMS/PROG/PYTHON/TalentPlatform-QUBE2025-real.py
-# nohup /SYSTEMS/LIB/anaconda3/envs/py39/bin/python /SYSTEMS/PROG/PYTHON/TalentPlatform-QUBE2025-real.py --srtDate "$(date -d "2 days ago" +\%Y-\%m-\%d)" --endDate "$(date -d "2 days" +\%Y-\%m-\%d)" &
+# nohup /SYSTEMS/LIB/anaconda3/envs/py39/bin/python /SYSTEMS/PROG/PYTHON/TalentPlatform-QUBE2025-real.py &
 
-# 20,50 * * * * cd /SYSTEMS/PROG/PYTHON && /SYSTEMS/LIB/anaconda3/envs/py39/bin/python /SYSTEMS/PROG/PYTHON/TalentPlatform-QUBE2025-real.py --srtDate "$(date -d "2 days ago" +\%Y-\%m-\%d)" --endDate "$(date -d "2 days" +\%Y-\%m-\%d)"
+# 20,50 * * * * cd /SYSTEMS/PROG/PYTHON && /SYSTEMS/LIB/anaconda3/envs/py38/bin/python /SYSTEMS/PROG/PYTHON/TalentPlatform-QUBE2025-real.py --srtDate "$(date -d "2 days ago" +\%Y-\%m-\%d)" --endDate "$(date -d "2 days" +\%Y-\%m-\%d)"
 
 import glob
 # import seaborn as sns
@@ -456,16 +456,6 @@ def makePycaretModel(subOpt=None, xCol=None, yCol=None, trainData=None, testData
             trainDataL1 = trainData[xyCol].dropna().copy()
             testDataL1 = testData[xyCol].dropna().copy()
 
-#            trainDataL2 = pd.DataFrame(trainDataL1.values, columns=trainDataL1.columns)
-#            testDataL2 = pd.DataFrame(testDataL1.values, columns=testDataL1.columns)
-
-#            trainDataL1 = trainData[xyCol].dropna().reset_index(drop=True)
-#            testDataL1 = testData[xyCol].dropna().reset_index(drop=True)
-
-#            trainDataL2 = pd.DataFrame(trainDataL1.values, columns=trainDataL1.columns).infer_objects()
-#            testDataL2 = pd.DataFrame(testDataL1.values, columns=testDataL1.columns).infer_objects()
-
-
             exp.setup(
                 data=trainDataL1,
                 test_data=testDataL1,
@@ -478,18 +468,6 @@ def makePycaretModel(subOpt=None, xCol=None, yCol=None, trainData=None, testData
                 blendModel = exp.blend_models(estimator_list=modelList, fold=10)
                 tuneModel = exp.tune_model(blendModel, fold=10, choose_better=True)
                 fnlModel = exp.finalize_model(tuneModel)
-#            # 각 모형에 따른 자동 머신러닝
-#            modelList = exp.compare_models(sort='RMSE', n_select=3, budget_time=60)
-#
-#            # 앙상블 모형
-#            blendModel = exp.blend_models(estimator_list=modelList, fold=10)
-#
-#            # 앙상블 파라미터 튜닝
-#            tuneModel = exp.tune_model(blendModel, fold=10, choose_better=True)
-#
-#            # 학습 모형
-#            fnlModel = exp.finalize_model(tuneModel)
-#            #fnlModel = tuneModel
 
             # 학습 모형 저장
             saveModel = subOpt['preDt'].strftime(subOpt['saveModel']).format(srv = subOpt['srv'])
@@ -994,27 +972,27 @@ def subModelProc(sysOpt, cfgDb):
                     tbTmp = f"tmp_{uuid.uuid4().hex}"
 
                     try:
-                        query = text("""
-                                     SELECT pv."pv",
-                                            lf.*
-                                     FROM "tb_pv_data" AS pv
-                                              LEFT JOIN
-                                          "tb_for_data" AS lf ON pv."srv" = lf."srv" AND pv."date_time" = lf."date_time"
-                                     WHERE pv."srv" = :srv
-                                       AND pv.pv IS NOT NULL
-                                       AND (EXTRACT(EPOCH FROM (lf."date_time" - lf."ana_date")) / 3600.0) <= 5
-                                     ORDER BY "srv", "date_time_kst" DESC;
-                                     """)
+                        #query = text("""
+                        #             SELECT pv."pv",
+                        #                    lf.*
+                        #             FROM "tb_pv_data" AS pv
+                        #                      LEFT JOIN
+                        #                  "tb_for_data" AS lf ON pv."srv" = lf."srv" AND pv."date_time" = lf."date_time"
+                        #             WHERE pv."srv" = :srv
+                        #               AND pv.pv IS NOT NULL
+                        #               AND (EXTRACT(EPOCH FROM (lf."date_time" - lf."ana_date")) / 3600.0) <= 5
+                        #             ORDER BY "srv", "date_time_kst" DESC;
+                        #             """)
 
-                        # trainData = pd.DataFrame(session.execute(query, {'srv':srv}))
-                        # trainData = data[data['DATE_TIME_KST'] < pd.to_datetime('2025-01-01')].reset_index(drop=True)
-                        # testData = data[data['DATE_TIME_KST'] >= pd.to_datetime('2025-01-01')].reset_index(drop=True)
-                        data = pd.DataFrame(session.execute(query, {'srv': srv}))
-                        if data['pv'].sum() == 0:
-                            log.info(f"srv : {srv} / pv : {data['pv'].sum()}")
-                            continue
+                        ## trainData = pd.DataFrame(session.execute(query, {'srv':srv}))
+                        ## trainData = data[data['DATE_TIME_KST'] < pd.to_datetime('2025-01-01')].reset_index(drop=True)
+                        ## testData = data[data['DATE_TIME_KST'] >= pd.to_datetime('2025-01-01')].reset_index(drop=True)
+                        #data = pd.DataFrame(session.execute(query, {'srv': srv}))
+                        #if data['pv'].sum() == 0:
+                        #    log.info(f"srv : {srv} / pv : {data['pv'].sum()}")
+                        #    continue
 
-                        trainData, testData = train_test_split(data, test_size=0.2, random_state=int(datetime.datetime.now().timestamp()))
+                        #trainData, testData = train_test_split(data, test_size=0.2, random_state=int(datetime.datetime.now().timestamp()))
 
                         query = text("""
                                      SELECT lf.*
@@ -1215,9 +1193,9 @@ class DtaProcess(object):
 
                 # 비동기 다중 프로세스 개수
                 # 'cpuCoreNum': globalVar['cpuCoreNum'],
-                'cpuCoreNum': '5',
+                #'cpuCoreNum': '5',
                 # 'cpuCoreNum': '10',
-                # 'cpuCoreNum': '1',
+                 'cpuCoreNum': '1',
 
                 # 설정 파일
                 # 'cfgFile': '/HDD/SYSTEMS/PROG/PYTHON/IDE/resources/config/system.cfg',
