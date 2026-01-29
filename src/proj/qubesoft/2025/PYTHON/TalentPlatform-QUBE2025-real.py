@@ -961,11 +961,11 @@ def subPropProc(sysOpt, cfgDb):
         raise e
 
 def subModelProc(sysOpt, cfgDb):
-    try:
-        for i, posInfo in sysOpt['posDataL1'].iterrows():
-            id = posInfo['id']
-            srv = posInfo['srv']
+    for i, posInfo in sysOpt['posDataL1'].iterrows():
+        id = posInfo['id']
+        srv = posInfo['srv']
 
+        try:
             with cfgDb['sessionMake']() as session:
                 with session.begin():
                     conn = session.connection()
@@ -998,16 +998,16 @@ def subModelProc(sysOpt, cfgDb):
 
                         query = text("""
                                      SELECT lf.*
-                                     FROM "tb_for_data" AS lf
-                                     WHERE lf."srv" = :srv
+                                     FROM tb_for_data AS lf
+                                     WHERE lf.srv = :srv
                                        AND (
-                                         "ml" IS NULL
-                                             OR "dl" IS NULL
-                                             OR "ai" IS NULL
-                                             OR "ai2" IS NULL
-                                             OR "ai3" IS NULL
+                                         ml IS NULL
+                                             OR dl IS NULL
+                                             OR ai IS NULL
+                                             OR ai2 IS NULL
+                                             OR ai3 IS NULL
                                          )
-                                     ORDER BY "srv", "date_time_kst" DESC;
+                                     ORDER BY srv, date_time_kst DESC
                                      """)
                         prdData = pd.DataFrame(session.execute(query, {'srv': srv}))
                         if len(prdData) < 1: continue
@@ -1034,7 +1034,7 @@ def subModelProc(sysOpt, cfgDb):
                         # log.info(f'resOrgPycaret : {resOrgPycaret}')
 
                         if resOrgPycaret:
-                            prdVal = exp.predict_model(resOrgPycaret['mlModel'], data=prdData[xCol])['prediction_label']
+                            prdVal = exp.predict_model(resOrgPycaret['mlModel'], data=prdData[xColOrg])['prediction_label']
                             prdData['ml'] = np.where(prdVal > 0, prdVal, 0)
 
                         # ****************************************************************************
@@ -1044,7 +1044,7 @@ def subModelProc(sysOpt, cfgDb):
                         # log.info(f'resOrgH2o : {resOrgH2o}')
 
                         if resOrgH2o:
-                            prdVal = resOrgH2o['mlModel'].predict(h2o.H2OFrame(prdData)).as_data_frame()
+                            prdVal = resOrgH2o['mlModel'].predict(h2o.H2OFrame(prdData[xColOrg])).as_data_frame()
                             prdData['dl'] = np.where(prdVal > 0, prdVal, 0)
 
                         # ****************************************************************************
@@ -1052,6 +1052,11 @@ def subModelProc(sysOpt, cfgDb):
                         # ****************************************************************************
                         resLgb = makeLgbModel(sysOpt['MODEL']['lgb'], xCol, yCol, trainData, testData)
                         # log.info(f'resLgb : {resLgb}')
+
+                        # saveModel = '/HDD/DATA/AI/202601/28/QUBE2025-SRV00017-final-lgb-for-20260128.model'
+                        # log.info(f'[CHECK] saveModel : {saveModel}')
+                        # with open(saveModel, 'rb') as file:
+                        #     fnlModel = pickle.load(file)
 
                         if resLgb:
                             prdVal = resLgb['mlModel'].predict(data=prdData[xCol])
@@ -1064,7 +1069,7 @@ def subModelProc(sysOpt, cfgDb):
                         # log.info(f'resFlaml : {resFlaml}')
 
                         if resFlaml:
-                            prdVal = resFlaml['mlModel'].predict(prdData)
+                            prdVal = resFlaml['mlModel'].predict(prdData[xCol])
                             prdData['ai2'] = np.where(prdVal > 0, prdVal, 0)
 
                         # ****************************************************************************
@@ -1088,10 +1093,10 @@ def subModelProc(sysOpt, cfgDb):
 
                         query = text(f"""
                               INSERT INTO tb_for_data (
-                                    srv, ana_date, date_time, dl, ml, ai, ai2
+                                    srv, ana_date, date_time, dl, ml, ai, ai2, ai3
                               )
                               SELECT
-                                    srv, ana_date, date_time, dl, ml, ai, ai2
+                                    srv, ana_date, date_time, dl, ml, ai, ai2, ai3
                               FROM {tbTmp}
                               ON CONFLICT (srv, ana_date, date_time)
                               DO UPDATE SET
@@ -1099,7 +1104,7 @@ def subModelProc(sysOpt, cfgDb):
                                   ml = excluded.ml,
                                   ai = excluded.ai,
                                   ai2 = excluded.ai2,
-                                  ai3 = excluded.ai3;
+                                  ai3 = excluded.ai3
                            """)
                         result = session.execute(query)
                         log.info(f"id : {id} / result : {result.rowcount}")
@@ -1118,9 +1123,9 @@ def subModelProc(sysOpt, cfgDb):
                         raise e
                     finally:
                         session.execute(text(f"DROP TABLE IF EXISTS {tbTmp}"))
-    except Exception as e:
-        log.error(f'Exception : {e}')
-        raise e
+        except Exception as e:
+            log.error(f'Exception : {e}')
+            # raise e
 
 # ================================================
 # 4. 부 프로그램
@@ -1200,10 +1205,10 @@ class DtaProcess(object):
                  'cpuCoreNum': '5',
 
                 # 설정 파일
+                'cfgDbKey': 'postgresql-qubesoft.iptime.org-qubesoft-dms02',
                 # 'cfgFile': '/HDD/SYSTEMS/PROG/PYTHON/IDE/resources/config/system.cfg',
                 # 'cfgFile': '/vol01/SYSTEMS/INDIAI/PROG/PYTHON/resources/config/system.cfg',
                 'cfgFile': '/SYSTEMS/PROG/PYTHON/resources/config/system.cfg',
-                'cfgDbKey': 'postgresql-qubesoft.iptime.org-qubesoft-dms02',
                 'posDataL1': None,
                 'cfgApiKey': 'pv',
                 'cfgApi': None,
@@ -1252,8 +1257,8 @@ class DtaProcess(object):
                         'saveModelList': "/DATA/AI/*/*/QUBE2025-{srv}-final-lgb-for-*.model",
                         'saveModel': "/DATA/AI/%Y%m/%d/QUBE2025-{srv}-final-lgb-for-%Y%m%d.model",
                         'saveImg': "/DATA/AI/%Y%m/%d/QUBE2025-{srv}-final-lgb-for-%Y%m%d.png",
-                        'isOverWrite': True,
-                        # 'isOverWrite': False,
+                        # 'isOverWrite': True,
+                        'isOverWrite': False,
                         'srv': None,
                         'preDt': datetime.datetime.now(),
                     },
