@@ -1053,11 +1053,6 @@ def subModelProc(sysOpt, cfgDb):
                         resLgb = makeLgbModel(sysOpt['MODEL']['lgb'], xCol, yCol, trainData, testData)
                         # log.info(f'resLgb : {resLgb}')
 
-                        # saveModel = '/HDD/DATA/AI/202601/28/QUBE2025-SRV00017-final-lgb-for-20260128.model'
-                        # log.info(f'[CHECK] saveModel : {saveModel}')
-                        # with open(saveModel, 'rb') as file:
-                        #     fnlModel = pickle.load(file)
-
                         if resLgb:
                             prdVal = resLgb['mlModel'].predict(data=prdData[xCol])
                             prdData['ai'] = np.where(prdVal > 0, prdVal, 0)

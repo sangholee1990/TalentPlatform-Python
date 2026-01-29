@@ -978,11 +978,11 @@ def subPropProc(sysOpt, cfgDb):
         raise e
 
 def subModelProc(sysOpt, cfgDb):
-    try:
-        for i, posInfo in sysOpt['posDataL1'].iterrows():
-            id = posInfo['id']
-            srv = posInfo['srv']
+    for i, posInfo in sysOpt['posDataL1'].iterrows():
+        id = posInfo['id']
+        srv = posInfo['srv']
 
+        try:
             with cfgDb['sessionMake']() as session:
                 with session.begin():
                     conn = session.connection()
@@ -990,15 +990,15 @@ def subModelProc(sysOpt, cfgDb):
 
                     try:
                         query = text("""
-                                     SELECT pv."pv",
+                                     SELECT pv.pv,
                                             lf.*
-                                     FROM "tb_pv_data" AS pv
+                                     FROM tb_pv_data AS pv
                                               LEFT JOIN
-                                          "tb_for_data" AS lf ON pv."srv" = lf."srv" AND pv."date_time" = lf."date_time"
-                                     WHERE pv."srv" = :srv
+                                          tb_for_data AS lf ON pv.srv = lf.srv AND pv.date_time = lf.date_time
+                                     WHERE pv.srv = :srv
                                        AND pv.pv IS NOT NULL AND pv.pv > 0
-                                       AND (EXTRACT(EPOCH FROM (lf."date_time" - lf."ana_date")) / 3600.0) <= 5
-                                     ORDER BY "srv", "date_time_kst" DESC;
+                                       AND (EXTRACT(EPOCH FROM (lf.date_time - lf.ana_date)) / 3600.0) <= 5
+                                     ORDER BY srv, date_time_kst DESC
                                      """)
 
                         # trainData = pd.DataFrame(session.execute(query, {'srv':srv}))
@@ -1013,16 +1013,16 @@ def subModelProc(sysOpt, cfgDb):
 
                         query = text("""
                                      SELECT lf.*
-                                     FROM "tb_for_data" AS lf
-                                     WHERE lf."srv" = :srv
+                                     FROM tb_for_data AS lf
+                                     WHERE lf.srv = :srv
                                        AND (
-                                         "ml" IS NULL
-                                             OR "dl" IS NULL
-                                             OR "ai" IS NULL
-                                             OR "ai2" IS NULL
-                                             OR "ai3" IS NULL
+                                         ml IS NULL
+                                             OR dl IS NULL
+                                             OR ai IS NULL
+                                             OR ai2 IS NULL
+                                             OR ai3 IS NULL
                                          )
-                                     ORDER BY "srv", "date_time_kst" DESC;
+                                     ORDER BY srv, date_time_kst DESC
                                      """)
                         prdData = pd.DataFrame(session.execute(query, {'srv': srv}))
                         if len(prdData) < 1: continue
@@ -1049,7 +1049,7 @@ def subModelProc(sysOpt, cfgDb):
                         # log.info(f'resOrgPycaret : {resOrgPycaret}')
 
                         if resOrgPycaret:
-                            prdVal = exp.predict_model(resOrgPycaret['mlModel'], data=prdData[xCol])['prediction_label']
+                            prdVal = exp.predict_model(resOrgPycaret['mlModel'], data=prdData[xColOrg])['prediction_label']
                             prdData['ml'] = np.where(prdVal > 0, prdVal, 0)
 
                         # ****************************************************************************
@@ -1059,7 +1059,7 @@ def subModelProc(sysOpt, cfgDb):
                         # log.info(f'resOrgH2o : {resOrgH2o}')
 
                         if resOrgH2o:
-                            prdVal = resOrgH2o['mlModel'].predict(h2o.H2OFrame(prdData)).as_data_frame()
+                            prdVal = resOrgH2o['mlModel'].predict(h2o.H2OFrame(prdData[xColOrg])).as_data_frame()
                             prdData['dl'] = np.where(prdVal > 0, prdVal, 0)
 
                         # ****************************************************************************
@@ -1079,7 +1079,7 @@ def subModelProc(sysOpt, cfgDb):
                         # log.info(f'resFlaml : {resFlaml}')
 
                         if resFlaml:
-                            prdVal = resFlaml['mlModel'].predict(prdData)
+                            prdVal = resFlaml['mlModel'].predict(prdData[xCol])
                             prdData['ai2'] = np.where(prdVal > 0, prdVal, 0)
 
                         # ****************************************************************************
@@ -1114,7 +1114,7 @@ def subModelProc(sysOpt, cfgDb):
                                   ml = excluded.ml,
                                   ai = excluded.ai,
                                   ai2 = excluded.ai2,
-                                  ai3 = excluded.ai3;
+                                  ai3 = excluded.ai3
                            """)
                         result = session.execute(query)
                         log.info(f"id : {id} / result : {result.rowcount}")
@@ -1133,9 +1133,9 @@ def subModelProc(sysOpt, cfgDb):
                         raise e
                     finally:
                         session.execute(text(f"DROP TABLE IF EXISTS {tbTmp}"))
-    except Exception as e:
-        log.error(f'Exception : {e}')
-        raise e
+        except Exception as e:
+            log.error(f'Exception : {e}')
+            # raise e
 
 # ================================================
 # 4. 부 프로그램
@@ -1211,7 +1211,7 @@ class DtaProcess(object):
                 # 비동기 다중 프로세스 개수
                 # 'cpuCoreNum': globalVar['cpuCoreNum'],
                 #'cpuCoreNum': '5',
-                'cpuCoreNum': '10',
+                'cpuCoreNum': '5',
                 # 'cpuCoreNum': '1',
 
                 # 설정 파일
