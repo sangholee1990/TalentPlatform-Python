@@ -12,6 +12,7 @@
 # /SYSTEMS/LIB/anaconda3/envs/py39/bin/python /SYSTEMS/PROG/PYTHON/TalentPlatform-QUBE2025-colctAsosDbSave.py
 # nohup /SYSTEMS/LIB/anaconda3/envs/py39/bin/python /SYSTEMS/PROG/PYTHON/TalentPlatform-QUBE2025-colctAsosDbSave.py > /dev/null 2>&1 &
 
+
 import argparse
 import glob
 import logging
@@ -449,8 +450,8 @@ class DtaProcess(object):
                 # 예보시간 시작일, 종료일, 시간 간격 (연 1y, 월 1m, 일 1d, 시간 1h, 분 1t, 초 1s)
                 # 'srtDate': '2025-08-01',
                 # 'endDate': '2026-01-03',
-                # 'srtDate': '2026-01-01',
-                # 'endDate': '2026-01-17',
+                # 'srtDate': '2025-12-16',
+                # 'endDate': '2025-12-20',
 
                 # 설정 정보
                 # 'cfgFile': '/HDD/SYSTEMS/PROG/PYTHON/IDE/resources/config/system.cfg',

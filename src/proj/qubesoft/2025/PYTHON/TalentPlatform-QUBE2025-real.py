@@ -822,7 +822,7 @@ def subPvProc(sysOpt, cfgDb):
                 id = posInfo['id']
                 srv = posInfo['srv']
 
-                if (srv, dtDateInfo.strftime('%Y-%m-%d')) in cfgDataList: continue
+#                if (srv, dtDateInfo.strftime('%Y-%m-%d')) in cfgDataList: continue
 
                 reqUrl = dtDateInfo.strftime(sysOpt['cfgApi']['url']).format(id=id, token=sysOpt['cfgApi']['token'])
                 res = requests.get(reqUrl)
@@ -950,7 +950,7 @@ def subPropProc(sysOpt, cfgDb):
         dtEndDate = pd.to_datetime(sysOpt['endDate'], format='%Y-%m-%d')
         dtDateList = pd.date_range(start=dtSrtDate, end=dtEndDate, freq=sysOpt['UMKR']['invDate'])
         for dtDateInfo in reversed(dtDateList):
-            if (dtDateInfo.strftime('%Y-%m-%d %H:%M'), ) in cfgDataList: continue
+#            if (dtDateInfo.strftime('%Y-%m-%d %H:%M'), ) in cfgDataList: continue
 
             # propUmkr(sysOpt, dtDateInfo)
             pool.apply_async(propUmkr, args=(sysOpt, dtDateInfo))
@@ -1104,15 +1104,6 @@ def subModelProc(sysOpt, cfgDb):
                         result = session.execute(query)
                         log.info(f"id : {id} / result : {result.rowcount}")
 
-                        if result.rowcount > 0:
-                            query = text("""
-                                         UPDATE tb_stn_info
-                                         SET init_yn  = 'N',
-                                             mod_date = now()
-                                         WHERE id = :id
-                                         """)
-                            session.execute(query, {'id': id})
-
                     except Exception as e:
                         log.error(f"Exception : {e}")
                         raise e
@@ -1139,8 +1130,8 @@ class DtaProcess(object):
     if (platform.system() == 'Windows'):
         contextPath = os.getcwd() if env in 'local' else 'E:/04. TalentPlatform/Github/TalentPlatform-Python'
     else:
-        contextPath = os.getcwd() if env in 'local' else '/SYSTEMS/PROG/PYTHON/IDE'
-        # contextPath = os.getcwd() if env in 'local' else '/SYSTEMS/PROG/PYTHON'
+        #contextPath = os.getcwd() if env in 'local' else '/SYSTEMS/PROG/PYTHON/IDE'
+        contextPath = os.getcwd() if env in 'local' else '/SYSTEMS/PROG/PYTHON'
 
     prjName = 'test'
     serviceName = 'QUBE2025'
@@ -1197,7 +1188,7 @@ class DtaProcess(object):
                 # 'cpuCoreNum': globalVar['cpuCoreNum'],
                 #'cpuCoreNum': '5',
                 # 'cpuCoreNum': '10',
-                 'cpuCoreNum': '5',
+                 'cpuCoreNum': '3',
 
                 # 설정 파일
                 'cfgDbKey': 'postgresql-qubesoft.iptime.org-qubesoft-dms02',

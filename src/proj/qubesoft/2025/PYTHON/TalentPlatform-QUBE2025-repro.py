@@ -1154,8 +1154,8 @@ class DtaProcess(object):
     if (platform.system() == 'Windows'):
         contextPath = os.getcwd() if env in 'local' else 'E:/04. TalentPlatform/Github/TalentPlatform-Python'
     else:
-        contextPath = os.getcwd() if env in 'local' else '/SYSTEMS/PROG/PYTHON/IDE'
-        # contextPath = os.getcwd() if env in 'local' else '/SYSTEMS/PROG/PYTHON'
+        # contextPath = os.getcwd() if env in 'local' else '/SYSTEMS/PROG/PYTHON/IDE'
+        contextPath = os.getcwd() if env in 'local' else '/SYSTEMS/PROG/PYTHON'
 
     prjName = 'test'
     serviceName = 'QUBE2025'
@@ -1211,7 +1211,7 @@ class DtaProcess(object):
                 # 비동기 다중 프로세스 개수
                 # 'cpuCoreNum': globalVar['cpuCoreNum'],
                 #'cpuCoreNum': '5',
-                'cpuCoreNum': '5',
+                'cpuCoreNum': '10',
                 # 'cpuCoreNum': '1',
 
                 # 설정 파일
