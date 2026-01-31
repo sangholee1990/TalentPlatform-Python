@@ -1297,6 +1297,8 @@ class DtaProcess(object):
                 posDataL1 = pd.DataFrame(session.execute(query))
                 log.info(f'posDataL1 : {posDataL1}')
 
+            if posDataL1 is None or len(posDataL1) < 1 or len(posDataL1['lat']) < 1: return
+
             sysOpt['posDataL1'] = posDataL1
             sysOpt['lat1D'] = np.array(posDataL1['lat'])
             sysOpt['lon1D'] = np.array(posDataL1['lon'])

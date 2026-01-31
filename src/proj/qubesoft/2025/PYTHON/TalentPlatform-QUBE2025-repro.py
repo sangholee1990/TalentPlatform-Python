@@ -1009,7 +1009,10 @@ def subModelProc(sysOpt, cfgDb):
                             log.info(f"srv : {srv} / cnt : {len(data)}")
                             query = text("""
                                          UPDATE tb_stn_info
-                                         SET comment  = 'PVErr'
+                                         SET oper_yn = 'N',
+                                             init_yn = 'N',
+                                             comment  = 'PV Err',
+                                             mod_date = now()
                                          WHERE id = :id
                                          """)
                             session.execute(query, {'id': id})
@@ -1326,6 +1329,8 @@ class DtaProcess(object):
 
                 posDataL1 = pd.DataFrame(session.execute(query))
                 log.info(f'posDataL1 : {posDataL1}')
+
+            if posDataL1 is None or len(posDataL1) < 1 or len(posDataL1['lat']) < 1: return
 
             sysOpt['posDataL1'] = posDataL1
             sysOpt['lat1D'] = np.array(posDataL1['lat'])
