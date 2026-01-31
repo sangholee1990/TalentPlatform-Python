@@ -706,113 +706,118 @@ def propUmkr(sysOpt, dtDateInfo):
         if len(umDataList) < 1: return
         umDataL1 = xr.concat(umDataList, dim='time')
 
-        posDataL1 = sysOpt['posDataL1']
-        for kk, posInfo in posDataL1.iterrows():
+        umDataL5 = pd.DataFrame()
+        for kk, posInfo in sysOpt['posDataL1'].iterrows():
             srv = posInfo['srv']
-            posLat = posInfo['lat']
-            posLon = posInfo['lon']
+            lat = posInfo['lat']
+            lon = posInfo['lon']
 
-            # DB 적재
-            with cfgDb['sessionMake']() as session:
-                with session.begin():
-                    tbTmp = f"tmp_{uuid.uuid4().hex}"
-                    conn = session.connection()
+            try:
+                umDataL2 = umDataL1.sel(lat=lat, lon=lon)
+                umDataL3 = umDataL2.to_dataframe().dropna().reset_index(drop=False)
+                umDataL3['ana_date'] = umDataL3['anaTime']
+                umDataL3['date_time'] = umDataL3['time']
+                umDataL3['date_time_kst'] = umDataL3['time'] + dtKst
+                umDataL3['srv'] = srv
 
-                    try:
-                        umDataL2 = umDataL1.sel(lat=posLat, lon=posLon)
-                        umDataL3 = umDataL2.to_dataframe().dropna().reset_index(drop=False)
-                        umDataL3['ana_date'] = umDataL3['anaTime']
-                        umDataL3['date_time'] = umDataL3['time']
-                        umDataL3['date_time_kst'] = umDataL3['time'] + dtKst
-                        umDataL3['srv'] = srv
+                umDataL3['ta'] = umDataL3['TA'] - 273.15
+                umDataL3['td'] = umDataL3['TD'] - 273.15
+                umDataL3['pa'] = umDataL3['PA'] / 100.0
+                umDataL3['ca_tot'] = np.where(umDataL3['CA_TOT'] < 0, 0, umDataL3['CA_TOT'])
+                umDataL3['ca_tot'] = np.where(umDataL3['ca_tot'] > 1, 1, umDataL3['ca_tot'])
+                umDataL3['wd'] = umDataL3['WD']
+                umDataL3['ws'] = umDataL3['WS']
+                umDataL3['hm'] = umDataL3['HM']
+                umDataL3['swr'] = umDataL3['SWR']
 
-                        umDataL3['ta'] = umDataL3['TA'] - 273.15
-                        umDataL3['td'] = umDataL3['TD'] - 273.15
-                        umDataL3['pa'] = umDataL3['PA'] / 100.0
-                        umDataL3['ca_tot'] = np.where(umDataL3['CA_TOT'] < 0, 0, umDataL3['CA_TOT'])
-                        umDataL3['ca_tot'] = np.where(umDataL3['ca_tot'] > 1, 1, umDataL3['ca_tot'])
-                        umDataL3['wd'] = umDataL3['WD']
-                        umDataL3['ws'] = umDataL3['WS']
-                        umDataL3['hm'] = umDataL3['HM']
-                        umDataL3['swr'] = umDataL3['SWR']
+                solPosInfo = pvlib.solarposition.get_solarposition(umDataL3['date_time'], lat, lon,
+                                                                   pressure=umDataL3['pa'] * 100.0,
+                                                                   temperature=umDataL3['ta'], method='nrel_numpy')
+                umDataL3['ext_rad'] = pvlib.irradiance.get_extra_radiation(solPosInfo.index.dayofyear)
+                umDataL3['sza'] = solPosInfo['zenith'].values
+                umDataL3['aza'] = solPosInfo['azimuth'].values
+                umDataL3['et'] = solPosInfo['equation_of_time'].values
 
-                        solPosInfo = pvlib.solarposition.get_solarposition(umDataL3['date_time'], posLat, posLon,
-                                                                           pressure=umDataL3['pa'] * 100.0,
-                                                                           temperature=umDataL3['ta'], method='nrel_numpy')
-                        umDataL3['ext_rad'] = pvlib.irradiance.get_extra_radiation(solPosInfo.index.dayofyear)
-                        umDataL3['sza'] = solPosInfo['zenith'].values
-                        umDataL3['aza'] = solPosInfo['azimuth'].values
-                        umDataL3['et'] = solPosInfo['equation_of_time'].values
+                site = location.Location(latitude=lat, longitude=lon, tz='Asia/Seoul')
+                clearInsInfo = site.get_clearsky(pd.to_datetime(umDataL3['date_time'].values))
+                umDataL3['ghi_clr'] = clearInsInfo['ghi'].values
+                umDataL3['dni_clr'] = clearInsInfo['dni'].values
+                umDataL3['dhi_clr'] = clearInsInfo['dhi'].values
 
-                        site = location.Location(latitude=posLat, longitude=posLon, tz='Asia/Seoul')
-                        clearInsInfo = site.get_clearsky(pd.to_datetime(umDataL3['date_time'].values))
-                        umDataL3['ghi_clr'] = clearInsInfo['ghi'].values
-                        umDataL3['dni_clr'] = clearInsInfo['dni'].values
-                        umDataL3['dhi_clr'] = clearInsInfo['dhi'].values
+                turbidity = pvlib.clearsky.lookup_linke_turbidity(pd.to_datetime(umDataL3['date_time'].values), lat,
+                                                                  lon, interp_turbidity=True)
+                umDataL3['turb'] = turbidity.values
 
-                        turbidity = pvlib.clearsky.lookup_linke_turbidity(pd.to_datetime(umDataL3['date_time'].values), posLat, posLon, interp_turbidity=True)
-                        umDataL3['turb'] = turbidity.values
+                dbColList = [
+                    "srv", "ana_date", "date_time", "date_time_kst",
+                    "ca_tot", "hm", "pa", "ta", "td", "wd", "ws",
+                    "sza", "aza", "et", "turb",
+                    "ghi_clr", "dni_clr", "dhi_clr", "swr", "ext_rad"
+                ]
+                umDataL4 = umDataL3[dbColList].copy()
+                umDataL5 = pd.concat([umDataL5, umDataL4], ignore_index=True)
+            except Exception as e:
+                log.error(f'Exception : {e}')
 
-                        dbColList = [
-                            "srv", "ana_date", "date_time", "date_time_kst",
-                            "ca_tot", "hm", "pa", "ta", "td", "wd", "ws",
-                            "sza", "aza", "et", "turb",
-                            "ghi_clr", "dni_clr", "dhi_clr", "swr", "ext_rad"
-                        ]
-                        umDataL4 = umDataL3[dbColList].copy()
+        umDataL6 = umDataL5.drop_duplicates(subset=['srv', 'ana_date', 'date_time'], keep='last')
+        if umDataL6 is None or len(umDataL6) < 1: return
+        with cfgDb['sessionMake']() as session:
+            with session.begin():
+                tbTmp = f"tmp_{uuid.uuid4().hex}"
+                conn = session.connection()
 
-                        # DB 적재
-                        umDataL4.to_sql(
-                            name=tbTmp,
-                            con=conn,
-                            if_exists="replace",
-                            index=False,
-                            chunksize=1000
+                try:
+                    umDataL6.to_sql(
+                        name=tbTmp,
+                        con=conn,
+                        if_exists="replace",
+                        index=False,
+                        chunksize=1000
+                    )
+
+                    query = text(f"""
+                        INSERT INTO tb_for_data (
+                              srv, ana_date, date_time, date_time_kst,
+                              ca_tot, hm, pa, ta, td, wd, ws,
+                              sza, aza, et, turb,
+                              ghi_clr, dni_clr, dhi_clr, swr, ext_rad,
+                              reg_date
                         )
-
-                        query = text(f"""
-                            INSERT INTO tb_for_data (
-                                  srv, ana_date, date_time, date_time_kst,
-                                  ca_tot, hm, pa, ta, td, wd, ws,
-                                  sza, aza, et, turb,
-                                  ghi_clr, dni_clr, dhi_clr, swr, ext_rad,
-                                  reg_date
-                            )
-                            SELECT
-                                  srv, ana_date, date_time, date_time_kst,
-                                  ca_tot, hm, pa, ta, td, wd, ws,
-                                  sza, aza, et, turb,
-                                  ghi_clr, dni_clr, dhi_clr, swr, ext_rad,
-                                  now()
-                            FROM {tbTmp}
-                            ON CONFLICT (srv, ana_date, date_time)
-                            DO UPDATE SET
-                                  date_time_kst = excluded.date_time_kst,
-                                  ca_tot = excluded.ca_tot, 
-                                  hm = excluded.hm, 
-                                  pa = excluded.pa, 
-                                  ta = excluded.ta, 
-                                  td = excluded.td, 
-                                  wd = excluded.wd, 
-                                  ws = excluded.ws,
-                                  sza = excluded.sza, 
-                                  aza = excluded.aza, 
-                                  et = excluded.et, 
-                                  turb = excluded.turb,
-                                  ghi_clr = excluded.ghi_clr, 
-                                  dni_clr = excluded.dni_clr, 
-                                  dhi_clr = excluded.dhi_clr, 
-                                  swr = excluded.swr,
-                                  ext_rad = excluded.ext_rad,
-                                  mod_date = now();
-                              """)
-                        result = session.execute(query)
-                        log.info(f"dtDateInfo : {dtDateInfo} / srv : {srv} / result : {result.rowcount}")
-                    except Exception as e:
-                        log.error(f"Exception : {e}")
-                        raise e
-                    finally:
-                        session.execute(text(f"DROP TABLE IF EXISTS {tbTmp}"))
+                        SELECT
+                              srv, ana_date, date_time, date_time_kst,
+                              ca_tot, hm, pa, ta, td, wd, ws,
+                              sza, aza, et, turb,
+                              ghi_clr, dni_clr, dhi_clr, swr, ext_rad,
+                              now()
+                        FROM {tbTmp}
+                        ON CONFLICT (srv, ana_date, date_time)
+                        DO UPDATE SET
+                              date_time_kst = excluded.date_time_kst,
+                              ca_tot = excluded.ca_tot, 
+                              hm = excluded.hm, 
+                              pa = excluded.pa, 
+                              ta = excluded.ta, 
+                              td = excluded.td, 
+                              wd = excluded.wd, 
+                              ws = excluded.ws,
+                              sza = excluded.sza, 
+                              aza = excluded.aza, 
+                              et = excluded.et, 
+                              turb = excluded.turb,
+                              ghi_clr = excluded.ghi_clr, 
+                              dni_clr = excluded.dni_clr, 
+                              dhi_clr = excluded.dhi_clr, 
+                              swr = excluded.swr,
+                              ext_rad = excluded.ext_rad,
+                              mod_date = now();
+                          """)
+                    result = session.execute(query)
+                    log.info(f"dtDateInfo : {dtDateInfo} / result : {result.rowcount}")
+                except Exception as e:
+                    log.error(f"Exception : {e}")
+                    raise e
+                finally:
+                    session.execute(text(f"DROP TABLE IF EXISTS {tbTmp}"))
     except Exception as e:
         log.error(f'Exception : {e}')
 
