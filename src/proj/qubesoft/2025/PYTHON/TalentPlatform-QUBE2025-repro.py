@@ -993,120 +993,119 @@ def subModelProc(sysOpt, cfgDb):
                     conn = session.connection()
                     tbTmp = f"tmp_{uuid.uuid4().hex}"
 
+                    query = text("""
+                                SELECT pv."pv",
+                                       lf.*
+                                FROM "tb_pv_data" AS pv
+                                         LEFT JOIN
+                                     "tb_for_data" AS lf ON pv."srv" = lf."srv" AND pv."date_time" = lf."date_time"
+                                WHERE pv."srv" = :srv
+                                  AND pv.pv IS NOT NULL
+                                  AND (EXTRACT(EPOCH FROM (lf."date_time" - lf."ana_date")) / 3600.0) <= 5
+                                ORDER BY "srv", "date_time_kst" DESC;
+                                """)
+
+                    data = pd.DataFrame(session.execute(query, {'srv': srv}))
+                    if data is None or len(data) < 1 or len(data['pv']) < 10000:
+                        log.info(f"srv : {srv} / cnt : {len(data)}")
+                        query = text("""
+                                     UPDATE tb_stn_info
+                                     SET oper_yn  = 'N',
+                                         init_yn  = 'N',
+                                         comment  = 'PV Err',
+                                         mod_date = now()
+                                     WHERE id = :id
+                                     """)
+                        session.execute(query, {'id': id})
+                        continue
+
+                    trainData, testData = train_test_split(data, test_size=0.2, random_state=int(datetime.datetime.now().timestamp()))
+
+                    # trainData = None
+                    # testData = None
+
+                    query = text("""
+                                 SELECT lf.*
+                                 FROM tb_for_data AS lf
+                                 WHERE lf.srv = :srv
+                                   AND (
+                                     ml IS NULL
+                                         OR dl IS NULL
+                                         OR ai IS NULL
+                                         OR ai2 IS NULL
+                                         OR ai3 IS NULL
+                                     )
+                                 ORDER BY srv, date_time_kst DESC
+                                 """)
+                    prdData = pd.DataFrame(session.execute(query, {'srv': srv}))
+                    if prdData is None or len(prdData) < 1: continue
+
+                    for key in ['orgPycaret', 'orgH2o', 'lgb', 'flaml', 'pycaret']:
+                        sysOpt['MODEL'][key]['srv'] = srv
+
+                    exp = RegressionExperiment()
+                    sysOpt['MODEL']['orgPycaret']['exp'] = exp
+                    sysOpt['MODEL']['pycaret']['exp'] = exp
+
+                    # ****************************************************************************
+                    # 독립/종속 변수 설정
+                    # ****************************************************************************
+                    xColOrg = ['ca_tot', 'hm', 'pa', 'ta', 'td', 'wd', 'ws', 'sza', 'aza', 'et', 'swr']
+                    yColOrg = 'pv'
+                    xCol = ['ca_tot', 'hm', 'pa', 'ta', 'td', 'wd', 'ws', 'sza', 'aza', 'et', 'turb', 'ghi_clr', 'dni_clr', 'dhi_clr', 'swr', 'ext_rad']
+                    yCol = 'pv'
+
+                    # ****************************************************************************
+                    # 과거 학습 모델링 (orgPycaret)
+                    # ****************************************************************************
+                    resOrgPycaret = makePycaretModel(sysOpt['MODEL']['orgPycaret'], xColOrg, yColOrg, trainData, testData)
+                    # log.info(f'resOrgPycaret : {resOrgPycaret}')
+
+                    if resOrgPycaret:
+                        prdVal = exp.predict_model(resOrgPycaret['mlModel'], data=prdData[xColOrg])['prediction_label']
+                        prdData['ml'] = np.where(prdVal > 0, prdVal, 0)
+
+                    # ****************************************************************************
+                    # 과거 학습 모델링 (orgH2o)
+                    # ****************************************************************************
+                    resOrgH2o = makeH2oModel(sysOpt['MODEL']['orgH2o'], xColOrg, yColOrg, trainData, testData)
+                    # log.info(f'resOrgH2o : {resOrgH2o}')
+
+                    if resOrgH2o:
+                        prdVal = resOrgH2o['mlModel'].predict(h2o.H2OFrame(prdData[xColOrg])).as_data_frame()
+                        prdData['dl'] = np.where(prdVal > 0, prdVal, 0)
+
+                    # ****************************************************************************
+                    # 수동 학습 모델링 (lgb)
+                    # ****************************************************************************
+                    resLgb = makeLgbModel(sysOpt['MODEL']['lgb'], xCol, yCol, trainData, testData)
+                    # log.info(f'resLgb : {resLgb}')
+
+                    if resLgb:
+                        prdVal = resLgb['mlModel'].predict(data=prdData[xCol])
+                        prdData['ai'] = np.where(prdVal > 0, prdVal, 0)
+
+                    # ****************************************************************************
+                    # 자동 학습 모델링 (flaml)
+                    # ****************************************************************************
+                    resFlaml = makeFlamlModel(sysOpt['MODEL']['flaml'], xCol, yCol, trainData, testData)
+                    # log.info(f'resFlaml : {resFlaml}')
+
+                    if resFlaml:
+                        prdVal = resFlaml['mlModel'].predict(prdData[xCol])
+                        prdData['ai2'] = np.where(prdVal > 0, prdVal, 0)
+
+                    # ****************************************************************************
+                    # 자동 학습 모델링 (pycaret)
+                    # ****************************************************************************
+                    resPycaret = makePycaretModel(sysOpt['MODEL']['pycaret'], xColOrg, yColOrg, trainData, testData)
+                    # log.info(f'resPycaret : {resPycaret}')
+
+                    if resPycaret:
+                        prdVal = exp.predict_model(resPycaret['mlModel'], data=prdData[xCol])['prediction_label']
+                        prdData['ai3'] = np.where(prdVal > 0, prdVal, 0)
+
                     try:
-                        query = text("""
-                                     SELECT pv.pv,
-                                            lf.*
-                                     FROM tb_pv_data AS pv
-                                              LEFT JOIN
-                                          tb_for_data AS lf ON pv.srv = lf.srv AND pv.date_time = lf.date_time
-                                     WHERE pv.srv = :srv
-                                       AND pv.pv IS NOT NULL AND pv.pv > 0
-                                       AND (EXTRACT(EPOCH FROM (lf.date_time - lf.ana_date)) / 3600.0) <= 5
-                                     ORDER BY srv, date_time_kst DESC
-                                     """)
-
-                        # trainData = pd.DataFrame(session.execute(query, {'srv':srv}))
-                        # trainData = data[data['DATE_TIME_KST'] < pd.to_datetime('2025-01-01')].reset_index(drop=True)
-                        # testData = data[data['DATE_TIME_KST'] >= pd.to_datetime('2025-01-01')].reset_index(drop=True)
-                        data = pd.DataFrame(session.execute(query, {'srv': srv}))
-                        if len(data) < 1 or len(data['pv']) < 10000:
-                            log.info(f"srv : {srv} / cnt : {len(data)}")
-                            query = text("""
-                                         UPDATE tb_stn_info
-                                         SET oper_yn = 'N',
-                                             init_yn = 'N',
-                                             comment  = 'PV Err',
-                                             mod_date = now()
-                                         WHERE id = :id
-                                         """)
-                            session.execute(query, {'id': id})
-                            continue
-
-                        trainData, testData = train_test_split(data, test_size=0.2, random_state=int(datetime.datetime.now().timestamp()))
-
-                        query = text("""
-                                     SELECT lf.*
-                                     FROM tb_for_data AS lf
-                                     WHERE lf.srv = :srv
-                                       AND (
-                                         ml IS NULL
-                                             OR dl IS NULL
-                                             OR ai IS NULL
-                                             OR ai2 IS NULL
-                                             OR ai3 IS NULL
-                                         )
-                                     ORDER BY srv, date_time_kst DESC
-                                     """)
-                        prdData = pd.DataFrame(session.execute(query, {'srv': srv}))
-                        if len(prdData) < 1: continue
-
-                        for key in ['orgPycaret', 'orgH2o', 'lgb', 'flaml', 'pycaret']:
-                            sysOpt['MODEL'][key]['srv'] = srv
-
-                        exp = RegressionExperiment()
-                        sysOpt['MODEL']['orgPycaret']['exp'] = exp
-                        sysOpt['MODEL']['pycaret']['exp'] = exp
-
-                        # ****************************************************************************
-                        # 독립/종속 변수 설정
-                        # ****************************************************************************
-                        xColOrg = ['ca_tot', 'hm', 'pa', 'ta', 'td', 'wd', 'ws', 'sza', 'aza', 'et', 'swr']
-                        yColOrg = 'pv'
-                        xCol = ['ca_tot', 'hm', 'pa', 'ta', 'td', 'wd', 'ws', 'sza', 'aza', 'et', 'turb', 'ghi_clr', 'dni_clr', 'dhi_clr', 'swr', 'ext_rad']
-                        yCol = 'pv'
-
-                        # ****************************************************************************
-                        # 과거 학습 모델링 (orgPycaret)
-                        # ****************************************************************************
-                        resOrgPycaret = makePycaretModel(sysOpt['MODEL']['orgPycaret'], xColOrg, yColOrg, trainData, testData)
-                        # log.info(f'resOrgPycaret : {resOrgPycaret}')
-
-                        if resOrgPycaret:
-                            prdVal = exp.predict_model(resOrgPycaret['mlModel'], data=prdData[xColOrg])['prediction_label']
-                            prdData['ml'] = np.where(prdVal > 0, prdVal, 0)
-
-                        # ****************************************************************************
-                        # 과거 학습 모델링 (orgH2o)
-                        # ****************************************************************************
-                        resOrgH2o = makeH2oModel(sysOpt['MODEL']['orgH2o'], xColOrg, yColOrg, trainData, testData)
-                        # log.info(f'resOrgH2o : {resOrgH2o}')
-
-                        if resOrgH2o:
-                            prdVal = resOrgH2o['mlModel'].predict(h2o.H2OFrame(prdData[xColOrg])).as_data_frame()
-                            prdData['dl'] = np.where(prdVal > 0, prdVal, 0)
-
-                        # ****************************************************************************
-                        # 수동 학습 모델링 (lgb)
-                        # ****************************************************************************
-                        resLgb = makeLgbModel(sysOpt['MODEL']['lgb'], xCol, yCol, trainData, testData)
-                        # log.info(f'resLgb : {resLgb}')
-
-                        if resLgb:
-                            prdVal = resLgb['mlModel'].predict(data=prdData[xCol])
-                            prdData['ai'] = np.where(prdVal > 0, prdVal, 0)
-
-                        # ****************************************************************************
-                        # 자동 학습 모델링 (flaml)
-                        # ****************************************************************************
-                        resFlaml = makeFlamlModel(sysOpt['MODEL']['flaml'], xCol, yCol, trainData, testData)
-                        # log.info(f'resFlaml : {resFlaml}')
-
-                        if resFlaml:
-                            prdVal = resFlaml['mlModel'].predict(prdData[xCol])
-                            prdData['ai2'] = np.where(prdVal > 0, prdVal, 0)
-
-                        # ****************************************************************************
-                        # 자동 학습 모델링 (pycaret)
-                        # ****************************************************************************
-                        resPycaret = makePycaretModel(sysOpt['MODEL']['pycaret'], xColOrg, yColOrg, trainData, testData)
-                        # log.info(f'resPycaret : {resPycaret}')
-                        
-                        if resPycaret:
-                            prdVal = exp.predict_model(resPycaret['mlModel'], data=prdData[xCol])['prediction_label']
-                            prdData['ai3'] = np.where(prdVal > 0, prdVal, 0)
-
-                        # DB 적재
                         prdData.to_sql(
                             name=tbTmp,
                             con=conn,
@@ -1136,13 +1135,12 @@ def subModelProc(sysOpt, cfgDb):
                         if result.rowcount > 0:
                             query = text("""
                                          UPDATE tb_stn_info
-                                         SET oper_yn = 'Y',
+                                         SET oper_yn  = 'Y',
                                              init_yn  = 'N',
                                              mod_date = now()
                                          WHERE id = :id
                                          """)
                             session.execute(query, {'id': id})
-
                     except Exception as e:
                         log.error(f"Exception : {e}")
                         raise e
@@ -1150,7 +1148,6 @@ def subModelProc(sysOpt, cfgDb):
                         session.execute(text(f"DROP TABLE IF EXISTS {tbTmp}"))
         except Exception as e:
             log.error(f'Exception : {e}')
-            # raise e
 
 # ================================================
 # 4. 부 프로그램

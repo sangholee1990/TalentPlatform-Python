@@ -220,7 +220,8 @@ def initLog(env=None, contextPath=None, prjName=None):
 
     # handler 생성
     streamHandler = logging.StreamHandler()
-    fileHandler = logging.handlers.TimedRotatingFileHandler(filename=saveLogFile, when='midnight', interval=1, backupCount=30, encoding='utf-8')
+    fileHandler = logging.handlers.TimedRotatingFileHandler(filename=saveLogFile, when='midnight', interval=1,
+                                                            backupCount=30, encoding='utf-8')
 
     # logger instance에 format 설정
     streamHandler.setFormatter(format)
@@ -258,7 +259,8 @@ def initGlobalVar(env=None, contextPath=None, prjName=None):
         , 'logPath': contextPath if env in 'local' else os.path.join(contextPath, 'resources', 'log', prjName)
         , 'mapPath': contextPath if env in 'local' else os.path.join(contextPath, 'resources', 'mapInfo')
         , 'sysPath': contextPath if env in 'local' else os.path.join(contextPath, 'resources', 'config', 'system.cfg')
-        , 'seleniumPath': contextPath if env in 'local' else os.path.join(contextPath, 'resources', 'config', 'selenium')
+        ,
+        'seleniumPath': contextPath if env in 'local' else os.path.join(contextPath, 'resources', 'config', 'selenium')
         , 'fontPath': contextPath if env in 'local' else os.path.join(contextPath, 'resources', 'config', 'fontInfo')
     }
 
@@ -302,6 +304,7 @@ def initArgument(globalVar, inParams):
 
     return globalVar
 
+
 def cartesian(latitude, longitude, elevation=0):
     latitude = latitude * (math.pi / 180)
     longitude = longitude * (math.pi / 180)
@@ -313,8 +316,8 @@ def cartesian(latitude, longitude, elevation=0):
 
     return (X, Y, Z)
 
-def initCfgInfo(config, key):
 
+def initCfgInfo(config, key):
     result = None
 
     try:
@@ -326,7 +329,8 @@ def initCfgInfo(config, key):
         dbName = config.get(key, 'dbName')
 
         # engine = sqlalchemy.create_engine(f"postgresql+psycopg2://{dbUser}:{dbPwd}@{dbHost}:{dbPort}/{dbName}", echo=False, pool_timeout=60*5, pool_recycle=3600)
-        engine = sqlalchemy.create_engine(f"postgresql+psycopg2://{dbUser}:{dbPwd}@{dbHost}:{dbPort}/{dbName}", echo=False, poolclass=NullPool)
+        engine = sqlalchemy.create_engine(f"postgresql+psycopg2://{dbUser}:{dbPwd}@{dbHost}:{dbPort}/{dbName}",
+                                          echo=False, poolclass=NullPool)
         sessionMake = sessionmaker(bind=engine, autocommit=False, autoflush=False)
         # session = sessionMake()
 
@@ -348,8 +352,8 @@ def initCfgInfo(config, key):
         log.error(f'Exception : {e}')
         return result
 
-def makeLgbModel(subOpt=None, xCol=None, yCol=None, trainData=None, testData=None):
 
+def makeLgbModel(subOpt=None, xCol=None, yCol=None, trainData=None, testData=None):
     # log.info(f'[START] makeLgbModel')
     # log.info(f'[CHECK] subOpt : {subOpt}')
 
@@ -357,7 +361,7 @@ def makeLgbModel(subOpt=None, xCol=None, yCol=None, trainData=None, testData=Non
 
     try:
 
-        saveModelList = sorted(glob.glob(subOpt['saveModelList'].format(srv = subOpt['srv'])), reverse=True)
+        saveModelList = sorted(glob.glob(subOpt['saveModelList'].format(srv=subOpt['srv'])), reverse=True)
 
         # 학습 모델이 없을 경우
         if (subOpt['isOverWrite']) or (len(saveModelList) < 1):
@@ -400,7 +404,7 @@ def makeLgbModel(subOpt=None, xCol=None, yCol=None, trainData=None, testData=Non
             )
 
             # 학습 모형 저장
-            saveModel = subOpt['preDt'].strftime(subOpt['saveModel']).format(srv = subOpt['srv'])
+            saveModel = subOpt['preDt'].strftime(subOpt['saveModel']).format(srv=subOpt['srv'])
             log.info(f'[CHECK] saveModel : {saveModel}')
             os.makedirs(os.path.dirname(saveModel), exist_ok=True)
             with open(saveModel, 'wb') as file:
@@ -438,15 +442,15 @@ def makeLgbModel(subOpt=None, xCol=None, yCol=None, trainData=None, testData=Non
         log.error(f"Exception : {e}")
         return result
 
-def makePycaretModel(subOpt=None, xCol=None, yCol=None, trainData=None, testData=None):
 
+def makePycaretModel(subOpt=None, xCol=None, yCol=None, trainData=None, testData=None):
     # log.info(f'[START] makePycaretModel')
     # log.info(f'[CHECK] subOpt : {subOpt}')
 
     result = None
 
     try:
-        saveModelList = sorted(glob.glob(subOpt['saveModelList'].format(srv = subOpt['srv'])), reverse=True)
+        saveModelList = sorted(glob.glob(subOpt['saveModelList'].format(srv=subOpt['srv'])), reverse=True)
 
         # 학습 모델이 없을 경우
         exp = subOpt['exp']
@@ -471,7 +475,7 @@ def makePycaretModel(subOpt=None, xCol=None, yCol=None, trainData=None, testData
                 fnlModel = exp.finalize_model(tuneModel)
 
             # 학습 모형 저장
-            saveModel = subOpt['preDt'].strftime(subOpt['saveModel']).format(srv = subOpt['srv'])
+            saveModel = subOpt['preDt'].strftime(subOpt['saveModel']).format(srv=subOpt['srv'])
             log.info(f'[CHECK] saveModel : {saveModel}')
             os.makedirs(os.path.dirname(saveModel), exist_ok=True)
             exp.save_model(fnlModel, saveModel)
@@ -493,15 +497,15 @@ def makePycaretModel(subOpt=None, xCol=None, yCol=None, trainData=None, testData
         log.error(f"Exception : {e}")
         return result
 
-def makeFlamlModel(subOpt=None, xCol=None, yCol=None, trainData=None, testData=None):
 
+def makeFlamlModel(subOpt=None, xCol=None, yCol=None, trainData=None, testData=None):
     # log.info(f'[START] makeFlamlModel')
     # log.info(f'[CHECK] subOpt : {subOpt}')
 
     result = None
 
     try:
-        saveModelList = sorted(glob.glob(subOpt['saveModelList'].format(srv = subOpt['srv'])), reverse=True)
+        saveModelList = sorted(glob.glob(subOpt['saveModelList'].format(srv=subOpt['srv'])), reverse=True)
 
         # 학습 모델이 없을 경우
         if (subOpt['isOverWrite']) or (len(saveModelList) < 1):
@@ -526,19 +530,20 @@ def makeFlamlModel(subOpt=None, xCol=None, yCol=None, trainData=None, testData=N
                 # , metric='accuracy'
 
                 # , ensemble = False
-                , ensemble = True
+                , ensemble=True
                 # , seed = int(subOpt['preDt'].timestamp())
-                , seed = int(datetime.datetime.now().timestamp())
+                , seed=int(datetime.datetime.now().timestamp())
                 , time_budget=60
                 # , time_budget=600
             )
 
             # 각 모형에 따른 자동 머신러닝
-            fnlModel.fit(X_train=trainDataL1[xCol], y_train=trainDataL1[yCol], X_val=testDataL1[xCol], y_val=testDataL1[yCol])
+            fnlModel.fit(X_train=trainDataL1[xCol], y_train=trainDataL1[yCol], X_val=testDataL1[xCol],
+                         y_val=testDataL1[yCol])
             # fnlModel.fit(X_train=trainDataL1[xCol], y_train=trainDataL1[yCol], n_jobs=12, n_concurrent_trials=4)
 
             # 학습 모형 저장
-            saveModel = subOpt['preDt'].strftime(subOpt['saveModel']).format(srv = subOpt['srv'])
+            saveModel = subOpt['preDt'].strftime(subOpt['saveModel']).format(srv=subOpt['srv'])
             log.info(f"[CHECK] saveModel : {saveModel}")
             os.makedirs(os.path.dirname(saveModel), exist_ok=True)
 
@@ -564,15 +569,15 @@ def makeFlamlModel(subOpt=None, xCol=None, yCol=None, trainData=None, testData=N
         log.error(f"Exception : {e}")
         return result
 
-def makeH2oModel(subOpt=None, xCol=None, yCol=None, trainData=None, testData=None):
 
+def makeH2oModel(subOpt=None, xCol=None, yCol=None, trainData=None, testData=None):
     # log.info(f'[START] makeH2oModel')
     # log.info(f'[CHECK] subOpt : {subOpt}')
 
     result = None
 
     try:
-        saveModelList = sorted(glob.glob(subOpt['saveModelList'].format(srv = subOpt['srv'])), reverse=True)
+        saveModelList = sorted(glob.glob(subOpt['saveModelList'].format(srv=subOpt['srv'])), reverse=True)
 
         if (not subOpt['isInit']):
             h2o.init()
@@ -586,17 +591,19 @@ def makeH2oModel(subOpt=None, xCol=None, yCol=None, trainData=None, testData=Non
             trainDataL1 = trainData[xyCol].dropna().copy()
             testDataL1 = testData[xyCol].dropna().copy()
 
-            #dlModel = H2OAutoML(max_models=20, max_runtime_secs=60 * 1, balance_classes=True, seed=int(datetime.datetime.now().strftime('%Y%m%d%H%M%S')))
+            # dlModel = H2OAutoML(max_models=20, max_runtime_secs=60 * 1, balance_classes=True, seed=int(datetime.datetime.now().strftime('%Y%m%d%H%M%S')))
             # dlModel = H2OAutoML(max_models=20, max_runtime_secs=60 * 1, balance_classes=True, seed=int(subOpt['preDt'].timestamp()))
-            dlModel = H2OAutoML(max_models=20, max_runtime_secs=60 * 1, balance_classes=True, seed=int(datetime.datetime.now().timestamp()))
+            dlModel = H2OAutoML(max_models=20, max_runtime_secs=60 * 1, balance_classes=True,
+                                seed=int(datetime.datetime.now().timestamp()))
 
             # 각 모형에 따른 자동 머신러닝
-            dlModel.train(x=xCol, y=yCol, training_frame=h2o.H2OFrame(trainDataL1), validation_frame=h2o.H2OFrame(testDataL1))
+            dlModel.train(x=xCol, y=yCol, training_frame=h2o.H2OFrame(trainDataL1),
+                          validation_frame=h2o.H2OFrame(testDataL1))
 
             fnlModel = dlModel.get_best_model()
 
             # 학습 모형 저장
-            saveModel = subOpt['preDt'].strftime(subOpt['saveModel']).format(srv = subOpt['srv'])
+            saveModel = subOpt['preDt'].strftime(subOpt['saveModel']).format(srv=subOpt['srv'])
             log.info(f"[CHECK] saveModel : {saveModel}")
             os.makedirs(os.path.dirname(saveModel), exist_ok=True)
 
@@ -668,10 +675,14 @@ def propUmkr(sysOpt, dtDateInfo):
                             , 'TA': (('anaTime', 'time', 'lat', 'lon'), (TA).reshape(1, 1, len(lat1D), len(lon1D)))
                             , 'TD': (('anaTime', 'time', 'lat', 'lon'), (TD).reshape(1, 1, len(lat1D), len(lon1D)))
                             , 'HM': (('anaTime', 'time', 'lat', 'lon'), (HM).reshape(1, 1, len(lat1D), len(lon1D)))
-                            , 'lowCA': (('anaTime', 'time', 'lat', 'lon'), (lowCA).reshape(1, 1, len(lat1D), len(lon1D)))
-                            , 'medCA': (('anaTime', 'time', 'lat', 'lon'), (medCA).reshape(1, 1, len(lat1D), len(lon1D)))
-                            , 'higCA': (('anaTime', 'time', 'lat', 'lon'), (higCA).reshape(1, 1, len(lat1D), len(lon1D)))
-                            , 'CA_TOT': (('anaTime', 'time', 'lat', 'lon'),(CA_TOT).reshape(1, 1, len(lat1D), len(lon1D)))
+                            ,
+                            'lowCA': (('anaTime', 'time', 'lat', 'lon'), (lowCA).reshape(1, 1, len(lat1D), len(lon1D)))
+                            ,
+                            'medCA': (('anaTime', 'time', 'lat', 'lon'), (medCA).reshape(1, 1, len(lat1D), len(lon1D)))
+                            ,
+                            'higCA': (('anaTime', 'time', 'lat', 'lon'), (higCA).reshape(1, 1, len(lat1D), len(lon1D)))
+                            , 'CA_TOT': (('anaTime', 'time', 'lat', 'lon'),
+                                         (CA_TOT).reshape(1, 1, len(lat1D), len(lon1D)))
                             , 'SWR': (('anaTime', 'time', 'lat', 'lon'), (SWR).reshape(1, 1, len(lat1D), len(lon1D)))
                         }
                         , coords={
@@ -805,13 +816,14 @@ def propUmkr(sysOpt, dtDateInfo):
     except Exception as e:
         log.error(f'Exception : {e}')
 
+
 def subPvProc(sysOpt, cfgDb):
     try:
         with cfgDb['sessionMake']() as session:
             query = text("""
                          SELECT srv, date_time
                          FROM tb_pv_data
-                         WHERE pv > 0 
+                         WHERE pv > 0
                            AND date_time BETWEEN :srtDate AND :endDate;
                          """)
             cfgData = pd.DataFrame(session.execute(query, {'srtDate': sysOpt['srtDate'], 'endDate': sysOpt['endDate']}))
@@ -828,7 +840,7 @@ def subPvProc(sysOpt, cfgDb):
                 id = posInfo['id']
                 srv = posInfo['srv']
 
-#                if (srv, dtDateInfo.strftime('%Y-%m-%d')) in cfgDataList: continue
+                #                if (srv, dtDateInfo.strftime('%Y-%m-%d')) in cfgDataList: continue
 
                 reqUrl = dtDateInfo.strftime(sysOpt['cfgApi']['url']).format(id=id, token=sysOpt['cfgApi']['token'])
                 res = requests.get(reqUrl)
@@ -891,9 +903,11 @@ def subPvProc(sysOpt, cfgDb):
         log.error(f'Exception : {e}')
         raise e
 
+
 def initWorker(cfbDbInfo):
     global cfgDb
     cfgDb = cfbDbInfo
+
 
 def subPropProc(sysOpt, cfgDb):
     try:
@@ -956,7 +970,7 @@ def subPropProc(sysOpt, cfgDb):
         dtEndDate = pd.to_datetime(sysOpt['endDate'], format='%Y-%m-%d')
         dtDateList = pd.date_range(start=dtSrtDate, end=dtEndDate, freq=sysOpt['UMKR']['invDate'])
         for dtDateInfo in reversed(dtDateList):
-#            if (dtDateInfo.strftime('%Y-%m-%d %H:%M'), ) in cfgDataList: continue
+            #            if (dtDateInfo.strftime('%Y-%m-%d %H:%M'), ) in cfgDataList: continue
 
             # propUmkr(sysOpt, dtDateInfo)
             pool.apply_async(propUmkr, args=(sysOpt, dtDateInfo))
@@ -977,113 +991,122 @@ def subModelProc(sysOpt, cfgDb):
                     conn = session.connection()
                     tbTmp = f"tmp_{uuid.uuid4().hex}"
 
+                    # query = text("""
+                    #              SELECT pv."pv",
+                    #                     lf.*
+                    #              FROM "tb_pv_data" AS pv
+                    #                       LEFT JOIN
+                    #                   "tb_for_data" AS lf ON pv."srv" = lf."srv" AND pv."date_time" = lf."date_time"
+                    #              WHERE pv."srv" = :srv
+                    #                AND pv.pv IS NOT NULL
+                    #                AND (EXTRACT(EPOCH FROM (lf."date_time" - lf."ana_date")) / 3600.0) <= 5
+                    #              ORDER BY "srv", "date_time_kst" DESC;
+                    #              """)
+                    #
+                    # data = pd.DataFrame(session.execute(query, {'srv': srv}))
+                    # if data is None or len(data) < 1 or len(data['pv']) < 10000:
+                    #     log.info(f"srv : {srv} / cnt : {len(data)}")
+                    #     query = text("""
+                    #                  UPDATE tb_stn_info
+                    #                  SET oper_yn  = 'N',
+                    #                      init_yn  = 'N',
+                    #                      comment  = 'PV Err',
+                    #                      mod_date = now()
+                    #                  WHERE id = :id
+                    #                  """)
+                    #     session.execute(query, {'id': id})
+                    #     continue
+                    #
+                    # trainData, testData = train_test_split(data, test_size=0.2,
+                    #                                        random_state=int(datetime.datetime.now().timestamp()))
+
+                    trainData = None
+                    testData = None
+
+                    query = text("""
+                                 SELECT lf.*
+                                 FROM tb_for_data AS lf
+                                 WHERE lf.srv = :srv
+                                   AND (
+                                     ml IS NULL
+                                         OR dl IS NULL
+                                         OR ai IS NULL
+                                         OR ai2 IS NULL
+                                         OR ai3 IS NULL
+                                     )
+                                 ORDER BY srv, date_time_kst DESC
+                                 """)
+                    prdData = pd.DataFrame(session.execute(query, {'srv': srv}))
+                    if prdData is None or len(prdData) < 1: continue
+
+                    for key in ['orgPycaret', 'orgH2o', 'lgb', 'flaml', 'pycaret']:
+                        sysOpt['MODEL'][key]['srv'] = srv
+
+                    exp = RegressionExperiment()
+                    sysOpt['MODEL']['orgPycaret']['exp'] = exp
+                    sysOpt['MODEL']['pycaret']['exp'] = exp
+
+                    # ****************************************************************************
+                    # 독립/종속 변수 설정
+                    # ****************************************************************************
+                    xColOrg = ['ca_tot', 'hm', 'pa', 'ta', 'td', 'wd', 'ws', 'sza', 'aza', 'et', 'swr']
+                    yColOrg = 'pv'
+                    xCol = ['ca_tot', 'hm', 'pa', 'ta', 'td', 'wd', 'ws', 'sza', 'aza', 'et', 'turb', 'ghi_clr',
+                            'dni_clr', 'dhi_clr', 'swr', 'ext_rad']
+                    yCol = 'pv'
+
+                    # ****************************************************************************
+                    # 과거 학습 모델링 (orgPycaret)
+                    # ****************************************************************************
+                    resOrgPycaret = makePycaretModel(sysOpt['MODEL']['orgPycaret'], xColOrg, yColOrg, trainData,
+                                                     testData)
+                    # log.info(f'resOrgPycaret : {resOrgPycaret}')
+
+                    if resOrgPycaret:
+                        prdVal = exp.predict_model(resOrgPycaret['mlModel'], data=prdData[xColOrg])['prediction_label']
+                        prdData['ml'] = np.where(prdVal > 0, prdVal, 0)
+
+                    # ****************************************************************************
+                    # 과거 학습 모델링 (orgH2o)
+                    # ****************************************************************************
+                    resOrgH2o = makeH2oModel(sysOpt['MODEL']['orgH2o'], xColOrg, yColOrg, trainData, testData)
+                    # log.info(f'resOrgH2o : {resOrgH2o}')
+
+                    if resOrgH2o:
+                        prdVal = resOrgH2o['mlModel'].predict(h2o.H2OFrame(prdData[xColOrg])).as_data_frame()
+                        prdData['dl'] = np.where(prdVal > 0, prdVal, 0)
+
+                    # ****************************************************************************
+                    # 수동 학습 모델링 (lgb)
+                    # ****************************************************************************
+                    resLgb = makeLgbModel(sysOpt['MODEL']['lgb'], xCol, yCol, trainData, testData)
+                    # log.info(f'resLgb : {resLgb}')
+
+                    if resLgb:
+                        prdVal = resLgb['mlModel'].predict(data=prdData[xCol])
+                        prdData['ai'] = np.where(prdVal > 0, prdVal, 0)
+
+                    # ****************************************************************************
+                    # 자동 학습 모델링 (flaml)
+                    # ****************************************************************************
+                    resFlaml = makeFlamlModel(sysOpt['MODEL']['flaml'], xCol, yCol, trainData, testData)
+                    # log.info(f'resFlaml : {resFlaml}')
+
+                    if resFlaml:
+                        prdVal = resFlaml['mlModel'].predict(prdData[xCol])
+                        prdData['ai2'] = np.where(prdVal > 0, prdVal, 0)
+
+                    # ****************************************************************************
+                    # 자동 학습 모델링 (pycaret)
+                    # ****************************************************************************
+                    resPycaret = makePycaretModel(sysOpt['MODEL']['pycaret'], xColOrg, yColOrg, trainData, testData)
+                    # log.info(f'resPycaret : {resPycaret}')
+
+                    if resPycaret:
+                        prdVal = exp.predict_model(resPycaret['mlModel'], data=prdData[xCol])['prediction_label']
+                        prdData['ai3'] = np.where(prdVal > 0, prdVal, 0)
+
                     try:
-                        #query = text("""
-                        #             SELECT pv."pv",
-                        #                    lf.*
-                        #             FROM "tb_pv_data" AS pv
-                        #                      LEFT JOIN
-                        #                  "tb_for_data" AS lf ON pv."srv" = lf."srv" AND pv."date_time" = lf."date_time"
-                        #             WHERE pv."srv" = :srv
-                        #               AND pv.pv IS NOT NULL
-                        #               AND (EXTRACT(EPOCH FROM (lf."date_time" - lf."ana_date")) / 3600.0) <= 5
-                        #             ORDER BY "srv", "date_time_kst" DESC;
-                        #             """)
-
-                        ## trainData = pd.DataFrame(session.execute(query, {'srv':srv}))
-                        ## trainData = data[data['DATE_TIME_KST'] < pd.to_datetime('2025-01-01')].reset_index(drop=True)
-                        ## testData = data[data['DATE_TIME_KST'] >= pd.to_datetime('2025-01-01')].reset_index(drop=True)
-                        #data = pd.DataFrame(session.execute(query, {'srv': srv}))
-                        #if data['pv'].sum() == 0:
-                        #    log.info(f"srv : {srv} / pv : {data['pv'].sum()}")
-                        #    continue
-
-                        #trainData, testData = train_test_split(data, test_size=0.2, random_state=int(datetime.datetime.now().timestamp()))
-                        trainData = None
-                        testData = None
-
-                        query = text("""
-                                     SELECT lf.*
-                                     FROM tb_for_data AS lf
-                                     WHERE lf.srv = :srv
-                                       AND (
-                                         ml IS NULL
-                                             OR dl IS NULL
-                                             OR ai IS NULL
-                                             OR ai2 IS NULL
-                                             OR ai3 IS NULL
-                                         )
-                                     ORDER BY srv, date_time_kst DESC
-                                     """)
-                        prdData = pd.DataFrame(session.execute(query, {'srv': srv}))
-                        if len(prdData) < 1: continue
-
-                        for key in ['orgPycaret', 'orgH2o', 'lgb', 'flaml', 'pycaret']:
-                            sysOpt['MODEL'][key]['srv'] = srv
-
-                        exp = RegressionExperiment()
-                        sysOpt['MODEL']['orgPycaret']['exp'] = exp
-                        sysOpt['MODEL']['pycaret']['exp'] = exp
-
-                        # ****************************************************************************
-                        # 독립/종속 변수 설정
-                        # ****************************************************************************
-                        xColOrg = ['ca_tot', 'hm', 'pa', 'ta', 'td', 'wd', 'ws', 'sza', 'aza', 'et', 'swr']
-                        yColOrg = 'pv'
-                        xCol = ['ca_tot', 'hm', 'pa', 'ta', 'td', 'wd', 'ws', 'sza', 'aza', 'et', 'turb', 'ghi_clr', 'dni_clr', 'dhi_clr', 'swr', 'ext_rad']
-                        yCol = 'pv'
-
-                        # ****************************************************************************
-                        # 과거 학습 모델링 (orgPycaret)
-                        # ****************************************************************************
-                        resOrgPycaret = makePycaretModel(sysOpt['MODEL']['orgPycaret'], xColOrg, yColOrg, trainData, testData)
-                        # log.info(f'resOrgPycaret : {resOrgPycaret}')
-
-                        if resOrgPycaret:
-                            prdVal = exp.predict_model(resOrgPycaret['mlModel'], data=prdData[xColOrg])['prediction_label']
-                            prdData['ml'] = np.where(prdVal > 0, prdVal, 0)
-
-                        # ****************************************************************************
-                        # 과거 학습 모델링 (orgH2o)
-                        # ****************************************************************************
-                        resOrgH2o = makeH2oModel(sysOpt['MODEL']['orgH2o'], xColOrg, yColOrg, trainData, testData)
-                        # log.info(f'resOrgH2o : {resOrgH2o}')
-
-                        if resOrgH2o:
-                            prdVal = resOrgH2o['mlModel'].predict(h2o.H2OFrame(prdData[xColOrg])).as_data_frame()
-                            prdData['dl'] = np.where(prdVal > 0, prdVal, 0)
-
-                        # ****************************************************************************
-                        # 수동 학습 모델링 (lgb)
-                        # ****************************************************************************
-                        resLgb = makeLgbModel(sysOpt['MODEL']['lgb'], xCol, yCol, trainData, testData)
-                        # log.info(f'resLgb : {resLgb}')
-
-                        if resLgb:
-                            prdVal = resLgb['mlModel'].predict(data=prdData[xCol])
-                            prdData['ai'] = np.where(prdVal > 0, prdVal, 0)
-
-                        # ****************************************************************************
-                        # 자동 학습 모델링 (flaml)
-                        # ****************************************************************************
-                        resFlaml = makeFlamlModel(sysOpt['MODEL']['flaml'], xCol, yCol, trainData, testData)
-                        # log.info(f'resFlaml : {resFlaml}')
-
-                        if resFlaml:
-                            prdVal = resFlaml['mlModel'].predict(prdData[xCol])
-                            prdData['ai2'] = np.where(prdVal > 0, prdVal, 0)
-
-                        # ****************************************************************************
-                        # 자동 학습 모델링 (pycaret)
-                        # ****************************************************************************
-                        resPycaret = makePycaretModel(sysOpt['MODEL']['pycaret'], xColOrg, yColOrg, trainData, testData)
-                        # log.info(f'resPycaret : {resPycaret}')
-                        
-                        if resPycaret:
-                            prdVal = exp.predict_model(resPycaret['mlModel'], data=prdData[xCol])['prediction_label']
-                            prdData['ai3'] = np.where(prdVal > 0, prdVal, 0)
-
-                        # DB 적재
                         prdData.to_sql(
                             name=tbTmp,
                             con=conn,
@@ -1109,7 +1132,6 @@ def subModelProc(sysOpt, cfgDb):
                            """)
                         result = session.execute(query)
                         log.info(f"id : {id} / result : {result.rowcount}")
-
                     except Exception as e:
                         log.error(f"Exception : {e}")
                         raise e
@@ -1117,13 +1139,11 @@ def subModelProc(sysOpt, cfgDb):
                         session.execute(text(f"DROP TABLE IF EXISTS {tbTmp}"))
         except Exception as e:
             log.error(f'Exception : {e}')
-            # raise e
 
 # ================================================
 # 4. 부 프로그램
 # ================================================
 class DtaProcess(object):
-
     # ================================================================================================
     # 환경변수 설정
     # ================================================================================================
@@ -1136,7 +1156,7 @@ class DtaProcess(object):
     if (platform.system() == 'Windows'):
         contextPath = os.getcwd() if env in 'local' else 'E:/04. TalentPlatform/Github/TalentPlatform-Python'
     else:
-        #contextPath = os.getcwd() if env in 'local' else '/SYSTEMS/PROG/PYTHON/IDE'
+        # contextPath = os.getcwd() if env in 'local' else '/SYSTEMS/PROG/PYTHON/IDE'
         contextPath = os.getcwd() if env in 'local' else '/SYSTEMS/PROG/PYTHON'
 
     prjName = 'test'
@@ -1192,9 +1212,9 @@ class DtaProcess(object):
 
                 # 비동기 다중 프로세스 개수
                 # 'cpuCoreNum': globalVar['cpuCoreNum'],
-                #'cpuCoreNum': '5',
+                # 'cpuCoreNum': '5',
                 # 'cpuCoreNum': '10',
-                 'cpuCoreNum': '3',
+                'cpuCoreNum': '3',
 
                 # 설정 파일
                 'cfgDbKey': 'postgresql-qubesoft.iptime.org-qubesoft-dms02',
@@ -1217,11 +1237,13 @@ class DtaProcess(object):
                     # 'inpUmFile': '/DATA/COLCT/UMKR/%Y%m/%d/UMKR_l015_unis_H{ef}_%Y%m%d%H%M.grb2',
                     'cfgUmFile': '/DATA/MODEL/202001/01/UMKR_l015_unis_H00_202001010000.grb2',
                     'inpUmFile': '/DATA/MODEL/%Y%m/%d/UMKR_l015_unis_H{ef}_%Y%m%d%H%M.grb2',
-                    'ef00': ['00', '01', '02', '03', '04', '05', '15', '16', '17', '18', '19', '20', '21', '22', '23','24', '25', '26', '27', '28', '29', '30', '31', '32', '33', '34', '35', '36', '37', '38'],
+                    'ef00': ['00', '01', '02', '03', '04', '05', '15', '16', '17', '18', '19', '20', '21', '22', '23',
+                             '24', '25', '26', '27', '28', '29', '30', '31', '32', '33', '34', '35', '36', '37', '38'],
                     # 'ef00': ['00', '01', '02', '03', '04', '05'],
                     'ef06': ['00', '01', '02', '03', '04', '05'],
                     'ef12': ['00', '01', '02', '03', '04', '05'],
-                    'ef18': ['00', '01', '02', '03', '04', '05', '21', '22', '23', '24', '25', '26', '27', '28', '29','30', '31', '32', '33', '34', '35', '36', '37', '38', '39', '40', '41', '42', '43', '44'],
+                    'ef18': ['00', '01', '02', '03', '04', '05', '21', '22', '23', '24', '25', '26', '27', '28', '29',
+                             '30', '31', '32', '33', '34', '35', '36', '37', '38', '39', '40', '41', '42', '43', '44'],
                     # 'ef18': ['00', '01', '02', '03', '04', '05'],
                     'invDate': '6h',
                 },
@@ -1319,6 +1341,7 @@ class DtaProcess(object):
 
         finally:
             log.info('[END] {}'.format("exec"))
+
 
 # ================================================
 # 3. 주 프로그램
