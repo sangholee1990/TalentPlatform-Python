@@ -875,7 +875,7 @@ def subPvProc(sysOpt, cfgDb):
                             mod_date = now();
                         """)
                     result = session.execute(query)
-                    log.info(f"id : {id} / dtDateInfo : {dtDateInfo} / id : {id} / result : {result.rowcount}")
+                    log.info(f"id : {id} / dtDateInfo : {dtDateInfo} / result : {result.rowcount}")
                 except Exception as e:
                     log.error(f"Exception : {e}")
                     raise e
