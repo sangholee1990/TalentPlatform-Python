@@ -1131,7 +1131,8 @@ def subModelProc(sysOpt, cfgDb):
                         if result.rowcount > 0:
                             query = text("""
                                          UPDATE tb_stn_info
-                                         SET init_yn  = 'N',
+                                         SET oper_yn = 'Y',
+                                             init_yn  = 'N',
                                              mod_date = now()
                                          WHERE id = :id
                                          """)
