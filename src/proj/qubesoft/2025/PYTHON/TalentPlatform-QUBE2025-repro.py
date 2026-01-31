@@ -1007,6 +1007,12 @@ def subModelProc(sysOpt, cfgDb):
                         data = pd.DataFrame(session.execute(query, {'srv': srv}))
                         if len(data) < 1 or len(data['pv']) < 10000:
                             log.info(f"srv : {srv} / cnt : {len(data)}")
+                            query = text("""
+                                         UPDATE tb_stn_info
+                                         SET comment  = 'PVErr'
+                                         WHERE id = :id
+                                         """)
+                            session.execute(query, {'id': id})
                             continue
 
                         trainData, testData = train_test_split(data, test_size=0.2, random_state=int(datetime.datetime.now().timestamp()))
