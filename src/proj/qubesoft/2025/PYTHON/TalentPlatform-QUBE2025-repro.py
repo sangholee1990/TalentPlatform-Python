@@ -1000,7 +1000,7 @@ def subModelProc(sysOpt, cfgDb):
                                          LEFT JOIN
                                      "tb_for_data" AS lf ON pv."srv" = lf."srv" AND pv."date_time" = lf."date_time"
                                 WHERE pv."srv" = :srv
-                                  AND pv.pv IS NOT NULL
+                                  AND pv.pv IS NOT NULL AND pv.pv > 0
                                   AND (EXTRACT(EPOCH FROM (lf."date_time" - lf."ana_date")) / 3600.0) <= 5
                                 ORDER BY "srv", "date_time_kst" DESC;
                                 """)
