@@ -475,8 +475,8 @@ class DtaProcess(object):
                 # 자료 저장
                 # 'saveFileList': '/DATA/OUTPUT/LSH0605/*_{cityMat}.xlsx',
                 # 'saveFile': '/DATA/OUTPUT/LSH0605/%Y%m%d_{cityMat}.xlsx',
-                'saveFileList': 'G:/내 드라이브/shlee/04. TalentPlatform/[재능플랫폼] 최종납품/[완료] LSH0605. Python을 이용한 중국 빅데이터 사이트 조사 및 셀레늄 기반 로그인, 기본 및 부가정보 수집 및 추출/20260127_결과/*_{cityMat}.xlsx',
-                'saveFile': 'G:/내 드라이브/shlee/04. TalentPlatform/[재능플랫폼] 최종납품/[완료] LSH0605. Python을 이용한 중국 빅데이터 사이트 조사 및 셀레늄 기반 로그인, 기본 및 부가정보 수집 및 추출/20260127_결과/%Y%m%d_{cityMat}.xlsx',
+                'saveFileList': 'G:/내 드라이브/shlee/04. TalentPlatform/[재능플랫폼] 최종납품/[완료] LSH0605. Python을 이용한 중국 빅데이터 사이트 조사 및 셀레늄 기반 로그인, 기본 및 부가정보 수집 및 추출/20260201_결과/*_{cityMat}.xlsx',
+                'saveFile': 'G:/내 드라이브/shlee/04. TalentPlatform/[재능플랫폼] 최종납품/[완료] LSH0605. Python을 이용한 중국 빅데이터 사이트 조사 및 셀레늄 기반 로그인, 기본 및 부가정보 수집 및 추출/20260201_결과/%Y%m%d_{cityMat}.xlsx',
             }
 
             # ==========================================================================================================
@@ -653,22 +653,22 @@ class DtaProcess(object):
                 # ==========================================================================================================
                 # 상세정보 추출
                 # ==========================================================================================================
-                # for idx, info in data.iterrows():
-                #     webLink = info['Web_link']
-                #
-                #     try:
-                #         driver.get(webLink)
-                #
-                #         if driver.current_url == sysOpt['verfUrl']:
-                #             initLogin(driver, sysOpt)
-                #             driver.get(webLink)
-                #
-                #         divId = wait.until(EC.presence_of_element_located((By.ID, "divFullText")))
-                #         fullArt = textProp(divId.text) if divId else None
-                #     except Exception:
-                #         fullArt = None
-                #     data.loc[idx, 'Full_Article'] = fullArt
-                #     # log.info(f'[CHECK] fullArt : {len(fullArt)}')
+                for idx, info in data.iterrows():
+                    webLink = info['Web_link']
+
+                    try:
+                        driver.get(webLink)
+
+                        if driver.current_url == sysOpt['verfUrl']:
+                            initLogin(driver, sysOpt)
+                            driver.get(webLink)
+
+                        divId = wait.until(EC.presence_of_element_located((By.ID, "divFullText")))
+                        fullArt = textProp(divId.text) if divId else None
+                    except Exception:
+                        fullArt = None
+                    data.loc[idx, 'Full_Article'] = fullArt
+                    # log.info(f'[CHECK] fullArt : {len(fullArt)}')
 
                 # ==========================================================================================================
                 # 자료 저장
