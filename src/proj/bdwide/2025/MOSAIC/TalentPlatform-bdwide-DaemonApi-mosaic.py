@@ -102,7 +102,6 @@ from enum import Enum
 from pydantic import BaseModel, Field, constr, validator
 from konlpy.tag import Okt
 from collections import Counter
-import re
 import nltk
 from nltk.corpus import stopwords
 # nltk.download('stopwords')
@@ -283,8 +282,10 @@ sysOpt = {
     'cfgDb': None,
 
     # 메일 정보
-    'email': 'sangho.lee.1990@gmail.com',
-    'appPwd': 'euwg acvz pqzv ukea',
+    # 'email': 'sangho.lee.1990@gmail.com',
+    # 'appPwd': 'euwg acvz pqzv ukea',
+    'email': 'bdwide365@naver.com',
+    'appPwd': '2NEKLD67T7FS',
 }
 
 app = FastAPI(
@@ -328,63 +329,63 @@ sysOpt['cfgDb'] = initCfgInfo(config, sysOpt['cfgDbKey'])
 async def redirect_to_docs():
     return RedirectResponse(url="/docs")
 
-# @app.post(f"/api/insTripodData", dependencies=[Depends(chkKey)])
-@app.post(f"/api/insTripodData")
-async def selBrandModel(
-    sn: str = Form(..., description='시리얼 번호', examples=['sn']),
-    sid: int = Form(..., description='디바이스', examples=[1]),
-    weg: float = Form(..., description="무게", examples=[99.5]),
-    bat: int = Form(..., description="배터리 잔량", examples=[100]),
-    inv: int = Form(..., description="전송 간격", examples=[1]),
-):
-    """
-    기능\n
-        트라이포드랩 API - 데이터 적재\n
-    파라미터\n
-        sn: 시리얼 번호\n
-        sid: 디바이스 ID\n
-        weg: 무게\n
-        bat: 배터리 잔량\n
-        inv: 전송 간격\n
-    """
-    try:
-        if sn is None: return resResponse("fail", 400, f"시리얼 번호 없음, sn : {sn}")
-        if sid is None: return resResponse("fail", 400, f"디바이스 없음, sid : {sid}")
-        if weg is None: return resResponse("fail", 400, f"무게 없음, weg : {weg}")
-        if bat is None: return resResponse("fail", 400, f"배터리 잔량 없음, bat : {bat}")
-        if inv is None: return resResponse("fail", 400, f"전송 간격 없음, inv : {inv}")
-
-        params = {
-            "sn": sn,
-            "sid": sid,
-            "weg": weg,
-            "bat": bat,
-            "inv": inv
-        }
-        log.info(f"params : {params}")
-
-        with sysOpt['cfgDb']['sessionMake']() as session:
-            with session.begin():
-                query = text(f"""
-                        INSERT INTO TB_TRIPOD_DATA (
-                            TM, SN, SID, WEG, BAT, INV, REG_DATE
-                        )
-                        VALUES ( 
-                            NOW(), :sn, :sid, :weg, :bat, :inv, NOW()
-                        )
-                        ON DUPLICATE KEY UPDATE
-                            WEG = VALUES(WEG),
-                            BAT = VALUES(BAT),
-                            INV = VALUES(INV),
-                            MOD_DATE = NOW();
-                    """)
-                result = session.execute(query, params)
-                log.info(f"result : {result}")
-                return resResponse("succ", 200, "처리 완료", result.rowcount, result)
-
-    except Exception as e:
-        log.error(f'Exception : {e}')
-        raise HTTPException(status_code=400)
+# # @app.post(f"/api/insTripodData", dependencies=[Depends(chkKey)])
+# @app.post(f"/api/insTripodData")
+# async def selBrandModel(
+#     sn: str = Form(..., description='시리얼 번호', examples=['sn']),
+#     sid: int = Form(..., description='디바이스', examples=[1]),
+#     weg: float = Form(..., description="무게", examples=[99.5]),
+#     bat: int = Form(..., description="배터리 잔량", examples=[100]),
+#     inv: int = Form(..., description="전송 간격", examples=[1]),
+# ):
+#     """
+#     기능\n
+#         트라이포드랩 API - 데이터 적재\n
+#     파라미터\n
+#         sn: 시리얼 번호\n
+#         sid: 디바이스 ID\n
+#         weg: 무게\n
+#         bat: 배터리 잔량\n
+#         inv: 전송 간격\n
+#     """
+#     try:
+#         if sn is None: return resResponse("fail", 400, f"시리얼 번호 없음, sn : {sn}")
+#         if sid is None: return resResponse("fail", 400, f"디바이스 없음, sid : {sid}")
+#         if weg is None: return resResponse("fail", 400, f"무게 없음, weg : {weg}")
+#         if bat is None: return resResponse("fail", 400, f"배터리 잔량 없음, bat : {bat}")
+#         if inv is None: return resResponse("fail", 400, f"전송 간격 없음, inv : {inv}")
+#
+#         params = {
+#             "sn": sn,
+#             "sid": sid,
+#             "weg": weg,
+#             "bat": bat,
+#             "inv": inv
+#         }
+#         log.info(f"params : {params}")
+#
+#         with sysOpt['cfgDb']['sessionMake']() as session:
+#             with session.begin():
+#                 query = text(f"""
+#                         INSERT INTO TB_TRIPOD_DATA (
+#                             TM, SN, SID, WEG, BAT, INV, REG_DATE
+#                         )
+#                         VALUES (
+#                             NOW(), :sn, :sid, :weg, :bat, :inv, NOW()
+#                         )
+#                         ON DUPLICATE KEY UPDATE
+#                             WEG = VALUES(WEG),
+#                             BAT = VALUES(BAT),
+#                             INV = VALUES(INV),
+#                             MOD_DATE = NOW();
+#                     """)
+#                 result = session.execute(query, params)
+#                 log.info(f"result : {result}")
+#                 return resResponse("succ", 200, "처리 완료", result.rowcount, result)
+#
+#     except Exception as e:
+#         log.error(f'Exception : {e}')
+#         raise HTTPException(status_code=400)
 
 
 # @app.post(f"/api/sendEmail", dependencies=[Depends(chkKey)])
@@ -393,66 +394,68 @@ async def sendEmail(
     recvEmail: str = Form(..., description='받는 사람 이메일', examples=['backjoi@naver.com']),
     subject: str = Form(..., description='이메일 제목', examples=['테스트 이메일입니다.']),
     content: str = Form(..., description='이메일 내용', examples=['안녕하세요. 테스트 이메일 내용입니다.']),
-    # file: UploadFile = File(None, description='첨부파일')
-    file: Optional[UploadFile] = File(None, description='첨부파일')
+    file: Optional[UploadFile] = File(..., description='첨부파일')
 ):
     """
     기능\n
-        Gmail을 통한 이메일 발송 API\n
+        이메일 발송 API\n
     파라미터\n
-        recvEmail: 받는 사람 이메일\n
+        recvEmail: 이메일 받는 사람\n
         subject: 이메일 제목\n
         content: 이메일 내용\n
-        file: 첨부파일 (선택사항, PDF 등)\n
+        file: 첨부파일\n
     """
     try:
-        # 이메일 메시지 구성
+        sendEmail = sysOpt['email']
+        sendAppPwd = sysOpt['appPwd']
+
         msg = MIMEMultipart()
-        msg['From'] = sysOpt['email']
+        msg['From'] = sendEmail
         msg['To'] = recvEmail
         msg['Subject'] = subject
         msg.attach(MIMEText(content, 'plain'))
 
         # 첨부파일 처리
         if not file:
-            resResponse("fail", 400, "첨부파일 없음")
+            return resResponse("fail", 400, f"이메일 발송 실패, 첨부파일 없음")
 
         file_content = await file.read()
         attachment = MIMEApplication(file_content, _subtype="pdf")
         attachment.add_header('Content-Disposition', 'attachment', filename=file.filename)
         msg.attach(attachment)
 
-        # Gmail SMTP 서버 연결 및 발송
-        server = smtplib.SMTP('smtp.gmail.com', 587)
-        server.starttls()
-        server.login(sysOpt['email'], sysOpt['appPwd'])
-        server.send_message(msg)
-        server.quit()
+        # SMTP 서버 연결 및 발송
+        if sendEmail.endswith("@gmail.com"):
+            server = 'smtp.gmail.com'
+        elif sendEmail.endswith("@naver.com"):
+            server = 'smtp.naver.com'
+        else:
+            return resResponse("fail", 400, f"이메일 발송 실패, 지원하지 않는 이메일")
 
-        return resResponse("succ", 200, "이메일 발송 완료")
+        with smtplib.SMTP(server, 587) as server:
+            server.starttls()
+            server.login(sendEmail, sendAppPwd)
+            server.send_message(msg)
+        return resResponse("succ", 200, f"이메일 발송 완료")
     except Exception as e:
         log.error(f'Exception : {e}')
-        return resResponse("fail", 400, f"이메일 발송 실패: {str(e)}")
+        return resResponse("fail", 400, f"이메일 발송 실패, {str(e)}")
 
 
 # @app.post(f"/api/sendTelegram", dependencies=[Depends(chkKey)])
 @app.post(f"/api/sendTelegram")
 async def sendTelegram(
-    botToken: str = Form(..., description='텔레그램 봇 토큰', examples=['123456789:ABCDEFGHIJKLMNOPQRSTUVWXYZ']),
-    chatId: str = Form(..., description='텔레그램 채팅 ID', examples=['123456789']),
-    msg: str = Form(..., description='전송할 메시지 내용', examples=['테스트 메시지입니다.']),
+    msg: str = Form(..., description='메시지 내용', examples=['메시지']),
 ):
     """
     기능\n
         텔레그램 메시지 발송 API\n
     파라미터\n
-        botToken: 텔레그램 봇 토큰 (예: 123456789:ABCDEFGHIJKLMNOPQRSTUVWXYZ)\n
-        chatId: 텔레그램 채팅 ID (예: 123456789)\n
         msg: 전송할 메시지 내용\n
     """
     try:
-        log.info(f"[CHECK] sendTelegram params : chatId={chatId}, msg={msg}")
-
+        botToken = '8402604288:AAGPO9y68WZkej05tQ7BoAlDPyZXjU4FZm8'
+        chatId = '-5214158505'
         url = f"https://api.telegram.org/bot{botToken}/sendMessage"
         payload = {
             'chat_id': chatId,
@@ -460,16 +463,13 @@ async def sendTelegram(
         }
         
         response = requests.post(url, json=payload)
-        res_data = response.json()
-        
-        if response.status_code == 200 and res_data.get('ok'):
-            return resResponse("succ", 200, "텔레그램 메시지 발송 완료", data=res_data)
-        else:
-            error_msg = res_data.get('description', '알 수 없는 오류')
-            log.error(f'Telegram API Error : {error_msg}')
-            return resResponse("fail", 400, f"텔레그램 메시지 발송 실패: {error_msg}")
+        resData = response.json()
 
+        if response.status_code == 200 and resData.get('ok'):
+            return resResponse("succ", 200, "텔레그램 메시지 발송 완료")
+        else:
+            return resResponse("fail", 400, f"텔레그램 메시지 발송 실패 : {resData}")
     except Exception as e:
         log.error(f'Exception : {e}')
-        return resResponse("fail", 400, f"텔레그램 발송 중 예외 발생: {str(e)}")
+        return resResponse("fail", 400, f"텔레그램 메시지 발송 실패 : {str(e)}")
 
