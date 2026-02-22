@@ -281,11 +281,13 @@ sysOpt = {
     'cfgDbKey': 'mysql-iwin-dms01user01-DMS03',
     'cfgDb': None,
 
+    # 텔레그램 정보
+    'cfgTgKey': 'telegram-bdwideMosaic',
+    'cfgTg': None,
+
     # 메일 정보
-    # 'email': 'sangho.lee.1990@gmail.com',
-    # 'appPwd': 'euwg acvz pqzv ukea',
-    'email': 'bdwide365@naver.com',
-    'appPwd': '2NEKLD67T7FS',
+    'cfgMailKey': 'mail-bdwideMosaic',
+    'cfgMail': None,
 }
 
 app = FastAPI(
@@ -321,6 +323,14 @@ config = configparser.ConfigParser()
 config.read(sysOpt['cfgFile'], encoding='utf-8')
 
 sysOpt['cfgDb'] = initCfgInfo(config, sysOpt['cfgDbKey'])
+sysOpt['cfgMail'] = {
+    'email': config.get(sysOpt['cfgMailKey'], 'email'),
+    'appPwd': config.get(sysOpt['cfgMailKey'], 'appPwd'),
+}
+sysOpt['cfgTg'] = {
+    'botToken': config.get(sysOpt['cfgTgKey'], 'botToken'),
+    'chatId': config.get(sysOpt['cfgTgKey'], 'chatId'),
+}
 
 # ============================================
 # API URL 주소
@@ -328,6 +338,92 @@ sysOpt['cfgDb'] = initCfgInfo(config, sysOpt['cfgDbKey'])
 @app.get(f"/", include_in_schema=False)
 async def redirect_to_docs():
     return RedirectResponse(url="/docs")
+
+# @app.post(f"/api/sendEmail", dependencies=[Depends(chkKey)])
+@app.post(f"/api/sendEmail")
+async def sendEmail(
+    recvEmail: str = Form(..., description='받는 사람 이메일', examples=['backjoi@naver.com']),
+    subject: str = Form(..., description='이메일 제목', examples=['테스트 이메일입니다.']),
+    content: str = Form(..., description='이메일 내용', examples=['안녕하세요. 테스트 이메일 내용입니다.']),
+    file: Optional[UploadFile] = File(..., description='첨부파일')
+):
+    """
+    기능\n
+        이메일 발송 API\n
+    파라미터\n
+        recvEmail: 이메일 받는 사람\n
+        subject: 이메일 제목\n
+        content: 이메일 내용\n
+        file: 첨부파일\n
+    """
+    try:
+        sendEmail = sysOpt['cfgMail']['email']
+        sendAppPwd = sysOpt['cfgMail']['appPwd']
+
+        msg = MIMEMultipart()
+        msg['From'] = sendEmail
+        msg['To'] = recvEmail
+        msg['Subject'] = subject
+        msg.attach(MIMEText(content, 'plain'))
+
+        # 첨부파일 처리
+        if not file:
+            return resResponse("fail", 400, f"이메일 발송 실패, 첨부파일 없음")
+
+        file_content = await file.read()
+        attachment = MIMEApplication(file_content, _subtype="pdf")
+        attachment.add_header('Content-Disposition', 'attachment', filename=file.filename)
+        msg.attach(attachment)
+
+        # SMTP 서버 연결 및 발송
+        if sendEmail.endswith("@gmail.com"):
+            server = 'smtp.gmail.com'
+        elif sendEmail.endswith("@naver.com"):
+            server = 'smtp.naver.com'
+        else:
+            return resResponse("fail", 400, f"이메일 발송 실패, 지원하지 않는 이메일")
+
+        with smtplib.SMTP(server, 587) as server:
+            server.starttls()
+            server.login(sendEmail, sendAppPwd)
+            server.send_message(msg)
+        return resResponse("succ", 200, f"이메일 발송 완료")
+    except Exception as e:
+        log.error(f'Exception : {e}')
+        return resResponse("fail", 400, f"이메일 발송 실패, {str(e)}")
+
+
+# @app.post(f"/api/sendTelegram", dependencies=[Depends(chkKey)])
+@app.post(f"/api/sendTelegram")
+async def sendTelegram(
+    msg: str = Form(..., description='메시지 내용', examples=['메시지']),
+):
+    """
+    기능\n
+        텔레그램 메시지 발송 API\n
+    파라미터\n
+        msg: 전송할 메시지 내용\n
+    """
+    try:
+        botToken =  sysOpt['cfgTg']['botToken']
+        chatId = sysOpt['cfgTg']['chatId']
+        url = f"https://api.telegram.org/bot{botToken}/sendMessage"
+        payload = {
+            'chat_id': chatId,
+            'text': msg
+        }
+        
+        response = requests.post(url, json=payload)
+        resData = response.json()
+
+        if response.status_code == 200 and resData.get('ok'):
+            return resResponse("succ", 200, "텔레그램 메시지 발송 완료")
+        else:
+            return resResponse("fail", 400, f"텔레그램 메시지 발송 실패 : {resData}")
+    except Exception as e:
+        log.error(f'Exception : {e}')
+        return resResponse("fail", 400, f"텔레그램 메시지 발송 실패 : {str(e)}")
+
 
 # # @app.post(f"/api/insTripodData", dependencies=[Depends(chkKey)])
 # @app.post(f"/api/insTripodData")
@@ -386,90 +482,3 @@ async def redirect_to_docs():
 #     except Exception as e:
 #         log.error(f'Exception : {e}')
 #         raise HTTPException(status_code=400)
-
-
-# @app.post(f"/api/sendEmail", dependencies=[Depends(chkKey)])
-@app.post(f"/api/sendEmail")
-async def sendEmail(
-    recvEmail: str = Form(..., description='받는 사람 이메일', examples=['backjoi@naver.com']),
-    subject: str = Form(..., description='이메일 제목', examples=['테스트 이메일입니다.']),
-    content: str = Form(..., description='이메일 내용', examples=['안녕하세요. 테스트 이메일 내용입니다.']),
-    file: Optional[UploadFile] = File(..., description='첨부파일')
-):
-    """
-    기능\n
-        이메일 발송 API\n
-    파라미터\n
-        recvEmail: 이메일 받는 사람\n
-        subject: 이메일 제목\n
-        content: 이메일 내용\n
-        file: 첨부파일\n
-    """
-    try:
-        sendEmail = sysOpt['email']
-        sendAppPwd = sysOpt['appPwd']
-
-        msg = MIMEMultipart()
-        msg['From'] = sendEmail
-        msg['To'] = recvEmail
-        msg['Subject'] = subject
-        msg.attach(MIMEText(content, 'plain'))
-
-        # 첨부파일 처리
-        if not file:
-            return resResponse("fail", 400, f"이메일 발송 실패, 첨부파일 없음")
-
-        file_content = await file.read()
-        attachment = MIMEApplication(file_content, _subtype="pdf")
-        attachment.add_header('Content-Disposition', 'attachment', filename=file.filename)
-        msg.attach(attachment)
-
-        # SMTP 서버 연결 및 발송
-        if sendEmail.endswith("@gmail.com"):
-            server = 'smtp.gmail.com'
-        elif sendEmail.endswith("@naver.com"):
-            server = 'smtp.naver.com'
-        else:
-            return resResponse("fail", 400, f"이메일 발송 실패, 지원하지 않는 이메일")
-
-        with smtplib.SMTP(server, 587) as server:
-            server.starttls()
-            server.login(sendEmail, sendAppPwd)
-            server.send_message(msg)
-        return resResponse("succ", 200, f"이메일 발송 완료")
-    except Exception as e:
-        log.error(f'Exception : {e}')
-        return resResponse("fail", 400, f"이메일 발송 실패, {str(e)}")
-
-
-# @app.post(f"/api/sendTelegram", dependencies=[Depends(chkKey)])
-@app.post(f"/api/sendTelegram")
-async def sendTelegram(
-    msg: str = Form(..., description='메시지 내용', examples=['메시지']),
-):
-    """
-    기능\n
-        텔레그램 메시지 발송 API\n
-    파라미터\n
-        msg: 전송할 메시지 내용\n
-    """
-    try:
-        botToken = '8402604288:AAGPO9y68WZkej05tQ7BoAlDPyZXjU4FZm8'
-        chatId = '-5214158505'
-        url = f"https://api.telegram.org/bot{botToken}/sendMessage"
-        payload = {
-            'chat_id': chatId,
-            'text': msg
-        }
-        
-        response = requests.post(url, json=payload)
-        resData = response.json()
-
-        if response.status_code == 200 and resData.get('ok'):
-            return resResponse("succ", 200, "텔레그램 메시지 발송 완료")
-        else:
-            return resResponse("fail", 400, f"텔레그램 메시지 발송 실패 : {resData}")
-    except Exception as e:
-        log.error(f'Exception : {e}')
-        return resResponse("fail", 400, f"텔레그램 메시지 발송 실패 : {str(e)}")
-
