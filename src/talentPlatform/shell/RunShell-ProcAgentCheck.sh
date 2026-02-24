@@ -51,6 +51,7 @@ metaData["TalentPlatform-bdwide-DaemonApi-tripod"]="cd /HDD/SYSTEMS/PROG/PYTHON/
 metaData["rcmdapt-ai-server"]="/HDD/SYSTEMS/LIB/anaconda3/envs/py38/bin/python /HDD/SYSTEMS/PROG/PYTHON/IDE/src/talentPlatform/rcmdapt/rcmdapt_ai_server.py"
 metaData["TalentPlatform-bdwide-FileWatch"]="/HDD/SYSTEMS/LIB/anaconda3/envs/py38/bin/python /SYSTEMS/PROG/PYTHON/IDE/src/proj/bdwide/2025/MNTRG/TalentPlatform-bdwide-FileWatch.py"
 metaData["TalentPlatform-bdwide-DbMntrgMsgAlert"]="/HDD/SYSTEMS/LIB/anaconda3/envs/py38/bin/python /SYSTEMS/PROG/PYTHON/IDE/src/proj/bdwide/2025/ECOWITT/TalentPlatform-bdwide-DbMntrgMsgAlert.py"
+metaData["TalentPlatform-bdwide-DaemonApi-mosaic"]="/HDD/SYSTEMS/LIB/anaconda3/envs/py39/bin/python /HDD/SYSTEMS/PROG/PYTHON/IDE/src/proj/bdwide/2025/MOSAIC/TalentPlatform-bdwide-DaemonApi-mosaic.py"
 
 LOG_PATH=${CTX_PATH}/LOG
 #LOG_NAME=$(basename "$0" .sh)_$(date +"%Y%m%d").log
