@@ -230,8 +230,10 @@ sysOpt = {
     'oriList': ['*'],
 
     'rcmd': {
-        'apiCfUrl': 'http://125.251.52.42:9010/recommends_cf',
-        'apiSimUrl': 'http://125.251.52.42:9010/recommends_simil',
+        # 'apiCfUrl': 'http://125.251.52.42:9010/recommends_cf',
+        # 'apiSimUrl': 'http://125.251.52.42:9010/recommends_simil',
+        'apiCfUrl': 'http://localhost:9010/recommends_cf',
+        'apiSimUrl': 'http://localhost:9010/recommends_simil',
         'propAptFile': '/SYSTEMS/PROG/PYTHON/IDE/resources/config/xlsx/20250526_tbl_apts.xlsx',
         'propUserFile': '/SYSTEMS/PROG/PYTHON/IDE/resources/config/xlsx/20250526_tbl_users.xlsx',
     },
