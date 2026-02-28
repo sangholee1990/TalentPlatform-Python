@@ -27,6 +27,9 @@
 # lsof -i :9000
 # lsof -i :9000 | awk '{print $2}' | xargs kill -9
 
+# pkill -f "TalentPlatform-LSH0577-DaemonApi"
+# bash /HDD/SYSTEMS/PROG/PYTHON/IDE/src/talentPlatform/shell/RunShell-ProcAgentCheck.sh
+
 # "[TOP BDS] [통합] 아파트 보고서 (데이터 분석, 가격 예측)" 및 빅쿼리 기반으로 API 배포체계를 전달하오니 확인 부탁드립니다.
 # 명세1) http://49.247.41.71:9000/docs
 # 명세2) http://49.247.41.71:9000/redoc
@@ -119,6 +122,17 @@ import requests
 import time
 from concurrent.futures import ProcessPoolExecutor
 import configparser
+import uuid
+import smtplib
+from email.mime.multipart import MIMEMultipart
+from email.mime.text import MIMEText
+from email.mime.application import MIMEApplication
+from typing import Optional
+from fastapi import File, UploadFile, Form
+from email.mime.multipart import MIMEMultipart
+from email.mime.text import MIMEText
+import re
+from email.utils import formataddr
 
 # ============================================
 # 유틸리티 함수
@@ -224,7 +238,6 @@ sysOpt = {
     'cfgFile': '/HDD/SYSTEMS/PROG/PYTHON/IDE/resources/config/system.cfg',
     'cfgKey': 'gemini-api-key',
     'cfgVal': 'oper',
-    # 'cfgVal': 'local',
 
     # CORS 설정
     'oriList': ['*'],
@@ -307,6 +320,66 @@ class cfgRcmd(BaseModel):
 async def redirect_to_docs():
     return RedirectResponse(url="/docs")
 
+@app.post(f"/api/sendEmail", dependencies=[Depends(chkApiKey)])
+# @app.post(f"/api/sendEmail")
+async def sendEmail(
+    sendEmail: str = Form(..., description='송신 이메일', examples=['sangho.lee.1990@gmail.com']),
+    sendAppPwd: str = Form(..., description='송신 앱 비밀번호', examples=['hlyc nnfe hbpp mtxx']),
+    recvEmail: str = Form(..., description='수신 이메일', examples=['sangho.lee.1990@gmail.com']),
+    subject: str = Form(..., description='수신 이메일 제목', examples=['테스트 이메일입니다.']),
+    content: str = Form(..., description='수신 이메일 내용', examples=['안녕하세요. 테스트 이메일 내용입니다.']),
+    file: Optional[UploadFile] = File(None, description='수신 첨부파일')
+):
+    """
+    기능\n
+        이메일 발송 API\n
+    파라미터\n
+        sendEmail: 송신 이메일\n
+        sendAppPwd: 송신 앱 비밀번호\n
+        recvEmail: 수신 이메일\n
+        subject: 수신 이메일 제목\n
+        content: 수신 이메일 내용\n
+        file: 수신 첨부파일\n
+    """
+    try:
+        if not re.match(r'^[a-zA-Z0-9_.+-]+@[a-zA-Z0-9-]+\.[a-zA-Z0-9-.]+$', recvEmail):
+            return resResponse("fail", 400, f"이메일 발송 실패, 송신 이메일 주소를 확인")
+
+        if not re.match(r'^[a-zA-Z0-9_.+-]+@[a-zA-Z0-9-]+\.[a-zA-Z0-9-.]+$', recvEmail):
+            return resResponse("fail", 400, f"이메일 발송 실패, 수신 이메일 주소를 확인")
+
+        msg = MIMEMultipart()
+        # msg['From'] = sendEmail
+        msg['From'] = formataddr(("벌스일사사 고객지원", sendEmail))
+
+        msg['To'] = recvEmail
+        msg['Subject'] = subject
+        msg.attach(MIMEText(content, 'plain'))
+
+        # 첨부파일 처리
+        if file:
+            file_content = await file.read()
+            attachment = MIMEApplication(file_content)
+            attachment.add_header('Content-Disposition', 'attachment', filename=file.filename)
+            msg.attach(attachment)
+
+        # SMTP 서버 연결 및 발송
+        server = 'smtp.gmail.com'
+        if sendEmail.endswith("@naver.com"):
+            server = 'smtp.naver.com'
+
+        with smtplib.SMTP(server, 587) as server:
+            server.starttls()
+            server.login(sendEmail, sendAppPwd)
+            result = server.send_message(msg)
+            if result:
+                return resResponse("fail", 400, f"이메일 발송 실패, 수신 이메일을 확인해주세요.")
+
+        return resResponse("succ", 200, f"이메일 발송 완료")
+    except Exception as e:
+        log.error(f'Exception : {e}')
+        return resResponse("fail", 400, f"이메일 발송 실패, {e}")
+
 @app.post(f"/api/sel-rcmd", dependencies=[Depends(chkApiKey)])
 # @app.post(f"/api/sel-rcmd")
 def selRcmd(request: cfgRcmd = Form(...)):
@@ -340,11 +413,11 @@ def selRcmd(request: cfgRcmd = Form(...)):
         recUserDataL1 = recUserData.loc[
             (recUserData['gender'] == int(gender))
             & (recUserData['age'] >= float(minAge)) & (recUserData['age'] <= float(maxAge))
-            & (recUserData['price_from'] >= float(minPrice)) & (recUserData['price_to'] <= float(maxPrice))
+            & (recUserData['price_from'] >= float(minPrice) * 0.5) & (recUserData['price_to'] <= float(maxPrice) * 1.5)
             & (recUserData['area_from'] >= float(minArea)) & (recUserData['area_to'] <= float(maxArea))
             & (recUserData['debt_ratio'] >= float(debtRat))
             # & (recUserData['prefer'] == prefer)
-            ]
+            ].sort_values(by=['price_to', 'price_from'], ascending=False)
 
         if len(recUserDataL1) < 1:
             return resResponse("fail", 400, f"사용자 설정 정보를 확인해주세요.", None)
@@ -352,8 +425,8 @@ def selRcmd(request: cfgRcmd = Form(...)):
         recAptDataL1 = recAptData.loc[
             (recAptData['apt'] == apt)
             & (recAptData['area'] >= float(minArea)) & (recAptData['area'] <= float(maxArea))
-            & (recAptData['price'] >= float(minPrice)) & (recAptData['price'] <= float(maxPrice))
-            ]
+            & (recAptData['price'] >= float(minPrice) * 0.5) & (recAptData['price'] <= float(maxPrice) * 1.5)
+            ].sort_values(by='price', ascending=False)
 
         if len(recAptDataL1) < 1:
             return resResponse("fail", 400, f"아파트 설정 정보를 확인해주세요.", None)
@@ -413,7 +486,7 @@ def selStatRealSggApt(
 
     try:
         # 기본 SQL
-        baseSql = f"SELECT sgg, dong, COUNT(*) AS cnt, AVG(amount) AS mean_amount FROM `iconic-ruler-239806.DMS01.TB_REAL`"
+        baseSql = f"SELECT sgg, dong, COUNT(*) AS cnt, AVG(CASE WHEN amount > 0 THEN amount ELSE NULL END) AS mean_amount FROM `iconic-ruler-239806.DMS01.TB_REAL`"
 
         # 동적 SQL 파라미터
         condList = []
@@ -510,10 +583,25 @@ def statRealSearch(
         현재 쪽: 1\n
         정렬 (컬럼|차순, 컬럼|차순, ...): cnt|desc,max_amount|desc\n
     """
-
     try:
+        selCol = """
+                    sgg, 
+                    COUNT(*) AS cnt, 
+                    AVG(CASE WHEN amount > 0 THEN amount ELSE NULL END) AS mean_real_amount
+                """
+
+        if srtYear and endYear:
+            selCol += f""",
+                    SAFE_DIVIDE(
+                        AVG(CASE WHEN amount > 0 AND year = {endYear} THEN amount ELSE NULL END) - AVG(CASE WHEN amount > 0 AND year = {srtYear} THEN amount ELSE NULL END),
+                        AVG(CASE WHEN amount > 0 AND year = {srtYear} THEN amount ELSE NULL END)
+                    ) * 100 AS real_rate
+                    """
+        else:
+            selCol += ", NULL AS real_rate"
+
         # 기본 SQL
-        baseSql = f"SELECT sgg, COUNT(*) AS cnt FROM `iconic-ruler-239806.DMS01.TB_REAL`"
+        baseSql = f"SELECT {selCol} FROM `iconic-ruler-239806.DMS01.TB_REAL`"
 
         # 동적 SQL 파라미터
         condList = []
@@ -547,9 +635,8 @@ def statRealSearch(
             keyDtlCond = [f"keyDtl LIKE '%{s}%'" for s in keyDtlList]
             condList.append(f"({' OR '.join(keyDtlCond)})")
 
-
-        if srtYear and endYear:
-            condList.append(f"year BETWEEN {srtYear} AND {endYear}")
+        # if srtYear and endYear:
+        #     condList.append(f"year BETWEEN {srtYear} AND {endYear}")
 
         if condList:
             condSql = " WHERE " + " AND ".join(condList)
@@ -1770,7 +1857,7 @@ def selMonthPopTrend(
     ):
     """
     기능\n
-        TB_UP-COM-SUPPLY 목록 조회\n
+        TB_MONTH-POP-TREND 목록 조회\n
     테스트\n
         시군구: 서울특별시 강남구\n
         1쪽당 개수: 10\n
@@ -1780,6 +1867,48 @@ def selMonthPopTrend(
     try:
         # 기본 SQL
         sql = f"SELECT * FROM `iconic-ruler-239806.DMS01.TB_MONTH-POP-TREND`"
+
+        # 동적 SQL 파라미터
+        condList = []
+        if sgg: condList.append(f"sgg LIKE '%{sgg}%'")
+        if condList: sql += " WHERE " + " AND ".join(condList)
+
+        sql += f" LIMIT {limit} OFFSET {(page - 1) * limit}"
+        log.info(f"[CHECK] sql : {sql}")
+
+        # 쿼리 실행
+        baseQuery = client.query(sql)
+        baseRes = baseQuery.result()
+
+        fileList = [dict(row) for row in baseRes]
+        if fileList is None or len(fileList) < 1:
+            return resResponse("fail", 400, f"검색 결과가 없습니다.", None)
+
+        return resResponse("succ", 200, "처리 완료", len(fileList), len(fileList), fileList)
+
+    except Exception as e:
+        log.error(f'Exception : {e}')
+        raise HTTPException(status_code=400, detail=str(e))
+
+@app.post(f"/api/sel-monthSggPopTrend", dependencies=[Depends(chkApiKey)])
+# @app.post(f"/api/sel-monthSggPopTrend")
+def selMonthPopTrend(
+        sgg: str = Query(None, description="시군구")
+        , limit: int = Query(10, description="1쪽당 개수")
+        , page: int = Query(1, description="현재 쪽")
+    ):
+    """
+    기능\n
+         TB_MONTH-SGG-POP-TREND 목록 조회\n
+    테스트\n
+        시군구: 서울특별시 강남구\n
+        1쪽당 개수: 10\n
+        현재 쪽: 1\n
+    """
+
+    try:
+        # 기본 SQL
+        sql = f"SELECT * FROM `iconic-ruler-239806.DMS01.TB_MONTH-SGG-POP-TREND`"
 
         # 동적 SQL 파라미터
         condList = []
