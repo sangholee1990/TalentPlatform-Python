@@ -311,7 +311,6 @@ class DtaProcess(object):
                 fileNameNoExt = fileName.split('.')[0]
                 data = pd.read_excel(fileInfo, sheet_name=sysOpt['sheetName'], engine='openpyxl')
 
-
                 data['aptGeo'] = data["apt_y"].astype('str') + ", " + data["apt_x"].astype('str')
                 data['subGeo'] = data["p_y"].astype('str') + ", " + data["p_x"].astype('str')
 
