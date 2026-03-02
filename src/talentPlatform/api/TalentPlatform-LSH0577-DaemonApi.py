@@ -486,7 +486,18 @@ def selStatRealSggApt(
 
     try:
         # 기본 SQL
-        baseSql = f"SELECT sgg, dong, COUNT(*) AS cnt, AVG(CASE WHEN amount > 0 THEN amount ELSE NULL END) AS mean_amount FROM `iconic-ruler-239806.DMS01.TB_REAL`"
+        baseSql = f"""
+                    SELECT sgg, dong, COUNT(*) AS cnt, 
+                    AVG(CASE WHEN amount > 0 THEN amount ELSE NULL END) AS mean_amount, 
+                     MAX(
+                        CASE
+                            WHEN geo IS NOT NULL AND geo != 'nan, nan' AND TRIM(geo) != ''
+                            THEN geo
+                            ELSE NULL
+                        END
+                    ) AS geo 
+                    FROM `iconic-ruler-239806.DMS01.TB_REAL`
+                """
 
         # 동적 SQL 파라미터
         condList = []
@@ -509,7 +520,7 @@ def selStatRealSggApt(
 
         # 그룹핑
         grpList = []
-        grpSql = " GROUP BY sgg, dong"
+        grpSql = " GROUP BY sgg, dong HAVING geo IS NOT NULL"
         baseSql += grpSql
 
         # 정렬 'year|desc,price|desc'
@@ -521,6 +532,7 @@ def selStatRealSggApt(
                 sortCol = sortPart[0]
                 sortOrd = sortPart[1].upper() if sortPart[1].upper() in ["ASC", "DESC"] else "ASC"
                 sortList.append(f"{sortCol} {sortOrd}")
+
         if sortList:
             sortSql = " ORDER BY " + ", ".join(sortList)
             baseSql += sortSql
