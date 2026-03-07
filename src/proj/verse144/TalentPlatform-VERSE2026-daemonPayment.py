@@ -34,8 +34,6 @@ from pandas.tseries.offsets import Hour
 import yaml
 from multiprocessing import Pool
 import multiprocessing as mp
-from retrying import retry
-# import cdsapi
 import shutil
 import io
 import uuid
@@ -192,6 +190,7 @@ def payProc(sysOpt):
     try:
         preDt = datetime.now(pytz.UTC)
         preDtKst = preDt.now(pytz.timezone('Asia/Seoul'))
+        log.info(f"preDtKst : {preDtKst}")
 
         docList = sysOpt['cfgDb'].collection('users').get()
         for docInfo in docList:
@@ -214,7 +213,7 @@ def payProc(sysOpt):
                 # 결재일 검사
                 if not nextPaymentDate: continue
                 if preDtKst < nextPaymentDate: continue
-                log.info(f"uid : {docItem.get('uid')}, docItem : {docItem}")
+                log.info(f"uid : {docItem.get('uid')}")
 
                 # 토스 API 연계
                 # https://docs.tosspayments.com/guides/v2/billing/integration-api#1-%EB%B9%8C%EB%A7%81%ED%82%A4-%EB%B0%9C%EA%B8%89%ED%95%98%EA%B8%B0
