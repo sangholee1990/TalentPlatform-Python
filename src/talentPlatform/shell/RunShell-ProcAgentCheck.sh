@@ -52,6 +52,7 @@ metaData["rcmdapt-ai-server"]="/HDD/SYSTEMS/LIB/anaconda3/envs/py38/bin/python /
 metaData["TalentPlatform-bdwide-FileWatch"]="/HDD/SYSTEMS/LIB/anaconda3/envs/py38/bin/python /SYSTEMS/PROG/PYTHON/IDE/src/proj/bdwide/2025/MNTRG/TalentPlatform-bdwide-FileWatch.py"
 metaData["TalentPlatform-bdwide-DbMntrgMsgAlert"]="/HDD/SYSTEMS/LIB/anaconda3/envs/py38/bin/python /SYSTEMS/PROG/PYTHON/IDE/src/proj/bdwide/2025/ECOWITT/TalentPlatform-bdwide-DbMntrgMsgAlert.py"
 metaData["TalentPlatform-bdwide-DaemonApi-mosaic"]="/HDD/SYSTEMS/LIB/anaconda3/envs/py39/bin/python /HDD/SYSTEMS/PROG/PYTHON/IDE/src/proj/bdwide/2025/MOSAIC/TalentPlatform-bdwide-DaemonApi-mosaic.py"
+metaData["TalentPlatform-VERSE2026-daemonPayment"]="/SYSTEMS/LIB/anaconda3/envs/py39/bin/python /SYSTEMS/PROG/PYTHON/IDE/src/talentPlatform/unitSys/TalentPlatform-VERSE2026-daemonPayment.py"
 
 LOG_PATH=${CTX_PATH}/LOG
 #LOG_NAME=$(basename "$0" .sh)_$(date +"%Y%m%d").log
@@ -75,14 +76,6 @@ for key in "${!metaData[@]}"; do
   mkdir -p ${LOG_PATH}
 
   if [ -z "${procId}" ]; then
-#      case "$key" in
-#        "TalentPlatform-LSH0605-DaemonFramework")
-#		      ps -ef | grep "chrome" | awk '{print $2}' | xargs kill -9
-#		      ;;
-#	      *)
-#		      ;;
-#      esac
-
       echo "[$(date +"%Y-%m-%d %H:%M:%S")] [CHECK] Process is not running : $key"
       echo "[$(date +"%Y-%m-%d %H:%M:%S")] [CHECK] Process is not running : $key" >> ${LOG_PATH}/${LOG_NAME}
 #      nohup $val >> ${LOG_PATH}/${LOG_NAME} 2>&1 &
