@@ -9,13 +9,12 @@
 # 프로그램 시작
 # conda activate py39
 # cd /SYSTEMS/PROG/PYTHON
-# /SYSTEMS/LIB/anaconda3/envs/py39/bin/python /SYSTEMS/PROG/PYTHON/IDE/TalentPlatform-VERSE2026-daemonPayment.py
-# nohup /SYSTEMS/LIB/anaconda3/envs/py39/bin/python /SYSTEMS/PROG/PYTHON/IDE/TalentPlatform-VERSE2026-daemonPayment.py > /dev/null 2>&1 &
+# /SYSTEMS/LIB/anaconda3/envs/py39/bin/python /SYSTEMS/PROG/PYTHON/IDE/src/talentPlatform/unitSys/TalentPlatform-VERSE2026-daemonPayment.py
+# nohup /SYSTEMS/LIB/anaconda3/envs/py39/bin/python/SYSTEMS/PROG/PYTHON/IDE/src/talentPlatform/unitSys/TalentPlatform-VERSE2026-daemonPayment.py > /dev/null 2>&1 &
 
 import argparse
 import glob
 import logging
-import logging.handlers
 import logging.handlers
 import os
 import platform
@@ -335,7 +334,7 @@ class DtaProcess(object):
             # 옵션 설정
             sysOpt = {
                 # 설정 정보
-                'cfgFile': '/HDD/SYSTEMS/PROG/PYTHON/IDE/resources/config/application_default_credentials.json',
+                'cfgFile': '/SYSTEMS/PROG/PYTHON/IDE/resources/config/application_default_credentials.json',
                 'cfgDb': None,
 
                 'cfgFile2': '/SYSTEMS/PROG/PYTHON/IDE/resources/config/system.cfg',
