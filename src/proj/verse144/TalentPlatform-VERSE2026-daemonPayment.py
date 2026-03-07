@@ -1,7 +1,7 @@
 # ================================================
 # 요구사항
 # ================================================
-# Python을 이용한 정기결재 데몬 스케줄
+# Python을 이용한 정기결제 데몬 스케줄
 
 # ps -ef | grep "TalentPlatform-VERSE2026-daemonPayment" | awk '{print $2}' | xargs kill -9
 # pkill -f "TalentPlatform-VERSE2026-daemonPayment"
