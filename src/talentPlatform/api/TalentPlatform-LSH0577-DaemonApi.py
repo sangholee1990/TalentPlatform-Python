@@ -309,7 +309,7 @@ if fileList is None or len(fileList) < 1:
     sys.exit(1)
 
 recAptData = pd.read_excel(fileList[0])
-recAptData2 = recAptData.drop(columns=['idx', 'area', 'price']).drop_duplicates().reset_index(drop=True)
+recAptData2 = recAptData.drop(columns=['idx', 'price']).drop_duplicates().reset_index(drop=True)
 
 # ============================================
 # 비즈니스 로직
@@ -483,7 +483,7 @@ def selRcmdAptData(
         gu: str = Form(None, description='시군구', examples=['금천구']),
         apt: str = Form(None, description='아파트 도로명주소, 두산(가산로 99)', examples=['두산(가산로 99)']),
         # price: str = Form(None, description='가격 억원 (최소-최대, 3-6)', examples=['3-6']),
-        # area: str = Form(None, description='면적 m² (최소-최대, 58-100)', examples=['58-100']),
+        area: str = Form(None, description='면적 m² (최소-최대, 58-100)', examples=['58-100']),
 
     ):
     """
@@ -493,32 +493,23 @@ def selRcmdAptData(
     """
     try:
         condition = pd.Series(True, index=recAptData2.index)
-        meanPrice = None
+        # meanPrice = None
 
-        if gu:
-            condition &= (recAptData2['gu'] == gu)
+        if gu and len(str(gu).strip()) > 0:
+            condition &= (recAptData2['gu'].str.strip().str.contains(gu.strip(), na=False))
 
-        if apt:
-            condition &= (recAptData2['apt'] == apt)
+        if apt and len(str(apt).strip()) > 0:
+            condition &= (recAptData2['apt'].str.strip().str.contains(apt.strip(), na=False))
 
-        # if area:
-        #     minArea, maxArea = area.split('-')
-        #     condition &= (recAptData['area'] >= float(minArea)) & (recAptData['area'] <= float(maxArea))
+        if area and len(str(area).strip()) > 0:
+            minArea, maxArea = area.split('-')
+            condition &= (recAptData2['area'] >= float(minArea)) & (recAptData2['area'] <= float(maxArea))
 
-        # if price:
-        #     minPrice, maxPrice = price.split('-')
-        #     meanPrice = np.mean([float(minPrice), float(maxPrice)])
-        #     condition &= (recAptData2['price'] >= float(minPrice) * 0.5) & (recAptData2['price'] <= float(maxPrice) * 1.5)
-        recAptDataL1 = recAptData2.loc[condition].copy()
+        recAptDataL1 = recAptData2.loc[condition].dropna(subset=['lat', 'lon']).reset_index(drop=False).copy()
+        log.info(f"recAptDataL1 : {recAptDataL1}")
 
         if len(recAptDataL1) < 1:
             return resResponse("fail", 400, f"아파트 설정 정보를 확인해주세요.", None)
-
-        # recAptDataL1['dist'] = 0.0
-        # if meanPrice:
-        #     recAptDataL1['dist'] = abs(recAptDataL1['price'] - meanPrice) / meanPrice
-        # # recAptDataL2 = recAptDataL1.nsmallest(1, 'dist')
-        # recAptDataL2 = recAptDataL1.sort_values(by='dist', ascending=False)
 
         result = {
             'apt': recAptDataL1.to_dict(orient='records'),
