@@ -309,7 +309,7 @@ if fileList is None or len(fileList) < 1:
     sys.exit(1)
 
 recAptData = pd.read_excel(fileList[0])
-recAptData2 = recAptData.drop(columns=['idx', 'price']).drop_duplicates().reset_index(drop=True)
+recAptData2 = recAptData.drop(columns=['idx']).groupby(['gu', 'apt', 'area'], as_index=False).mean().drop_duplicates().reset_index(drop=True)
 
 # ============================================
 # 비즈니스 로직
@@ -319,7 +319,7 @@ class cfgRcmd(BaseModel):
     age: str = Field(..., description='나이 (최소-최대, 20-39)', examples=['20-39'])
     price: str = Field(..., description='가격 억원 (최소-최대, 3-6)', examples=['3-6'])
     area: str = Field(..., description='면적 m² (최소-최대, 58-100)', examples=['58-100'])
-    debtRat: str = Field(..., description='부채 비율', examples=['0.25'])
+    # debtRat: str = Field(..., description='부채 비율', examples=['0.25'])
     apt: str = Field(..., description='아파트 도로명주소, 두산(가산로 99)', examples=['두산(가산로 99)'])
     cnt: str = Field(..., alias='cnt', description='추천 개수', examples=['10'])
 
@@ -393,14 +393,14 @@ def selRcmd(request: cfgRcmd = Form(...)):
     """
     기능\n
         CF/유사도 기반 아파트 추천 서비스 API\n
-        검색조건 사용자 설정 (gender, age, price, area, debtRat), 아파트 설정 (apt, cnt)\n
+        검색조건 사용자 설정 (gender, age, price, area), 아파트 설정 (apt, cnt)\n
     """
     try:
         gender = request.gender
         age = request.age
         price = request.price
         area = request.area
-        debtRat = request.debtRat
+        # debtRat = request.debtRat
         apt = request.apt
         cnt = request.cnt
 
@@ -427,7 +427,7 @@ def selRcmd(request: cfgRcmd = Form(...)):
             & (recUserData['age'] >= float(minAge)) & (recUserData['age'] <= float(maxAge))
             & (recUserData['price_from'] >= float(minPrice) * 0.5) & (recUserData['price_to'] <= float(maxPrice) * 1.5)
             & (recUserData['area_from'] >= float(minArea)) & (recUserData['area_to'] <= float(maxArea))
-            & (recUserData['debt_ratio'] >= float(debtRat))
+            # & (recUserData['debt_ratio'] >= float(debtRat))
             # & (recUserData['prefer'] == prefer)
             ].copy()
 
@@ -506,6 +506,7 @@ def selRcmdAptData(
             condition &= (recAptData2['area'] >= float(minArea)) & (recAptData2['area'] <= float(maxArea))
 
         recAptDataL1 = recAptData2.loc[condition].dropna(subset=['lat', 'lon']).reset_index(drop=False).copy()
+
         log.info(f"recAptDataL1 : {recAptDataL1}")
 
         if len(recAptDataL1) < 1:
