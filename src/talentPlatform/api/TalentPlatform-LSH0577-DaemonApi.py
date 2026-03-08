@@ -133,6 +133,8 @@ from email.mime.multipart import MIMEMultipart
 from email.mime.text import MIMEText
 import re
 from email.utils import formataddr
+import numpy as np
+from concurrent.futures import ThreadPoolExecutor
 
 # ============================================
 # 유틸리티 함수
@@ -184,7 +186,10 @@ def initLog(env=None, contextPath=None, prjName=None):
     return log
 
 # 인증키 검사
-def chkApiKey(api_key: str = Depends(APIKeyHeader(name="api"))):
+def chkApiKey(api_key: str = Depends(APIKeyHeader(name="api", auto_error=False))):
+    if api_key is None:
+        raise HTTPException(status_code=401, detail="API 인증키 없음")
+
     if api_key != '20240922-topbds':
         raise HTTPException(status_code=400, detail="API 인증 실패")
 
@@ -216,7 +221,8 @@ def fetchApi(apiUrl, payload, apiType, recAptData):
 # ============================================
 # 주요 설정
 # ============================================
-env = 'local'
+# env = 'local'
+env = 'dev'
 serviceName = 'LSH0577'
 prjName = 'test'
 
@@ -303,12 +309,13 @@ if fileList is None or len(fileList) < 1:
     sys.exit(1)
 
 recAptData = pd.read_excel(fileList[0])
+recAptData2 = recAptData.drop(columns=['idx', 'area', 'price']).drop_duplicates().reset_index(drop=True)
 
 # ============================================
 # 비즈니스 로직
 # ============================================
 class cfgRcmd(BaseModel):
-    gender: str = Field(..., description='성별 (1 남성, 2 여성)', examples=['1'])
+    gender: str = Field(..., description='성별 (최소-최대, 1-1 남성, 2-2 여성, 1-2 전체)', examples=['1-1'])
     age: str = Field(..., description='나이 (최소-최대, 20-39)', examples=['20-39'])
     price: str = Field(..., description='가격 억원 (최소-최대, 3-6)', examples=['3-6'])
     area: str = Field(..., description='면적 m² (최소-최대, 58-100)', examples=['58-100'])
@@ -388,7 +395,6 @@ def selRcmd(request: cfgRcmd = Form(...)):
         CF/유사도 기반 아파트 추천 서비스 API\n
         검색조건 사용자 설정 (gender, age, price, area, debtRat), 아파트 설정 (apt, cnt)\n
     """
-
     try:
         gender = request.gender
         age = request.age
@@ -398,11 +404,16 @@ def selRcmd(request: cfgRcmd = Form(...)):
         apt = request.apt
         cnt = request.cnt
 
+        minGender, maxGender = gender.split('-')
+        if gender is None or len(gender) < 1 or minGender is None or maxGender is None:
+            return resResponse("fail", 400, f"성별을 확인해주세요 ({gender}).", None)
+
         minAge, maxAge = age.split('-')
         if age is None or len(age) < 1 or minAge is None or maxAge is None:
             return resResponse("fail", 400, f"나이를 확인해주세요 ({age}).", None)
 
         minPrice, maxPrice = price.split('-')
+        meanPrice = np.mean([float(minPrice), float(maxPrice)])
         if price is None or len(price) < 1 or minPrice is None or maxPrice is None:
             return resResponse("fail", 400, f"가격을 확인해주세요 ({price}).", None)
 
@@ -411,34 +422,42 @@ def selRcmd(request: cfgRcmd = Form(...)):
             return resResponse("fail", 400, f"면적을 확인해주세요 ({area}).", None)
 
         recUserDataL1 = recUserData.loc[
-            (recUserData['gender'] == int(gender))
+            # (recUserData['gender'] == int(gender))
+            (recUserData['gender'] >= int(minGender)) & (recUserData['gender'] <= int(maxGender))
             & (recUserData['age'] >= float(minAge)) & (recUserData['age'] <= float(maxAge))
             & (recUserData['price_from'] >= float(minPrice) * 0.5) & (recUserData['price_to'] <= float(maxPrice) * 1.5)
             & (recUserData['area_from'] >= float(minArea)) & (recUserData['area_to'] <= float(maxArea))
             & (recUserData['debt_ratio'] >= float(debtRat))
             # & (recUserData['prefer'] == prefer)
-            ].sort_values(by=['price_to', 'price_from'], ascending=False)
+            ].copy()
 
         if len(recUserDataL1) < 1:
             return resResponse("fail", 400, f"사용자 설정 정보를 확인해주세요.", None)
+
+        recUserDataL2 = recUserDataL1.nsmallest(1, ['price_from', 'price_to']).iloc[0]
 
         recAptDataL1 = recAptData.loc[
             (recAptData['apt'] == apt)
             & (recAptData['area'] >= float(minArea)) & (recAptData['area'] <= float(maxArea))
             & (recAptData['price'] >= float(minPrice) * 0.5) & (recAptData['price'] <= float(maxPrice) * 1.5)
-            ].sort_values(by='price', ascending=False)
+            ].copy()
 
         if len(recAptDataL1) < 1:
             return resResponse("fail", 400, f"아파트 설정 정보를 확인해주세요.", None)
 
+        recAptDataL1['dist'] = 0.0
+        if meanPrice:
+            recAptDataL1['dist'] = abs(recAptDataL1['price'] - meanPrice) / meanPrice
+        recAptDataL2 = recAptDataL1.nsmallest(1, 'dist').iloc[0]
+
         payload = {
-            'user_id': recUserDataL1.iloc[0]['idx'],
-            'apt_idx': recAptDataL1.iloc[0]['idx'],
+            'user_id': recUserDataL2['idx'],
+            'apt_idx': recAptDataL2['idx'],
             'rcmd_count': cnt,
         }
 
         # CF기반 및 유사도 기반 아파트 추천
-        with ProcessPoolExecutor(max_workers=2) as executor:
+        with ThreadPoolExecutor(max_workers=2) as executor:
             futureCf = executor.submit(fetchApi, sysOpt['rcmd']['apiCfUrl'], payload, 'cf', recAptData)
             futureSim = executor.submit(fetchApi, sysOpt['rcmd']['apiSimUrl'], payload, 'simil', recAptData)
 
@@ -446,8 +465,8 @@ def selRcmd(request: cfgRcmd = Form(...)):
             simData = futureSim.result()
 
         result = {
-            'user': recUserDataL1.iloc[0].to_dict(),
-            'apt': recAptDataL1.iloc[0].to_dict(),
+            'user': recUserDataL2.to_dict(),
+            'apt': recAptDataL2.to_dict(),
             'cf': cfData.to_dict(orient='records'),
             'sim': simData.to_dict(orient='records'),
         }
@@ -458,6 +477,58 @@ def selRcmd(request: cfgRcmd = Form(...)):
         log.error(f'Exception : {e}')
         raise HTTPException(status_code=400, detail=str(e))
 
+@app.post(f"/api/sel-rcmdAptData", dependencies=[Depends(chkApiKey)])
+# @app.post(f"/api/sel-rcmdAptData")
+def selRcmdAptData(
+        gu: str = Form(None, description='시군구', examples=['금천구']),
+        apt: str = Form(None, description='아파트 도로명주소, 두산(가산로 99)', examples=['두산(가산로 99)']),
+        # price: str = Form(None, description='가격 억원 (최소-최대, 3-6)', examples=['3-6']),
+        # area: str = Form(None, description='면적 m² (최소-최대, 58-100)', examples=['58-100']),
+
+    ):
+    """
+    기능\n
+        아파트 추천 서비스 API를 위한 아파트 설정 목록 API\n
+        검색조건 아파트 설정 (gu, apt)\n
+    """
+    try:
+        condition = pd.Series(True, index=recAptData2.index)
+        meanPrice = None
+
+        if gu:
+            condition &= (recAptData2['gu'] == gu)
+
+        if apt:
+            condition &= (recAptData2['apt'] == apt)
+
+        # if area:
+        #     minArea, maxArea = area.split('-')
+        #     condition &= (recAptData['area'] >= float(minArea)) & (recAptData['area'] <= float(maxArea))
+
+        # if price:
+        #     minPrice, maxPrice = price.split('-')
+        #     meanPrice = np.mean([float(minPrice), float(maxPrice)])
+        #     condition &= (recAptData2['price'] >= float(minPrice) * 0.5) & (recAptData2['price'] <= float(maxPrice) * 1.5)
+        recAptDataL1 = recAptData2.loc[condition].copy()
+
+        if len(recAptDataL1) < 1:
+            return resResponse("fail", 400, f"아파트 설정 정보를 확인해주세요.", None)
+
+        # recAptDataL1['dist'] = 0.0
+        # if meanPrice:
+        #     recAptDataL1['dist'] = abs(recAptDataL1['price'] - meanPrice) / meanPrice
+        # # recAptDataL2 = recAptDataL1.nsmallest(1, 'dist')
+        # recAptDataL2 = recAptDataL1.sort_values(by='dist', ascending=False)
+
+        result = {
+            'apt': recAptDataL1.to_dict(orient='records'),
+        }
+
+        return resResponse("succ", 200, "처리 완료", len(recAptDataL1), len(recAptDataL1), result)
+
+    except Exception as e:
+        log.error(f'Exception : {e}')
+        raise HTTPException(status_code=400, detail=str(e))
 
 @app.post(f"/api/sel-statRealMeanBySggDong", dependencies=[Depends(chkApiKey)])
 # @app.post(f"/api/sel-statRealMeanBySggDong")
