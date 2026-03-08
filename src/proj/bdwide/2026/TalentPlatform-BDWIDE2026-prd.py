@@ -261,6 +261,7 @@ class DtaProcess(object):
                 'cfgDb': None,
 
                 # 설정 정보
+                'stnFile': '/HDD/SYSTEMS/PROG/PYTHON/IDE/resources/asosInfo/ALL_STN_INFO.csv',
                 'cfgFile': '/HDD/SYSTEMS/PROG/PYTHON/IDE/resources/config/system.cfg',
                 'obsFile': '/HDD/DATA/INPUT/BDWIDE2026/OBS_ASOS_ANL_20260302205902.csv',
                 'refFile': '/HDD/DATA/INPUT/BDWIDE2026/OBS_계절관측_20260128005918.csv',
@@ -269,6 +270,10 @@ class DtaProcess(object):
             # **********************************************************************************************************
             # 설정 정보
             # **********************************************************************************************************
+            cfgData = pd.read_csv(sysOpt['stnFile'])
+            cfgDataL1 = cfgData[['STN', 'LON', 'LAT']]
+
+
             obsData = pd.read_csv(sysOpt['obsFile'], encoding='EUC-KR')
             # obsData.columns
             obsData.columns = ['stnId', 'stnName', 'dt', 'avgTemp', 'avgMinTemp', 'avgMaxTemp', 'sumPrecip', 'avgRh', 'sumSolarRad', 'avgWindSpeed']
@@ -278,7 +283,7 @@ class DtaProcess(object):
             refDataL1 = refData.melt(id_vars=['지점', '년도'], var_name='구분', value_name='값')
             refDataL1[['구분1', '구분2']] = refDataL1['구분'].str.split('_', n=1, expand=True)
 
-            obsData['dt'] = obsData['dt'].astype(str)
+            obsData['year'] = obsData['dt'].astype(str)
             refDataL1['년도'] = refDataL1['년도'].astype(str)
 
             # dt를 datetime으로 변환 후 년도 추출
@@ -287,25 +292,26 @@ class DtaProcess(object):
 
 
             # 교집합 병합 (obsData: stnId/dt의 년도, refDataL1: 지점/년도)
-            mergeData = pd.merge(obsData, refDataL1, left_on=['stnName', 'dt'], right_on=['지점', '년도'], how='inner')
+            mergeData = pd.merge(obsData, refDataL1, left_on=['stnName', 'year'], right_on=['지점', '년도'], how='inner')
 
             # 속초 지역 & 개화 시기 필터링 (벚나무를 예시로 사용)
             # sokcho_df = mergeData[(mergeData['stnName'] == '속초')].copy()
             # sokcho_df = sokcho_df[sokcho_df['구분2'] == '개화'].copy()
-            # sokcho_df = sokcho_df[sokcho_df['구분1'] == '벚나무'].copy()  # 대상 식물(예: 벚나무)
-            sokcho_df = mergeData[mergeData['구분2'] == '개화'].copy()  # 대상 식물(예: 벚나무)
 
-            sokcho_df.columns
+            sokcho_df = mergeData[mergeData['구분2'] == '개화'].copy()  # 대상 식물(예: 벚나무)
+            sokcho_df = sokcho_df[sokcho_df['구분1'] == '개나리'].copy()  # 대상 식물(예: 벚나무)
 
             # 컬럼명 통일 및 시계열 처리 (결측치 등)
             sokcho_df = sokcho_df.rename(columns={'값': 'demand'})
             sokcho_df['demand'] = pd.to_datetime(sokcho_df['demand'], format='%Y-%m-%d', errors='coerce').dt.strftime('%j').astype('float')
+            # sokcho_df['timeStamp'] = sokcho_df['timeStamp'].dt.to_period('Y').dt.to_timestamp()
 
-            # sokcho_df['timeStamp'] = sokcho_df['dt']
+
+            sokcho_df['timeStamp'] = pd.to_datetime(sokcho_df['year'], errors='coerce')
             # sokcho_df = sokcho_df.set_index('timeStamp')
             # # sokcho_df['temp'] = sokcho_df['temp'].fillna(method='ffill')
             # # sokcho_df['precip'] = sokcho_df['precip'].fillna(method='ffill')
-            sokcho_df = sokcho_df.reset_index()
+            sokcho_df = sokcho_df.dropna(subset=['demand']).reset_index()
             # sokcho_df.columns
 
             # Using temperature values create categorical values
@@ -332,66 +338,216 @@ class DtaProcess(object):
             # if "month" in sokcho_df.columns:
             #     del sokcho_df["month"]  # remove month column to reduce redundancy
 
-            # split data into train and test
-            num_samples = sokcho_df.shape[0]
-            time_horizon = 30  # 예시: 30일 예측 (사용자 코드는 180일)
-            split_idx = num_samples - time_horizon
+            # # split data into train and test
+            # num_samples = sokcho_df.shape[0]
+            # time_horizon = 30  # 예시: 30일 예측 (사용자 코드는 180일)
+            # split_idx = num_samples - time_horizon
             
-            if split_idx > 0:
-                multi_train_df = sokcho_df[:split_idx]
-                multi_test_df = sokcho_df[split_idx:]
+            # if split_idx > 0:
+                # multi_train_df = sokcho_df[:split_idx]
+                # multi_test_df = sokcho_df[split_idx:]
+                #
+                # multi_X_test = multi_test_df[["timeStamp", "precip", "temp", "temp_above_monthly_avg"]]
+                # multi_y_test = multi_test_df["demand"]
 
-                multi_X_test = multi_test_df[["timeStamp", "precip", "temp", "temp_above_monthly_avg"]]
-                multi_y_test = multi_test_df["demand"]
-
-                # initialize AutoML instance
-                try:
-                    from flaml import AutoML
-                    automl = AutoML()
-
-                    # multi_test_df.columns
-
-                    # configure AutoML settings
-                    settings = {
-                        "time_budget": 10,
-                        "metric": "rmse",
-                        "task": "regression",
-                        # "eval_method": "holdout",
-                        # "log_type": "all",
-                        # label이나 time_col은 fit(dataframe=...)에서 주로 쓰이므로 제외합니다.
-                    }
-
-                    sokcho_df.columns
-
-                    # 타겟 변수 변환 (날짜 문자열 -> 일차(Day of year) 숫자)
-
-                    # sokcho_df['demand'] = pd.to_datetime(sokcho_df['demand'], format='%Y-%m-%d', errors='coerce').dt.strftime('%j').astype(int)
-                    # sokcho_df['demand'] = pd.to_datetime(sokcho_df['demand'], format='%Y-%m-%d', errors='coerce').dt.strftime('%j').astype(int)
-                    sokcho_df['demand'] = pd.to_datetime(sokcho_df['demand'], format='%Y-%m-%d', errors='coerce').dt.strftime('%j').astype('float')
+            # initialize AutoML instance
+            from flaml import AutoML
+            automl = AutoML()
 
 
-                    # FLAML 내부의 시계열 날짜 자동변환(time_col) 버그를 피해, 직접 유용한 시간 피처를 추출합니다.
-                    #
-                    # sokcho_df['month'] = pd.to_datetime(sokcho_df['timeStamp']).dt.month
-                    # sokcho_df['day'] = pd.to_datetime(sokcho_df['timeStamp']).dt.day
-                    # sokcho_df['dayofyear'] = pd.to_datetime(sokcho_df['timeStamp']).dt.dayofyear
+            # 예측
+            settings = {
+                "time_budget": 10,
+                "metric": "rmse",
+                "task": "regression",
+            }
 
-                    # 예측에 사용할 피처(Feature)들
-                    features = ['avgTemp', 'avgMinTemp', 'avgMaxTemp', 'sumPrecip', 'avgRh', 'avgWindSpeed']
-                    
-                    X_train = sokcho_df[features].copy()
-                    y_train = sokcho_df['demand'].copy()
+            # 3. 예측에 사용할 피처에 시간 피처 추가
+            features = ['year', 'avgTemp', 'avgMinTemp', 'avgMaxTemp', 'sumPrecip', 'avgRh', 'avgWindSpeed']
 
-                    # dataframe 매개변수 대신 X_train, y_train을 직접 주입하여 안정적으로 학습합니다.
-                    automl.fit(X_train=X_train, y_train=y_train, **settings)
+            X_train = sokcho_df[features].copy()
+            y_train = sokcho_df['demand'].copy()  # demand가 숫자형 데이터라고 가정
 
-                    # 예측 수행
-                    print("====== 예측 결과 (Prediction) ======")
-                    predictions = automl.predict(X_train)
-                    print(predictions)
 
-                except ImportError:
-                    log.warning("FLAML 패키지가 설치되어 있지 않습니다. 'pip install flaml[ts]'명령어로 설치해주세요.")
+            # 4. 모델 학습
+            automl.fit(X_train=X_train, y_train=y_train, **settings)
+
+            # 5. 예측 수행 (가급적 X_test를 별도로 만들어 사용하는 것을 권장합니다)
+            print("====== 예측 결과 (Prediction) ======")
+            predictions = automl.predict(X_train)
+            print(predictions)
+
+
+
+            # 검증
+            from sklearn.metrics import mean_squared_error, mean_absolute_error, r2_score
+            import matplotlib.pyplot as plt
+            import numpy as np
+
+            # 1. 평가 지표 계산 (정답인 y_train과 모델이 찍은 predictions를 비교)
+            rmse = np.sqrt(mean_squared_error(y_train, predictions))
+            mae = mean_absolute_error(y_train, predictions)
+            r2 = r2_score(y_train, predictions)
+
+            print("====== 📈 모델 검증 결과 (Metrics) ======")
+            print(f"RMSE (평균 오차): {rmse:.2f}")
+            print(f"MAE (절대 평균 오차): {mae:.2f}")
+            print(f"R2 Score (설명력, 1에 가까울수록 좋음): {r2:.2f}")
+
+            # RMSE (평균 오차): 5.38
+            # MAE (절대 평균 오차): 4.21
+            # R2 Score (설명력, 1에 가까울수록 좋음): 0.64
+
+            # RMSE (평균 오차): 3.09
+            # MAE (절대 평균 오차): 2.34
+            # R2 Score (설명력, 1에 가까울수록 좋음): 0.88
+
+            # RMSE (평균 오차): 3.19
+            # MAE (절대 평균 오차): 2.39
+            # R2 Score (설명력, 1에 가까울수록 좋음): 0.87
+
+            # 2. 시각화 (눈으로 직접 확인하기)
+            plt.figure(figsize=(10, 6))
+            plt.scatter(y_train, predictions, alpha=0.3, color='blue')
+            plt.plot([y_train.min(), y_train.max()], [y_train.min(), y_train.max()], 'r--', lw=2)  # 빨간 점선 = 완벽한 정답선
+            plt.xlabel('Actual Demand (실제 수요)')
+            plt.ylabel('Predicted Demand (예측 수요)')
+            plt.title('Actual vs. Predicted Demand')
+            plt.grid(True)
+            plt.show()
+
+
+            import seaborn as sns
+            import matplotlib.pyplot as plt
+
+            # 1. 상관계수를 계산하기 위해 X_train과 y_train을 임시로 하나로 합칩니다.
+            train_data = X_train.copy()
+            train_data['demand'] = y_train
+
+            # 2. 상관계수 계산 (Pearson)
+            correlation_matrix = train_data.corr()
+
+            # 3. 'demand'와 다른 변수들 간의 상관계수만 내림차순으로 텍스트 출력
+            print("====== 📊 타겟(demand)과의 상관계수 ======")
+            print(correlation_matrix['demand'].sort_values(ascending=False))
+
+            # 4. 보기 좋게 히트맵(Heatmap)으로 시각화
+            plt.figure(figsize=(10, 8))
+            # annot=True: 숫자 표시, cmap='coolwarm': 파란색(음) ~ 붉은색(양) 컬러맵
+            sns.heatmap(correlation_matrix, annot=True, cmap='coolwarm', fmt=".2f", vmin=-1, vmax=1)
+            plt.title("Feature vs Demand Correlation Heatmap")
+            plt.tight_layout()
+            plt.show()
+
+
+
+
+
+
+
+
+
+            import numpy as np
+            import matplotlib.pyplot as plt
+            from scipy.interpolate import RBFInterpolator
+            import cartopy.crs as ccrs
+            import cartopy.feature as cfeature
+            from shapely.prepared import prep
+
+            # 1. 데이터 준비 (기존 코드와 동일)
+            np.random.seed(42)
+            obs_lon = np.random.uniform(126.0, 129.0, 20)
+            obs_lat = np.random.uniform(34.0, 38.0, 20)
+            obs_temp = np.random.uniform(10, 25, 20)
+            obs_coords = np.column_stack((obs_lon, obs_lat))
+
+            # 2. 격자 생성 (기존 코드와 동일)
+            grid_lon = np.arange(126.0, 129.1, 0.05)  # 해상도를 조금 더 높였습니다
+            grid_lat = np.arange(34.0, 38.1, 0.05)
+            Grid_lon, Grid_lat = np.meshgrid(grid_lon, grid_lat)
+            grid_coords = np.column_stack((Grid_lon.ravel(), Grid_lat.ravel()))
+
+            # 3. RBF 보간 계산
+            rbf_model = RBFInterpolator(y=obs_coords, d=obs_temp, kernel='thin_plate_spline', smoothing=0.1)
+            grid_temp_flat = rbf_model(grid_coords)
+            Grid_temp = grid_temp_flat.reshape(Grid_lon.shape)
+
+            # ---------------------------------------------------------
+            # 🛠️ 4. 해상 마스크(Sea Mask) 적용 로직
+            # ---------------------------------------------------------
+            print("🌊 해상 마스크 생성 중...")
+
+            # Cartopy의 육지 데이터를 가져옵니다 (10m 또는 50m 해상도)
+            land_feature = cfeature.NaturalEarthFeature('physical', 'land', '50m')
+            land_geom = list(land_feature.geometries())
+
+            # 속도를 위해 준비된 기하구조(prepared geometry)를 사용합니다.
+            from shapely.ops import unary_union
+            land_polygons = prep(unary_union(land_geom))
+
+            # 각 격자점이 육지인지 바다인지 판별하는 함수
+            from shapely.geometry import Point
+
+            # 격자 크기만큼의 마스크 배열 생성 (True=육지, False=바다)
+            mask = np.array([land_polygons.contains(Point(lon, lat)) for lon, lat in grid_coords])
+            mask = mask.reshape(Grid_lon.shape)
+
+            # 바다 영역(mask == False)을 NaN으로 처리하여 시각화에서 가립니다.
+            Grid_temp_masked = np.where(mask, Grid_temp, np.nan)
+            # ---------------------------------------------------------
+
+            # 5. 시각화
+            plt.figure(figsize=(10, 8), dpi=100)
+            ax = plt.axes(projection=ccrs.PlateCarree())
+
+            # 해안선 및 지형 추가
+            ax.add_feature(cfeature.COASTLINE, linewidth=1, edgecolor='black', zorder=3)
+            ax.add_feature(cfeature.BORDERS, linestyle=':', alpha=0.5, zorder=3)
+
+            # 마스킹된 데이터로 등고선 그리기
+            cf = ax.contourf(Grid_lon, Grid_lat, Grid_temp_masked, levels=20, cmap='YlOrRd',
+                             transform=ccrs.PlateCarree())
+            plt.colorbar(cf, label='Interpolated Temp (Land Only, °C)', shrink=0.6)
+
+            # 관측점 표시
+            ax.scatter(obs_lon, obs_lat, c='blue', edgecolors='white', s=30, label='Stations',
+                       transform=ccrs.PlateCarree(), zorder=4)
+
+            plt.title("RBF Interpolation with Land Masking (Sea Masked Out)")
+            plt.legend()
+            plt.show()
+
+
+
+
+            import intake
+            import xarray as xr
+
+            # 1. CMIP6 데이터 카탈로그 열기 (Pangeo 클라우드 활용)
+            col = intake.open_esm_datastore("https://storage.googleapis.com/cmip6/pangeo-cmip6.json")
+
+            # 2. 원하는 시나리오 조건 검색 (예: 2050년 포함된 SSP5-8.5 고탄소 시나리오)
+            query = dict(
+                experiment_id='ssp585',
+                table_id='Amon',
+                variable_id='tas',  # 지표 기온
+                member_id='r1i1p1f1'
+            )
+
+            search = col.search(**query)
+            dataset_dict = search.to_dataset_dict()
+
+            # 3. 데이터 로드 및 2050년 데이터 슬라이싱
+            # 이 데이터를 pySCM의 'state'에 넣어 시뮬레이션을 시작할 수 있습니다.
+            key = list(dataset_dict.keys())[0]
+            ds = dataset_dict[key]
+            future_ta = ds.sel(time='2050-08')
+
+
+
+
+
+
 
         except Exception as e:
             log.error(f"Exception : {e}")
