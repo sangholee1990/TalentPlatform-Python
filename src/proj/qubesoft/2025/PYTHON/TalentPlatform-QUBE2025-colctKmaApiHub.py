@@ -438,8 +438,7 @@ class DtaProcess(object):
                 'ASOS': {
                     'request': {
                         'url': 'https://apihub.kma.go.kr/api/typ01/url/kma_sfctm3.php?tm1={tmfc}&tm2={tmfc2}&stn=0&help=0&authKey={authKey}'
-                        , 'authKey': 'SNtYDCmcQjSbWAwpnII0QA'
-                        #, 'authKey': 'aqv2zysIQ4mr9s8rCCOJOQ'
+                        , 'authKey': None
                         , 'invDate': '1d'
                     }
                     , 'cmd': 'curl -s -C - "{reqUrl}" --retry 10 -o "{tmpFileInfo}"'
@@ -449,8 +448,7 @@ class DtaProcess(object):
                 'AWS': {
                     'request': {
                         'url': 'https://apihub.kma.go.kr/api/typ01/cgi-bin/url/nph-aws2_min?tm1={tmfc}&tm2={tmfc2}&stn=0&disp=0&help=0&authKey={authKey}'
-                        , 'authKey': 'SNtYDCmcQjSbWAwpnII0QA'
-                        #, 'authKey': 'hQDU-t1aQHaA1PrdWvB2eA'
+                        , 'authKey': None
                         , 'invDate': '3h'
                     }
                     , 'cmd': 'curl -s -C - "{reqUrl}" --retry 10 -o "{tmpFileInfo}"'
@@ -468,9 +466,7 @@ class DtaProcess(object):
                         , 'ef06': ['00', '01', '02', '03', '04', '05', '09', '10', '11', '12', '13', '14', '15', '16', '17', '18', '19', '20', '21', '22', '23', '24', '25', '26', '27', '28', '29', '30', '31', '32']
                         , 'ef12': ['00', '01', '02', '03', '04', '05', '27', '28', '29', '30', '31', '32', '33', '34', '35', '36', '37', '38', '39', '40', '41', '42', '43', '44', '45', '46', '47']
                         , 'ef18': ['00', '01', '02', '03', '04', '05', '21', '22', '23', '24', '25', '26', '27', '28', '29', '30', '31', '32', '33', '34', '35', '36', '37', '38', '39', '40', '41', '42', '43', '44']
-                        # , 'authKey': None
-                        , 'authKey': '_n1x6n-5Sji9cep_uVo4Uw'
-                        #, 'authKey': 'ZZg2eTYPTzCYNnk2D-8wKQ'
+                        , 'authKey': None
                         , 'invDate': '6h'
                     }
                     , 'cmd': 'curl -s -C - "{reqUrl}" --retry 10 -o "{tmpFileInfo}"'
@@ -496,9 +492,7 @@ class DtaProcess(object):
                         , 'ef18': ['00', '01', '02', '03', '04', '05', '21', '22', '23', '24', '25', '26', '27', '28',
                                    '29', '30', '31', '32', '33', '34', '35', '36', '37', '38', '39', '40', '41', '42',
                                    '43', '44']
-                        # , 'authKey': None
-                        , 'authKey': 'O6MnrH_PQbyjJ6x_z0G8SQ'
-                        #, 'authKey': 'ZZg2eTYPTzCYNnk2D-8wKQ'
+                        , 'authKey': None
                         , 'invDate': '6h'
                     }
                     , 'cmd': 'curl -s -C - "{reqUrl}" --retry 10 -o "{tmpFileInfo}"'
