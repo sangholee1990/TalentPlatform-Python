@@ -1254,8 +1254,8 @@ class DtaProcess(object):
                 # 자동화/수동화 모델링
                 'MODEL': {
                     'orgPycaret': {
-                        'saveModelList': "/DATA/AI/*/*/LSH0255-{srv}-final-pycaret-for-*.model.pkl",
-                        'saveModel': "/DATA/AI/%Y%m/%d/LSH0255-{srv}-final-pycaret-for-%Y%m%d.model",
+                        'saveModelList': "/DATA/AI/*/*/LSH0255-{srv}-final-pycaret-forKim-*.model.pkl",
+                        'saveModel': "/DATA/AI/%Y%m/%d/LSH0255-{srv}-final-pycaret-forKim-%Y%m%d.model",
                         # 'isOverWrite': True,
                         'isOverWrite': False,
                         'srv': None,
@@ -1263,8 +1263,8 @@ class DtaProcess(object):
                         'exp': None
                     },
                     'orgH2o': {
-                        'saveModelList': "/DATA/AI/*/*/LSH0255-{srv}-final-h2o-for-*.model",
-                        'saveModel': "/DATA/AI/%Y%m/%d/LSH0255-{srv}-final-h2o-for-%Y%m%d.model",
+                        'saveModelList': "/DATA/AI/*/*/LSH0255-{srv}-final-h2o-forKim-*.model",
+                        'saveModel': "/DATA/AI/%Y%m/%d/LSH0255-{srv}-final-h2o-forKim-%Y%m%d.model",
                         'isInit': False,
                         # 'isOverWrite': True,
                         'isOverWrite': False,
@@ -1272,27 +1272,27 @@ class DtaProcess(object):
                         'preDt': datetime.datetime.now(),
                     },
                     'lgb': {
-                        'saveModelList': "/DATA/AI/*/*/QUBE2025-{srv}-final-lgb-for-*.model",
-                        'saveModel': "/DATA/AI/%Y%m/%d/QUBE2025-{srv}-final-lgb-for-%Y%m%d.model",
-                        'saveImg': "/DATA/AI/%Y%m/%d/QUBE2025-{srv}-final-lgb-for-%Y%m%d.png",
+                        'saveModelList': "/DATA/AI/*/*/QUBE2025-{srv}-final-lgb-forKim-*.model",
+                        'saveModel': "/DATA/AI/%Y%m/%d/QUBE2025-{srv}-final-lgb-forKim-%Y%m%d.model",
+                        'saveImg': "/DATA/AI/%Y%m/%d/QUBE2025-{srv}-final-lgb-forKim-%Y%m%d.png",
                         # 'isOverWrite': True,
                         'isOverWrite': False,
                         'srv': None,
                         'preDt': datetime.datetime.now(),
                     },
                     'flaml': {
-                        'saveModelList': "/DATA/AI/*/*/QUBE2025-{srv}-final-flaml-for-*.model",
-                        'saveModel': "/DATA/AI/%Y%m/%d/QUBE2025-{srv}-final-flaml-for-%Y%m%d.model",
-                        'saveImg': "/DATA/AI/%Y%m/%d/QUBE2025-{srv}-final-flaml-for-%Y%m%d.png",
+                        'saveModelList': "/DATA/AI/*/*/QUBE2025-{srv}-final-flaml-forKim-*.model",
+                        'saveModel': "/DATA/AI/%Y%m/%d/QUBE2025-{srv}-final-flaml-forKim-%Y%m%d.model",
+                        'saveImg': "/DATA/AI/%Y%m/%d/QUBE2025-{srv}-final-flaml-forKim-%Y%m%d.png",
                         # 'isOverWrite': True,
                         'isOverWrite': False,
                         'srv': None,
                         'preDt': datetime.datetime.now(),
                     },
                     'pycaret': {
-                        'saveModelList': "/DATA/AI/*/*/QUBE2025-{srv}-final-pycaret-for-*.model.pkl",
-                        'saveModel': "/DATA/AI/%Y%m/%d/QUBE2025-{srv}-final-pycaret-for-%Y%m%d.model",
-                        'saveImg': "/DATA/AI/%Y%m/%d/QUBE2025-{srv}-final-pycaret-for-%Y%m%d.png",
+                        'saveModelList': "/DATA/AI/*/*/QUBE2025-{srv}-final-pycaret-forKim-*.model.pkl",
+                        'saveModel': "/DATA/AI/%Y%m/%d/QUBE2025-{srv}-final-pycaret-forKim-%Y%m%d.model",
+                        'saveImg': "/DATA/AI/%Y%m/%d/QUBE2025-{srv}-final-pycaret-forKim-%Y%m%d.png",
                         # 'isOverWrite': True,
                         'isOverWrite': False,
                         'srv': None,
