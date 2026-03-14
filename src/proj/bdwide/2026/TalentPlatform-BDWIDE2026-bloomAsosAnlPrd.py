@@ -79,6 +79,23 @@ from flaml import AutoML
 import matplotlib.pyplot as plt
 import numpy as np
 
+import cartopy.io.shapereader as shpreader
+from shapely.ops import unary_union
+from shapely.prepared import prep
+from shapely.geometry import Point
+import numpy as np
+
+import matplotlib.pyplot as plt
+import geojsoncontour
+import geopandas as gpd
+import numpy as np
+
+import matplotlib.pyplot as plt
+import geojsoncontour
+import geopandas as gpd
+import numpy as np
+import json
+
 # =================================================
 # 사용자 매뉴얼
 # =================================================
@@ -309,6 +326,8 @@ class DtaProcess(object):
             # 속초 지역 & 개화 시기 필터링 (벚나무를 예시로 사용)
             # sokcho_df = mergeData[(mergeData['stnName'] == '속초')].copy()
             # sokcho_df = sokcho_df[sokcho_df['구분2'] == '개화'].copy()
+            mergeData['구분1'].unique()
+            mergeData['구분2'].unique()
 
             sokcho_df = mergeData[mergeData['구분2'] == '개화'].copy()
             sokcho_df['구분1'].unique()
@@ -316,6 +335,7 @@ class DtaProcess(object):
             # 대상 식물(예: 벚나무)
             # sokcho_df = sokcho_df[sokcho_df['구분1'] == '개나리'].copy()  # 대상 식물(예: 벚나무)
             sokcho_df = sokcho_df[sokcho_df['구분1'] == '아까시나무'].copy()  # 대상 식물(예: 벚나무)
+            # sokcho_df = sokcho_df[sokcho_df['구분1'] == '배나무'].copy()
 
             # 컬럼명 통일 및 시계열 처리 (결측치 등)
             sokcho_df = sokcho_df.rename(columns={'값': 'demand'})
@@ -324,56 +344,18 @@ class DtaProcess(object):
 
 
             sokcho_df['timeStamp'] = pd.to_datetime(sokcho_df['year'], errors='coerce')
-            # sokcho_df = sokcho_df.set_index('timeStamp')
-            # # sokcho_df['temp'] = sokcho_df['temp'].fillna(method='ffill')
-            # # sokcho_df['precip'] = sokcho_df['precip'].fillna(method='ffill')
+            #             # sokcho_df = sokcho_df.set_index('timeStamp')
+            #             # # sokcho_df['temp'] = sokcho_df['temp'].fillna(method='ffill')
+            #             # # sokcho_df['precip'] = sokcho_df['precip'].fillna(method='ffill')
             sokcho_df = sokcho_df.dropna(subset=['demand']).reset_index()
             # sokcho_df.columns
 
-            # Using temperature values create categorical values
-            # # where 1 denotes daily tempurature is above monthly average and 0 is below.
-            # def get_monthly_avg(data):
-            #     data["month"] = data["timeStamp"].dt.month
-            #     data_grp = data[["month", "temp"]].groupby("month")
-            #     data_grp = data_grp.agg({"temp": "mean"})
-            #     return data_grp
-            #
-            # monthly_avg = get_monthly_avg(sokcho_df).to_dict().get("temp", {})
-            #
-            # def above_monthly_avg(date, temp):
-            #     month = date.month
-            #     if temp > monthly_avg.get(month, temp):
-            #         return 1
-            #     else:
-            #         return 0
-            #
-            # sokcho_df["temp_above_monthly_avg"] = sokcho_df.apply(
-            #     lambda x: above_monthly_avg(x["timeStamp"], x["temp"]), axis=1
-            # )
-            #
-            # if "month" in sokcho_df.columns:
-            #     del sokcho_df["month"]  # remove month column to reduce redundancy
-
-            # # split data into train and test
-            # num_samples = sokcho_df.shape[0]
-            # time_horizon = 30  # 예시: 30일 예측 (사용자 코드는 180일)
-            # split_idx = num_samples - time_horizon
-            
-            # if split_idx > 0:
-                # multi_train_df = sokcho_df[:split_idx]
-                # multi_test_df = sokcho_df[split_idx:]
-                #
-                # multi_X_test = multi_test_df[["timeStamp", "precip", "temp", "temp_above_monthly_avg"]]
-                # multi_y_test = multi_test_df["demand"]
-
-            # initialize AutoML instance
-
             automl = AutoML()
-
 
             # 예측
             settings = {
-                "time_budget": 10,
+                "time_budget": 60,
+                # "time_budget": 600,
                 "metric": "rmse",
                 "task": "regression",
             }
@@ -382,7 +364,7 @@ class DtaProcess(object):
             features = ['year', 'avgTemp', 'avgMinTemp', 'avgMaxTemp', 'sumPrecip', 'avgRh', 'avgWindSpeed']
 
             X_train = sokcho_df[features].copy()
-            y_train = sokcho_df['demand'].copy()  # demand가 숫자형 데이터라고 가정
+            y_train = sokcho_df['demand'].copy()
 
 
             # 4. 모델 학습
@@ -393,48 +375,54 @@ class DtaProcess(object):
             predictions = automl.predict(X_train)
             # print(predictions)
 
-            sokcho_df['prd'] = predictions.astype(int)
+            sokcho_df['prd'] = np.round(predictions).astype(int)
+            # sokcho_df['prd'] = predictions.astype(int)
 
+            # sokcho_df['diff'] = sokcho_df['demand'] - sokcho_df['prd']
+            # sokcho_df2 = sokcho_df.sort_values(by='diff', ascending=False)
 
+            # sokcho_df = sokcho_df.drop(index=[1241])
+            # sokcho_df = sokcho_df.reset_index()
+            # y_train = sokcho_df['demand'].copy()
 
-            # 산점도
-            plt.figure(figsize=(8, 8))
+            # # 산점도
+            # plt.figure(figsize=(8, 8))
+            #
+            # # 실제값(y_train)과 예측값(predictions)으로 산포도 그리기
+            # plt.scatter(y_train, sokcho_df['prd'], color='dodgerblue', alpha=0.7, edgecolor='k', s=50, label='예측 데이터')
+            #
+            # # 예측이 100% 정확할 때를 나타내는 대각선 기준선 (y = x)
+            # min_val = min(np.min(y_train), np.min(predictions))
+            # max_val = max(np.max(y_train), np.max(predictions))
+            #
+            # # x, y축 범위를 약간 여유있게 조정
+            # margin = (max_val - min_val) * 0.05
+            # min_val -= margin
+            # max_val += margin
+            #
+            # plt.plot([min_val, max_val], [min_val, max_val], color='red', linestyle='--', linewidth=2,
+            #          label='완벽한 예측 (y=x)')
+            #
+            # # 축 및 레이블 설정
+            # plt.title('실제 개화일 vs 예측 개화일 산포도', fontsize=16, fontweight='bold', pad=15)
+            # plt.xlabel('실제 개화일 (Day of year)', fontsize=12)
+            # plt.ylabel('예측 개화일 (Day of year)', fontsize=12)
+            #
+            # # 축 범위 통일 (정사각형 형태 유지용)
+            # plt.xlim(min_val, max_val)
+            # plt.ylim(min_val, max_val)
+            #
+            # plt.grid(True, linestyle='--', alpha=0.6)
+            # plt.legend(loc='upper left', fontsize=11)
+            # plt.tight_layout()
+            #
+            # plt.show()
 
-            # 실제값(y_train)과 예측값(predictions)으로 산포도 그리기
-            plt.scatter(y_train, sokcho_df['prd'], color='dodgerblue', alpha=0.7, edgecolor='k', s=50, label='예측 데이터')
-
-            # 예측이 100% 정확할 때를 나타내는 대각선 기준선 (y = x)
-            min_val = min(np.min(y_train), np.min(predictions))
-            max_val = max(np.max(y_train), np.max(predictions))
-
-            # x, y축 범위를 약간 여유있게 조정
-            margin = (max_val - min_val) * 0.05
-            min_val -= margin
-            max_val += margin
-
-            plt.plot([min_val, max_val], [min_val, max_val], color='red', linestyle='--', linewidth=2,
-                     label='완벽한 예측 (y=x)')
-
-            # 축 및 레이블 설정
-            plt.title('실제 개화일 vs 예측 개화일 산포도', fontsize=16, fontweight='bold', pad=15)
-            plt.xlabel('실제 개화일 (Day of year)', fontsize=12)
-            plt.ylabel('예측 개화일 (Day of year)', fontsize=12)
-
-            # 축 범위 통일 (정사각형 형태 유지용)
-            plt.xlim(min_val, max_val)
-            plt.ylim(min_val, max_val)
-
-            plt.grid(True, linestyle='--', alpha=0.6)
-            plt.legend(loc='upper left', fontsize=11)
-            plt.tight_layout()
-
-            plt.show()
-
-
-            # 검증
 
             # 1. 평가 지표 계산 (정답인 y_train과 모델이 찍은 predictions를 비교)
             rmse = np.sqrt(mean_squared_error(y_train,  sokcho_df['prd']))
+            rrmse = (rmse / y_train.mean()) * 100
+            nrmse = (rmse / (y_train.max() - y_train.min())) * 100
             mae = mean_absolute_error(y_train,  sokcho_df['prd'])
             r2 = r2_score(y_train,  sokcho_df['prd'])
             r = np.sqrt(r2)
@@ -444,28 +432,9 @@ class DtaProcess(object):
             # print(f"MAE (절대 평균 오차): {mae:.2f}")
             # print(f"R2 Score (설명력, 1에 가까울수록 좋음): {r2:.2f}")
 
-            # ---------------------------------------------------------
-            # 🗓️ [추가] 정수(Day of year)를 날짜 문자열로 변환하는 함수
-            # ---------------------------------------------------------
-            def day_to_date_str(day_val, year):
-                """1년 중 몇 번째 날인지(day_val)를 받아서 'YYYY-MM-DD (요일)'로 반환합니다."""
-                if np.isnan(day_val):
-                    return ""
-
-                # 1월 1일 기준으로 day_val만큼 더하기 (1일은 0 더함)
-                dt = datetime.datetime(year, 1, 1) + datetime.timedelta(days=int(day_val) - 1)
-
-                # 요일 구하기 (월=0, 일=6)
-                weekdays = ['월', '화', '수', '목', '금', '토', '일']
-                weekday_str = weekdays[dt.weekday()]
-
-                # %Y-%m-%d (요일) 형태로 반환
-                return dt.strftime(f'%Y-%m-%d ({weekday_str})')
-
-            # sokcho_df['dt'].max()
 
             # 1. 데이터 준비
-            target_year = 2004
+            target_year = 2025
             year_df = sokcho_df[sokcho_df['dt'] == target_year].copy()
             year_df['prd'] = year_df['prd'].round().astype(int)
 
@@ -476,27 +445,89 @@ class DtaProcess(object):
             obs_coords = np.column_stack((lons, lats))
 
             # 2. 고해상도 타겟 격자 생성 (500x500)
-            grid_lon = np.linspace(124, 131, 500)
-            grid_lat = np.linspace(33, 39, 500)
+            # grid_lon = np.linspace(124, 131, 2000)
+            # grid_lat = np.linspace(33, 39, 2000)
+            grid_lon = np.linspace(124, 131, 1000)
+            grid_lat = np.linspace(33, 39, 1000)
             Grid_lon, Grid_lat = np.meshgrid(grid_lon, grid_lat)
             target_coords = np.column_stack((Grid_lon.ravel(), Grid_lat.ravel()))
 
             # 3. RBFInterpolator 적용
-            print(f"⚙️ {target_year}년 개화일 RBF 보간 중...")
+            # 테스트할 smoothing 후보군
+            # smoothing_candidates = [0.0, 0.1, 0.5, 1.0, 2.0, 5.0, 6]
+            smoothing_candidates = np.arange(0, 100, 0.5)
+            best_smoothing = 0.0
+            min_error = float('inf')
+
+            # LOOCV (Leave-One-Out Cross Validation) 방식으로 최적값 찾기
+            for s in smoothing_candidates:
+                errors = []
+                # 관측소가 100개라면, 1개를 빼고 99개로 학습한 뒤 1개를 예측해보는 과정을 반복
+                for i in range(len(obs_coords)):
+                    # i번째 관측소만 제외 (검증용)
+                    train_coords = np.delete(obs_coords, i, axis=0)
+                    train_values = np.delete(values, i)
+                    test_coord = obs_coords[i:i + 1]
+                    test_value = values[i]
+
+                    # RBF 보간
+                    rbf = RBFInterpolator(train_coords, train_values, kernel='thin_plate_spline', smoothing=s)
+                    pred_value = rbf(test_coord)[0]
+
+                    errors.append((test_value - pred_value) ** 2)
+
+                avg_rmse = np.sqrt(np.mean(errors))
+                print(f" - Smoothing {s}: RMSE = {avg_rmse:.3f} 일")
+
+                if avg_rmse < min_error:
+                    min_error = avg_rmse
+                    best_smoothing = s
+
+            print(f"최적의 Smoothing 값 선택: {best_smoothing} (최소 오차: {min_error:.3f} 일)")
+
+            print(f" {target_year}년 개화일 RBF 보간 중...")
             rbf = RBFInterpolator(
                 y=obs_coords,
                 d=values,
                 kernel='thin_plate_spline',
-                smoothing=1.0
+                smoothing=best_smoothing,
             )
             grid_prd_smooth = rbf(target_coords).reshape(Grid_lon.shape)
 
-            # 4. 육상 마스크 적용
-            land_feature = cfeature.NaturalEarthFeature('physical', 'land', '10m')
-            land_geom = unary_union(list(land_feature.geometries()))
-            land_prep = prep(land_geom)
 
-            mask = np.array([land_prep.contains(Point(lon, lat))
+
+            # 4. 육상 마스크 적용
+            # land_feature = cfeature.NaturalEarthFeature('physical', 'land', '10m')
+            # land_geom = unary_union(list(land_feature.geometries()))
+            # land_prep = prep(land_geom)
+            #
+            # mask = np.array([land_prep.contains(Point(lon, lat))
+            #                  for lon, lat in zip(Grid_lon.ravel(), Grid_lat.ravel())])
+            # mask = mask.reshape(Grid_lon.shape)
+
+
+            # 4. 대한민국 영토 마스크 적용
+            print(" 대한민국 영토 마스크 생성 중...")
+
+            # Natural Earth에서 전 세계 국가 경계 데이터 가져오기 (10m 고해상도)
+            shpfilename = shpreader.natural_earth(resolution='10m',
+                                                  category='cultural',
+                                                  name='admin_0_countries')
+            reader = shpreader.Reader(shpfilename)
+
+            # 'South Korea' (대한민국) 지형만 추출
+            korea_geoms = []
+            for record in reader.records():
+                # ISO_A3 코드가 'KOR'인 국가(대한민국)를 찾습니다.
+                if record.attributes['ISO_A3'] == 'KOR':
+                    korea_geoms.append(record.geometry)
+
+            # 추출한 대한민국 지형(본토 및 섬들)을 하나로 병합
+            korea_geom = unary_union(korea_geoms)
+            korea_prep = prep(korea_geom)
+
+            # 격자점이 대한민국 영토 안에 있는지 확인하여 마스크 생성 (True: 한국, False: 바다/외국)
+            mask = np.array([korea_prep.contains(Point(lon, lat))
                              for lon, lat in zip(Grid_lon.ravel(), Grid_lat.ravel())])
             mask = mask.reshape(Grid_lon.shape)
 
@@ -505,115 +536,220 @@ class DtaProcess(object):
             # ---------------------------------------------------------
             # 📊 5. 시각화
             # ---------------------------------------------------------
-            plt.figure(figsize=(12, 12))  # 컬러바 글씨가 길어지므로 가로 크기를 살짝 늘렸습니다.
-            ax = plt.axes(projection=ccrs.PlateCarree())
-
-            ax.add_feature(cfeature.COASTLINE, linewidth=1.5, edgecolor='black', zorder=5)
-            ax.add_feature(cfeature.OCEAN, facecolor='white', zorder=4)
-
-            # 정수형 범위를 고려한 레벨 설정 (예: 2일 간격으로 등고선 그리기)
-            # 날짜가 너무 촘촘하게 찍히면 보기 지저분하므로 간격(step)을 조절할 수 있습니다.
-            levels = np.arange(int(np.nanmin(values)), int(np.nanmax(values)) + 2, 2)
-
-            # 등고선 채우기 (개화일은 봄 분위기가 나도록 'spring'이나 'YlGn' 컬러맵도 예쁩니다)
-            cf = ax.contourf(Grid_lon, Grid_lat, grid_prd_final, levels=levels,
-                             cmap='YlGn', alpha=0.9, transform=ccrs.PlateCarree(), zorder=3)
-
-            # 등고선 라인
-            cl = ax.contour(Grid_lon, Grid_lat, grid_prd_final, levels=levels,
-                            colors='black', linewidths=0.3, alpha=0.4, transform=ccrs.PlateCarree(), zorder=3)
-
-            # 💡 [핵심] 등고선 라벨에 날짜 변환 함수(lambda) 적용
-            # x는 등고선 라인의 값(예: 88)이며, 이를 day_to_date_str 함수에 통과시켜 출력합니다.
-            ax.clabel(cl, inline=True, fontsize=9, fmt=lambda x: day_to_date_str(x, target_year))
-
-            # 💡 [핵심] 컬러바 틱 라벨에 날짜 변환 포맷터 적용
-            # FuncFormatter를 사용하면 컬러바의 숫자들도 모두 날짜로 변환됩니다.
-            date_formatter = FuncFormatter(lambda x, pos: day_to_date_str(x, target_year))
-            cbar = plt.colorbar(cf, shrink=0.6, format=date_formatter)
-            cbar.set_label(f'Blooming Date ({target_year})', fontsize=12, labelpad=15)
-
-            plt.title(f'{target_year}년 전국 개화일 예측 등고선', fontsize=16, pad=20, fontweight='bold')
-
-            # (선택) 관측소 위치 표시
-            ax.scatter(lons, lats, c='black', s=10, zorder=6)
-
-            plt.show()
+            # plt.figure(figsize=(12, 12))
+            # ax = plt.axes(projection=ccrs.PlateCarree())
+            #
+            # ax.add_feature(cfeature.COASTLINE, linewidth=1.5, edgecolor='black', zorder=5)
+            # ax.add_feature(cfeature.OCEAN, facecolor='white', zorder=4)
+            #
+            # # 정수형 범위를 고려한 레벨 설정 (예: 2일 간격으로 등고선 그리기)
+            # # 날짜가 너무 촘촘하게 찍히면 보기 지저분하므로 간격(step)을 조절할 수 있습니다.
+            # levels = np.arange(int(np.nanmin(values)), int(np.nanmax(values)) + 2, 2)
+            #
+            # # 등고선 채우기 (개화일은 봄 분위기가 나도록 'spring'이나 'YlGn' 컬러맵도 예쁩니다)
+            # cf = ax.contourf(Grid_lon, Grid_lat, grid_prd_final, levels=levels,
+            #                  cmap='YlGn', alpha=0.9, transform=ccrs.PlateCarree(), zorder=3)
+            #
+            # # 등고선 라인
+            # cl = ax.contour(Grid_lon, Grid_lat, grid_prd_final, levels=levels,
+            #                 colors='black', linewidths=0.3, alpha=0.4, transform=ccrs.PlateCarree(), zorder=3)
+            #
+            # # 💡 [핵심] 등고선 라벨에 날짜 변환 함수(lambda) 적용
+            # # x는 등고선 라인의 값(예: 88)이며, 이를 day_to_date_str 함수에 통과시켜 출력합니다.
+            # ax.clabel(cl, inline=True, fontsize=9, fmt=lambda x: day_to_date_str(x, target_year))
+            #
+            # # 💡 [핵심] 컬러바 틱 라벨에 날짜 변환 포맷터 적용
+            # # FuncFormatter를 사용하면 컬러바의 숫자들도 모두 날짜로 변환됩니다.
+            # date_formatter = FuncFormatter(lambda x, pos: day_to_date_str(x, target_year))
+            # cbar = plt.colorbar(cf, shrink=0.6, format=date_formatter)
+            # cbar.set_label(f'Blooming Date ({target_year})', fontsize=12, labelpad=15)
+            #
+            # plt.title(f'{target_year}년 전국 개화일 예측 등고선', fontsize=16, pad=20, fontweight='bold')
+            #
+            # # (선택) 관측소 위치 표시
+            # ax.scatter(lons, lats, c='black', s=10, zorder=6)
+            #
+            # plt.show()
 
             # ---------------------------------------------------------
             # 📊 5. 웹 기반 반응형 지도 (Folium) 시각화
             # ---------------------------------------------------------
-            import folium
-            import branca.colormap as cm
-            from matplotlib.colors import Normalize
-            import matplotlib.pyplot as plt
+            # import folium
+            # import branca.colormap as cm
+            # from matplotlib.colors import Normalize
+            # import matplotlib.pyplot as plt
+            #
+            # print("️ 반응형 웹 지도(Folium) 생성 중...")
+            #
+            # # 1. 색상 매핑 준비 (Cartopy에서 썼던 YlGn 컬러맵 사용)
+            # cmap = plt.get_cmap('YlGn')
+            # vmin = np.nanmin(grid_prd_final)
+            # vmax = np.nanmax(grid_prd_final)
+            # norm = Normalize(vmin=vmin, vmax=vmax)
+            #
+            # # 2. 격자 데이터(grid_prd_final)를 RGBA(빨강,초록,파랑,투명도) 이미지 배열로 변환
+            # rgba_img = cmap(norm(grid_prd_final))
+            #
+            # # 3. 육지 마스크 밖의 바다 부분(NaN)을 완전 투명하게 처리 (Alpha=0)
+            # rgba_img[np.isnan(grid_prd_final), 3] = 0.0
+            #
+            # # 4. 이미지 배열 상하 반전 (중요 ⭐️)
+            # # Folium은 배열의 [0,0]을 북쪽으로 인식하지만, 우리 데이터는 33도(남쪽)부터 시작하므로 뒤집어야 합니다.
+            # rgba_img_flipped = np.flipud(rgba_img)
+            #
+            # # 5. 지도가 표시될 경계 좌표 설정 [South, West], [North, East]
+            # # (앞서 np.linspace로 설정한 33~39, 124~131 범위와 동일)
+            # bounds = [[33.0, 124.0], [39.0, 131.0]]
+            #
+            # # 6. Folium 기본 지도 생성 (중심 좌표: 대한민국, 타일: 오픈스트리트맵)
+            # m = folium.Map(location=[36.0, 127.5], zoom_start=7, tiles='OpenStreetMap')
+            #
+            # # 7. 예측 데이터 이미지 오버레이 추가
+            # folium.raster_layers.ImageOverlay(
+            #     image=rgba_img_flipped,
+            #     bounds=bounds,
+            #     opacity=0.75,  # 투명도 조절 (배경 지도가 살짝 보이게)
+            #     name=f'{target_year}년 개화일 예측',
+            #     interactive=True
+            # ).add_to(m)
+            #
+            # # 8. 컬러바(범례) 추가
+            # # YlGn 컬러맵과 유사한 헥사코드로 선형 컬러바 생성
+            # colormap = cm.LinearColormap(
+            #     colors=['#ffffe5', '#f7fcb9', '#d9f0a3', '#addd8e', '#78c679', '#41ab5d', '#238443', '#006837'],
+            #     vmin=vmin,
+            #     vmax=vmax
+            # )
+            # colormap.caption = f'Blooming Date (Day of Year) - {target_year}'
+            # m.add_child(colormap)
+            #
+            # # 9. 관측소 위치 마커 찍기 (마우스를 올리면 날짜 정보가 뜹니다)
+            # for lon, lat, val in zip(lons, lats, values):
+            #     date_str = day_to_date_str(val, target_year)  # 위에 만들어둔 날짜 변환 함수 활용
+            #     folium.CircleMarker(
+            #         location=[lat, lon],
+            #         radius=5,
+            #         color='black',
+            #         weight=1,
+            #         fill=True,
+            #         fill_color='crimson',
+            #         fill_opacity=0.9,
+            #         tooltip=f"<b>위치:</b> 관측소<br><b>예측 개화일:</b> {date_str} ({int(val)}일)"
+            #     ).add_to(m)
+            #
+            # # 레이어 컨트롤 추가 (우측 상단 겹쳐보기 On/Off 버튼)
+            # folium.LayerControl().add_to(m)
+            #
+            # # 10. HTML 파일로 저장
+            # output_html = f"{globalVar['outPath']}/{serviceName}/Blooming_Prediction_Map_{target_year}.html"
+            # m.save(output_html)
+            #
+            # print(f" 완료! 웹 브라우저에서 '{output_html}' 파일을 열어보세요!")
 
-            print("🗺️ 반응형 웹 지도(Folium) 생성 중...")
+            # print(" FlatGeobuf (.fgb) 선(Line) 파일 생성 중...")
+            # 1. Matplotlib으로 등고선(Line) 생성
+            fig, ax = plt.subplots()
+            levels = np.arange(int(np.nanmin(values)), int(np.nanmax(values)) + 2, 1)
 
-            # 1. 색상 매핑 준비 (Cartopy에서 썼던 YlGn 컬러맵 사용)
-            cmap = plt.get_cmap('YlGn')
-            vmin = np.nanmin(grid_prd_final)
-            vmax = np.nanmax(grid_prd_final)
-            norm = Normalize(vmin=vmin, vmax=vmax)
+            # 💡 변경점 1: contourf() 가 아닌 contour() 를 사용합니다! (f가 빠짐)
+            contourf_plot = ax.contourf(Grid_lon, Grid_lat, grid_prd_final, levels=levels, cmap='YlGn')
+            plt.close(fig)
+            # #
+            # # 2. 등고선 객체를 GeoJSON 텍스트로 변환
+            # # 💡 변경점 2: contourf_to_geojson() 대신 contour_to_geojson() 을 사용합니다!
+            # geojson_str = geojsoncontour.contourf_to_geojson(
+            #     contourf=contourf_plot,
+            #     ndigits=5,
+            #     stroke_width=0
+            # )
+            #
+            # # 3. GeoPandas를 이용해 메모리에 로드
+            # gdf = gpd.read_file(geojson_str, driver='GeoJSON')
+            # gdf = gdf.set_crs(epsg=4326)
+            # gdf['geometry'] = gdf['geometry'].buffer(0)
+            # # 💡 변경점 3: 선(LineString) 데이터이므로 gdf['geometry'].buffer(0) 코드는 삭제합니다!
+            # # (선 데이터에 buffer(0)을 주면 선이 증발해버릴 수 있습니다.)
+            #
+            # # 4. FlatGeobuf 포맷으로 내보내기 (Export)
+            # fgb_filename = f"{globalVar['outPath']}/{serviceName}/blooming_{target_year}.fgb"
+            # gdf.to_file(fgb_filename, driver='FlatGeobuf')
+            #
+            # print(f" FlatGeobuf (Line) 저장 완료: {fgb_filename}")
 
-            # 2. 격자 데이터(grid_prd_final)를 RGBA(빨강,초록,파랑,투명도) 이미지 배열로 변환
-            rgba_img = cmap(norm(grid_prd_final))
 
-            # 3. 육지 마스크 밖의 바다 부분(NaN)을 완전 투명하게 처리 (Alpha=0)
-            rgba_img[np.isnan(grid_prd_final), 3] = 0.0
-
-            # 4. 이미지 배열 상하 반전 (중요 ⭐️)
-            # Folium은 배열의 [0,0]을 북쪽으로 인식하지만, 우리 데이터는 33도(남쪽)부터 시작하므로 뒤집어야 합니다.
-            rgba_img_flipped = np.flipud(rgba_img)
-
-            # 5. 지도가 표시될 경계 좌표 설정 [South, West], [North, East]
-            # (앞서 np.linspace로 설정한 33~39, 124~131 범위와 동일)
-            bounds = [[33.0, 124.0], [39.0, 131.0]]
-
-            # 6. Folium 기본 지도 생성 (중심 좌표: 대한민국, 타일: 오픈스트리트맵)
-            m = folium.Map(location=[36.0, 127.5], zoom_start=7, tiles='OpenStreetMap')
-
-            # 7. 예측 데이터 이미지 오버레이 추가
-            folium.raster_layers.ImageOverlay(
-                image=rgba_img_flipped,
-                bounds=bounds,
-                opacity=0.75,  # 투명도 조절 (배경 지도가 살짝 보이게)
-                name=f'{target_year}년 개화일 예측',
-                interactive=True
-            ).add_to(m)
-
-            # 8. 컬러바(범례) 추가
-            # YlGn 컬러맵과 유사한 헥사코드로 선형 컬러바 생성
-            colormap = cm.LinearColormap(
-                colors=['#ffffe5', '#f7fcb9', '#d9f0a3', '#addd8e', '#78c679', '#41ab5d', '#238443', '#006837'],
-                vmin=vmin,
-                vmax=vmax
+            # ==========================================================
+            # 💡 [추가] 4. 관측소(Point) 데이터를 GeoDataFrame으로 생성
+            # =========================================================
+            # 1. 면(Polygon) 데이터 생성 및 저장
+            geojson_str = geojsoncontour.contourf_to_geojson(
+                contourf=contourf_plot,
+                ndigits=5,
+                stroke_width=0
             )
-            colormap.caption = f'Blooming Date (Day of Year) - {target_year}'
-            m.add_child(colormap)
+            gdf_poly = gpd.read_file(geojson_str, driver='GeoJSON')
+            gdf_poly = gdf_poly.set_crs(epsg=4326)
+            gdf_poly['geometry'] = gdf_poly['geometry'].buffer(0)
 
-            # 9. 관측소 위치 마커 찍기 (마우스를 올리면 날짜 정보가 뜹니다)
-            for lon, lat, val in zip(lons, lats, values):
-                date_str = day_to_date_str(val, target_year)  # 위에 만들어둔 날짜 변환 함수 활용
-                folium.CircleMarker(
-                    location=[lat, lon],
-                    radius=5,
-                    color='black',
-                    weight=1,
-                    fill=True,
-                    fill_color='crimson',
-                    fill_opacity=0.9,
-                    tooltip=f"<b>위치:</b> 관측소<br><b>예측 개화일:</b> {date_str} ({int(val)}일)"
-                ).add_to(m)
+            poly_fgb = f"{globalVar['outPath']}/{serviceName}/blooming_poly_{target_year}.fgb"
+            gdf_poly.to_file(poly_fgb, driver='FlatGeobuf')
+            print(f"면(Polygon) 데이터 저장 완료: {poly_fgb}")
 
-            # 레이어 컨트롤 추가 (우측 상단 겹쳐보기 On/Off 버튼)
-            folium.LayerControl().add_to(m)
+            # 2. 관측소 지점(Point) 데이터 생성 및 저장
+            point_geometries = [Point(xy) for xy in zip(year_df['LON'], year_df['LAT'])]
 
-            # 10. HTML 파일로 저장
-            output_html = f"{globalVar['outPath']}/Blooming_Prediction_Map_{target_year}.html"
-            m.save(output_html)
+            gdf_points = gpd.GeoDataFrame(
+                year_df,
+                geometry=point_geometries,
+                crs="EPSG:4326"
+            )
 
-            print(f"✅ 완료! 웹 브라우저에서 '{output_html}' 파일을 열어보세요!")
+            point_fgb = f"{globalVar['outPath']}/{serviceName}/blooming_point_{target_year}.fgb"
+            gdf_points.to_file(point_fgb, driver='FlatGeobuf')
+            print(f"점(Point) 데이터 저장 완료: {point_fgb}")
+
+            sys.exit(0)
+
+
+
+            # =========================================================
+            # 💾 2. 면(Polygon) 데이터를 FGB로 저장
+            # =========================================================
+            # geojson_poly = geojsoncontour.contourf_to_geojson(
+            #     contourf=contourf_plot,
+            #     ndigits=5,
+            #     stroke_width=0  # 선은 따로 그릴 것이므로, 면 데이터의 자체 테두리는 없앱니다.
+            # )
+            # gdf_poly = gpd.read_file(geojson_poly, driver='GeoJSON')
+            # gdf_poly = gdf_poly.set_crs(epsg=4326)
+            # gdf_poly['geometry'] = gdf_poly['geometry'].buffer(0)  # 꼬인 폴리곤 복구
+            #
+            # poly_fgb = f"{globalVar['outPath']}/{serviceName}/blooming_{target_year}_poly.fgb"
+            # gdf_poly.to_file(poly_fgb, driver='FlatGeobuf')
+
+            # =========================================================
+            # 💾 3. 선(Line) 데이터를 FGB로 저장
+            # =========================================================
+            # geojson_line = geojsoncontour.contour_to_geojson(
+            #     contour=contour_lines,
+            #     ndigits=5,
+            #     stroke_width=2  # 경계선 두께 설정
+            # )
+            # gdf_line = gpd.read_file(geojson_line, driver='GeoJSON')
+            # gdf_line = gdf_line.set_crs(epsg=4326)
+            # # 선 데이터이므로 buffer(0)은 생략합니다.
+            #
+            # line_fgb = f"{globalVar['outPath']}/{serviceName}/blooming_{target_year}_line.fgb"
+            # gdf_line.to_file(line_fgb, driver='FlatGeobuf')
+            #
+            # print(f" 면 파일 저장 완료: {poly_fgb}")
+            # print(f" 선 파일 저장 완료: {line_fgb}")
+
+
+
+
+
+
+
 
             # 1. 데이터 준비
             target_year = 2025
@@ -633,7 +769,7 @@ class DtaProcess(object):
             target_coords = np.column_stack((Grid_lon.ravel(), Grid_lat.ravel()))
 
             # 3. RBFInterpolator 적용
-            print(f"⚙️ {target_year}년 개화일 RBF 보간 중...")
+            print(f" {target_year}년 개화일 RBF 보간 중...")
             rbf = RBFInterpolator(
                 y=obs_coords,
                 d=values,
