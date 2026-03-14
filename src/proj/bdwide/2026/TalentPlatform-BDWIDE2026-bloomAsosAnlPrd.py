@@ -299,6 +299,103 @@ class DtaProcess(object):
             # **********************************************************************************************************
             # 설정 정보
             # **********************************************************************************************************
+            import xarray as xr
+            import numpy as np
+            import matplotlib.pyplot as plt
+            import geojsoncontour
+            import geopandas as gpd
+            import math
+
+            fileList = sorted(glob.glob('/HDD/DATA/OUTPUT/BDWIDE2026/AR6_SSP126_5ENSMN_skorea_*_gridraw_yearly_2021_2100.nc'))
+            ds = xr.open_mfdataset(fileList)
+
+            target_year = '2025'
+
+            # ds['time']
+            # =========================================================
+            # 💡 1. xarray에서 2050년 3월~5월(봄) 데이터만 쏙 뽑아서 평균 내기
+            # =========================================================
+            # 특정 기간 슬라이싱 후, 시간(time) 차원에 대해 평균(mean)을 구합니다.
+            ds_spring = ds.sel(time=slice(f'{target_year}-01-01', f'{target_year}-01-01'))
+            ds_spring_mean = ds_spring.mean(dim='time')
+
+            #       grid_lon = np.linspace(124, 131, 1000)
+            #             grid_lat = np.linspace(33, 39, 1000)
+            lonList = np.arange(124, 131, 0.01)
+            latList = np.arange(33, 39, 0.01)
+            ds_spring_mean = ds_spring_mean.interpolate_na({'longitude': lonList, 'latitude': latList}, method='linear', fill_value="extrapolate")
+
+            ta_values = ds_spring_mean['TA'].values
+            lons = ds_spring_mean['longitude'].values
+            lats = ds_spring_mean['latitude'].values
+
+            Grid_lon, Grid_lat = np.meshgrid(lons, lats)
+
+            # =========================================================
+            # 2. 고해상도 등치면(Polygon) 생성 (전체 영역)
+            # =========================================================
+            print("등치면 생성 중... (마스크 없이 바다까지 포함)")
+
+            fig, ax = plt.subplots()
+
+            min_val = np.nanmin(ta_values)
+            max_val = np.nanmax(ta_values)
+            levels = np.arange(int(min_val) - 1, int(max_val) + 2, 1)
+            print(levels)
+
+            # 기온 변화를 직관적으로 보여주는 컬러맵
+            contourf_plot = ax.contourf(Grid_lon, Grid_lat, ta_values, levels=levels, cmap='YlOrRd', extend='both')
+            # plt.show()
+            plt.close(fig)
+
+            # =========================================================
+            # 3. GeoJSON 변환
+            # =========================================================
+            print("GeoJSON 변환 중...")
+            geojson_str = geojsoncontour.contourf_to_geojson(
+                contourf=contourf_plot,
+                ndigits=7,
+                stroke_width=0
+            )
+
+            # GeoPandas로 로드 및 꼬인 폴리곤(buffer 0) 복구
+            gdf = gpd.read_file(geojson_str, driver='GeoJSON')
+            gdf = gdf.set_crs(epsg=4326)
+            # gdf['geometry'] = gdf['geometry'].buffer(0)
+            # gdf['geometry'] = gdf.simplify(tolerance=0.005, preserve_topology=True)
+            gdf['year'] = int(target_year)
+
+            gdf = gdf[~gdf.geometry.is_empty & gdf.geometry.notnull()]
+
+            # =========================================================
+            # 4. FlatGeobuf 최종 저장 (클리핑 없이 즉시 저장)
+            # =========================================================
+            # output_fgb = f"future_climate_TA_{target_year}_nomask.fgb"
+            output_fgb = f"{globalVar['outPath']}/{serviceName}/future_climate_TA_{target_year}_nomask.fgb"
+
+
+            # 자르는 과정 없이 원본 gdf를 그대로 저장합니다.
+            gdf.to_file(output_fgb, driver='FlatGeobuf')
+
+            print(f"마스크 없는 초고속 FGB 파일 저장 완료: {output_fgb}")
+
+            import rasterio
+            # from rasterio.transform import from_bounds
+
+            # 좌표계(CRS)를 위경도(EPSG:4326)로 설정
+            ds_spring_mean.rio.set_spatial_dims(x_dim="longitude", y_dim="latitude", inplace=True)
+            ds_spring_mean.rio.write_crs("epsg:4326", inplace=True)
+
+            # 최종 COG(GeoTIFF) 파일로 저장
+            output_tif = f"{globalVar['outPath']}/{serviceName}/future_climate_TA_{target_year}.tif"
+            da_clipped.rio.to_raster(output_tif, driver="COG")
+
+            print(f"✅ 초고속 렌더링용 COG 파일 저장 완료: {output_tif}")
+
+            sys.exit(0)
+
+
+
             cfgData = pd.read_csv(sysOpt['stnFile'])
             cfgDataL1 = cfgData[['STN', 'LON', 'LAT']]
 
@@ -359,6 +456,8 @@ class DtaProcess(object):
                 "metric": "rmse",
                 "task": "regression",
             }
+
+            #  'avgTemp', 'avgMinTemp', 'avgMaxTemp', 'sumPrecip', 'avgRh', 'sumSolarRad', 'avgWindSpeed'
 
             # 3. 예측에 사용할 피처에 시간 피처 추가
             features = ['year', 'avgTemp', 'avgMinTemp', 'avgMaxTemp', 'sumPrecip', 'avgRh', 'avgWindSpeed']
