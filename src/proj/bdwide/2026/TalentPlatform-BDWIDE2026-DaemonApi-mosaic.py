@@ -13,14 +13,14 @@
 # conda activate py39
 
 # 운영 서버
-# nohup /HDD/SYSTEMS/LIB/anaconda3/envs/py39/bin/uvicorn TalentPlatform-bdwide-DaemonApi-mosaic:app --host=0.0.0.0 --port=9910 &
+# nohup /HDD/SYSTEMS/LIB/anaconda3/envs/py39/bin/uvicorn TalentPlatform-BDWIDE2026-DaemonApi-mosaic:app --host=0.0.0.0 --port=9910 &
 # tail -f nohup.out
 
 # 테스트 서버
-# /HDD/SYSTEMS/LIB/anaconda3/envs/py39/bin/uvicorn TalentPlatform-bdwide-DaemonApi-mosaic:app --reload --host=0.0.0.0 --port=9910
+# /HDD/SYSTEMS/LIB/anaconda3/envs/py39/bin/uvicorn TalentPlatform-BDWIDE2026-DaemonApi-mosaic:app --reload --host=0.0.0.0 --port=9910
 
 # 프로그램 종료
-# ps -ef | grep "TalentPlatform-bdwide-DaemonApi-mosaic" | awk '{print $2}' | xargs kill -9
+# ps -ef | grep "TalentPlatform-BDWIDE2026-DaemonApi-mosaic" | awk '{print $2}' | xargs kill -9
 
 # 포트 종료
 # yum install lsof -y
@@ -158,8 +158,9 @@ from typing import Optional
 from fastapi import File, UploadFile, Form
 from email.mime.multipart import MIMEMultipart
 from email.mime.text import MIMEText
+from fastapi import Form, HTTPException, Depends
+from sqlalchemy import text
 warnings.filterwarnings('ignore')
-
 
 # ============================================
 # 유틸리티 함수
@@ -259,7 +260,7 @@ def initCfgInfo(config, key):
 # 주요 설정
 # ============================================
 env = 'local'
-serviceName = 'BDWIDE2025'
+serviceName = 'BDWIDE2026'
 prjName = 'test'
 
 ctxPath = os.getcwd()
@@ -278,7 +279,7 @@ sysOpt = {
 
     # 설정 정보
     'cfgFile': '/HDD/SYSTEMS/PROG/PYTHON/IDE/resources/config/system.cfg',
-    'cfgDbKey': 'mysql-iwin-dms01user01-DMS03',
+    'cfgDbKey': 'mysql-iwin-bdwide-DMS04',
     'cfgDb': None,
 
     # 텔레그램 정보
@@ -423,6 +424,87 @@ async def sendTelegram(
     except Exception as e:
         log.error(f'Exception : {e}')
         return resResponse("fail", 400, f"텔레그램 메시지 발송 실패 : {str(e)}")
+
+
+@app.post(f"/api/insConsult")
+async def insConsult(
+        name: str = Form(..., description='기관/성함', examples=['홍길동(모자이크랩)']),
+        contact: str = Form(..., description='연락처', examples=['010-0000-0000']),
+        email: str = Form(..., description="이메일", examples=['test@asdasd.com']),
+        msg: str = Form(..., description="요청사항", examples=['모자이크 앱 도입 문의드립니다.']),
+        comment: str = Form(..., description="비고 (요청, 발송 등)", examples=['요청'])
+):
+    """
+    기능\n
+        긴급상담 요청\n
+    """
+    try:
+        if not name: return resResponse("fail", 400, f"기관/성함 없음")
+        if not contact: return resResponse("fail", 400, f"연락처 없음")
+        if not email: return resResponse("fail", 400, f"이메일 없음")
+        if not msg: return resResponse("fail", 400, f"요청사항 없음")
+        if not comment: return resResponse("fail", 400, f"비고 없음")
+
+        params = {
+            "name": name,
+            "contact": contact,
+            "email": email,
+            "msg": msg,
+            "comment": comment,
+        }
+        log.info(f"params : {params}")
+
+        with sysOpt['cfgDb']['sessionMake']() as session:
+            with session.begin():
+                query = text("""
+                             INSERT INTO TB_CONSULT (NAME, CONTACT, EMAIL, MSG, COMMENT, REG_DATE)
+                             VALUES (:name, :contact, :email, :msg, :comment, NOW())
+                             """)
+                result = session.execute(query, params)
+                log.info(f"result : {result}")
+                return resResponse("succ", 200, "처리 완료", result.rowcount, None)
+    except Exception as e:
+        log.error(f'Exception : {e}')
+        raise HTTPException(status_code=400)
+
+
+@app.post(f"/api/selConsult")
+async def selConsult(
+):
+    """
+    기능\n
+        긴급상담 조회\n
+    """
+    try:
+        with sysOpt['cfgDb']['sessionMake']() as session:
+            with session.begin():
+                query = text("""
+                             WITH RankedConsults AS (SELECT NAME,
+                                                            CONTACT,
+                                                            EMAIL,
+                                                            MSG,
+                                                            COMMENT,
+                                                            REG_DATE,
+                                                            ROW_NUMBER() OVER(PARTITION BY NAME, CONTACT, EMAIL ORDER BY REG_DATE DESC) AS rn
+                                                     FROM TB_CONSULT)
+                             SELECT NAME,
+                                    CONTACT,
+                                    EMAIL,
+                                    MSG,
+                                    COMMENT,
+                                    REG_DATE
+                             FROM RankedConsults
+                             WHERE rn = 1
+                             ORDER BY REG_DATE DESC
+                             """)
+
+                result = session.execute(query)
+                consultList = [dict(row) for row in result.mappings().all()]
+
+                return resResponse("succ", 200, "처리 완료", len(consultList), consultList)
+    except Exception as e:
+        log.error(f'Exception : {e}')
+        raise HTTPException(status_code=400)
 
 
 # # @app.post(f"/api/insTripodData", dependencies=[Depends(chkKey)])
