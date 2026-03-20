@@ -7,12 +7,12 @@
 # 도움말
 # =================================================
 # 프로그램 시작
-# 1. cd /HDD/SYSTEMS/PROG/PYTHON/IDE/src/talentPlatform/api
-# 2. conda activate py39
-# 2-1. uvicorn TalentPlatform-LSH0577-DaemonApi:app --reload --host=0.0.0.0 --port=9000
-# 2-2. /HDD/SYSTEMS/LIB/anaconda3/envs/py39/bin/uvicorn /HDD/SYSTEMS/PROG/PYTHON/IDE/src/talentPlatform/api/TalentPlatform-LSH0577-DaemonApi:app --reload --host=0.0.0.0 --port=9000
-# 3. nohup uvicorn TalentPlatform-LSH0577-DaemonApi:app --host=0.0.0.0 --port=9000 &
-# 4. tail -f nohup.out
+# cd /HDD/SYSTEMS/PROG/PYTHON/IDE/src/talentPlatform/api
+# conda activate py39
+# uvicorn TalentPlatform-LSH0577-DaemonApi:app --reload --host=0.0.0.0 --port=9000
+# /HDD/SYSTEMS/LIB/anaconda3/envs/py39/bin/uvicorn /HDD/SYSTEMS/PROG/PYTHON/IDE/src/talentPlatform/api/TalentPlatform-LSH0577-DaemonApi:app --reload --host=0.0.0.0 --port=9000
+# nohup uvicorn TalentPlatform-LSH0577-DaemonApi:app --host=0.0.0.0 --port=9000 &
+# tail -f nohup.out
 
 # 프로그램 종료
 # ps -ef | grep "TalentPlatform-LSH0577-DaemonApi" | awk '{print $2}' | xargs kill -9
@@ -239,6 +239,7 @@ log = initLog(env, ctxPath, prjName)
 sysOpt = {
     # 빅쿼리 설정 정보
     'jsonFile': '/SYSTEMS/PROG/PYTHON/IDE/resources/config/iconic-ruler-239806-7f6de5759012.json',
+    'dbHostName': 'iconic-ruler-239806.DMS01',
 
     # 설정 정보
     'cfgFile': '/HDD/SYSTEMS/PROG/PYTHON/IDE/resources/config/system.cfg',
@@ -529,6 +530,8 @@ def selStatRealSggApt(
         , area: str = Query(None, description="평수")
         , srtYear: int = Query(None, description="시작 연도")
         , endYear: int = Query(None, description="종료 연도")
+        , srtDate: str = Query(None, description="시작일 %Y-%m-%d")
+        , endDate: str = Query(None, description="종료일 %Y-%m-%d")
         , limit: int = Query(10, description="1쪽당 개수")
         , page: int = Query(1, description="현재 쪽")
         , sort: str = Query(None, description="정렬")
@@ -559,7 +562,7 @@ def selStatRealSggApt(
                             ELSE NULL
                         END
                     ) AS geo 
-                    FROM `iconic-ruler-239806.DMS01.TB_REAL`
+                    FROM `{sysOpt['dbHostName']}.TB_REAL`
                 """
 
         # 동적 SQL 파라미터
@@ -576,6 +579,9 @@ def selStatRealSggApt(
 
         if srtYear and endYear:
             condList.append(f"year BETWEEN {srtYear} AND {endYear}")
+
+        if srtDate and endDate:
+            condList.append(f"date BETWEEN DATE('{srtDate}') AND DATE('{endDate}')")
 
         if condList:
             condSql = " WHERE " + " AND ".join(condList)
@@ -637,6 +643,8 @@ def statRealSearch(
         , area: str = Query(None, description="평수")
         , srtYear: int = Query(None, description="시작 연도")
         , endYear: int = Query(None, description="종료 연도")
+        , srtDate: str = Query(None, description="시작일 %Y-%m-%d")
+        , endDate: str = Query(None, description="종료일 %Y-%m-%d")
         , limit: int = Query(10, description="1쪽당 개수")
         , page: int = Query(1, description="현재 쪽")
         , sort: str = Query(None, description="정렬")
@@ -668,7 +676,8 @@ def statRealSearch(
         if srtYear and endYear:
             selCol += f""",
                     SAFE_DIVIDE(
-                        AVG(CASE WHEN amount > 0 AND year = {endYear} THEN amount ELSE NULL END) - AVG(CASE WHEN amount > 0 AND year = {srtYear} THEN amount ELSE NULL END),
+                        AVG(CASE WHEN amount > 0 AND year = {endYear} THEN amount ELSE NULL END) - 
+                        AVG(CASE WHEN amount > 0 AND year = {srtYear} THEN amount ELSE NULL END),
                         AVG(CASE WHEN amount > 0 AND year = {srtYear} THEN amount ELSE NULL END)
                     ) * 100 AS real_rate
                     """
@@ -676,7 +685,7 @@ def statRealSearch(
             selCol += ", NULL AS real_rate"
 
         # 기본 SQL
-        baseSql = f"SELECT {selCol} FROM `iconic-ruler-239806.DMS01.TB_REAL`"
+        baseSql = f"SELECT {selCol} FROM `{sysOpt['dbHostName']}.TB_REAL`"
 
         # 동적 SQL 파라미터
         condList = []
@@ -712,6 +721,9 @@ def statRealSearch(
 
         # if srtYear and endYear:
         #     condList.append(f"year BETWEEN {srtYear} AND {endYear}")
+
+        if srtDate and endDate:
+            condList.append(f"date BETWEEN DATE('{srtDate}') AND DATE('{endDate}')")
 
         if condList:
             condSql = " WHERE " + " AND ".join(condList)
@@ -772,6 +784,8 @@ def statRealSearch(
         , area: str = Query(None, description="평수")
         , srtYear: int = Query(None, description="시작 연도")
         , endYear: int = Query(None, description="종료 연도")
+        , srtDate: str = Query(None, description="시작일 %Y-%m-%d")
+        , endDate: str = Query(None, description="종료일 %Y-%m-%d")
         , limit: int = Query(10, description="1쪽당 개수")
         , page: int = Query(1, description="현재 쪽")
         , sort: str = Query(None, description="정렬")
@@ -796,7 +810,7 @@ def statRealSearch(
 
     try:
         # 기본 SQL
-        baseSql = f"SELECT year, COUNT(*) AS cnt, AVG(CASE WHEN amount > 0 THEN amount ELSE NULL END) AS real_amount FROM `iconic-ruler-239806.DMS01.TB_REAL`"
+        baseSql = f"SELECT year, COUNT(*) AS cnt, AVG(CASE WHEN amount > 0 THEN amount ELSE NULL END) AS real_amount FROM `{sysOpt['dbHostName']}.TB_REAL`"
 
         # 동적 SQL 파라미터
         condList = []
@@ -827,6 +841,9 @@ def statRealSearch(
 
         if srtYear and endYear:
             condList.append(f"year BETWEEN {srtYear} AND {endYear}")
+
+        if srtDate and endDate:
+            condList.append(f"date BETWEEN DATE('{srtDate}') AND DATE('{endDate}')")
 
         if condList:
             condSql = " WHERE " + " AND ".join(condList)
@@ -887,6 +904,8 @@ def statRealSearch(
         , area: str = Query(None, description="평수")
         , srtYear: int = Query(None, description="시작 연도")
         , endYear: int = Query(None, description="종료 연도")
+        , srtDate: str = Query(None, description="시작일 %Y-%m-%d")
+        , endDate: str = Query(None, description="종료일 %Y-%m-%d")
         , limit: int = Query(10, description="1쪽당 개수")
         , page: int = Query(1, description="현재 쪽")
         , sort: str = Query(None, description="정렬")
@@ -916,7 +935,7 @@ def statRealSearch(
                          COUNT(*)                                            AS cnt,
                          AVG(CASE WHEN amount > 0 THEN amount ELSE NULL END) AS real_amount,
                          area
-                  FROM `iconic-ruler-239806.DMS01.TB_REAL` \
+                  FROM `{sysOpt['dbHostName']}.TB_REAL` \
                   """
 
         # 동적 SQL 파라미터
@@ -948,6 +967,9 @@ def statRealSearch(
 
         if srtYear and endYear:
             condList.append(f"year BETWEEN {srtYear} AND {endYear}")
+
+        if srtDate and endDate:
+            condList.append(f"date BETWEEN DATE('{srtDate}') AND DATE('{endDate}')")
 
         if condList:
             condSql = " WHERE " + " AND ".join(condList)
@@ -1008,6 +1030,8 @@ def statRealSearch(
         , area: str = Query(None, description="평수")
         , srtYear: int = Query(None, description="시작 연도")
         , endYear: int = Query(None, description="종료 연도")
+        , srtDate: str = Query(None, description="시작일 %Y-%m-%d")
+        , endDate: str = Query(None, description="종료일 %Y-%m-%d")
         , limit: int = Query(10, description="1쪽당 개수")
         , page: int = Query(1, description="현재 쪽")
         , sort: str = Query(None, description="정렬")
@@ -1032,7 +1056,7 @@ def statRealSearch(
 
     try:
         # 기본 SQL
-        baseSql = f"SELECT area, COUNT(*) AS cnt FROM `iconic-ruler-239806.DMS01.TB_REAL`"
+        baseSql = f"SELECT area, COUNT(*) AS cnt FROM `{sysOpt['dbHostName']}.TB_REAL`"
 
         # 동적 SQL 파라미터
         condList = []
@@ -1068,6 +1092,9 @@ def statRealSearch(
 
         if srtYear and endYear:
             condList.append(f"year BETWEEN {srtYear} AND {endYear}")
+
+        if srtDate and endDate:
+            condList.append(f"date BETWEEN DATE('{srtDate}') AND DATE('{endDate}')")
 
         if condList:
             condSql = " WHERE " + " AND ".join(condList)
@@ -1128,6 +1155,8 @@ def statRealSearch(
         , area: str = Query(None, description="평수")
         , srtYear: int = Query(None, description="시작 연도")
         , endYear: int = Query(None, description="종료 연도")
+        , srtDate: str = Query(None, description="시작일 %Y-%m-%d")
+        , endDate: str = Query(None, description="종료일 %Y-%m-%d")
         , limit: int = Query(10, description="1쪽당 개수")
         , page: int = Query(1, description="현재 쪽")
         , sort: str = Query(None, description="정렬")
@@ -1152,7 +1181,7 @@ def statRealSearch(
 
     try:
         # 기본 SQL
-        baseSql = f"SELECT apt, COUNT(*) AS cnt FROM `iconic-ruler-239806.DMS01.TB_REAL`"
+        baseSql = f"SELECT apt, COUNT(*) AS cnt FROM `{sysOpt['dbHostName']}.TB_REAL`"
 
         # 동적 SQL 파라미터
         condList = []
@@ -1189,6 +1218,9 @@ def statRealSearch(
 
         if srtYear and endYear:
             condList.append(f"year BETWEEN {srtYear} AND {endYear}")
+
+        if srtDate and endDate:
+            condList.append(f"date BETWEEN DATE('{srtDate}') AND DATE('{endDate}')")
 
         if condList:
             condSql = " WHERE " + " AND ".join(condList)
@@ -1245,6 +1277,8 @@ def selStatRealMaxBySgg(
         , area: str = Query(None, description="평수")
         , srtYear: int = Query(None, description="시작 연도")
         , endYear: int = Query(None, description="종료 연도")
+        , srtDate: str = Query(None, description="시작일 %Y-%m-%d")
+        , endDate: str = Query(None, description="종료일 %Y-%m-%d")
         , limit: int = Query(10, description="1쪽당 개수")
         , page: int = Query(1, description="현재 쪽")
         , sort: str = Query(None, description="정렬")
@@ -1265,7 +1299,7 @@ def selStatRealMaxBySgg(
 
     try:
         # 기본 SQL
-        baseSql = f"SELECT sgg, COUNT(*) AS cnt, MAX(amount) AS max_amount FROM `iconic-ruler-239806.DMS01.TB_REAL`"
+        baseSql = f"SELECT sgg, COUNT(*) AS cnt, MAX(amount) AS max_amount FROM `{sysOpt['dbHostName']}.TB_REAL`"
 
         # 동적 SQL 파라미터
         condList = []
@@ -1281,6 +1315,9 @@ def selStatRealMaxBySgg(
 
         if srtYear and endYear:
             condList.append(f"year BETWEEN {srtYear} AND {endYear}")
+
+        if srtDate and endDate:
+            condList.append(f"date BETWEEN DATE('{srtDate}') AND DATE('{endDate}')")
 
         if condList:
             condSql = " WHERE " + " AND ".join(condList)
@@ -1341,6 +1378,8 @@ def selStatRealMaxBySggApt(
         , area: str = Query(None, description="평수")
         , srtYear: int = Query(None, description="시작 연도")
         , endYear: int = Query(None, description="종료 연도")
+        , srtDate: str = Query(None, description="시작일 %Y-%m-%d")
+        , endDate: str = Query(None, description="종료일 %Y-%m-%d")
         , limit: int = Query(10, description="1쪽당 개수")
         , page: int = Query(1, description="현재 쪽")
         , sort: str = Query(None, description="정렬")
@@ -1365,7 +1404,7 @@ def selStatRealMaxBySggApt(
 
     try:
         # 기본 SQL
-        baseSql = f"SELECT sgg, apt, COUNT(*) AS cnt, MAX(amount) AS max_amount FROM `iconic-ruler-239806.DMS01.TB_REAL`"
+        baseSql = f"SELECT sgg, apt, COUNT(*) AS cnt, MAX(amount) AS max_amount FROM `{sysOpt['dbHostName']}.TB_REAL`"
 
         # 동적 SQL 파라미터
         condList = []
@@ -1401,6 +1440,9 @@ def selStatRealMaxBySggApt(
 
         if srtYear and endYear:
             condList.append(f"year BETWEEN {srtYear} AND {endYear}")
+
+        if srtDate and endDate:
+            condList.append(f"date BETWEEN DATE('{srtDate}') AND DATE('{endDate}')")
 
         if condList:
             condSql = " WHERE " + " AND ".join(condList)
@@ -1589,6 +1631,8 @@ def selReal(
         # , year: int = Query(None, description="연도")
         , srtYear: int = Query(None, description="시작 연도")
         , endYear: int = Query(None, description="종료 연도")
+        , srtDate: str = Query(None, description="시작일 %Y-%m-%d")
+        , endDate: str = Query(None, description="종료일 %Y-%m-%d")
         , limit: int = Query(10, description="1쪽당 개수")
         , page: int = Query(1, description="현재 쪽")
         , sort: str = Query(None, description="정렬")
@@ -1612,8 +1656,8 @@ def selReal(
 
     try:
         # 기본 SQL
-        baseSql = f"SELECT * FROM `iconic-ruler-239806.DMS01.TB_REAL`"
-        cntSql = f"SELECT COUNT(*) AS CNT FROM `iconic-ruler-239806.DMS01.TB_REAL`"
+        baseSql = f"SELECT * FROM `{sysOpt['dbHostName']}.TB_REAL`"
+        cntSql = f"SELECT COUNT(*) AS CNT FROM `{sysOpt['dbHostName']}.TB_REAL`"
 
         # 동적 SQL 파라미터
         condList = []
@@ -1653,6 +1697,8 @@ def selReal(
         #     condList.append(f"year = {year}")
         if srtYear and endYear:
             condList.append(f"year BETWEEN {srtYear} AND {endYear}")
+        if srtDate and endDate:
+            condList.append(f"date BETWEEN DATE('{srtDate}') AND DATE('{endDate}')")
 
         if condList:
             condSql = " WHERE " + " AND ".join(condList)
@@ -1708,6 +1754,8 @@ def selPrd(
         # , year: int = Query(None, description="연도")
         , srtYear: int = Query(None, description="시작 연도")
         , endYear: int = Query(None, description="종료 연도")
+        , srtDate: str = Query(None, description="시작일 %Y-%m-%d")
+        , endDate: str = Query(None, description="종료일 %Y-%m-%d")
         , limit: int = Query(10, description="1쪽당 개수")
         , page: int = Query(1, description="현재 쪽")
         , sort: str = Query(None, description="정렬")
@@ -1731,8 +1779,8 @@ def selPrd(
 
     try:
         # 기본 SQL
-        baseSql = f"SELECT * FROM `iconic-ruler-239806.DMS01.TB_PRD`"
-        cntSql = f"SELECT COUNT(*) AS CNT FROM `iconic-ruler-239806.DMS01.TB_PRD`"
+        baseSql = f"SELECT * FROM `{sysOpt['dbHostName']}.TB_PRD`"
+        cntSql = f"SELECT COUNT(*) AS CNT FROM `{sysOpt['dbHostName']}.TB_PRD`"
 
         # 동적 SQL 파라미터
         condList = []
@@ -1772,6 +1820,8 @@ def selPrd(
         #     condList.append(f"year = {year}")
         if srtYear and endYear:
             condList.append(f"year BETWEEN {srtYear} AND {endYear}")
+        if srtDate and endDate:
+            condList.append(f"date BETWEEN DATE('{srtDate}') AND DATE('{endDate}')")
 
         if condList:
             condSql = " WHERE " + " AND ".join(condList)
@@ -1846,7 +1896,7 @@ def selInfra(
                 *,
                 ST_DISTANCE(ST_GEOGPOINT(p_x, p_y), ST_GEOGPOINT({lon}, {lat})) / 1000 AS distKm
             FROM
-                `iconic-ruler-239806.DMS01.TB_INFRA`
+                `{sysOpt['dbHostName']}.TB_INFRA`
         """
 
         # 동적 SQL 파라미터
@@ -1936,7 +1986,7 @@ def selKeyword(
 
     try:
         # 기본 SQL
-        sql = f"SELECT * FROM `iconic-ruler-239806.DMS01.TB_KEYWORD`"
+        sql = f"SELECT * FROM `{sysOpt['dbHostName']}.TB_KEYWORD`"
 
         # 동적 SQL 파라미터
         condList = []
@@ -1978,7 +2028,7 @@ def selYearPopTrend(
 
     try:
         # 기본 SQL
-        sql = f"SELECT * FROM `iconic-ruler-239806.DMS01.TB_YEAR-POP-TREND`"
+        sql = f"SELECT * FROM `{sysOpt['dbHostName']}.TB_YEAR-POP-TREND`"
 
         # 동적 SQL 파라미터
         condList = []
@@ -2020,7 +2070,7 @@ def selUpComSupply(
 
     try:
         # 기본 SQL
-        sql = f"SELECT * FROM `iconic-ruler-239806.DMS01.TB_UP-COM-SUPPLY`"
+        sql = f"SELECT * FROM `{sysOpt['dbHostName']}.TB_UP-COM-SUPPLY`"
 
         # 동적 SQL 파라미터
         condList = []
@@ -2062,7 +2112,7 @@ def selMonthPopTrend(
 
     try:
         # 기본 SQL
-        sql = f"SELECT * FROM `iconic-ruler-239806.DMS01.TB_MONTH-POP-TREND`"
+        sql = f"SELECT * FROM `{sysOpt['dbHostName']}.TB_MONTH-POP-TREND`"
 
         # 동적 SQL 파라미터
         condList = []
@@ -2104,7 +2154,7 @@ def selMonthPopTrend(
 
     try:
         # 기본 SQL
-        sql = f"SELECT * FROM `iconic-ruler-239806.DMS01.TB_MONTH-SGG-POP-TREND`"
+        sql = f"SELECT * FROM `{sysOpt['dbHostName']}.TB_MONTH-SGG-POP-TREND`"
 
         # 동적 SQL 파라미터
         condList = []
@@ -2146,7 +2196,7 @@ def selUnSoldTrend(
 
     try:
         # 기본 SQL
-        sql = f"SELECT * FROM `iconic-ruler-239806.DMS01.TB_UN-SOLD-TREND`"
+        sql = f"SELECT * FROM `{sysOpt['dbHostName']}.TB_UN-SOLD-TREND`"
 
         # 동적 SQL 파라미터
         condList = []
@@ -2188,7 +2238,7 @@ def selLargeComRank(
 
     try:
         # 기본 SQL
-        sql = f"SELECT * FROM `iconic-ruler-239806.DMS01.TB_LARGE-COM-RANK`"
+        sql = f"SELECT * FROM `{sysOpt['dbHostName']}.TB_LARGE-COM-RANK`"
 
         # 동적 SQL 파라미터
         condList = []
@@ -2212,16 +2262,15 @@ def selLargeComRank(
         log.error(f'Exception : {e}')
         raise HTTPException(status_code=400, detail=str(e))
 
-
-
 # 전세가 영역
-
 @app.post(f"/api/sel-statRentMeanBySggDong", dependencies=[Depends(chkApiKey)])
 def selStatRentMeanBySggDong(
         sgg: str = Query(None, description="시군구")
         , area: str = Query(None, description="평수")
         , srtYear: int = Query(None, description="시작 연도")
         , endYear: int = Query(None, description="종료 연도")
+        , srtDate: str = Query(None, description="시작일 %Y-%m-%d")
+        , endDate: str = Query(None, description="종료일 %Y-%m-%d")
         , limit: int = Query(10, description="1쪽당 개수")
         , page: int = Query(1, description="현재 쪽")
         , sort: str = Query(None, description="정렬")
@@ -2231,7 +2280,7 @@ def selStatRentMeanBySggDong(
     """
     try:
         # 1. 기본 SQL 설정 
-        baseSql = f"SELECT sgg, dong, COUNT(*) AS cnt, AVG(deposit * 10000) AS mean_deposit FROM `iconic-ruler-239806.DMS01.TB_RENT` WHERE monthlyRent = 0"
+        baseSql = f"SELECT sgg, dong, COUNT(*) AS cnt, AVG(deposit * 10000) AS mean_deposit FROM `{sysOpt['dbHostName']}.TB_RENT` WHERE monthlyRent = 0"
 
         # 2. 동적 SQL 파라미터
         condList = []
@@ -2247,6 +2296,8 @@ def selStatRentMeanBySggDong(
 
         if srtYear and endYear:
             condList.append(f"year BETWEEN {srtYear} AND {endYear}")
+        if srtDate and endDate:
+            condList.append(f"date BETWEEN DATE('{srtDate}') AND DATE('{endDate}')")
 
         if condList:
             condSql = " AND " + " AND ".join(condList)
@@ -2301,6 +2352,8 @@ def statRentSearchBySgg(
         , area: str = Query(None, description="평수")
         , srtYear: int = Query(None, description="시작 연도")
         , endYear: int = Query(None, description="종료 연도")
+        , srtDate: str = Query(None, description="시작일 %Y-%m-%d")
+        , endDate: str = Query(None, description="종료일 %Y-%m-%d")
         , limit: int = Query(10, description="1쪽당 개수")
         , page: int = Query(1, description="현재 쪽")
         , sort: str = Query(None, description="정렬")
@@ -2309,7 +2362,7 @@ def statRentSearchBySgg(
     try:
         baseSql = f"""
             SELECT sgg, COUNT(*) AS cnt 
-            FROM `iconic-ruler-239806.DMS01.TB_RENT`
+            FROM `{sysOpt['dbHostName']}.TB_RENT`
             WHERE monthlyRent = 0 AND deposit > 0 AND NOT REGEXP_CONTAINS(apt, '임대|행복주택')
         """
         condList = []
@@ -2319,7 +2372,10 @@ def statRentSearchBySgg(
             condList.append(f"({' OR '.join(sggCond)})")
         if apt: condList.append(f"apt LIKE '%{apt}%'")
         if area: condList.append(f"area LIKE '%{area}%'")
-        if srtYear and endYear: condList.append(f"year BETWEEN {srtYear} AND {endYear}")
+        if srtYear and endYear:
+            condList.append(f"year BETWEEN {srtYear} AND {endYear}")
+        if srtDate and endDate:
+            condList.append(f"date BETWEEN DATE('{srtDate}') AND DATE('{endDate}')")
 
         if condList: baseSql += " AND " + " AND ".join(condList)
         baseSql += " GROUP BY sgg"
@@ -2344,6 +2400,8 @@ def statRentSearchByYear(
         , area: str = Query(None, description="평수")
         , srtYear: int = Query(None, description="시작 연도")
         , endYear: int = Query(None, description="종료 연도")
+        , srtDate: str = Query(None, description="시작일 %Y-%m-%d")
+        , endDate: str = Query(None, description="종료일 %Y-%m-%d")
         , limit: int = Query(10, description="1쪽당 개수")
         , page: int = Query(1, description="현재 쪽")
         , sort: str = Query(None, description="정렬")
@@ -2355,7 +2413,7 @@ def statRentSearchByYear(
         # 1. 기본 SQL (연도별 그룹핑 및 건수 집계)
         baseSql = f"""
             SELECT year, COUNT(*) AS cnt 
-            FROM `iconic-ruler-239806.DMS01.TB_RENT`
+            FROM `{sysOpt['dbHostName']}.TB_RENT`
             WHERE monthlyRent = 0 
               AND deposit > 0
               AND NOT REGEXP_CONTAINS(apt, '임대|행복주택')
@@ -2375,6 +2433,8 @@ def statRentSearchByYear(
             condList.append(f"({' OR '.join(areaCond)})")
         if srtYear and endYear:
             condList.append(f"year BETWEEN {srtYear} AND {endYear}")
+        if srtDate and endDate:
+            condList.append(f"date BETWEEN DATE('{srtDate}') AND DATE('{endDate}')")
 
         if condList:
             baseSql += " AND " + " AND ".join(condList)
@@ -2412,6 +2472,8 @@ def statRentSearchByArea(
         , area: str = Query(None, description="평수")
         , srtYear: int = Query(None, description="시작 연도")
         , endYear: int = Query(None, description="종료 연도")
+        , srtDate: str = Query(None, description="시작일 %Y-%m-%d")
+        , endDate: str = Query(None, description="종료일 %Y-%m-%d")
         , limit: int = Query(10, description="1쪽당 개수")
         , page: int = Query(1, description="현재 쪽")
         , sort: str = Query(None, description="정렬")
@@ -2420,7 +2482,7 @@ def statRentSearchByArea(
     try:
         baseSql = f"""
             SELECT area, COUNT(*) AS cnt 
-            FROM `iconic-ruler-239806.DMS01.TB_RENT`
+            FROM `{sysOpt['dbHostName']}.TB_RENT`
             WHERE monthlyRent = 0 AND deposit > 0 AND NOT REGEXP_CONTAINS(apt, '임대|행복주택')
         """
         condList = []
@@ -2430,7 +2492,10 @@ def statRentSearchByArea(
             condList.append(f"({' OR '.join(sggCond)})")
         if apt: condList.append(f"apt LIKE '%{apt}%'")
         if area: condList.append(f"area LIKE '%{area}%'")
-        if srtYear and endYear: condList.append(f"year BETWEEN {srtYear} AND {endYear}")
+        if srtYear and endYear:
+            condList.append(f"year BETWEEN {srtYear} AND {endYear}")
+        if srtDate and endDate:
+            condList.append(f"date BETWEEN DATE('{srtDate}') AND DATE('{endDate}')")
 
         if condList: baseSql += " AND " + " AND ".join(condList)
         baseSql += " GROUP BY area"
@@ -2455,6 +2520,8 @@ def statRentSearchByApt(
         , area: str = Query(None, description="평수")
         , srtYear: int = Query(None, description="시작 연도")
         , endYear: int = Query(None, description="종료 연도")
+        , srtDate: str = Query(None, description="시작일 %Y-%m-%d")
+        , endDate: str = Query(None, description="종료일 %Y-%m-%d")
         , limit: int = Query(10, description="1쪽당 개수")
         , page: int = Query(1, description="현재 쪽")
         , sort: str = Query(None, description="정렬")
@@ -2463,7 +2530,7 @@ def statRentSearchByApt(
     try:
         baseSql = f"""
             SELECT apt, COUNT(*) AS cnt 
-            FROM `iconic-ruler-239806.DMS01.TB_RENT`
+            FROM `{sysOpt['dbHostName']}.TB_RENT`
             WHERE monthlyRent = 0 AND deposit > 0 AND NOT REGEXP_CONTAINS(apt, '임대|행복주택')
         """
         condList = []
@@ -2473,7 +2540,10 @@ def statRentSearchByApt(
             condList.append(f"({' OR '.join(sggCond)})")
         if apt: condList.append(f"apt LIKE '%{apt}%'")
         if area: condList.append(f"area LIKE '%{area}%'")
-        if srtYear and endYear: condList.append(f"year BETWEEN {srtYear} AND {endYear}")
+        if srtYear and endYear:
+            condList.append(f"year BETWEEN {srtYear} AND {endYear}")
+        if srtDate and endDate:
+            condList.append(f"date BETWEEN DATE('{srtDate}') AND DATE('{endDate}')")
 
         if condList: baseSql += " AND " + " AND ".join(condList)
         baseSql += " GROUP BY apt"
@@ -2497,6 +2567,8 @@ def selStatRentMaxBySgg(
         , area: str = Query(None, description="평수")
         , srtYear: int = Query(None, description="시작 연도")
         , endYear: int = Query(None, description="종료 연도")
+        , srtDate: str = Query(None, description="시작일 %Y-%m-%d")
+        , endDate: str = Query(None, description="종료일 %Y-%m-%d")
         , limit: int = Query(10, description="1쪽당 개수")
         , page: int = Query(1, description="현재 쪽")
         , sort: str = Query(None, description="정렬")
@@ -2508,7 +2580,7 @@ def selStatRentMaxBySgg(
         # 1. 기본 SQL 설정 (순수 전세 필터 + 임대 제외 + 원 단위 환산)
         baseSql = f"""
             SELECT sgg, COUNT(*) AS cnt, MAX(deposit * 10000) AS max_deposit 
-            FROM `iconic-ruler-239806.DMS01.TB_RENT`
+            FROM `{sysOpt['dbHostName']}.TB_RENT`
             WHERE monthlyRent = 0 
               AND deposit > 0
               AND NOT REGEXP_CONTAINS(apt, '임대|행복주택')
@@ -2526,6 +2598,8 @@ def selStatRentMaxBySgg(
             condList.append(f"({' OR '.join(areaCond)})")
         if srtYear and endYear:
             condList.append(f"year BETWEEN {srtYear} AND {endYear}")
+        if srtDate and endDate:
+            condList.append(f"date BETWEEN DATE('{srtDate}') AND DATE('{endDate}')")
 
         if condList:
             baseSql += " AND " + " AND ".join(condList)
@@ -2561,6 +2635,8 @@ def selStatRentMaxBySggApt(
         , area: str = Query(None, description="평수")
         , srtYear: int = Query(None, description="시작 연도")
         , endYear: int = Query(None, description="종료 연도")
+        , srtDate: str = Query(None, description="시작일 %Y-%m-%d")
+        , endDate: str = Query(None, description="종료일 %Y-%m-%d")
         , limit: int = Query(10, description="1쪽당 개수")
         , page: int = Query(1, description="현재 쪽")
         , sort: str = Query(None, description="정렬")
@@ -2572,7 +2648,7 @@ def selStatRentMaxBySggApt(
         # 1. 기본 SQL 
         baseSql = f"""
             SELECT sgg, apt, COUNT(*) AS cnt, MAX(deposit * 10000) AS max_deposit 
-            FROM `iconic-ruler-239806.DMS01.TB_RENT`
+            FROM `{sysOpt['dbHostName']}.TB_RENT`
             WHERE monthlyRent = 0 
               AND deposit > 0
               AND NOT REGEXP_CONTAINS(apt, '임대|행복주택')
@@ -2592,6 +2668,8 @@ def selStatRentMaxBySggApt(
             condList.append(f"({' OR '.join(areaCond)})")
         if srtYear and endYear:
             condList.append(f"year BETWEEN {srtYear} AND {endYear}")
+        if srtDate and endDate:
+            condList.append(f"date BETWEEN DATE('{srtDate}') AND DATE('{endDate}')")
 
         if condList:
             baseSql += " AND " + " AND ".join(condList)
@@ -2633,14 +2711,14 @@ def selStatRent(
     try:
         # 매매(amount) 대신 전세(deposit)를 사용하고, 원 단위(*10000)로 환산하여 비교.
         # 임대아파트로 인한 왜곡 방지를 위해 아파트명에 '임대'가 포함된 경우는 제외.
-        baseSql = """
+        baseSql = f"""
             WITH MONTHLYAVGPRICES AS (
                 SELECT
                     APT, SGG, DONG, AREA,
                     DATE_TRUNC(DATE, MONTH) AS MONTH,
                     AVG(deposit * 10000) AS AVG_DEPOSIT
                 FROM
-                    `iconic-ruler-239806.DMS01.TB_RENT`
+                    `{sysOpt['dbHostName']}.TB_RENT`
                 WHERE deposit > 0 AND monthlyRent = 0 AND NOT REGEXP_CONTAINS(apt, '임대')
                 GROUP BY 1, 2, 3, 4, 5
             ),
@@ -2702,6 +2780,8 @@ def selRent(
         , area: str = Query(None, description="평수")
         , srtYear: int = Query(None, description="시작 연도")
         , endYear: int = Query(None, description="종료 연도")
+        , srtDate: str = Query(None, description="시작일 %Y-%m-%d")
+        , endDate: str = Query(None, description="종료일 %Y-%m-%d")
         , limit: int = Query(10, description="1쪽당 개수")
         , page: int = Query(1, description="현재 쪽")
         , sort: str = Query(None, description="정렬")
@@ -2711,8 +2791,8 @@ def selRent(
     """
     try:
         # 1. 기본 SQL
-        baseSql = f"SELECT * FROM `iconic-ruler-239806.DMS01.TB_RENT`"
-        cntSql = f"SELECT COUNT(*) AS CNT FROM `iconic-ruler-239806.DMS01.TB_RENT`"
+        baseSql = f"SELECT * FROM `{sysOpt['dbHostName']}.TB_RENT`"
+        cntSql = f"SELECT COUNT(*) AS CNT FROM `{sysOpt['dbHostName']}.TB_RENT`"
 
         # 2. 동적 SQL 파라미터 조립
         condList = []
@@ -2748,6 +2828,9 @@ def selRent(
 
         if srtYear and endYear:
             condList.append(f"year BETWEEN {srtYear} AND {endYear}")
+
+        if srtDate and endDate:
+            condList.append(f"date BETWEEN DATE('{srtDate}') AND DATE('{endDate}')")
 
         # 3. WHERE 절 결합 
         if condList:
