@@ -44,9 +44,9 @@ def append_to_csv(new_df, filename=CSV_FILE):
 # Ecowitt API configuration
 base_url = "https://api.ecowitt.net/api/v3/device/real_time"
 params = {
-    "application_key": "B2A840FDA6C5475BBD2E58ACCB4CA3DA",
-    "api_key": "e6fcf427-d379-4299-8ef0-fd397af1dd98",
-    "mac": "1C:69:20:E3:A9:97",
+    "application_key": "",
+    "api_key": "",
+    "mac": "",
     "temp_unitid": 1,
     "pressure_unitid": 3,
     "wind_speed_unitid": 6
