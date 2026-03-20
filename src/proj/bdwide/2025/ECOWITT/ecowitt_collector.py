@@ -314,7 +314,7 @@ def insert_sansup_ecowitt_data(df, device_id):
         cursor = conn.cursor()
 
         query = """
-            INSERT INTO TB_ECOWITT_DATA (
+            INSERT IGNORE INTO TB_ECOWITT_DATA (
                 tm, outdoor_temp, outdoor_hmdty, indoor_temp, indoor_hmdty, 
                 solar, uvi, rain_rate, rain_daily, rain_state, 
                 wind_speed, wind_direction, pressure_relative, pressure_absolute, co2, 
@@ -367,7 +367,7 @@ def insert_external_ecowitt_data(df, device_id):
         cursor = conn.cursor()
 
         query = """
-            INSERT INTO TB_ECOWITT_DATA (
+            INSERT IGNORE INTO TB_ECOWITT_DATA (
                 tm, outdoor_temp, outdoor_hmdty, solar, uvi,
                 rain_rate, rain_daily, rain_state, wind_speed, wind_direction, 
                 co2, pm25, pm10, aqi_temp, aqi_hmdty,
@@ -415,7 +415,7 @@ def insert_internal_ecowitt_data(df, device_id):
         cursor = conn.cursor()
 
         query = """
-            INSERT INTO TB_ECOWITT_DATA (
+            INSERT IGNORE INTO TB_ECOWITT_DATA (
                 tm, indoor_temp, indoor_hmdty, pressure_relative, pressure_absolute, 
                 co2, pm25, pm10, aqi_temp, aqi_hmdty, 
                 temp2, temp3, temp4, temp5, hmdty2, 
@@ -463,7 +463,7 @@ def insert_rainfall_ecowitt_data(df, device_id):
         cursor = conn.cursor()
 
         query = """
-            INSERT INTO TB_ECOWITT_DATA (
+            INSERT IGNORE INTO TB_ECOWITT_DATA (
                 tm, outdoor_temp, outdoor_hmdty, indoor_temp, indoor_hmdty, 
                 rain_rate, rain_daily, rain_state, pressure_relative, pressure_absolute, 
                 console_battery, rainfall_battery, device_id
@@ -564,7 +564,7 @@ if __name__ == "__main__":
                 response_json = response.json()
                 
                 data = response_json.get("data", {})
-                
+                if data is None or len(data) < 1: continue
                 if isinstance(data, list) and response_json.get("code") == 40000:
                     log.error(f"MAC: {mac} 에 대해 'Invalid MAC' 오류 응답을 받았습니다. 다음 장비로 넘어갑니다.")
                     continue
