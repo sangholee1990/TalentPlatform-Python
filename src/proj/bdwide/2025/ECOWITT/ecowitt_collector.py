@@ -1,3 +1,18 @@
+# ============================================
+# 요구사항
+# ============================================
+# Python을 이용한 에코위트 장비 수집체계
+
+# =================================================
+# 도움말
+# =================================================
+# 프로그램 시작
+# /HDD/SYSTEMS/LIB/anaconda3/envs/mysql_env/bin/python /HDD/SYSTEMS/PROG/PYTHON/IDE/src/proj/bdwide/2025/ECOWITT/ecowitt_collector.py
+# */5 * * * * cd  /HDD/SYSTEMS/PROG/PYTHON/IDE/src/proj/bdwide/2025/ECOWITT && /HDD/SYSTEMS/LIB/anaconda3/envs/mysql_env/bin/python /HDD/SYSTEMS/PROG/PYTHON/IDE/src/proj/bdwide/2025/ECOWITT/ecowitt_collector.py
+
+# ============================================
+# 라이브러리
+# ============================================
 import logging
 import sys
 import requests
@@ -5,26 +20,78 @@ import pandas as pd
 from datetime import timedelta
 import mysql.connector as mysql
 import configparser
+import logging
+import logging.handlers
+import os
+import platform
 
 # 옵션 설정
 sysOpt = {
-    'sysPath': '/HDD/SYSTEMS/PROG/PYTHON/IDE/resources/config/system.cfg',
+    # 'sysPath': '/HDD/SYSTEMS/PROG/PYTHON/IDE/resources/config/system.cfg',
+    'sysPath': '/HDD/SYSTEMS/PROG/PYTHON/IDE/src/proj/bdwide/2025/ECOWITT/system.cfg',
 }
 
 config = configparser.ConfigParser()
 config.read(sysOpt['sysPath'], encoding='utf-8')
 
+
+# ============================================
+# 유틸리티 함수
+# ============================================
+# 로그 설정
+def initLog(env=None, contextPath=None, prjName=None):
+    if env is None: env = 'local'
+    if contextPath is None: contextPath = os.getcwd()
+    if prjName is None: prjName = 'test'
+
+    saveLogFile = "{}/{}_{}_{}_{}_{}.log".format(
+        contextPath if env in 'local' else os.path.join(contextPath, 'resources', 'log', prjName)
+        , platform.system()
+        , platform.machine()
+        , platform.architecture()[0]
+        , platform.node()
+        , prjName
+    )
+
+    os.makedirs(os.path.dirname(saveLogFile), exist_ok=True)
+
+    log = logging.getLogger(prjName)
+
+    if len(log.handlers) > 0:
+        return log
+
+    format = logging.Formatter('%(asctime)s [%(name)s | %(lineno)d | %(filename)s] [%(levelname)-5.5s] %(message)s')
+    streamHandler = logging.StreamHandler()
+    fileHandler = logging.handlers.TimedRotatingFileHandler(filename=saveLogFile, when='midnight', interval=1, backupCount=30, encoding='utf-8')
+
+    streamHandler.setFormatter(format)
+    fileHandler.setFormatter(format)
+
+    log.addHandler(streamHandler)
+    log.addHandler(fileHandler)
+
+    log.setLevel(level=logging.INFO)
+
+    return log
+
 # -------------------------
 # 로깅 설정
 # -------------------------
-logging.basicConfig(
-    level=logging.ERROR,
-    format="%(asctime)s - %(levelname)s - %(message)s",
-    handlers=[
-        logging.FileHandler("error.log"),
-        logging.StreamHandler(sys.stdout)
-    ]
-)
+# logging.basicConfig(
+#     level=logging.ERROR,
+#     format="%(asctime)s - %(levelname)s - %(message)s",
+#     handlers=[
+#         logging.FileHandler("error.log"),
+#         logging.StreamHandler(sys.stdout)
+#     ]
+# )
+
+env = 'dev'
+prjName = 'ecowitt_collector'
+# ctxPath = os.getcwd()
+ctxPath = f"/HDD/SYSTEMS/PROG/PYTHON/IDE/src/proj/bdwide/2025/ECOWITT"
+
+log = initLog(env, ctxPath, prjName)
 
 # -------------------------
 # DB 설정
@@ -280,13 +347,13 @@ def insert_sansup_ecowitt_data(df, device_id):
 
         # 2025.09.19
         pd.set_option('display.max_columns', None)
-        print(f"[CHECK] device_id : {device_id} / final_df : {final_df}")
+        log.info(f"[CHECK] device_id : {device_id} / final_df : {final_df}")
     except mysql.Error as err:
         if conn: conn.rollback()
-        logging.error(f"데이터베이스 오류 : {err}")
+        log.error(f"데이터베이스 오류 : {err}")
     except Exception as e:
         if conn: conn.rollback()
-        logging.error(f"일반 오류 : {e}")
+        log.error(f"일반 오류 : {e}")
     finally:
         if cursor: cursor.close()
         if conn and conn.is_connected(): conn.close()
@@ -328,13 +395,13 @@ def insert_external_ecowitt_data(df, device_id):
 
         # 2025.09.19
         pd.set_option('display.max_columns', None)
-        print(f"[CHECK] device_id : {device_id} / final_df : {final_df}")
+        log.info(f"[CHECK] device_id : {device_id} / final_df : {final_df}")
     except mysql.Error as err:
         if conn: conn.rollback()
-        logging.error(f"데이터베이스 오류 : {err}")
+        log.error(f"데이터베이스 오류 : {err}")
     except Exception as e:
         if conn: conn.rollback()
-        logging.error(f"일반 오류 : {e}")
+        log.error(f"일반 오류 : {e}")
     finally:
         if cursor: cursor.close()
         if conn and conn.is_connected(): conn.close()
@@ -373,16 +440,16 @@ def insert_internal_ecowitt_data(df, device_id):
 
         # 2025.09.19
         pd.set_option('display.max_columns', None)
-        print(f"[CHECK] device_id : {device_id} / final_df : {final_df}")
+        log.info(f"[CHECK] device_id : {device_id} / final_df : {final_df}")
 
         cursor.executemany(query, records_to_insert)
         conn.commit()
     except mysql.Error as err:
         if conn: conn.rollback()
-        logging.error(f"데이터베이스 오류 : {err}")
+        log.error(f"데이터베이스 오류 : {err}")
     except Exception as e:
         if conn: conn.rollback()
-        logging.error(f"일반 오류 : {e}")
+        log.error(f"일반 오류 : {e}")
     finally:
         if cursor: cursor.close()
         if conn and conn.is_connected(): conn.close()
@@ -416,16 +483,16 @@ def insert_rainfall_ecowitt_data(df, device_id):
 
         # 2025.09.19
         pd.set_option('display.max_columns', None)
-        print(f"[CHECK] device_id : {device_id} / final_df : {final_df}")
+        log.info(f"[CHECK] device_id : {device_id} / final_df : {final_df}")
 
         cursor.executemany(query, records_to_insert)
         conn.commit()
     except mysql.Error as err:
         if conn: conn.rollback()
-        logging.error(f"데이터베이스 오류 : {err}")
+        log.error(f"데이터베이스 오류 : {err}")
     except Exception as e:
         if conn: conn.rollback()
-        logging.error(f"일반 오류 : {e}")
+        log.error(f"일반 오류 : {e}")
     finally:
         if cursor: cursor.close()
         if conn and conn.is_connected(): conn.close()
@@ -474,7 +541,7 @@ if __name__ == "__main__":
         for mac, device_id in mac_id_map.items():
             in_config = device_configs.get(mac)
             if not in_config:
-                logging.warning(f"설정되지 않은 MAC 주소 발견: {mac}. 건너뜁니다.")
+                log.warning(f"설정되지 않은 MAC 주소 발견: {mac}. 건너뜁니다.")
                 continue
 
             PARAMS = {
@@ -491,7 +558,7 @@ if __name__ == "__main__":
                 
                 # API 응답 결과 로깅 (원본 코드에 있던 출력)
                 if response.status_code != 200:
-                    logging.error(f"API 호출 실패 (MAC: {mac}) : {response.status_code}")
+                    log.error(f"API 호출 실패 (MAC: {mac}) : {response.status_code}")
                     continue
                 
                 response_json = response.json()
@@ -499,7 +566,7 @@ if __name__ == "__main__":
                 data = response_json.get("data", {})
                 
                 if isinstance(data, list) and response_json.get("code") == 40000:
-                    logging.error(f"MAC: {mac} 에 대해 'Invalid MAC' 오류 응답을 받았습니다. 다음 장비로 넘어갑니다.")
+                    log.error(f"MAC: {mac} 에 대해 'Invalid MAC' 오류 응답을 받았습니다. 다음 장비로 넘어갑니다.")
                     continue
                 
                 df = flatten_sensor_data(data)
@@ -527,7 +594,7 @@ if __name__ == "__main__":
                 in_config["insert_func"](final_df, device_id)
 
             except Exception as e:
-                logging.error(f"스크립트 실행 중 오류 발생 (MAC: {mac}) : {e}")
+                log.error(f"스크립트 실행 중 오류 발생 (MAC: {mac}) : {e}")
 
     except Exception as e:
-        logging.error(f"스크립트 실행 중 오류 발생 : {e}")
+        log.error(f"스크립트 실행 중 오류 발생 : {e}")
