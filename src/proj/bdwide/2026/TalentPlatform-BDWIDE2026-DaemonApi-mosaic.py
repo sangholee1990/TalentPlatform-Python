@@ -9,7 +9,7 @@
 # 도움말
 # =================================================
 # 프로그램 시작
-# cd /HDD/SYSTEMS/PROG/PYTHON/IDE/src/proj/bdwide/2025/MOSAIC
+# cd /HDD/SYSTEMS/PROG/PYTHON/IDE/src/proj/bdwide/2026
 # conda activate py39
 
 # 운영 서버
@@ -20,6 +20,7 @@
 # /HDD/SYSTEMS/LIB/anaconda3/envs/py39/bin/uvicorn TalentPlatform-BDWIDE2026-DaemonApi-mosaic:app --reload --host=0.0.0.0 --port=9910
 
 # 프로그램 종료
+# pkill -f TalentPlatform-BDWIDE2026-DaemonApi-mosaic
 # ps -ef | grep "TalentPlatform-BDWIDE2026-DaemonApi-mosaic" | awk '{print $2}' | xargs kill -9
 
 # 포트 종료
@@ -160,6 +161,8 @@ from email.mime.multipart import MIMEMultipart
 from email.mime.text import MIMEText
 from fastapi import Form, HTTPException, Depends
 from sqlalchemy import text
+import re
+from email.utils import formataddr
 warnings.filterwarnings('ignore')
 
 # ============================================
@@ -182,28 +185,22 @@ def initLog(env=None, contextPath=None, prjName=None):
 
     os.makedirs(os.path.dirname(saveLogFile), exist_ok=True)
 
-    # logger instance 생성
     log = logging.getLogger(prjName)
 
     if len(log.handlers) > 0:
         return log
 
-    # format 생성
     format = logging.Formatter('%(asctime)s [%(name)s | %(lineno)d | %(filename)s] [%(levelname)-5.5s] %(message)s')
 
-    # handler 생성
     streamHandler = logging.StreamHandler()
     fileHandler = logging.handlers.TimedRotatingFileHandler(filename=saveLogFile, when='midnight', interval=1, backupCount=30, encoding='utf-8')
 
-    # logger instance에 format 설정
     streamHandler.setFormatter(format)
     fileHandler.setFormatter(format)
 
-    # logger instance에 handler 설정
     log.addHandler(streamHandler)
     log.addHandler(fileHandler)
 
-    # logger instance로 log 기록
     log.setLevel(level=logging.INFO)
 
     return log
@@ -259,12 +256,12 @@ def initCfgInfo(config, key):
 # ============================================
 # 주요 설정
 # ============================================
-env = 'local'
+env = 'dev'
 serviceName = 'BDWIDE2026'
-prjName = 'test'
+prjName = 'mosaic'
 
-ctxPath = os.getcwd()
-# ctxPath = '/HDD/SYSTEMS/PROG/PYTHON/IDE/src/talentPlatform/api'
+# ctxPath = os.getcwd()
+ctxPath = '/HDD/SYSTEMS/PROG/PYTHON/IDE/src/proj/bdwide/2026'
 
 log = initLog(env, ctxPath, prjName)
 
@@ -358,11 +355,16 @@ async def sendEmail(
         file: 첨부파일\n
     """
     try:
+        if not re.match(r'^[a-zA-Z0-9_.+-]+@[a-zA-Z0-9-]+\.[a-zA-Z0-9-.]+$', recvEmail):
+            return resResponse("fail", 400, f"이메일 발송 실패, 수신 이메일 주소를 확인")
+
         sendEmail = sysOpt['cfgMail']['email']
         sendAppPwd = sysOpt['cfgMail']['appPwd']
 
         msg = MIMEMultipart()
-        msg['From'] = sendEmail
+        # msg['From'] = sendEmail
+        msg['From'] = formataddr(("비디와이드 고객지원", sendEmail))
+
         msg['To'] = recvEmail
         msg['Subject'] = subject
         msg.attach(MIMEText(content, 'plain'))
@@ -371,8 +373,8 @@ async def sendEmail(
         if not file:
             return resResponse("fail", 400, f"이메일 발송 실패, 첨부파일 없음")
 
-        file_content = await file.read()
-        attachment = MIMEApplication(file_content, _subtype="pdf")
+        fileContent = await file.read()
+        attachment = MIMEApplication(fileContent, _subtype="pdf")
         attachment.add_header('Content-Disposition', 'attachment', filename=file.filename)
         msg.attach(attachment)
 
@@ -387,7 +389,10 @@ async def sendEmail(
         with smtplib.SMTP(server, 587) as server:
             server.starttls()
             server.login(sendEmail, sendAppPwd)
-            server.send_message(msg)
+            result = server.send_message(msg)
+            if result:
+                return resResponse("fail", 400, f"이메일 발송 실패, {result}")
+
         return resResponse("succ", 200, f"이메일 발송 완료")
     except Exception as e:
         log.error(f'Exception : {e}')
@@ -456,13 +461,27 @@ async def insConsult(
 
         with sysOpt['cfgDb']['sessionMake']() as session:
             with session.begin():
-                query = text("""
-                             INSERT INTO TB_CONSULT (NAME, CONTACT, EMAIL, MSG, COMMENT, REG_DATE)
-                             VALUES (:name, :contact, :email, :msg, :comment, NOW())
-                             """)
-                result = session.execute(query, params)
-                log.info(f"result : {result}")
-                return resResponse("succ", 200, "처리 완료", result.rowcount, None)
+                try:
+                    query = text("""
+                                 SELECT 1
+                                 FROM TB_CONSULT
+                                 WHERE CONTACT = :contact AND EMAIL = :email AND MSG = :msg
+                                 LIMIT 1
+                                 """)
+                    isExist = session.execute(query, params).fetchone()
+                    if isExist:
+                        return resResponse("fail", 400, "이미 동일한 요청사항 (연락처, 이메일, 요청 내용)이 있습니다.", 0, None)
+
+                    query = text("""
+                                 INSERT INTO TB_CONSULT (NAME, CONTACT, EMAIL, MSG, COMMENT, REG_DATE)
+                                 VALUES (:name, :contact, :email, :msg, :comment, NOW())
+                                 """)
+                    result = session.execute(query, params)
+                    log.info(f"result : {result.rowcount}")
+                    return resResponse("succ", 200, "처리 완료", result.rowcount, None)
+                except Exception as e:
+                    log.error(f'Exception : {str(e)}')
+                    raise e
     except Exception as e:
         log.error(f'Exception : {e}')
         raise HTTPException(status_code=400)
@@ -485,7 +504,7 @@ async def selConsult(
                                                             MSG,
                                                             COMMENT,
                                                             REG_DATE,
-                                                            ROW_NUMBER() OVER(PARTITION BY NAME, CONTACT, EMAIL ORDER BY REG_DATE DESC) AS rn
+                                                            ROW_NUMBER() OVER(PARTITION BY CONTACT, EMAIL, MSG ORDER BY REG_DATE DESC) AS rn
                                                      FROM TB_CONSULT)
                              SELECT NAME,
                                     CONTACT,
@@ -505,62 +524,3 @@ async def selConsult(
     except Exception as e:
         log.error(f'Exception : {e}')
         raise HTTPException(status_code=400)
-
-
-# # @app.post(f"/api/insTripodData", dependencies=[Depends(chkKey)])
-# @app.post(f"/api/insTripodData")
-# async def selBrandModel(
-#     sn: str = Form(..., description='시리얼 번호', examples=['sn']),
-#     sid: int = Form(..., description='디바이스', examples=[1]),
-#     weg: float = Form(..., description="무게", examples=[99.5]),
-#     bat: int = Form(..., description="배터리 잔량", examples=[100]),
-#     inv: int = Form(..., description="전송 간격", examples=[1]),
-# ):
-#     """
-#     기능\n
-#         트라이포드랩 API - 데이터 적재\n
-#     파라미터\n
-#         sn: 시리얼 번호\n
-#         sid: 디바이스 ID\n
-#         weg: 무게\n
-#         bat: 배터리 잔량\n
-#         inv: 전송 간격\n
-#     """
-#     try:
-#         if sn is None: return resResponse("fail", 400, f"시리얼 번호 없음, sn : {sn}")
-#         if sid is None: return resResponse("fail", 400, f"디바이스 없음, sid : {sid}")
-#         if weg is None: return resResponse("fail", 400, f"무게 없음, weg : {weg}")
-#         if bat is None: return resResponse("fail", 400, f"배터리 잔량 없음, bat : {bat}")
-#         if inv is None: return resResponse("fail", 400, f"전송 간격 없음, inv : {inv}")
-#
-#         params = {
-#             "sn": sn,
-#             "sid": sid,
-#             "weg": weg,
-#             "bat": bat,
-#             "inv": inv
-#         }
-#         log.info(f"params : {params}")
-#
-#         with sysOpt['cfgDb']['sessionMake']() as session:
-#             with session.begin():
-#                 query = text(f"""
-#                         INSERT INTO TB_TRIPOD_DATA (
-#                             TM, SN, SID, WEG, BAT, INV, REG_DATE
-#                         )
-#                         VALUES (
-#                             NOW(), :sn, :sid, :weg, :bat, :inv, NOW()
-#                         )
-#                         ON DUPLICATE KEY UPDATE
-#                             WEG = VALUES(WEG),
-#                             BAT = VALUES(BAT),
-#                             INV = VALUES(INV),
-#                             MOD_DATE = NOW();
-#                     """)
-#                 result = session.execute(query, params)
-#                 log.info(f"result : {result}")
-#                 return resResponse("succ", 200, "처리 완료", result.rowcount, result)
-#
-#     except Exception as e:
-#         log.error(f'Exception : {e}')
-#         raise HTTPException(status_code=400)
