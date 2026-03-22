@@ -11,8 +11,9 @@
 # conda activate py39
 
 # cd /SYSTEMS/PROG/PYTHON
-# /SYSTEMS/LIB/anaconda3/envs/py39/bin/python /SYSTEMS/PROG/PYTHON/TalentPlatform-QUBE2025-real.py
-# nohup /SYSTEMS/LIB/anaconda3/envs/py39/bin/python /SYSTEMS/PROG/PYTHON/TalentPlatform-QUBE2025-real.py &
+# /SYSTEMS/LIB/anaconda3/envs/py39/bin/python /SYSTEMS/PROG/PYTHON/IDE/src/proj/qubesoft/2025/PYTHON/TalentPlatform-QUBE2025-realKim.py
+# /SYSTEMS/LIB/anaconda3/envs/py39/bin/python /SYSTEMS/PROG/PYTHON/TalentPlatform-QUBE2025-realKim.py
+# nohup /SYSTEMS/LIB/anaconda3/envs/py39/bin/python /SYSTEMS/PROG/PYTHON/TalentPlatform-QUBE2025-realKim.py &
 
 # 20,50 * * * * cd /SYSTEMS/PROG/PYTHON && /SYSTEMS/LIB/anaconda3/envs/py38/bin/python /SYSTEMS/PROG/PYTHON/TalentPlatform-QUBE2025-real.py --srtDate "$(date -d "2 days ago" +\%Y-\%m-\%d)" --endDate "$(date -d "2 days" +\%Y-\%m-\%d)"
 
@@ -156,6 +157,8 @@ import multiprocessing as mp
 import uuid
 from sqlalchemy.pool import NullPool
 from joblib import parallel_backend
+from metpy.calc import dewpoint_from_relative_humidity
+from metpy.units import units
 
 # =================================================
 # 사용자 매뉴얼
@@ -627,7 +630,6 @@ def makeH2oModel(subOpt=None, xCol=None, yCol=None, trainData=None, testData=Non
         log.error(f"Exception : {e}")
         return result
 
-
 def propUmkr(sysOpt, dtDateInfo):
     try:
         # procInfo = mp.current_process()
@@ -816,6 +818,185 @@ def propUmkr(sysOpt, dtDateInfo):
     except Exception as e:
         log.error(f'Exception : {e}')
 
+def propKim(sysOpt, dtDateInfo):
+    try:
+        # procInfo = mp.current_process()
+        umDataList = []
+        efList = sysOpt['KIM'][f"ef{dtDateInfo.strftime('%H')}"]
+        for ef in efList:
+            inpFile = dtDateInfo.strftime(sysOpt['KIM']['inpUmFile']).format(ef=ef)
+            fileList = sorted(glob.glob(inpFile))
+
+            for fileInfo in fileList:
+                try:
+                    grb = pygrib.open(fileInfo)
+                    grbInfo = grb.select(name='2 metre temperature')[0]
+
+                    # validIdx = int(re.findall('H\d{3}', fileInfo)[0].replace('H', ''))
+                    validIdx = int(ef)
+                    dtValidDate = grbInfo.validDate
+                    dtAnalDate = grbInfo.analDate
+
+                    row2D = sysOpt['row2D']
+                    col2D = sysOpt['col2D']
+                    uVec = grb.select(name='U component of wind')[0].values[row2D, col2D]
+                    vVec = grb.select(name='V component of wind')[0].values[row2D, col2D]
+                    wd = (270 - np.rad2deg(np.arctan2(vVec, uVec))) % 360
+                    ws = np.sqrt(np.square(uVec) + np.square(vVec))
+                    pa = grb.select(name='Surface pressure')[0].values[row2D, col2D] / 100.0
+                    ta = grb.select(name='2 metre temperature')[0].values[row2D, col2D] - 273.15
+                    hm = grb.select(name='2 metre relative humidity')[0].values[row2D, col2D]
+                    td = dewpoint_from_relative_humidity(ta * units.degC, hm * units.percent).magnitude
+                    dirSwr = grb.select(name='Surface direct short-wave radiation flux')[0].values[row2D, col2D]
+                    difSwr = grb.select(name='Surface diffuse short-wave radiation flux')[0].values[row2D, col2D]
+                    swr = np.sum([dirSwr, difSwr], axis=0)
+                    skint = grb.select(name='Skin temperature')[0].values[row2D, col2D]
+                    snol = grb.select(name='Large scale snow')[0].values[row2D, col2D]
+                    vis = grb.select(name='Visibility')[0].values[row2D, col2D]
+                    tpw = grb.message(10).values[row2D, col2D]
+                    # lowCA = grb.select(name='Low cloud cover')[0].values[row2D, col2D]
+                    # medCA = grb.select(name='Medium cloud cover')[0].values[row2D, col2D]
+                    # higCA = grb.select(name='High cloud cover')[0].values[row2D, col2D]
+                    # CA_TOT = np.mean([lowCA, medCA, higCA], axis=0)
+
+                    lat1D = sysOpt['lat1D']
+                    lon1D = sysOpt['lon1D']
+                    umData = xr.Dataset(
+                        {
+                            'wd': (('anaTime', 'time', 'lat', 'lon'), (wd).reshape(1, 1, len(lat1D), len(lon1D))),
+                            'ws': (('anaTime', 'time', 'lat', 'lon'), (ws).reshape(1, 1, len(lat1D), len(lon1D))),
+                            'pa': (('anaTime', 'time', 'lat', 'lon'), (pa).reshape(1, 1, len(lat1D), len(lon1D))),
+                            'ta': (('anaTime', 'time', 'lat', 'lon'), (ta).reshape(1, 1, len(lat1D), len(lon1D))),
+                            'hm': (('anaTime', 'time', 'lat', 'lon'), (hm).reshape(1, 1, len(lat1D), len(lon1D))),
+                            'td': (('anaTime', 'time', 'lat', 'lon'), (td).reshape(1, 1, len(lat1D), len(lon1D))),
+                            'swr': (('anaTime', 'time', 'lat', 'lon'), (swr).reshape(1, 1, len(lat1D), len(lon1D))),
+                            'skint': (('anaTime', 'time', 'lat', 'lon'), (skint).reshape(1, 1, len(lat1D), len(lon1D))),
+                            'snol': (('anaTime', 'time', 'lat', 'lon'), (snol).reshape(1, 1, len(lat1D), len(lon1D))),
+                            'vis': (('anaTime', 'time', 'lat', 'lon'), (vis).reshape(1, 1, len(lat1D), len(lon1D))),
+                            'tpw': (('anaTime', 'time', 'lat', 'lon'), (tpw).reshape(1, 1, len(lat1D), len(lon1D))),
+                        }
+                        , coords={
+                            'anaTime': pd.date_range(dtAnalDate, periods=1),
+                            'time': pd.date_range(dtValidDate, periods=1),
+                            'lat': lat1D,
+                            'lon': lon1D,
+                        }
+                    )
+
+                    umDataList.append(umData)
+                except Exception as e:
+                    log.error(f"Exception : {e}")
+
+        if len(umDataList) < 1: return
+        umDataL1 = xr.concat(umDataList, dim='time')
+
+        umDataL5 = pd.DataFrame()
+        for kk, posInfo in sysOpt['posDataL1'].iterrows():
+            srv = posInfo['srv']
+            lat = posInfo['lat']
+            lon = posInfo['lon']
+
+            try:
+                umDataL2 = umDataL1.sel(lat=lat, lon=lon)
+                umDataL3 = umDataL2.to_dataframe().dropna().reset_index(drop=False)
+                umDataL3['ana_date'] = umDataL3['anaTime']
+                umDataL3['date_time'] = umDataL3['time']
+                umDataL3['date_time_kst'] = umDataL3['time'] + dtKst
+                umDataL3['srv'] = srv
+
+                # umDataL3['ca_tot'] = np.where(umDataL3['CA_TOT'] < 0, 0, umDataL3['CA_TOT'])
+                # umDataL3['ca_tot'] = np.where(umDataL3['ca_tot'] > 1, 1, umDataL3['ca_tot'])
+                solPosInfo = pvlib.solarposition.get_solarposition(umDataL3['date_time'], lat, lon,
+                                                                   pressure=umDataL3['pa'] * 100.0,
+                                                                   temperature=umDataL3['ta'], method='nrel_numpy')
+                umDataL3['ext_rad'] = pvlib.irradiance.get_extra_radiation(solPosInfo.index.dayofyear)
+                umDataL3['sza'] = solPosInfo['zenith'].values
+                umDataL3['aza'] = solPosInfo['azimuth'].values
+                umDataL3['et'] = solPosInfo['equation_of_time'].values
+
+                site = location.Location(latitude=lat, longitude=lon, tz='Asia/Seoul')
+                clearInsInfo = site.get_clearsky(pd.to_datetime(umDataL3['date_time'].values))
+                umDataL3['ghi_clr'] = clearInsInfo['ghi'].values
+                umDataL3['dni_clr'] = clearInsInfo['dni'].values
+                umDataL3['dhi_clr'] = clearInsInfo['dhi'].values
+                turbidity = pvlib.clearsky.lookup_linke_turbidity(pd.to_datetime(umDataL3['date_time'].values), lat, lon, interp_turbidity=True)
+                umDataL3['turb'] = turbidity.values
+
+                dbColList = [
+                    "srv", "ana_date", "date_time", "date_time_kst",
+                    "hm", "pa", "ta", "td", "wd", "ws", "skint", "snol", "vis", "tpw",
+                    "sza", "aza", "et", "turb",
+                    "ghi_clr", "dni_clr", "dhi_clr", "swr", "ext_rad"
+                ]
+                umDataL4 = umDataL3[dbColList].copy()
+                umDataL5 = pd.concat([umDataL5, umDataL4], ignore_index=True)
+            except Exception as e:
+                log.error(f'Exception : {e}')
+
+        umDataL6 = umDataL5.drop_duplicates(subset=['srv', 'ana_date', 'date_time'], keep='last')
+        if umDataL6 is None or len(umDataL6) < 1: return
+        with cfgDb['sessionMake']() as session:
+            with session.begin():
+                tbTmp = f"tmp_{uuid.uuid4().hex}"
+                conn = session.connection()
+
+                try:
+                    umDataL6.to_sql(
+                        name=tbTmp,
+                        con=conn,
+                        if_exists="replace",
+                        index=False,
+                        chunksize=1000
+                    )
+
+                    query = text(f"""
+                        INSERT INTO tb_kim_data (
+                              srv, ana_date, date_time, date_time_kst,
+                              hm, pa, ta, td, wd, ws, skint, snol, vis, tpw,
+                              sza, aza, et, turb,
+                              ghi_clr, dni_clr, dhi_clr, swr, ext_rad,
+                              reg_date
+                        )
+                        SELECT
+                              srv, ana_date, date_time, date_time_kst,
+                              hm, pa, ta, td, wd, ws, skint, snol, vis, tpw,
+                              sza, aza, et, turb,
+                              ghi_clr, dni_clr, dhi_clr, swr, ext_rad,
+                              now()
+                        FROM {tbTmp}
+                        ON CONFLICT (srv, ana_date, date_time)
+                        DO UPDATE SET
+                              date_time_kst = excluded.date_time_kst,
+                              hm = excluded.hm, 
+                              pa = excluded.pa, 
+                              ta = excluded.ta, 
+                              td = excluded.td, 
+                              wd = excluded.wd, 
+                              ws = excluded.ws,
+                              skint = excluded.skint,
+                              snol = excluded.snol,
+                              vis = excluded.vis,
+                              tpw = excluded.tpw,
+                              sza = excluded.sza, 
+                              aza = excluded.aza, 
+                              et = excluded.et, 
+                              turb = excluded.turb,
+                              ghi_clr = excluded.ghi_clr, 
+                              dni_clr = excluded.dni_clr, 
+                              dhi_clr = excluded.dhi_clr, 
+                              swr = excluded.swr,
+                              ext_rad = excluded.ext_rad,
+                              mod_date = now();
+                          """)
+                    result = session.execute(query)
+                    log.info(f"dtDateInfo : {dtDateInfo} / result : {result.rowcount}")
+                except Exception as e:
+                    log.error(f"Exception : {e}")
+                    raise e
+                finally:
+                    session.execute(text(f"DROP TABLE IF EXISTS {tbTmp}"))
+    except Exception as e:
+        log.error(f'Exception : {e}')
 
 def subPvProc(sysOpt, cfgDb):
     try:
@@ -911,10 +1092,11 @@ def initWorker(cfbDbInfo):
 
 def subPropProc(sysOpt, cfgDb):
     try:
-        cfgUmFile = sysOpt['UMKR']['cfgUmFile']
+        cfgUmFile = sysOpt['KIM']['cfgUmFile']
         log.info(f"cfgUmFile : {cfgUmFile}")
 
-        cfgInfo = pygrib.open(cfgUmFile).select(name='Temperature')[1]
+        a = pygrib.open(cfgUmFile)
+        cfgInfo = pygrib.open(cfgUmFile).select(name='2 metre temperature')[0]
         lat2D, lon2D = cfgInfo.latlons()
 
         # 최근접 좌표
@@ -952,28 +1134,27 @@ def subPropProc(sysOpt, cfgDb):
             initargs=(cfgDb,)
         )
 
-        with cfgDb['sessionMake']() as session:
-            query = text("""
-                         SELECT srv, ana_date, date_time
-                         FROM tb_for_data
-                         WHERE swr > 0
-                           AND ana_date BETWEEN :srtDate AND :endDate;
-                         """)
-            cfgData = pd.DataFrame(session.execute(query, {'srtDate': sysOpt['srtDate'], 'endDate': sysOpt['endDate']}))
-            cfgDataL1 = cfgData[cfgData['srv'].isin(sysOpt['posDataL1']['srv'])].reset_index(drop=True)
-
-            cfgDataL2 = cfgDataL1.groupby(['ana_date', 'date_time']).size().reset_index(name='cnt')
-            cfgDataL3 = cfgDataL2[cfgDataL2['cnt'] == len(sysOpt['posDataL1']['srv'])]
-            cfgDataList = set(zip(cfgDataL3['ana_date'].dt.strftime('%Y-%m-%d %H:%M')))
+        # with cfgDb['sessionMake']() as session:
+        #     query = text("""
+        #                  SELECT srv, ana_date, date_time
+        #                  FROM tb_for_data
+        #                  WHERE swr > 0
+        #                    AND ana_date BETWEEN :srtDate AND :endDate;
+        #                  """)
+        #     cfgData = pd.DataFrame(session.execute(query, {'srtDate': sysOpt['srtDate'], 'endDate': sysOpt['endDate']}))
+        #     cfgDataL1 = cfgData[cfgData['srv'].isin(sysOpt['posDataL1']['srv'])].reset_index(drop=True)
+        #
+        #     cfgDataL2 = cfgDataL1.groupby(['ana_date', 'date_time']).size().reset_index(name='cnt')
+        #     cfgDataL3 = cfgDataL2[cfgDataL2['cnt'] == len(sysOpt['posDataL1']['srv'])]
+        #     cfgDataList = set(zip(cfgDataL3['ana_date'].dt.strftime('%Y-%m-%d %H:%M')))
 
         dtSrtDate = pd.to_datetime(sysOpt['srtDate'], format='%Y-%m-%d')
         dtEndDate = pd.to_datetime(sysOpt['endDate'], format='%Y-%m-%d')
         dtDateList = pd.date_range(start=dtSrtDate, end=dtEndDate, freq=sysOpt['UMKR']['invDate'])
         for dtDateInfo in reversed(dtDateList):
-            #            if (dtDateInfo.strftime('%Y-%m-%d %H:%M'), ) in cfgDataList: continue
-
+            # if (dtDateInfo.strftime('%Y-%m-%d %H:%M'), ) in cfgDataList: continue
             # propUmkr(sysOpt, dtDateInfo)
-            pool.apply_async(propUmkr, args=(sysOpt, dtDateInfo))
+            pool.apply_async(propKim, args=(sysOpt, dtDateInfo))
         pool.close()
         pool.join()
     except Exception as e:
@@ -1204,23 +1385,23 @@ class DtaProcess(object):
             # 옵션 설정
             sysOpt = {
                 # 시작/종료 시간
-                'srtDate': globalVar['srtDate'],
-                'endDate': globalVar['endDate'],
-                # 'srtDate': '2020-01-01',
-                # 'endDate': None,
+                # 'srtDate': globalVar['srtDate'],
+                # 'endDate': globalVar['endDate'],
+                'srtDate': '2026-03-21',
+                'endDate': '2026-03-22',
                 'invDate': '1d',
 
                 # 비동기 다중 프로세스 개수
                 # 'cpuCoreNum': globalVar['cpuCoreNum'],
                 # 'cpuCoreNum': '5',
                 # 'cpuCoreNum': '10',
-                'cpuCoreNum': '3',
+                'cpuCoreNum': '1',
 
                 # 설정 파일
                 'cfgDbKey': 'postgresql-qubesoft.iptime.org-qubesoft-dms02',
-                # 'cfgFile': '/HDD/SYSTEMS/PROG/PYTHON/IDE/resources/config/system.cfg',
+                'cfgFile': '/HDD/SYSTEMS/PROG/PYTHON/IDE/resources/config/system.cfg',
                 # 'cfgFile': '/vol01/SYSTEMS/INDIAI/PROG/PYTHON/resources/config/system.cfg',
-                'cfgFile': '/SYSTEMS/PROG/PYTHON/resources/config/system.cfg',
+                # 'cfgFile': '/SYSTEMS/PROG/PYTHON/resources/config/system.cfg',
                 'posDataL1': None,
                 'cfgApiKey': 'pv',
                 'cfgApi': None,
@@ -1251,11 +1432,32 @@ class DtaProcess(object):
                     # 'ef18': ['00', '01', '02', '03', '04', '05'],
                     'invDate': '6h',
                 },
+                'KIM': {
+                    # 'cfgUmFile': '/HDD/SYSTEMS/PROG/PYTHON/IDE/resources/config/modelInfo/UMKR_l015_unis_H000_202110010000.grb2',
+                    # 'inpUmFile': '/HDD/DATA/MODEL/%Y%m/%d/UMKR_l015_unis_H{ef}_%Y%m%d%H%M.grb2',
+                    # 'cfgUmFile': '/DATA/COLCT/UMKR/201901/01/UMKR_l015_unis_H00_201901010000.grb2',
+                    # 'inpUmFile': '/DATA/COLCT/UMKR/%Y%m/%d/UMKR_l015_unis_H{ef}_%Y%m%d%H%M.grb2',
+                    'cfgUmFile': '/DATA/MODEL/202603/21/KIMG_r030_unis_H00_202603210000.grb2',
+                    'inpUmFile': '/DATA/MODEL/%Y%m/%d/KIMG_r030_unis_H{ef}_%Y%m%d%H%M.grb2',
+                    # 'ef00': ['00', '01', '02', '03', '04', '05'],
+                    'ef00': ['00', '01', '02', '03', '04', '05', '15', '16', '17', '18', '19', '20', '21', '22', '23',
+                             '24', '25', '26', '27', '28', '29', '30', '31', '32', '33', '34', '35', '36', '37', '38'],
+                    # 'ef06': ['00', '01', '02', '03', '04', '05'],
+                    'ef06': ['00', '01', '02', '03', '04', '05', '09', '10', '11', '12', '13', '14', '15', '16', '17', '18',
+                         '19', '20', '21', '22', '23', '24', '25', '26', '27', '28', '29', '30', '31', '32'],
+                    # 'ef12': ['00', '01', '02', '03', '04', '05'],
+                    'ef12': ['00', '01', '02', '03', '04', '05', '27', '28', '29', '30', '31', '32', '33', '34', '35', '36',
+                         '37', '38', '39', '40', '41', '42', '43', '44', '45', '46', '47'],
+                    'ef18': ['00', '01', '02', '03', '04', '05', '21', '22', '23', '24', '25', '26', '27', '28', '29',
+                             '30', '31', '32', '33', '34', '35', '36', '37', '38', '39', '40', '41', '42', '43', '44'],
+                    # 'ef18': ['00', '01', '02', '03', '04', '05'],
+                    'invDate': '6h',
+                },
                 # 자동화/수동화 모델링
                 'MODEL': {
                     'orgPycaret': {
-                        'saveModelList': "/DATA/AI/*/*/LSH0255-{srv}-final-pycaret-forKim-*.model.pkl",
-                        'saveModel': "/DATA/AI/%Y%m/%d/LSH0255-{srv}-final-pycaret-forKim-%Y%m%d.model",
+                        'saveModelList': "/DATA/AI/*/*/LSH0255-{srv}-final-pycaret-kim-*.model.pkl",
+                        'saveModel': "/DATA/AI/%Y%m/%d/LSH0255-{srv}-final-pycaret-kim-%Y%m%d.model",
                         # 'isOverWrite': True,
                         'isOverWrite': False,
                         'srv': None,
@@ -1263,8 +1465,8 @@ class DtaProcess(object):
                         'exp': None
                     },
                     'orgH2o': {
-                        'saveModelList': "/DATA/AI/*/*/LSH0255-{srv}-final-h2o-forKim-*.model",
-                        'saveModel': "/DATA/AI/%Y%m/%d/LSH0255-{srv}-final-h2o-forKim-%Y%m%d.model",
+                        'saveModelList': "/DATA/AI/*/*/LSH0255-{srv}-final-h2o-kim-*.model",
+                        'saveModel': "/DATA/AI/%Y%m/%d/LSH0255-{srv}-final-h2o-kim-%Y%m%d.model",
                         'isInit': False,
                         # 'isOverWrite': True,
                         'isOverWrite': False,
@@ -1272,27 +1474,27 @@ class DtaProcess(object):
                         'preDt': datetime.datetime.now(),
                     },
                     'lgb': {
-                        'saveModelList': "/DATA/AI/*/*/QUBE2025-{srv}-final-lgb-forKim-*.model",
-                        'saveModel': "/DATA/AI/%Y%m/%d/QUBE2025-{srv}-final-lgb-forKim-%Y%m%d.model",
-                        'saveImg': "/DATA/AI/%Y%m/%d/QUBE2025-{srv}-final-lgb-forKim-%Y%m%d.png",
+                        'saveModelList': "/DATA/AI/*/*/QUBE2025-{srv}-final-lgb-kim-*.model",
+                        'saveModel': "/DATA/AI/%Y%m/%d/QUBE2025-{srv}-final-lgb-kim-%Y%m%d.model",
+                        'saveImg': "/DATA/AI/%Y%m/%d/QUBE2025-{srv}-final-lgb-kim-%Y%m%d.png",
                         # 'isOverWrite': True,
                         'isOverWrite': False,
                         'srv': None,
                         'preDt': datetime.datetime.now(),
                     },
                     'flaml': {
-                        'saveModelList': "/DATA/AI/*/*/QUBE2025-{srv}-final-flaml-forKim-*.model",
-                        'saveModel': "/DATA/AI/%Y%m/%d/QUBE2025-{srv}-final-flaml-forKim-%Y%m%d.model",
-                        'saveImg': "/DATA/AI/%Y%m/%d/QUBE2025-{srv}-final-flaml-forKim-%Y%m%d.png",
+                        'saveModelList': "/DATA/AI/*/*/QUBE2025-{srv}-final-flaml-kim-*.model",
+                        'saveModel': "/DATA/AI/%Y%m/%d/QUBE2025-{srv}-final-flaml-kim-%Y%m%d.model",
+                        'saveImg': "/DATA/AI/%Y%m/%d/QUBE2025-{srv}-final-flaml-kim-%Y%m%d.png",
                         # 'isOverWrite': True,
                         'isOverWrite': False,
                         'srv': None,
                         'preDt': datetime.datetime.now(),
                     },
                     'pycaret': {
-                        'saveModelList': "/DATA/AI/*/*/QUBE2025-{srv}-final-pycaret-forKim-*.model.pkl",
-                        'saveModel': "/DATA/AI/%Y%m/%d/QUBE2025-{srv}-final-pycaret-forKim-%Y%m%d.model",
-                        'saveImg': "/DATA/AI/%Y%m/%d/QUBE2025-{srv}-final-pycaret-forKim-%Y%m%d.png",
+                        'saveModelList': "/DATA/AI/*/*/QUBE2025-{srv}-final-pycaret-kim-*.model.pkl",
+                        'saveModel': "/DATA/AI/%Y%m/%d/QUBE2025-{srv}-final-pycaret-kim-%Y%m%d.model",
+                        'saveImg': "/DATA/AI/%Y%m/%d/QUBE2025-{srv}-final-pycaret-kim-%Y%m%d.png",
                         # 'isOverWrite': True,
                         'isOverWrite': False,
                         'srv': None,
