@@ -836,10 +836,16 @@ def propKim(sysOpt, dtDateInfo):
                     dtValidDate = grbInfo.validDate
                     dtAnalDate = grbInfo.analDate
 
+                    # grb.select()
+                    # grb.message(10).values[row2D, col2D]
+
+                    grb.select()
+
+                    d = grb.select(name='Surface direct short-wave radiation flux')
                     row2D = sysOpt['row2D']
                     col2D = sysOpt['col2D']
-                    uVec = grb.select(name='U component of wind')[0].values[row2D, col2D]
-                    vVec = grb.select(name='V component of wind')[0].values[row2D, col2D]
+                    uVec = grb.select(name='10 metre U wind component')[0].values[row2D, col2D]
+                    vVec = grb.select(name='10 metre V wind component')[0].values[row2D, col2D]
                     # wd = (270 - np.rad2deg(np.arctan2(vVec, uVec))) % 360
                     # ws = np.sqrt(np.square(uVec) + np.square(vVec))
                     ws = mpcalc.wind_speed(uVec * units('m/s'), vVec * units('m/s')).magnitude
@@ -850,11 +856,12 @@ def propKim(sysOpt, dtDateInfo):
                     td = mpcalc.dewpoint_from_relative_humidity(ta * units.degC, hm * units.percent).magnitude
                     dirSwr = grb.select(name='Surface direct short-wave radiation flux')[0].values[row2D, col2D]
                     difSwr = grb.select(name='Surface diffuse short-wave radiation flux')[0].values[row2D, col2D]
-                    swr = dirSwr + difSwr
-                    skint = grb.select(name='Skin temperature')[0].values[row2D, col2D]
+                    swr = np.sum([dirSwr, difSwr], axis=0)
+                    skint = grb.select(name='Skin temperature')[0].values[row2D, col2D] - 273.15
                     snol = grb.select(name='Large scale snow')[0].values[row2D, col2D]
-                    vis = grb.select(name='Visibility')[0].values[row2D, col2D]
+                    vis = grb.select(name='Visibility')[0].values[row2D, col2D] / 1000.0
                     tpw = grb.message(10).values[row2D, col2D]
+
                     # lowCA = grb.select(name='Low cloud cover')[0].values[row2D, col2D]
                     # medCA = grb.select(name='Medium cloud cover')[0].values[row2D, col2D]
                     # higCA = grb.select(name='High cloud cover')[0].values[row2D, col2D]
