@@ -1401,9 +1401,9 @@ class DtaProcess(object):
 
                 # 설정 파일
                 'cfgDbKey': 'postgresql-qubesoft.iptime.org-qubesoft-dms02',
-                'cfgFile': '/HDD/SYSTEMS/PROG/PYTHON/IDE/resources/config/system.cfg',
+                # 'cfgFile': '/HDD/SYSTEMS/PROG/PYTHON/IDE/resources/config/system.cfg',
                 # 'cfgFile': '/vol01/SYSTEMS/INDIAI/PROG/PYTHON/resources/config/system.cfg',
-                # 'cfgFile': '/SYSTEMS/PROG/PYTHON/resources/config/system.cfg',
+                'cfgFile': '/SYSTEMS/PROG/PYTHON/resources/config/system.cfg',
                 'posDataL1': None,
                 'cfgApiKey': 'pv',
                 'cfgApi': None,
