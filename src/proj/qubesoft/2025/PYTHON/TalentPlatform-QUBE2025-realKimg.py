@@ -4,18 +4,18 @@
 # Python을 이용한 재처리
 
 # 프로그램 종료
-# ps -ef | grep python | grep TalentPlatform-QUBE2025-real.py | awk '{print $2}' | xargs kill -9
-# pkill -f TalentPlatform-QUBE2025-real.py
+# ps -ef | grep python | grep TalentPlatform-QUBE2025-realKimg.py | awk '{print $2}' | xargs kill -9
+# pkill -f TalentPlatform-QUBE2025-realKimg.py
 
 # 프로그램 시작
 # conda activate py39
 
 # cd /SYSTEMS/PROG/PYTHON
-# /SYSTEMS/LIB/anaconda3/envs/py39/bin/python /SYSTEMS/PROG/PYTHON/IDE/src/proj/qubesoft/2025/PYTHON/TalentPlatform-QUBE2025-realKim.py
-# /SYSTEMS/LIB/anaconda3/envs/py39/bin/python /SYSTEMS/PROG/PYTHON/TalentPlatform-QUBE2025-realKim.py
-# nohup /SYSTEMS/LIB/anaconda3/envs/py39/bin/python /SYSTEMS/PROG/PYTHON/TalentPlatform-QUBE2025-realKim.py &
+# /SYSTEMS/LIB/anaconda3/envs/py39/bin/python /SYSTEMS/PROG/PYTHON/IDE/src/proj/qubesoft/2025/PYTHON/TalentPlatform-QUBE2025-realKimg.py
+# /SYSTEMS/LIB/anaconda3/envs/py39/bin/python /SYSTEMS/PROG/PYTHON/TalentPlatform-QUBE2025-realKimg.py
+# nohup /SYSTEMS/LIB/anaconda3/envs/py39/bin/python /SYSTEMS/PROG/PYTHON/TalentPlatform-QUBE2025-realKimg.py &
 
-# 20,50 * * * * cd /SYSTEMS/PROG/PYTHON && /SYSTEMS/LIB/anaconda3/envs/py38/bin/python /SYSTEMS/PROG/PYTHON/TalentPlatform-QUBE2025-real.py --srtDate "$(date -d "2 days ago" +\%Y-\%m-\%d)" --endDate "$(date -d "2 days" +\%Y-\%m-\%d)"
+# 20,50 * * * * cd /SYSTEMS/PROG/PYTHON && /SYSTEMS/LIB/anaconda3/envs/py38/bin/python /SYSTEMS/PROG/PYTHON/TalentPlatform-QUBE2025-realKimg.py --srtDate "$(date -d "2 days ago" +\%Y-\%m-\%d)" --endDate "$(date -d "2 days" +\%Y-\%m-\%d)"
 
 import glob
 # import seaborn as sns
