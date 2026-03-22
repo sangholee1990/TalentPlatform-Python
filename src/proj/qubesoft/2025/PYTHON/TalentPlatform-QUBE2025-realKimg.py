@@ -12,8 +12,8 @@
 
 # cd /SYSTEMS/PROG/PYTHON
 # /SYSTEMS/LIB/anaconda3/envs/py39/bin/python /SYSTEMS/PROG/PYTHON/IDE/src/proj/qubesoft/2025/PYTHON/TalentPlatform-QUBE2025-realKimg.py
-# /SYSTEMS/LIB/anaconda3/envs/py39/bin/python /SYSTEMS/PROG/PYTHON/TalentPlatform-QUBE2025-realKimg.py
-# nohup /SYSTEMS/LIB/anaconda3/envs/py39/bin/python /SYSTEMS/PROG/PYTHON/TalentPlatform-QUBE2025-realKimg.py &
+# /SYSTEMS/LIB/anaconda3/envs/py39/bin/python /SYSTEMS/PROG/PYTHON/TalentPlatform-QUBE2025-realKimg.py --cpuCoreNum '5' --srtDate "2026-01-01" --endDate "2026-01-02"
+# nohup /SYSTEMS/LIB/anaconda3/envs/py39/bin/python /SYSTEMS/PROG/PYTHON/TalentPlatform-QUBE2025-realKimg.py --cpuCoreNum '5' --srtDate "2020-01-01" --endDate "2026-03-22" &
 
 # 20,50 * * * * cd /SYSTEMS/PROG/PYTHON && /SYSTEMS/LIB/anaconda3/envs/py38/bin/python /SYSTEMS/PROG/PYTHON/TalentPlatform-QUBE2025-realKimg.py --srtDate "$(date -d "2 days ago" +\%Y-\%m-\%d)" --endDate "$(date -d "2 days" +\%Y-\%m-\%d)"
 
@@ -836,12 +836,6 @@ def propKimg(sysOpt, dtDateInfo):
                     dtValidDate = grbInfo.validDate
                     dtAnalDate = grbInfo.analDate
 
-                    # grb.select()
-                    # grb.message(10).values[row2D, col2D]
-
-                    grb.select()
-
-                    d = grb.select(name='Surface direct short-wave radiation flux')
                     row2D = sysOpt['row2D']
                     col2D = sysOpt['col2D']
                     uVec = grb.select(name='10 metre U wind component')[0].values[row2D, col2D]
@@ -854,8 +848,10 @@ def propKimg(sysOpt, dtDateInfo):
                     ta = grb.select(name='2 metre temperature')[0].values[row2D, col2D] - 273.15
                     hm = grb.select(name='2 metre relative humidity')[0].values[row2D, col2D]
                     td = mpcalc.dewpoint_from_relative_humidity(ta * units.degC, hm * units.percent).magnitude
-                    dirSwr = grb.select(name='Surface direct short-wave radiation flux')[0].values[row2D, col2D]
-                    difSwr = grb.select(name='Surface diffuse short-wave radiation flux')[0].values[row2D, col2D]
+                    # dirSwr = grb.select(name='Surface direct short-wave radiation flux')[0].values[row2D, col2D]
+                    # difSwr = grb.select(name='Surface diffuse short-wave radiation flux')[0].values[row2D, col2D]
+                    dirSwr = grb.message(21).values[row2D, col2D]
+                    difSwr = grb.message(22).values[row2D, col2D]
                     swr = np.sum([dirSwr, difSwr], axis=0)
                     skint = grb.select(name='Skin temperature')[0].values[row2D, col2D] - 273.15
                     snol = grb.select(name='Large scale snow')[0].values[row2D, col2D]
@@ -1103,7 +1099,6 @@ def subPropProc(sysOpt, cfgDb):
         cfgUmFile = sysOpt['KIMG']['cfgUmFile']
         log.info(f"cfgUmFile : {cfgUmFile}")
 
-        a = pygrib.open(cfgUmFile)
         cfgInfo = pygrib.open(cfgUmFile).select(name='2 metre temperature')[0]
         lat2D, lon2D = cfgInfo.latlons()
 
