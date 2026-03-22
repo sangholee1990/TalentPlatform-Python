@@ -350,7 +350,7 @@ async def sendEmail(
         file: 수신 첨부파일\n
     """
     try:
-        if not re.match(r'^[a-zA-Z0-9_.+-]+@[a-zA-Z0-9-]+\.[a-zA-Z0-9-.]+$', recvEmail):
+        if not re.match(r'^[a-zA-Z0-9_.+-]+@[a-zA-Z0-9-]+\.[a-zA-Z0-9-.]+$', sendEmail):
             return resResponse("fail", 400, f"이메일 발송 실패, 송신 이메일 주소를 확인")
 
         if not re.match(r'^[a-zA-Z0-9_.+-]+@[a-zA-Z0-9-]+\.[a-zA-Z0-9-.]+$', recvEmail):
