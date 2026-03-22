@@ -157,7 +157,7 @@ import multiprocessing as mp
 import uuid
 from sqlalchemy.pool import NullPool
 from joblib import parallel_backend
-from metpy.calc import dewpoint_from_relative_humidity
+import metpy.calc as mpcalc
 from metpy.units import units
 
 # =================================================
@@ -363,7 +363,6 @@ def makeLgbModel(subOpt=None, xCol=None, yCol=None, trainData=None, testData=Non
     result = None
 
     try:
-
         saveModelList = sorted(glob.glob(subOpt['saveModelList'].format(srv=subOpt['srv'])), reverse=True)
 
         # 학습 모델이 없을 경우
@@ -841,15 +840,17 @@ def propKim(sysOpt, dtDateInfo):
                     col2D = sysOpt['col2D']
                     uVec = grb.select(name='U component of wind')[0].values[row2D, col2D]
                     vVec = grb.select(name='V component of wind')[0].values[row2D, col2D]
-                    wd = (270 - np.rad2deg(np.arctan2(vVec, uVec))) % 360
-                    ws = np.sqrt(np.square(uVec) + np.square(vVec))
+                    # wd = (270 - np.rad2deg(np.arctan2(vVec, uVec))) % 360
+                    # ws = np.sqrt(np.square(uVec) + np.square(vVec))
+                    ws = mpcalc.wind_speed(uVec * units('m/s'), vVec * units('m/s')).magnitude
+                    wd = mpcalc.wind_direction(uVec * units('m/s'), vVec * units('m/s')).magnitude
                     pa = grb.select(name='Surface pressure')[0].values[row2D, col2D] / 100.0
                     ta = grb.select(name='2 metre temperature')[0].values[row2D, col2D] - 273.15
                     hm = grb.select(name='2 metre relative humidity')[0].values[row2D, col2D]
-                    td = dewpoint_from_relative_humidity(ta * units.degC, hm * units.percent).magnitude
+                    td = mpcalc.dewpoint_from_relative_humidity(ta * units.degC, hm * units.percent).magnitude
                     dirSwr = grb.select(name='Surface direct short-wave radiation flux')[0].values[row2D, col2D]
                     difSwr = grb.select(name='Surface diffuse short-wave radiation flux')[0].values[row2D, col2D]
-                    swr = np.sum([dirSwr, difSwr], axis=0)
+                    swr = dirSwr + difSwr
                     skint = grb.select(name='Skin temperature')[0].values[row2D, col2D]
                     snol = grb.select(name='Large scale snow')[0].values[row2D, col2D]
                     vis = grb.select(name='Visibility')[0].values[row2D, col2D]
