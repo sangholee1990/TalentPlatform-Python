@@ -817,13 +817,13 @@ def propUmkr(sysOpt, dtDateInfo):
     except Exception as e:
         log.error(f'Exception : {e}')
 
-def propKim(sysOpt, dtDateInfo):
+def propKimg(sysOpt, dtDateInfo):
     try:
         # procInfo = mp.current_process()
         umDataList = []
-        efList = sysOpt['KIM'][f"ef{dtDateInfo.strftime('%H')}"]
+        efList = sysOpt['KIMG'][f"ef{dtDateInfo.strftime('%H')}"]
         for ef in efList:
-            inpFile = dtDateInfo.strftime(sysOpt['KIM']['inpUmFile']).format(ef=ef)
+            inpFile = dtDateInfo.strftime(sysOpt['KIMG']['inpUmFile']).format(ef=ef)
             fileList = sorted(glob.glob(inpFile))
 
             for fileInfo in fileList:
@@ -958,7 +958,7 @@ def propKim(sysOpt, dtDateInfo):
                     )
 
                     query = text(f"""
-                        INSERT INTO tb_kim_data (
+                        INSERT INTO tb_kimg_data (
                               srv, ana_date, date_time, date_time_kst,
                               hm, pa, ta, td, wd, ws, skint, snol, vis, tpw,
                               sza, aza, et, turb,
@@ -1100,7 +1100,7 @@ def initWorker(cfbDbInfo):
 
 def subPropProc(sysOpt, cfgDb):
     try:
-        cfgUmFile = sysOpt['KIM']['cfgUmFile']
+        cfgUmFile = sysOpt['KIMG']['cfgUmFile']
         log.info(f"cfgUmFile : {cfgUmFile}")
 
         a = pygrib.open(cfgUmFile)
@@ -1145,7 +1145,7 @@ def subPropProc(sysOpt, cfgDb):
         # with cfgDb['sessionMake']() as session:
         #     query = text("""
         #                  SELECT srv, ana_date, date_time
-        #                  FROM tb_for_data
+        #                  FROM tb_kim_data
         #                  WHERE swr > 0
         #                    AND ana_date BETWEEN :srtDate AND :endDate;
         #                  """)
@@ -1158,11 +1158,10 @@ def subPropProc(sysOpt, cfgDb):
 
         dtSrtDate = pd.to_datetime(sysOpt['srtDate'], format='%Y-%m-%d')
         dtEndDate = pd.to_datetime(sysOpt['endDate'], format='%Y-%m-%d')
-        dtDateList = pd.date_range(start=dtSrtDate, end=dtEndDate, freq=sysOpt['UMKR']['invDate'])
+        dtDateList = pd.date_range(start=dtSrtDate, end=dtEndDate, freq=sysOpt['KIMG']['invDate'])
         for dtDateInfo in reversed(dtDateList):
             # if (dtDateInfo.strftime('%Y-%m-%d %H:%M'), ) in cfgDataList: continue
-            # propUmkr(sysOpt, dtDateInfo)
-            pool.apply_async(propKim, args=(sysOpt, dtDateInfo))
+            pool.apply_async(propKimg, args=(sysOpt, dtDateInfo))
         pool.close()
         pool.join()
     except Exception as e:
@@ -1440,7 +1439,7 @@ class DtaProcess(object):
                     # 'ef18': ['00', '01', '02', '03', '04', '05'],
                     'invDate': '6h',
                 },
-                'KIM': {
+                'KIMG': {
                     # 'cfgUmFile': '/HDD/SYSTEMS/PROG/PYTHON/IDE/resources/config/modelInfo/UMKR_l015_unis_H000_202110010000.grb2',
                     # 'inpUmFile': '/HDD/DATA/MODEL/%Y%m/%d/UMKR_l015_unis_H{ef}_%Y%m%d%H%M.grb2',
                     # 'cfgUmFile': '/DATA/COLCT/UMKR/201901/01/UMKR_l015_unis_H00_201901010000.grb2',
@@ -1464,8 +1463,8 @@ class DtaProcess(object):
                 # 자동화/수동화 모델링
                 'MODEL': {
                     'orgPycaret': {
-                        'saveModelList': "/DATA/AI/*/*/LSH0255-{srv}-final-pycaret-kim-*.model.pkl",
-                        'saveModel': "/DATA/AI/%Y%m/%d/LSH0255-{srv}-final-pycaret-kim-%Y%m%d.model",
+                        'saveModelList': "/DATA/AI/*/*/LSH0255-{srv}-final-pycaret-kimg-*.model.pkl",
+                        'saveModel': "/DATA/AI/%Y%m/%d/LSH0255-{srv}-final-pycaret-kimg-%Y%m%d.model",
                         # 'isOverWrite': True,
                         'isOverWrite': False,
                         'srv': None,
@@ -1473,8 +1472,8 @@ class DtaProcess(object):
                         'exp': None
                     },
                     'orgH2o': {
-                        'saveModelList': "/DATA/AI/*/*/LSH0255-{srv}-final-h2o-kim-*.model",
-                        'saveModel': "/DATA/AI/%Y%m/%d/LSH0255-{srv}-final-h2o-kim-%Y%m%d.model",
+                        'saveModelList': "/DATA/AI/*/*/LSH0255-{srv}-final-h2o-kimg-*.model",
+                        'saveModel': "/DATA/AI/%Y%m/%d/LSH0255-{srv}-final-h2o-kimg-%Y%m%d.model",
                         'isInit': False,
                         # 'isOverWrite': True,
                         'isOverWrite': False,
@@ -1482,27 +1481,27 @@ class DtaProcess(object):
                         'preDt': datetime.datetime.now(),
                     },
                     'lgb': {
-                        'saveModelList': "/DATA/AI/*/*/QUBE2025-{srv}-final-lgb-kim-*.model",
-                        'saveModel': "/DATA/AI/%Y%m/%d/QUBE2025-{srv}-final-lgb-kim-%Y%m%d.model",
-                        'saveImg': "/DATA/AI/%Y%m/%d/QUBE2025-{srv}-final-lgb-kim-%Y%m%d.png",
+                        'saveModelList': "/DATA/AI/*/*/QUBE2025-{srv}-final-lgb-kimg-*.model",
+                        'saveModel': "/DATA/AI/%Y%m/%d/QUBE2025-{srv}-final-lgb-kimg-%Y%m%d.model",
+                        # 'saveImg': "/DATA/AI/%Y%m/%d/QUBE2025-{srv}-final-lgb-kimg-%Y%m%d.png",
                         # 'isOverWrite': True,
                         'isOverWrite': False,
                         'srv': None,
                         'preDt': datetime.datetime.now(),
                     },
                     'flaml': {
-                        'saveModelList': "/DATA/AI/*/*/QUBE2025-{srv}-final-flaml-kim-*.model",
-                        'saveModel': "/DATA/AI/%Y%m/%d/QUBE2025-{srv}-final-flaml-kim-%Y%m%d.model",
-                        'saveImg': "/DATA/AI/%Y%m/%d/QUBE2025-{srv}-final-flaml-kim-%Y%m%d.png",
+                        'saveModelList': "/DATA/AI/*/*/QUBE2025-{srv}-final-flaml-kimg-*.model",
+                        'saveModel': "/DATA/AI/%Y%m/%d/QUBE2025-{srv}-final-flaml-kimg-%Y%m%d.model",
+                        # 'saveImg': "/DATA/AI/%Y%m/%d/QUBE2025-{srv}-final-flaml-kimg-%Y%m%d.png",
                         # 'isOverWrite': True,
                         'isOverWrite': False,
                         'srv': None,
                         'preDt': datetime.datetime.now(),
                     },
                     'pycaret': {
-                        'saveModelList': "/DATA/AI/*/*/QUBE2025-{srv}-final-pycaret-kim-*.model.pkl",
-                        'saveModel': "/DATA/AI/%Y%m/%d/QUBE2025-{srv}-final-pycaret-kim-%Y%m%d.model",
-                        'saveImg': "/DATA/AI/%Y%m/%d/QUBE2025-{srv}-final-pycaret-kim-%Y%m%d.png",
+                        'saveModelList': "/DATA/AI/*/*/QUBE2025-{srv}-final-pycaret-kimg-*.model.pkl",
+                        'saveModel': "/DATA/AI/%Y%m/%d/QUBE2025-{srv}-final-pycaret-kimg-%Y%m%d.model",
+                        # 'saveImg': "/DATA/AI/%Y%m/%d/QUBE2025-{srv}-final-pycaret-kimg-%Y%m%d.png",
                         # 'isOverWrite': True,
                         'isOverWrite': False,
                         'srv': None,
