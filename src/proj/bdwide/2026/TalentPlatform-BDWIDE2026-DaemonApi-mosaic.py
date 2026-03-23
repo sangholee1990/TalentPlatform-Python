@@ -498,7 +498,8 @@ async def selConsult(
         with sysOpt['cfgDb']['sessionMake']() as session:
             with session.begin():
                 query = text("""
-                             WITH RankedConsults AS (SELECT NAME,
+                             WITH RankedConsults AS (SELECT ID,
+                                                            NAME,
                                                             CONTACT,
                                                             EMAIL,
                                                             MSG,
@@ -506,7 +507,8 @@ async def selConsult(
                                                             REG_DATE,
                                                             ROW_NUMBER() OVER(PARTITION BY CONTACT, EMAIL, MSG ORDER BY REG_DATE DESC) AS rn
                                                      FROM TB_CONSULT)
-                             SELECT NAME,
+                             SELECT ID,
+                                    NAME,
                                     CONTACT,
                                     EMAIL,
                                     MSG,
