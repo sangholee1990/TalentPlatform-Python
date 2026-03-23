@@ -475,7 +475,7 @@ async def insConsult(
                     query = text("""
                                  SELECT 1
                                  FROM TB_CONSULT
-                                 WHERE CONTACT = :contact AND EMAIL = :email AND MSG = :msg
+                                 WHERE NAME = :name AND CONTACT = :contact AND EMAIL = :email AND MSG = :msg
                                  LIMIT 1
                                  """)
                     isExist = session.execute(query, params).fetchone()
@@ -545,7 +545,7 @@ async def selConsult(
                                                             MSG,
                                                             STATUS,
                                                             REG_DATE,
-                                                            ROW_NUMBER() OVER(PARTITION BY CONTACT, EMAIL, MSG ORDER BY REG_DATE DESC) AS rn
+                                                            ROW_NUMBER() OVER(PARTITION BY NAME, CONTACT, EMAIL, MSG ORDER BY REG_DATE DESC) AS rn
                                                      FROM TB_CONSULT)
                              SELECT C.ID,
                                     C.NAME,
