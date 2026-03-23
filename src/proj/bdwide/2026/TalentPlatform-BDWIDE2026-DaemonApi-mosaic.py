@@ -13,7 +13,7 @@
 # conda activate py39
 
 # 운영 서버
-# nohup /HDD/SYSTEMS/LIB/anaconda3/envs/py39/bin/uvicorn TalentPlatform-BDWIDE2026-DaemonApi-mosaic:app --host=0.0.0.0 --port=9910 &
+# nohup /HDD/SYSTEMS/LIB/anaconda3/envs/py39/bin/uvicorn TalentPlatform-BDWIDE2026-DaemonApi-mosaic:app --reload --host=0.0.0.0 --port=9910 &
 # tail -f nohup.out
 
 # 테스트 서버
@@ -374,7 +374,17 @@ async def sendEmail(
             return resResponse("fail", 400, f"이메일 발송 실패, 첨부파일 없음")
 
         fileContent = await file.read()
-        attachment = MIMEApplication(fileContent, _subtype="pdf")
+        
+        maintype = "application"
+        subtype = "octet-stream"
+        if file.content_type and "/" in file.content_type:
+            maintype, subtype = file.content_type.split("/", 1)
+            
+        from email.mime.base import MIMEBase
+        from email import encoders
+        attachment = MIMEBase(maintype, subtype)
+        attachment.set_payload(fileContent)
+        encoders.encode_base64(attachment)
         attachment.add_header('Content-Disposition', 'attachment', filename=file.filename)
         msg.attach(attachment)
 
@@ -507,22 +517,83 @@ async def selConsult(
                                                             REG_DATE,
                                                             ROW_NUMBER() OVER(PARTITION BY CONTACT, EMAIL, MSG ORDER BY REG_DATE DESC) AS rn
                                                      FROM TB_CONSULT)
-                             SELECT ID,
-                                    NAME,
-                                    CONTACT,
-                                    EMAIL,
-                                    MSG,
-                                    COMMENT,
-                                    REG_DATE
-                             FROM RankedConsults
-                             WHERE rn = 1
-                             ORDER BY REG_DATE DESC
+                             SELECT C.ID,
+                                    C.NAME,
+                                    C.CONTACT,
+                                    C.EMAIL,
+                                    C.MSG,
+                                    C.COMMENT,
+                                    DATE_FORMAT(C.REG_DATE, '%Y-%m-%d %H:%i:%s') AS REG_DATE,
+                                    H.ID AS HIST_ID,
+                                    H.DOC_TYPE,
+                                    H.MEMO,
+                                    DATE_FORMAT(H.REG_DATE, '%Y-%m-%d %H:%i:%s') AS HIST_REG_DATE
+                             FROM RankedConsults C
+                             LEFT JOIN TB_CONSULT_HIST H ON C.ID = H.CONSULT_ID
+                             WHERE C.rn = 1
+                             ORDER BY C.REG_DATE DESC, H.ID DESC
                              """)
 
                 result = session.execute(query)
-                consultList = [dict(row) for row in result.mappings().all()]
+                rows = result.mappings().all()
+                
+                consultDict = {}
+                for row in rows:
+                    cid = row['ID']
+                    if cid not in consultDict:
+                        consultDict[cid] = {
+                            'ID': row['ID'],
+                            'NAME': row['NAME'],
+                            'CONTACT': row['CONTACT'],
+                            'EMAIL': row['EMAIL'],
+                            'MSG': row['MSG'],
+                            'COMMENT': row['COMMENT'],
+                            'REG_DATE': row['REG_DATE'],
+                            'hst': []
+                        }
+                    
+                    if row['HIST_ID']:
+                        consultDict[cid]['hst'].append({
+                            'ID': row['HIST_ID'],
+                            'CONSULT_ID': row['ID'],
+                            'DOC_TYPE': row['DOC_TYPE'],
+                            'MEMO': row['MEMO'],
+                            'REG_DATE': row['HIST_REG_DATE']
+                        })
 
+                consultList = list(consultDict.values())
                 return resResponse("succ", 200, "처리 완료", len(consultList), consultList)
+    except Exception as e:
+        log.error(f'Exception : {e}')
+        raise HTTPException(status_code=400)
+
+@app.post(f"/api/insConsultHist")
+async def insConsultHist(
+        consultId: int = Form(..., description='상담 ID', examples=[1]),
+        docType: str = Form(..., description='문서 종류 (개인정보, 보안서약, 파기확인, 현금영수증)', examples=['보안서약서']),
+        memo: str = Form(..., description='비고', examples=['발송 완료'])
+):
+    """
+    기능\n
+        긴급상담 이력 추가\n
+    """
+    try:
+        if not consultId: return resResponse("fail", 400, f"상담 ID 없음")
+        if not docType: return resResponse("fail", 400, f"문서 종류 없음")
+        
+        params = {"consultId": consultId, "docType": docType, "memo": memo}
+        with sysOpt['cfgDb']['sessionMake']() as session:
+            with session.begin():
+                try:
+                    query = text("""
+                                 INSERT INTO TB_CONSULT_HIST (CONSULT_ID, DOC_TYPE, MEMO, REG_DATE)
+                                 VALUES (:consultId, :docType, :memo, NOW())
+                                 """)
+                    result = session.execute(query, params)
+                    return resResponse("succ", 200, "처리 완료", result.rowcount, None)
+                except Exception as e:
+                    log.error(f'Exception : {str(e)}')
+                    raise e
     except Exception as e:
         log.error(f'Exception : {e}')
         raise HTTPException(status_code=400)
