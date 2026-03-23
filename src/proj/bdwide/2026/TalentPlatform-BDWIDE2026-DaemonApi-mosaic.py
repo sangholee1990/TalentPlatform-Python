@@ -503,7 +503,7 @@ async def updConsultStatus(
 ):
     """
     기능\n
-        긴급상담 상태 업데이트 (STATUS 필드 변경)\n
+        긴급상담 상태 수정\n
     """
     try:
         if not consultId: return resResponse("fail", 400, "상담 ID 없음")
