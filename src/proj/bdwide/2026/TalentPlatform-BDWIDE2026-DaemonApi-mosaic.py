@@ -496,6 +496,36 @@ async def insConsult(
         log.error(f'Exception : {e}')
         raise HTTPException(status_code=400)
 
+@app.post(f"/api/updConsult")
+async def updConsultStatus(
+        consultId: int = Form(..., description='상담 ID', examples=[1]),
+        status: str = Form(..., description='상태 (대기, 완료 등)', examples=['완료'])
+):
+    """
+    기능\n
+        긴급상담 상태 업데이트 (STATUS 필드 변경)\n
+    """
+    try:
+        if not consultId: return resResponse("fail", 400, "상담 ID 없음")
+        if not status: return resResponse("fail", 400, "상태 데이터 없음")
+
+        params = {"consultId": consultId, "status": status}
+        with sysOpt['cfgDb']['sessionMake']() as session:
+            with session.begin():
+                try:
+                    query = text("""
+                                 UPDATE TB_CONSULT
+                                 SET STATUS = :status
+                                 WHERE ID = :consultId
+                                 """)
+                    result = session.execute(query, params)
+                    return resResponse("succ", 200, "상태 변경 완료", result.rowcount, None)
+                except Exception as e:
+                    log.error(f'Exception : {str(e)}')
+                    raise e
+    except Exception as e:
+        log.error(f'Exception : {e}')
+        raise HTTPException(status_code=400)
 
 @app.post(f"/api/selConsult")
 async def selConsult(
@@ -591,37 +621,6 @@ async def insConsultHist(
                                  """)
                     result = session.execute(query, params)
                     return resResponse("succ", 200, "처리 완료", result.rowcount, None)
-                except Exception as e:
-                    log.error(f'Exception : {str(e)}')
-                    raise e
-    except Exception as e:
-        log.error(f'Exception : {e}')
-        raise HTTPException(status_code=400)
-
-@app.post(f"/api/updConsultStatus")
-async def updConsultStatus(
-        consultId: int = Form(..., description='상담 ID', examples=[1]),
-        status: str = Form(..., description='상태 (대기, 완료 등)', examples=['완료'])
-):
-    """
-    기능\n
-        긴급상담 상태 업데이트 (STATUS 필드 변경)\n
-    """
-    try:
-        if not consultId: return resResponse("fail", 400, "상담 ID 없음")
-        if not status: return resResponse("fail", 400, "상태 데이터 없음")
-
-        params = {"consultId": consultId, "status": status}
-        with sysOpt['cfgDb']['sessionMake']() as session:
-            with session.begin():
-                try:
-                    query = text("""
-                                 UPDATE TB_CONSULT
-                                 SET STATUS = :status
-                                 WHERE ID = :consultId
-                                 """)
-                    result = session.execute(query, params)
-                    return resResponse("succ", 200, "상태 변경 완료", result.rowcount, None)
                 except Exception as e:
                     log.error(f'Exception : {str(e)}')
                     raise e
