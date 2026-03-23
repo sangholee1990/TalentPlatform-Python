@@ -447,7 +447,7 @@ async def insConsult(
         contact: str = Form(..., description='연락처', examples=['010-0000-0000']),
         email: str = Form(..., description="이메일", examples=['test@asdasd.com']),
         msg: str = Form(..., description="요청사항", examples=['모자이크 앱 도입 문의드립니다.']),
-        comment: str = Form(..., description="비고 (요청, 발송 등)", examples=['요청'])
+        status: str = Form(..., description="상태 (대기, 완료 등)", examples=['대기'])
 ):
     """
     기능\n
@@ -458,14 +458,14 @@ async def insConsult(
         if not contact: return resResponse("fail", 400, f"연락처 없음")
         if not email: return resResponse("fail", 400, f"이메일 없음")
         if not msg: return resResponse("fail", 400, f"요청사항 없음")
-        if not comment: return resResponse("fail", 400, f"비고 없음")
+        if not status: return resResponse("fail", 400, f"상태 없음")
 
         params = {
             "name": name,
             "contact": contact,
             "email": email,
             "msg": msg,
-            "comment": comment,
+            "status": status,
         }
         log.info(f"params : {params}")
 
@@ -483,8 +483,8 @@ async def insConsult(
                         return resResponse("fail", 400, "이미 동일한 요청사항 (연락처, 이메일, 요청 내용)이 있습니다.", 0, None)
 
                     query = text("""
-                                 INSERT INTO TB_CONSULT (NAME, CONTACT, EMAIL, MSG, COMMENT, REG_DATE)
-                                 VALUES (:name, :contact, :email, :msg, :comment, NOW())
+                                 INSERT INTO TB_CONSULT (NAME, CONTACT, EMAIL, MSG, STATUS, REG_DATE)
+                                 VALUES (:name, :contact, :email, :msg, :status, NOW())
                                  """)
                     result = session.execute(query, params)
                     log.info(f"result : {result.rowcount}")
@@ -513,7 +513,7 @@ async def selConsult(
                                                             CONTACT,
                                                             EMAIL,
                                                             MSG,
-                                                            COMMENT,
+                                                            STATUS,
                                                             REG_DATE,
                                                             ROW_NUMBER() OVER(PARTITION BY CONTACT, EMAIL, MSG ORDER BY REG_DATE DESC) AS rn
                                                      FROM TB_CONSULT)
@@ -522,7 +522,7 @@ async def selConsult(
                                     C.CONTACT,
                                     C.EMAIL,
                                     C.MSG,
-                                    C.COMMENT,
+                                    C.STATUS,
                                     DATE_FORMAT(C.REG_DATE, '%Y-%m-%d %H:%i:%s') AS REG_DATE,
                                     H.ID AS HIST_ID,
                                     H.DOC_TYPE,
@@ -547,7 +547,7 @@ async def selConsult(
                             'CONTACT': row['CONTACT'],
                             'EMAIL': row['EMAIL'],
                             'MSG': row['MSG'],
-                            'COMMENT': row['COMMENT'],
+                            'STATUS': row['STATUS'],
                             'REG_DATE': row['REG_DATE'],
                             'hst': []
                         }
@@ -591,6 +591,37 @@ async def insConsultHist(
                                  """)
                     result = session.execute(query, params)
                     return resResponse("succ", 200, "처리 완료", result.rowcount, None)
+                except Exception as e:
+                    log.error(f'Exception : {str(e)}')
+                    raise e
+    except Exception as e:
+        log.error(f'Exception : {e}')
+        raise HTTPException(status_code=400)
+
+@app.post(f"/api/updConsultStatus")
+async def updConsultStatus(
+        consultId: int = Form(..., description='상담 ID', examples=[1]),
+        status: str = Form(..., description='상태 (대기, 완료 등)', examples=['완료'])
+):
+    """
+    기능\n
+        긴급상담 상태 업데이트 (STATUS 필드 변경)\n
+    """
+    try:
+        if not consultId: return resResponse("fail", 400, "상담 ID 없음")
+        if not status: return resResponse("fail", 400, "상태 데이터 없음")
+
+        params = {"consultId": consultId, "status": status}
+        with sysOpt['cfgDb']['sessionMake']() as session:
+            with session.begin():
+                try:
+                    query = text("""
+                                 UPDATE TB_CONSULT
+                                 SET STATUS = :status
+                                 WHERE ID = :consultId
+                                 """)
+                    result = session.execute(query, params)
+                    return resResponse("succ", 200, "상태 변경 완료", result.rowcount, None)
                 except Exception as e:
                     log.error(f'Exception : {str(e)}')
                     raise e
