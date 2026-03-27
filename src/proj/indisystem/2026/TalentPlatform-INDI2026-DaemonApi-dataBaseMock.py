@@ -256,7 +256,7 @@ for key, path in sysOpt.items():
 async def redirect():
     return RedirectResponse(url="/docs")
 
-@app.get(f"/ping/")
+@app.get(f"/ping/", tags=['서버 동작 유무'])
 async def ping():
     return "OK"
 
