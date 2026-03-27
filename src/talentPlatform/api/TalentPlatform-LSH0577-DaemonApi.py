@@ -135,6 +135,7 @@ import re
 from email.utils import formataddr
 import numpy as np
 from concurrent.futures import ThreadPoolExecutor
+from google import genai
 
 # ============================================
 # 유틸리티 함수
@@ -237,9 +238,13 @@ log = initLog(env, ctxPath, prjName)
 
 # 옵션 설정
 sysOpt = {
-    # 빅쿼리 설정 정보
-    'jsonFile': '/SYSTEMS/PROG/PYTHON/IDE/resources/config/iconic-ruler-239806-7f6de5759012.json',
-    'dbHostName': 'iconic-ruler-239806.DMS01',
+    # 빅쿼리 설정 정보 (상호)
+    # 'jsonFile': '/SYSTEMS/PROG/PYTHON/IDE/resources/config/iconic-ruler-239806-7f6de5759012.json',
+    # 'dbHostName': 'iconic-ruler-239806.DMS01',
+
+    # 빅쿼리 설정 정보 (verse144)
+    'jsonFile': '/SYSTEMS/PROG/PYTHON/IDE/resources/config/project-p-32424-f1fe6277556d.json',
+    'dbHostName': 'project-p-32424.DMS01',
 
     # 설정 정보
     'cfgFile': '/HDD/SYSTEMS/PROG/PYTHON/IDE/resources/config/system.cfg',
@@ -257,6 +262,12 @@ sysOpt = {
         'propAptFile': '/SYSTEMS/PROG/PYTHON/IDE/resources/config/xlsx/20250526_tbl_apts.xlsx',
         'propUserFile': '/SYSTEMS/PROG/PYTHON/IDE/resources/config/xlsx/20250526_tbl_users.xlsx',
     },
+
+    # 설정 정보
+    'cfgFile': '/SYSTEMS/PROG/PYTHON/IDE/resources/config/system.cfg',
+    'cfgKey': 'gemini-api-key',
+    'cfgVal': 'oper',
+    # 'cfgVal': 'local',
 }
 
 app = FastAPI(
@@ -315,6 +326,12 @@ recAptData2 = recAptData.drop(columns=['idx']).groupby(['gu', 'apt', 'area'], as
 # ============================================
 # 비즈니스 로직
 # ============================================
+# Gemini API키
+config = configparser.ConfigParser()
+config.read(sysOpt['cfgFile'], encoding='utf-8')
+apiKey = config.get(sysOpt['cfgKey'], sysOpt['cfgVal'])
+client = genai.Client(api_key=apiKey)
+
 class cfgRcmd(BaseModel):
     gender: str = Field(..., description='성별 (최소-최대, 1-1 남성, 2-2 여성, 1-2 전체)', examples=['1-1'])
     age: str = Field(..., description='나이 (최소-최대, 20-39)', examples=['20-39'])
@@ -324,9 +341,55 @@ class cfgRcmd(BaseModel):
     apt: str = Field(..., description='아파트 도로명주소, 두산(가산로 99)', examples=['두산(가산로 99)'])
     cnt: str = Field(..., alias='cnt', description='추천 개수', examples=['10'])
 
+# ============================================
+# 주소 목록
+# ============================================
 @app.get(f"/", include_in_schema=False)
 async def redirect_to_docs():
     return RedirectResponse(url="/docs")
+
+@app.post(f"/api/sel-chatModelCont", dependencies=[Depends(chkApiKey)])
+async def selChatModelCont(
+    chatModel: str = Form(..., description='생성형 AI 종류', examples=['gemini-2.5-flash'], enum=['gemini-2.5-pro', 'gemini-2.5-flash', 'gemini-2.5-flash-lite']),
+    cont: str = Form(..., description='비교 리포트 (종합 성능, 상세 스펙, 종합 분석)', examples=['자전거 비교 리포트 (종합 성능, 상세 스펙, 종합 분석)']),
+):
+    """
+    기능\n
+        AI 지역/아파트 리포트 헬퍼\n
+    테스트\n
+        chatModel: 생성형 AI 종류 (gemini-2.5-pro, gemini-2.5-flash, gemini-2.5-flash-lite)\n
+        cont: 비교 리포트 (종합 성능, 상세 스펙, 종합 분석)\n
+    """
+    try:
+        # model = request.model
+        if chatModel is None or len(chatModel) < 1:
+            return resResponse("fail", 400, f"생성형 AI 모델 종류 없음, chatModel : {chatModel}")
+
+        # cont = request.cont
+        if cont is None or len(cont) < 1:
+            return resResponse("fail", 400, f"요청사항 없음, cont : {cont}")
+
+        contTemplate = '''
+            %cont%
+           '''
+        contents = contTemplate.replace('%cont%', cont)
+        log.info(f"contents : {contents}")
+
+        response = client.models.generate_content(
+            model=chatModel,
+            contents=contents
+        )
+        result = response.text
+        # log.info(f"result : {result}")
+
+        if result is None or len(result) < 1:
+            return resResponse("fail", 400, "처리 실패")
+
+        return resResponse("succ", 200, "처리 완료", len(result), result)
+
+    except Exception as e:
+        log.error(f'Exception : {e}')
+        raise HTTPException(status_code=400, detail=str(e))
 
 @app.post(f"/api/sendEmail", dependencies=[Depends(chkApiKey)])
 # @app.post(f"/api/sendEmail")
@@ -337,7 +400,7 @@ async def sendEmail(
     subject: str = Form(..., description='수신 이메일 제목', examples=['테스트 이메일입니다.']),
     content: str = Form(..., description='수신 이메일 내용', examples=['안녕하세요. 테스트 이메일 내용입니다.']),
     file: Optional[UploadFile] = File(None, description='수신 첨부파일')
-):
+    ):
     """
     기능\n
         이메일 발송 API\n
@@ -930,7 +993,7 @@ def statRealSearch(
 
     try:
         # 기본 SQL
-        baseSql = """
+        baseSql = f"""
                   SELECT SUBSTR(CAST(date AS STRING), 1, 7)                  AS yearMonth,
                          COUNT(*)                                            AS cnt,
                          AVG(CASE WHEN amount > 0 THEN amount ELSE NULL END) AS real_amount,
