@@ -460,13 +460,18 @@ class DtaProcess(object):
                 # 'selIdx': 0,
                 # 'splitNum': 8,
                 # 'isRev': False,
-                'isRev': globalVar['isRev'] == 'True',
-                'selIdx': int(globalVar['selIdx']),
-                'splitNum': int(globalVar['splitNum']),
+                'isRev': globalVar.get('isRev', True) == 'True',
+                'selIdx': int(globalVar.get('selIdx', 0)),
+                'splitNum': int(globalVar.get('splitNum', 8)),
 
                 # 로그인 기능
                 'loginId': "18333208671",
                 'loginPw': "world&peace",
+
+                # 입력 파일
+                'inpFile': '/DATA/INPUT/LSH0605/city_matched.xlsx',
+                'natFile': '/DATA/INPUT/LSH0605/20260331_National.xlsx',
+                'proFile': '/DATA/INPUT/LSH0605/20260331_Province.xlsx',
 
                 # 검색 목록
                 'sectorList': ['交通', '住宅', '建筑', '电力', '工业'],
@@ -475,22 +480,45 @@ class DtaProcess(object):
                 # 자료 저장
                 # 'saveFileList': '/DATA/OUTPUT/LSH0605/*_{cityMat}.xlsx',
                 # 'saveFile': '/DATA/OUTPUT/LSH0605/%Y%m%d_{cityMat}.xlsx',
-                'saveFileList': 'G:/내 드라이브/shlee/04. TalentPlatform/[재능플랫폼] 최종납품/[완료] LSH0605. Python을 이용한 중국 빅데이터 사이트 조사 및 셀레늄 기반 로그인, 기본 및 부가정보 수집 및 추출/20260201_결과/*_{cityMat}.xlsx',
-                'saveFile': 'G:/내 드라이브/shlee/04. TalentPlatform/[재능플랫폼] 최종납품/[완료] LSH0605. Python을 이용한 중국 빅데이터 사이트 조사 및 셀레늄 기반 로그인, 기본 및 부가정보 수집 및 추출/20260201_결과/%Y%m%d_{cityMat}.xlsx',
+                'saveFileList': 'G:/내 드라이브/shlee/04. TalentPlatform/[재능플랫폼] 최종납품/[완료] LSH0605. Python을 이용한 중국 빅데이터 사이트 조사 및 셀레늄 기반 로그인, 기본 및 부가정보 수집 및 추출/20260401_결과/*_{cityMat}.xlsx',
+                'saveFile': 'G:/내 드라이브/shlee/04. TalentPlatform/[재능플랫폼] 최종납품/[완료] LSH0605. Python을 이용한 중국 빅데이터 사이트 조사 및 셀레늄 기반 로그인, 기본 및 부가정보 수집 및 추출/20260401_결과/%Y%m%d_{cityMat}.xlsx',
             }
 
             # ==========================================================================================================
             # 설정 파일
             # ==========================================================================================================
-            inpFile = '{}/{}/{}'.format(globalVar['inpPath'], serviceName, 'city_matched.xlsx')
+            # inpFile = '{}/{}/{}'.format(globalVar['inpPath'], serviceName, 'city_matched.xlsx')
+            inpFile = sysOpt['inpFile']
             fileList = sorted(glob.glob(inpFile))
             if fileList is None or len(fileList) < 1:
-                raise Exception(f"inpFile : {inpFile} : 설정 파일 검색 실패")
+                raise Exception(f"inpFile : {inpFile}, 설정 파일 검색 실패")
 
             cfgData = pd.read_excel(fileList[0])
             cfgDataL1 = cfgData.drop_duplicates(subset=['Matching_City_Column_2']).reset_index(drop=True)
+            cfgDataL1['level'] = 'city'
 
-            splitData = getSplitData(cfgDataL1, splitNum=sysOpt['splitNum'])
+            natFile = sysOpt['natFile']
+            fileList = sorted(glob.glob(natFile))
+            if fileList is None or len(fileList) < 1:
+                raise Exception(f"natFile : {natFile}, 설정 파일 검색 실패")
+            natData = pd.read_excel(fileList[0], header=None)
+            natData['City_Column_1'] = None
+            natData['level'] = 'national'
+            natData.rename(columns={0: 'Matching_City_Column_2'}, inplace=True)
+
+            proFile = sysOpt['proFile']
+            fileList = sorted(glob.glob(proFile))
+            if fileList is None or len(fileList) < 1:
+                raise Exception(f"proFile : {proFile}, 설정 파일 검색 실패")
+            proData = pd.read_excel(fileList[0], header=None)
+            proData['City_Column_1'] = None
+            natData['level'] = 'province'
+            proData.rename(columns={0: 'Matching_City_Column_2'}, inplace=True)
+
+            mrgData =  pd.concat([cfgDataL1, proData, natData], ignore_index=True)
+            mrgDataL1 = mrgData.drop_duplicates(subset=['Matching_City_Column_2']).reset_index(drop=True)
+
+            splitData = getSplitData(mrgDataL1, splitNum=sysOpt['splitNum'])
             cfgDataL2 = splitData[sysOpt['selIdx']].sort_index(ascending=sysOpt['isRev']).reset_index(drop=True)
 
             # ==========================================================================================================
@@ -520,6 +548,7 @@ class DtaProcess(object):
 
                 city = item['City_Column_1']
                 cityMat = item['Matching_City_Column_2']
+                level = item['level']
                 per = round(i / len(cfgDataL2) * 100, 1)
                 log.info(f'[CHECK] cityMat : {cityMat} / {per}%')
                 # print(f'[CHECK] cityMat : {cityMat} / {per}%')
@@ -631,6 +660,7 @@ class DtaProcess(object):
                                     'Matching_City_Column_2': [cityMat],
                                     'Sector': [sector],
                                     'key': [key],
+                                    'level': [level],
                                     'keyword': [keyword],
                                     'Announcement_Year': [annYear],
                                     'Starting_Year': [srtYear],
