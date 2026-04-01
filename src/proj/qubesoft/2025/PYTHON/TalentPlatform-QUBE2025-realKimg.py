@@ -1226,7 +1226,7 @@ class DtaProcess(object):
                     # 'inpUmFile': '/HDD/DATA/MODEL/%Y%m/%d/UMKR_l015_unis_H{ef}_%Y%m%d%H%M.grb2',
                     # 'cfgUmFile': '/DATA/COLCT/UMKR/201901/01/UMKR_l015_unis_H00_201901010000.grb2',
                     # 'inpUmFile': '/DATA/COLCT/UMKR/%Y%m/%d/UMKR_l015_unis_H{ef}_%Y%m%d%H%M.grb2',
-                    'cfgUmFile': '/DATA/MODEL/202603/21/KIMG_r030_unis_H00_202603210000.grb2',
+                    'cfgUmFile': '/DATA/MODEL/202603/21/KIMG_r030_unis_H01_202603210000.grb2',
                     'inpUmFile': '/DATA/MODEL/%Y%m/%d/KIMG_r030_unis_H{ef}_%Y%m%d%H%M.grb2',
                     'ef00': ['00', '01', '02', '03', '04', '05', '15', '16', '17', '18', '19', '20', '21', '22', '23',
                              '24', '25', '26', '27', '28', '29', '30', '31', '32', '33', '34', '35', '36', '37', '38'],
