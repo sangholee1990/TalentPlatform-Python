@@ -11,11 +11,10 @@
 # conda activate py39
 
 # cd /SYSTEMS/PROG/PYTHON
-# /SYSTEMS/LIB/anaconda3/envs/py39/bin/python /SYSTEMS/PROG/PYTHON/IDE/src/proj/qubesoft/2025/PYTHON/TalentPlatform-QUBE2025-realKimg.py
-# /SYSTEMS/LIB/anaconda3/envs/py39/bin/python /SYSTEMS/PROG/PYTHON/TalentPlatform-QUBE2025-realKimg.py --cpuCoreNum '5' --srtDate "2026-01-01" --endDate "2026-01-02"
-# nohup /SYSTEMS/LIB/anaconda3/envs/py39/bin/python /SYSTEMS/PROG/PYTHON/TalentPlatform-QUBE2025-realKimg.py --cpuCoreNum '5' --srtDate "2020-01-01" --endDate "2026-03-22" &
+# /SYSTEMS/LIB/anaconda3/envs/py39/bin/python /SYSTEMS/PROG/PYTHON/TalentPlatform-QUBE2025-reproKimg.py
+# nohup /SYSTEMS/LIB/anaconda3/envs/py39/bin/python /SYSTEMS/PROG/PYTHON/TalentPlatform-QUBE2025-reproKimg.py --cpuCoreNum '5' --srtDate "2020-01-01" --endDate "2026-03-22" &
 
-# 20,50 * * * * cd /SYSTEMS/PROG/PYTHON && /SYSTEMS/LIB/anaconda3/envs/py38/bin/python /SYSTEMS/PROG/PYTHON/TalentPlatform-QUBE2025-realKimg.py --srtDate "$(date -d "2 days ago" +\%Y-\%m-\%d)" --endDate "$(date -d "2 days" +\%Y-\%m-\%d)"
+# 20,50 * * * * cd /SYSTEMS/PROG/PYTHON && /SYSTEMS/LIB/anaconda3/envs/py38/bin/python /SYSTEMS/PROG/PYTHON/TalentPlatform-QUBE2025-reproKimg.py --srtDate "$(date -d "2 days ago" +\%Y-\%m-\%d)" --endDate "$(date -d "2 days" +\%Y-\%m-\%d)"
 
 import glob
 # import seaborn as sns
@@ -1303,7 +1302,7 @@ class DtaProcess(object):
                 query = text("""
                              SELECT *, 'SRV' || LPAD(id::text, 5, '0') as srv
                              FROM tb_stn_info
-                             WHERE oper_yn = 'Y' AND srv = 'SRV00017'
+                             WHERE oper_yn = 'Y' AND id = '17'
                              ORDER BY id ASC;
                              """)
 
