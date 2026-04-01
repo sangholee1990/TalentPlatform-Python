@@ -1057,7 +1057,7 @@ def subModelProc(sysOpt, cfgDb):
 
                     if resOrgPycaret:
                         prdVal = exp.predict_model(resOrgPycaret['mlModel'], data=prdData[xColOrg])['prediction_label']
-                        prdData['ml'] = np.where(prdVal > 0, prdVal, 0)
+                        prdData['ml'] = np.where((prdVal > 0) & (prdData['sza'] <= 90), prdVal, 0)
 
                     # ****************************************************************************
                     # 과거 학습 모델링 (orgH2o)
@@ -1067,7 +1067,7 @@ def subModelProc(sysOpt, cfgDb):
 
                     if resOrgH2o:
                         prdVal = resOrgH2o['mlModel'].predict(h2o.H2OFrame(prdData[xColOrg])).as_data_frame()
-                        prdData['dl'] = np.where(prdVal > 0, prdVal, 0)
+                        prdData['dl'] = np.where((prdVal > 0) & (prdData['sza'] <= 90), prdVal, 0)
 
                     # ****************************************************************************
                     # 수동 학습 모델링 (lgb)
@@ -1077,7 +1077,7 @@ def subModelProc(sysOpt, cfgDb):
 
                     if resLgb:
                         prdVal = resLgb['mlModel'].predict(data=prdData[xCol])
-                        prdData['ai'] = np.where(prdVal > 0, prdVal, 0)
+                        prdData['ai'] = np.where((prdVal > 0) & (prdData['sza'] <= 90), prdVal, 0)
 
                     # ****************************************************************************
                     # 자동 학습 모델링 (flaml)
@@ -1087,7 +1087,7 @@ def subModelProc(sysOpt, cfgDb):
 
                     if resFlaml:
                         prdVal = resFlaml['mlModel'].predict(prdData[xCol])
-                        prdData['ai2'] = np.where(prdVal > 0, prdVal, 0)
+                        prdData['ai2'] = np.where((prdVal > 0) & (prdData['sza'] <= 90), prdVal, 0)
 
                     # ****************************************************************************
                     # 자동 학습 모델링 (pycaret)
@@ -1097,7 +1097,7 @@ def subModelProc(sysOpt, cfgDb):
 
                     if resPycaret:
                         prdVal = exp.predict_model(resPycaret['mlModel'], data=prdData[xCol])['prediction_label']
-                        prdData['ai3'] = np.where(prdVal > 0, prdVal, 0)
+                        prdData['ai3'] = np.where((prdVal > 0) & (prdData['sza'] <= 90), prdVal, 0)
 
                     try:
                         prdData.to_sql(
