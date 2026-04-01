@@ -629,194 +629,6 @@ def makeH2oModel(subOpt=None, xCol=None, yCol=None, trainData=None, testData=Non
         log.error(f"Exception : {e}")
         return result
 
-def propUmkr(sysOpt, dtDateInfo):
-    try:
-        # procInfo = mp.current_process()
-        umDataList = []
-        efList = sysOpt['UMKR'][f"ef{dtDateInfo.strftime('%H')}"]
-        for ef in efList:
-            inpFile = dtDateInfo.strftime(sysOpt['UMKR']['inpUmFile']).format(ef=ef)
-            fileList = sorted(glob.glob(inpFile))
-
-            for fileInfo in fileList:
-                try:
-                    grb = pygrib.open(fileInfo)
-                    grbInfo = grb.select(name='Temperature')[1]
-
-                    # validIdx = int(re.findall('H\d{3}', fileInfo)[0].replace('H', ''))
-                    validIdx = int(ef)
-                    dtValidDate = grbInfo.validDate
-                    dtAnalDate = grbInfo.analDate
-
-                    row2D = sysOpt['row2D']
-                    col2D = sysOpt['col2D']
-                    uVec = grb.select(name='10 metre U wind component')[0].values[row2D, col2D]
-                    vVec = grb.select(name='10 metre V wind component')[0].values[row2D, col2D]
-                    WD = (270 - np.rad2deg(np.arctan2(vVec, uVec))) % 360
-                    WS = np.sqrt(np.square(uVec) + np.square(vVec))
-                    PA = grb.select(name='Surface pressure')[0].values[row2D, col2D]
-                    TA = grb.select(name='Temperature')[0].values[row2D, col2D]
-                    TD = grb.select(name='Dew point temperature')[0].values[row2D, col2D]
-                    HM = grb.select(name='Relative humidity')[0].values[row2D, col2D]
-                    lowCA = grb.select(name='Low cloud cover')[0].values[row2D, col2D]
-                    medCA = grb.select(name='Medium cloud cover')[0].values[row2D, col2D]
-                    higCA = grb.select(name='High cloud cover')[0].values[row2D, col2D]
-                    CA_TOT = np.mean([lowCA, medCA, higCA], axis=0)
-                    SWR = grb.select(name='unknown')[0].values[row2D, col2D]
-
-                    lat1D = sysOpt['lat1D']
-                    lon1D = sysOpt['lon1D']
-                    umData = xr.Dataset(
-                        {
-                            'uVec': (('anaTime', 'time', 'lat', 'lon'), (uVec).reshape(1, 1, len(lat1D), len(lon1D)))
-                            , 'vVec': (('anaTime', 'time', 'lat', 'lon'), (vVec).reshape(1, 1, len(lat1D), len(lon1D)))
-                            , 'WD': (('anaTime', 'time', 'lat', 'lon'), (WD).reshape(1, 1, len(lat1D), len(lon1D)))
-                            , 'WS': (('anaTime', 'time', 'lat', 'lon'), (WS).reshape(1, 1, len(lat1D), len(lon1D)))
-                            , 'PA': (('anaTime', 'time', 'lat', 'lon'), (PA).reshape(1, 1, len(lat1D), len(lon1D)))
-                            , 'TA': (('anaTime', 'time', 'lat', 'lon'), (TA).reshape(1, 1, len(lat1D), len(lon1D)))
-                            , 'TD': (('anaTime', 'time', 'lat', 'lon'), (TD).reshape(1, 1, len(lat1D), len(lon1D)))
-                            , 'HM': (('anaTime', 'time', 'lat', 'lon'), (HM).reshape(1, 1, len(lat1D), len(lon1D)))
-                            ,
-                            'lowCA': (('anaTime', 'time', 'lat', 'lon'), (lowCA).reshape(1, 1, len(lat1D), len(lon1D)))
-                            ,
-                            'medCA': (('anaTime', 'time', 'lat', 'lon'), (medCA).reshape(1, 1, len(lat1D), len(lon1D)))
-                            ,
-                            'higCA': (('anaTime', 'time', 'lat', 'lon'), (higCA).reshape(1, 1, len(lat1D), len(lon1D)))
-                            , 'CA_TOT': (('anaTime', 'time', 'lat', 'lon'),
-                                         (CA_TOT).reshape(1, 1, len(lat1D), len(lon1D)))
-                            , 'SWR': (('anaTime', 'time', 'lat', 'lon'), (SWR).reshape(1, 1, len(lat1D), len(lon1D)))
-                        }
-                        , coords={
-                            'anaTime': pd.date_range(dtAnalDate, periods=1)
-                            , 'time': pd.date_range(dtValidDate, periods=1)
-                            , 'lat': lat1D
-                            , 'lon': lon1D
-                        }
-                    )
-
-                    # umDataL1 = xr.merge([umDataL1, umData])
-                    umDataList.append(umData)
-                except Exception as e:
-                    log.error(f"Exception : {e}")
-
-        if len(umDataList) < 1: return
-        umDataL1 = xr.concat(umDataList, dim='time')
-
-        umDataL5 = pd.DataFrame()
-        for kk, posInfo in sysOpt['posDataL1'].iterrows():
-            srv = posInfo['srv']
-            lat = posInfo['lat']
-            lon = posInfo['lon']
-
-            try:
-                umDataL2 = umDataL1.sel(lat=lat, lon=lon)
-                umDataL3 = umDataL2.to_dataframe().dropna().reset_index(drop=False)
-                umDataL3['ana_date'] = umDataL3['anaTime']
-                umDataL3['date_time'] = umDataL3['time']
-                umDataL3['date_time_kst'] = umDataL3['time'] + dtKst
-                umDataL3['srv'] = srv
-
-                umDataL3['ta'] = umDataL3['TA'] - 273.15
-                umDataL3['td'] = umDataL3['TD'] - 273.15
-                umDataL3['pa'] = umDataL3['PA'] / 100.0
-                umDataL3['ca_tot'] = np.where(umDataL3['CA_TOT'] < 0, 0, umDataL3['CA_TOT'])
-                umDataL3['ca_tot'] = np.where(umDataL3['ca_tot'] > 1, 1, umDataL3['ca_tot'])
-                umDataL3['wd'] = umDataL3['WD']
-                umDataL3['ws'] = umDataL3['WS']
-                umDataL3['hm'] = umDataL3['HM']
-                umDataL3['swr'] = umDataL3['SWR']
-
-                solPosInfo = pvlib.solarposition.get_solarposition(umDataL3['date_time'], lat, lon,
-                                                                   pressure=umDataL3['pa'] * 100.0,
-                                                                   temperature=umDataL3['ta'], method='nrel_numpy')
-                umDataL3['ext_rad'] = pvlib.irradiance.get_extra_radiation(solPosInfo.index.dayofyear)
-                umDataL3['sza'] = solPosInfo['zenith'].values
-                umDataL3['aza'] = solPosInfo['azimuth'].values
-                umDataL3['et'] = solPosInfo['equation_of_time'].values
-
-                site = location.Location(latitude=lat, longitude=lon, tz='Asia/Seoul')
-                clearInsInfo = site.get_clearsky(pd.to_datetime(umDataL3['date_time'].values))
-                umDataL3['ghi_clr'] = clearInsInfo['ghi'].values
-                umDataL3['dni_clr'] = clearInsInfo['dni'].values
-                umDataL3['dhi_clr'] = clearInsInfo['dhi'].values
-
-                turbidity = pvlib.clearsky.lookup_linke_turbidity(pd.to_datetime(umDataL3['date_time'].values), lat,
-                                                                  lon, interp_turbidity=True)
-                umDataL3['turb'] = turbidity.values
-
-                dbColList = [
-                    "srv", "ana_date", "date_time", "date_time_kst",
-                    "ca_tot", "hm", "pa", "ta", "td", "wd", "ws",
-                    "sza", "aza", "et", "turb",
-                    "ghi_clr", "dni_clr", "dhi_clr", "swr", "ext_rad"
-                ]
-                umDataL4 = umDataL3[dbColList].copy()
-                umDataL5 = pd.concat([umDataL5, umDataL4], ignore_index=True)
-            except Exception as e:
-                log.error(f'Exception : {e}')
-
-        umDataL6 = umDataL5.drop_duplicates(subset=['srv', 'ana_date', 'date_time'], keep='last')
-        if umDataL6 is None or len(umDataL6) < 1: return
-        with cfgDb['sessionMake']() as session:
-            with session.begin():
-                tbTmp = f"tmp_{uuid.uuid4().hex}"
-                conn = session.connection()
-
-                try:
-                    umDataL6.to_sql(
-                        name=tbTmp,
-                        con=conn,
-                        if_exists="replace",
-                        index=False,
-                        chunksize=1000
-                    )
-
-                    query = text(f"""
-                        INSERT INTO tb_for_data (
-                              srv, ana_date, date_time, date_time_kst,
-                              ca_tot, hm, pa, ta, td, wd, ws,
-                              sza, aza, et, turb,
-                              ghi_clr, dni_clr, dhi_clr, swr, ext_rad,
-                              reg_date
-                        )
-                        SELECT
-                              srv, ana_date, date_time, date_time_kst,
-                              ca_tot, hm, pa, ta, td, wd, ws,
-                              sza, aza, et, turb,
-                              ghi_clr, dni_clr, dhi_clr, swr, ext_rad,
-                              now()
-                        FROM {tbTmp}
-                        ON CONFLICT (srv, ana_date, date_time)
-                        DO UPDATE SET
-                              date_time_kst = excluded.date_time_kst,
-                              ca_tot = excluded.ca_tot, 
-                              hm = excluded.hm, 
-                              pa = excluded.pa, 
-                              ta = excluded.ta, 
-                              td = excluded.td, 
-                              wd = excluded.wd, 
-                              ws = excluded.ws,
-                              sza = excluded.sza, 
-                              aza = excluded.aza, 
-                              et = excluded.et, 
-                              turb = excluded.turb,
-                              ghi_clr = excluded.ghi_clr, 
-                              dni_clr = excluded.dni_clr, 
-                              dhi_clr = excluded.dhi_clr, 
-                              swr = excluded.swr,
-                              ext_rad = excluded.ext_rad,
-                              mod_date = now();
-                          """)
-                    result = session.execute(query)
-                    log.info(f"dtDateInfo : {dtDateInfo} / result : {result.rowcount}")
-                except Exception as e:
-                    log.error(f"Exception : {e}")
-                    raise e
-                finally:
-                    session.execute(text(f"DROP TABLE IF EXISTS {tbTmp}"))
-    except Exception as e:
-        log.error(f'Exception : {e}')
-
 def propKimg(sysOpt, dtDateInfo):
     try:
         # procInfo = mp.current_process()
@@ -1208,7 +1020,7 @@ def subModelProc(sysOpt, cfgDb):
 
                     query = text("""
                                  SELECT lf.*
-                                 FROM tb_for_data AS lf
+                                 FROM tb_kimg_data AS lf
                                  WHERE lf.srv = :srv
                                    AND (
                                      ml IS NULL
@@ -1408,27 +1220,6 @@ class DtaProcess(object):
                 'lon1D': None,
 
                 # 예보 모델
-                'UMKR': {
-                    # 'cfgUmFile': '/HDD/SYSTEMS/PROG/PYTHON/IDE/resources/config/modelInfo/UMKR_l015_unis_H000_202110010000.grb2',
-                    # 'inpUmFile': '/HDD/DATA/MODEL/%Y%m/%d/UMKR_l015_unis_H{ef}_%Y%m%d%H%M.grb2',
-                    # 'cfgUmFile': '/DATA/COLCT/UMKR/201901/01/UMKR_l015_unis_H00_201901010000.grb2',
-                    # 'inpUmFile': '/DATA/COLCT/UMKR/%Y%m/%d/UMKR_l015_unis_H{ef}_%Y%m%d%H%M.grb2',
-                    'cfgUmFile': '/DATA/MODEL/202001/01/UMKR_l015_unis_H00_202001010000.grb2',
-                    'inpUmFile': '/DATA/MODEL/%Y%m/%d/UMKR_l015_unis_H{ef}_%Y%m%d%H%M.grb2',
-                    # 'ef00': ['00', '01', '02', '03', '04', '05'],
-                    'ef00': ['00', '01', '02', '03', '04', '05', '15', '16', '17', '18', '19', '20', '21', '22', '23',
-                             '24', '25', '26', '27', '28', '29', '30', '31', '32', '33', '34', '35', '36', '37', '38'],
-                    # 'ef06': ['00', '01', '02', '03', '04', '05'],
-                    'ef06': ['00', '01', '02', '03', '04', '05', '09', '10', '11', '12', '13', '14', '15', '16', '17', '18',
-                         '19', '20', '21', '22', '23', '24', '25', '26', '27', '28', '29', '30', '31', '32'],
-                    # 'ef12': ['00', '01', '02', '03', '04', '05'],
-                    'ef12': ['00', '01', '02', '03', '04', '05', '27', '28', '29', '30', '31', '32', '33', '34', '35', '36',
-                         '37', '38', '39', '40', '41', '42', '43', '44', '45', '46', '47'],
-                    'ef18': ['00', '01', '02', '03', '04', '05', '21', '22', '23', '24', '25', '26', '27', '28', '29',
-                             '30', '31', '32', '33', '34', '35', '36', '37', '38', '39', '40', '41', '42', '43', '44'],
-                    # 'ef18': ['00', '01', '02', '03', '04', '05'],
-                    'invDate': '6h',
-                },
                 'KIMG': {
                     # 'cfgUmFile': '/HDD/SYSTEMS/PROG/PYTHON/IDE/resources/config/modelInfo/UMKR_l015_unis_H000_202110010000.grb2',
                     # 'inpUmFile': '/HDD/DATA/MODEL/%Y%m/%d/UMKR_l015_unis_H{ef}_%Y%m%d%H%M.grb2',
@@ -1534,9 +1325,9 @@ class DtaProcess(object):
             sysOpt['lat1D'] = np.array(posDataL1['lat'])
             sysOpt['lon1D'] = np.array(posDataL1['lon'])
 
-            # subPvProc(sysOpt, cfgDb)
+            subPvProc(sysOpt, cfgDb)
             subPropProc(sysOpt, cfgDb)
-            # subModelProc(sysOpt, cfgDb)
+            subModelProc(sysOpt, cfgDb)
 
         except Exception as e:
             log.error("Exception : {}".format(e))
