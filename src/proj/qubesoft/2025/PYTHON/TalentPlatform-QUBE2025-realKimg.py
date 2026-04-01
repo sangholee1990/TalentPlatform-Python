@@ -11,11 +11,10 @@
 # conda activate py39
 
 # cd /SYSTEMS/PROG/PYTHON
-# /SYSTEMS/LIB/anaconda3/envs/py39/bin/python /SYSTEMS/PROG/PYTHON/IDE/src/proj/qubesoft/2025/PYTHON/TalentPlatform-QUBE2025-realKimg.py
-# /SYSTEMS/LIB/anaconda3/envs/py39/bin/python /SYSTEMS/PROG/PYTHON/TalentPlatform-QUBE2025-realKimg.py --cpuCoreNum '5' --srtDate "2026-01-01" --endDate "2026-01-02"
-# nohup /SYSTEMS/LIB/anaconda3/envs/py39/bin/python /SYSTEMS/PROG/PYTHON/TalentPlatform-QUBE2025-realKimg.py --cpuCoreNum '5' --srtDate "2020-01-01" --endDate "2026-03-22" &
+# /SYSTEMS/LIB/anaconda3/envs/py39/bin/python /SYSTEMS/PROG/PYTHON/TalentPlatform-QUBE2025-realKimg.py --cpuCoreNum '5' --srtDate "2026-03-15" --endDate "2026-04-02"
+# nohup /SYSTEMS/LIB/anaconda3/envs/py39/bin/python /SYSTEMS/PROG/PYTHON/TalentPlatform-QUBE2025-realKimg.py --cpuCoreNum '5' --srtDate "2026-03-15" --endDate "2026-04-02" &
 
-# 20,50 * * * * cd /SYSTEMS/PROG/PYTHON && /SYSTEMS/LIB/anaconda3/envs/py38/bin/python /SYSTEMS/PROG/PYTHON/TalentPlatform-QUBE2025-realKimg.py --srtDate "$(date -d "2 days ago" +\%Y-\%m-\%d)" --endDate "$(date -d "2 days" +\%Y-\%m-\%d)"
+# 30 * * * * cd /SYSTEMS/PROG/PYTHON && /SYSTEMS/LIB/anaconda3/envs/py38/bin/python /SYSTEMS/PROG/PYTHON/TalentPlatform-QUBE2025-realKimg.py --srtDate "$(date -d "2 days ago" +\%Y-\%m-\%d)" --endDate "$(date -d "2 days" +\%Y-\%m-\%d)"
 
 import glob
 # import seaborn as sns
@@ -299,8 +298,7 @@ def initArgument(globalVar, inParams):
             os.makedirs(val)
 
         globalVar[key] = val.replace('\\', '/')
-
-        log.info("[CHECK] {} / val : {}".format(key, val))
+        log.info(f"[CHECK] {key} : {val}")
 
         # self 변수에 할당
         # setattr(self, key, val)
@@ -837,7 +835,7 @@ def subPvProc(sysOpt, cfgDb):
                 id = posInfo['id']
                 srv = posInfo['srv']
 
-                #                if (srv, dtDateInfo.strftime('%Y-%m-%d')) in cfgDataList: continue
+                #  if (srv, dtDateInfo.strftime('%Y-%m-%d')) in cfgDataList: continue
 
                 reqUrl = dtDateInfo.strftime(sysOpt['cfgApi']['url']).format(id=id, token=sysOpt['cfgApi']['token'])
                 res = requests.get(reqUrl)
@@ -991,7 +989,7 @@ def subModelProc(sysOpt, cfgDb):
                     #                     lf.*
                     #              FROM "tb_pv_data" AS pv
                     #                       LEFT JOIN
-                    #                   "tb_for_data" AS lf ON pv."srv" = lf."srv" AND pv."date_time" = lf."date_time"
+                    #                   "tb_kimg_data" AS lf ON pv."srv" = lf."srv" AND pv."date_time" = lf."date_time"
                     #              WHERE pv."srv" = :srv
                     #                AND pv.pv IS NOT NULL
                     #                AND (EXTRACT(EPOCH FROM (lf."date_time" - lf."ana_date")) / 3600.0) <= 5
@@ -1044,17 +1042,17 @@ def subModelProc(sysOpt, cfgDb):
                     # ****************************************************************************
                     # 독립/종속 변수 설정
                     # ****************************************************************************
-                    xColOrg = ['ca_tot', 'hm', 'pa', 'ta', 'td', 'wd', 'ws', 'sza', 'aza', 'et', 'swr']
+                    # xColOrg = ['ca_tot', 'hm', 'pa', 'ta', 'td', 'wd', 'ws', 'sza', 'aza', 'et', 'swr']
+                    xColOrg = ['hm', 'pa', 'ta', 'td', 'wd', 'ws', 'skint', 'snol', 'vis', 'tpw', 'sza', 'aza', 'et', 'swr']
                     yColOrg = 'pv'
-                    xCol = ['ca_tot', 'hm', 'pa', 'ta', 'td', 'wd', 'ws', 'sza', 'aza', 'et', 'turb', 'ghi_clr',
-                            'dni_clr', 'dhi_clr', 'swr', 'ext_rad']
+                    # xCol = ['ca_tot', 'hm', 'pa', 'ta', 'td', 'wd', 'ws', 'sza', 'aza', 'et', 'turb', 'ghi_clr', 'dni_clr', 'dhi_clr', 'swr', 'ext_rad']
+                    xCol = ['hm', 'pa', 'ta', 'td', 'wd', 'ws', 'skint', 'snol', 'vis', 'tpw', 'sza', 'aza', 'et', 'turb', 'ghi_clr', 'dni_clr', 'dhi_clr', 'swr', 'ext_rad']
                     yCol = 'pv'
 
                     # ****************************************************************************
                     # 과거 학습 모델링 (orgPycaret)
                     # ****************************************************************************
-                    resOrgPycaret = makePycaretModel(sysOpt['MODEL']['orgPycaret'], xColOrg, yColOrg, trainData,
-                                                     testData)
+                    resOrgPycaret = makePycaretModel(sysOpt['MODEL']['orgPycaret'], xColOrg, yColOrg, trainData, testData)
                     # log.info(f'resOrgPycaret : {resOrgPycaret}')
 
                     if resOrgPycaret:
@@ -1101,6 +1099,9 @@ def subModelProc(sysOpt, cfgDb):
                         prdVal = exp.predict_model(resPycaret['mlModel'], data=prdData[xCol])['prediction_label']
                         prdData['ai3'] = np.where(prdVal > 0, prdVal, 0)
 
+                    # 태양천정각 고려
+                    prdData.loc[prdData['sza'] >= 90, ['ml', 'dl', 'ai', 'ai2', 'ai3']] = 0
+
                     try:
                         prdData.to_sql(
                             name=tbTmp,
@@ -1111,7 +1112,7 @@ def subModelProc(sysOpt, cfgDb):
                         )
 
                         query = text(f"""
-                              INSERT INTO tb_for_data (
+                              INSERT INTO tb_kimg_data (
                                     srv, ana_date, date_time, dl, ml, ai, ai2, ai3
                               )
                               SELECT
@@ -1227,18 +1228,14 @@ class DtaProcess(object):
                     # 'inpUmFile': '/DATA/COLCT/UMKR/%Y%m/%d/UMKR_l015_unis_H{ef}_%Y%m%d%H%M.grb2',
                     'cfgUmFile': '/DATA/MODEL/202603/21/KIMG_r030_unis_H00_202603210000.grb2',
                     'inpUmFile': '/DATA/MODEL/%Y%m/%d/KIMG_r030_unis_H{ef}_%Y%m%d%H%M.grb2',
-                    'ef00': ['00', '01', '02', '03', '04', '05'],
-                    'ef06': ['00', '01', '02', '03', '04', '05'],
-                    'ef12': ['00', '01', '02', '03', '04', '05'],
-                    'ef18': ['00', '01', '02', '03', '04', '05'],
-                    # 'ef00': ['00', '01', '02', '03', '04', '05', '15', '16', '17', '18', '19', '20', '21', '22', '23',
-                    #          '24', '25', '26', '27', '28', '29', '30', '31', '32', '33', '34', '35', '36', '37', '38'],
-                    # 'ef06': ['00', '01', '02', '03', '04', '05', '09', '10', '11', '12', '13', '14', '15', '16', '17', '18',
-                    #      '19', '20', '21', '22', '23', '24', '25', '26', '27', '28', '29', '30', '31', '32'],
-                    # 'ef12': ['00', '01', '02', '03', '04', '05', '27', '28', '29', '30', '31', '32', '33', '34', '35', '36',
-                    #      '37', '38', '39', '40', '41', '42', '43', '44', '45', '46', '47'],
-                    # 'ef18': ['00', '01', '02', '03', '04', '05', '21', '22', '23', '24', '25', '26', '27', '28', '29',
-                    #          '30', '31', '32', '33', '34', '35', '36', '37', '38', '39', '40', '41', '42', '43', '44'],
+                    'ef00': ['00', '01', '02', '03', '04', '05', '15', '16', '17', '18', '19', '20', '21', '22', '23',
+                             '24', '25', '26', '27', '28', '29', '30', '31', '32', '33', '34', '35', '36', '37', '38'],
+                    'ef06': ['00', '01', '02', '03', '04', '05', '09', '10', '11', '12', '13', '14', '15', '16', '17', '18',
+                         '19', '20', '21', '22', '23', '24', '25', '26', '27', '28', '29', '30', '31', '32'],
+                    'ef12': ['00', '01', '02', '03', '04', '05', '27', '28', '29', '30', '31', '32', '33', '34', '35', '36',
+                         '37', '38', '39', '40', '41', '42', '43', '44', '45', '46', '47'],
+                    'ef18': ['00', '01', '02', '03', '04', '05', '21', '22', '23', '24', '25', '26', '27', '28', '29',
+                             '30', '31', '32', '33', '34', '35', '36', '37', '38', '39', '40', '41', '42', '43', '44'],
                     'invDate': '6h',
                 },
                 # 자동화/수동화 모델링
@@ -1325,7 +1322,7 @@ class DtaProcess(object):
             sysOpt['lat1D'] = np.array(posDataL1['lat'])
             sysOpt['lon1D'] = np.array(posDataL1['lon'])
 
-            subPvProc(sysOpt, cfgDb)
+            # subPvProc(sysOpt, cfgDb)
             subPropProc(sysOpt, cfgDb)
             subModelProc(sysOpt, cfgDb)
 

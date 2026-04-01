@@ -298,8 +298,7 @@ def initArgument(globalVar, inParams):
             os.makedirs(val)
 
         globalVar[key] = val.replace('\\', '/')
-
-        log.info("[CHECK] {} / val : {}".format(key, val))
+        log.info(f"[CHECK] {key} : {val}")
 
         # self 변수에 할당
         # setattr(self, key, val)
