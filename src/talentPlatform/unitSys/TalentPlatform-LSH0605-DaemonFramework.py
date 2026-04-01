@@ -469,9 +469,12 @@ class DtaProcess(object):
                 'loginPw': "world&peace",
 
                 # 입력 파일
-                'inpFile': '/DATA/INPUT/LSH0605/city_matched.xlsx',
-                'natFile': '/DATA/INPUT/LSH0605/20260331_National.xlsx',
-                'proFile': '/DATA/INPUT/LSH0605/20260331_Province.xlsx',
+                # 'inpFile': '/DATA/INPUT/LSH0605/city_matched.xlsx',
+                # 'natFile': '/DATA/INPUT/LSH0605/20260331_National.xlsx',
+                # 'proFile': '/DATA/INPUT/LSH0605/20260331_Province.xlsx',
+                'inpFile': 'G:/내 드라이브/shlee/04. TalentPlatform/[재능플랫폼] 최종납품/[완료] LSH0605. Python을 이용한 중국 빅데이터 사이트 조사 및 셀레늄 기반 로그인, 기본 및 부가정보 수집 및 추출/LSH0605/city_matched.xlsx',
+                'natFile': 'G:/내 드라이브/shlee/04. TalentPlatform/[재능플랫폼] 최종납품/[완료] LSH0605. Python을 이용한 중국 빅데이터 사이트 조사 및 셀레늄 기반 로그인, 기본 및 부가정보 수집 및 추출/LSH0605/20260331_National.xlsx',
+                'proFile': 'G:/내 드라이브/shlee/04. TalentPlatform/[재능플랫폼] 최종납품/[완료] LSH0605. Python을 이용한 중국 빅데이터 사이트 조사 및 셀레늄 기반 로그인, 기본 및 부가정보 수집 및 추출/LSH0605/20260331_Province.xlsx',
 
                 # 검색 목록
                 'sectorList': ['交通', '住宅', '建筑', '电力', '工业'],
