@@ -948,25 +948,25 @@ def subPropProc(sysOpt, cfgDb):
             initargs=(cfgDb,)
         )
 
-        # with cfgDb['sessionMake']() as session:
-        #     query = text("""
-        #                  SELECT srv, ana_date, date_time
-        #                  FROM tb_kim_data
-        #                  WHERE swr > 0
-        #                    AND ana_date BETWEEN :srtDate AND :endDate;
-        #                  """)
-        #     cfgData = pd.DataFrame(session.execute(query, {'srtDate': sysOpt['srtDate'], 'endDate': sysOpt['endDate']}))
-        #     cfgDataL1 = cfgData[cfgData['srv'].isin(sysOpt['posDataL1']['srv'])].reset_index(drop=True)
-        #
-        #     cfgDataL2 = cfgDataL1.groupby(['ana_date', 'date_time']).size().reset_index(name='cnt')
-        #     cfgDataL3 = cfgDataL2[cfgDataL2['cnt'] == len(sysOpt['posDataL1']['srv'])]
-        #     cfgDataList = set(zip(cfgDataL3['ana_date'].dt.strftime('%Y-%m-%d %H:%M')))
+        with cfgDb['sessionMake']() as session:
+            query = text("""
+                         SELECT srv, ana_date, date_time
+                         FROM tb_kim_data
+                         WHERE swr > 0
+                           AND ana_date BETWEEN :srtDate AND :endDate;
+                         """)
+            cfgData = pd.DataFrame(session.execute(query, {'srtDate': sysOpt['srtDate'], 'endDate': sysOpt['endDate']}))
+            cfgDataL1 = cfgData[cfgData['srv'].isin(sysOpt['posDataL1']['srv'])].reset_index(drop=True)
+
+            cfgDataL2 = cfgDataL1.groupby(['ana_date', 'date_time']).size().reset_index(name='cnt')
+            cfgDataL3 = cfgDataL2[cfgDataL2['cnt'] == len(sysOpt['posDataL1']['srv'])]
+            cfgDataList = set(zip(cfgDataL3['ana_date'].dt.strftime('%Y-%m-%d %H:%M')))
 
         dtSrtDate = pd.to_datetime(sysOpt['srtDate'], format='%Y-%m-%d')
         dtEndDate = pd.to_datetime(sysOpt['endDate'], format='%Y-%m-%d')
         dtDateList = pd.date_range(start=dtSrtDate, end=dtEndDate, freq=sysOpt['KIMG']['invDate'])
         for dtDateInfo in reversed(dtDateList):
-            # if (dtDateInfo.strftime('%Y-%m-%d %H:%M'), ) in cfgDataList: continue
+            if (dtDateInfo.strftime('%Y-%m-%d %H:%M'), ) in cfgDataList: continue
             pool.apply_async(propKimg, args=(sysOpt, dtDateInfo))
         pool.close()
         pool.join()
@@ -1057,7 +1057,7 @@ def subModelProc(sysOpt, cfgDb):
 
                     if resOrgPycaret:
                         prdVal = exp.predict_model(resOrgPycaret['mlModel'], data=prdData[xColOrg])['prediction_label']
-                        prdData['ml'] = np.where((prdVal > 0) & (prdData['sza'] <= 90), prdVal, 0)
+                        prdData['ml'] = np.where(prdVal > 0, prdVal, 0)
 
                     # ****************************************************************************
                     # 과거 학습 모델링 (orgH2o)
@@ -1067,7 +1067,7 @@ def subModelProc(sysOpt, cfgDb):
 
                     if resOrgH2o:
                         prdVal = resOrgH2o['mlModel'].predict(h2o.H2OFrame(prdData[xColOrg])).as_data_frame()
-                        prdData['dl'] = np.where((prdVal > 0) & (prdData['sza'] <= 90), prdVal, 0)
+                        prdData['dl'] = np.where(prdVal > 0, prdVal, 0)
 
                     # ****************************************************************************
                     # 수동 학습 모델링 (lgb)
@@ -1077,7 +1077,7 @@ def subModelProc(sysOpt, cfgDb):
 
                     if resLgb:
                         prdVal = resLgb['mlModel'].predict(data=prdData[xCol])
-                        prdData['ai'] = np.where((prdVal > 0) & (prdData['sza'] <= 90), prdVal, 0)
+                        prdData['ai'] = np.where(prdVal > 0, prdVal, 0)
 
                     # ****************************************************************************
                     # 자동 학습 모델링 (flaml)
@@ -1087,7 +1087,7 @@ def subModelProc(sysOpt, cfgDb):
 
                     if resFlaml:
                         prdVal = resFlaml['mlModel'].predict(prdData[xCol])
-                        prdData['ai2'] = np.where((prdVal > 0) & (prdData['sza'] <= 90), prdVal, 0)
+                        prdData['ai2'] = np.where(prdVal > 0, prdVal, 0)
 
                     # ****************************************************************************
                     # 자동 학습 모델링 (pycaret)
@@ -1097,7 +1097,10 @@ def subModelProc(sysOpt, cfgDb):
 
                     if resPycaret:
                         prdVal = exp.predict_model(resPycaret['mlModel'], data=prdData[xCol])['prediction_label']
-                        prdData['ai3'] = np.where((prdVal > 0) & (prdData['sza'] <= 90), prdVal, 0)
+                        prdData['ai3'] = np.where(prdVal > 0, prdVal, 0)
+
+                    # 태양천정각 고려
+                    prdData.loc[prdData['sza'] >= 90, ['ml', 'dl', 'ai', 'ai2', 'ai3']] = 0
 
                     try:
                         prdData.to_sql(
@@ -1202,7 +1205,7 @@ class DtaProcess(object):
                 'invDate': '1d',
 
                 # 비동기 다중 프로세스 개수
-                'cpuCoreNum': globalVar.get('cpuCoreNum', '3'),
+                'cpuCoreNum': globalVar.get('cpuCoreNum', '5'),
 
                 # 설정 파일
                 'cfgDbKey': 'postgresql-qubesoft.iptime.org-qubesoft-dms02',
@@ -1302,7 +1305,7 @@ class DtaProcess(object):
                 query = text("""
                              SELECT *, 'SRV' || LPAD(id::text, 5, '0') as srv
                              FROM tb_stn_info
-                             WHERE oper_yn = 'Y' AND id = '17'
+                             WHERE oper_yn = 'Y'
                              ORDER BY id ASC;
                              """)
 
