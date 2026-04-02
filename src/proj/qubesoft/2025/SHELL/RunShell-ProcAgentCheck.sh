@@ -23,8 +23,11 @@ export LC_TIME=en_US.UTF-8
 CTX_PATH=/SYSTEMS/PROG/SHELL
 
 declare -A metaData
-#metaData["TalentPlatform-QUBE2025-repro"]="/SYSTEMS/LIB/anaconda3/envs/py39/bin/python /SYSTEMS/PROG/PYTHON/TalentPlatform-QUBE2025-repro.py"
-metaData["TalentPlatform-QUBE2025-repro2"]="/SYSTEMS/LIB/anaconda3/envs/py39/bin/python /SYSTEMS/PROG/PYTHON/TalentPlatform-QUBE2025-repro2.py"
+metaData["TalentPlatform-QUBE2025-repro"]="/SYSTEMS/LIB/anaconda3/envs/py39/bin/python /SYSTEMS/PROG/PYTHON/TalentPlatform-QUBE2025-repro.py"
+metaData["TalentPlatform-QUBE2025-reproKimg"]="/SYSTEMS/LIB/anaconda3/envs/py39/bin/python /SYSTEMS/PROG/PYTHON/TalentPlatform-QUBE2025-reproKimg.py"
+metaData["TalentPlatform-QUBE2025-colctAsosDbSave"]="/SYSTEMS/LIB/anaconda3/envs/py39/bin/python /SYSTEMS/PROG/PYTHON/TalentPlatform-QUBE2025-colctAsosDbSave.py"
+#metaData["TalentPlatform-QUBE2025-repro2"]="/SYSTEMS/LIB/anaconda3/envs/py39/bin/python /SYSTEMS/PROG/PYTHON/TalentPlatform-QUBE2025-repro2.py"
+
 
 echo "[$(date +"%Y-%m-%d %H:%M:%S")] [CHECK] CTX_PATH : $CTX_PATH"
 #echo "[$(date +"%Y-%m-%d %H:%M:%S")] [CHECK] LOG_PATH : $LOG_PATH"
