@@ -330,7 +330,7 @@ recAptData2 = recAptData.drop(columns=['idx']).groupby(['gu', 'apt', 'area'], as
 config = configparser.ConfigParser()
 config.read(sysOpt['cfgFile'], encoding='utf-8')
 apiKey = config.get(sysOpt['cfgKey'], sysOpt['cfgVal'])
-client = genai.Client(api_key=apiKey)
+genaiClient = genai.Client(api_key=apiKey)
 
 class cfgRcmd(BaseModel):
     gender: str = Field(..., description='성별 (최소-최대, 1-1 남성, 2-2 여성, 1-2 전체)', examples=['1-1'])
@@ -375,7 +375,7 @@ async def selChatModelCont(
         contents = contTemplate.replace('%cont%', cont)
         log.info(f"contents : {contents}")
 
-        response = client.models.generate_content(
+        response = genaiClient.models.generate_content(
             model=chatModel,
             contents=contents
         )

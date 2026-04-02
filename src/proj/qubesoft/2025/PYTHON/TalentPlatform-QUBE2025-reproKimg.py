@@ -11,10 +11,10 @@
 # conda activate py39
 
 # cd /SYSTEMS/PROG/PYTHON
-# /SYSTEMS/LIB/anaconda3/envs/py39/bin/python /SYSTEMS/PROG/PYTHON/TalentPlatform-QUBE2025-realKimg.py --cpuCoreNum '5' --srtDate "2026-03-15" --endDate "2026-04-02"
-# nohup /SYSTEMS/LIB/anaconda3/envs/py39/bin/python /SYSTEMS/PROG/PYTHON/TalentPlatform-QUBE2025-realKimg.py --cpuCoreNum '5' --srtDate "2026-03-15" --endDate "2026-04-02" &
+# /SYSTEMS/LIB/anaconda3/envs/py39/bin/python /SYSTEMS/PROG/PYTHON/TalentPlatform-QUBE2025-reproKimg.py
+# nohup /SYSTEMS/LIB/anaconda3/envs/py39/bin/python /SYSTEMS/PROG/PYTHON/TalentPlatform-QUBE2025-reproKimg.py --cpuCoreNum '5' --srtDate "2020-01-01" --endDate "2026-03-22" &
 
-# 30 * * * * cd /SYSTEMS/PROG/PYTHON && /SYSTEMS/LIB/anaconda3/envs/py38/bin/python /SYSTEMS/PROG/PYTHON/TalentPlatform-QUBE2025-realKimg.py --srtDate "$(date -d "2 days ago" +\%Y-\%m-\%d)" --endDate "$(date -d "2 days" +\%Y-\%m-\%d)"
+# 20,50 * * * * cd /SYSTEMS/PROG/PYTHON && /SYSTEMS/LIB/anaconda3/envs/py38/bin/python /SYSTEMS/PROG/PYTHON/TalentPlatform-QUBE2025-reproKimg.py --srtDate "$(date -d "2 days ago" +\%Y-\%m-\%d)" --endDate "$(date -d "2 days" +\%Y-\%m-\%d)"
 
 import glob
 # import seaborn as sns
@@ -835,7 +835,7 @@ def subPvProc(sysOpt, cfgDb):
                 id = posInfo['id']
                 srv = posInfo['srv']
 
-                #  if (srv, dtDateInfo.strftime('%Y-%m-%d')) in cfgDataList: continue
+                #                if (srv, dtDateInfo.strftime('%Y-%m-%d')) in cfgDataList: continue
 
                 reqUrl = dtDateInfo.strftime(sysOpt['cfgApi']['url']).format(id=id, token=sysOpt['cfgApi']['token'])
                 res = requests.get(reqUrl)
@@ -947,25 +947,25 @@ def subPropProc(sysOpt, cfgDb):
             initargs=(cfgDb,)
         )
 
-        # with cfgDb['sessionMake']() as session:
-        #     query = text("""
-        #                  SELECT srv, ana_date, date_time
-        #                  FROM tb_kim_data
-        #                  WHERE swr > 0
-        #                    AND ana_date BETWEEN :srtDate AND :endDate;
-        #                  """)
-        #     cfgData = pd.DataFrame(session.execute(query, {'srtDate': sysOpt['srtDate'], 'endDate': sysOpt['endDate']}))
-        #     cfgDataL1 = cfgData[cfgData['srv'].isin(sysOpt['posDataL1']['srv'])].reset_index(drop=True)
-        #
-        #     cfgDataL2 = cfgDataL1.groupby(['ana_date', 'date_time']).size().reset_index(name='cnt')
-        #     cfgDataL3 = cfgDataL2[cfgDataL2['cnt'] == len(sysOpt['posDataL1']['srv'])]
-        #     cfgDataList = set(zip(cfgDataL3['ana_date'].dt.strftime('%Y-%m-%d %H:%M')))
+        with cfgDb['sessionMake']() as session:
+            query = text("""
+                         SELECT srv, ana_date, date_time
+                         FROM tb_kim_data
+                         WHERE swr > 0
+                           AND ana_date BETWEEN :srtDate AND :endDate;
+                         """)
+            cfgData = pd.DataFrame(session.execute(query, {'srtDate': sysOpt['srtDate'], 'endDate': sysOpt['endDate']}))
+            cfgDataL1 = cfgData[cfgData['srv'].isin(sysOpt['posDataL1']['srv'])].reset_index(drop=True)
+
+            cfgDataL2 = cfgDataL1.groupby(['ana_date', 'date_time']).size().reset_index(name='cnt')
+            cfgDataL3 = cfgDataL2[cfgDataL2['cnt'] == len(sysOpt['posDataL1']['srv'])]
+            cfgDataList = set(zip(cfgDataL3['ana_date'].dt.strftime('%Y-%m-%d %H:%M')))
 
         dtSrtDate = pd.to_datetime(sysOpt['srtDate'], format='%Y-%m-%d')
         dtEndDate = pd.to_datetime(sysOpt['endDate'], format='%Y-%m-%d')
         dtDateList = pd.date_range(start=dtSrtDate, end=dtEndDate, freq=sysOpt['KIMG']['invDate'])
         for dtDateInfo in reversed(dtDateList):
-            # if (dtDateInfo.strftime('%Y-%m-%d %H:%M'), ) in cfgDataList: continue
+            if (dtDateInfo.strftime('%Y-%m-%d %H:%M'), ) in cfgDataList: continue
             pool.apply_async(propKimg, args=(sysOpt, dtDateInfo))
         pool.close()
         pool.join()
@@ -984,37 +984,36 @@ def subModelProc(sysOpt, cfgDb):
                     conn = session.connection()
                     tbTmp = f"tmp_{uuid.uuid4().hex}"
 
-                    # query = text("""
-                    #              SELECT pv."pv",
-                    #                     lf.*
-                    #              FROM "tb_pv_data" AS pv
-                    #                       LEFT JOIN
-                    #                   "tb_kimg_data" AS lf ON pv."srv" = lf."srv" AND pv."date_time" = lf."date_time"
-                    #              WHERE pv."srv" = :srv
-                    #                AND pv.pv IS NOT NULL
-                    #                AND (EXTRACT(EPOCH FROM (lf."date_time" - lf."ana_date")) / 3600.0) <= 5
-                    #              ORDER BY "srv", "date_time_kst" DESC;
-                    #              """)
-                    #
-                    # data = pd.DataFrame(session.execute(query, {'srv': srv}))
-                    # if data is None or len(data) < 1 or len(data['pv']) < 10000:
-                    #     log.info(f"srv : {srv} / cnt : {len(data)}")
-                    #     query = text("""
-                    #                  UPDATE tb_stn_info
-                    #                  SET oper_yn  = 'N',
-                    #                      init_yn  = 'N',
-                    #                      comment  = 'PV Err',
-                    #                      mod_date = now()
-                    #                  WHERE id = :id
-                    #                  """)
-                    #     session.execute(query, {'id': id})
-                    #     continue
-                    #
-                    # trainData, testData = train_test_split(data, test_size=0.2,
-                    #                                        random_state=int(datetime.datetime.now().timestamp()))
+                    query = text("""
+                                 SELECT pv."pv",
+                                        lf.*
+                                 FROM "tb_pv_data" AS pv
+                                          LEFT JOIN
+                                      "tb_kimg_data" AS lf ON pv."srv" = lf."srv" AND pv."date_time" = lf."date_time"
+                                 WHERE pv."srv" = :srv
+                                   AND pv.pv IS NOT NULL
+                                   AND (EXTRACT(EPOCH FROM (lf."date_time" - lf."ana_date")) / 3600.0) <= 5
+                                 ORDER BY "srv", "date_time_kst" DESC;
+                                 """)
 
-                    trainData = None
-                    testData = None
+                    data = pd.DataFrame(session.execute(query, {'srv': srv}))
+                    if data is None or len(data) < 1 or len(data['pv']) < 10000:
+                        log.info(f"srv : {srv} / cnt : {len(data)}")
+                        query = text("""
+                                     UPDATE tb_stn_info
+                                     SET oper_yn  = 'N',
+                                         init_yn  = 'N',
+                                         comment  = 'PV Err',
+                                         mod_date = now()
+                                     WHERE id = :id
+                                     """)
+                        session.execute(query, {'id': id})
+                        continue
+
+                    trainData, testData = train_test_split(data, test_size=0.2,
+                                                           random_state=int(datetime.datetime.now().timestamp()))
+                    # trainData = None
+                    # testData = None
 
                     query = text("""
                                  SELECT lf.*
@@ -1205,7 +1204,7 @@ class DtaProcess(object):
                 'invDate': '1d',
 
                 # 비동기 다중 프로세스 개수
-                'cpuCoreNum': globalVar.get('cpuCoreNum', '3'),
+                'cpuCoreNum': globalVar.get('cpuCoreNum', '5'),
 
                 # 설정 파일
                 'cfgDbKey': 'postgresql-qubesoft.iptime.org-qubesoft-dms02',
@@ -1228,14 +1227,10 @@ class DtaProcess(object):
                     # 'inpUmFile': '/DATA/COLCT/UMKR/%Y%m/%d/UMKR_l015_unis_H{ef}_%Y%m%d%H%M.grb2',
                     'cfgUmFile': '/DATA/MODEL/202603/21/KIMG_r030_unis_H00_202603210000.grb2',
                     'inpUmFile': '/DATA/MODEL/%Y%m/%d/KIMG_r030_unis_H{ef}_%Y%m%d%H%M.grb2',
-                    'ef00': ['00', '01', '02', '03', '04', '05', '15', '16', '17', '18', '19', '20', '21', '22', '23',
-                             '24', '25', '26', '27', '28', '29', '30', '31', '32', '33', '34', '35', '36', '37', '38'],
-                    'ef06': ['00', '01', '02', '03', '04', '05', '09', '10', '11', '12', '13', '14', '15', '16', '17', '18',
-                         '19', '20', '21', '22', '23', '24', '25', '26', '27', '28', '29', '30', '31', '32'],
-                    'ef12': ['00', '01', '02', '03', '04', '05', '27', '28', '29', '30', '31', '32', '33', '34', '35', '36',
-                         '37', '38', '39', '40', '41', '42', '43', '44', '45', '46', '47'],
-                    'ef18': ['00', '01', '02', '03', '04', '05', '21', '22', '23', '24', '25', '26', '27', '28', '29',
-                             '30', '31', '32', '33', '34', '35', '36', '37', '38', '39', '40', '41', '42', '43', '44'],
+                    'ef00': ['00', '01', '02', '03', '04', '05'],
+                    'ef06': ['00', '01', '02', '03', '04', '05'],
+                    'ef12': ['00', '01', '02', '03', '04', '05'],
+                    'ef18': ['00', '01', '02', '03', '04', '05'],
                     'invDate': '6h',
                 },
                 # 자동화/수동화 모델링
@@ -1323,7 +1318,7 @@ class DtaProcess(object):
             sysOpt['lon1D'] = np.array(posDataL1['lon'])
 
             # subPvProc(sysOpt, cfgDb)
-            subPropProc(sysOpt, cfgDb)
+            # subPropProc(sysOpt, cfgDb)
             subModelProc(sysOpt, cfgDb)
 
         except Exception as e:
