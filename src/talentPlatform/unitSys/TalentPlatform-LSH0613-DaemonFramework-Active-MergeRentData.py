@@ -357,8 +357,8 @@ class DtaProcess(object):
 
                     # 도로명주소
                     # data['apt'] = data['아파트'] + '(' + data['도로명'].astype(str) + ' ' + data['도로명건물본번호코드'].fillna(0).astype('Int64').astype(str) + ')'
-                    data['apt'] = data['아파트'] + '(' + data['도로명']  + ' ' + data['도로명건물본번호코드'].astype('Int64').astype(str) + ')'
-                    data['aptDtl'] = data['addrInfo'].astype(str) + ' ' + data['d2'].astype(str) + ' ' + data['도로명'].astype(str) + ' ' + data['도로명건물본번호코드'].astype('Int64').astype(str) + ' ' + data['아파트'].astype(str)
+                    data['apt'] = data['아파트'] + '(' + data['도로명'] + ')'
+                    data['aptDtl'] = data['addrInfo'].astype(str) + ' ' + data['d2'].astype(str) + ' ' + data['도로명'].astype(str) + ' ' + data['아파트'].astype(str)
 
                     # =================================================================
                     # 매매/전세 개별 필드 처리
