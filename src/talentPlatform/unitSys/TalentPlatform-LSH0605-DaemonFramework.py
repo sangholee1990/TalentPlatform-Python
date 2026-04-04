@@ -483,8 +483,8 @@ class DtaProcess(object):
                 # 자료 저장
                 # 'saveFileList': '/DATA/OUTPUT/LSH0605/*_{cityMat}.xlsx',
                 # 'saveFile': '/DATA/OUTPUT/LSH0605/%Y%m%d_{cityMat}.xlsx',
-                'saveFileList': 'G:/내 드라이브/shlee/04. TalentPlatform/[재능플랫폼] 최종납품/[완료] LSH0605. Python을 이용한 중국 빅데이터 사이트 조사 및 셀레늄 기반 로그인, 기본 및 부가정보 수집 및 추출/20260401_결과/*_{cityMat}.xlsx',
-                'saveFile': 'G:/내 드라이브/shlee/04. TalentPlatform/[재능플랫폼] 최종납품/[완료] LSH0605. Python을 이용한 중국 빅데이터 사이트 조사 및 셀레늄 기반 로그인, 기본 및 부가정보 수집 및 추출/20260401_결과/%Y%m%d_{cityMat}.xlsx',
+                'saveFileList': 'G:/내 드라이브/shlee/04. TalentPlatform/[재능플랫폼] 최종납품/[완료] LSH0605. Python을 이용한 중국 빅데이터 사이트 조사 및 셀레늄 기반 로그인, 기본 및 부가정보 수집 및 추출/20260404_결과/*_{cityMat}.xlsx',
+                'saveFile': 'G:/내 드라이브/shlee/04. TalentPlatform/[재능플랫폼] 최종납품/[완료] LSH0605. Python을 이용한 중국 빅데이터 사이트 조사 및 셀레늄 기반 로그인, 기본 및 부가정보 수집 및 추출/20260404_결과/%Y%m%d_{cityMat}.xlsx',
             }
 
             # ==========================================================================================================
@@ -515,7 +515,7 @@ class DtaProcess(object):
                 raise Exception(f"proFile : {proFile}, 설정 파일 검색 실패")
             proData = pd.read_excel(fileList[0], header=None)
             proData['City_Column_1'] = None
-            natData['level'] = 'province'
+            proData['level'] = 'province'
             proData.rename(columns={0: 'Matching_City_Column_2'}, inplace=True)
 
             mrgData =  pd.concat([cfgDataL1, proData, natData], ignore_index=True)
@@ -579,6 +579,11 @@ class DtaProcess(object):
                             # 검색 화면
                             url = sysOpt['listUrl']
                             driver.get(url)
+
+                            if sysOpt['verfUrl'] in driver.current_url:
+                                initLogin(driver, sysOpt)
+                                driver.get(url)
+
                             time.sleep(sysOpt['defTimeout'])
 
                             # 광고 삭제
@@ -692,7 +697,7 @@ class DtaProcess(object):
                     try:
                         driver.get(webLink)
 
-                        if driver.current_url == sysOpt['verfUrl']:
+                        if sysOpt['verfUrl'] in driver.current_url:
                             initLogin(driver, sysOpt)
                             driver.get(webLink)
 
