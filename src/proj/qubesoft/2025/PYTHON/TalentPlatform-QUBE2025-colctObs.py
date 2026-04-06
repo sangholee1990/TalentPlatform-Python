@@ -11,10 +11,8 @@
 # conda activate py39
 
 # cd /SYSTEMS/PROG/PYTHON
-# /SYSTEMS/LIB/anaconda3/envs/py39/bin/python /SYSTEMS/PROG/PYTHON/TalentPlatform-QUBE2025-realKimg.py --cpuCoreNum '5' --srtDate "2026-03-15" --endDate "2026-04-02"
-# nohup /SYSTEMS/LIB/anaconda3/envs/py39/bin/python /SYSTEMS/PROG/PYTHON/TalentPlatform-QUBE2025-realKimg.py --cpuCoreNum '5' --srtDate "2026-03-15" --endDate "2026-04-02" &
-
-# 30 * * * * cd /SYSTEMS/PROG/PYTHON && /SYSTEMS/LIB/anaconda3/envs/py39/bin/python /SYSTEMS/PROG/PYTHON/TalentPlatform-QUBE2025-realKimg.py --srtDate "$(date -d "2 days ago" +\%Y-\%m-\%d)" --endDate "$(date -d "2 days" +\%Y-\%m-\%d)"
+# /SYSTEMS/LIB/anaconda3/envs/py39/bin/python /SYSTEMS/PROG/PYTHON/TalentPlatform-QUBE2025-colctObs.py --srtDate "2020-01-01" --endDate "2026-04-02"
+# nohup /SYSTEMS/LIB/anaconda3/envs/py39/bin/python /SYSTEMS/PROG/PYTHON/TalentPlatform-QUBE2025-colctObs.py --srtDate "2020-01-01" --endDate "2026-04-06" &
 
 import glob
 # import seaborn as sns
@@ -870,7 +868,7 @@ def subObsProc(sysOpt, cfgDb):
                     )
 
                     query = text(f"""
-                        INSERT INTO tb_pv_data (
+                        INSERT INTO tb_obs_data (
                             srv, date_time, date_time_kst, trad, srad, otemp, ptemp, reg_date
                         )
                         SELECT 
@@ -886,7 +884,7 @@ def subObsProc(sysOpt, cfgDb):
                             mod_date = now();
                         """)
                     result = session.execute(query)
-                    log.info(f"id : {id} / dtDateInfo : {dtDateInfo} / result : {result.rowcount}")
+                    log.info(f"dtDateInfo : {dtDateInfo} / result : {result.rowcount}")
                 except Exception as e:
                     log.error(f"Exception : {e}")
                     raise e
@@ -1198,8 +1196,8 @@ class DtaProcess(object):
             # 옵션 설정
             sysOpt = {
                 # 시작/종료 시간
-                'srtDate': globalVar.get('srtDate', '2026-03-21'),
-                'endDate': globalVar.get('endDate', '2026-03-22'),
+                'srtDate': globalVar.get('srtDate', '2020-01-01'),
+                'endDate': globalVar.get('endDate', '2026-04-06'),
                 'invDate': '1d',
 
                 # 비동기 다중 프로세스 개수
@@ -1207,9 +1205,9 @@ class DtaProcess(object):
 
                 # 설정 파일
                 'cfgDbKey': 'postgresql-qubesoft.iptime.org-qubesoft-dms02',
-                'cfgFile': '/HDD/SYSTEMS/PROG/PYTHON/IDE/resources/config/system.cfg',
+                # 'cfgFile': '/HDD/SYSTEMS/PROG/PYTHON/IDE/resources/config/system.cfg',
                 # 'cfgFile': '/vol01/SYSTEMS/INDIAI/PROG/PYTHON/resources/config/system.cfg',
-                # 'cfgFile': '/SYSTEMS/PROG/PYTHON/resources/config/system.cfg',
+                'cfgFile': '/SYSTEMS/PROG/PYTHON/resources/config/system.cfg',
                 'posDataL1': None,
                 'cfgApiKey': 'pv',
                 'cfgApi': None,
@@ -1218,24 +1216,6 @@ class DtaProcess(object):
                 'lat1D': None,
                 'lon1D': None,
 
-                # 예보 모델
-                'KIMG': {
-                    # 'cfgUmFile': '/HDD/SYSTEMS/PROG/PYTHON/IDE/resources/config/modelInfo/UMKR_l015_unis_H000_202110010000.grb2',
-                    # 'inpUmFile': '/HDD/DATA/MODEL/%Y%m/%d/UMKR_l015_unis_H{ef}_%Y%m%d%H%M.grb2',
-                    # 'cfgUmFile': '/DATA/COLCT/UMKR/201901/01/UMKR_l015_unis_H00_201901010000.grb2',
-                    # 'inpUmFile': '/DATA/COLCT/UMKR/%Y%m/%d/UMKR_l015_unis_H{ef}_%Y%m%d%H%M.grb2',
-                    'cfgUmFile': '/DATA/MODEL/202603/21/KIMG_r030_unis_H00_202603210000.grb2',
-                    'inpUmFile': '/DATA/MODEL/%Y%m/%d/KIMG_r030_unis_H{ef}_%Y%m%d%H%M.grb2',
-                    'ef00': ['00', '01', '02', '03', '04', '05', '15', '16', '17', '18', '19', '20', '21', '22', '23',
-                             '24', '25', '26', '27', '28', '29', '30', '31', '32', '33', '34', '35', '36', '37', '38'],
-                    'ef06': ['00', '01', '02', '03', '04', '05', '09', '10', '11', '12', '13', '14', '15', '16', '17', '18',
-                         '19', '20', '21', '22', '23', '24', '25', '26', '27', '28', '29', '30', '31', '32'],
-                    'ef12': ['00', '01', '02', '03', '04', '05', '27', '28', '29', '30', '31', '32', '33', '34', '35', '36',
-                         '37', '38', '39', '40', '41', '42', '43', '44', '45', '46', '47'],
-                    'ef18': ['00', '01', '02', '03', '04', '05', '21', '22', '23', '24', '25', '26', '27', '28', '29',
-                             '30', '31', '32', '33', '34', '35', '36', '37', '38', '39', '40', '41', '42', '43', '44'],
-                    'invDate': '6h',
-                },
                 # 자동화/수동화 모델링
                 'MODEL': {
                     'orgPycaret': {
