@@ -11,10 +11,10 @@
 # conda activate py39
 
 # cd /SYSTEMS/PROG/PYTHON
-# /SYSTEMS/LIB/anaconda3/envs/py39/bin/python /SYSTEMS/PROG/PYTHON/TalentPlatform-QUBE2025-realKimg.py --cpuCoreNum '5' --srtDate "2026-03-15" --endDate "2026-04-02"
-# nohup /SYSTEMS/LIB/anaconda3/envs/py39/bin/python /SYSTEMS/PROG/PYTHON/TalentPlatform-QUBE2025-realKimg.py --cpuCoreNum '5' --srtDate "2026-03-15" --endDate "2026-04-02" &
+# /SYSTEMS/LIB/anaconda3/envs/py39/bin/python /SYSTEMS/PROG/PYTHON/TalentPlatform-QUBE2025-colctObs.py --srtDate "2020-01-01" --endDate "2026-04-02"
+# nohup /SYSTEMS/LIB/anaconda3/envs/py39/bin/python /SYSTEMS/PROG/PYTHON/TalentPlatform-QUBE2025-colctObs.py --srtDate "2020-01-01" --endDate "2026-04-06" &
 
-# 30 * * * * cd /SYSTEMS/PROG/PYTHON && /SYSTEMS/LIB/anaconda3/envs/py39/bin/python /SYSTEMS/PROG/PYTHON/TalentPlatform-QUBE2025-realKimg.py --srtDate "$(date -d "2 days ago" +\%Y-\%m-\%d)" --endDate "$(date -d "2 days" +\%Y-\%m-\%d)"
+# 0 * * * * cd /SYSTEMS/PROG/PYTHON && /SYSTEMS/LIB/anaconda3/envs/py39/bin/python /SYSTEMS/PROG/PYTHON/TalentPlatform-QUBE2025-colctObs.py --srtDate "$(date -d "2 days ago" +\%Y-\%m-\%d)" --endDate "$(date -d "1 days" +\%Y-\%m-\%d)"
 
 import glob
 # import seaborn as sns
@@ -812,18 +812,19 @@ def propKimg(sysOpt, dtDateInfo):
     except Exception as e:
         log.error(f'Exception : {e}')
 
-def subPvProc(sysOpt, cfgDb):
+def subObsProc(sysOpt, cfgDb):
     try:
-        with cfgDb['sessionMake']() as session:
-            query = text("""
-                         SELECT srv, date_time
-                         FROM tb_pv_data
-                         WHERE pv > 0
-                           AND date_time BETWEEN :srtDate AND :endDate;
-                         """)
-            cfgData = pd.DataFrame(session.execute(query, {'srtDate': sysOpt['srtDate'], 'endDate': sysOpt['endDate']}))
-            cfgDataL1 = cfgData[cfgData['srv'].isin(sysOpt['posDataL1']['srv'])].reset_index(drop=True)
-            cfgDataList = set(zip(cfgDataL1['srv'], cfgDataL1['date_time'].dt.strftime('%Y-%m-%d')))
+        # with cfgDb['sessionMake']() as session:
+        #     query = text("""
+        #                  SELECT srv, date_time
+        #                  FROM tb_obs_data
+        #                  WHERE trad > 0 AND srad > 0
+        #                    AND date_time BETWEEN :srtDate AND :endDate;
+        #                  """)
+        #
+        #     cfgData = pd.DataFrame(session.execute(query, {'srtDate': sysOpt['srtDate'], 'endDate': sysOpt['endDate']}))
+        #     cfgDataL1 = cfgData[cfgData['srv'].isin(sysOpt['posDataL1']['srv'])].reset_index(drop=True)
+        #     cfgDataList = set(zip(cfgDataL1['srv'], cfgDataL1['date_time'].dt.strftime('%Y-%m-%d')))
 
         dtSrtDate = pd.to_datetime(sysOpt['srtDate'], format='%Y-%m-%d')
         dtEndDate = pd.to_datetime(sysOpt['endDate'], format='%Y-%m-%d')
@@ -834,26 +835,21 @@ def subPvProc(sysOpt, cfgDb):
             for i, posInfo in sysOpt['posDataL1'].iterrows():
                 id = posInfo['id']
                 srv = posInfo['srv']
+                # if (srv, dtDateInfo.strftime('%Y-%m-%d')) in cfgDataList: continue
 
-                #  if (srv, dtDateInfo.strftime('%Y-%m-%d')) in cfgDataList: continue
-
-                reqUrl = dtDateInfo.strftime(sysOpt['cfgApi']['url']).format(id=id, token=sysOpt['cfgApi']['token'])
-                res = requests.get(reqUrl)
+                reqUrl = dtDateInfo.strftime(sysOpt['cfgApi']['obsUrl']).format(id=id)
+                reqHeader = {'Authorization': f"Bearer {sysOpt['cfgApi']['token']}"}
+                res = requests.get(reqUrl, headers=reqHeader)
                 if not res.status_code == 200: continue
                 resJson = res.json()
 
                 if not (resJson['success'] == True): continue
-                resInfo = resJson['pvs']
+                resInfo = resJson['envs']
                 if len(resInfo) < 1: continue
-                resData = pd.DataFrame(resInfo).rename(
-                    {
-                        'pv': 'pv'
-                    }
-                    , axis='columns'
-                )
+                resData = pd.DataFrame(resInfo)
 
                 resData['srv'] = srv
-                resData['date_time_kst'] = pd.to_datetime(resData['date'], format='%Y-%m-%d %H')
+                resData['date_time_kst'] = pd.to_datetime(resData['localdate'], format='%m/%d/%Y %H:%M:%S')
                 resData['date_time'] = resData['date_time_kst'] - dtKst
 
                 resDataL1 = pd.concat([resDataL1, resData], ignore_index=True)
@@ -865,7 +861,6 @@ def subPvProc(sysOpt, cfgDb):
                 conn = session.connection()
 
                 try:
-                    # DB 적재
                     resDataL1.to_sql(
                         name=tbTmp,
                         con=conn,
@@ -875,20 +870,23 @@ def subPvProc(sysOpt, cfgDb):
                     )
 
                     query = text(f"""
-                        INSERT INTO tb_pv_data (
-                            srv, date_time, date_time_kst, pv, reg_date
+                        INSERT INTO tb_obs_data (
+                            srv, date_time, date_time_kst, trad, srad, otemp, ptemp, reg_date
                         )
                         SELECT 
-                            srv, date_time, date_time_kst, pv, now()
+                            srv, date_time, date_time_kst, trad, srad, otemp, ptemp, now()
                         FROM {tbTmp}
                         ON CONFLICT (srv, date_time)
                         DO UPDATE SET
                             date_time_kst = excluded.date_time_kst,
-                            pv = excluded.pv, 
+                            trad = excluded.trad, 
+                            srad = excluded.srad, 
+                            otemp = excluded.otemp, 
+                            ptemp = excluded.ptemp, 
                             mod_date = now();
                         """)
                     result = session.execute(query)
-                    log.info(f"id : {id} / dtDateInfo : {dtDateInfo} / result : {result.rowcount}")
+                    log.info(f"result : {result.rowcount}")
                 except Exception as e:
                     log.error(f"Exception : {e}")
                     raise e
@@ -1200,8 +1198,8 @@ class DtaProcess(object):
             # 옵션 설정
             sysOpt = {
                 # 시작/종료 시간
-                'srtDate': globalVar.get('srtDate', '2026-03-21'),
-                'endDate': globalVar.get('endDate', '2026-03-22'),
+                'srtDate': globalVar.get('srtDate', '2020-01-01'),
+                'endDate': globalVar.get('endDate', '2026-04-06'),
                 'invDate': '1d',
 
                 # 비동기 다중 프로세스 개수
@@ -1220,29 +1218,11 @@ class DtaProcess(object):
                 'lat1D': None,
                 'lon1D': None,
 
-                # 예보 모델
-                'KIMG': {
-                    # 'cfgUmFile': '/HDD/SYSTEMS/PROG/PYTHON/IDE/resources/config/modelInfo/UMKR_l015_unis_H000_202110010000.grb2',
-                    # 'inpUmFile': '/HDD/DATA/MODEL/%Y%m/%d/UMKR_l015_unis_H{ef}_%Y%m%d%H%M.grb2',
-                    # 'cfgUmFile': '/DATA/COLCT/UMKR/201901/01/UMKR_l015_unis_H00_201901010000.grb2',
-                    # 'inpUmFile': '/DATA/COLCT/UMKR/%Y%m/%d/UMKR_l015_unis_H{ef}_%Y%m%d%H%M.grb2',
-                    'cfgUmFile': '/DATA/MODEL/202603/21/KIMG_r030_unis_H00_202603210000.grb2',
-                    'inpUmFile': '/DATA/MODEL/%Y%m/%d/KIMG_r030_unis_H{ef}_%Y%m%d%H%M.grb2',
-                    'ef00': ['00', '01', '02', '03', '04', '05', '15', '16', '17', '18', '19', '20', '21', '22', '23',
-                             '24', '25', '26', '27', '28', '29', '30', '31', '32', '33', '34', '35', '36', '37', '38'],
-                    'ef06': ['00', '01', '02', '03', '04', '05', '09', '10', '11', '12', '13', '14', '15', '16', '17', '18',
-                         '19', '20', '21', '22', '23', '24', '25', '26', '27', '28', '29', '30', '31', '32'],
-                    'ef12': ['00', '01', '02', '03', '04', '05', '27', '28', '29', '30', '31', '32', '33', '34', '35', '36',
-                         '37', '38', '39', '40', '41', '42', '43', '44', '45', '46', '47'],
-                    'ef18': ['00', '01', '02', '03', '04', '05', '21', '22', '23', '24', '25', '26', '27', '28', '29',
-                             '30', '31', '32', '33', '34', '35', '36', '37', '38', '39', '40', '41', '42', '43', '44'],
-                    'invDate': '6h',
-                },
                 # 자동화/수동화 모델링
                 'MODEL': {
                     'orgPycaret': {
-                        'saveModelList': "/DATA/AI/*/*/LSH0255-{srv}-final-pycaret-kimg-*.model.pkl",
-                        'saveModel': "/DATA/AI/%Y%m/%d/LSH0255-{srv}-final-pycaret-kimg-%Y%m%d.model",
+                        'saveModelList': "/DATA/AI/*/*/LSH0255-{srv}-final-pycaret-obs-*.model.pkl",
+                        'saveModel': "/DATA/AI/%Y%m/%d/LSH0255-{srv}-final-pycaret-obs-%Y%m%d.model",
                         # 'isOverWrite': True,
                         'isOverWrite': False,
                         'srv': None,
@@ -1250,8 +1230,8 @@ class DtaProcess(object):
                         'exp': None
                     },
                     'orgH2o': {
-                        'saveModelList': "/DATA/AI/*/*/LSH0255-{srv}-final-h2o-kimg-*.model",
-                        'saveModel': "/DATA/AI/%Y%m/%d/LSH0255-{srv}-final-h2o-kimg-%Y%m%d.model",
+                        'saveModelList': "/DATA/AI/*/*/LSH0255-{srv}-final-h2o-obs-*.model",
+                        'saveModel': "/DATA/AI/%Y%m/%d/LSH0255-{srv}-final-h2o-obs-%Y%m%d.model",
                         'isInit': False,
                         # 'isOverWrite': True,
                         'isOverWrite': False,
@@ -1259,27 +1239,27 @@ class DtaProcess(object):
                         'preDt': datetime.datetime.now(),
                     },
                     'lgb': {
-                        'saveModelList': "/DATA/AI/*/*/QUBE2025-{srv}-final-lgb-kimg-*.model",
-                        'saveModel': "/DATA/AI/%Y%m/%d/QUBE2025-{srv}-final-lgb-kimg-%Y%m%d.model",
-                        # 'saveImg': "/DATA/AI/%Y%m/%d/QUBE2025-{srv}-final-lgb-kimg-%Y%m%d.png",
+                        'saveModelList': "/DATA/AI/*/*/QUBE2025-{srv}-final-lgb-obs-*.model",
+                        'saveModel': "/DATA/AI/%Y%m/%d/QUBE2025-{srv}-final-lgb-obs-%Y%m%d.model",
+                        # 'saveImg': "/DATA/AI/%Y%m/%d/QUBE2025-{srv}-final-lgb-obs-%Y%m%d.png",
                         # 'isOverWrite': True,
                         'isOverWrite': False,
                         'srv': None,
                         'preDt': datetime.datetime.now(),
                     },
                     'flaml': {
-                        'saveModelList': "/DATA/AI/*/*/QUBE2025-{srv}-final-flaml-kimg-*.model",
-                        'saveModel': "/DATA/AI/%Y%m/%d/QUBE2025-{srv}-final-flaml-kimg-%Y%m%d.model",
-                        # 'saveImg': "/DATA/AI/%Y%m/%d/QUBE2025-{srv}-final-flaml-kimg-%Y%m%d.png",
+                        'saveModelList': "/DATA/AI/*/*/QUBE2025-{srv}-final-flaml-obs-*.model",
+                        'saveModel': "/DATA/AI/%Y%m/%d/QUBE2025-{srv}-final-flaml-obs-%Y%m%d.model",
+                        # 'saveImg': "/DATA/AI/%Y%m/%d/QUBE2025-{srv}-final-flaml-obs-%Y%m%d.png",
                         # 'isOverWrite': True,
                         'isOverWrite': False,
                         'srv': None,
                         'preDt': datetime.datetime.now(),
                     },
                     'pycaret': {
-                        'saveModelList': "/DATA/AI/*/*/QUBE2025-{srv}-final-pycaret-kimg-*.model.pkl",
-                        'saveModel': "/DATA/AI/%Y%m/%d/QUBE2025-{srv}-final-pycaret-kimg-%Y%m%d.model",
-                        # 'saveImg': "/DATA/AI/%Y%m/%d/QUBE2025-{srv}-final-pycaret-kimg-%Y%m%d.png",
+                        'saveModelList': "/DATA/AI/*/*/QUBE2025-{srv}-final-pycaret-obs-*.model.pkl",
+                        'saveModel': "/DATA/AI/%Y%m/%d/QUBE2025-{srv}-final-pycaret-obs-%Y%m%d.model",
+                        # 'saveImg': "/DATA/AI/%Y%m/%d/QUBE2025-{srv}-final-pycaret-obs-%Y%m%d.png",
                         # 'isOverWrite': True,
                         'isOverWrite': False,
                         'srv': None,
@@ -1299,6 +1279,7 @@ class DtaProcess(object):
             cfgDb = initCfgInfo(config, sysOpt['cfgDbKey'])
             cfgApi = {
                 'url': config.get(sysOpt['cfgApiKey'], 'url'),
+                'obsUrl': config.get(sysOpt['cfgApiKey'], 'obsUrl'),
                 'token': config.get(sysOpt['cfgApiKey'], 'token'),
             }
             sysOpt['cfgApi'] = cfgApi
@@ -1322,9 +1303,8 @@ class DtaProcess(object):
             sysOpt['lat1D'] = np.array(posDataL1['lat'])
             sysOpt['lon1D'] = np.array(posDataL1['lon'])
 
-            subPvProc(sysOpt, cfgDb)
-            subPropProc(sysOpt, cfgDb)
-            subModelProc(sysOpt, cfgDb)
+            subObsProc(sysOpt, cfgDb)
+            # subModelProc(sysOpt, cfgDb)
 
         except Exception as e:
             log.error("Exception : {}".format(e))
