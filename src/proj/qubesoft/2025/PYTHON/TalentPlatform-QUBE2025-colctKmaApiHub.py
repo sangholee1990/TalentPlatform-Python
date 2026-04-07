@@ -285,8 +285,6 @@ def colctNwp(modelInfo, dtDateInfo):
         efKey = f"ef{dtDateInfo.strftime('%H')}"
         efList = modelInfo['request'][efKey]
         for ef in efList:
-            log.info(f'[CHECK] dtDateInfo : {dtDateInfo} / ef : {ef}')
-
             tmpFileInfo = dtDateInfo.strftime(modelInfo['tmp']).format(ef=ef)
             updFileInfo = dtDateInfo.strftime(modelInfo['target']).format(ef=ef)
 
@@ -294,10 +292,12 @@ def colctNwp(modelInfo, dtDateInfo):
             fileList = sorted(glob.glob(updFileInfo))
             if len(fileList) > 0: continue
 
+            log.info(f'[CHECK] dtDateInfo : {dtDateInfo} / ef : {ef}')
+
             reqUrl = dtDateInfo.strftime(f"{modelInfo['request']['url']}").format(tmfc=dtDateInfo.strftime('%Y%m%d%H'), ef=ef, authKey=extAuthKey())
             #reqUrl = dtDateInfo.strftime(f"{modelInfo['request']['url']}").format(tmfc=dtDateInfo.strftime('%Y%m%d%H'), ef=ef, authKey='hQDU-t1aQHaA1PrdWvB2eA')
-            res = requests.get(reqUrl)
-            if not (res.status_code == 200): return
+            # res = requests.get(reqUrl)
+            # if not (res.status_code == 200): return
 
             os.makedirs(os.path.dirname(tmpFileInfo), exist_ok=True)
             os.makedirs(os.path.dirname(updFileInfo), exist_ok=True)
