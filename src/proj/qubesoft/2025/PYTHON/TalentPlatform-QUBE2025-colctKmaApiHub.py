@@ -476,7 +476,7 @@ class DtaProcess(object):
                 'KIMG': {
                     'request': {
                         #'url': 'https://apihub.kma.go.kr/api/typ06/url/nwp_file_down.php?nwp=r030&sub=unis&tmfc={tmfc}&ef={ef}&authKey={authKey}'
-                        'url': 'https://apihub-org.kma.go.kr/api/typ06/url/nwp_file_down.php?nwp=r030&sub=unis&tmfc={tmfc}&ef={ef}&authKey={authKey}'
+                        'url': 'https://apihub.kma.go.kr/api/typ06/url/nwp_file_down.php?nwp=r030&sub=unis&tmfc={tmfc}&ef={ef}&authKey={authKey}'
                         # , 'ef00': ['00', '01', '02', '03', '04', '05']
                         # , 'ef06': ['00', '01', '02', '03', '04', '05']
                         # , 'ef12': ['00', '01', '02', '03', '04', '05']
