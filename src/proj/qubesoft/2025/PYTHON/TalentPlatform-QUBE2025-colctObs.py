@@ -14,6 +14,8 @@
 # /SYSTEMS/LIB/anaconda3/envs/py39/bin/python /SYSTEMS/PROG/PYTHON/TalentPlatform-QUBE2025-colctObs.py --srtDate "2020-01-01" --endDate "2026-04-02"
 # nohup /SYSTEMS/LIB/anaconda3/envs/py39/bin/python /SYSTEMS/PROG/PYTHON/TalentPlatform-QUBE2025-colctObs.py --srtDate "2020-01-01" --endDate "2026-04-06" &
 
+# 0 * * * * cd /SYSTEMS/PROG/PYTHON && /SYSTEMS/LIB/anaconda3/envs/py39/bin/python /SYSTEMS/PROG/PYTHON/TalentPlatform-QUBE2025-colctObs.py --srtDate "$(date -d "2 days ago" +\%Y-\%m-\%d)" --endDate "$(date -d "1 days" +\%Y-\%m-\%d)"
+
 import glob
 # import seaborn as sns
 import logging
