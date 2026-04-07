@@ -296,8 +296,8 @@ def colctNwp(modelInfo, dtDateInfo):
 
             reqUrl = dtDateInfo.strftime(f"{modelInfo['request']['url']}").format(tmfc=dtDateInfo.strftime('%Y%m%d%H'), ef=ef, authKey=extAuthKey())
             #reqUrl = dtDateInfo.strftime(f"{modelInfo['request']['url']}").format(tmfc=dtDateInfo.strftime('%Y%m%d%H'), ef=ef, authKey='hQDU-t1aQHaA1PrdWvB2eA')
-            #res = requests.get(reqUrl)
-            #if not (res.status_code == 200): return
+            res = requests.get(reqUrl)
+            if not (res.status_code == 200): return
 
             os.makedirs(os.path.dirname(tmpFileInfo), exist_ok=True)
             os.makedirs(os.path.dirname(updFileInfo), exist_ok=True)
@@ -492,7 +492,7 @@ class DtaProcess(object):
                         , 'authKey': None
                         , 'invDate': '6h'
                     }
-                    , 'cmd': 'curl -s -C - "{reqUrl}" --retry 10 -o "{tmpFileInfo}"'
+                    , 'cmd': 'curl -s -C - "{reqUrl}" --retry 1 -o "{tmpFileInfo}"'
                     , 'tmp': '/DATA/MODEL/%Y%m/%d/.KIMG_r030_unis_H{ef}_%Y%m%d%H%M.grb2'
                     , 'target': '/DATA/MODEL/%Y%m/%d/KIMG_r030_unis_H{ef}_%Y%m%d%H%M.grb2'
                 },
