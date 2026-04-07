@@ -886,7 +886,7 @@ def subObsProc(sysOpt, cfgDb):
                             mod_date = now();
                         """)
                     result = session.execute(query)
-                    log.info(f"dtDateInfo : {dtDateInfo} / result : {result.rowcount}")
+                    log.info(f"result : {result.rowcount}")
                 except Exception as e:
                     log.error(f"Exception : {e}")
                     raise e
