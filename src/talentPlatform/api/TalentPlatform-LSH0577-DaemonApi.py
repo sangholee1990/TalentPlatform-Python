@@ -348,6 +348,137 @@ class cfgRcmd(BaseModel):
 async def redirect_to_docs():
     return RedirectResponse(url="/docs")
 
+@app.post(f"/api/sel-statRentSearchByYearMonth", dependencies=[Depends(chkApiKey)])
+# @app.post(f"/api/sel-statRentSearchByYear")
+def statRealSearch(
+        sgg: str = Query(None, description="시군구")
+        , apt: str = Query(None, description="도로명주소")
+        , aptDtl: str = Query(None, description="도로명주소 상세")
+        , key: str = Query(None, description="지번주소")
+        , keyDtl: str = Query(None, description="지번주소 상세")
+        , area: str = Query(None, description="평수")
+        , minMonthlyRent: str = Query(None, description="최소 월세")
+        , maxMonthlyRent: str = Query(None, description="최대 월세")
+        , srtYear: int = Query(None, description="시작 연도")
+        , endYear: int = Query(None, description="종료 연도")
+        , srtDate: str = Query(None, description="시작일 %Y-%m-%d")
+        , endDate: str = Query(None, description="종료일 %Y-%m-%d")
+        , limit: int = Query(10, description="1쪽당 개수")
+        , page: int = Query(1, description="현재 쪽")
+        , sort: str = Query(None, description="정렬")
+    ):
+    """
+    기능\n
+        TB_REAL 통계 거래량 그래프 AP\n
+        맞집 좌측 검색조건 거래년도 참조
+    테스트\n
+        시군구 (시군구, 시군구, ...): 서울특별시 강남구,서울특별시 금천구\n
+        도로명주소: 두산(가산로)\n
+        도로명주소 상세: 서울특별시 금천구 가산로 99.0 두산\n
+        지번주소: 두산(769)\n
+        지번주소 상세: 서울특별시 금천구 가산동 769 두산\n
+        평수 (평수, 평수, ...): 5평,6평\n
+        시작 연도: \n
+        종료 연도: \n
+        1쪽당 개수: 10\n
+        현재 쪽: 1\n
+        정렬 (컬럼|차순, 컬럼|차순, ...): cnt|desc,max_amount|desc\n
+    """
+
+    try:
+        # 기본 SQL
+        baseSql = f"""
+                  SELECT SUBSTR(CAST(date AS STRING), 1, 7)                  AS yearMonth,
+                         COUNT(*)                                            AS cnt,
+                         AVG(CASE WHEN deposit > 0 THEN deposit ELSE NULL END) AS real_deposit,
+                         area
+                  FROM `{sysOpt['dbHostName']}.TB_RENT` \
+                  """
+
+        # 동적 SQL 파라미터
+        condList = []
+        if sgg:
+            sggList = [s.strip() for s in sgg.split(',')]
+            sggCond = [f"sgg LIKE '%{s}%'" for s in sggList]
+            condList.append(f"({' OR '.join(sggCond)})")
+
+        if apt:
+            aptList = [s.strip() for s in apt.split(',')]
+            aptCond = [f"apt LIKE '%{s}%'" for s in aptList]
+            condList.append(f"({' OR '.join(aptCond)})")
+
+        if aptDtl:
+            aptDtlList = [s.strip() for s in aptDtl.split(',')]
+            aptDtlCond = [f"aptDtl LIKE '%{s}%'" for s in aptDtlList]
+            condList.append(f"({' OR '.join(aptDtlCond)})")
+
+        if key:
+            keyList = [s.strip() for s in key.split(',')]
+            keyCond = [f"key LIKE '%{s}%'" for s in keyList]
+            condList.append(f"({' OR '.join(keyCond)})")
+
+        if keyDtl:
+            keyDtlList = [s.strip() for s in keyDtl.split(',')]
+            keyDtlCond = [f"keyDtl LIKE '%{s}%'" for s in keyDtlList]
+            condList.append(f"({' OR '.join(keyDtlCond)})")
+
+        if minMonthlyRent or maxMonthlyRent:
+            condList.append(f"CAST(monthlyRent AS FLOAT64) BETWEEN {minMonthlyRent} AND {maxMonthlyRent}")
+
+        if srtYear and endYear:
+            condList.append(f"year BETWEEN {srtYear} AND {endYear}")
+
+        if srtDate and endDate:
+            condList.append(f"date BETWEEN DATE('{srtDate}') AND DATE('{endDate}')")
+
+        if condList:
+            condSql = " WHERE " + " AND ".join(condList)
+            baseSql += condSql
+
+        # 그룹핑
+        grpList = []
+        grpSql = " GROUP BY yearMonth, area"
+        baseSql += grpSql
+
+        # 정렬 'year|desc,price|desc'
+        sortList = []
+        if sort:
+            for sortInfo in sort.split(','):
+                sortPart = sortInfo.split('|')
+                if sortPart is None or len(sortPart) != 2: continue
+                sortCol = sortPart[0]
+                sortOrd = sortPart[1].upper() if sortPart[1].upper() in ["ASC", "DESC"] else "ASC"
+                sortList.append(f"{sortCol} {sortOrd}")
+        if sortList:
+            sortSql = " ORDER BY " + ", ".join(sortList)
+            baseSql += sortSql
+        cntSql = baseSql
+
+        # 페이징
+        pageSql = f" LIMIT {limit} OFFSET {(page - 1) * limit}"
+        baseSql += pageSql
+
+        # log.info(f"[CHECK] baseSql : {baseSql}")
+        # log.info(f"[CHECK] cntSql : {cntSql}")
+
+        # 쿼리 실행
+        baseQuery = client.query(baseSql)
+        baseRes = baseQuery.result()
+        fileList = [dict(row) for row in baseRes]
+        if fileList is None or len(fileList) < 1:
+            return resResponse("fail", 400, f"검색 결과가 없습니다.", None)
+
+        cntQuery = client.query(cntSql)
+        cntRes = cntQuery.result()
+        cntList = [dict(row) for row in cntRes]
+        cnt = len(cntList)
+
+        return resResponse("succ", 200, "처리 완료", cnt, len(fileList), fileList)
+
+    except Exception as e:
+        log.error(f'Exception : {e}')
+        raise HTTPException(status_code=400, detail=str(e))
+
 @app.post(f"/api/sel-chatModelCont", dependencies=[Depends(chkApiKey)])
 async def selChatModelCont(
     chatModel: str = Form(..., description='생성형 AI 종류', examples=['gemini-2.5-flash'], enum=['gemini-2.5-pro', 'gemini-2.5-flash', 'gemini-2.5-flash-lite']),
@@ -2841,6 +2972,8 @@ def selRent(
         , key: str = Query(None, description="지번주소")
         , keyDtl: str = Query(None, description="지번주소 상세")
         , area: str = Query(None, description="평수")
+        , minMonthlyRent: str = Query(None, description="최소 월세")
+        , maxMonthlyRent: str = Query(None, description="최대 월세")
         , srtYear: int = Query(None, description="시작 연도")
         , endYear: int = Query(None, description="종료 연도")
         , srtDate: str = Query(None, description="시작일 %Y-%m-%d")
@@ -2888,6 +3021,9 @@ def selRent(
             areaList = [s.strip() for s in area.split(',')]
             areaCond = [f"area LIKE '%{s}%'" for s in areaList]
             condList.append(f"({' OR '.join(areaCond)})")
+
+        if minMonthlyRent or maxMonthlyRent:
+            condList.append(f"CAST(monthlyRent AS FLOAT64) BETWEEN {minMonthlyRent} AND {maxMonthlyRent}")
 
         if srtYear and endYear:
             condList.append(f"year BETWEEN {srtYear} AND {endYear}")
