@@ -47,11 +47,11 @@ metaData["TalentPlatform-LSH0578-DaemonApi"]="cd /HDD/SYSTEMS/PROG/PYTHON/IDE/sr
 metaData["TalentPlatform-LSH0597-DaemonApi"]="cd /HDD/SYSTEMS/PROG/PYTHON/IDE/src/talentPlatform/api && /HDD/SYSTEMS/LIB/anaconda3/envs/py39/bin/python -m uvicorn TalentPlatform-LSH0597-DaemonApi:app --host=0.0.0.0 --port=9300"
 metaData["TalentPlatform-LSH0623-DaemonApi"]="cd /HDD/SYSTEMS/PROG/PYTHON/IDE/src/talentPlatform/api && /HDD/SYSTEMS/LIB/anaconda3/envs/py39/bin/python -m uvicorn TalentPlatform-LSH0623-DaemonApi:app --host=0.0.0.0 --port=9400"
 metaData["TalentPlatform-LSH0627-DaemonApi"]="cd /HDD/SYSTEMS/PROG/PYTHON/IDE/src/talentPlatform/api && /HDD/SYSTEMS/LIB/anaconda3/envs/py39/bin/python -m uvicorn TalentPlatform-LSH0627-DaemonApi:app --host=0.0.0.0 --port=9030"
+metaData["TalentPlatform-bdwide-DaemonApi-mosaic"]="cd /HDD/SYSTEMS/PROG/PYTHON/IDE/src/proj/bdwide/2026 && /HDD/SYSTEMS/LIB/anaconda3/envs/py39/bin/python -m uvicorn TalentPlatform-BDWIDE2026-DaemonApi-mosaic:app --host=0.0.0.0 --port=9910"
 metaData["TalentPlatform-bdwide-DaemonApi-tripod"]="cd /HDD/SYSTEMS/PROG/PYTHON/IDE/src/proj/bdwide/2025/TRIPOD && /HDD/SYSTEMS/LIB/anaconda3/envs/py39/bin/python -m uvicorn TalentPlatform-bdwide-DaemonApi-tripod:app --host=0.0.0.0 --port=9900"
 metaData["rcmdapt-ai-server"]="/HDD/SYSTEMS/LIB/anaconda3/envs/py38/bin/python /HDD/SYSTEMS/PROG/PYTHON/IDE/src/talentPlatform/rcmdapt/rcmdapt_ai_server.py"
 metaData["TalentPlatform-bdwide-FileWatch"]="/HDD/SYSTEMS/LIB/anaconda3/envs/py38/bin/python /SYSTEMS/PROG/PYTHON/IDE/src/proj/bdwide/2025/MNTRG/TalentPlatform-bdwide-FileWatch.py"
 metaData["TalentPlatform-bdwide-DbMntrgMsgAlert"]="/HDD/SYSTEMS/LIB/anaconda3/envs/py38/bin/python /SYSTEMS/PROG/PYTHON/IDE/src/proj/bdwide/2025/ECOWITT/TalentPlatform-bdwide-DbMntrgMsgAlert.py"
-metaData["TalentPlatform-bdwide-DaemonApi-mosaic"]="/HDD/SYSTEMS/LIB/anaconda3/envs/py39/bin/python /HDD/SYSTEMS/PROG/PYTHON/IDE/src/proj/bdwide/2025/MOSAIC/TalentPlatform-bdwide-DaemonApi-mosaic.py"
 metaData["TalentPlatform-VERSE2026-daemonPayment"]="/SYSTEMS/LIB/anaconda3/envs/py39/bin/python /SYSTEMS/PROG/PYTHON/IDE/src/talentPlatform/unitSys/TalentPlatform-VERSE2026-daemonPayment.py"
 
 LOG_PATH=${CTX_PATH}/LOG
