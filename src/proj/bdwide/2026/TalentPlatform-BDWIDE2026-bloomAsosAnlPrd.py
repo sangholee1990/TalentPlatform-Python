@@ -366,32 +366,222 @@ class DtaProcess(object):
                 # "time_budget": 600,
                 "metric": "rmse",
                 "task": "regression",
+                "seed": 42,
             }
 
             #  'avgTemp', 'avgMinTemp', 'avgMaxTemp', 'sumPrecip', 'avgRh', 'sumSolarRad', 'avgWindSpeed'
 
             # 3. 예측에 사용할 피처에 시간 피처 추가
             features = ['year', 'avgTemp', 'avgMinTemp', 'avgMaxTemp', 'sumPrecip', 'avgRh', 'avgWindSpeed']
+            X = sokcho_df[features].copy()
+            y = sokcho_df['demand'].copy()
 
-            X_train = sokcho_df[features].copy()
-            y_train = sokcho_df['demand'].copy()
+            sokcho_df = sokcho_df.sort_values(by='year')
+            unique_years = sokcho_df['year'].unique()
+            split_idx = int(len(unique_years) * 0.8)
+            split_year = unique_years[split_idx - 1]
 
-            automl.fit(X_train=X_train, y_train=y_train, **settings)
+            train_df = sokcho_df[sokcho_df['year'] <= split_year]
+            test_df = sokcho_df[sokcho_df['year'] > split_year]
+
+            # 4. 각각 X(특성)와 y(타겟)로 분리
+            X_train = train_df[features].copy()
+            y_train = train_df['demand'].copy()
+
+            X_test = test_df[features].copy()
+            y_test = test_df['demand'].copy()
+
+            # automl.fit(X_train=X_train, y_train=y_train, **settings)
+            automl.fit(
+                X_train=X_train,
+                y_train=y_train,
+                X_val=X_test,
+                y_val=y_test,
+                **settings
+            )
+
+            y_pred = automl.predict(X_test)
+
+            # # 9. 성능 평가 (MSE, RMSE, MAE, R2 Score)
+            # mse = mean_squared_error(y_test, y_pred)
+            # rmse = np.sqrt(mse)
+            # mae = mean_absolute_error(y_test, y_pred)
+            # r2 = r2_score(y_test, y_pred)
+            # rrmse = (rmse / y_test.mean()) * 100
+            #
+            # print("-" * 30)
+            # print("🎯 [최종 테스트 데이터 성능 평가]")
+            # print(f"MSE  : {mse:.4f}")
+            # print(f"RMSE : {rmse:.4f}")
+            # print(f"RRMSE : {rrmse:.2f}%")
+            # print(f"MAE  : {mae:.4f}")
+            # print(f"R2   : {r2:.4f}")
+            # print("-" * 30)
+
+            # (선택) 눈으로 예측값과 실제값 비교해보기
+            # comparison_df = test_df[['year', 'demand']].copy()
+            comparison_df = test_df.copy()
+            comparison_df['predicted_demand'] = y_pred
+            print(comparison_df.head())
+
+            import matplotlib.pyplot as plt
+            import seaborn as sns
+
+            # 한글 폰트 깨짐 방지 (윈도우/맥에 맞게 주석 해제)
+            # plt.rc('font', family='Malgun Gothic') # 윈도우
+            # plt.rc('font', family='AppleGothic') # 맥
+            plt.rcParams['axes.unicode_minus'] = False  # 마이너스 기호 깨짐 방지
+
+            # 1. 시각화를 위한 데이터프레임 정리
+            # test_df에 우리가 예측한 y_pred 값을 새로운 열로 추가합니다.
+            result_df = test_df.copy()
+            result_df['predicted_demand'] = y_pred
+
+            import numpy as np
+            from sklearn.metrics import mean_squared_error
+
+            # 1. '춘천' 데이터만 쏙 골라내기 (조건부 필터링)
+            chuncheon_df = result_df[result_df['stnName'] == '춘천']
+
+            # 데이터가 잘 들어있는지 확인
+            if len(chuncheon_df) > 1:
+                # 2. 춘천의 실제값과 예측값 추출
+                y_true = chuncheon_df['demand']
+                y_pred = chuncheon_df['predicted_demand']
+
+                # 3. 평가 지표 계산
+                # RMSE
+                rmse = np.sqrt(mean_squared_error(y_true, y_pred))
+
+                # RRMSE (%)
+                mean_demand = y_true.mean()
+                if mean_demand != 0:
+                    rrmse = (rmse / mean_demand) * 100
+                else:
+                    rrmse = np.nan
+
+                # 상관계수 제곱 (r^2)
+                r = np.corrcoef(y_true, y_pred)[0, 1]
+                r2_pearson = r ** 2
+
+                # 4. 결과 출력
+                print("🎯 [춘천 지역 단독 평가 결과]")
+                print("-" * 30)
+                print(f"데이터 갯수 : {len(chuncheon_df)}개")
+                print(f"RMSE        : {rmse:.4f}")
+                print(f"RRMSE(%)    : {rrmse:.2f}%")
+                print(f"r^2 (상관성): {r2_pearson:.4f}")
+                print("-" * 30)
+
+            else:
+                print("⚠️ '춘천' 지역의 데이터가 없거나 너무 적어 계산할 수 없습니다.")
+
+
+
+            metrics_list = []
+            # stnName(지역명) 별로 그룹화하여 반복
+            for stn, group in result_df.groupby('stnName'):
+                y_true = group['demand']  # 실제 수요량 (기존 타겟 컬럼명에 맞게 수정해주세요)
+                y_pred = group['predicted_demand']  # 예측 수요량
+
+                # 데이터가 2개 이상이어야 R2 계산이 정상적으로 가능함
+                if len(group) > 1:
+                    # 1. RMSE 계산
+                    rmse = np.sqrt(mean_squared_error(y_true, y_pred))
+
+                    # 2. RRMSE 계산 (%)
+                    # 실제값의 평균이 0인 경우를 방지하기 위한 예외 처리
+                    mean_demand = y_true.mean()
+                    if mean_demand != 0:
+                        rrmse = (rmse / mean_demand) * 100
+                    else:
+                        rrmse = np.nan
+
+                    # 3. R2 Score 계산
+                    # r2 = r2_score(y_true, y_pred)
+                    r = np.corrcoef(y_true, y_pred)[0, 1]
+                    r2 = r ** 2
+                else:
+                    rrmse = np.nan
+                    r2 = np.nan
+
+                # 결과 저장
+                metrics_list.append({
+                    'stnName': stn,
+                    '데이터수': len(group),
+                    'RRMSE(%)': round(rrmse, 2),
+                    'R2': round(r2, 4)
+                })
+
+            # 결과를 데이터프레임으로 변환
+            metrics_df = pd.DataFrame(metrics_list)
+
+            # RRMSE(오차율)가 가장 낮은(성능이 좋은) 지역부터 오름차순 정렬
+            metrics_df = metrics_df.sort_values(by='RRMSE(%)').reset_index(drop=True)
+
+            # 결과 출력
+            print("🏆 [지역별 예측 성능 평가 결과]")
+            print(metrics_df)
+
+
+
+
+
+            # 그래프 사이즈 설정
+            plt.figure(figsize=(16, 6))
+
+            # -------------------------------------------------------------
+            # [그래프 1] 연도별 실제 수요 vs 예측 수요 흐름 (Line Plot)
+            # -------------------------------------------------------------
+            plt.subplot(1, 2, 1)
+            sns.lineplot(data=result_df, x='year', y='demand', label='Actual (실제값)', marker='o')
+            sns.lineplot(data=result_df, x='year', y='predicted_demand', label='Predicted (예측값)', marker='s',
+                         linestyle='--')
+
+            plt.title('연도별 실제 수요량 vs 예측 수요량 흐름')
+            plt.xlabel('연도 (Year)')
+            plt.ylabel('수요량 (Demand)')
+            plt.legend()
+            plt.grid(True, alpha=0.3)
+
+            # -------------------------------------------------------------
+            # [그래프 2] 1:1 산점도 (Scatter Plot)
+            # -------------------------------------------------------------
+            plt.subplot(1, 2, 2)
+            sns.scatterplot(x='demand', y='predicted_demand', data=result_df, alpha=0.7)
+
+            # 1:1 기준선(y=x) 그리기 - 이 선에 점들이 모여있을수록 예측이 완벽하다는 뜻입니다.
+            min_val = min(result_df['demand'].min(), result_df['predicted_demand'].min())
+            max_val = max(result_df['demand'].max(), result_df['predicted_demand'].max())
+            plt.plot([min_val, max_val], [min_val, max_val], color='red', linestyle='--', label='1:1 Line (완벽한 예측)')
+
+            plt.title('실제값 vs 예측값 1:1 산점도')
+            plt.xlabel('실제 수요량 (Actual Demand)')
+            plt.ylabel('예측 수요량 (Predicted Demand)')
+            plt.legend()
+            plt.grid(True, alpha=0.3)
+
+            # 그래프 간격 조절 후 출력
+            plt.tight_layout()
+            plt.show()
+
+
+
 
             # 5. 예측 수행 (가급적 X_test를 별도로 만들어 사용하는 것을 권장합니다)
-            # print("====== 예측 결과 (Prediction) ======")
-            predictions = automl.predict(X_train)
-            # print(predictions)
-
-            sokcho_df['prd'] = np.round(predictions).astype(int)
-
-            # 1. 평가 지표 계산 (정답인 y_train과 모델이 찍은 predictions를 비교)
-            rmse = np.sqrt(mean_squared_error(y_train,  sokcho_df['prd']))
-            rrmse = (rmse / y_train.mean()) * 100
-            nrmse = (rmse / (y_train.max() - y_train.min())) * 100
-            mae = mean_absolute_error(y_train,  sokcho_df['prd'])
-            r2 = r2_score(y_train,  sokcho_df['prd'])
-            r = np.sqrt(r2)
+            # # print("====== 예측 결과 (Prediction) ======")
+            # predictions = automl.predict(X_train)
+            # # print(predictions)
+            #
+            # sokcho_df['prd'] = np.round(predictions).astype(int)
+            #
+            # # 1. 평가 지표 계산 (정답인 y_train과 모델이 찍은 predictions를 비교)
+            # rmse = np.sqrt(mean_squared_error(y_train,  sokcho_df['prd']))
+            # rrmse = (rmse / y_train.mean()) * 100
+            # nrmse = (rmse / (y_train.max() - y_train.min())) * 100
+            # mae = mean_absolute_error(y_train,  sokcho_df['prd'])
+            # r2 = r2_score(y_train,  sokcho_df['prd'])
+            # r = np.sqrt(r2)
 
             # print("====== 모델 검증 결과 (Metrics) ======")
             # print(f"RMSE (평균 오차): {rmse:.2f}")
