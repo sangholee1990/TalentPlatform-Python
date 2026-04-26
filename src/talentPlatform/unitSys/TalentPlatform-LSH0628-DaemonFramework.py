@@ -510,12 +510,9 @@ class DtaProcess(object):
                 'loginPw': "g2014210116",
 
                 # 입력 파일
-                # 'inpFile': '/DATA/INPUT/LSH0605/city_matched.xlsx',
-                # 'natFile': '/DATA/INPUT/LSH0605/20260331_National.xlsx',
-                # 'proFile': '/DATA/INPUT/LSH0605/20260331_Province.xlsx',
-                'inpFile': 'c:/DATA/INPUT/LSH0605/city_matched.xlsx',
-                'natFile': 'c:/DATA/INPUT/LSH0605/20260331_National.xlsx',
-                'proFile': 'c:/DATA/INPUT/LSH0605/20260331_Province.xlsx',
+                'inpFile': 'c:/DATA/INPUT/LSH0628/city_matched.xlsx',
+                'natFile': 'c:/DATA/INPUT/LSH0628/20260331_National.xlsx',
+                'proFile': 'c:/DATA/INPUT/LSH0628/20260331_Province.xlsx',
 
                 # 검색 목록
                 'sectorList': ['交通', '住宅', '建筑', '电力', '工业'],
@@ -620,12 +617,12 @@ class DtaProcess(object):
             # 1. 실제 윈도우 크롬을 '디버깅 모드'로 실행
             # ---------------------------------------------------------
             # 기존에 켜져 있는 크롬이 있으면 포트 충돌이 나므로 강제 종료합니다.
-            os.system("taskkill /im chrome.exe /f >nul 2>&1")
-            time.sleep(1)
-
-            chrome_path = r"C:\Program Files\Google\Chrome\Application\chrome.exe"
-            local_app_data = os.environ.get('LOCALAPPDATA')
-            user_data_path = rf"{local_app_data}\Google\Chrome\User Data"
+            # os.system("taskkill /im chrome.exe /f >nul 2>&1")
+            # time.sleep(1)
+            #
+            # chrome_path = r"C:\Program Files\Google\Chrome\Application\chrome.exe"
+            # local_app_data = os.environ.get('LOCALAPPDATA')
+            # user_data_dir = rf"{local_app_data}\Google\Chrome\User Data"
 
             # # 포트 9222를 열고 크롬 실행
             # command = (
@@ -663,12 +660,18 @@ class DtaProcess(object):
             with sync_playwright() as p:
                 log.info("Playwright 로컬 크롬 브라우저에 연결 시작...")
 
+                chrome_path = r"C:\Program Files\Google\Chrome\Application\chrome.exe"
+                local_app_data = os.environ.get('LOCALAPPDATA')
+                # user_data_dir = rf"{local_app_data}\Google\Chrome\User Data"
+                user_data_dir = rf"{local_app_data}\Google\Chrome2\User Data"
+
                 context = p.chromium.launch_persistent_context(
-                    user_data_dir=user_data_path,  # 로그인 세션 저장 경로
-                    executable_path=chrome_path,  # 실제 윈도우 크롬 지정
-                    headless=False,  # 💡 화면 보이게 하기 (True면 백그라운드)
-                    slow_mo=500,  # 💡 0.5초씩 천천히 동작 (디버깅용, 실전에서는 0이나 삭제)
-                    args=["--disable-blink-features=AutomationControlled"],  # 봇 탐지 우회 옵션
+                    user_data_dir=user_data_dir,
+                    executable_path=chrome_path,
+                    channel="chrome",
+                    headless=False,
+                    slow_mo=0,
+                    # args=["--disable-blink-features=AutomationControlled"],
                     viewport={'width': 1920, 'height': 1080}
                 )
 
@@ -678,240 +681,412 @@ class DtaProcess(object):
                 else:
                     page = context.new_page()
 
-                page.set_default_timeout(30000)
+                # page.set_default_timeout(30000)
+
+                target_url = "https://utszdb.resourcemap.com.cn/databaseDetailAdaption?id=1795270144113512450&lang=zh"
+                page.goto(target_url, wait_until="networkidle")
 
 
-                # launch()가 아닌 connect_over_cdp()를 사용하여 9222 포트로 연결합니다.
-                # browser = p.chromium.connect_over_cdp("http://localhost:9222")
-                # browser = p.chromium.connect_over_cdp("http://127.0.0.1:9222")
-                # browser = p.chromium.connect_over_cdp("http://127.0.0.1:9222", timeout=30000)
-                browser = p.chromium.launch(headless=False, slow_mo=500, executable_path=chrome_path)
+                # 빅데이터 페이지 이동
+                try:
+                    page.locator(f"xpath=/html/body/div/div[1]/div/div[3]/div/div/div[1]/div[2]/div[1]/div[4]/div[2]/div/div[2]/div[2]/span").click()
+                    page.wait_for_timeout(10 * 1000)
 
-                # 기존 탭들이 속한 기본 컨텍스트(환경)를 가져옵니다.
-                # (새로 설정한 user_agent나 viewport는 디버깅 모드 연결 시 보통 생략합니다.)
-                context = browser.contexts[0]
+                    # with context.expect_page() as new_page_info:
+                    #     page.get_by_text("새 탭으로 열리는 버튼").click()
 
-                # 💡 팁: 기존에 열려있는 탭이 여러 개라면 새로 탭을 열지 않고 첫 번째 탭을 재활용할 수도 있습니다.
-                if len(context.pages) > 0:
-                    page = context.pages[0]  # 첫 번째 탭 사용
-                else:
-                    page = context.new_page()  # 탭이 아예 없으면 새 탭 열기
+                    # new_page = new_page_info.value
 
-                page.set_default_timeout(sysOpt['loadTimeout'] * 1000)  # (sysOpt['loadTimeout'] * 1000) 대신 명시적으로 30초 설정해 테스트
+                    context.pages[0].bring_to_front()
 
+                    # 2번째 탭에서 이동
+                    page.goto(' https://meta.utszlib.edu.cn:8088/s/com/pkulaw/www/G.https/advanced/law/chl', wait_until="networkidle")
+
+                    # 검색어
+                    searchKeywordTag = page.locator(f'xpath=//*[@id="pane-chl"]/div/div/div[1]/div/div[1]/div/div[1]/div[2]/div/div[2]/form/div/div[1]/span[2]/div/div[1]/div/div/span/span/div/input')
+                    searchKeywordTag.wait_for(state="visible", timeout=1000 * 10)
+                    searchKeywordTag.fill("安徽省 交通 碳排放")
+
+                    searchSrtDateTag = page.locator(f'xpath=//*[@id="pane-chl"]/div/div/div[1]/div/div[1]/div/div[1]/div[4]/div/div[2]/div[2]/div[1]/div/div[1]/div/input')
+                    searchSrtDateTag.wait_for(state="visible", timeout=1000 * 10)
+                    searchSrtDateTag.fill("2000.01.01")
+
+                    btnTag = page.locator(f'xpath=//*[@id="pane-chl"]/div/div/div[1]/div/div[1]/div/div[2]/div/button[1]')
+                    btnTag.wait_for(state="visible", timeout=1000 * 10)
+                    btnTag.click()
+
+                    # 그룹 메뉴
+                    grpList = page.locator('xpath=//*[@id="app"]/div[1]/div[2]/div/div[2]/div/div[3]/div[1]/div/div[2]/div/div/div/div/div[1]/div[2]/div[*]/div/span[2]/span').all()
+
+                    # grpTag = grpList[0]
+                    grpTag = grpList[3]
+                    grpName = grpTag.inner_text().strip()
+
+                    match = re.search(r'\((\d+)\)', grpName)
+                    if match: grpCnt = int(match.group(1))
+
+                    grpTag.click()
+
+                    # 검색 페이지
+                    searchOpt = page.locator('span.el-dropdown-link').filter(has_text="20").first
+                    searchOpt.click()
+
+                    # page.wait_for_timeout(500)
+                    pageCnt = 10
+                    searchOpt = page.locator('li.el-dropdown-menu__item').filter(has_text=str(pageCnt)).first
+                    searchOpt.click()
+                    # page.wait_for_timeout(2000)
+
+                    pageMax = math.ceil(grpCnt / pageCnt)
+
+                    pageInfo = 2
+                    for pageInfo in range(1, pageMax + 1):
+                        pageTag = page.locator(f'xpath= //*[@id="app"]/div[1]/div[2]/div/div[2]/div/div[3]/div[2]/div[1]/div[2]/div[3]/div[1]/ul/li[{pageInfo}]')
+                        pageTag.wait_for(state="visible", timeout=1000 * 10)
+                        pageTag.click()
+
+                        item = itemList[0]
+                        itemList = page.locator('div.fb-common-article').all()
+                        for item in itemList:
+                            itemTag = item.locator('a.name')
+                            title = itemTag.inner_text().strip()
+                            link = itemTag.get_attribute('href')
+                    #
+                    # //*[@id="app"]/div[1]/div[2]/div/div[2]/div/div[3]/div[2]/div[1]/div[2]/div[2]/div[1]/div[3]/table/tbody/tr[1]/td[2]/div/div/div[1]/div[1]/p/span[1]
+                    # //*[@id="app"]/div[1]/div[2]/div/div[2]/div/div[3]/div[2]/div[1]/div[2]/div[2]/div[1]/div[3]/table/tbody/tr[1]/td[2]/div/div/div[1]/div[1]/p/span[3]
+                    # //*[@id="app"]/div[1]/div[2]/div/div[2]/div/div[3]/div[2]/div[1]/div[2]/div[2]/div[1]/div[3]/table/tbody/tr[1]/td[2]/div/div/div[1]/div[1]/p/span[5]
+                    # //*[@id="app"]/div[1]/div[2]/div/div[2]/div/div[3]/div[2]/div[1]/div[2]/div[2]/div[1]/div[3]/table/tbody/tr[1]/td[2]/div/div/div[1]/div[1]/p/span[7]
+                    
+                    # //*[@id="app"]/div[1]/div[2]/div/div[2]/div/div[3]/div[2]/div[1]/div[2]/div[2]/div[1]/div[3]/table/tbody/tr[2]/td[2]/div/div/div[1]/div[1]/p/span[1]
+                    # //*[@id="app"]/div[1]/div[2]/div/div[2]/div/div[3]/div[2]/div[1]/div[2]/div[2]/div[1]/div[3]/table/tbody/tr[2]/td[2]/div/div/div[1]/div[1]/p/span[3]
+
+
+
+                    all_results = []
+                    page_num = 1
+
+                    while True:
+                        print(f"📄 --- {page_num}페이지 수집 중 ---")
+
+                        # 1. 현재 페이지의 데이터 목록 요소들 잡기
+                        articles = page.locator('div.fb-common-article').all()
+
+                        # 2. 목록을 돌면서 필요한 데이터 추출
+                        for article in articles:
+                            # 제목 및 링크 요소
+                            title_el = article.locator('a.name')
+                            title = title_el.inner_text().strip()
+                            link = title_el.get_attribute('href')
+
+                            # 부가 정보 (시행일, 발표일 등)
+                            meta_info = article.locator('p.subTitle').inner_text().strip()
+
+                            # 딕셔너리로 저장
+                            all_results.append({
+                                'title': title,
+                                'link': f"https://www.pkulaw.com{link}" if link.startswith('/') else link,
+                                'meta': meta_info
+                            })
+
+                        # 3. '다음 페이지(下一页)' 버튼 잡기
+                        next_btn = page.locator('button.btn-next')
+
+                        # 4. 종료 조건: 다음 페이지 버튼이 비활성화(disabled) 되어 있다면 마지막 페이지임
+                        if next_btn.is_disabled():
+                            print("✅ 마지막 페이지에 도달하여 수집을 종료합니다.")
+                            break
+
+                        # 5. 다음 페이지로 이동
+                        next_btn.click()
+                        print("⏳ 다음 페이지 데이터 로딩 대기 중...")
+
+                        # 6. 동적 로딩 대기 (매우 중요)
+                        # 방법 A: 단순 시간 대기 (가장 무난함)
+                        page.wait_for_timeout(2500)
+
+                        # 방법 B (권장): 화면을 가리는 로딩 스피너(.el-loading-mask)가 사라질 때까지 대기
+                        try:
+                            page.locator('.el-loading-mask').wait_for(state="hidden", timeout=10000)
+                        except:
+                            pass  # 로딩창이 너무 빨리 지나가서 못 찾은 경우 패스
+
+                        page_num += 1
+
+                    # 결과 확인
+                    print(f"🎉 총 {len(all_results)}건의 데이터를 수집했습니다!")
+                    for res in all_results[:3]:  # 처음 3개만 테스트 출력
+                        print(res)
+
+
+                    #
+                    # # //*[@id="app"]/div[1]/div[2]/div/div[2]/div/div[3]/div[1]/div/div[2]/div/div/div/div/div[1]/div[2]/div[1]/div/span[2]
+                    # # //*[@id="app"]/div[1]/div[2]/div/div[2]/div/div[3]/div[1]/div/div[2]/div/div/div/div/div[1]/div[2]/div[1]/div/span[2]/span
+                    #
+                    #
+                    # # //*[@id="app"]/div[1]/div[2]/div/div[2]/div/div[3]/div[1]/div/div[2]/div/div/div/div/div[1]/div[2]/div[1]/div/span[2]
+                    # # //*[@id="app"]/div[1]/div[2]/div/div[2]/div/div[3]/div[1]/div/div[2]/div/div/div/div/div[1]/div[2]/div[2]/div/span[2]/span
+                    # # //*[@id="app"]/div[1]/div[2]/div/div[2]/div/div[3]/div[1]/div/div[2]/div/div/div/div/div[1]/div[2]/div[3]/div/span[2]/span
+                    # # tree_nodes[1]
+                    #
+                    # # 추출한 데이터를 담을 리스트
+                    # extracted_links = []
+                    #
+                    # print("🔍 카테고리 항목 추출 시작...")
+                    #
+                    # for node in tree_nodes:
+                    #     # 2. 고유 키값(data-key) 추출 (이것이 실질적인 링크 역할을 합니다)
+                    #     data_key = node.get_attribute("data-key")
+                    #
+                    #     # 3. 텍스트 추출 (예: "法律(9)")
+                    #     raw_text = node.inner_text().strip()
+                    #
+                    #     # 4. 정규식을 이용해 텍스트와 숫자를 분리 (선택 사항)
+                    #     match = re.match(r"(.+)\((\d+)\)", raw_text)
+                    #     if match:
+                    #         name = match.group(1).strip()
+                    #         count = match.group(2)
+                    #     else:
+                    #         name = raw_text
+                    #         count = "0"
+                    #
+                    #     # 추출한 데이터를 딕셔너리에 저장
+                    #     extracted_links.append({
+                    #         "data_key": data_key,
+                    #         "name": name,
+                    #         "count": count
+                    #     })
+                    # for item in extracted_links:
+                    #     print(f"[Key: {item['data_key']}] {item['name']} ({item['count']}건)")
+
+
+                    # //*[@id="pane-chl"]/div/div/div[1]/div/div[1]/div/div[2]/div/button[1]
+                except Exception as e:
+                    log.info(f"클릭 실패. 요소를 찾을 수 없거나 클릭할 수 없는 상태입니다: {e}")
+
+                log.info('print')
+
+                # https://meta.utszlib.edu.cn:8088/s/com/pkulaw/www/G.https/advanced/law/chl
                 # ---------------------------------------------------------
                 # 로그인 수행 (이후 로직은 기존과 동일)
                 # ---------------------------------------------------------
-                log.info("[LOGIN] 로그인 페이지 접속 시도...")
-                page.goto(sysOpt['loginUrl'], timeout=sysOpt['pageTimeout'] * 1000)
+                # log.info("[LOGIN] 로그인 페이지 접속 시도...")
+                # page.goto(sysOpt['loginUrl'], timeout=sysOpt['pageTimeout'] * 1000)
+                #
+                # # 통합 ID 인증 로그인 버튼 클릭
+                # page.locator('//*[@id="top-img"]/div[2]/div[2]/a').click()
+                #
+                # sysOpt['loginId'] = '112026860007'
+                # sysOpt['loginPw'] = 'Ccdb168163'
+                #
+                # # 이메일/아이디 입력
+                # page.locator("#input_user").wait_for(state="visible", timeout=10000)
+                # page.locator("#input_user").fill(sysOpt['loginId'])
+                # # input_password
+                #
+                # # 비밀번호 입력란 활성화 (disabled 제거) 및 입력
+                # page.locator("#input_password").wait_for(state="visible", timeout=10000)
+                # page.locator("#input_password").fill(sysOpt['loginPw'])
+                #
+                # # 검증코드
+                # page.locator("#input_yzm").wait_for(state="visible", timeout=10000)
+                #
+                # # 로그인 버튼 클릭
+                # # button
+                # page.locator("#button").click(timeout=10000)
 
-                # 통합 ID 인증 로그인 버튼 클릭
-                page.locator('//*[@id="top-img"]/div[2]/div[2]/a').click()
-
-                # 이메일/아이디 입력
-                page.locator("#i_user").wait_for(state="visible", timeout=10000)
-                page.locator("#i_user").fill(sysOpt['loginId'])
-
-                # 비밀번호 입력란 활성화 (disabled 제거) 및 입력
-                page.evaluate("document.getElementById('i_pass').removeAttribute('disabled')")
-                page.locator("#i_pass").fill(sysOpt['loginPw'])
-
-                # 로그인 버튼 클릭
-                page.locator('//*[@id="theform"]/div[5]/a').click()
-                page.wait_for_timeout(sysOpt['defTimeout'] * 1000)
 
                 # ... 이하 수집 로직 진행 ...
             # ==========================================================================================================
             # 전역 설정
             # ==========================================================================================================
             # 크롬드라이브 초기화
-            driver = initDriver(sysOpt)
-            wait = WebDriverWait(driver, sysOpt['loadTimeout'])
+            # driver = initDriver(sysOpt)
+            # wait = WebDriverWait(driver, sysOpt['loadTimeout'])
 
             # ==========================================================================================================
             # 로그인 기능
             # ==========================================================================================================
-            initLogin(driver, sysOpt)
+            # initLogin(driver, sysOpt)
 
             # ==========================================================================================================
             # 기본정보 수집
             # ==========================================================================================================
-            for i, item in cfgDataL2.iterrows():
-                # if i > 1: break
-
-                city = item['City_Column_1']
-                cityMat = item['Matching_City_Column_2']
-                level = item['level']
-                per = round(i / len(cfgDataL2) * 100, 1)
-                log.info(f'[CHECK] cityMat : {cityMat} / {per}%')
-                # print(f'[CHECK] cityMat : {cityMat} / {per}%')
-
-                # sector = sysOpt['sectorList'][0]
-                # key = sysOpt['keyList'][0]
-
-                saveFilePattern = sysOpt['saveFileList'].format(cityMat=cityMat)
-                # saveFileList = sorted(glob.glob(str(Path(saveFilePattern))), reverse=True)
-                saveFileList = list(Path(os.path.dirname(saveFilePattern)).glob(os.path.basename(saveFilePattern)))
-
-                # 파일 존재
-                if len(saveFileList) > 0: continue
-
-                data = pd.DataFrame()
-                for j, sector in enumerate(sysOpt['sectorList']):
-                    for k, key in enumerate(sysOpt['keyList']):
-
-                        try:
-                            # keyword = f'广东省 茂名市 交通 碳排放'
-                            keyword = f'{cityMat} {sector} {key}'
-                            # log.info(f'[CHECK] keyword : {keyword}')
-                            # print(f'[CHECK] keyword : {keyword}')
-
-                            # 검색 화면
-                            url = sysOpt['listUrl']
-                            driver.get(url)
-
-                            if sysOpt['verfUrl'] in driver.current_url:
-                                initLogin(driver, sysOpt)
-                                driver.get(url)
-
-                            time.sleep(sysOpt['defTimeout'])
-
-                            # 광고 삭제
-                            try:
-                                isId = driver.find_element("id", "layui-layer1")
-                                if isId:
-                                    btnId = wait.until(EC.element_to_be_clickable((By.CLASS_NAME, "layui-layer-close2")))
-                                    btnId.click()
-                            except Exception as e:
-                                pass
-
-                            # driver.save_screenshot("/tmp/screenshot.png")
-
-                            # 검색어 입력
-                            inputId = wait.until(EC.presence_of_element_located((By.ID, "txtSearch")))
-                            inputId.send_keys(keyword)
-
-                            # 검색어 버튼
-                            btnId = wait.until(EC.element_to_be_clickable((By.ID, "btnSearch")))
-                            btnId.click()
-                            time.sleep(sysOpt['defTimeout'])
-
-                            # eleList = wait.until(EC.presence_of_all_elements_located((By.CSS_SELECTOR, ".accompanying-wrap > .item")))
-                            eleList = wait.until(EC.presence_of_all_elements_located((By.CSS_SELECTOR, ".grouping-title, .accompanying-wrap > .item")))
-
-                            # ele = eleList[0]
-                            for index, ele in enumerate(eleList):
-                                clsName = ele.get_attribute('class')
-
-                                # 정책 분류
-                                if re.search('grouping-title', clsName, re.IGNORECASE):
-                                    try:
-                                        text = ele.text.strip()
-                                        polType = re.sub(r'（\d+）', '', text) if text else None
-                                    except Exception:
-                                        polType = None
-                                    continue
-                                # log.info(f'[CHECK] polType : {polType}')
-
-                                # 公布日期=공표날짜=Announcement_Year
-                                # 施行日期=실행날짜=Starting_Year
-                                try:
-                                    yearList = ele.find_elements(By.CSS_SELECTOR, ".info .text")
-                                    for year in yearList:
-                                        text = year.text.strip()
-                                        if re.search('公布', text, re.IGNORECASE):
-                                            annYear = re.sub(r'公布', '', text) if text else None
-                                        elif re.search('施行', text, re.IGNORECASE):
-                                            srtYear = re.sub(r'施行', '', text) if text else None
-                                        else:
-                                            continue
-                                except Exception:
-                                    annYear = None
-                                    srtYear = None
-                                # log.info(f'[CHECK] annYear : {annYear}')
-                                # log.info(f'[CHECK] srtYear : {srtYear}')
-
-                                # 时效性=실효성=Ending_year （만약 값이 现行有效이면 현재까지 유효한 거이므로 Active를 넣어주면 좋을 거 같습니다)
-                                try:
-                                    tagList = ele.find_elements(By.CSS_SELECTOR, ".info > a")
-                                    for idx, tag in enumerate(tagList):
-                                        if idx > 0: continue
-                                        text = tag.text.strip()
-                                        endYear = "Active" if re.search('现行有效', text, re.IGNORECASE) else text
-                                except Exception:
-                                    endYear = None
-                                # log.info(f'[CHECK] endYear : {endYear}')
-
-                                # Policy_title, Web_link
-                                try:
-                                    tagCss = ele.find_element(By.CSS_SELECTOR, "h4 a")
-                                    polTitle = tagCss.text.strip() if tagCss else None
-                                    webLink = tagCss.get_attribute("href") if tagCss else None
-                                except Exception:
-                                    polTitle = None
-                                    webLink = None
-                                # log.info(f'[CHECK] polTitle : {polTitle}')
-                                # log.info(f'[CHECK] webLink : {webLink}')
-
-                                dict = {
-                                    'City_Column_1': [city],
-                                    'Matching_City_Column_2': [cityMat],
-                                    'Sector': [sector],
-                                    'key': [key],
-                                    'level': [level],
-                                    'keyword': [keyword],
-                                    'Announcement_Year': [annYear],
-                                    'Starting_Year': [srtYear],
-                                    'Ending_year': [endYear],
-                                    'Policy_title': [polTitle],
-                                    'Policy_type': [polType],
-                                    'Web_link': [webLink],
-                                    'Full_Article': [None],
-                                }
-                                # log.info(f'[CHECK] dict : {dict}')
-
-                                data = pd.concat([data, pd.DataFrame.from_dict(dict)], ignore_index=True)
-
-                            log.info(f'[CHECK] keyword : {keyword} : {len(data)}')
-                            # print(f'[CHECK] keyword : {keyword} : {len(data)}')
-
-                        except Exception as e:
-                            log.error(f"Exception : {e}")
-
-                # ==========================================================================================================
-                # 상세정보 추출
-                # ==========================================================================================================
-                for idx, info in data.iterrows():
-                    webLink = info['Web_link']
-
-                    try:
-                        driver.get(webLink)
-
-                        if sysOpt['verfUrl'] in driver.current_url:
-                            initLogin(driver, sysOpt)
-                            driver.get(webLink)
-
-                        divId = wait.until(EC.presence_of_element_located((By.ID, "divFullText")))
-                        fullArt = textProp(divId.text) if divId else None
-                    except Exception:
-                        fullArt = None
-                    data.loc[idx, 'Full_Article'] = fullArt
-                    # log.info(f'[CHECK] fullArt : {len(fullArt)}')
-
-                # ==========================================================================================================
-                # 자료 저장
-                # ==========================================================================================================
-                if len(data) > 0:
-                    saveFile = datetime.now().strftime(sysOpt['saveFile']).format(cityMat=cityMat)
-                    os.makedirs(os.path.dirname(saveFile), exist_ok=True)
-                    data.to_excel(saveFile, index=False)
-                    log.info(f'[CHECK] saveFile : {saveFile}')
-
-                # if driver:
-                #     driver.quit()
-                #     driver.service.stop()
-
-                # sys.exit(0)
+            # for i, item in cfgDataL2.iterrows():
+            #     # if i > 1: break
+            #
+            #     city = item['City_Column_1']
+            #     cityMat = item['Matching_City_Column_2']
+            #     level = item['level']
+            #     per = round(i / len(cfgDataL2) * 100, 1)
+            #     log.info(f'[CHECK] cityMat : {cityMat} / {per}%')
+            #     # print(f'[CHECK] cityMat : {cityMat} / {per}%')
+            #
+            #     # sector = sysOpt['sectorList'][0]
+            #     # key = sysOpt['keyList'][0]
+            #
+            #     saveFilePattern = sysOpt['saveFileList'].format(cityMat=cityMat)
+            #     # saveFileList = sorted(glob.glob(str(Path(saveFilePattern))), reverse=True)
+            #     saveFileList = list(Path(os.path.dirname(saveFilePattern)).glob(os.path.basename(saveFilePattern)))
+            #
+            #     # 파일 존재
+            #     if len(saveFileList) > 0: continue
+            #
+            #     data = pd.DataFrame()
+            #     for j, sector in enumerate(sysOpt['sectorList']):
+            #         for k, key in enumerate(sysOpt['keyList']):
+            #
+            #             try:
+            #                 # keyword = f'广东省 茂名市 交通 碳排放'
+            #                 keyword = f'{cityMat} {sector} {key}'
+            #                 # log.info(f'[CHECK] keyword : {keyword}')
+            #                 # print(f'[CHECK] keyword : {keyword}')
+            #
+            #                 # 검색 화면
+            #                 url = sysOpt['listUrl']
+            #                 driver.get(url)
+            #
+            #                 if sysOpt['verfUrl'] in driver.current_url:
+            #                     initLogin(driver, sysOpt)
+            #                     driver.get(url)
+            #
+            #                 time.sleep(sysOpt['defTimeout'])
+            #
+            #                 # 광고 삭제
+            #                 try:
+            #                     isId = driver.find_element("id", "layui-layer1")
+            #                     if isId:
+            #                         btnId = wait.until(EC.element_to_be_clickable((By.CLASS_NAME, "layui-layer-close2")))
+            #                         btnId.click()
+            #                 except Exception as e:
+            #                     pass
+            #
+            #                 # driver.save_screenshot("/tmp/screenshot.png")
+            #
+            #                 # 검색어 입력
+            #                 inputId = wait.until(EC.presence_of_element_located((By.ID, "txtSearch")))
+            #                 inputId.send_keys(keyword)
+            #
+            #                 # 검색어 버튼
+            #                 btnId = wait.until(EC.element_to_be_clickable((By.ID, "btnSearch")))
+            #                 btnId.click()
+            #                 time.sleep(sysOpt['defTimeout'])
+            #
+            #                 # eleList = wait.until(EC.presence_of_all_elements_located((By.CSS_SELECTOR, ".accompanying-wrap > .item")))
+            #                 eleList = wait.until(EC.presence_of_all_elements_located((By.CSS_SELECTOR, ".grouping-title, .accompanying-wrap > .item")))
+            #
+            #                 # ele = eleList[0]
+            #                 for index, ele in enumerate(eleList):
+            #                     clsName = ele.get_attribute('class')
+            #
+            #                     # 정책 분류
+            #                     if re.search('grouping-title', clsName, re.IGNORECASE):
+            #                         try:
+            #                             text = ele.text.strip()
+            #                             polType = re.sub(r'（\d+）', '', text) if text else None
+            #                         except Exception:
+            #                             polType = None
+            #                         continue
+            #                     # log.info(f'[CHECK] polType : {polType}')
+            #
+            #                     # 公布日期=공표날짜=Announcement_Year
+            #                     # 施行日期=실행날짜=Starting_Year
+            #                     try:
+            #                         yearList = ele.find_elements(By.CSS_SELECTOR, ".info .text")
+            #                         for year in yearList:
+            #                             text = year.text.strip()
+            #                             if re.search('公布', text, re.IGNORECASE):
+            #                                 annYear = re.sub(r'公布', '', text) if text else None
+            #                             elif re.search('施行', text, re.IGNORECASE):
+            #                                 srtYear = re.sub(r'施行', '', text) if text else None
+            #                             else:
+            #                                 continue
+            #                     except Exception:
+            #                         annYear = None
+            #                         srtYear = None
+            #                     # log.info(f'[CHECK] annYear : {annYear}')
+            #                     # log.info(f'[CHECK] srtYear : {srtYear}')
+            #
+            #                     # 时效性=실효성=Ending_year （만약 값이 现行有效이면 현재까지 유효한 거이므로 Active를 넣어주면 좋을 거 같습니다)
+            #                     try:
+            #                         tagList = ele.find_elements(By.CSS_SELECTOR, ".info > a")
+            #                         for idx, tag in enumerate(tagList):
+            #                             if idx > 0: continue
+            #                             text = tag.text.strip()
+            #                             endYear = "Active" if re.search('现行有效', text, re.IGNORECASE) else text
+            #                     except Exception:
+            #                         endYear = None
+            #                     # log.info(f'[CHECK] endYear : {endYear}')
+            #
+            #                     # Policy_title, Web_link
+            #                     try:
+            #                         tagCss = ele.find_element(By.CSS_SELECTOR, "h4 a")
+            #                         polTitle = tagCss.text.strip() if tagCss else None
+            #                         webLink = tagCss.get_attribute("href") if tagCss else None
+            #                     except Exception:
+            #                         polTitle = None
+            #                         webLink = None
+            #                     # log.info(f'[CHECK] polTitle : {polTitle}')
+            #                     # log.info(f'[CHECK] webLink : {webLink}')
+            #
+            #                     dict = {
+            #                         'City_Column_1': [city],
+            #                         'Matching_City_Column_2': [cityMat],
+            #                         'Sector': [sector],
+            #                         'key': [key],
+            #                         'level': [level],
+            #                         'keyword': [keyword],
+            #                         'Announcement_Year': [annYear],
+            #                         'Starting_Year': [srtYear],
+            #                         'Ending_year': [endYear],
+            #                         'Policy_title': [polTitle],
+            #                         'Policy_type': [polType],
+            #                         'Web_link': [webLink],
+            #                         'Full_Article': [None],
+            #                     }
+            #                     # log.info(f'[CHECK] dict : {dict}')
+            #
+            #                     data = pd.concat([data, pd.DataFrame.from_dict(dict)], ignore_index=True)
+            #
+            #                 log.info(f'[CHECK] keyword : {keyword} : {len(data)}')
+            #                 # print(f'[CHECK] keyword : {keyword} : {len(data)}')
+            #
+            #             except Exception as e:
+            #                 log.error(f"Exception : {e}")
+            #
+            #     # ==========================================================================================================
+            #     # 상세정보 추출
+            #     # ==========================================================================================================
+            #     for idx, info in data.iterrows():
+            #         webLink = info['Web_link']
+            #
+            #         try:
+            #             driver.get(webLink)
+            #
+            #             if sysOpt['verfUrl'] in driver.current_url:
+            #                 initLogin(driver, sysOpt)
+            #                 driver.get(webLink)
+            #
+            #             divId = wait.until(EC.presence_of_element_located((By.ID, "divFullText")))
+            #             fullArt = textProp(divId.text) if divId else None
+            #         except Exception:
+            #             fullArt = None
+            #         data.loc[idx, 'Full_Article'] = fullArt
+            #         # log.info(f'[CHECK] fullArt : {len(fullArt)}')
+            #
+            #     # ==========================================================================================================
+            #     # 자료 저장
+            #     # ==========================================================================================================
+            #     if len(data) > 0:
+            #         saveFile = datetime.now().strftime(sysOpt['saveFile']).format(cityMat=cityMat)
+            #         os.makedirs(os.path.dirname(saveFile), exist_ok=True)
+            #         data.to_excel(saveFile, index=False)
+            #         log.info(f'[CHECK] saveFile : {saveFile}')
+            #
+            #     # if driver:
+            #     #     driver.quit()
+            #     #     driver.service.stop()
+            #
+            #     # sys.exit(0)
 
         except Exception as e:
             log.error(f"Exception : {str(e)}")
