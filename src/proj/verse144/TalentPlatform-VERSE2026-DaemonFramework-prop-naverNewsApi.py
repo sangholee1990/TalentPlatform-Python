@@ -251,6 +251,22 @@ class DtaProcess(object):
                     'saveCsvFile': '/DATA/OUTPUT/VERSE2026/naverNewsL1_%Y%m%d.csv',
                     'saveXlsxFile': '/DATA/OUTPUT/VERSE2026/naverNewsL1_%Y%m%d.xlsx',
                 },
+
+                'stopWordList': ["서울", "서울특별시", "경기도", "구로구", "종로구", "중구", "마포구",
+                    "은평구", "강남구", "동작구", "금천구",
+                    "중랑구", "노원구", "용인시", "강동구",
+                    "이천시", "하남시", "가평군", "양평군",
+                    "광주시", "서대문구", "영등포구", "용산구",
+                    "강서구", "동대문구", "광진구", "안양시",
+                    "의왕시", "성남시", "광명시", "포천시",
+                    "김포시", "화성시", "구리시", "연천군",
+                    "성북구", "성동구", "수원시", "과천시",
+                    "군포시", "동두천시", "오산시", "여주시",
+                    "관악구", "서초구", "강북구", "송파구",
+                    "평택시", "파주시", "도봉구", "고양시",
+                    "안산시", "남양주시", "시흥시", "의정부시",
+                    "양천구", "양주시", "안성시", "조례", "아파트", "지역아파트"
+                ],
             }
 
             # =================================================================
@@ -270,7 +286,7 @@ class DtaProcess(object):
                 data = pd.read_csv(fileInfo)
 
                 for i, row in data.iterrows():
-
+                    if i > 20: break
                     per = round(i / len(data) * 100, 1)
                     log.info(f'[CHECK] i : {i} / {per}%')
 
@@ -284,46 +300,101 @@ class DtaProcess(object):
 
                         # 명사/동사/형용사 추출
                         text = articleInfo.text
-                        if text is None or len(text) < 1: continue
-                        posTagList = okt.pos(text, stem=True)
-
-                        # i = 0
-                        keyData = {}
-                        # keyList = ['Noun', 'Verb', 'Adjective']
-                        keyList = ['Noun']
-                        for keyInfo in keyList:
-                            # log.info(f'[CHECK] keyInfo : {keyInfo}')
-
-                            keywordList = [word for word, pos in posTagList if pos in keyInfo]
-
-                            # 불용어 제거
-                            # keywordList = [word for word in keywordList if word not in stopWordList and len(word) > 1]
-
-                            # 빈도수 계산
-                            keywordCnt = Counter(keywordList).most_common(20)
-                            keywordData = pd.DataFrame(keywordCnt, columns=['keyword', 'cnt']).sort_values(by='cnt', ascending=False)
-                            keywordDataL1 = keywordData[keywordData['keyword'].str.len() >= 2].reset_index(drop=True)
-                            keyCnt = keywordDataL1['cnt'].astype(str) + " " + keywordDataL1['keyword']
-                            keyData.update({keyInfo: keyCnt.values.tolist()})
-
-                        # log.info(f"[CHECK] keyData['Noun'] : {keyData['Noun']}")
-                        # log.info(f"[CHECK] keyData['Verb'] : {keyData['Verb']}")
-                        # log.info(f"[CHECK] keyData['Adjective'] : {keyData['Adjective']}")
-
-                        # row
-                        data.loc[i, f'sgg'] = row['sgg']
-                        data.loc[i, f'search'] = row['search']
-                        data.loc[i, f'text'] = text
+                        data.loc[i, f'text'] = None if text is None or len(text) < 1 else str(text)
                         data.loc[i, f'summary'] = None if articleInfo.summary is None or len(articleInfo.summary) < 1 else str(articleInfo.summary)
-                        data.loc[i, f'keywordNoun'] = None if keyData['Noun'] is None or len(keyData['Noun']) < 1 else str(keyData['Noun'])
-                        # data.loc[i, f'keywordVerb'] = None if keyData['Verb'] is None or len(keyData['Verb']) < 1 else str(keyData['Verb'])
-                        # data.loc[i, f'keywordAdjective'] = None if keyData['Adjective'] is None or len(keyData['Adjective']) < 1 else str(keyData['Adjective'])
                         data.loc[i, f'authors'] = None if articleInfo.authors is None or len(articleInfo.authors) < 1 else str(articleInfo.authors)
-                        data.loc[i, f'top_image'] = None if articleInfo.top_image is None or len(articleInfo.top_image) < 1 else str(articleInfo.top_image)
-                        data.loc[i, f'images'] = None if articleInfo.images is None or len(articleInfo.images) < 1 else str(articleInfo.images)
                     except Exception as e:
                         log.error(f"Exception : {e}")
 
+                print('asdasdasd')
+                dataL1 = data.groupby(['sgg', 'search'])['text'].apply(
+                    lambda x: ' '.join([str(text).strip() for text in x.dropna() if str(text).strip() != ''])
+                ).reset_index()
+
+                dataL1 = dataL1[dataL1['text'].str.strip() != ''].reset_index(drop=True)
+
+                textList = dataL1['text']
+                textList = dataL1.loc[0, f'text']
+
+                if textList is None or len(textList) < 1: continue
+                posTagList = okt.pos(textList, stem=True)
+
+                # i = 0
+                keyData = {}
+                # keyList = ['Noun', 'Verb', 'Adjective']
+                keyList = ['Noun']
+                for keyInfo in keyList:
+                    # log.info(f'[CHECK] keyInfo : {keyInfo}')
+
+                    keywordList = [word for word, pos in posTagList if pos in keyInfo]
+
+                    # 불용어 제거
+                    keywordList = [word for word in keywordList if word not in sysOpt['stopWordList'] and len(word) > 1]
+
+                    # 빈도수 계산
+                    keywordCnt = Counter(keywordList).most_common(50)
+                    keywordData = pd.DataFrame(keywordCnt, columns=['keyword', 'cnt']).sort_values(by='cnt', ascending=False)
+                    keywordDataL1 = keywordData[keywordData['keyword'].str.len() >= 2].reset_index(drop=True)
+                    keyCnt = keywordDataL1['cnt'].astype(str) + " " + keywordDataL1['keyword']
+                    keyData.update({keyInfo: keyCnt.values.tolist()})
+
+                # log.info(f"[CHECK] keyData['Noun'] : {keyData['Noun']}")
+                # log.info(f"[CHECK] keyData['Verb'] : {keyData['Verb']}")
+                # log.info(f"[CHECK] keyData['Adjective'] : {ke
+
+
+
+                #     keywordList = [word for word, pos in posTagList if pos in keyInfo]
+                #
+                #     # 불용어 제거
+                #     # keywordList = [word for word in keywordList if word not in stopWordList and len(word) > 1]
+                #
+                #     # 빈도수 계산
+                #     keywordCnt = Counter(keywordList).most_common(50)
+                #     keywordData = pd.DataFrame(keywordCnt, columns=['keyword', 'cnt']).sort_values(by='cnt', ascending=False)
+                #     keywordDataL1 = keywordData[keywordData['keyword'].str.len() >= 2].reset_index(drop=True)
+                #     keyCnt = keywordDataL1['cnt'].astype(str) + " " + keywordDataL1['keyword']
+                #     keyData.update({keyInfo: keyCnt.values.tolist()})
+                        #
+                        #
+                        #
+                        # if text is None or len(text) < 1: continue
+                        # posTagList = okt.pos(text, stem=True)
+                        #
+                        # # i = 0
+                        # keyData = {}
+                        # # keyList = ['Noun', 'Verb', 'Adjective']
+                        # keyList = ['Noun']
+                        # for keyInfo in keyList:
+                        #     # log.info(f'[CHECK] keyInfo : {keyInfo}')
+                        #
+                        #     keywordList = [word for word, pos in posTagList if pos in keyInfo]
+                        #
+                        #     # 불용어 제거
+                        #     # keywordList = [word for word in keywordList if word not in stopWordList and len(word) > 1]
+                        #
+                        #     # 빈도수 계산
+                        #     keywordCnt = Counter(keywordList).most_common(50)
+                        #     keywordData = pd.DataFrame(keywordCnt, columns=['keyword', 'cnt']).sort_values(by='cnt', ascending=False)
+                        #     keywordDataL1 = keywordData[keywordData['keyword'].str.len() >= 2].reset_index(drop=True)
+                        #     keyCnt = keywordDataL1['cnt'].astype(str) + " " + keywordDataL1['keyword']
+                        #     keyData.update({keyInfo: keyCnt.values.tolist()})
+                        #
+                        # # log.info(f"[CHECK] keyData['Noun'] : {keyData['Noun']}")
+                        # # log.info(f"[CHECK] keyData['Verb'] : {keyData['Verb']}")
+                        # # log.info(f"[CHECK] keyData['Adjective'] : {keyData['Adjective']}")
+                        #
+                        # # row
+                        # data.loc[i, f'sgg'] = row['sgg']
+                        # data.loc[i, f'search'] = row['search']
+                        # data.loc[i, f'text'] = text
+                        # data.loc[i, f'summary'] = None if articleInfo.summary is None or len(articleInfo.summary) < 1 else str(articleInfo.summary)
+                        # data.loc[i, f'keywordNoun'] = None if keyData['Noun'] is None or len(keyData['Noun']) < 1 else str(keyData['Noun'])
+                        # # data.loc[i, f'keywordVerb'] = None if keyData['Verb'] is None or len(keyData['Verb']) < 1 else str(keyData['Verb'])
+                        # # data.loc[i, f'keywordAdjective'] = None if keyData['Adjective'] is None or len(keyData['Adjective']) < 1 else str(keyData['Adjective'])
+                        # data.loc[i, f'authors'] = None if articleInfo.authors is None or len(articleInfo.authors) < 1 else str(articleInfo.authors)
+                        # data.loc[i, f'top_image'] = None if articleInfo.top_image is None or len(articleInfo.top_image) < 1 else str(articleInfo.top_image)
+                        # data.loc[i, f'images'] = None if articleInfo.images is None or len(articleInfo.images) < 1 else str(articleInfo.images)
                 if len(data) > 0:
                     saveCsvFile = sysOpt['preDt'].strftime(modelInfo['saveCsvFile'])
                     os.makedirs(os.path.dirname(saveCsvFile), exist_ok=True)
