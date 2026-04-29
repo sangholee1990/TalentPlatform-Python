@@ -236,9 +236,9 @@ class DtaProcess(object):
             sysOpt = {
                 # 검색어
                 'query': '서울특별시 구로구 아파트',
-                'display': '10',
-                # 'sort': 'date',
-                'sort': 'sim',
+                'display': '100',
+                'sort': 'date',
+                # 'sort': 'sim',
                 'preDt': datetime.now(),
 
                 'searchList': ['아파트', '토지'],
@@ -297,7 +297,8 @@ class DtaProcess(object):
                 if modelInfo is None: continue
 
                 dataL1 = pd.DataFrame()
-                pageList = np.arange(1, 2, 1)
+                pageList = np.arange(1, 11, 1)
+                # pageList = np.arange(1, 101, 1)
 
                 headers = {
                     'X-Naver-Client-Id': modelInfo['client_id'],

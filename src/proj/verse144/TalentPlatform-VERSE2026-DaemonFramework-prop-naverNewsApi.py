@@ -43,6 +43,9 @@ from konlpy.tag import Okt
 from newspaper import Article
 import gspread
 from google.oauth2.service_account import Credentials
+import pandas as pd
+from google.cloud import bigquery
+from google.oauth2 import service_account
 
 # =================================================
 # 사용자 매뉴얼
@@ -236,12 +239,6 @@ class DtaProcess(object):
 
             # 옵션 설정
             sysOpt = {
-                # 검색어
-                'query': '청소년 게임 중독',
-                'display': '100',
-                'sort': 'date',
-                'preDt': datetime.now(),
-
                 # 수행 목록
                 'modelList': ['NEWS'],
 
@@ -266,11 +263,24 @@ class DtaProcess(object):
                     "평택시", "파주시", "도봉구", "고양시",
                     "안산시", "남양주시", "시흥시", "의정부시",
                     "양천구", "양주시", "안성시", "조례", "아파트", "지역아파트"
+                    "지역", "기사", "섹션", "분류", "언론사", "안내", "정보"
+                    "정보", "해당", "개별", "이상", "중복", "한국", "한국"
+                    "입찰", "기관", "일시", "신탁", "공고", "이번", "의장", "개정", "지원", "임시회"
+                    "운영", "의회", "거래", "안건", "매물", "일부", "위주", "무궁화", "지역", "안내"
+                    "본회의", "브리프", "인터뷰", "자치구", "토지"
                 ],
+
+                # 빅쿼리 설정 정보
+                # 'jsonFile': '/SYSTEMS/PROG/PYTHON/IDE/resources/config/iconic-ruler-239806-7f6de5759012.json',
+                'jsonFile': '/SYSTEMS/PROG/PYTHON/IDE/resources/config/project-p-32424-f1fe6277556d.json',
+
+                '키워드': {
+                    'saveFile': '/DATA/OUTPUT/VERSE2026/통합/키워드.csv',
+                },
             }
 
             # =================================================================
-            # 네이버뉴스 API 상세 수집
+            # 네이버뉴스 API 전처리
             # =================================================================
             okt = Okt()
             for modelType in sysOpt['modelList']:
@@ -284,179 +294,102 @@ class DtaProcess(object):
                 fileInfo = fileList[0]
 
                 data = pd.read_csv(fileInfo)
+                data['titleDesc'] = data['title'].fillna('') + ' ' + data['description'].fillna('')
 
-                for i, row in data.iterrows():
-                    if i > 20: break
-                    per = round(i / len(data) * 100, 1)
-                    log.info(f'[CHECK] i : {i} / {per}%')
+                # key = 'title'
+                # key = 'description'
+                key = 'titleDesc'
 
-                    try:
-                        articleInfo = Article(row['link'], language='ko')
+                # for i, row in data.iterrows():
+                #     if i > 20: break
+                #     per = round(i / len(data) * 100, 1)
+                #     log.info(f'[CHECK] i : {i} / {per}%')
+                #
+                #     try:
+                #         articleInfo = Article(row['link'], language='ko')
+                #
+                #         # 뉴스 다운로드/파싱/자연어 처리
+                #         articleInfo.download()
+                #         articleInfo.parse()
+                #         articleInfo.nlp()
+                #
+                #         # 명사/동사/형용사 추출
+                #         text = articleInfo.text
+                #         data.loc[i, f'text'] = None if text is None or len(text) < 1 else str(text)
+                #         data.loc[i, f'summary'] = None if articleInfo.summary is None or len(articleInfo.summary) < 1 else str(articleInfo.summary)
+                #         data.loc[i, f'authors'] = None if articleInfo.authors is None or len(articleInfo.authors) < 1 else str(articleInfo.authors)
+                #     except Exception as e:
+                #         log.error(f"Exception : {e}")
 
-                        # 뉴스 다운로드/파싱/자연어 처리
-                        articleInfo.download()
-                        articleInfo.parse()
-                        articleInfo.nlp()
-
-                        # 명사/동사/형용사 추출
-                        text = articleInfo.text
-                        data.loc[i, f'text'] = None if text is None or len(text) < 1 else str(text)
-                        data.loc[i, f'summary'] = None if articleInfo.summary is None or len(articleInfo.summary) < 1 else str(articleInfo.summary)
-                        data.loc[i, f'authors'] = None if articleInfo.authors is None or len(articleInfo.authors) < 1 else str(articleInfo.authors)
-                    except Exception as e:
-                        log.error(f"Exception : {e}")
-
-                print('asdasdasd')
-                dataL1 = data.groupby(['sgg', 'search'])['text'].apply(
+                dataL1 = data.groupby(['sgg', 'search'])[key].apply(
                     lambda x: ' '.join([str(text).strip() for text in x.dropna() if str(text).strip() != ''])
                 ).reset_index()
+                dataL1 = dataL1[dataL1[key].str.strip() != ''].reset_index(drop=True)
 
-                dataL1 = dataL1[dataL1['text'].str.strip() != ''].reset_index(drop=True)
+                keywordDataL2 = pd.DataFrame()
+                for i, row in dataL1.iterrows():
+                    textList = row[key]
+                    if textList is None or len(textList) < 1: continue
+                    posTagList = okt.pos(textList, stem=True)
 
-                textList = dataL1['text']
-                textList = dataL1.loc[0, f'text']
+                    keyList = ['Noun']
+                    for keyInfo in keyList:
+                        keywordList = [word for word, pos in posTagList if pos in keyInfo]
 
-                if textList is None or len(textList) < 1: continue
-                posTagList = okt.pos(textList, stem=True)
+                        # 불용어 제거
+                        keywordList = [word for word in keywordList if word not in sysOpt['stopWordList'] and len(word) > 1]
 
-                # i = 0
-                keyData = {}
-                # keyList = ['Noun', 'Verb', 'Adjective']
-                keyList = ['Noun']
-                for keyInfo in keyList:
-                    # log.info(f'[CHECK] keyInfo : {keyInfo}')
+                        # 빈도수 계산
+                        keywordCnt = Counter(keywordList).most_common(100)
+                        keywordData = pd.DataFrame(keywordCnt, columns=['keyword', 'cnt']).sort_values(by='cnt', ascending=False)
+                        keywordDataL1 = keywordData[keywordData['keyword'].str.len() >= 2].reset_index(drop=True)
 
-                    keywordList = [word for word, pos in posTagList if pos in keyInfo]
+                        keywordDataL1['sgg'] = row['sgg']
+                        keywordDataL1['search'] = row['search']
 
-                    # 불용어 제거
-                    keywordList = [word for word in keywordList if word not in sysOpt['stopWordList'] and len(word) > 1]
+                        keywordDataL2 = pd.concat([keywordDataL2, keywordDataL1], ignore_index=True)
 
-                    # 빈도수 계산
-                    keywordCnt = Counter(keywordList).most_common(50)
-                    keywordData = pd.DataFrame(keywordCnt, columns=['keyword', 'cnt']).sort_values(by='cnt', ascending=False)
-                    keywordDataL1 = keywordData[keywordData['keyword'].str.len() >= 2].reset_index(drop=True)
-                    keyCnt = keywordDataL1['cnt'].astype(str) + " " + keywordDataL1['keyword']
-                    keyData.update({keyInfo: keyCnt.values.tolist()})
+                # =================================================================
+                # CSV 통합파일
+                # =================================================================
+                saveFile = sysOpt['키워드']['saveFile']
+                os.makedirs(os.path.dirname(saveFile), exist_ok=True)
+                keywordDataL2.to_csv(saveFile, index=False)
+                log.info(f'[CHECK] saveFile : {saveFile}')
 
-                # log.info(f"[CHECK] keyData['Noun'] : {keyData['Noun']}")
-                # log.info(f"[CHECK] keyData['Verb'] : {keyData['Verb']}")
-                # log.info(f"[CHECK] keyData['Adjective'] : {ke
+                # =================================================================
+                # 빅쿼리 업로드
+                # =================================================================
+                jsonFile = sysOpt['jsonFile']
+                jsonList = sorted(glob.glob(jsonFile))
+                if jsonList is None or len(jsonList) < 1:
+                    log.error(f'설정 파일 없음 : {jsonFile}')
+                    raise Exception(f'설정 파일 없음 : {jsonFile}')
+                    # exit(1)
 
+                jsonInfo = jsonList[0]
 
+                try:
+                    credentials = service_account.Credentials.from_service_account_file(jsonInfo)
+                    client = bigquery.Client(credentials=credentials, project=credentials.project_id)
+                except Exception as e:
+                    log.error(f'빅쿼리 연결 실패 : {e}')
+                    raise Exception(f'빅쿼리 연결 실패 : {e}')
+                    # exit(1)
 
-                #     keywordList = [word for word, pos in posTagList if pos in keyInfo]
-                #
-                #     # 불용어 제거
-                #     # keywordList = [word for word in keywordList if word not in stopWordList and len(word) > 1]
-                #
-                #     # 빈도수 계산
-                #     keywordCnt = Counter(keywordList).most_common(50)
-                #     keywordData = pd.DataFrame(keywordCnt, columns=['keyword', 'cnt']).sort_values(by='cnt', ascending=False)
-                #     keywordDataL1 = keywordData[keywordData['keyword'].str.len() >= 2].reset_index(drop=True)
-                #     keyCnt = keywordDataL1['cnt'].astype(str) + " " + keywordDataL1['keyword']
-                #     keyData.update({keyInfo: keyCnt.values.tolist()})
-                        #
-                        #
-                        #
-                        # if text is None or len(text) < 1: continue
-                        # posTagList = okt.pos(text, stem=True)
-                        #
-                        # # i = 0
-                        # keyData = {}
-                        # # keyList = ['Noun', 'Verb', 'Adjective']
-                        # keyList = ['Noun']
-                        # for keyInfo in keyList:
-                        #     # log.info(f'[CHECK] keyInfo : {keyInfo}')
-                        #
-                        #     keywordList = [word for word, pos in posTagList if pos in keyInfo]
-                        #
-                        #     # 불용어 제거
-                        #     # keywordList = [word for word in keywordList if word not in stopWordList and len(word) > 1]
-                        #
-                        #     # 빈도수 계산
-                        #     keywordCnt = Counter(keywordList).most_common(50)
-                        #     keywordData = pd.DataFrame(keywordCnt, columns=['keyword', 'cnt']).sort_values(by='cnt', ascending=False)
-                        #     keywordDataL1 = keywordData[keywordData['keyword'].str.len() >= 2].reset_index(drop=True)
-                        #     keyCnt = keywordDataL1['cnt'].astype(str) + " " + keywordDataL1['keyword']
-                        #     keyData.update({keyInfo: keyCnt.values.tolist()})
-                        #
-                        # # log.info(f"[CHECK] keyData['Noun'] : {keyData['Noun']}")
-                        # # log.info(f"[CHECK] keyData['Verb'] : {keyData['Verb']}")
-                        # # log.info(f"[CHECK] keyData['Adjective'] : {keyData['Adjective']}")
-                        #
-                        # # row
-                        # data.loc[i, f'sgg'] = row['sgg']
-                        # data.loc[i, f'search'] = row['search']
-                        # data.loc[i, f'text'] = text
-                        # data.loc[i, f'summary'] = None if articleInfo.summary is None or len(articleInfo.summary) < 1 else str(articleInfo.summary)
-                        # data.loc[i, f'keywordNoun'] = None if keyData['Noun'] is None or len(keyData['Noun']) < 1 else str(keyData['Noun'])
-                        # # data.loc[i, f'keywordVerb'] = None if keyData['Verb'] is None or len(keyData['Verb']) < 1 else str(keyData['Verb'])
-                        # # data.loc[i, f'keywordAdjective'] = None if keyData['Adjective'] is None or len(keyData['Adjective']) < 1 else str(keyData['Adjective'])
-                        # data.loc[i, f'authors'] = None if articleInfo.authors is None or len(articleInfo.authors) < 1 else str(articleInfo.authors)
-                        # data.loc[i, f'top_image'] = None if articleInfo.top_image is None or len(articleInfo.top_image) < 1 else str(articleInfo.top_image)
-                        # data.loc[i, f'images'] = None if articleInfo.images is None or len(articleInfo.images) < 1 else str(articleInfo.images)
-                if len(data) > 0:
-                    saveCsvFile = sysOpt['preDt'].strftime(modelInfo['saveCsvFile'])
-                    os.makedirs(os.path.dirname(saveCsvFile), exist_ok=True)
-                    data.to_csv(saveCsvFile, index=False)
-                    log.info(f"[CHECK] saveCsvFile : {saveCsvFile}")
+                jobCfg = bigquery.LoadJobConfig(
+                    source_format=bigquery.SourceFormat.CSV,
+                    skip_leading_rows=1,
+                    autodetect=True,
+                    write_disposition=bigquery.WriteDisposition.WRITE_TRUNCATE,
+                    max_bad_records=1000,
+                )
 
-                    saveXlsxFile = sysOpt['preDt'].strftime(modelInfo['saveXlsxFile'])
-                    os.makedirs(os.path.dirname(saveXlsxFile), exist_ok=True)
-                    data.to_csv(saveXlsxFile, index=False)
-                    log.info(f"[CHECK] saveXlsxFile : {saveXlsxFile}")
-
-            # =================================================================
-            # 구글시트 연계
-            # =================================================================
-            inpFile = '/HDD/DATA/OUTPUT/LSH0612/naverNewsL1_20250702.csv'
-            fileList = sorted(glob.glob(inpFile), reverse=True)
-            fileInfo = fileList[0]
-            data = pd.read_csv(fileInfo)
-
-            # 모든 컬럼 문자열
-            dataL1 = data.astype(str)
-
-            scopes = ['https://www.googleapis.com/auth/spreadsheets']
-            cfgInfo = "/HDD/SYSTEMS/PROG/PYTHON/IDE/resources/config/shlee1990-146be-f485474fc453.json"
-
-            creds = Credentials.from_service_account_file(cfgInfo, scopes=scopes)
-            client = gspread.authorize(creds)
-
-            try:
-                sheetUrl = 'https://docs.google.com/spreadsheets/d/1HytRF6BuzyDli5WLB178Q3-pZRf0xbb3qMSaW9DlMJc/edit?usp=sharing'
-                spreadsheet = client.open_by_url(sheetUrl)
-
-                sheetList = spreadsheet.worksheets()
-                for idx, sheet in enumerate(sheetList):
-                    print(f"인덱스: {idx} / 이름: {sheet.title} / 시트 ID (gid): {sheet.id}")
-
-                # 시트1 선택
-                # worksheet = spreadsheet.sheet1
-                worksheet = spreadsheet.get_worksheet_by_id(763549175)
-
-                # worksheet.clear()
-                updData = [dataL1.columns.values.tolist()] + dataL1.values.tolist()
-                worksheet.update('A1', updData)
-
-            except Exception as e:
-                log.error(f"Exception : {e}")
-
-            # =================================================================
-            # 파일 분할
-            # =================================================================
-            # inpFile = '/HDD/DATA/OUTPUT/LSH0612/20250702_LSH0612 청소년 게임 중독 관련 수집 데이터 5종 - 네이버뉴스.csv'
-            inpFile = '/HDD/DATA/OUTPUT/LSH0612/naverNewsL1_20250702.csv'
-            fileList = sorted(glob.glob(inpFile), reverse=True)
-            fileInfo = fileList[0]
-            data = pd.read_csv(fileInfo)
-
-            chunkSize = 14000
-            for i in range(0, len(data), chunkSize):
-                chunk = data.iloc[i:i + chunkSize]
-                fileName = f'/HDD/DATA/OUTPUT/LSH0612/20250702_LSH0612 청소년 게임 중독 관련 수집 데이터 5종 - 네이버뉴스_{i}.csv'
-                chunk.to_csv(fileName, index=False, encoding='utf-8')
-                log.info(f"{fileName} 저장 완료 (행: {len(chunk)}개)")
+                tableId = f"{credentials.project_id}.DMS01.TB_KEYWORD"
+                with open(saveFile, "rb") as file:
+                    job = client.load_table_from_file(file, tableId, job_config=jobCfg)
+                job.result()
+                log.info(f"[CHECK] tableId : {tableId}")
 
         except Exception as e:
             log.error(f"Exception : {str(e)}")
