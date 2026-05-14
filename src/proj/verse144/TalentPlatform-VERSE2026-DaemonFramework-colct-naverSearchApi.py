@@ -327,19 +327,6 @@ class DtaProcess(object):
                                 resData['sgg'] =  f"{sggInfo}"
                                 resData['search'] =  f"{searchInfo}"
 
-                                if 'BLOG' in modelType:
-                                    regDate = resData.get('postdate')
-                                elif 'NEWS' in modelType:
-                                    regDate = resData.get('pubDate')
-                                else:
-                                    regDate = None
-
-                                if regDate is not None and len(regDate) > 1:
-                                    resData['regDate'] = pd.to_datetime(regDate)
-                                    # filterData = resData[resData['regDate'].dt.year.between(2020, 2025)]
-                                    # if filterData is None or len(filterData) < 1:
-                                    #     break
-
                                 dataL1 = pd.concat([dataL1, resData], ignore_index=True)
                                 log.info(f'[CHECK] modelType : {modelType} / per : {round((pageInfo / max(pageList)) * 100, 1)}  / cnt : {len(dataL1)}')
 
