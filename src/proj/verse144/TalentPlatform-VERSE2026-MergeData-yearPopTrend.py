@@ -18,6 +18,7 @@ import pandas as pd
 from google.cloud import bigquery
 from google.oauth2 import service_account
 import re
+import requests
 
 # =================================================
 # 사용자 매뉴얼
@@ -199,13 +200,6 @@ def getAmountType(amount):
 # ================================================
 class DtaProcess(object):
 
-    # ================================================
-    # 요구사항
-    # ================================================
-    # Python을 이용한 부동산 데이터 분석 및 가격 예측 고도화 및 구글 스튜디오 시각화
-
-    # G:\내 드라이브\shlee\04. TalentPlatform\[재능플랫폼] 최종납품\[요청] LSH0454. Python을 이용한 부동산 데이터 분석 및 가격 예측 고도화 및 구글 스튜디오 시각화\20240310_빅쿼리 연계
-
     # ================================================================================================
     # 환경변수 설정
     # ================================================================================================
@@ -285,7 +279,59 @@ class DtaProcess(object):
                     "경남": "경상남도",
                     "제주": "제주특별자치도"
                 },
+                'srtDate': globalVar.get('srtDate', '2020-01-01'),
+                'endDate': globalVar.get('endDate', '2026-05-30'),
+                'invDate': '1y',
+                'apiKey': 'N2M5MWE1MWJkMWY4ZTU0ZTBkYTVmYjRiYzM0Njc3NGI=',
+                'reqUrl': 'https://kosis.kr/openapi/Param/statisticsParameterData.do?method=getList&apiKey={apiKey}&itmId=T1+&objL1=ALL&objL2=&objL3=&objL4=&objL5=&objL6=&objL7=&objL8=&format=json&jsonVD=Y&prdSe=Y&startPrdDe={srtDate}&endPrdDe={endDate}&outputFields=ORG_ID+TBL_ID+TBL_NM+OBJ_ID+OBJ_NM+OBJ_NM_ENG+NM+NM_ENG+ITM_ID+ITM_NM+ITM_NM_ENG+UNIT_NM+UNIT_NM_ENG+PRD_SE+PRD_DE+LST_CHN_DE+&orgId=101&tblId=DT_1B040B3',
+                'reqFile': '/DATA/INPUT/VERSE2026/연인구/행정구역_시군구_별__성별_인구수_%Y%m%d.xlsx',
+                'inpFile': '/DATA/INPUT/VERSE2026/연인구/*.xlsx',
+                'saveFile': '/DATA/OUTPUT/VERSE2026/TB_YEAR-POP-TREND.csv',
             }
+
+            # *********************************************************************************
+            # 파일 요청
+            # *********************************************************************************
+            dtSrtDate = pd.to_datetime(sysOpt['srtDate'], format='%Y-%m-%d')
+            dtEndDate = pd.to_datetime(sysOpt['endDate'], format='%Y-%m-%d')
+            dtDateList = pd.date_range(start=dtSrtDate, end=dtEndDate, freq=sysOpt['invDate'])
+
+            colCodeList = ['C0_NM', 'C1_NM', 'DT_NM', 'DT']
+            colNameList = ['행정구역(시군구)별(1)', '행정구역(시군구)별(2)', '시점', '총인구수 (명)']
+            codeToNameDict = {colCode: colName for colCode, colName in zip(colCodeList, colNameList)}
+
+            dataL1 = pd.DataFrame()
+            for dtDateInfo in dtDateList:
+                log.info(f'[CHECK] dtDateInfo : {dtDateInfo}')
+
+                try:
+                    reqUrl = sysOpt['reqUrl'].format(apiKey=sysOpt['apiKey'], srtDate=dtDateInfo.strftime('%Y'), endDate=dtDateInfo.strftime('%Y'))
+
+                    res = requests.get(reqUrl)
+                    res.raise_for_status()
+
+                    resJson = res.json()
+                    if resJson is None or len(resJson) < 1: continue
+
+                    resData = pd.DataFrame(resJson)
+                    if resData is None or len(resData) < 1: continue
+
+                    addrDict = resData[resData['C1'].str.len() == 2].set_index('C1')['C1_NM'].to_dict()
+                    resData['C0'] = resData['C1'].str[:2]
+                    resData['C0_NM'] = resData['C0'].map(addrDict)
+                    resData['DT_NM'] = dtDateInfo.strftime('%Y')
+                    resData.loc[resData['C0_NM'] == resData['C1_NM'], 'C1_NM'] = '소계'
+
+                    resDataL1 = resData[colCodeList].rename(columns=codeToNameDict, inplace=False)
+                    dataL1 = pd.concat([dataL1, resDataL1], axis=0)
+                except Exception as e:
+                    log.error(f'Exception : {e}')
+
+            reqFile = datetime.now().strftime(sysOpt['reqFile'])
+            os.makedirs(os.path.dirname(reqFile), exist_ok=True)
+            dataL2 = dataL1.reset_index(drop=True)
+            dataL2.to_excel(reqFile, index=False)
+            log.info(f'[CHECK] reqFile : {reqFile}')
 
             # *********************************************************************************
             # 코드 정보 읽기
@@ -299,13 +345,14 @@ class DtaProcess(object):
             # 파일 읽기
             # *********************************************************************************
             # inpFile = '{}/{}/{}'.format(globalVar['inpPath'], serviceName, '연별 인구변화 추이_전체_*.csv')
-            inpFile = '{}/{}/{}'.format(globalVar['inpPath'], serviceName, '연인구/*.xlsx')
+            # inpFile = '{}/{}/{}'.format(globalVar['inpPath'], serviceName, '연인구/*.xlsx')
+            inpFile = sysOpt['inpFile']
             fileList = sorted(glob.glob(inpFile), reverse=True)
             if fileList is None or len(fileList) < 1:
                 log.error(f'[ERROR] inpFile : {inpFile} / 입력 자료를 확인해주세요.')
 
             dataL2 = pd.DataFrame()
-            for fileInfo in fileList:
+            for fileInfo in fileList[:1]:
                 log.info(f'[CHECK] fileInfo : {fileInfo}')
 
                 fileName = os.path.basename(fileInfo)
@@ -338,7 +385,8 @@ class DtaProcess(object):
             # CSV 통합파일
             # =================================================================
             # saveFile = '{}/{}/{}_{}.csv'.format(globalVar['outPath'], serviceName, datetime.now().strftime("%Y%m%d"), 'TB_YEAR-POP-TREND')
-            saveFile = '{}/{}/{}.csv'.format(globalVar['outPath'], serviceName, 'TB_YEAR-POP-TREND')
+            # saveFile = '{}/{}/{}.csv'.format(globalVar['outPath'], serviceName, 'TB_YEAR-POP-TREND')
+            saveFile = sysOpt['saveFile']
             os.makedirs(os.path.dirname(saveFile), exist_ok=True)
             dataL3.to_csv(saveFile, index=False)
             log.info(f'[CHECK] saveFile : {saveFile}')

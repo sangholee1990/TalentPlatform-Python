@@ -18,6 +18,7 @@ import pandas as pd
 from google.cloud import bigquery
 from google.oauth2 import service_account
 import re
+import requests
 
 # =================================================
 # 사용자 매뉴얼
@@ -199,13 +200,6 @@ def getAmountType(amount):
 # ================================================
 class DtaProcess(object):
 
-    # ================================================
-    # 요구사항
-    # ================================================
-    # Python을 이용한 부동산 데이터 분석 및 가격 예측 고도화 및 구글 스튜디오 시각화
-
-    # G:\내 드라이브\shlee\04. TalentPlatform\[재능플랫폼] 최종납품\[요청] LSH0454. Python을 이용한 부동산 데이터 분석 및 가격 예측 고도화 및 구글 스튜디오 시각화\20240310_빅쿼리 연계
-
     # ================================================================================================
     # 환경변수 설정
     # ================================================================================================
@@ -285,7 +279,28 @@ class DtaProcess(object):
                     "경남": "경상남도",
                     "제주": "제주특별자치도"
                 },
+                'reqUrl': 'https://www.reb.or.kr/r-one/portal/bbs/housdata/downloadAttachFile.do?fileSeq=4661&seq=3875',
+                'reqFile': '/DATA/INPUT/VERSE2026/입주예정/%y%m%d_입주예정물량_공개용.xlsx',
+                'inpFile': '/DATA/INPUT/VERSE2026/입주예정/*.xlsx',
+                'saveFile': '/DATA/OUTPUT/VERSE2026/TB_UP-COM-SUPPLY.csv',
             }
+
+            # *********************************************************************************
+            # 파일 요청
+            # *********************************************************************************
+            # https://www.reb.or.kr/r-one/portal/bbs/housdata/searchBulletinPage.do
+            try:
+                reqUrl = sysOpt['reqUrl']
+                reqFile = datetime.now().strftime(sysOpt['reqFile'])
+                os.makedirs(os.path.dirname(reqFile), exist_ok=True)
+
+                res = requests.get(reqUrl)
+                res.raise_for_status()
+                with open(reqFile, 'wb') as f:
+                    f.write(res.content)
+                    log.info(f'[CHECK] reqFile : {reqFile}')
+            except Exception as e:
+                log.error(f'Exception : {e}')
 
             # *********************************************************************************
             # 코드 정보 읽기
@@ -299,13 +314,14 @@ class DtaProcess(object):
             # 파일 읽기
             # *********************************************************************************
             # inpFile = '{}/{}/{}'.format(globalVar['inpPath'], serviceName, '입주예정물량_전체_*.xlsx')
-            inpFile = '{}/{}/{}'.format(globalVar['inpPath'], serviceName, '입주예정/*.xlsx')
+            # inpFile = '{}/{}/{}'.format(globalVar['inpPath'], serviceName, '입주예정/*.xlsx')
+            inpFile = sysOpt['inpFile']
             fileList = sorted(glob.glob(inpFile), reverse=True)
             if fileList is None or len(fileList) < 1:
                 log.error(f'[ERROR] inpFile : {inpFile} / 입력 자료를 확인해주세요.')
 
             dataL2 = pd.DataFrame()
-            for fileInfo in fileList:
+            for fileInfo in fileList[:1]:
                 log.info(f'[CHECK] fileInfo : {fileInfo}')
 
                 fileName = os.path.basename(fileInfo)
@@ -321,6 +337,7 @@ class DtaProcess(object):
                     data = pd.read_excel(fileInfo, skiprows=skiprows, engine='openpyxl').rename(
                         columns={
                             '입주예정월': '연월',
+                            '아파트명': '주택명',
                         }, inplace=False)
 
                 dtDate = pd.to_datetime(data['연월'], format='%Y%m', errors='coerce')
@@ -334,7 +351,6 @@ class DtaProcess(object):
                 dataL1 = data[colNameList].rename(columns=renameDict, inplace=False)
                 dataL2 = pd.concat([dataL2, dataL1], axis=0)
 
-
             # 중복 제거
             dataL3 = dataL2.drop_duplicates().reset_index(drop=True)
 
@@ -342,7 +358,8 @@ class DtaProcess(object):
             # CSV 통합파일
             # =================================================================
             # saveFile = '{}/{}/{}_{}.csv'.format(globalVar['outPath'], serviceName, datetime.now().strftime("%Y%m%d"), 'TB_UP-COM-SUPPLY')
-            saveFile = '{}/{}/{}.csv'.format(globalVar['outPath'], serviceName, 'TB_UP-COM-SUPPLY')
+            # saveFile = '{}/{}/{}.csv'.format(globalVar['outPath'], serviceName, 'TB_UP-COM-SUPPLY')
+            saveFile = sysOpt['saveFile']
             os.makedirs(os.path.dirname(saveFile), exist_ok=True)
             dataL3.to_csv(saveFile, index=False)
             log.info(f'[CHECK] saveFile : {saveFile}')
