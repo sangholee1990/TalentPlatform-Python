@@ -258,7 +258,8 @@ class DtaProcess(object):
 
             sysOpt = {
                 # 빅쿼리 설정 정보
-                'jsonFile': '/SYSTEMS/PROG/PYTHON/IDE/resources/config/iconic-ruler-239806-7f6de5759012.json',
+                # 'jsonFile': '/SYSTEMS/PROG/PYTHON/IDE/resources/config/iconic-ruler-239806-7f6de5759012.json',
+                'jsonFile': '/SYSTEMS/PROG/PYTHON/IDE/resources/config/project-p-32424-f1fe6277556d.json',
                 'sheetName': '실거래가 전처리',
                 'metaData': {
                     "충남": "충청남도",
