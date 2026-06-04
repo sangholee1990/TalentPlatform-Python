@@ -243,10 +243,11 @@ class DtaProcess(object):
     if platform.system() == 'Windows':
         contextPath = os.getcwd() if env in 'local' else 'E:/04. TalentPlatform/Github/TalentPlatform-Python'
     else:
-        contextPath = os.getcwd() if env in 'local' else '/SYSTEMS/PROG/PYTHON'
+        # contextPath = os.getcwd() if env in 'local' else '/SYSTEMS/PROG/PYTHON'
+        contextPath = os.getcwd() if env in 'local' else '/HDD/SYSTEMS/PROG/PYTHON/IDE/src/proj/bdwide/2025/ECOWITT'
 
-    prjName = 'test'
-    serviceName = 'BDWIDE2026'
+    prjName = 'bloomAsosAnlPrd'
+    serviceName = 'BDWIDE2025'
 
     # 4.1. 환경 변수 설정 (로그 설정)
     log = initLog(env, contextPath, prjName)
