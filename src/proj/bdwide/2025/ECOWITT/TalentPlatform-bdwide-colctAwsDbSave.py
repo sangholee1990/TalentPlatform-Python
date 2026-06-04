@@ -10,6 +10,7 @@
 # conda activate py38
 # cd /SYSTEMS/PROG/PYTHON/IDE/src/proj/bdwide/2025/ECOWITT
 # /SYSTEMS/LIB/anaconda3/envs/py38/bin/python /SYSTEMS/PROG/PYTHON/IDE/src/proj/bdwide/2025/ECOWITT/TalentPlatform-bdwide-colctAwsDbSave.py
+# /SYSTEMS/LIB/anaconda3/envs/py38/bin/python /SYSTEMS/PROG/PYTHON/IDE/src/proj/bdwide/2025/ECOWITT/TalentPlatform-bdwide-colctAwsDbSave.py
 # nohup /SYSTEMS/LIB/anaconda3/envs/py38/bin/python /SYSTEMS/PROG/PYTHON/IDE/src/proj/bdwide/2025/ECOWITT/TalentPlatform-bdwide-colctAwsDbSave.py > /dev/null 2>&1 &
 # tail -f nohup.out
 
@@ -253,8 +254,8 @@ def colctObs(sysOpt, modelType, dtDateInfo):
         # procInfo = mp.current_process()
         modelInfo = sysOpt[modelType]
 
-        # reqUrl = dtDateInfo.strftime(f"{modelInfo['request']['url']}").format(tmfc=dtDateInfo.strftime('%Y%m%d%H%M'), tmfc2=(dtDateInfo + parseDateOffset(modelInfo['request']['invDate']) - parseDateOffset('1s')).strftime('%Y%m%d%H%M'), authKey=modelInfo['request']['authKey'])
-        reqUrl = dtDateInfo.strftime(f"{modelInfo['request']['url']}").format(tmfc=dtDateInfo.strftime('%Y%m%d%H%M'), tmfc2=(dtDateInfo + parseDateOffset(modelInfo['request']['invDate']) - parseDateOffset('1s')).strftime('%Y%m%d%H%M'), authKey=extAuthKey())
+        reqUrl = dtDateInfo.strftime(f"{modelInfo['request']['url']}").format(tmfc=dtDateInfo.strftime('%Y%m%d%H%M'), tmfc2=(dtDateInfo + parseDateOffset(modelInfo['request']['invDate']) - parseDateOffset('1s')).strftime('%Y%m%d%H%M'), authKey=modelInfo['request']['authKey'])
+        # reqUrl = dtDateInfo.strftime(f"{modelInfo['request']['url']}").format(tmfc=dtDateInfo.strftime('%Y%m%d%H%M'), tmfc2=(dtDateInfo + parseDateOffset(modelInfo['request']['invDate']) - parseDateOffset('1s')).strftime('%Y%m%d%H%M'), authKey=extAuthKey())
 
         res = requests.get(reqUrl)
         if not (res.status_code == 200): return
@@ -294,7 +295,7 @@ def colctObs(sysOpt, modelType, dtDateInfo):
                             {updColJoin}
                     """)
                     result = session.execute(query)
-                    log.info(f"dtDateInfo : {dtDateInfo} / result : {result.rowcount}")
+                    log.info(f"공공 데이터 DB 연동, dtDateInfo : {dtDateInfo} / result : {result.rowcount}")
                 except Exception as e:
                     log.error(f'Exception : {str(e)}')
                     raise e
@@ -459,8 +460,8 @@ class DtaProcess(object):
             # 옵션 설정
             sysOpt = {
                 # 예보시간 시작일, 종료일, 시간 간격 (연 1y, 월 1m, 일 1d, 시간 1h, 분 1t, 초 1s)
-                'srtDate': globalVar.get('srtDate', '2026-01-03'),
-                'endDate': globalVar.get('endDate', '2026-01-07'),
+                'srtDate': globalVar.get('srtDate', '2026-03-01'),
+                'endDate': globalVar.get('endDate', '2026-06-05'),
 
                 'cfgDbKey': 'mysql-iwin-dms01user01-DMS03',
                 'cfgDb': None,
@@ -475,7 +476,7 @@ class DtaProcess(object):
                 'AWS': {
                     'request': {
                         'url': 'https://apihub.kma.go.kr/api/typ01/cgi-bin/url/nph-aws2_min?tm1={tmfc}&tm2={tmfc2}&stn=0&disp=0&help=0&authKey={authKey}'
-                        , 'authKey': None
+                        , 'authKey': 'hQDU-t1aQHaA1PrdWvB2eA'
                         , 'invDate': '3h'
                     },
                     'stnList': [505, 533],
@@ -493,6 +494,7 @@ class DtaProcess(object):
             config.read(sysOpt['cfgFile'], encoding='utf-8')
 
             sysOpt['cfgDb'] = initCfgInfo(config, sysOpt['cfgDbKey'])
+            # colctProc(sysOpt)
 
             # 파일 스케줄러
             asyncio.run(asyncSchdl(sysOpt))
