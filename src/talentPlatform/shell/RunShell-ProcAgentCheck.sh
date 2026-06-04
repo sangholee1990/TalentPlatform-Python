@@ -52,6 +52,7 @@ metaData["TalentPlatform-bdwide-DaemonApi-tripod"]="cd /HDD/SYSTEMS/PROG/PYTHON/
 metaData["rcmdapt-ai-server"]="/HDD/SYSTEMS/LIB/anaconda3/envs/py38/bin/python /HDD/SYSTEMS/PROG/PYTHON/IDE/src/talentPlatform/rcmdapt/rcmdapt_ai_server.py"
 metaData["TalentPlatform-bdwide-FileWatch"]="/HDD/SYSTEMS/LIB/anaconda3/envs/py38/bin/python /SYSTEMS/PROG/PYTHON/IDE/src/proj/bdwide/2025/MNTRG/TalentPlatform-bdwide-FileWatch.py"
 metaData["TalentPlatform-bdwide-DbMntrgMsgAlert"]="/HDD/SYSTEMS/LIB/anaconda3/envs/py38/bin/python /SYSTEMS/PROG/PYTHON/IDE/src/proj/bdwide/2025/ECOWITT/TalentPlatform-bdwide-DbMntrgMsgAlert.py"
+metaData["TalentPlatform-bdwide-colctAwsDbSave"]="/SYSTEMS/LIB/anaconda3/envs/py38/bin/python /SYSTEMS/PROG/PYTHON/IDE/src/proj/bdwide/2025/ECOWITT/TalentPlatform-bdwide-colctAwsDbSave.py"
 metaData["TalentPlatform-VERSE2026-daemonPayment"]="/SYSTEMS/LIB/anaconda3/envs/py39/bin/python /SYSTEMS/PROG/PYTHON/IDE/src/talentPlatform/unitSys/TalentPlatform-VERSE2026-daemonPayment.py"
 
 LOG_PATH=${CTX_PATH}/LOG
