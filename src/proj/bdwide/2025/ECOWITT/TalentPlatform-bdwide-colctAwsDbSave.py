@@ -9,6 +9,7 @@
 # 프로그램 시작
 # conda activate py38
 # cd /SYSTEMS/PROG/PYTHON/IDE/src/proj/bdwide/2025/ECOWITT
+# /SYSTEMS/LIB/anaconda3/envs/py38/bin/python /SYSTEMS/PROG/PYTHON/IDE/src/proj/bdwide/2025/ECOWITT/TalentPlatform-bdwide-colctAwsDbSave.py --srtDate "2026-03-01" --endDate "2026-06-01"
 # /SYSTEMS/LIB/anaconda3/envs/py38/bin/python /SYSTEMS/PROG/PYTHON/IDE/src/proj/bdwide/2025/ECOWITT/TalentPlatform-bdwide-colctAwsDbSave.py
 # nohup /SYSTEMS/LIB/anaconda3/envs/py38/bin/python /SYSTEMS/PROG/PYTHON/IDE/src/proj/bdwide/2025/ECOWITT/TalentPlatform-bdwide-colctAwsDbSave.py > /dev/null 2>&1 &
 # tail -f nohup.out
@@ -67,7 +68,8 @@ import pymysql
 import asyncio
 from apscheduler.schedulers.asyncio import AsyncIOScheduler
 
-# =================================================
+# =========================================
+# ========
 # 사용자 매뉴얼
 # =================================================
 # [소스 코드의 실행 순서]
@@ -402,8 +404,8 @@ class DtaProcess(object):
     # ================================================================================================
     global env, contextPath, prjName, serviceName, log, globalVar
 
-    env = 'local'  # 로컬 : 원도우 환경, 작업환경 (현재 소스 코드 환경 시 .) 설정
-    # env = 'dev'  # 개발 : 원도우 환경, 작업환경 (사용자 환경 시 contextPath) 설정
+    # env = 'local'  # 로컬 : 원도우 환경, 작업환경 (현재 소스 코드 환경 시 .) 설정
+    env = 'dev'  # 개발 : 원도우 환경, 작업환경 (사용자 환경 시 contextPath) 설정
     # env = 'oper'  # 운영 : 리눅스 환경, 작업환경 (사용자 환경 시 contextPath) 설정
 
     if platform.system() == 'Windows':
@@ -493,6 +495,8 @@ class DtaProcess(object):
             config.read(sysOpt['cfgFile'], encoding='utf-8')
 
             sysOpt['cfgDb'] = initCfgInfo(config, sysOpt['cfgDbKey'])
+
+            # 재처리
             # colctProc(sysOpt)
 
             # 파일 스케줄러
