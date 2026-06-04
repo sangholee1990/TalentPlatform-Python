@@ -201,10 +201,10 @@ def colctProc(sysOpt):
             if modelInfo is None: continue
 
             # 시작일/종료일 설정
-            # dtSrtDate = pd.to_datetime(sysOpt['srtDate'], format='%Y-%m-%d')
-            # dtEndDate = pd.to_datetime(sysOpt['endDate'], format='%Y-%m-%d')
-            dtEndDate = pd.to_datetime(datetime.now().strftime('%Y-%m-%d %H'), format='%Y-%m-%d %H')
-            dtSrtDate = dtEndDate - parseDateOffset('6h')
+            dtSrtDate = pd.to_datetime(sysOpt['srtDate'], format='%Y-%m-%d')
+            dtEndDate = pd.to_datetime(sysOpt['endDate'], format='%Y-%m-%d')
+            # dtEndDate = pd.to_datetime(datetime.now().strftime('%Y-%m-%d %H'), format='%Y-%m-%d %H')
+            # dtSrtDate = dtEndDate - parseDateOffset('6h')
             dtDateList = pd.date_range(start=dtSrtDate, end=dtEndDate, freq=modelInfo['request']['invDate'])
 
             for dtDateInfo in reversed(dtDateList):
