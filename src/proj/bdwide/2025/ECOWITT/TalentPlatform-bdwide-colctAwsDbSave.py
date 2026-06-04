@@ -402,16 +402,18 @@ class DtaProcess(object):
     # ================================================================================================
     global env, contextPath, prjName, serviceName, log, globalVar
 
-    # env = 'local'  # 로컬 : 원도우 환경, 작업환경 (현재 소스 코드 환경 시 .) 설정
-    env = 'dev'  # 개발 : 원도우 환경, 작업환경 (사용자 환경 시 contextPath) 설정
+    env = 'local'  # 로컬 : 원도우 환경, 작업환경 (현재 소스 코드 환경 시 .) 설정
+    # env = 'dev'  # 개발 : 원도우 환경, 작업환경 (사용자 환경 시 contextPath) 설정
     # env = 'oper'  # 운영 : 리눅스 환경, 작업환경 (사용자 환경 시 contextPath) 설정
 
     if platform.system() == 'Windows':
         contextPath = os.getcwd() if env in 'local' else 'E:/04. TalentPlatform/Github/TalentPlatform-Python'
     else:
-        contextPath = os.getcwd() if env in 'local' else '/SYSTEMS/PROG/PYTHON'
+        # contextPath = os.getcwd() if env in 'local' else '/SYSTEMS/PROG/PYTHON'
+        contextPath = os.getcwd() if env in 'local' else '/HDD/SYSTEMS/PROG/PYTHON/IDE/src/proj/bdwide/2025/ECOWITT'
 
-    prjName = 'test'
+    # prjName = 'test'
+    prjName = 'colctAwsDbSave'
     serviceName = 'BDWIDE2025'
 
     # 4.1. 환경 변수 설정 (로그 설정)
@@ -457,10 +459,8 @@ class DtaProcess(object):
             # 옵션 설정
             sysOpt = {
                 # 예보시간 시작일, 종료일, 시간 간격 (연 1y, 월 1m, 일 1d, 시간 1h, 분 1t, 초 1s)
-                # 'srtDate': '2025-08-01',
-                # 'endDate': '2026-01-03',
-                # 'srtDate': '2026-01-03',
-                # 'endDate': '2026-01-07',
+                'srtDate': globalVar.get('srtDate', '2026-01-03'),
+                'endDate': globalVar.get('endDate', '2026-01-07'),
 
                 'cfgDbKey': 'mysql-iwin-dms01user01-DMS03',
                 'cfgDb': None,
