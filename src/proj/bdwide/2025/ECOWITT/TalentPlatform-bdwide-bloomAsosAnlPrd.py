@@ -365,6 +365,8 @@ class DtaProcess(object):
                 'stnFile': '/SYSTEMS/PROG/PYTHON/IDE/resources/config/stnInfo/ALL_STN_INFO.csv',
                 'obsFile': '/DATA/INPUT/BDWIDE2026/OBS_ASOS_ANL_20260302205902.csv',
                 'refFile': '/DATA/INPUT/BDWIDE2026/OBS_계절관측_20260128005918.csv',
+                'saveFile': '/DATA/OUTPUT/BDWIDE2026/BDWIDE2025_output_%Y%m%d.csv',
+                'saveFile2': '/DATA/OUTPUT/BDWIDE2026/BDWIDE2025_output2_%Y%m%d.csv',
 
                 'flaml': {
                     'saveModelList': "/DATA/OUTPUT/BDWIDE2026/AI/*/*/BDWIDE2025_{srv}_flaml_*.model",
@@ -375,6 +377,77 @@ class DtaProcess(object):
                     'preDt': datetime.datetime.now(),
                 },
             }
+
+            # **********************************************************************************************************
+            # 설정 정보
+            # **********************************************************************************************************
+            # 기후자료 예측 테스트
+            # fileList = sorted(glob.glob('/HDD/DATA/OUTPUT/BDWIDE2026/AR6_SSP126_5ENSMN_skorea_*_gridraw_yearly_2021_2100.nc'))
+            # ds = xr.open_mfdataset(fileList, chunks='auto')
+            # # ds = xr.open_mfdataset(fileList, combine='by_coords')
+            #
+            # timeList = ds['time'].values
+            # for timeInfo in timeList:
+            #
+            #     # ds['TA'].sel(time = timeInfo).plot()
+            #     # plt.show()
+            #
+            #     # AI 모델 학습(AutoML 등)에 활용하기 위해 Pandas DataFrame으로 변환
+            #     df_climate = ds.sel(time = timeInfo).to_dataframe().reset_index()
+            #     # df_climate = ds.to_dataframe().reset_index()
+            #
+            #     # 결측치(해양 격자 등 데이터가 없는 곳) 제거
+            #     df_climate = df_climate.dropna().reset_index(drop=True)
+            #
+            #     df_climate = df_climate.rename(columns={
+            #         'TA': 'avgTemp',  # 연평균 기온
+            #         'TAMIN': 'avgMinTemp',  # 연평균 최저기온
+            #         'TAMAX': 'avgMaxTemp',  # 연평균 최고기온
+            #         'RN': 'sumPrecip',  # 연 누적 강수량
+            #         'RHM': 'avgRh',  # 연평균 상대습도
+            #         'WS': 'avgWindSpeed'  # 연평균 풍속
+            #     })
+            #
+            #     # time 객체에서 예측 기준이 될 year 컬럼 독립적 추출
+            #     # df_climate['year'] = df_climate['time'].dt.year
+            #     # df_climate['time'] = pd.to_datetime(df_climate['time'])
+            #     df_climate['year'] = df_climate['time'].apply(lambda x: x.year)
+            #
+            #     # 2. 이제 정상적으로 .dt 접근자를 사용하여 연도(year)를 추출할 수 있습니다.
+            #     # df_climate['year'] = df_climate['time'].dt.year
+            #
+            #     # 데이터 확인
+            #     print(df_climate[['time', 'year']].head())
+            #
+            #     # 최종 사용할 피처만 선택
+            #     features = ['year', 'avgTemp', 'avgMinTemp', 'avgMaxTemp', 'sumPrecip', 'avgRh', 'avgWindSpeed']
+            #     final_test_df = df_climate[features].copy()
+            #
+            #     print(final_test_df.head())
+
+
+
+            target_year = '2025'
+
+            # ds['time']
+            # # =========================================================
+            # # 💡 1. xarray에서 2050년 3월~5월(봄) 데이터만 쏙 뽑아서 평균 내기
+            # # =========================================================
+            # # 특정 기간 슬라이싱 후, 시간(time) 차원에 대해 평균(mean)을 구합니다.
+            # ds_spring = ds.sel(time=slice(f'{target_year}-01-01', f'{target_year}-01-01'))
+            # ds_spring_mean = ds_spring.mean(dim='time')
+            #
+            # #       grid_lon = np.linspace(124, 131, 1000)
+            # #             grid_lat = np.linspace(33, 39, 1000)
+            # lonList = np.arange(124, 131, 0.01)
+            # latList = np.arange(33, 39, 0.01)
+            # ds_spring_mean = ds_spring_mean.interpolate_na({'longitude': lonList, 'latitude': latList}, method='linear', fill_value="extrapolate")
+            #
+            # ta_values = ds_spring_mean['TA'].values
+            # lons = ds_spring_mean['longitude'].values
+            # lats = ds_spring_mean['latitude'].values
+            #
+            # Grid_lon, Grid_lat = np.meshgrid(lons, lats)
 
             # **********************************************************************************************************
             # 설정 정보
@@ -394,158 +467,17 @@ class DtaProcess(object):
             obsData['year'] = obsData['dt'].astype(str)
             refDataL1['년도'] = refDataL1['년도'].astype(str)
 
-            # dt를 datetime으로 변환 후 년도 추출
-            # obsData['dt'] = pd.to_datetime(obsData['dt'])
-            # obsData['년도'] = obsData['dt'].dt.year
-
-
             # 교집합 병합 (obsData: stnId/dt의 년도, refDataL1: 지점/년도)
             mergeData = pd.merge(obsData, refDataL1, left_on=['stnName', 'year'], right_on=['지점', '년도'], how='inner')
             mergeData = pd.merge(mergeData, cfgDataL1, left_on=['stnId'], right_on=['STN'], how='inner')
 
-            # 속초 지역 & 개화 시기 필터링 (벚나무를 예시로 사용)
-            # sokcho_df = mergeData[(mergeData['stnName'] == '속초')].copy()
-            # sokcho_df = sokcho_df[sokcho_df['구분2'] == '개화'].copy()
-            # mergeData['구분1'].unique()
-            # mergeData['구분2'].unique()
-
-            # mergeDataL1 = mergeData[mergeData['구분2'] == '개화'].copy()
-            # sokcho_df['구분1'].unique()
-            #
-            # # 대상 식물(예: 벚나무)
-            # # sokcho_df = sokcho_df[sokcho_df['구분1'] == '개나리'].copy()  # 대상 식물(예: 벚나무)
-            # # sokcho_df = sokcho_df[sokcho_df['구분1'] == '아까시나무'].copy()  # 대상 식물(예: 벚나무)
-            # sokcho_df = sokcho_df[(sokcho_df['구분1'] == '아까시나무') & (sokcho_df['stnName'] == '속초')].copy()
-            # # sokcho_df = sokcho_df[sokcho_df['구분1'] == '배나무'].copy()
-            #
-            # # 컬럼명 통일 및 시계열 처리 (결측치 등)
-            # sokcho_df = sokcho_df.rename(columns={'값': 'demand'})
-            # sokcho_df['demand'] = pd.to_datetime(sokcho_df['demand'], format='%Y-%m-%d', errors='coerce').dt.strftime('%j').astype('float')
-            # # sokcho_df['timeStamp'] = sokcho_df['timeStamp'].dt.to_period('Y').dt.to_timestamp()
-            #
-            #
-            # sokcho_df['timeStamp'] = pd.to_datetime(sokcho_df['year'], errors='coerce')
-            # sokcho_df = sokcho_df.dropna(subset=['demand']).reset_index(drop=True)
-            # # sokcho_df.columns
-            #
-            # # ---------------------------------------------------------
-            # # 모델 학습
-            # # ---------------------------------------------------------
-            # automl = AutoML()
-            #
-            # # 예측
-            # settings = {
-            #     "time_budget": 60,
-            #     # "time_budget": 600,
-            #     "metric": "rmse",
-            #     "task": "regression",
-            #     "seed": 42,
-            # }
-            #
-            # #  'avgTemp', 'avgMinTemp', 'avgMaxTemp', 'sumPrecip', 'avgRh', 'sumSolarRad', 'avgWindSpeed'
-            #
-            # # 3. 예측에 사용할 피처에 시간 피처 추가
-            # features = ['year', 'avgTemp', 'avgMinTemp', 'avgMaxTemp', 'sumPrecip', 'avgRh', 'avgWindSpeed']
-            # X = sokcho_df[features].copy()
-            # y = sokcho_df['demand'].copy()
-            #
-            # sokcho_df = sokcho_df.sort_values(by='year')
-            # unique_years = sokcho_df['year'].unique()
-            # split_idx = int(len(unique_years) * 0.8)
-            # split_year = unique_years[split_idx - 1]
-            #
-            # train_df = sokcho_df[sokcho_df['year'] <= split_year]
-            # test_df = sokcho_df[sokcho_df['year'] > split_year]
-            #
-            # # 4. 각각 X(특성)와 y(타겟)로 분리
-            # X_train = train_df[features].copy()
-            # y_train = train_df['demand'].copy()
-            #
-            # X_test = test_df[features].copy()
-            # y_test = test_df['demand'].copy()
-            #
-            # # automl.fit(X_train=X_train, y_train=y_train, **settings)
-            # automl.fit(
-            #     X_train=X_train,
-            #     y_train=y_train,
-            #     X_val=X_test,
-            #     y_val=y_test,
-            #     **settings
-            # )
-            #
-            # y_pred = automl.predict(X_test)
-            #
-            # # test_df에 우리가 예측한 y_pred 값을 새로운 열로 추가합니다.
-            # result_df = test_df.copy()
-            # result_df['predicted_demand'] = y_pred
-            #
-            #
-            # metrics_list = []
-            # # stnName(지역명) 별로 그룹화하여 반복
-            # for stn, group in result_df.groupby('stnName'):
-            #     y_true = group['demand']  # 실제 수요량 (기존 타겟 컬럼명에 맞게 수정해주세요)
-            #     y_pred = group['predicted_demand']  # 예측 수요량
-            #
-            #     # 데이터가 2개 이상이어야 R2 계산이 정상적으로 가능함
-            #     if len(group) > 1:
-            #         # 1. RMSE 계산
-            #         rmse = np.sqrt(mean_squared_error(y_true, y_pred))
-            #
-            #         # 2. RRMSE 계산 (%)
-            #         # # 실제값의 평균이 0인 경우를 방지하기 위한 예외 처리
-            #         mean_demand = y_true.mean()
-            #         if mean_demand != 0:
-            #             rrmse = (rmse / mean_demand) * 100
-            #         else:
-            #             rrmse = np.nan
-            #
-            #         # 3. R2 Score 계산
-            #         # r2 = r2_score(y_true, y_pred)
-            #         r = np.corrcoef(y_true, y_pred)[0, 1]
-            #         # r2 = r ** 2
-            #     else:
-            #         rrmse = np.nan
-            #         # rmse = np.nan
-            #         r = np.nan
-            #
-            #     # 결과 저장
-            #     metrics_list.append({
-            #         'stnName': stn,
-            #         '데이터수': len(group),
-            #         'RMSE': round(rrmse, 2),
-            #         'R': round(r, 2)
-            #     })
-            #
-            # # 결과를 데이터프레임으로 변환
-            # metrics_df = pd.DataFrame(metrics_list)
-            #
-            # # RRMSE(오차율)가 가장 낮은(성능이 좋은) 지역부터 오름차순 정렬
-            # metrics_df = metrics_df.sort_values(by='RMSE').reset_index(drop=True)
-            #
-            # # 결과 출력
-            # print("🏆 [지역별 예측 성능 평가 결과]")
-            # print(metrics_df)
-
-
-
-
-
             # 최종 모든 결과를 누적할 빈 리스트
             all_metrics_list = []
-
-            # log.info(mergeData['구분1'].unique())
-            # mergeData['구분2'].unique()
-            # '구분1'과 '구분2'의 조합별로 그룹화하여 반복
-            # filtered_df = mergeData[mergeData['구분2'] == '개화'].copy()
-            # '구분1'이 아까시나무이고, 'stnName'이 속초인 데이터만 필터링
-            # filtered_df = mergeData[(mergeData['구분1'] == '아까시나무') & (mergeData['구분2'] == '개화')].copy()
-
-            # mergeData['stnName'].unique()
-
-            # 최종 모든 결과를 누적할 빈 리스트
-            all_metrics_list = []
+            all_metrics_list2 = []
             for (gubun1, gubun2), target_df in mergeData.groupby(['구분1', '구분2']):
                 try:
+                    target_df = target_df.groupby('stnName').filter(lambda x: len(x) >= 30)
+
                     if gubun1 not in ['아까시나무', '매화', '벚나무', '복숭아', '배나무']: continue
                     if gubun2 not in ['개화']: continue
                     log.info(f"gubun1 : {gubun1}, gubun2 : {gubun2}")
@@ -580,12 +512,39 @@ class DtaProcess(object):
                     prdData = target_df
 
                     sysOpt['flaml']['srv'] = f"{gubun1}-{gubun2}-전체"
+                    # resFlaml = makeFlamlModel(sysOpt['flaml'], xCol, yCol, trainData, testData)
                     resFlaml = makeFlamlModel(sysOpt['flaml'], xCol, yCol, trainData, prdData)
                     # log.info(f'resFlaml : {resFlaml}')
 
                     if resFlaml:
                         prdVal = resFlaml['mlModel'].predict(prdData[xCol])
                         prdData['ai'] = prdVal
+
+                        # 예측된 결과를 바탕으로 지역별(stnName) 성능 계산 루프
+                        for stn, stn_df in prdData.groupby('stnName'):
+
+                            # 지역별 데이터가 2개 이상이어야 상관계수 계산 가능
+                            if len(stn_df) > 1:
+                                rmse = np.sqrt(mean_squared_error(stn_df['demand'], stn_df['ai']))
+
+                                # 상관계수 계산 (예외 처리 포함)
+                                try:
+                                    r = np.corrcoef(stn_df['demand'], stn_df['ai'])[0, 1]
+                                except Exception:
+                                    r = np.nan
+                            else:
+                                rmse = np.nan
+                                r = np.nan
+
+                            # 지역별 결과를 리스트에 누적
+                            all_metrics_list2.append({
+                                '구분1': gubun1,
+                                '구분2': gubun2,
+                                'stnName': stn,  # '전체' 대신 실제 지역명 기록
+                                'N': len(stn_df['demand']),
+                                'RMSE': round(rmse, 4) if not np.isnan(rmse) else np.nan,
+                                'R': round(r, 4) if not np.isnan(r) else np.nan
+                            })
 
                     if len(prdData) > 1:
                         rmse = np.sqrt(mean_squared_error(prdData['demand'], prdData['ai']))
@@ -599,8 +558,8 @@ class DtaProcess(object):
                         '구분2': gubun2,
                         'stnName': '전체',
                         'N': len(prdData['demand']),
-                        'RMSE': round(rmse, 2) if not np.isnan(rmse) else np.nan,
-                        'R': round(r, 2) if not np.isnan(r) else np.nan
+                        'RMSE': round(rmse, 4) if not np.isnan(rmse) else np.nan,
+                        'R': round(r, 4) if not np.isnan(r) else np.nan
                     })
                     log.info(pd.DataFrame(all_metrics_list))
                 except Exception as e:
@@ -688,14 +647,33 @@ class DtaProcess(object):
             # 5. 최종 결과 취합 및 정렬
             # ---------------------------------------------------------
             final_metrics_df = pd.DataFrame(all_metrics_list)
+            final_metrics_df = final_metrics_df.sort_values(by=['구분1', '구분2', 'RMSE']).reset_index(drop=True)
+            log.info(final_metrics_df)
 
-            # 구분1, 구분2 순으로 묶고, 오차율이 낮은 순으로 정렬
-            if not final_metrics_df.empty:
-                final_metrics_df = final_metrics_df.sort_values(by=['구분1', '구분2', 'RMSE']).reset_index(drop=True)
-                print("🏆 [식물별/이벤트별/지역별 개별 모델 예측 성능 평가 결과]")
-                print(final_metrics_df)
-            else:
-                print("⚠️ 조건을 만족하여 평가가 완료된 모델이 없습니다. (데이터 부족 등)")
+            saveFile = datetime.datetime.now().strftime(sysOpt['saveFile'])
+            os.makedirs(os.path.dirname(saveFile), exist_ok=True)
+            final_metrics_df.to_csv(saveFile, index=False)
+            log.info(f'saveFile : {saveFile}')
+
+
+            final_metrics_df2 = pd.DataFrame(all_metrics_list2)
+            final_metrics_df2 = final_metrics_df2.sort_values(by=['구분1', '구분2', 'RMSE']).reset_index(drop=True)
+            log.info(final_metrics_df2)
+
+            saveFile = datetime.datetime.now().strftime(sysOpt['saveFile2'])
+            os.makedirs(os.path.dirname(saveFile), exist_ok=True)
+            final_metrics_df2.to_csv(saveFile, index=False)
+            log.info(f'saveFile : {saveFile}')
+
+
+            # all_metrics_list2
+            # # 구분1, 구분2 순으로 묶고, 오차율이 낮은 순으로 정렬
+            # if not final_metrics_df.empty:
+            #     final_metrics_df = final_metrics_df.sort_values(by=['구분1', '구분2', 'RMSE']).reset_index(drop=True)
+            #     print("🏆 [식물별/이벤트별/지역별 개별 모델 예측 성능 평가 결과]")
+            #     print(final_metrics_df)
+            # else:
+            #     print("⚠️ 조건을 만족하여 평가가 완료된 모델이 없습니다. (데이터 부족 등)")
 
 
 
