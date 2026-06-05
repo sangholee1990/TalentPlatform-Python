@@ -544,21 +544,16 @@ class DtaProcess(object):
 
             # 최종 모든 결과를 누적할 빈 리스트
             all_metrics_list = []
-            for (gubun1, gubun2, stn), target_df in mergeData.groupby(['구분1', '구분2', 'stnName']):
+            for (gubun1, gubun2), target_df in mergeData.groupby(['구분1', '구분2']):
                 try:
                     if gubun1 not in ['아까시나무', '매화', '벚나무', '복숭아', '배나무']: continue
                     if gubun2 not in ['개화']: continue
-                    log.info(f"gubun1 : {gubun1}, gubun2 : {gubun2}, stn : {stn}")
+                    log.info(f"gubun1 : {gubun1}, gubun2 : {gubun2}")
 
-                    # ---------------------------------------------------------
-                    # 1. 컬럼명 통일 및 시계열 처리
-                    # ---------------------------------------------------------
                     target_df = target_df.rename(columns={'값': 'demand'})
-                    target_df['demand'] = pd.to_datetime(target_df['demand'], format='%Y-%m-%d',
-                                                         errors='coerce').dt.strftime('%j').astype('float')
+                    target_df['demand'] = pd.to_datetime(target_df['demand'], format='%Y-%m-%d', errors='coerce').dt.strftime('%j').astype('float')
                     target_df['timeStamp'] = pd.to_datetime(target_df['year'], errors='coerce')
                     target_df = target_df.dropna(subset=['demand']).reset_index(drop=True)
-
 
                     # 데이터가 너무 적으면 시계열 분할 및 모델 학습이 불가하므로 스킵 (최소 10건)
                     if len(target_df['demand']) < 30: continue
@@ -566,30 +561,7 @@ class DtaProcess(object):
                     # ---------------------------------------------------------
                     # 2. 피처 설정 및 Train/Test 시계열 분할
                     # ---------------------------------------------------------
-                    # features = ['year', 'avgTemp', 'avgMinTemp', 'avgMaxTemp', 'sumPrecip', 'avgRh', 'avgWindSpeed']
-
                     target_df = target_df.sort_values(by='year')
-                    # unique_years = target_df['year'].unique()
-
-                    # 해당 지역의 Train/Test 분할을 위해 최소 연도 수가 확보되었는지 확인
-                    # if len(unique_years) < 3:
-                    #     continue
-
-                    # split_idx = int(len(unique_years) * 0.8)
-                    # split_year = unique_years[split_idx - 1]
-                    #
-                    # train_df = target_df[target_df['year'] <= split_year]
-                    # test_df = target_df[target_df['year'] > split_year]
-
-                    # X_train = train_df[features].copy()
-                    # y_train = train_df['demand'].copy()
-                    #
-                    # X_test = test_df[features].copy()
-                    # y_test = test_df['demand'].copy()
-
-                    # 테스트 데이터가 없으면 평가가 불가능하므로 스킵
-                    # if len(X_test) == 0:
-                    #     continue
 
                     # ****************************************************************************
                     # 독립/종속 변수 설정
@@ -600,8 +572,6 @@ class DtaProcess(object):
                     # ---------------------------------------------------------
                     # 3. 개별 지역 모델 학습 및 예측
                     # ---------------------------------------------------------
-                    # from sklearn.model_selection import train_test_split
-                    # trainData, testData = train_test_split(target_df, test_size=0.2, random_state=int(datetime.datetime.now().timestamp()))
                     yearList = target_df['year'].unique()
                     idx = int(len(yearList) * 0.8)
 
@@ -609,7 +579,7 @@ class DtaProcess(object):
                     testData = target_df[target_df['year'] > yearList[idx - 1]]
                     prdData = target_df
 
-                    sysOpt['flaml']['srv'] = f"{gubun1}-{gubun2}-{stn}"
+                    sysOpt['flaml']['srv'] = f"{gubun1}-{gubun2}-전체"
                     resFlaml = makeFlamlModel(sysOpt['flaml'], xCol, yCol, trainData, prdData)
                     # log.info(f'resFlaml : {resFlaml}')
 
@@ -617,48 +587,17 @@ class DtaProcess(object):
                         prdVal = resFlaml['mlModel'].predict(prdData[xCol])
                         prdData['ai'] = prdVal
 
-                    #
-                    # automl = AutoML()
-                    # settings = {
-                    #     # "time_budget": 10,
-                    #     "time_budget": 60,
-                    #     "metric": "rmse",
-                    #     "task": "regression",
-                    #     "seed": 42,
-                    #     "verbose": 0
-                    # }
-                    #
-                    # automl.fit(
-                    #     X_train=X_train,
-                    #     y_train=y_train,
-                    #     X_val=X_test,
-                    #     y_val=y_test,
-                    #     **settings
-                    # )
-
-                    # y_pred = automl.predict(X_test)
-                    # y_pred = automl.predict(target_df[features])
-
-                    # ---------------------------------------------------------
-                    # 4. 성능 평가 (이미 지역별로 분리되어 있으므로 내부 반복문 불필요)
-                    # ---------------------------------------------------------
-                    # if len(y_test) > 1:
                     if len(prdData) > 1:
-                        # rmse = np.sqrt(mean_squared_error(y_test, y_pred))
-                        # mean_demand = y_test.mean()
-
                         rmse = np.sqrt(mean_squared_error(prdData['demand'], prdData['ai']))
                         r = np.corrcoef(target_df['demand'], prdData['ai'])[0, 1]
                     else:
                         rmse = np.nan
                         r = np.nan
 
-                    # 결과 저장
                     all_metrics_list.append({
                         '구분1': gubun1,
                         '구분2': gubun2,
-                        'stnName': stn,
-                        # 'N': len(y_test),
+                        'stnName': '전체',
                         'N': len(prdData['demand']),
                         'RMSE': round(rmse, 2) if not np.isnan(rmse) else np.nan,
                         'R': round(r, 2) if not np.isnan(r) else np.nan
@@ -666,6 +605,84 @@ class DtaProcess(object):
                     log.info(pd.DataFrame(all_metrics_list))
                 except Exception as e:
                     log.error(f"Exception : {e}")
+
+
+            # # 최종 모든 결과를 누적할 빈 리스트
+            # all_metrics_list = []
+            # for (gubun1, gubun2, stn), target_df in mergeData.groupby(['구분1', '구분2', 'stnName']):
+            #     try:
+            #         if gubun1 not in ['아까시나무', '매화', '벚나무', '복숭아', '배나무']: continue
+            #         if gubun2 not in ['개화']: continue
+            #         log.info(f"gubun1 : {gubun1}, gubun2 : {gubun2}, stn : {stn}")
+            #
+            #         # ---------------------------------------------------------
+            #         # 1. 컬럼명 통일 및 시계열 처리
+            #         # ---------------------------------------------------------
+            #         target_df = target_df.rename(columns={'값': 'demand'})
+            #         target_df['demand'] = pd.to_datetime(target_df['demand'], format='%Y-%m-%d',
+            #                                              errors='coerce').dt.strftime('%j').astype('float')
+            #         target_df['timeStamp'] = pd.to_datetime(target_df['year'], errors='coerce')
+            #         target_df = target_df.dropna(subset=['demand']).reset_index(drop=True)
+            #
+            #
+            #         # 데이터가 너무 적으면 시계열 분할 및 모델 학습이 불가하므로 스킵 (최소 10건)
+            #         if len(target_df['demand']) < 30: continue
+            #
+            #         # ---------------------------------------------------------
+            #         # 2. 피처 설정 및 Train/Test 시계열 분할
+            #         # ---------------------------------------------------------
+            #         target_df = target_df.sort_values(by='year')
+            #         # unique_years = target_df['year'].unique()
+            #
+            #         # ****************************************************************************
+            #         # 독립/종속 변수 설정
+            #         # ****************************************************************************
+            #         xCol = ['year', 'avgTemp', 'avgMinTemp', 'avgMaxTemp', 'sumPrecip', 'avgRh', 'avgWindSpeed']
+            #         yCol = 'demand'
+            #
+            #         # ---------------------------------------------------------
+            #         # 3. 개별 지역 모델 학습 및 예측
+            #         # ---------------------------------------------------------
+            #         # from sklearn.model_selection import train_test_split
+            #         # trainData, testData = train_test_split(target_df, test_size=0.2, random_state=int(datetime.datetime.now().timestamp()))
+            #         yearList = target_df['year'].unique()
+            #         idx = int(len(yearList) * 0.8)
+            #
+            #         trainData = target_df[target_df['year'] <= yearList[idx - 1]]
+            #         testData = target_df[target_df['year'] > yearList[idx - 1]]
+            #         prdData = target_df
+            #
+            #         sysOpt['flaml']['srv'] = f"{gubun1}-{gubun2}-{stn}"
+            #         resFlaml = makeFlamlModel(sysOpt['flaml'], xCol, yCol, trainData, prdData)
+            #         # log.info(f'resFlaml : {resFlaml}')
+            #
+            #         if resFlaml:
+            #             prdVal = resFlaml['mlModel'].predict(prdData[xCol])
+            #             prdData['ai'] = prdVal
+            #
+            #         if len(prdData) > 1:
+            #             # rmse = np.sqrt(mean_squared_error(y_test, y_pred))
+            #             # mean_demand = y_test.mean()
+            #
+            #             rmse = np.sqrt(mean_squared_error(prdData['demand'], prdData['ai']))
+            #             r = np.corrcoef(target_df['demand'], prdData['ai'])[0, 1]
+            #         else:
+            #             rmse = np.nan
+            #             r = np.nan
+            #
+            #         # 결과 저장
+            #         all_metrics_list.append({
+            #             '구분1': gubun1,
+            #             '구분2': gubun2,
+            #             'stnName': stn,
+            #             # 'N': len(y_test),
+            #             'N': len(prdData['demand']),
+            #             'RMSE': round(rmse, 2) if not np.isnan(rmse) else np.nan,
+            #             'R': round(r, 2) if not np.isnan(r) else np.nan
+            #         })
+            #         log.info(pd.DataFrame(all_metrics_list))
+            #     except Exception as e:
+            #         log.error(f"Exception : {e}")
 
             # ---------------------------------------------------------
             # 5. 최종 결과 취합 및 정렬
