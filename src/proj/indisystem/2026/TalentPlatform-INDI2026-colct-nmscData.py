@@ -339,7 +339,7 @@ class DtaProcess(object):
                     'request': {
                         'urlRoot': 'https://nmsc.kma.go.kr/homepage/html/satellite/viewer/selectImgDown.do?fileKey=GK2A:AMI:LE2:SST:NC:EA:020:LC&observationTime=%Y%m%d%H%M&type=NC',
                         'urlList': [
-                            '/DATA/SAT/GK2A/AMI/L3/SST01D/EA/%Y%m/%d/%H/gk2a_ami_le3_sst01d_ea020lc_%Y%m%d%H%M.nc',
+                            '/SAT/GK2A/AMI/L3/SST01D/EA/%Y%m/%d/%H/gk2a_ami_le3_sst01d_ea020lc_%Y%m%d%H%M.nc',
                         ]
                         , 'invDate': '1m'
                         # , 'invDate': '2t'
@@ -358,14 +358,13 @@ class DtaProcess(object):
             # **************************************************************************************************************
             # 비동기 다중 프로세스 개수
             pool = Pool(int(sysOpt['cpuCoreNum']))
-
             for modelType in sysOpt['modelList']:
                 modelInfo = sysOpt.get(modelType)
                 if modelInfo is None: continue
 
                 # 시작일/종료일 설정
-                dtSrtDate = pd.to_datetime(sysOpt['srtDate'], format='%Y-%m-%d %H:%M')
-                dtEndDate = pd.to_datetime(sysOpt['endDate'], format='%Y-%m-%d %H:%M')
+                dtSrtDate = pd.to_datetime(sysOpt['srtDate'], format='%Y-%m-%d')
+                dtEndDate = pd.to_datetime(sysOpt['endDate'], format='%Y-%m-%d')
                 dtDateList = pd.date_range(start=dtSrtDate, end=dtEndDate, freq=modelInfo['request']['invDate'])
 
                 for dtDateInfo in reversed(dtDateList):
