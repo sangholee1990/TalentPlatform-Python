@@ -26,7 +26,8 @@ import warnings
 from datetime import datetime
 from datetime import timedelta
 from urllib.parse import quote_plus
-
+import pandas as pd
+import matplotlib.pyplot as plt
 import matplotlib as mpl
 import matplotlib.pyplot as plt
 import numpy as np
@@ -75,6 +76,9 @@ from matplotlib.ticker import FuncFormatter
 from flaml import AutoML
 import matplotlib.pyplot as plt
 import numpy as np
+
+import geopandas as gpd
+# import contextily as ctx
 
 import cartopy.io.shapereader as shpreader
 from shapely.ops import unary_union
@@ -488,25 +492,233 @@ class DtaProcess(object):
                     log.info(f"gubun1 : {gubun1}, gubun2 : {gubun2}")
 
                     sysOpt['flaml']['srv'] = f"{gubun1}-{gubun2}-전체"
-                    # resFlaml = makeFlamlModel(sysOpt['flaml'], xCol, yCol, trainData, testData)
-                    resFlaml = makeFlamlModel(sysOpt['flaml'], xCol, yCol, trainData, prdData)
+                    resFlaml = makeFlamlModel(sysOpt['flaml'], xCol, yCol, trainData, testData)
                     # log.info(f'resFlaml : {resFlaml}')
 
                     if resFlaml:
                         prdVal = resFlaml['mlModel'].predict(prdData[xCol])
                         prdData['ai'] = prdVal
 
+                    import matplotlib.colors as mcolors
+                    from mpl_toolkits.basemap import Basemap
+                    from matplotlib.colors import ListedColormap, BoundaryNorm
+                    from scipy.ndimage import gaussian_filter
+                    # 2026.05.29 수정
+                    # fig = plt.figure(figsize=(9,9))
+                    fig = plt.figure(figsize=(2200 / 300, 2000 / 300))
+                    ax = fig.add_subplot(111)
+
+                    # 2026.05.29 수정
+                    #   m = Basemap(projection='lcc', resolution='i',
+                    #                          lat_0=38, lon_0=126,
+                    #                          llcrnrlat=11.308528, urcrnrlat=53.303712,
+                    #                          llcrnrlon=101.395259, urcrnrlon=175.188166,
+                    #                          lat_1=30, lat_2=60)
+
+                    m = Basemap(projection='cyl',
+                                llcrnrlat=28, urcrnrlat=46,
+                                llcrnrlon=120, urcrnrlon=135,
+                                resolution='h', ax=ax)
+
+                    # 등온선 설정
+                    VMIN, VMAX, DLEV = 60, 150, 10
+                    LEVELS = np.arange(VMIN, VMAX + 1e-6, DLEV)
+
+                    # 2026.05.29 수정
+                    VMIN2, VMAX2, DLEV2 = 60, 150, 10
+                    LEVELS2 = np.arange(VMIN2, VMAX2 + 1e-6, DLEV2)
+
+                    lon = prdData['longitude']
+                    lat = prdData['latitude']
+                    data = prdData['ai']
+
+                    x, y = m(lon, lat)
+                    pcm = m.pcolormesh(x, y, data, cmap='jet', shading='auto', vmin=VMIN, vmax=VMAX)
+                    m.drawcoastlines(color='k', linewidth=0.5)
+                    m.drawcountries(color='gray', linewidth=0.5)
+                    m.fillcontinents(color='lightgray', lake_color='white')
+
+                    # 2026.05.29 수정
+                    #   m.drawparallels(np.arange(float(np.nanmin(lat)),float(np.nanmax(lat)) + 1, 5), labels=[1,0,0,0], fontsize=15, fontname='arial', fmt='%d')
+                    #   m.drawmeridians(np.arange(float(np.nanmin(lon)),float(np.nanmax(lon)) + 1, 10), labels=[0,0,0,1], fontsize=15, fontname='arial', fmt='%d')
+                    m.drawparallels(np.arange(15, 56, 10), labels=[1, 0, 0, 0], fontsize=10, fontname='DejaVu Sans',
+                                    fmt='%d', fontweight='bold')
+                    m.drawmeridians(np.arange(110, 151, 10), labels=[0, 0, 0, 1], fontsize=10, fontname='DejaVu Sans',
+                                    fmt='%d', fontweight='bold')
+
+                    # 2026.05.29 수정
+                    # smoothed_data = gaussian_filter(data, sigma=3)
+
+                    # 가우시안 필터
+                    weight = np.ones_like(data.data)
+                    weight[data.mask] = 0.0
+                    data_zeroed = data.filled(0.0)
+                    sigma_val = 15
+                    smoothed_data = gaussian_filter(data_zeroed, sigma=sigma_val)
+                    smoothed_weight = gaussian_filter(weight, sigma=sigma_val)
+                    with np.errstate(invalid='ignore', divide='ignore'):
+                        smoothed_corrected = smoothed_data / smoothed_weight
+                    smoothed_ma = np.ma.masked_array(smoothed_corrected, mask=data.mask)
+
+                    # 2026.05.29 수정
+                    # c = m.contour(x,y,smoothed_data,levels=LEVELS, colors='black', linewidths=1.0, alpha=0.8)
+                    c = m.contour(x, y, smoothed_ma, levels=LEVELS, colors='black', linewidths=1.0, alpha=0.8)
+
+                    # 2026.05.29 수정
+                    # plt.clabel(c, inline=True, fontsize=10, fmt='%d', colors='black')
+                    # labels = plt.clabel(c, levels=LEVELS, inline=False, fontsize=8, fmt='%d', colors='black')
+                    labels = plt.clabel(c, inline=True, fontsize=8, fmt='%d', colors='black')
+                    for label in labels:
+                        label.set_rotation(0)
+
+                    # 2026.05.29 수정
+                    # cbar = plt.colorbar(pcm,shrink=0.8)
+                    cbar = plt.colorbar(pcm, shrink=0.8, extend='both', spacing='proportional')
+                    cbar.set_ticks(LEVELS2)
+
+                    # cbar.set_label('Sea Surface Temperature (°C)', fontsize=10, fontname='DejaVu Sans',
+                    #                fontweight='bold')
+                    for lbl in cbar.ax.get_yticklabels():
+                        lbl.set_fontname('DejaVu Sans')
+                        lbl.set_fontsize(10)
+                        lbl.set_fontweight('bold')
+
+                    # 2026.05.29 수정
+                    # plt.title(f'Monthly GK2A Sea Surface Temperature ({year_comp}.{month_comp})',fontsize=12, fontweight='bold', fontname='DejaVu Sans')
+                    # plt.title(f'Monthly Mean GK2A Sea Surface Temperature ({COMP_MONTH})', fontsize=12,
+                    #           fontweight='bold', fontname='DejaVu Sans')
+                    plt.tight_layout()
+                    plt.show()
+
+                    # # 2026.05.29 수정
+                    # save_path = PNG_DIR
+                    #
+                    # # 2026.05.29 수정
+                    # # plt.savefig(save_path, dpi=300, bbox_inches='tight')
+                    # plt.savefig(save_path, dpi=300, transparent=True)
+                    # plt.close()
+                    # print(f"save_path : {save_path}")
 
 
 
 
+                    import numpy as np
+                    import matplotlib.pyplot as plt
+                    from scipy.interpolate import griddata
+
+                    # 데이터 준비
+                    x = prdData['longitude']
+                    y = prdData['latitude']
+                    z = prdData['ai']
+
+                    # 1. 비어있는 2차원 바둑판(Grid) 좌표 만들기
+                    # 데이터를 500x500 픽셀의 해상도로 쪼갭니다. (숫자가 클수록 더 고해상도가 됩니다)
+                    grid_x, grid_y = np.mgrid[x.min():x.max():500j, y.min():y.max():500j]
+
+                    # 2. 흩어진 데이터를 바둑판 빈칸에 채워넣기 (보간법)
+                    # method='linear' (선형 보간), 'cubic' (부드럽게), 'nearest' (가장 가까운 값) 중 선택 가능
+                    grid_z = griddata((x, y), z, (grid_x, grid_y), method='linear')
+
+                    # 3. 그래프 그리기 시작
+                    plt.figure(figsize=(10, 10), dpi=100)
+
+                    # 4. pcolormesh 그리기
+                    # shading='auto'는 격자의 색상을 부드럽게 채워주는 최신 표준 옵션입니다.
+                    mesh_map = plt.pcolormesh(grid_x, grid_y, grid_z, shading='auto', cmap='Spectral_r')
+
+                    # 5. 컬러바(범례) 추가
+                    cbar = plt.colorbar(mesh_map, shrink=0.8)
+                    cbar.set_label('AI Value', fontsize=12)
+
+                    # 6. 축 라벨 및 타이틀 설정
+                    plt.xlabel('Longitude', fontsize=12)
+                    plt.ylabel('Latitude', fontsize=12)
+                    plt.title('AI Value Spatial Distribution (pcolormesh)', fontsize=15, pad=15)
+
+                    # 7. 그리드 추가 및 출력
+                    plt.grid(True, linestyle='--', alpha=0.5)
+                    plt.tight_layout()
+                    plt.show()
 
 
 
+                    # 1. 데이터 불러오기 (이미 df라는 데이터프레임에 데이터가 있다고 가정)
+                    # df = pd.read_csv('data.csv') # 실제 파일 경로에 맞게 수정하세요.
 
 
+                    # x = prdData['longitude']
+                    # y = prdData['latitude']
+                    # z = prdData['ai']
+                    #
+                    # # 2. 그래프 크기 및 해상도 설정
+                    # plt.figure(figsize=(10, 10), dpi=100)
+                    #
+                    # # 3. 색상이 채워진 등고선 그리기 (배경색)
+                    # # levels=20은 등고선의 단계를 20개로 나눈다는 의미입니다. 숫자를 키우면 더 부드러워집니다.
+                    # contour_filled = plt.tricontourf(x, y, z, levels=20, cmap='Spectral_r')
+                    #
+                    # # 4. 등고선 라인(선) 그리기
+                    # # colors='black'으로 검은색 선을 그리고, linewidths로 선 굵기를 조절합니다.
+                    # contour_lines = plt.tricontour(x, y, z, levels=20, colors='black', linewidths=0.3, alpha=0.7)
+                    #
+                    # plt.clabel(contour_lines, inline=True, fontsize=8, colors='black')
+                    #
+                    # # 5. 컬러바(범례) 추가
+                    # cbar = plt.colorbar(contour_filled, shrink=0.8)
+                    # cbar.set_label('AI Value', fontsize=12)
+                    #
+                    # # 6. 축 라벨 및 타이틀 설정
+                    # plt.xlabel('Longitude', fontsize=12)
+                    # plt.ylabel('Latitude', fontsize=12)
+                    # plt.title('AI Value Spatial Distribution with Contours', fontsize=15, pad=15)
+                    #
+                    # # 7. 그리드 추가 및 출력
+                    # plt.grid(True, linestyle='--', alpha=0.5)
+                    # plt.tight_layout()
+                    # plt.show()
+                    #
+                    print('asdasd')
 
 
+                    # 1. 데이터 준비
+                    # df = pd.read_csv('data.csv')
+
+                    # # 2. 위/경도 데이터를 지도 좌표계(EPSG:3857)로 변환하기 위해 GeoDataFrame 생성
+                    # gdf = gpd.GeoDataFrame(
+                    #     prdData,
+                    #     geometry=gpd.points_from_xy(prdData['longitude'], prdData['latitude']),
+                    #     crs="EPSG:4326" # 원래 좌표계 (위경도)
+                    # )
+                    # # 배경 지도와 일치시키기 위해 좌표계 변환
+                    # gdf = gdf.to_crs(epsg=3857)
+                    #
+                    # # 변환된 X, Y 좌표 추출
+                    # x = gdf.geometry.x
+                    # y = gdf.geometry.y
+                    # z = gdf['ai']
+                    #
+                    # # 3. 그래프 그리기
+                    # fig, ax = plt.subplots(figsize=(12, 12), dpi=100)
+                    #
+                    # # 색상이 채워진 등고선 (alpha 값을 주어 배경 지도가 비치게 합니다)
+                    # contour = ax.tricontourf(x, y, z, levels=20, cmap='Spectral_r', alpha=0.6)
+                    # # 등고선 테두리선
+                    # ax.tricontour(x, y, z, levels=20, colors='black', linewidths=0.3, alpha=0.5)
+                    #
+                    # # 4. 배경 지도 추가 (여기가 핵심!)
+                    # # source 옵션으로 위성 지도, 네이버 스타일 지도 등 다양한 배경 선택 가능
+                    # ctx.add_baseline_map(ax, source=ctx.providers.OpenStreetMap.Mapnik)
+                    #
+                    # # 5. 컬러바 및 타이틀 설정
+                    # cbar = plt.colorbar(contour, ax=ax, shrink=0.7)
+                    # cbar.set_label('AI Value')
+                    #
+                    # ax.set_title('AI Map with Background', fontsize=16, pad=15)
+                    # ax.set_axis_off() # 지도 좌표 숫자는 보기 지저분하므로 숨김 처리
+                    #
+                    # plt.tight_layout()
+                    # plt.show()
+                    # print('asdasd')
 
             # =============================================================
             # 학습모형 생산/예측
