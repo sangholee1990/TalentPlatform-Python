@@ -378,56 +378,9 @@ class DtaProcess(object):
                 },
             }
 
-            # **********************************************************************************************************
-            # 설정 정보
-            # **********************************************************************************************************
-            # 기후자료 예측 테스트
-            # fileList = sorted(glob.glob('/HDD/DATA/OUTPUT/BDWIDE2026/AR6_SSP126_5ENSMN_skorea_*_gridraw_yearly_2021_2100.nc'))
-            # ds = xr.open_mfdataset(fileList, chunks='auto')
-            # # ds = xr.open_mfdataset(fileList, combine='by_coords')
-            #
-            # timeList = ds['time'].values
-            # for timeInfo in timeList:
-            #
-            #     # ds['TA'].sel(time = timeInfo).plot()
-            #     # plt.show()
-            #
-            #     # AI 모델 학습(AutoML 등)에 활용하기 위해 Pandas DataFrame으로 변환
-            #     df_climate = ds.sel(time = timeInfo).to_dataframe().reset_index()
-            #     # df_climate = ds.to_dataframe().reset_index()
-            #
-            #     # 결측치(해양 격자 등 데이터가 없는 곳) 제거
-            #     df_climate = df_climate.dropna().reset_index(drop=True)
-            #
-            #     df_climate = df_climate.rename(columns={
-            #         'TA': 'avgTemp',  # 연평균 기온
-            #         'TAMIN': 'avgMinTemp',  # 연평균 최저기온
-            #         'TAMAX': 'avgMaxTemp',  # 연평균 최고기온
-            #         'RN': 'sumPrecip',  # 연 누적 강수량
-            #         'RHM': 'avgRh',  # 연평균 상대습도
-            #         'WS': 'avgWindSpeed'  # 연평균 풍속
-            #     })
-            #
-            #     # time 객체에서 예측 기준이 될 year 컬럼 독립적 추출
-            #     # df_climate['year'] = df_climate['time'].dt.year
-            #     # df_climate['time'] = pd.to_datetime(df_climate['time'])
-            #     df_climate['year'] = df_climate['time'].apply(lambda x: x.year)
-            #
-            #     # 2. 이제 정상적으로 .dt 접근자를 사용하여 연도(year)를 추출할 수 있습니다.
-            #     # df_climate['year'] = df_climate['time'].dt.year
-            #
-            #     # 데이터 확인
-            #     print(df_climate[['time', 'year']].head())
-            #
-            #     # 최종 사용할 피처만 선택
-            #     features = ['year', 'avgTemp', 'avgMinTemp', 'avgMaxTemp', 'sumPrecip', 'avgRh', 'avgWindSpeed']
-            #     final_test_df = df_climate[features].copy()
-            #
-            #     print(final_test_df.head())
 
 
 
-            target_year = '2025'
 
             # ds['time']
             # # =========================================================
@@ -471,13 +424,99 @@ class DtaProcess(object):
             mergeData = pd.merge(obsData, refDataL1, left_on=['stnName', 'year'], right_on=['지점', '년도'], how='inner')
             mergeData = pd.merge(mergeData, cfgDataL1, left_on=['stnId'], right_on=['STN'], how='inner')
 
+
+
+
+            # **********************************************************************************************************
+            # 기후자료 미래예측
+            # **********************************************************************************************************
+            # 기후자료 예측 테스트
+            fileList = sorted(glob.glob('/HDD/DATA/OUTPUT/BDWIDE2026/AR6_SSP126_5ENSMN_skorea_*_gridraw_yearly_2021_2100.nc'))
+            ds = xr.open_mfdataset(fileList, chunks='auto')
+            # ds = xr.open_mfdataset(fileList, combine='by_coords')
+
+            timeList = ds['time'].values
+            for timeInfo in timeList:
+
+                # ds['TA'].sel(time = timeInfo).plot()
+                # plt.show()
+
+                # AI 모델 학습(AutoML 등)에 활용하기 위해 Pandas DataFrame으로 변환
+                df_climate = ds.sel(time = timeInfo).to_dataframe().reset_index()
+                # df_climate = ds.to_dataframe().reset_index()
+
+                # 결측치(해양 격자 등 데이터가 없는 곳) 제거
+                df_climate = df_climate.dropna().reset_index(drop=True)
+
+                df_climate = df_climate.rename(columns={
+                    'TA': 'avgTemp',  # 연평균 기온
+                    'TAMIN': 'avgMinTemp',  # 연평균 최저기온
+                    'TAMAX': 'avgMaxTemp',  # 연평균 최고기온
+                    'RN': 'sumPrecip',  # 연 누적 강수량
+                    'RHM': 'avgRh',  # 연평균 상대습도
+                    'WS': 'avgWindSpeed'  # 연평균 풍속
+                })
+
+                # time 객체에서 예측 기준이 될 year 컬럼 독립적 추출
+                # df_climate['year'] = df_climate['time'].dt.year
+                # df_climate['time'] = pd.to_datetime(df_climate['time'])
+                df_climate['year'] = df_climate['time'].apply(lambda x: x.year)
+
+                # 2. 이제 정상적으로 .dt 접근자를 사용하여 연도(year)를 추출할 수 있습니다.
+                # df_climate['year'] = df_climate['time'].dt.year
+
+                # 데이터 확인
+                print(df_climate[['time', 'year']].head())
+
+                # 최종 사용할 피처만 선택
+                # features = ['year', 'avgTemp', 'avgMinTemp', 'avgMaxTemp', 'sumPrecip', 'avgRh', 'avgWindSpeed']
+                final_test_df = df_climate.copy()
+
+                print(final_test_df.head())
+
+                xCol = ['year', 'avgTemp', 'avgMinTemp', 'avgMaxTemp', 'sumPrecip', 'avgRh', 'avgWindSpeed']
+                yCol = 'demand'
+
+                trainData = None
+                testData = None
+                prdData = final_test_df
+
+                for (gubun1, gubun2), target_df in mergeData.groupby(['구분1', '구분2']):
+                    target_df = target_df.groupby('stnName').filter(lambda x: len(x) >= 30)
+                    if gubun1 not in ['아까시나무', '매화', '벚나무', '복숭아', '배나무']: continue
+                    if gubun2 not in ['개화']: continue
+                    log.info(f"gubun1 : {gubun1}, gubun2 : {gubun2}")
+
+                    sysOpt['flaml']['srv'] = f"{gubun1}-{gubun2}-전체"
+                    # resFlaml = makeFlamlModel(sysOpt['flaml'], xCol, yCol, trainData, testData)
+                    resFlaml = makeFlamlModel(sysOpt['flaml'], xCol, yCol, trainData, prdData)
+                    # log.info(f'resFlaml : {resFlaml}')
+
+                    if resFlaml:
+                        prdVal = resFlaml['mlModel'].predict(prdData[xCol])
+                        prdData['ai'] = prdVal
+
+
+
+
+
+
+
+
+
+
+
+
+
+            # =============================================================
+            # 학습모형 생산/예측
+            # =============================================================
             # 최종 모든 결과를 누적할 빈 리스트
             all_metrics_list = []
             all_metrics_list2 = []
             for (gubun1, gubun2), target_df in mergeData.groupby(['구분1', '구분2']):
                 try:
                     target_df = target_df.groupby('stnName').filter(lambda x: len(x) >= 30)
-
                     if gubun1 not in ['아까시나무', '매화', '벚나무', '복숭아', '배나무']: continue
                     if gubun2 not in ['개화']: continue
                     log.info(f"gubun1 : {gubun1}, gubun2 : {gubun2}")
