@@ -438,209 +438,209 @@ class DtaProcess(object):
 
 
 
-            # **********************************************************************************************************
-            # 기후자료 미래예측
-            # **********************************************************************************************************
-            # 기후자료 예측 테스트
-            fileList = sorted(glob.glob('/HDD/DATA/OUTPUT/BDWIDE2026/AR6_SSP126_5ENSMN_skorea_*_gridraw_yearly_2021_2100.nc'))
-            ds = xr.open_mfdataset(fileList, chunks='auto')
-            # ds = xr.open_mfdataset(fileList, combine='by_coords')
-
-            timeList = ds['time'].values
-            for timeInfo in timeList:
-
-                # ds['TA'].sel(time = timeInfo).plot()
-                # plt.show()
-
-                # AI 모델 학습(AutoML 등)에 활용하기 위해 Pandas DataFrame으로 변환
-                df_climate = ds.sel(time = timeInfo).to_dataframe().reset_index()
-                # df_climate = ds.to_dataframe().reset_index()
-
-                # 결측치(해양 격자 등 데이터가 없는 곳) 제거
-                df_climate = df_climate.dropna().reset_index(drop=True)
-
-                df_climate = df_climate.rename(columns={
-                    'TA': 'avgTemp',  # 연평균 기온
-                    'TAMIN': 'avgMinTemp',  # 연평균 최저기온
-                    'TAMAX': 'avgMaxTemp',  # 연평균 최고기온
-                    'RN': 'sumPrecip',  # 연 누적 강수량
-                    'RHM': 'avgRh',  # 연평균 상대습도
-                    'WS': 'avgWindSpeed'  # 연평균 풍속
-                })
-
-                # time 객체에서 예측 기준이 될 year 컬럼 독립적 추출
-                # df_climate['year'] = df_climate['time'].dt.year
-                # df_climate['time'] = pd.to_datetime(df_climate['time'])
-                df_climate['year'] = df_climate['time'].apply(lambda x: x.year)
-
-                # 2. 이제 정상적으로 .dt 접근자를 사용하여 연도(year)를 추출할 수 있습니다.
-                # df_climate['year'] = df_climate['time'].dt.year
-
-                # 데이터 확인
-                print(df_climate[['time', 'year']].head())
-
-                # 최종 사용할 피처만 선택
-                # features = ['year', 'avgTemp', 'avgMinTemp', 'avgMaxTemp', 'sumPrecip', 'avgRh', 'avgWindSpeed']
-                final_test_df = df_climate.copy()
-
-                print(final_test_df.head())
-
-                xCol = ['year', 'avgTemp', 'avgMinTemp', 'avgMaxTemp', 'sumPrecip', 'avgRh', 'avgWindSpeed']
-                yCol = 'demand'
-
-                trainData = None
-                testData = None
-                prdData = final_test_df
-
-                for (gubun1, gubun2), target_df in mergeData.groupby(['구분1', '구분2']):
-                    target_df = target_df.groupby('stnName').filter(lambda x: len(x) >= 30)
-                    if gubun1 not in ['아까시나무', '매화', '벚나무', '복숭아', '배나무']: continue
-                    if gubun2 not in ['개화']: continue
-                    log.info(f"gubun1 : {gubun1}, gubun2 : {gubun2}")
-
-                    sysOpt['flaml']['srv'] = f"{gubun1}-{gubun2}-전체"
-                    resFlaml = makeFlamlModel(sysOpt['flaml'], xCol, yCol, trainData, testData)
-                    # log.info(f'resFlaml : {resFlaml}')
-
-                    if resFlaml:
-                        prdVal = resFlaml['mlModel'].predict(prdData[xCol])
-                        prdData['ai'] = prdVal
-
-
-
-                    # 2026.05.29 수정
-                    # fig = plt.figure(figsize=(9,9))
-                    fig = plt.figure(figsize=(2200 / 300, 2000 / 300))
-                    ax = fig.add_subplot(111)
-
-                    # 2026.05.29 수정
-                    #   m = Basemap(projection='lcc', resolution='i',
-                    #                          lat_0=38, lon_0=126,
-                    #                          llcrnrlat=11.308528, urcrnrlat=53.303712,
-                    #                          llcrnrlon=101.395259, urcrnrlon=175.188166,
-                    #                          lat_1=30, lat_2=60)
-
-                    m = Basemap(projection='cyl',
-                                llcrnrlat=28, urcrnrlat=46,
-                                llcrnrlon=120, urcrnrlon=135,
-                                resolution='h', ax=ax)
-
-                    # 등온선 설정
-                    VMIN, VMAX, DLEV = 60, 150, 10
-                    LEVELS = np.arange(VMIN, VMAX + 1e-6, DLEV)
-
-                    # 2026.05.29 수정
-                    VMIN2, VMAX2, DLEV2 = 60, 150, 10
-                    LEVELS2 = np.arange(VMIN2, VMAX2 + 1e-6, DLEV2)
-
-                    lon = prdData['longitude']
-                    lat = prdData['latitude']
-                    data = prdData['ai']
-
-                    x, y = m(lon, lat)
-                    pcm = m.pcolormesh(x, y, data, cmap='jet', shading='auto', vmin=VMIN, vmax=VMAX)
-                    m.drawcoastlines(color='k', linewidth=0.5)
-                    m.drawcountries(color='gray', linewidth=0.5)
-                    m.fillcontinents(color='lightgray', lake_color='white')
-
-                    # 2026.05.29 수정
-                    #   m.drawparallels(np.arange(float(np.nanmin(lat)),float(np.nanmax(lat)) + 1, 5), labels=[1,0,0,0], fontsize=15, fontname='arial', fmt='%d')
-                    #   m.drawmeridians(np.arange(float(np.nanmin(lon)),float(np.nanmax(lon)) + 1, 10), labels=[0,0,0,1], fontsize=15, fontname='arial', fmt='%d')
-                    m.drawparallels(np.arange(15, 56, 10), labels=[1, 0, 0, 0], fontsize=10, fontname='DejaVu Sans',
-                                    fmt='%d', fontweight='bold')
-                    m.drawmeridians(np.arange(110, 151, 10), labels=[0, 0, 0, 1], fontsize=10, fontname='DejaVu Sans',
-                                    fmt='%d', fontweight='bold')
-
-                    # 2026.05.29 수정
-                    # smoothed_data = gaussian_filter(data, sigma=3)
-
-                    # 가우시안 필터
-                    weight = np.ones_like(data.data)
-                    weight[data.mask] = 0.0
-                    data_zeroed = data.filled(0.0)
-                    sigma_val = 15
-                    smoothed_data = gaussian_filter(data_zeroed, sigma=sigma_val)
-                    smoothed_weight = gaussian_filter(weight, sigma=sigma_val)
-                    with np.errstate(invalid='ignore', divide='ignore'):
-                        smoothed_corrected = smoothed_data / smoothed_weight
-                    smoothed_ma = np.ma.masked_array(smoothed_corrected, mask=data.mask)
-
-                    # 2026.05.29 수정
-                    # c = m.contour(x,y,smoothed_data,levels=LEVELS, colors='black', linewidths=1.0, alpha=0.8)
-                    c = m.contour(x, y, smoothed_ma, levels=LEVELS, colors='black', linewidths=1.0, alpha=0.8)
-
-                    # 2026.05.29 수정
-                    # plt.clabel(c, inline=True, fontsize=10, fmt='%d', colors='black')
-                    # labels = plt.clabel(c, levels=LEVELS, inline=False, fontsize=8, fmt='%d', colors='black')
-                    labels = plt.clabel(c, inline=True, fontsize=8, fmt='%d', colors='black')
-                    for label in labels:
-                        label.set_rotation(0)
-
-                    # 2026.05.29 수정
-                    # cbar = plt.colorbar(pcm,shrink=0.8)
-                    cbar = plt.colorbar(pcm, shrink=0.8, extend='both', spacing='proportional')
-                    cbar.set_ticks(LEVELS2)
-
-                    # cbar.set_label('Sea Surface Temperature (°C)', fontsize=10, fontname='DejaVu Sans',
-                    #                fontweight='bold')
-                    for lbl in cbar.ax.get_yticklabels():
-                        lbl.set_fontname('DejaVu Sans')
-                        lbl.set_fontsize(10)
-                        lbl.set_fontweight('bold')
-
-                    # 2026.05.29 수정
-                    # plt.title(f'Monthly GK2A Sea Surface Temperature ({year_comp}.{month_comp})',fontsize=12, fontweight='bold', fontname='DejaVu Sans')
-                    # plt.title(f'Monthly Mean GK2A Sea Surface Temperature ({COMP_MONTH})', fontsize=12,
-                    #           fontweight='bold', fontname='DejaVu Sans')
-                    plt.tight_layout()
-                    plt.show()
-
-                    # # 2026.05.29 수정
-                    # save_path = PNG_DIR
-                    #
-                    # # 2026.05.29 수정
-                    # # plt.savefig(save_path, dpi=300, bbox_inches='tight')
-                    # plt.savefig(save_path, dpi=300, transparent=True)
-                    # plt.close()
-                    # print(f"save_path : {save_path}")
-
-
-
-
-
-                    # 데이터 준비
-                    x = prdData['longitude']
-                    y = prdData['latitude']
-                    z = prdData['ai']
-
-                    # 1. 비어있는 2차원 바둑판(Grid) 좌표 만들기
-                    # 데이터를 500x500 픽셀의 해상도로 쪼갭니다. (숫자가 클수록 더 고해상도가 됩니다)
-                    grid_x, grid_y = np.mgrid[x.min():x.max():500j, y.min():y.max():500j]
-
-                    # 2. 흩어진 데이터를 바둑판 빈칸에 채워넣기 (보간법)
-                    # method='linear' (선형 보간), 'cubic' (부드럽게), 'nearest' (가장 가까운 값) 중 선택 가능
-                    grid_z = griddata((x, y), z, (grid_x, grid_y), method='linear')
-
-                    # 3. 그래프 그리기 시작
-                    plt.figure(figsize=(10, 10), dpi=100)
-
-                    # 4. pcolormesh 그리기
-                    # shading='auto'는 격자의 색상을 부드럽게 채워주는 최신 표준 옵션입니다.
-                    mesh_map = plt.pcolormesh(grid_x, grid_y, grid_z, shading='auto', cmap='Spectral_r')
-
-                    # 5. 컬러바(범례) 추가
-                    cbar = plt.colorbar(mesh_map, shrink=0.8)
-                    cbar.set_label('AI Value', fontsize=12)
-
-                    # 6. 축 라벨 및 타이틀 설정
-                    plt.xlabel('Longitude', fontsize=12)
-                    plt.ylabel('Latitude', fontsize=12)
-                    plt.title('AI Value Spatial Distribution (pcolormesh)', fontsize=15, pad=15)
-
-                    # 7. 그리드 추가 및 출력
-                    plt.grid(True, linestyle='--', alpha=0.5)
-                    plt.tight_layout()
-                    plt.show()
+            # # **********************************************************************************************************
+            # # 기후자료 미래예측
+            # # **********************************************************************************************************
+            # # 기후자료 예측 테스트
+            # fileList = sorted(glob.glob('/HDD/DATA/OUTPUT/BDWIDE2026/AR6_SSP126_5ENSMN_skorea_*_gridraw_yearly_2021_2100.nc'))
+            # ds = xr.open_mfdataset(fileList, chunks='auto')
+            # # ds = xr.open_mfdataset(fileList, combine='by_coords')
+            #
+            # timeList = ds['time'].values
+            # for timeInfo in timeList:
+            #
+            #     # ds['TA'].sel(time = timeInfo).plot()
+            #     # plt.show()
+            #
+            #     # AI 모델 학습(AutoML 등)에 활용하기 위해 Pandas DataFrame으로 변환
+            #     df_climate = ds.sel(time = timeInfo).to_dataframe().reset_index()
+            #     # df_climate = ds.to_dataframe().reset_index()
+            #
+            #     # 결측치(해양 격자 등 데이터가 없는 곳) 제거
+            #     df_climate = df_climate.dropna().reset_index(drop=True)
+            #
+            #     df_climate = df_climate.rename(columns={
+            #         'TA': 'avgTemp',  # 연평균 기온
+            #         'TAMIN': 'avgMinTemp',  # 연평균 최저기온
+            #         'TAMAX': 'avgMaxTemp',  # 연평균 최고기온
+            #         'RN': 'sumPrecip',  # 연 누적 강수량
+            #         'RHM': 'avgRh',  # 연평균 상대습도
+            #         'WS': 'avgWindSpeed'  # 연평균 풍속
+            #     })
+            #
+            #     # time 객체에서 예측 기준이 될 year 컬럼 독립적 추출
+            #     # df_climate['year'] = df_climate['time'].dt.year
+            #     # df_climate['time'] = pd.to_datetime(df_climate['time'])
+            #     df_climate['year'] = df_climate['time'].apply(lambda x: x.year)
+            #
+            #     # 2. 이제 정상적으로 .dt 접근자를 사용하여 연도(year)를 추출할 수 있습니다.
+            #     # df_climate['year'] = df_climate['time'].dt.year
+            #
+            #     # 데이터 확인
+            #     print(df_climate[['time', 'year']].head())
+            #
+            #     # 최종 사용할 피처만 선택
+            #     # features = ['year', 'avgTemp', 'avgMinTemp', 'avgMaxTemp', 'sumPrecip', 'avgRh', 'avgWindSpeed']
+            #     final_test_df = df_climate.copy()
+            #
+            #     print(final_test_df.head())
+            #
+            #     xCol = ['year', 'avgTemp', 'avgMinTemp', 'avgMaxTemp', 'sumPrecip', 'avgRh', 'avgWindSpeed']
+            #     yCol = 'demand'
+            #
+            #     trainData = None
+            #     testData = None
+            #     prdData = final_test_df
+            #
+            #     for (gubun1, gubun2), target_df in mergeData.groupby(['구분1', '구분2']):
+            #         target_df = target_df.groupby('stnName').filter(lambda x: len(x) >= 30)
+            #         if gubun1 not in ['아까시나무', '매화', '벚나무', '복숭아', '배나무']: continue
+            #         if gubun2 not in ['개화']: continue
+            #         log.info(f"gubun1 : {gubun1}, gubun2 : {gubun2}")
+            #
+            #         sysOpt['flaml']['srv'] = f"{gubun1}-{gubun2}-전체"
+            #         resFlaml = makeFlamlModel(sysOpt['flaml'], xCol, yCol, trainData, testData)
+            #         # log.info(f'resFlaml : {resFlaml}')
+            #
+            #         if resFlaml:
+            #             prdVal = resFlaml['mlModel'].predict(prdData[xCol])
+            #             prdData['ai'] = prdVal
+            #
+            #
+            #
+            #         # 2026.05.29 수정
+            #         # fig = plt.figure(figsize=(9,9))
+            #         fig = plt.figure(figsize=(2200 / 300, 2000 / 300))
+            #         ax = fig.add_subplot(111)
+            #
+            #         # 2026.05.29 수정
+            #         #   m = Basemap(projection='lcc', resolution='i',
+            #         #                          lat_0=38, lon_0=126,
+            #         #                          llcrnrlat=11.308528, urcrnrlat=53.303712,
+            #         #                          llcrnrlon=101.395259, urcrnrlon=175.188166,
+            #         #                          lat_1=30, lat_2=60)
+            #
+            #         m = Basemap(projection='cyl',
+            #                     llcrnrlat=28, urcrnrlat=46,
+            #                     llcrnrlon=120, urcrnrlon=135,
+            #                     resolution='h', ax=ax)
+            #
+            #         # 등온선 설정
+            #         VMIN, VMAX, DLEV = 60, 150, 10
+            #         LEVELS = np.arange(VMIN, VMAX + 1e-6, DLEV)
+            #
+            #         # 2026.05.29 수정
+            #         VMIN2, VMAX2, DLEV2 = 60, 150, 10
+            #         LEVELS2 = np.arange(VMIN2, VMAX2 + 1e-6, DLEV2)
+            #
+            #         lon = prdData['longitude']
+            #         lat = prdData['latitude']
+            #         data = prdData['ai']
+            #
+            #         x, y = m(lon, lat)
+            #         pcm = m.pcolormesh(x, y, data, cmap='jet', shading='auto', vmin=VMIN, vmax=VMAX)
+            #         m.drawcoastlines(color='k', linewidth=0.5)
+            #         m.drawcountries(color='gray', linewidth=0.5)
+            #         m.fillcontinents(color='lightgray', lake_color='white')
+            #
+            #         # 2026.05.29 수정
+            #         #   m.drawparallels(np.arange(float(np.nanmin(lat)),float(np.nanmax(lat)) + 1, 5), labels=[1,0,0,0], fontsize=15, fontname='arial', fmt='%d')
+            #         #   m.drawmeridians(np.arange(float(np.nanmin(lon)),float(np.nanmax(lon)) + 1, 10), labels=[0,0,0,1], fontsize=15, fontname='arial', fmt='%d')
+            #         m.drawparallels(np.arange(15, 56, 10), labels=[1, 0, 0, 0], fontsize=10, fontname='DejaVu Sans',
+            #                         fmt='%d', fontweight='bold')
+            #         m.drawmeridians(np.arange(110, 151, 10), labels=[0, 0, 0, 1], fontsize=10, fontname='DejaVu Sans',
+            #                         fmt='%d', fontweight='bold')
+            #
+            #         # 2026.05.29 수정
+            #         # smoothed_data = gaussian_filter(data, sigma=3)
+            #
+            #         # 가우시안 필터
+            #         weight = np.ones_like(data.data)
+            #         weight[data.mask] = 0.0
+            #         data_zeroed = data.filled(0.0)
+            #         sigma_val = 15
+            #         smoothed_data = gaussian_filter(data_zeroed, sigma=sigma_val)
+            #         smoothed_weight = gaussian_filter(weight, sigma=sigma_val)
+            #         with np.errstate(invalid='ignore', divide='ignore'):
+            #             smoothed_corrected = smoothed_data / smoothed_weight
+            #         smoothed_ma = np.ma.masked_array(smoothed_corrected, mask=data.mask)
+            #
+            #         # 2026.05.29 수정
+            #         # c = m.contour(x,y,smoothed_data,levels=LEVELS, colors='black', linewidths=1.0, alpha=0.8)
+            #         c = m.contour(x, y, smoothed_ma, levels=LEVELS, colors='black', linewidths=1.0, alpha=0.8)
+            #
+            #         # 2026.05.29 수정
+            #         # plt.clabel(c, inline=True, fontsize=10, fmt='%d', colors='black')
+            #         # labels = plt.clabel(c, levels=LEVELS, inline=False, fontsize=8, fmt='%d', colors='black')
+            #         labels = plt.clabel(c, inline=True, fontsize=8, fmt='%d', colors='black')
+            #         for label in labels:
+            #             label.set_rotation(0)
+            #
+            #         # 2026.05.29 수정
+            #         # cbar = plt.colorbar(pcm,shrink=0.8)
+            #         cbar = plt.colorbar(pcm, shrink=0.8, extend='both', spacing='proportional')
+            #         cbar.set_ticks(LEVELS2)
+            #
+            #         # cbar.set_label('Sea Surface Temperature (°C)', fontsize=10, fontname='DejaVu Sans',
+            #         #                fontweight='bold')
+            #         for lbl in cbar.ax.get_yticklabels():
+            #             lbl.set_fontname('DejaVu Sans')
+            #             lbl.set_fontsize(10)
+            #             lbl.set_fontweight('bold')
+            #
+            #         # 2026.05.29 수정
+            #         # plt.title(f'Monthly GK2A Sea Surface Temperature ({year_comp}.{month_comp})',fontsize=12, fontweight='bold', fontname='DejaVu Sans')
+            #         # plt.title(f'Monthly Mean GK2A Sea Surface Temperature ({COMP_MONTH})', fontsize=12,
+            #         #           fontweight='bold', fontname='DejaVu Sans')
+            #         plt.tight_layout()
+            #         plt.show()
+            #
+            #         # # 2026.05.29 수정
+            #         # save_path = PNG_DIR
+            #         #
+            #         # # 2026.05.29 수정
+            #         # # plt.savefig(save_path, dpi=300, bbox_inches='tight')
+            #         # plt.savefig(save_path, dpi=300, transparent=True)
+            #         # plt.close()
+            #         # print(f"save_path : {save_path}")
+            #
+            #
+            #
+            #
+            #
+            #         # 데이터 준비
+            #         x = prdData['longitude']
+            #         y = prdData['latitude']
+            #         z = prdData['ai']
+            #
+            #         # 1. 비어있는 2차원 바둑판(Grid) 좌표 만들기
+            #         # 데이터를 500x500 픽셀의 해상도로 쪼갭니다. (숫자가 클수록 더 고해상도가 됩니다)
+            #         grid_x, grid_y = np.mgrid[x.min():x.max():500j, y.min():y.max():500j]
+            #
+            #         # 2. 흩어진 데이터를 바둑판 빈칸에 채워넣기 (보간법)
+            #         # method='linear' (선형 보간), 'cubic' (부드럽게), 'nearest' (가장 가까운 값) 중 선택 가능
+            #         grid_z = griddata((x, y), z, (grid_x, grid_y), method='linear')
+            #
+            #         # 3. 그래프 그리기 시작
+            #         plt.figure(figsize=(10, 10), dpi=100)
+            #
+            #         # 4. pcolormesh 그리기
+            #         # shading='auto'는 격자의 색상을 부드럽게 채워주는 최신 표준 옵션입니다.
+            #         mesh_map = plt.pcolormesh(grid_x, grid_y, grid_z, shading='auto', cmap='Spectral_r')
+            #
+            #         # 5. 컬러바(범례) 추가
+            #         cbar = plt.colorbar(mesh_map, shrink=0.8)
+            #         cbar.set_label('AI Value', fontsize=12)
+            #
+            #         # 6. 축 라벨 및 타이틀 설정
+            #         plt.xlabel('Longitude', fontsize=12)
+            #         plt.ylabel('Latitude', fontsize=12)
+            #         plt.title('AI Value Spatial Distribution (pcolormesh)', fontsize=15, pad=15)
+            #
+            #         # 7. 그리드 추가 및 출력
+            #         plt.grid(True, linestyle='--', alpha=0.5)
+            #         plt.tight_layout()
+            #         plt.show()
 
 
 
@@ -679,7 +679,7 @@ class DtaProcess(object):
                     # plt.tight_layout()
                     # plt.show()
                     #
-                    print('asdasd')
+                    # print('asdasd')
 
 
                     # 1. 데이터 준비
@@ -731,7 +731,7 @@ class DtaProcess(object):
             for (gubun1, gubun2), target_df in mergeData.groupby(['구분1', '구분2']):
                 try:
                     target_df = target_df.groupby('stnName').filter(lambda x: len(x) >= 30)
-                    if gubun1 not in ['아까시나무', '매화', '벚나무', '복숭아', '배나무']: continue
+                    # if gubun1 not in ['아까시나무', '매화', '벚나무', '복숭아', '배나무']: continue
                     if gubun2 not in ['개화']: continue
                     log.info(f"gubun1 : {gubun1}, gubun2 : {gubun2}")
 
