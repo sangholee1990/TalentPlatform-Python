@@ -44,6 +44,10 @@ import shutil
 import io
 import uuid
 import re
+import matplotlib.colors as mcolors
+from mpl_toolkits.basemap import Basemap
+from matplotlib.colors import ListedColormap, BoundaryNorm
+from scipy.ndimage import gaussian_filter
 from datetime import datetime
 from isodate import parse_duration
 from pandas.tseries.offsets import DateOffset
@@ -51,6 +55,9 @@ import configparser
 from sklearn.metrics import mean_squared_error, mean_absolute_error, r2_score
 import matplotlib.pyplot as plt
 import numpy as np
+import numpy as np
+import matplotlib.pyplot as plt
+from scipy.interpolate import griddata
 
 import pandas as pd
 import numpy as np
@@ -499,10 +506,8 @@ class DtaProcess(object):
                         prdVal = resFlaml['mlModel'].predict(prdData[xCol])
                         prdData['ai'] = prdVal
 
-                    import matplotlib.colors as mcolors
-                    from mpl_toolkits.basemap import Basemap
-                    from matplotlib.colors import ListedColormap, BoundaryNorm
-                    from scipy.ndimage import gaussian_filter
+
+
                     # 2026.05.29 수정
                     # fig = plt.figure(figsize=(9,9))
                     fig = plt.figure(figsize=(2200 / 300, 2000 / 300))
@@ -602,9 +607,6 @@ class DtaProcess(object):
 
 
 
-                    import numpy as np
-                    import matplotlib.pyplot as plt
-                    from scipy.interpolate import griddata
 
                     # 데이터 준비
                     x = prdData['longitude']
