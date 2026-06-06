@@ -13,6 +13,416 @@
 # nohup /HDD/SYSTEMS/LIB/anaconda3/envs/py39/bin/python /HDD/SYSTEMS/PROG/PYTHON/IDE/src/proj/bdwide/2025/ECOWITT/TalentPlatform-bdwide-bloomAsosAnlPrd.py &
 # tail -f nohup.out
 
+# 데이터 준비 (가상의 데이터 프레임 prdData가 있다고 가정)
+# x = prdData['longitude'].values
+# y = prdData['latitude'].values
+# z = prdData['ai'].values
+#
+# # 1. 비어있는 2차원 바둑판(Grid) 좌표 만들기 (500x500 해상도)
+# grid_x, grid_y = np.mgrid[x.min():x.max():500j, y.min():y.max():500j]
+#
+# # RBFInterpolator와 KDTree에 넣기 위해 좌표 형태를 (N, 2) 형태로 변환
+# points = np.column_stack((x, y))
+# grid_points = np.column_stack((grid_x.ravel(), grid_y.ravel()))
+#
+# # ==========================================================
+# # [변경됨] 2. RBFInterpolator를 활용한 데이터 보간
+# # ==========================================================
+# # RBFInterpolator 생성 및 계산
+# # - neighbors=50: 전체 데이터가 아닌 가장 가까운 50개의 점만 사용하여 계산 (속도 및 메모리 문제 방지)
+# # - kernel: 'linear', 'thin_plate_spline', 'cubic', 'gaussian' 등 선택 가능
+# rbf_interpolator = RBFInterpolator(points, z, neighbors=50, kernel='linear')
+#
+# # 보간 수행 및 다시 500x500 그리드 형태로 복구
+# grid_z_1d = rbf_interpolator(grid_points)
+# grid_z = grid_z_1d.reshape(500, 500)
+# # ==========================================================
+#
+# # 3. 원본 데이터 반경 밖의 보간된 값들 지우기(Masking)
+# tree = cKDTree(points)
+# distances, _ = tree.query(grid_points)
+#
+# # # 허용 반경 설정 (대략 5km 정도, 필요에 따라 조절)
+# radius = 0.01
+# # radius = 0.0
+# mask = (distances > radius).reshape(grid_z.shape)
+#
+# # 반경 밖의 데이터는 NaN(결측치)으로 처리하여 투명하게 만들기
+# grid_z[mask] = np.nan
+#
+# # 4. 그래프 그리기 시작
+# plt.figure(figsize=(10, 10), dpi=100)
+#
+# # pcolormesh 그리기
+# mesh_map = plt.pcolormesh(grid_x, grid_y, grid_z, shading='auto', cmap='Spectral_r')
+#
+# # contours = plt.contour(grid_x, grid_y, grid_z, levels=5, colors='k', linewidths=0.5, alpha=0.6)
+# # plt.clabel(contours, inline=True, fontsize=8, fmt='%d')
+#
+# # 컬러바(범례) 추가
+# cbar = plt.colorbar(mesh_map, shrink=0.8)
+# cbar.set_label('AI Value', fontsize=12)
+#
+# # 축 라벨 및 타이틀 설정
+# plt.xlabel('Longitude', fontsize=12)
+# plt.ylabel('Latitude', fontsize=12)
+# plt.title('AI Value Spatial Distribution (RBF Interpolation)', fontsize=15, pad=15)
+#
+# # 그리드 추가 및 출력
+# plt.grid(True, linestyle='--', alpha=0.5)
+# plt.tight_layout()
+# plt.show()
+
+# # 최종 모든 결과를 누적할 빈 리스트
+# all_metrics_list = []
+# for (gubun1, gubun2, stn), target_df in mergeData.groupby(['구분1', '구분2', 'stnName']):
+#     try:
+#         if gubun1 not in ['아까시나무', '매화', '벚나무', '복숭아', '배나무']: continue
+#         if gubun2 not in ['개화']: continue
+#         log.info(f"gubun1 : {gubun1}, gubun2 : {gubun2}, stn : {stn}")
+#
+#         # ---------------------------------------------------------
+#         # 1. 컬럼명 통일 및 시계열 처리
+#         # ---------------------------------------------------------
+#         target_df = target_df.rename(columns={'값': 'demand'})
+#         target_df['demand'] = pd.to_datetime(target_df['demand'], format='%Y-%m-%d',
+#                                              errors='coerce').dt.strftime('%j').astype('float')
+#         target_df['timeStamp'] = pd.to_datetime(target_df['year'], errors='coerce')
+#         target_df = target_df.dropna(subset=['demand']).reset_index(drop=True)
+#
+#
+#         # 데이터가 너무 적으면 시계열 분할 및 모델 학습이 불가하므로 스킵 (최소 10건)
+#         if len(target_df['demand']) < 30: continue
+#
+#         # ---------------------------------------------------------
+#         # 2. 피처 설정 및 Train/Test 시계열 분할
+#         # ---------------------------------------------------------
+#         target_df = target_df.sort_values(by='year')
+#         # unique_years = target_df['year'].unique()
+#
+#         # ****************************************************************************
+#         # 독립/종속 변수 설정
+#         # ****************************************************************************
+#         xCol = ['year', 'avgTemp', 'avgMinTemp', 'avgMaxTemp', 'sumPrecip', 'avgRh', 'avgWindSpeed']
+#         yCol = 'demand'
+#
+#         # ---------------------------------------------------------
+#         # 3. 개별 지역 모델 학습 및 예측
+#         # ---------------------------------------------------------
+#         # from sklearn.model_selection import train_test_split
+#         # trainData, testData = train_test_split(target_df, test_size=0.2, random_state=int(datetime.datetime.now().timestamp()))
+#         yearList = target_df['year'].unique()
+#         idx = int(len(yearList) * 0.8)
+#
+#         trainData = target_df[target_df['year'] <= yearList[idx - 1]]
+#         testData = target_df[target_df['year'] > yearList[idx - 1]]
+#         prdData = target_df
+#
+#         sysOpt['flaml']['srv'] = f"{gubun1}-{gubun2}-{stn}"
+#         resFlaml = makeFlamlModel(sysOpt['flaml'], xCol, yCol, trainData, prdData)
+#         # log.info(f'resFlaml : {resFlaml}')
+#
+#         if resFlaml:
+#             prdVal = resFlaml['mlModel'].predict(prdData[xCol])
+#             prdData['ai'] = prdVal
+#
+#         if len(prdData) > 1:
+#             # rmse = np.sqrt(mean_squared_error(y_test, y_pred))
+#             # mean_demand = y_test.mean()
+#
+#             rmse = np.sqrt(mean_squared_error(prdData['demand'], prdData['ai']))
+#             r = np.corrcoef(target_df['demand'], prdData['ai'])[0, 1]
+#         else:
+#             rmse = np.nan
+#             r = np.nan
+#
+#         # 결과 저장
+#         all_metrics_list.append({
+#             '구분1': gubun1,
+#             '구분2': gubun2,
+#             'stnName': stn,
+#             # 'N': len(y_test),
+#             'N': len(prdData['demand']),
+#             'RMSE': round(rmse, 2) if not np.isnan(rmse) else np.nan,
+#             'R': round(r, 2) if not np.isnan(r) else np.nan
+#         })
+#         log.info(pd.DataFrame(all_metrics_list))
+#     except Exception as e:
+#         log.error(f"Exception : {e}")
+
+
+#
+# # 그래프 사이즈 설정
+# plt.figure(figsize=(16, 6))
+#
+# # -------------------------------------------------------------
+# # [그래프 1] 연도별 실제 수요 vs 예측 수요 흐름 (Line Plot)
+# # -------------------------------------------------------------
+# plt.subplot(1, 2, 1)
+# sns.lineplot(data=result_df, x='year', y='demand', label='Actual (실제값)', marker='o')
+# sns.lineplot(data=result_df, x='year', y='predicted_demand', label='Predicted (예측값)', marker='s',
+#              linestyle='--')
+#
+# plt.title('연도별 실제 수요량 vs 예측 수요량 흐름')
+# plt.xlabel('연도 (Year)')
+# plt.ylabel('수요량 (Demand)')
+# plt.legend()
+# plt.grid(True, alpha=0.3)
+#
+# # -------------------------------------------------------------
+# # [그래프 2] 1:1 산점도 (Scatter Plot)
+# # -------------------------------------------------------------
+# plt.subplot(1, 2, 2)
+# sns.scatterplot(x='demand', y='predicted_demand', data=result_df, alpha=0.7)
+#
+# # 1:1 기준선(y=x) 그리기 - 이 선에 점들이 모여있을수록 예측이 완벽하다는 뜻입니다.
+# min_val = min(result_df['demand'].min(), result_df['predicted_demand'].min())
+# max_val = max(result_df['demand'].max(), result_df['predicted_demand'].max())
+# plt.plot([min_val, max_val], [min_val, max_val], color='red', linestyle='--', label='1:1 Line (완벽한 예측)')
+#
+# plt.title('실제값 vs 예측값 1:1 산점도')
+# plt.xlabel('실제 수요량 (Actual Demand)')
+# plt.ylabel('예측 수요량 (Predicted Demand)')
+# plt.legend()
+# plt.grid(True, alpha=0.3)
+#
+# # 그래프 간격 조절 후 출력
+# plt.tight_layout()
+# plt.show()
+#
+#
+#
+#
+# # 5. 예측 수행 (가급적 X_test를 별도로 만들어 사용하는 것을 권장합니다)
+# # # print("====== 예측 결과 (Prediction) ======")
+# # predictions = automl.predict(X_train)
+# # # print(predictions)
+# #
+# # sokcho_df['prd'] = np.round(predictions).astype(int)
+# #
+# # # 1. 평가 지표 계산 (정답인 y_train과 모델이 찍은 predictions를 비교)
+# # rmse = np.sqrt(mean_squared_error(y_train,  sokcho_df['prd']))
+# # rrmse = (rmse / y_train.mean()) * 100
+# # nrmse = (rmse / (y_train.max() - y_train.min())) * 100
+# # mae = mean_absolute_error(y_train,  sokcho_df['prd'])
+# # r2 = r2_score(y_train,  sokcho_df['prd'])
+# # r = np.sqrt(r2)
+#
+# # print("====== 모델 검증 결과 (Metrics) ======")
+# # print(f"RMSE (평균 오차): {rmse:.2f}")
+# # print(f"MAE (절대 평균 오차): {mae:.2f}")
+# # print(f"R2 Score (설명력, 1에 가까울수록 좋음): {r2:.2f}")
+#
+# # ---------------------------------------------------------
+# # 웹 기반 가공 데이터 생산
+# # ---------------------------------------------------------
+# # 데이터 준비
+# target_year = 2025
+# year_df = sokcho_df[sokcho_df['dt'] == target_year].copy()
+# year_df['prd'] = year_df['prd'].round().astype(int)
+#
+# lats = year_df['LAT'].values
+# lons = year_df['LON'].values
+# values = year_df['prd'].values
+#
+# obs_coords = np.column_stack((lons, lats))
+#
+# # 2. 고해상도 타겟 격자 생성 (500x500)
+# grid_lon = np.linspace(124, 131, 1000)
+# grid_lat = np.linspace(33, 39, 1000)
+# Grid_lon, Grid_lat = np.meshgrid(grid_lon, grid_lat)
+# target_coords = np.column_stack((Grid_lon.ravel(), Grid_lat.ravel()))
+#
+# smoothing_candidates = np.arange(0, 100, 0.5)
+# best_smoothing = 0.0
+# min_error = float('inf')
+#
+# # LOOCV (Leave-One-Out Cross Validation) 방식으로 최적값 찾기
+# for s in smoothing_candidates:
+#     errors = []
+#     # 관측소가 100개라면, 1개를 빼고 99개로 학습한 뒤 1개를 예측해보는 과정을 반복
+#     for i in range(len(obs_coords)):
+#         # i번째 관측소만 제외 (검증용)
+#         train_coords = np.delete(obs_coords, i, axis=0)
+#         train_values = np.delete(values, i)
+#         test_coord = obs_coords[i:i + 1]
+#         test_value = values[i]
+#
+#         # RBF 보간
+#         rbf = RBFInterpolator(train_coords, train_values, kernel='thin_plate_spline', smoothing=s)
+#         pred_value = rbf(test_coord)[0]
+#
+#         errors.append((test_value - pred_value) ** 2)
+#
+#     avg_rmse = np.sqrt(np.mean(errors))
+#     print(f" - Smoothing {s}: RMSE = {avg_rmse:.3f} 일")
+#
+#     if avg_rmse < min_error:
+#         min_error = avg_rmse
+#         best_smoothing = s
+#
+# print(f"최적의 Smoothing 값 선택: {best_smoothing} (최소 오차: {min_error:.3f} 일)")
+#
+# print(f" {target_year}년 개화일 RBF 보간 중...")
+# rbf = RBFInterpolator(
+#     y=obs_coords,
+#     d=values,
+#     kernel='thin_plate_spline',
+#     smoothing=best_smoothing,
+# )
+# grid_prd_smooth = rbf(target_coords).reshape(Grid_lon.shape)
+# print(" 대한민국 영토 마스크 생성 중...")
+#
+# shpfilename = shpreader.natural_earth(resolution='10m',
+#                                       category='cultural',
+#                                       name='admin_0_countries')
+# reader = shpreader.Reader(shpfilename)
+#
+# # 'South Korea' (대한민국) 지형만 추출
+# korea_geoms = []
+# for record in reader.records():
+#     # ISO_A3 코드가 'KOR'인 국가(대한민국)를 찾습니다.
+#     if record.attributes['ISO_A3'] == 'KOR':
+#         korea_geoms.append(record.geometry)
+#
+# # 추출한 대한민국 지형(본토 및 섬들)을 하나로 병합
+# korea_geom = unary_union(korea_geoms)
+# korea_prep = prep(korea_geom)
+#
+# # 격자점이 대한민국 영토 안에 있는지 확인하여 마스크 생성 (True: 한국, False: 바다/외국)
+# mask = np.array([korea_prep.contains(Point(lon, lat))
+#                  for lon, lat in zip(Grid_lon.ravel(), Grid_lat.ravel())])
+# mask = mask.reshape(Grid_lon.shape)
+#
+# grid_prd_final = np.where(mask, grid_prd_smooth, np.nan)
+#
+# # ---------------------------------------------------------
+# # 웹 기반 가공 차트
+# # ---------------------------------------------------------
+# fig, ax = plt.subplots()
+# levels = np.arange(int(np.nanmin(values)), int(np.nanmax(values)) + 2, 1)
+#
+# # 💡 변경점 1: contourf() 가 아닌 contour() 를 사용합니다! (f가 빠짐)
+# contourf_plot = ax.contourf(Grid_lon, Grid_lat, grid_prd_final, levels=levels, cmap='YlGn')
+# plt.close(fig)
+#
+# geojson_str = geojsoncontour.contourf_to_geojson(
+#     contourf=contourf_plot,
+#     ndigits=5,
+#     stroke_width=0
+# )
+# gdf_poly = gpd.read_file(geojson_str, driver='GeoJSON')
+# gdf_poly = gdf_poly.set_crs(epsg=4326)
+# gdf_poly['geometry'] = gdf_poly['geometry'].buffer(0)
+#
+# poly_fgb = f"{globalVar['outPath']}/{serviceName}/blooming_poly_{target_year}.fgb"
+# gdf_poly.to_file(poly_fgb, driver='FlatGeobuf')
+# print(f"면(Polygon) 데이터 저장 완료: {poly_fgb}")
+#
+# point_geometries = [Point(xy) for xy in zip(year_df['LON'], year_df['LAT'])]
+#
+# gdf_points = gpd.GeoDataFrame(
+#     year_df,
+#     geometry=point_geometries,
+#     crs="EPSG:4326"
+# )
+#
+# point_fgb = f"{globalVar['outPath']}/{serviceName}/blooming_point_{target_year}.fgb"
+# gdf_points.to_file(point_fgb, driver='FlatGeobuf')
+# print(f"점(Point) 데이터 저장 완료: {point_fgb}")
+#
+# sys.exit(0)
+#
+#
+# # 기후자료 예측 테스트
+# fileList = sorted(glob.glob('/HDD/DATA/OUTPUT/BDWIDE2026/AR6_SSP126_5ENSMN_skorea_*_gridraw_yearly_2021_2100.nc'))
+# ds = xr.open_mfdataset(fileList)
+#
+# target_year = '2025'
+#
+# ds['time']
+# # =========================================================
+# # 💡 1. xarray에서 2050년 3월~5월(봄) 데이터만 쏙 뽑아서 평균 내기
+# # =========================================================
+# # 특정 기간 슬라이싱 후, 시간(time) 차원에 대해 평균(mean)을 구합니다.
+# ds_spring = ds.sel(time=slice(f'{target_year}-01-01', f'{target_year}-01-01'))
+# ds_spring_mean = ds_spring.mean(dim='time')
+#
+# #       grid_lon = np.linspace(124, 131, 1000)
+# #             grid_lat = np.linspace(33, 39, 1000)
+# lonList = np.arange(124, 131, 0.01)
+# latList = np.arange(33, 39, 0.01)
+# ds_spring_mean = ds_spring_mean.interpolate_na({'longitude': lonList, 'latitude': latList}, method='linear', fill_value="extrapolate")
+#
+# ta_values = ds_spring_mean['TA'].values
+# lons = ds_spring_mean['longitude'].values
+# lats = ds_spring_mean['latitude'].values
+#
+# Grid_lon, Grid_lat = np.meshgrid(lons, lats)
+#
+# # =========================================================
+# # 2. 고해상도 등치면(Polygon) 생성 (전체 영역)
+# # =========================================================
+# print("등치면 생성 중... (마스크 없이 바다까지 포함)")
+#
+# fig, ax = plt.subplots()
+#
+# min_val = np.nanmin(ta_values)
+# max_val = np.nanmax(ta_values)
+# levels = np.arange(int(min_val) - 1, int(max_val) + 2, 1)
+# print(levels)
+#
+# # 기온 변화를 직관적으로 보여주는 컬러맵
+# contourf_plot = ax.contourf(Grid_lon, Grid_lat, ta_values, levels=levels, cmap='YlOrRd', extend='both')
+# # plt.show()
+# plt.close(fig)
+#
+# # =========================================================
+# # 3. GeoJSON 변환
+# # =========================================================
+# print("GeoJSON 변환 중...")
+# geojson_str = geojsoncontour.contourf_to_geojson(
+#     contourf=contourf_plot,
+#     ndigits=7,
+#     stroke_width=0
+# )
+#
+# # GeoPandas로 로드 및 꼬인 폴리곤(buffer 0) 복구
+# gdf = gpd.read_file(geojson_str, driver='GeoJSON')
+# gdf = gdf.set_crs(epsg=4326)
+# # gdf['geometry'] = gdf['geometry'].buffer(0)
+# # gdf['geometry'] = gdf.simplify(tolerance=0.005, preserve_topology=True)
+# gdf['year'] = int(target_year)
+#
+# gdf = gdf[~gdf.geometry.is_empty & gdf.geometry.notnull()]
+#
+# # =========================================================
+# # 4. FlatGeobuf 최종 저장 (클리핑 없이 즉시 저장)
+# # =========================================================
+# # output_fgb = f"future_climate_TA_{target_year}_nomask.fgb"
+# output_fgb = f"{globalVar['outPath']}/{serviceName}/future_climate_TA_{target_year}_nomask.fgb"
+#
+#
+# # 자르는 과정 없이 원본 gdf를 그대로 저장합니다.
+# gdf.to_file(output_fgb, driver='FlatGeobuf')
+#
+# print(f"마스크 없는 초고속 FGB 파일 저장 완료: {output_fgb}")
+#
+# import rasterio
+# # from rasterio.transform import from_bounds
+#
+# # 좌표계(CRS)를 위경도(EPSG:4326)로 설정
+# ds_spring_mean.rio.set_spatial_dims(x_dim="longitude", y_dim="latitude", inplace=True)
+# ds_spring_mean.rio.write_crs("epsg:4326", inplace=True)
+#
+# # 최종 COG(GeoTIFF) 파일로 저장
+# output_tif = f"{globalVar['outPath']}/{serviceName}/future_climate_TA_{target_year}.tif"
+# da_clipped.rio.to_raster(output_tif, driver="COG")
+#
+# print(f"✅ 초고속 렌더링용 COG 파일 저장 완료: {output_tif}")
+#
+# sys.exit(0)
+
 import argparse
 import glob
 import logging
@@ -248,7 +658,7 @@ def initArgument(globalVar):
         parser.add_argument(argv)
 
     inParInfo = vars(parser.parse_args())
-    log.info(f"[CHECK] inParInfo : {inParInfo}")
+    log.info(f"inParInfo : {inParInfo}")
 
     # 전역 변수에 할당
     for key, val in inParInfo.items():
@@ -261,8 +671,6 @@ def initArgument(globalVar):
 
 
 def makeFlamlModel(subOpt=None, xCol=None, yCol=None, trainData=None, testData=None):
-    # log.info(f'[START] makeFlamlModel')
-    # log.info(f'[CHECK] subOpt : {subOpt}')
 
     result = None
 
@@ -304,7 +712,7 @@ def makeFlamlModel(subOpt=None, xCol=None, yCol=None, trainData=None, testData=N
                 pickle.dump(fnlModel, file, pickle.HIGHEST_PROTOCOL)
         else:
             saveModel = saveModelList[0]
-            log.info(f"[CHECK] saveModel : {saveModel}")
+            log.info(f"saveModel : {saveModel}")
 
             with open(saveModel, 'rb') as f:
                 fnlModel = pickle.load(f)
@@ -328,7 +736,7 @@ def initCfgInfo(config, key):
     result = None
 
     try:
-        log.info(f'[CHECK] key : {key}')
+        log.info(f'key : {key}')
 
         dbUser = config.get(key, 'user')
         dbPwd = urllib.parse.quote(config.get(key, 'pwd'))
@@ -423,8 +831,8 @@ class DtaProcess(object):
 
             # 옵션 설정
             sysOpt = {
-                'srtDate': '2025-08-01',
-                'endDate': '2026-01-03',
+                # 'srtDate': '2025-08-01',
+                # 'endDate': '2026-01-03',
 
                 # DB 설정 정보
                 'cfgFile': '/HDD/SYSTEMS/PROG/PYTHON/IDE/resources/config/system.cfg',
@@ -441,10 +849,10 @@ class DtaProcess(object):
 
 
                 'flaml': {
-                    'saveModelList': "/DATA/OUTPUT/BDWIDE2026/AI/*/*/BDWIDE2025_{srv}_flaml_*.model",
-                    'saveModel': "/DATA/OUTPUT/BDWIDE2026/AI/%Y%m/%d/BDWIDE2025_{srv}_flaml_%Y%m%d.model",
-                    'isOverWrite': False,
-                    # 'isOverWrite': True,
+                    'saveModelList': '/DATA/OUTPUT/BDWIDE2026/AI/*/*/BDWIDE2025_{srv}_flaml_*.model',
+                    'saveModel': '/DATA/OUTPUT/BDWIDE2026/AI/%Y%m/%d/BDWIDE2025_{srv}_flaml_%Y%m%d.model',
+                    # 'isOverWrite': False,
+                    'isOverWrite': True,
                     'srv': None,
                     'preDt': datetime.datetime.now(),
                 },
@@ -477,7 +885,7 @@ class DtaProcess(object):
 
             mergeData = pd.merge(obsData, refDataL1, left_on=['stnName', 'year'], right_on=['지점', '년도'], how='inner')
             mergeData = pd.merge(mergeData, cfgDataL1, left_on=['stnId'], right_on=['STN'], how='inner')
-            mergeDataL1 = mergeData.groupby('stnName').filter(lambda x: len(x) >= 30)
+            mergeDataL1 = mergeData.groupby(['stnName', '구분1', '구분2']).filter(lambda x: len(x) >= 30)
 
             # =============================================================
             # 지상관측 기반 학습모형 생산/예측
@@ -487,8 +895,8 @@ class DtaProcess(object):
             for (type, type2), mergeInfo in mergeDataL1.groupby(['구분1', '구분2']):
                 try:
                     # if type not in ['아까시나무', '매화', '벚나무', '복숭아', '배나무']: continue
-                    # if type2 not in ['개화', '만발']: continue
-                    if type2 not in ['개화']: continue
+                    if type2 not in ['개화', '만발']: continue
+                    # if type2 not in ['개화']: continue
 
                     mergeInfo = mergeInfo.rename(columns={'값': 'demand'})
                     mergeInfo['demand'] = pd.to_datetime(mergeInfo['demand'], format='%Y-%m-%d', errors='coerce').dt.strftime('%j').astype('float')
@@ -502,7 +910,6 @@ class DtaProcess(object):
                     # 학습/테스트 데이터
                     yearList = mergeInfo['year'].unique()
                     idx = int(len(yearList) * 0.8)
-
                     trainData = mergeInfo[mergeInfo['year'] <= yearList[idx - 1]]
                     testData = mergeInfo[mergeInfo['year'] > yearList[idx - 1]]
                     prdData = mergeInfo
@@ -514,7 +921,8 @@ class DtaProcess(object):
                     # log.info(f'resFlaml : {resFlaml}')
 
                     if not resFlaml: continue
-                    prdVal = resFlaml['mlModel'].predict(prdData[xCol])
+                    # prdVal = resFlaml['mlModel'].predict(prdData[xCol])
+                    prdVal = resFlaml['mlModel'].predict(prdData[xCol]).astype(int)
                     prdData['ai'] = prdVal
 
                     if len(prdData) < 1: continue
@@ -596,442 +1004,61 @@ class DtaProcess(object):
                 testData = None
                 prdData = selDataL1
                 for (type, type2), target_df in mergeData.groupby(['구분1', '구분2']):
-                    log.info(f"type : {type}, type2 : {type2}")
+                    if type2 not in ['개화', '만발']: continue
 
                     sysOpt['flaml']['srv'] = f"{type}-{type2}-전체"
+                    sysOpt['flaml']['isOverWrite'] = False
                     resFlaml = makeFlamlModel(sysOpt['flaml'], xCol, yCol, trainData, testData)
                     # log.info(f'resFlaml : {resFlaml}')
 
                     if not resFlaml: continue
-                    prdVal = resFlaml['mlModel'].predict(prdData[xCol])
+                    prdVal = resFlaml['mlModel'].predict(prdData[xCol]).astype(int)
                     prdData['ai'] = prdVal
                     prdData['type'] = type
                     prdData['type2'] = type2
 
                     # DB 적재
-                    prdData.columns
+                    with sysOpt['cfgDb']['sessionMake']() as session:
+                        try:
+                            tbTmp = f"tbTm_{uuid.uuid4().hex}"
+                            with session.begin():
+                                dbEngine = session.get_bind()
 
+                                prdData.to_sql(
+                                    name=tbTmp,
+                                    con=dbEngine,
+                                    if_exists="replace",
+                                    index=False,
+                                    chunksize=1000
+                                )
 
-                    # 데이터 준비 (가상의 데이터 프레임 prdData가 있다고 가정)
-                    # x = prdData['longitude'].values
-                    # y = prdData['latitude'].values
-                    # z = prdData['ai'].values
-                    #
-                    # # 1. 비어있는 2차원 바둑판(Grid) 좌표 만들기 (500x500 해상도)
-                    # grid_x, grid_y = np.mgrid[x.min():x.max():500j, y.min():y.max():500j]
-                    #
-                    # # RBFInterpolator와 KDTree에 넣기 위해 좌표 형태를 (N, 2) 형태로 변환
-                    # points = np.column_stack((x, y))
-                    # grid_points = np.column_stack((grid_x.ravel(), grid_y.ravel()))
-                    #
-                    # # ==========================================================
-                    # # [변경됨] 2. RBFInterpolator를 활용한 데이터 보간
-                    # # ==========================================================
-                    # # RBFInterpolator 생성 및 계산
-                    # # - neighbors=50: 전체 데이터가 아닌 가장 가까운 50개의 점만 사용하여 계산 (속도 및 메모리 문제 방지)
-                    # # - kernel: 'linear', 'thin_plate_spline', 'cubic', 'gaussian' 등 선택 가능
-                    # rbf_interpolator = RBFInterpolator(points, z, neighbors=50, kernel='linear')
-                    #
-                    # # 보간 수행 및 다시 500x500 그리드 형태로 복구
-                    # grid_z_1d = rbf_interpolator(grid_points)
-                    # grid_z = grid_z_1d.reshape(500, 500)
-                    # # ==========================================================
-                    #
-                    # # 3. 원본 데이터 반경 밖의 보간된 값들 지우기(Masking)
-                    # tree = cKDTree(points)
-                    # distances, _ = tree.query(grid_points)
-                    #
-                    # # # 허용 반경 설정 (대략 5km 정도, 필요에 따라 조절)
-                    # radius = 0.01
-                    # # radius = 0.0
-                    # mask = (distances > radius).reshape(grid_z.shape)
-                    #
-                    # # 반경 밖의 데이터는 NaN(결측치)으로 처리하여 투명하게 만들기
-                    # grid_z[mask] = np.nan
-                    #
-                    # # 4. 그래프 그리기 시작
-                    # plt.figure(figsize=(10, 10), dpi=100)
-                    #
-                    # # pcolormesh 그리기
-                    # mesh_map = plt.pcolormesh(grid_x, grid_y, grid_z, shading='auto', cmap='Spectral_r')
-                    #
-                    # # contours = plt.contour(grid_x, grid_y, grid_z, levels=5, colors='k', linewidths=0.5, alpha=0.6)
-                    # # plt.clabel(contours, inline=True, fontsize=8, fmt='%d')
-                    #
-                    # # 컬러바(범례) 추가
-                    # cbar = plt.colorbar(mesh_map, shrink=0.8)
-                    # cbar.set_label('AI Value', fontsize=12)
-                    #
-                    # # 축 라벨 및 타이틀 설정
-                    # plt.xlabel('Longitude', fontsize=12)
-                    # plt.ylabel('Latitude', fontsize=12)
-                    # plt.title('AI Value Spatial Distribution (RBF Interpolation)', fontsize=15, pad=15)
-                    #
-                    # # 그리드 추가 및 출력
-                    # plt.grid(True, linestyle='--', alpha=0.5)
-                    # plt.tight_layout()
-                    # plt.show()
-
-            # # 최종 모든 결과를 누적할 빈 리스트
-            # all_metrics_list = []
-            # for (gubun1, gubun2, stn), target_df in mergeData.groupby(['구분1', '구분2', 'stnName']):
-            #     try:
-            #         if gubun1 not in ['아까시나무', '매화', '벚나무', '복숭아', '배나무']: continue
-            #         if gubun2 not in ['개화']: continue
-            #         log.info(f"gubun1 : {gubun1}, gubun2 : {gubun2}, stn : {stn}")
-            #
-            #         # ---------------------------------------------------------
-            #         # 1. 컬럼명 통일 및 시계열 처리
-            #         # ---------------------------------------------------------
-            #         target_df = target_df.rename(columns={'값': 'demand'})
-            #         target_df['demand'] = pd.to_datetime(target_df['demand'], format='%Y-%m-%d',
-            #                                              errors='coerce').dt.strftime('%j').astype('float')
-            #         target_df['timeStamp'] = pd.to_datetime(target_df['year'], errors='coerce')
-            #         target_df = target_df.dropna(subset=['demand']).reset_index(drop=True)
-            #
-            #
-            #         # 데이터가 너무 적으면 시계열 분할 및 모델 학습이 불가하므로 스킵 (최소 10건)
-            #         if len(target_df['demand']) < 30: continue
-            #
-            #         # ---------------------------------------------------------
-            #         # 2. 피처 설정 및 Train/Test 시계열 분할
-            #         # ---------------------------------------------------------
-            #         target_df = target_df.sort_values(by='year')
-            #         # unique_years = target_df['year'].unique()
-            #
-            #         # ****************************************************************************
-            #         # 독립/종속 변수 설정
-            #         # ****************************************************************************
-            #         xCol = ['year', 'avgTemp', 'avgMinTemp', 'avgMaxTemp', 'sumPrecip', 'avgRh', 'avgWindSpeed']
-            #         yCol = 'demand'
-            #
-            #         # ---------------------------------------------------------
-            #         # 3. 개별 지역 모델 학습 및 예측
-            #         # ---------------------------------------------------------
-            #         # from sklearn.model_selection import train_test_split
-            #         # trainData, testData = train_test_split(target_df, test_size=0.2, random_state=int(datetime.datetime.now().timestamp()))
-            #         yearList = target_df['year'].unique()
-            #         idx = int(len(yearList) * 0.8)
-            #
-            #         trainData = target_df[target_df['year'] <= yearList[idx - 1]]
-            #         testData = target_df[target_df['year'] > yearList[idx - 1]]
-            #         prdData = target_df
-            #
-            #         sysOpt['flaml']['srv'] = f"{gubun1}-{gubun2}-{stn}"
-            #         resFlaml = makeFlamlModel(sysOpt['flaml'], xCol, yCol, trainData, prdData)
-            #         # log.info(f'resFlaml : {resFlaml}')
-            #
-            #         if resFlaml:
-            #             prdVal = resFlaml['mlModel'].predict(prdData[xCol])
-            #             prdData['ai'] = prdVal
-            #
-            #         if len(prdData) > 1:
-            #             # rmse = np.sqrt(mean_squared_error(y_test, y_pred))
-            #             # mean_demand = y_test.mean()
-            #
-            #             rmse = np.sqrt(mean_squared_error(prdData['demand'], prdData['ai']))
-            #             r = np.corrcoef(target_df['demand'], prdData['ai'])[0, 1]
-            #         else:
-            #             rmse = np.nan
-            #             r = np.nan
-            #
-            #         # 결과 저장
-            #         all_metrics_list.append({
-            #             '구분1': gubun1,
-            #             '구분2': gubun2,
-            #             'stnName': stn,
-            #             # 'N': len(y_test),
-            #             'N': len(prdData['demand']),
-            #             'RMSE': round(rmse, 2) if not np.isnan(rmse) else np.nan,
-            #             'R': round(r, 2) if not np.isnan(r) else np.nan
-            #         })
-            #         log.info(pd.DataFrame(all_metrics_list))
-            #     except Exception as e:
-            #         log.error(f"Exception : {e}")
-
-
-
-
-
-
-            #
-            # # 그래프 사이즈 설정
-            # plt.figure(figsize=(16, 6))
-            #
-            # # -------------------------------------------------------------
-            # # [그래프 1] 연도별 실제 수요 vs 예측 수요 흐름 (Line Plot)
-            # # -------------------------------------------------------------
-            # plt.subplot(1, 2, 1)
-            # sns.lineplot(data=result_df, x='year', y='demand', label='Actual (실제값)', marker='o')
-            # sns.lineplot(data=result_df, x='year', y='predicted_demand', label='Predicted (예측값)', marker='s',
-            #              linestyle='--')
-            #
-            # plt.title('연도별 실제 수요량 vs 예측 수요량 흐름')
-            # plt.xlabel('연도 (Year)')
-            # plt.ylabel('수요량 (Demand)')
-            # plt.legend()
-            # plt.grid(True, alpha=0.3)
-            #
-            # # -------------------------------------------------------------
-            # # [그래프 2] 1:1 산점도 (Scatter Plot)
-            # # -------------------------------------------------------------
-            # plt.subplot(1, 2, 2)
-            # sns.scatterplot(x='demand', y='predicted_demand', data=result_df, alpha=0.7)
-            #
-            # # 1:1 기준선(y=x) 그리기 - 이 선에 점들이 모여있을수록 예측이 완벽하다는 뜻입니다.
-            # min_val = min(result_df['demand'].min(), result_df['predicted_demand'].min())
-            # max_val = max(result_df['demand'].max(), result_df['predicted_demand'].max())
-            # plt.plot([min_val, max_val], [min_val, max_val], color='red', linestyle='--', label='1:1 Line (완벽한 예측)')
-            #
-            # plt.title('실제값 vs 예측값 1:1 산점도')
-            # plt.xlabel('실제 수요량 (Actual Demand)')
-            # plt.ylabel('예측 수요량 (Predicted Demand)')
-            # plt.legend()
-            # plt.grid(True, alpha=0.3)
-            #
-            # # 그래프 간격 조절 후 출력
-            # plt.tight_layout()
-            # plt.show()
-            #
-            #
-            #
-            #
-            # # 5. 예측 수행 (가급적 X_test를 별도로 만들어 사용하는 것을 권장합니다)
-            # # # print("====== 예측 결과 (Prediction) ======")
-            # # predictions = automl.predict(X_train)
-            # # # print(predictions)
-            # #
-            # # sokcho_df['prd'] = np.round(predictions).astype(int)
-            # #
-            # # # 1. 평가 지표 계산 (정답인 y_train과 모델이 찍은 predictions를 비교)
-            # # rmse = np.sqrt(mean_squared_error(y_train,  sokcho_df['prd']))
-            # # rrmse = (rmse / y_train.mean()) * 100
-            # # nrmse = (rmse / (y_train.max() - y_train.min())) * 100
-            # # mae = mean_absolute_error(y_train,  sokcho_df['prd'])
-            # # r2 = r2_score(y_train,  sokcho_df['prd'])
-            # # r = np.sqrt(r2)
-            #
-            # # print("====== 모델 검증 결과 (Metrics) ======")
-            # # print(f"RMSE (평균 오차): {rmse:.2f}")
-            # # print(f"MAE (절대 평균 오차): {mae:.2f}")
-            # # print(f"R2 Score (설명력, 1에 가까울수록 좋음): {r2:.2f}")
-            #
-            # # ---------------------------------------------------------
-            # # 웹 기반 가공 데이터 생산
-            # # ---------------------------------------------------------
-            # # 데이터 준비
-            # target_year = 2025
-            # year_df = sokcho_df[sokcho_df['dt'] == target_year].copy()
-            # year_df['prd'] = year_df['prd'].round().astype(int)
-            #
-            # lats = year_df['LAT'].values
-            # lons = year_df['LON'].values
-            # values = year_df['prd'].values
-            #
-            # obs_coords = np.column_stack((lons, lats))
-            #
-            # # 2. 고해상도 타겟 격자 생성 (500x500)
-            # grid_lon = np.linspace(124, 131, 1000)
-            # grid_lat = np.linspace(33, 39, 1000)
-            # Grid_lon, Grid_lat = np.meshgrid(grid_lon, grid_lat)
-            # target_coords = np.column_stack((Grid_lon.ravel(), Grid_lat.ravel()))
-            #
-            # smoothing_candidates = np.arange(0, 100, 0.5)
-            # best_smoothing = 0.0
-            # min_error = float('inf')
-            #
-            # # LOOCV (Leave-One-Out Cross Validation) 방식으로 최적값 찾기
-            # for s in smoothing_candidates:
-            #     errors = []
-            #     # 관측소가 100개라면, 1개를 빼고 99개로 학습한 뒤 1개를 예측해보는 과정을 반복
-            #     for i in range(len(obs_coords)):
-            #         # i번째 관측소만 제외 (검증용)
-            #         train_coords = np.delete(obs_coords, i, axis=0)
-            #         train_values = np.delete(values, i)
-            #         test_coord = obs_coords[i:i + 1]
-            #         test_value = values[i]
-            #
-            #         # RBF 보간
-            #         rbf = RBFInterpolator(train_coords, train_values, kernel='thin_plate_spline', smoothing=s)
-            #         pred_value = rbf(test_coord)[0]
-            #
-            #         errors.append((test_value - pred_value) ** 2)
-            #
-            #     avg_rmse = np.sqrt(np.mean(errors))
-            #     print(f" - Smoothing {s}: RMSE = {avg_rmse:.3f} 일")
-            #
-            #     if avg_rmse < min_error:
-            #         min_error = avg_rmse
-            #         best_smoothing = s
-            #
-            # print(f"최적의 Smoothing 값 선택: {best_smoothing} (최소 오차: {min_error:.3f} 일)")
-            #
-            # print(f" {target_year}년 개화일 RBF 보간 중...")
-            # rbf = RBFInterpolator(
-            #     y=obs_coords,
-            #     d=values,
-            #     kernel='thin_plate_spline',
-            #     smoothing=best_smoothing,
-            # )
-            # grid_prd_smooth = rbf(target_coords).reshape(Grid_lon.shape)
-            # print(" 대한민국 영토 마스크 생성 중...")
-            #
-            # shpfilename = shpreader.natural_earth(resolution='10m',
-            #                                       category='cultural',
-            #                                       name='admin_0_countries')
-            # reader = shpreader.Reader(shpfilename)
-            #
-            # # 'South Korea' (대한민국) 지형만 추출
-            # korea_geoms = []
-            # for record in reader.records():
-            #     # ISO_A3 코드가 'KOR'인 국가(대한민국)를 찾습니다.
-            #     if record.attributes['ISO_A3'] == 'KOR':
-            #         korea_geoms.append(record.geometry)
-            #
-            # # 추출한 대한민국 지형(본토 및 섬들)을 하나로 병합
-            # korea_geom = unary_union(korea_geoms)
-            # korea_prep = prep(korea_geom)
-            #
-            # # 격자점이 대한민국 영토 안에 있는지 확인하여 마스크 생성 (True: 한국, False: 바다/외국)
-            # mask = np.array([korea_prep.contains(Point(lon, lat))
-            #                  for lon, lat in zip(Grid_lon.ravel(), Grid_lat.ravel())])
-            # mask = mask.reshape(Grid_lon.shape)
-            #
-            # grid_prd_final = np.where(mask, grid_prd_smooth, np.nan)
-            #
-            # # ---------------------------------------------------------
-            # # 웹 기반 가공 차트
-            # # ---------------------------------------------------------
-            # fig, ax = plt.subplots()
-            # levels = np.arange(int(np.nanmin(values)), int(np.nanmax(values)) + 2, 1)
-            #
-            # # 💡 변경점 1: contourf() 가 아닌 contour() 를 사용합니다! (f가 빠짐)
-            # contourf_plot = ax.contourf(Grid_lon, Grid_lat, grid_prd_final, levels=levels, cmap='YlGn')
-            # plt.close(fig)
-            #
-            # geojson_str = geojsoncontour.contourf_to_geojson(
-            #     contourf=contourf_plot,
-            #     ndigits=5,
-            #     stroke_width=0
-            # )
-            # gdf_poly = gpd.read_file(geojson_str, driver='GeoJSON')
-            # gdf_poly = gdf_poly.set_crs(epsg=4326)
-            # gdf_poly['geometry'] = gdf_poly['geometry'].buffer(0)
-            #
-            # poly_fgb = f"{globalVar['outPath']}/{serviceName}/blooming_poly_{target_year}.fgb"
-            # gdf_poly.to_file(poly_fgb, driver='FlatGeobuf')
-            # print(f"면(Polygon) 데이터 저장 완료: {poly_fgb}")
-            #
-            # point_geometries = [Point(xy) for xy in zip(year_df['LON'], year_df['LAT'])]
-            #
-            # gdf_points = gpd.GeoDataFrame(
-            #     year_df,
-            #     geometry=point_geometries,
-            #     crs="EPSG:4326"
-            # )
-            #
-            # point_fgb = f"{globalVar['outPath']}/{serviceName}/blooming_point_{target_year}.fgb"
-            # gdf_points.to_file(point_fgb, driver='FlatGeobuf')
-            # print(f"점(Point) 데이터 저장 완료: {point_fgb}")
-            #
-            # sys.exit(0)
-            #
-            #
-            # # 기후자료 예측 테스트
-            # fileList = sorted(glob.glob('/HDD/DATA/OUTPUT/BDWIDE2026/AR6_SSP126_5ENSMN_skorea_*_gridraw_yearly_2021_2100.nc'))
-            # ds = xr.open_mfdataset(fileList)
-            #
-            # target_year = '2025'
-            #
-            # # ds['time']
-            # # # =========================================================
-            # # # 💡 1. xarray에서 2050년 3월~5월(봄) 데이터만 쏙 뽑아서 평균 내기
-            # # # =========================================================
-            # # # 특정 기간 슬라이싱 후, 시간(time) 차원에 대해 평균(mean)을 구합니다.
-            # # ds_spring = ds.sel(time=slice(f'{target_year}-01-01', f'{target_year}-01-01'))
-            # # ds_spring_mean = ds_spring.mean(dim='time')
-            # #
-            # # #       grid_lon = np.linspace(124, 131, 1000)
-            # # #             grid_lat = np.linspace(33, 39, 1000)
-            # # lonList = np.arange(124, 131, 0.01)
-            # # latList = np.arange(33, 39, 0.01)
-            # # ds_spring_mean = ds_spring_mean.interpolate_na({'longitude': lonList, 'latitude': latList}, method='linear', fill_value="extrapolate")
-            # #
-            # # ta_values = ds_spring_mean['TA'].values
-            # # lons = ds_spring_mean['longitude'].values
-            # # lats = ds_spring_mean['latitude'].values
-            # #
-            # # Grid_lon, Grid_lat = np.meshgrid(lons, lats)
-            # #
-            # # # =========================================================
-            # # # 2. 고해상도 등치면(Polygon) 생성 (전체 영역)
-            # # # =========================================================
-            # # print("등치면 생성 중... (마스크 없이 바다까지 포함)")
-            # #
-            # # fig, ax = plt.subplots()
-            # #
-            # # min_val = np.nanmin(ta_values)
-            # # max_val = np.nanmax(ta_values)
-            # # levels = np.arange(int(min_val) - 1, int(max_val) + 2, 1)
-            # # print(levels)
-            # #
-            # # # 기온 변화를 직관적으로 보여주는 컬러맵
-            # # contourf_plot = ax.contourf(Grid_lon, Grid_lat, ta_values, levels=levels, cmap='YlOrRd', extend='both')
-            # # # plt.show()
-            # # plt.close(fig)
-            # #
-            # # # =========================================================
-            # # # 3. GeoJSON 변환
-            # # # =========================================================
-            # # print("GeoJSON 변환 중...")
-            # # geojson_str = geojsoncontour.contourf_to_geojson(
-            # #     contourf=contourf_plot,
-            # #     ndigits=7,
-            # #     stroke_width=0
-            # # )
-            # #
-            # # # GeoPandas로 로드 및 꼬인 폴리곤(buffer 0) 복구
-            # # gdf = gpd.read_file(geojson_str, driver='GeoJSON')
-            # # gdf = gdf.set_crs(epsg=4326)
-            # # # gdf['geometry'] = gdf['geometry'].buffer(0)
-            # # # gdf['geometry'] = gdf.simplify(tolerance=0.005, preserve_topology=True)
-            # # gdf['year'] = int(target_year)
-            # #
-            # # gdf = gdf[~gdf.geometry.is_empty & gdf.geometry.notnull()]
-            # #
-            # # # =========================================================
-            # # # 4. FlatGeobuf 최종 저장 (클리핑 없이 즉시 저장)
-            # # # =========================================================
-            # # # output_fgb = f"future_climate_TA_{target_year}_nomask.fgb"
-            # # output_fgb = f"{globalVar['outPath']}/{serviceName}/future_climate_TA_{target_year}_nomask.fgb"
-            # #
-            # #
-            # # # 자르는 과정 없이 원본 gdf를 그대로 저장합니다.
-            # # gdf.to_file(output_fgb, driver='FlatGeobuf')
-            # #
-            # # print(f"마스크 없는 초고속 FGB 파일 저장 완료: {output_fgb}")
-            # #
-            # # import rasterio
-            # # # from rasterio.transform import from_bounds
-            # #
-            # # # 좌표계(CRS)를 위경도(EPSG:4326)로 설정
-            # # ds_spring_mean.rio.set_spatial_dims(x_dim="longitude", y_dim="latitude", inplace=True)
-            # # ds_spring_mean.rio.write_crs("epsg:4326", inplace=True)
-            # #
-            # # # 최종 COG(GeoTIFF) 파일로 저장
-            # # output_tif = f"{globalVar['outPath']}/{serviceName}/future_climate_TA_{target_year}.tif"
-            # # da_clipped.rio.to_raster(output_tif, driver="COG")
-            # #
-            # # print(f"✅ 초고속 렌더링용 COG 파일 저장 완료: {output_tif}")
-            # #
-            # # sys.exit(0)
-
-
-
-
-
-
-
+                                query = text(f"""
+                                    INSERT INTO TB_BLOOM_DATA (
+                                        LON, LAT, TYPE, TYPE2, TIME, 
+                                        AVG_RH, SUM_PRECIP, AVG_TEMP, AVG_MAX_TEMP, AVG_MIN_TEMP, 
+                                        AVG_WIND_SPEED, YEAR, AI
+                                    )
+                                    SELECT 
+                                        lon, lat, type, type2, time, 
+                                        avgRh, sumPrecip, avgTemp, avgMaxTemp, avgMinTemp, 
+                                        avgWindSpeed, year, ai
+                                    FROM `{tbTmp}`
+                                    ON DUPLICATE KEY UPDATE 
+                                        TIME = VALUES(TIME),
+                                        AVG_RH = VALUES(AVG_RH),
+                                        SUM_PRECIP = VALUES(SUM_PRECIP),
+                                        AVG_TEMP = VALUES(AVG_TEMP),
+                                        AVG_MAX_TEMP = VALUES(AVG_MAX_TEMP),
+                                        AVG_MIN_TEMP = VALUES(AVG_MIN_TEMP),
+                                        AVG_WIND_SPEED = VALUES(AVG_WIND_SPEED),
+                                        YEAR = VALUES(YEAR),
+                                        AI = VALUES(AI)
+                                """)
+                                result = session.execute(query)
+                                log.info(f"type : {type}, type2 : {type2}, result : {result.rowcount}")
+                                session.execute(text(f'DROP TABLE IF EXISTS {tbTmp}'))
+                        except Exception as e:
+                            log.error(f"Exception : {e}")
         except Exception as e:
             log.error(f"Exception : {e}")
             raise e
