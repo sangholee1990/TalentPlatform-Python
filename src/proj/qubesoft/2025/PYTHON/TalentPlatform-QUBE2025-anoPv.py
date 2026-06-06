@@ -630,34 +630,12 @@ class DtaProcess(object):
                 # 'cpuCoreNum': '5',
 
                 # 설정 파일
-                # 'cfgFile': '/HDD/SYSTEMS/PROG/PYTHON/IDE/resources/config/system.cfg',
+                'cfgFile': '/HDD/SYSTEMS/PROG/PYTHON/IDE/resources/config/system.cfg',
                 # 'cfgFile': '/vol01/SYSTEMS/INDIAI/PROG/PYTHON/resources/config/system.cfg',
-                'cfgFile': '/SYSTEMS/PROG/PYTHON/resources/config/system.cfg',
+                # 'cfgFile': '/SYSTEMS/PROG/PYTHON/resources/config/system.cfg',
                 'cfgDbKey': 'postgresql-qubesoft.iptime.org-qubesoft-dms02',
                 'cfgDb': None,
                 'posDataL1': None,
-
-                # 자동화/수동화 모델링
-                'MODEL': {
-                    'pycaret': {
-                        'saveModelList': "/DATA/AI/*/*/QUBE2025-{srvId}-final-pycaret-ano-*.model.pkl",
-                        'saveModel': "/DATA/AI/%Y%m/%d/QUBE2025-{srvId}-final-pycaret-ano-%Y%m%d.model",
-                        # 'isOverWrite': True,
-                        'isOverWrite': False,
-                        'srvId': None,
-                        'preDt': datetime.datetime.now(),
-                        'exp': None
-                    },
-                    'h2o': {
-                        'saveModelList': "/DATA/AI/*/*/QUBE2025-{srvId}-final-h2o-ano-*.model",
-                        'saveModel': "/DATA/AI/%Y%m/%d/QUBE2025-{srvId}-final-h2o-ano-%Y%m%d.model",
-                        'isInit': False,
-                        # 'isOverWrite': True,
-                        'isOverWrite': False,
-                        'srvId': None,
-                        'preDt': datetime.datetime.now(),
-                    },
-                },
             }
 
             # *******************************************************
@@ -683,19 +661,24 @@ class DtaProcess(object):
             for i, posInfo in posDataL1.iterrows():
                 with cfgDb['sessionMake']() as session:
                     srv = posInfo['srv']
+                    # query = text("""
+                    #              SELECT "date_time_kst", "date_time", "pv"
+                    #              FROM "tb_pv_data"
+                    #              WHERE "srv" = :srv
+                    #                AND "date_time_kst" >= '2026-01-01 00:00:00'
+                    #                AND "date_time_kst" < '2027-01-01 00:00:00'
+                    #              ORDER BY "srv", "date_time_kst" DESC;
+                    #              """)
                     query = text("""
                         SELECT "date_time_kst", "date_time", "pv"
                         FROM "tb_pv_data"
                         WHERE "srv" = :srv
-                            AND "date_time_kst" >= '2026-01-01 00:00:00'
-                            AND "date_time_kst" < '2027-01-01 00:00:00'
                         ORDER BY "srv", "date_time_kst" DESC;
                      """)
 
-                    # trainData = pd.DataFrame(session.execute(query, {'srvId':srvId}))
-                    # trainData = data[data['DATE_TIME_KST'] < pd.to_datetime('2025-01-01')].reset_index(drop=True)
-                    # testData = data[data['DATE_TIME_KST'] >= pd.to_datetime('2025-01-01')].reset_index(drop=True)
                     data = pd.DataFrame(session.execute(query, {'srv':srv}))
+                    if len(data) < 1: continue
+
                     # dataL1 = data[(data['date_time_kst'].dt.hour >= 6) & (data['date_time_kst'].dt.hour <= 20)].reset_index(drop=True)
                     dataL1 = data
 
@@ -709,8 +692,6 @@ class DtaProcess(object):
                     dataL1['dayofyear'] = dataL1['date_time_kst'].dt.dayofyear
                     dataL1['dayofweek'] = dataL1['date_time_kst'].dt.dayofweek
 
-                    # 1. 데이터 준비 및 정렬
-                    # 시계열 모델이므로 반드시 시간순으로 정렬되어 있어야 합니다.
                     dataL2 = dataL1.copy()
                     dataL2['date_time_kst'] = pd.to_datetime(dataL2['date_time_kst'])
                     dataL2 = dataL2.sort_values(by='date_time_kst').reset_index(drop=True)
@@ -718,25 +699,19 @@ class DtaProcess(object):
                     # features = ['pv']
                     features = ['pv', 'month', 'hour', 'dayofweek']
 
-                    # 2. 데이터 스케일링 (딥러닝 필수 과정)
-                    # 발전량(PV) 수치의 단위를 맞춰주어 모델이 패턴을 잘 읽게 만듭니다.
                     scaler = StandardScaler()
                     X_times = scaler.fit_transform(dataL2[features].values)
 
-                    # 3. TimesNet 모델 세팅 및 학습
-                    # clf_times = TimesNet(seq_len=24, epochs=10, device='cpu')
                     clf_times = TimesNet(seq_len=24, epochs=5, device='cpu')
+                    # clf_times = TimesNet(seq_len=24, epochs=10, device='cpu')
                     clf_times.fit(X_times)
 
-                    # 4. 이상치 점수(Anomaly Score) 도출
-                    # 점수가 높을수록 "이전에 학습한 정상 흐름과 매우 다르다"는 뜻입니다.
                     scores = clf_times.decision_function(X_times)
                     dataL2['ai_ano_score'] = scores
 
                     threshold = np.percentile(scores, 97.5)
                     dataL2['ai_ano'] = (dataL2['ai_ano_score'] > threshold).astype(int)
 
-                    # 6. 탐지된 결과 확인
                     dataL3 = dataL2[dataL2['ai_ano'] == 1].sort_values(by='ai_ano_score', ascending=False).reset_index(drop=True)
                     dataL3['srv'] = srv
 
@@ -771,7 +746,6 @@ class DtaProcess(object):
                                 session.execute(text(f'DROP TABLE IF EXISTS "{tbTmp}"'))
                         except Exception as e:
                             log.error(f"Exception : {e}")
-
 
                     # import matplotlib.pyplot as plt
                     # import matplotlib.dates as mdates
