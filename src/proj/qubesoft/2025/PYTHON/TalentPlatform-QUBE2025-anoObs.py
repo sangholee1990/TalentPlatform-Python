@@ -359,6 +359,15 @@ class DtaProcess(object):
                 'cfgDbKey': 'postgresql-qubesoft.iptime.org-qubesoft-dms02',
                 'cfgDb': None,
                 'posDataL1': None,
+
+                'timesNet': {
+                    'saveModelList': "/DATA/AI/*/*/QUBE2025-{srv}-final-timesNet-anoObs-*.pkl",
+                    'saveModel': "/DATA/AI/%Y%m/%d/QUBE2025-{srv}-final-timesNet-anoObs-%Y%m%d.pkl",
+                    # 'isOverWrite': True,
+                    'isOverWrite': False,
+                    'srv': None,
+                    'preDt': datetime.datetime.now(),
+                },
             }
 
             # *******************************************************
@@ -384,20 +393,20 @@ class DtaProcess(object):
             for i, posInfo in posDataL1.iterrows():
                 with cfgDb['sessionMake']() as session:
                     srv = posInfo['srv']
-                    query = text("""
-                        SELECT "srv", "date_time", "date_time_kst", "trad", "srad", "otemp", "ptemp"
-                        FROM "tb_obs_data"
-                        WHERE "srv" = :srv
-                        ORDER BY "srv", "date_time_kst" DESC;
-                     """)
                     # query = text("""
                     #     SELECT "srv", "date_time", "date_time_kst", "trad", "srad", "otemp", "ptemp"
                     #     FROM "tb_obs_data"
                     #     WHERE "srv" = :srv
-                    #         AND "date_time_kst" >= '2026-05-01 00:00:00'
-                    #         AND "date_time_kst" < '2027-01-01 00:00:00'
                     #     ORDER BY "srv", "date_time_kst" DESC;
                     #  """)
+                    query = text("""
+                        SELECT "srv", "date_time", "date_time_kst", "trad", "srad", "otemp", "ptemp"
+                        FROM "tb_obs_data"
+                        WHERE "srv" = :srv
+                            AND "date_time_kst" >= '2026-05-01 00:00:00'
+                            AND "date_time_kst" < '2027-01-01 00:00:00'
+                        ORDER BY "srv", "date_time_kst" DESC;
+                     """)
 
                     data = pd.DataFrame(session.execute(query, {'srv':srv}))
                     if len(data) < 1: continue
@@ -425,10 +434,12 @@ class DtaProcess(object):
                     X_times = scaler.fit_transform(dataL2[features].values)
 
                     # clf_times = TimesNet(seq_len=24, epochs=5, device='cpu')
-                    clf_times = TimesNet(seq_len=24, epochs=10, device='cpu')
-                    clf_times.fit(X_times)
+                    clf = TimesNet(seq_len=24, epochs=10, device='cpu')
+                    clf.fit(X_times)
 
-                    scores = clf_times.decision_function(X_times)
+                    # clf.save_model(sysOpt['timesNet']/)
+
+                    scores = clf.decision_function(X_times)
                     dataL2['ai_ano_score'] = scores
 
                     threshold = np.percentile(scores, 97.5)
