@@ -543,6 +543,8 @@ from sqlalchemy.orm import sessionmaker
 from sqlalchemy.ext.automap import automap_base
 from sqlalchemy import text
 import urllib.parse
+import pandas as pd
+from functools import reduce
 
 # =================================================
 # 사용자 매뉴얼
@@ -712,7 +714,7 @@ def makeFlamlModel(subOpt=None, xCol=None, yCol=None, trainData=None, testData=N
                 pickle.dump(fnlModel, file, pickle.HIGHEST_PROTOCOL)
         else:
             saveModel = saveModelList[0]
-            log.info(f"saveModel : {saveModel}")
+            # log.info(f"saveModel : {saveModel}")
 
             with open(saveModel, 'rb') as f:
                 fnlModel = pickle.load(f)
@@ -847,12 +849,11 @@ class DtaProcess(object):
                 'saveDtlFile': '/DATA/OUTPUT/BDWIDE2026/BDWIDE2025_resDtl_%Y%m%d.csv',
                 'clmFilePattern': '/HDD/DATA/OUTPUT/BDWIDE2026/AR6_SSP126_5ENSMN_skorea_*_gridraw_yearly_2021_2100.nc',
 
-
                 'flaml': {
                     'saveModelList': '/DATA/OUTPUT/BDWIDE2026/AI/*/*/BDWIDE2025_{srv}_flaml_*.model',
                     'saveModel': '/DATA/OUTPUT/BDWIDE2026/AI/%Y%m/%d/BDWIDE2025_{srv}_flaml_%Y%m%d.model',
-                    # 'isOverWrite': False,
-                    'isOverWrite': True,
+                    'isOverWrite': False,
+                    # 'isOverWrite': True,
                     'srv': None,
                     'preDt': datetime.datetime.now(),
                 },
@@ -894,9 +895,9 @@ class DtaProcess(object):
             resDtlList = []
             for (type, type2), mergeInfo in mergeDataL1.groupby(['구분1', '구분2']):
                 try:
-                    # if type not in ['아까시나무', '매화', '벚나무', '복숭아', '배나무']: continue
                     if type2 not in ['개화', '만발']: continue
                     # if type2 not in ['개화']: continue
+                    # if type2 not in ['만발']: continue
 
                     mergeInfo = mergeInfo.rename(columns={'값': 'demand'})
                     mergeInfo['demand'] = pd.to_datetime(mergeInfo['demand'], format='%Y-%m-%d', errors='coerce').dt.strftime('%j').astype('float')
@@ -985,15 +986,15 @@ class DtaProcess(object):
 
             timeList = ds['time'].values
             for timeInfo in timeList:
-                log.info(f'timeInfo : {timeInfo}')
+                # log.info(f'timeInfo : {timeInfo}')
                 selData = ds.sel(time=timeInfo).to_dataframe().reset_index()
                 selData = selData.dropna().reset_index(drop=True)
                 selData = selData.rename(
                     columns={'TA': 'avgTemp', 'TAMIN': 'avgMinTemp', 'TAMAX': 'avgMaxTemp', 'RN': 'sumPrecip',
                              'RHM': 'avgRh', 'WS': 'avgWindSpeed', 'longitude': 'lon', 'latitude': 'lat'})
                 selData['year'] = selData['time'].apply(lambda x: x.year)
-                selData['lon'] = selData['lon'].astype('float64').round(2)
-                selData['lat'] = selData['lat'].astype('float64').round(2)
+                selData['lon'] = selData['lon'].astype('float64').round(2).astype('str')
+                selData['lat'] = selData['lat'].astype('float64').round(2).astype('str')
                 selDataL1 = selData.copy()
 
                 # 독립/종속 변수 설정
@@ -1002,7 +1003,9 @@ class DtaProcess(object):
 
                 trainData = None
                 testData = None
-                prdData = selDataL1
+                prdData = selDataL1.copy()
+                prdList = {}
+                # item = {idx: {} for idx in prdData.index}
                 for (type, type2), target_df in mergeData.groupby(['구분1', '구분2']):
                     if type2 not in ['개화', '만발']: continue
 
@@ -1013,52 +1016,68 @@ class DtaProcess(object):
 
                     if not resFlaml: continue
                     prdVal = resFlaml['mlModel'].predict(prdData[xCol]).astype(int)
-                    prdData['ai'] = prdVal
-                    prdData['type'] = type
-                    prdData['type2'] = type2
+                    # prdData['ai'] = prdVal
+                    # prdData['type'] = type
+                    # prdData['type2'] = type2
 
-                    # DB 적재
-                    with sysOpt['cfgDb']['sessionMake']() as session:
-                        try:
-                            tbTmp = f"tbTm_{uuid.uuid4().hex}"
-                            with session.begin():
-                                dbEngine = session.get_bind()
+                    if type not in prdList:
+                        prdList[type] = {}
+                    prdList[type][type2] = prdVal
 
-                                prdData.to_sql(
-                                    name=tbTmp,
-                                    con=dbEngine,
-                                    if_exists="replace",
-                                    index=False,
-                                    chunksize=1000
+                prdData['ai'] = [
+                    json.dumps(
+                        {
+                            t: {t2: int(prdList[t][t2][i]) for t2 in prdList[t]}
+                            for t in prdList
+                        },
+                        ensure_ascii=False
+                    )
+                    for i in range(len(prdData))
+                ]
+
+                # DB 적재
+                with sysOpt['cfgDb']['sessionMake']() as session:
+                    try:
+                        tbTmp = f"tbTm_{uuid.uuid4().hex}"
+                        with session.begin():
+                            dbEngine = session.get_bind()
+
+                            prdData.to_sql(
+                                name=tbTmp,
+                                con=dbEngine,
+                                if_exists="replace",
+                                index=False,
+                                chunksize=1000
+                            )
+
+                            query = text(f"""
+                                INSERT INTO TB_BLOOM_DATA (
+                                    LON, LAT, TIME, 
+                                    AVG_RH, SUM_PRECIP, AVG_TEMP, AVG_MAX_TEMP, AVG_MIN_TEMP, 
+                                    AVG_WIND_SPEED, YEAR, AI
                                 )
-
-                                query = text(f"""
-                                    INSERT INTO TB_BLOOM_DATA (
-                                        LON, LAT, TYPE, TYPE2, TIME, 
-                                        AVG_RH, SUM_PRECIP, AVG_TEMP, AVG_MAX_TEMP, AVG_MIN_TEMP, 
-                                        AVG_WIND_SPEED, YEAR, AI
-                                    )
-                                    SELECT 
-                                        lon, lat, type, type2, time, 
-                                        avgRh, sumPrecip, avgTemp, avgMaxTemp, avgMinTemp, 
-                                        avgWindSpeed, year, ai
-                                    FROM `{tbTmp}`
-                                    ON DUPLICATE KEY UPDATE 
-                                        TIME = VALUES(TIME),
-                                        AVG_RH = VALUES(AVG_RH),
-                                        SUM_PRECIP = VALUES(SUM_PRECIP),
-                                        AVG_TEMP = VALUES(AVG_TEMP),
-                                        AVG_MAX_TEMP = VALUES(AVG_MAX_TEMP),
-                                        AVG_MIN_TEMP = VALUES(AVG_MIN_TEMP),
-                                        AVG_WIND_SPEED = VALUES(AVG_WIND_SPEED),
-                                        YEAR = VALUES(YEAR),
-                                        AI = VALUES(AI)
-                                """)
-                                result = session.execute(query)
-                                log.info(f"type : {type}, type2 : {type2}, result : {result.rowcount}")
-                                session.execute(text(f'DROP TABLE IF EXISTS {tbTmp}'))
-                        except Exception as e:
-                            log.error(f"Exception : {e}")
+                                SELECT 
+                                    lon, lat, time, 
+                                    avgRh, sumPrecip, avgTemp, avgMaxTemp, avgMinTemp, 
+                                    avgWindSpeed, year, ai
+                                FROM `{tbTmp}`
+                                ON DUPLICATE KEY UPDATE 
+                                    TIME = VALUES(TIME),
+                                    AVG_RH = VALUES(AVG_RH),
+                                    SUM_PRECIP = VALUES(SUM_PRECIP),
+                                    AVG_TEMP = VALUES(AVG_TEMP),
+                                    AVG_MAX_TEMP = VALUES(AVG_MAX_TEMP),
+                                    AVG_MIN_TEMP = VALUES(AVG_MIN_TEMP),
+                                    AVG_WIND_SPEED = VALUES(AVG_WIND_SPEED),
+                                    YEAR = VALUES(YEAR),
+                                    AI = VALUES(AI)
+                            """)
+                            result = session.execute(query)
+                            log.info(f"timeInfo : {timeInfo}, result : {result.rowcount}")
+                    except Exception as e:
+                        log.error(f"Exception : {e}")
+                    finally:
+                        session.execute(text(f'DROP TABLE IF EXISTS {tbTmp}'))
         except Exception as e:
             log.error(f"Exception : {e}")
             raise e
