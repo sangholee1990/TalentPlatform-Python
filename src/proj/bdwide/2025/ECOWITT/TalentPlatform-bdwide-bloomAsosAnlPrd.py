@@ -1052,24 +1052,22 @@ class DtaProcess(object):
 
                             query = text(f"""
                                 INSERT INTO TB_BLOOM_DATA (
-                                    LON, LAT, TIME, 
-                                    AVG_RH, SUM_PRECIP, AVG_TEMP, AVG_MAX_TEMP, AVG_MIN_TEMP, 
+                                    LON, LAT, AVG_RH, SUM_PRECIP, AVG_TEMP, AVG_MAX_TEMP, AVG_MIN_TEMP, 
                                     AVG_WIND_SPEED, YEAR, AI
                                 )
                                 SELECT 
-                                    lon, lat, time, 
-                                    avgRh, sumPrecip, avgTemp, avgMaxTemp, avgMinTemp, 
+                                    lon, lat, avgRh, sumPrecip, avgTemp, avgMaxTemp, avgMinTemp, 
                                     avgWindSpeed, year, ai
                                 FROM `{tbTmp}`
                                 ON DUPLICATE KEY UPDATE 
-                                    TIME = VALUES(TIME),
+                                    YEAR = VALUES(YEAR),
                                     AVG_RH = VALUES(AVG_RH),
                                     SUM_PRECIP = VALUES(SUM_PRECIP),
                                     AVG_TEMP = VALUES(AVG_TEMP),
                                     AVG_MAX_TEMP = VALUES(AVG_MAX_TEMP),
                                     AVG_MIN_TEMP = VALUES(AVG_MIN_TEMP),
                                     AVG_WIND_SPEED = VALUES(AVG_WIND_SPEED),
-                                    YEAR = VALUES(YEAR),
+                                 
                                     AI = VALUES(AI)
                             """)
                             result = session.execute(query)
