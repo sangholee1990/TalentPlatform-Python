@@ -73,83 +73,6 @@
 # plt.tight_layout()
 # plt.show()
 
-# # 최종 모든 결과를 누적할 빈 리스트
-# all_metrics_list = []
-# for (gubun1, gubun2, stn), target_df in mergeData.groupby(['구분1', '구분2', 'stnName']):
-#     try:
-#         if gubun1 not in ['아까시나무', '매화', '벚나무', '복숭아', '배나무']: continue
-#         if gubun2 not in ['개화']: continue
-#         log.info(f"gubun1 : {gubun1}, gubun2 : {gubun2}, stn : {stn}")
-#
-#         # ---------------------------------------------------------
-#         # 1. 컬럼명 통일 및 시계열 처리
-#         # ---------------------------------------------------------
-#         target_df = target_df.rename(columns={'값': 'demand'})
-#         target_df['demand'] = pd.to_datetime(target_df['demand'], format='%Y-%m-%d',
-#                                              errors='coerce').dt.strftime('%j').astype('float')
-#         target_df['timeStamp'] = pd.to_datetime(target_df['year'], errors='coerce')
-#         target_df = target_df.dropna(subset=['demand']).reset_index(drop=True)
-#
-#
-#         # 데이터가 너무 적으면 시계열 분할 및 모델 학습이 불가하므로 스킵 (최소 10건)
-#         if len(target_df['demand']) < 30: continue
-#
-#         # ---------------------------------------------------------
-#         # 2. 피처 설정 및 Train/Test 시계열 분할
-#         # ---------------------------------------------------------
-#         target_df = target_df.sort_values(by='year')
-#         # unique_years = target_df['year'].unique()
-#
-#         # ****************************************************************************
-#         # 독립/종속 변수 설정
-#         # ****************************************************************************
-#         xCol = ['year', 'avgTemp', 'avgMinTemp', 'avgMaxTemp', 'sumPrecip', 'avgRh', 'avgWindSpeed']
-#         yCol = 'demand'
-#
-#         # ---------------------------------------------------------
-#         # 3. 개별 지역 모델 학습 및 예측
-#         # ---------------------------------------------------------
-#         # from sklearn.model_selection import train_test_split
-#         # trainData, testData = train_test_split(target_df, test_size=0.2, random_state=int(datetime.datetime.now().timestamp()))
-#         yearList = target_df['year'].unique()
-#         idx = int(len(yearList) * 0.8)
-#
-#         trainData = target_df[target_df['year'] <= yearList[idx - 1]]
-#         testData = target_df[target_df['year'] > yearList[idx - 1]]
-#         prdData = target_df
-#
-#         sysOpt['flaml']['srv'] = f"{gubun1}-{gubun2}-{stn}"
-#         resFlaml = makeFlamlModel(sysOpt['flaml'], xCol, yCol, trainData, prdData)
-#         # log.info(f'resFlaml : {resFlaml}')
-#
-#         if resFlaml:
-#             prdVal = resFlaml['mlModel'].predict(prdData[xCol])
-#             prdData['ai'] = prdVal
-#
-#         if len(prdData) > 1:
-#             # rmse = np.sqrt(mean_squared_error(y_test, y_pred))
-#             # mean_demand = y_test.mean()
-#
-#             rmse = np.sqrt(mean_squared_error(prdData['demand'], prdData['ai']))
-#             r = np.corrcoef(target_df['demand'], prdData['ai'])[0, 1]
-#         else:
-#             rmse = np.nan
-#             r = np.nan
-#
-#         # 결과 저장
-#         all_metrics_list.append({
-#             '구분1': gubun1,
-#             '구분2': gubun2,
-#             'stnName': stn,
-#             # 'N': len(y_test),
-#             'N': len(prdData['demand']),
-#             'RMSE': round(rmse, 2) if not np.isnan(rmse) else np.nan,
-#             'R': round(r, 2) if not np.isnan(r) else np.nan
-#         })
-#         log.info(pd.DataFrame(all_metrics_list))
-#     except Exception as e:
-#         log.error(f"Exception : {e}")
-
 
 #
 # # 그래프 사이즈 설정
@@ -419,7 +342,7 @@
 # output_tif = f"{globalVar['outPath']}/{serviceName}/future_climate_TA_{target_year}.tif"
 # da_clipped.rio.to_raster(output_tif, driver="COG")
 #
-# print(f"✅ 초고속 렌더링용 COG 파일 저장 완료: {output_tif}")
+# print(f"초고속 렌더링용 COG 파일 저장 완료: {output_tif}")
 #
 # sys.exit(0)
 
@@ -981,101 +904,101 @@ class DtaProcess(object):
             # **********************************************************************************************************
             # 기후모델 기반 예측
             # **********************************************************************************************************
-            fileList = sorted(glob.glob(sysOpt['clmFilePattern']))
-            ds = xr.open_mfdataset(fileList, chunks='auto')
-
-            timeList = ds['time'].values
-            for timeInfo in timeList:
-                # log.info(f'timeInfo : {timeInfo}')
-                selData = ds.sel(time=timeInfo).to_dataframe().reset_index()
-                selData = selData.dropna().reset_index(drop=True)
-                selData = selData.rename(
-                    columns={'TA': 'avgTemp', 'TAMIN': 'avgMinTemp', 'TAMAX': 'avgMaxTemp', 'RN': 'sumPrecip',
-                             'RHM': 'avgRh', 'WS': 'avgWindSpeed', 'longitude': 'lon', 'latitude': 'lat'})
-                selData['year'] = selData['time'].apply(lambda x: x.year)
-                selData['lon'] = selData['lon'].astype('float64').round(2).astype('str')
-                selData['lat'] = selData['lat'].astype('float64').round(2).astype('str')
-                selDataL1 = selData.copy()
-
-                # 독립/종속 변수 설정
-                xCol = ['year', 'avgTemp', 'avgMinTemp', 'avgMaxTemp', 'sumPrecip', 'avgRh', 'avgWindSpeed']
-                yCol = 'demand'
-
-                trainData = None
-                testData = None
-                prdData = selDataL1.copy()
-                prdList = {}
-                # item = {idx: {} for idx in prdData.index}
-                for (type, type2), target_df in mergeData.groupby(['구분1', '구분2']):
-                    if type2 not in ['개화', '만발']: continue
-
-                    sysOpt['flaml']['srv'] = f"{type}-{type2}-전체"
-                    sysOpt['flaml']['isOverWrite'] = False
-                    resFlaml = makeFlamlModel(sysOpt['flaml'], xCol, yCol, trainData, testData)
-                    # log.info(f'resFlaml : {resFlaml}')
-
-                    if not resFlaml: continue
-                    prdVal = resFlaml['mlModel'].predict(prdData[xCol]).astype(int)
-                    # prdData['ai'] = prdVal
-                    # prdData['type'] = type
-                    # prdData['type2'] = type2
-
-                    if type not in prdList:
-                        prdList[type] = {}
-                    prdList[type][type2] = prdVal
-
-                prdData['ai'] = [
-                    json.dumps(
-                        {
-                            t: {t2: int(prdList[t][t2][i]) for t2 in prdList[t]}
-                            for t in prdList
-                        },
-                        ensure_ascii=False
-                    )
-                    for i in range(len(prdData))
-                ]
-
-                # DB 적재
-                with sysOpt['cfgDb']['sessionMake']() as session:
-                    try:
-                        tbTmp = f"tbTm_{uuid.uuid4().hex}"
-                        with session.begin():
-                            dbEngine = session.get_bind()
-
-                            prdData.to_sql(
-                                name=tbTmp,
-                                con=dbEngine,
-                                if_exists="replace",
-                                index=False,
-                                chunksize=1000
-                            )
-
-                            query = text(f"""
-                                INSERT INTO TB_BLOOM_DATA (
-                                    LON, LAT, AVG_RH, SUM_PRECIP, AVG_TEMP, AVG_MAX_TEMP, AVG_MIN_TEMP, 
-                                    AVG_WIND_SPEED, YEAR, AI
-                                )
-                                SELECT 
-                                    lon, lat, avgRh, sumPrecip, avgTemp, avgMaxTemp, avgMinTemp, 
-                                    avgWindSpeed, year, ai
-                                FROM `{tbTmp}`
-                                ON DUPLICATE KEY UPDATE 
-                                    YEAR = VALUES(YEAR),
-                                    AVG_RH = VALUES(AVG_RH),
-                                    SUM_PRECIP = VALUES(SUM_PRECIP),
-                                    AVG_TEMP = VALUES(AVG_TEMP),
-                                    AVG_MAX_TEMP = VALUES(AVG_MAX_TEMP),
-                                    AVG_MIN_TEMP = VALUES(AVG_MIN_TEMP),
-                                    AVG_WIND_SPEED = VALUES(AVG_WIND_SPEED),
-                                 
-                                    AI = VALUES(AI)
-                            """)
-                            result = session.execute(query)
-                            log.info(f"timeInfo : {timeInfo}, result : {result.rowcount}")
-                    except Exception as e:
-                        log.error(f"Exception : {e}")
-                    finally:
-                        session.execute(text(f'DROP TABLE IF EXISTS {tbTmp}'))
+            # fileList = sorted(glob.glob(sysOpt['clmFilePattern']))
+            # ds = xr.open_mfdataset(fileList, chunks='auto')
+            #
+            # timeList = ds['time'].values
+            # for timeInfo in timeList:
+            #     # log.info(f'timeInfo : {timeInfo}')
+            #     selData = ds.sel(time=timeInfo).to_dataframe().reset_index()
+            #     selData = selData.dropna().reset_index(drop=True)
+            #     selData = selData.rename(
+            #         columns={'TA': 'avgTemp', 'TAMIN': 'avgMinTemp', 'TAMAX': 'avgMaxTemp', 'RN': 'sumPrecip',
+            #                  'RHM': 'avgRh', 'WS': 'avgWindSpeed', 'longitude': 'lon', 'latitude': 'lat'})
+            #     selData['year'] = selData['time'].apply(lambda x: x.year)
+            #     selData['lon'] = selData['lon'].astype('float64').round(2).astype('str')
+            #     selData['lat'] = selData['lat'].astype('float64').round(2).astype('str')
+            #     selDataL1 = selData.copy()
+            #
+            #     # 독립/종속 변수 설정
+            #     xCol = ['year', 'avgTemp', 'avgMinTemp', 'avgMaxTemp', 'sumPrecip', 'avgRh', 'avgWindSpeed']
+            #     yCol = 'demand'
+            #
+            #     trainData = None
+            #     testData = None
+            #     prdData = selDataL1.copy()
+            #     prdList = {}
+            #     # item = {idx: {} for idx in prdData.index}
+            #     for (type, type2), target_df in mergeData.groupby(['구분1', '구분2']):
+            #         if type2 not in ['개화', '만발']: continue
+            #
+            #         sysOpt['flaml']['srv'] = f"{type}-{type2}-전체"
+            #         sysOpt['flaml']['isOverWrite'] = False
+            #         resFlaml = makeFlamlModel(sysOpt['flaml'], xCol, yCol, trainData, testData)
+            #         # log.info(f'resFlaml : {resFlaml}')
+            #
+            #         if not resFlaml: continue
+            #         prdVal = resFlaml['mlModel'].predict(prdData[xCol]).astype(int)
+            #         # prdData['ai'] = prdVal
+            #         # prdData['type'] = type
+            #         # prdData['type2'] = type2
+            #
+            #         if type not in prdList:
+            #             prdList[type] = {}
+            #         prdList[type][type2] = prdVal
+            #
+            #     prdData['ai'] = [
+            #         json.dumps(
+            #             {
+            #                 t: {t2: int(prdList[t][t2][i]) for t2 in prdList[t]}
+            #                 for t in prdList
+            #             },
+            #             ensure_ascii=False
+            #         )
+            #         for i in range(len(prdData))
+            #     ]
+            #
+            #     # DB 적재
+            #     with sysOpt['cfgDb']['sessionMake']() as session:
+            #         try:
+            #             tbTmp = f"tbTm_{uuid.uuid4().hex}"
+            #             with session.begin():
+            #                 dbEngine = session.get_bind()
+            #
+            #                 prdData.to_sql(
+            #                     name=tbTmp,
+            #                     con=dbEngine,
+            #                     if_exists="replace",
+            #                     index=False,
+            #                     chunksize=1000
+            #                 )
+            #
+            #                 query = text(f"""
+            #                     INSERT INTO TB_BLOOM_DATA (
+            #                         LON, LAT, AVG_RH, SUM_PRECIP, AVG_TEMP, AVG_MAX_TEMP, AVG_MIN_TEMP,
+            #                         AVG_WIND_SPEED, YEAR, AI
+            #                     )
+            #                     SELECT
+            #                         lon, lat, avgRh, sumPrecip, avgTemp, avgMaxTemp, avgMinTemp,
+            #                         avgWindSpeed, year, ai
+            #                     FROM `{tbTmp}`
+            #                     ON DUPLICATE KEY UPDATE
+            #                         YEAR = VALUES(YEAR),
+            #                         AVG_RH = VALUES(AVG_RH),
+            #                         SUM_PRECIP = VALUES(SUM_PRECIP),
+            #                         AVG_TEMP = VALUES(AVG_TEMP),
+            #                         AVG_MAX_TEMP = VALUES(AVG_MAX_TEMP),
+            #                         AVG_MIN_TEMP = VALUES(AVG_MIN_TEMP),
+            #                         AVG_WIND_SPEED = VALUES(AVG_WIND_SPEED),
+            #
+            #                         AI = VALUES(AI)
+            #                 """)
+            #                 result = session.execute(query)
+            #                 log.info(f"timeInfo : {timeInfo}, result : {result.rowcount}")
+            #         except Exception as e:
+            #             log.error(f"Exception : {e}")
+            #         finally:
+            #             session.execute(text(f'DROP TABLE IF EXISTS {tbTmp}'))
         except Exception as e:
             log.error(f"Exception : {e}")
             raise e
