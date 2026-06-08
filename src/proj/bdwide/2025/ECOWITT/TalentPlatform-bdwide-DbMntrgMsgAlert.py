@@ -256,7 +256,6 @@ def dbMntrgProfile(sysOpt):
         with sysOpt['cfgDb']['sessionMake']() as session:
             # dataList = session.execute(query, {"srtDate": srtDate, "endDate": endDate}).all()
             dataList = session.execute(query).all()
-            log.info(f"DB 조회, dataList : {dataList}")
 
             for dataInfo in dataList:
                 if not dataInfo.bot_token or not dataInfo.chat_id: continue
@@ -287,9 +286,10 @@ def dbMntrgProfile(sysOpt):
                             if (msgAlertDate is None) or (endDate - msgAlertDate) >= timedelta(minutes=sysOpt['msgAlertMinInv']):
                                 cfgTg = {'bot_token': dataInfo.bot_token, 'chat_id': dataInfo.chat_id}
                                 msg = sysOpt['msgAlertTemplate'][state].format(deviceDtlNum=deviceDtlNum, deviceName=deviceName, val=val)
+                                log.info(f"알림 발송 시작")
                                 sendTgApi(cfgTg, msg)
+                                log.info(f"알림 발송 종료, key : {key}, msg : {msg}")
                                 sysOpt['msgAlertHist'][key] = endDate
-                                log.info(f"알림 발송, key : {key}, msg : {msg}")
     except Exception as e:
         log.error(f'Exception : {e}')
 
@@ -332,7 +332,6 @@ def dbMntrgIndoor(sysOpt):
         with sysOpt['cfgDb']['sessionMake']() as session:
             # dataList = session.execute(query, {"srtDate": srtDate, "endDate": endDate}).all()
             dataList = session.execute(query).all()
-            log.info(f"DB 조회, dataList : {dataList}")
 
             for dataInfo in dataList:
                 if not dataInfo.bot_token or not dataInfo.chat_id: continue
@@ -343,9 +342,10 @@ def dbMntrgIndoor(sysOpt):
                 if (msgAlertDate is None) or (endDate - msgAlertDate) >= timedelta(minutes=sysOpt['msgAlertMinInv']):
                     cfgTg = {'bot_token': dataInfo.bot_token, 'chat_id': dataInfo.chat_id}
                     msg = sysOpt['msgAlertTemplate'][dataInfo.state].format(device_id=dataInfo.device_id, device_name=dataInfo.device_name, indoor_temp=dataInfo.indoor_temp)
+                    log.info(f"알림 발송 시작")
                     sendTgApi(cfgTg, msg)
+                    log.info(f"알림 발송 종료, key : {key}, msg : {msg}")
                     sysOpt['msgAlertHist'][key] = endDate
-                    log.info(f"알림 발송, key : {key}, msg : {msg}")
     except Exception as e:
         log.error(f'Exception : {e}')
 
@@ -433,7 +433,6 @@ def dbMntrgOutdoor(sysOpt):
         with sysOpt['cfgDb']['sessionMake']() as session:
             # dataList = session.execute(query, {"srtDate": srtDate, "endDate": endDate}).all()
             dataList = session.execute(query).all()
-            log.info(f"DB 조회, dataList : {dataList}")
 
             for dataInfo in dataList:
                 if not dataInfo.bot_token or not dataInfo.chat_id: continue
@@ -444,9 +443,11 @@ def dbMntrgOutdoor(sysOpt):
                 if (msgAlertDate is None) or (endDate - msgAlertDate) >= timedelta(minutes=sysOpt['msgAlertMinInv']):
                     cfgTg = {'bot_token': dataInfo.bot_token, 'chat_id': dataInfo.chat_id}
                     msg = sysOpt['msgAlertTemplate'][dataInfo.state].format(device_id=dataInfo.device_id, device_name=dataInfo.device_name, outdoor_temp=dataInfo.outdoor_temp, fill_temp=dataInfo.fill_temp)
+                    log.info(f"알림 발송 시작")
                     sendTgApi(cfgTg, msg)
+                    log.info(f"알림 발송 종료, key : {key}, msg : {msg}")
                     sysOpt['msgAlertHist'][key] = endDate
-                    log.info(f"알림 발송, key : {key}, msg : {msg}")
+
     except Exception as e:
         log.error(f'Exception : {e}')
 
@@ -473,7 +474,6 @@ def dbMntrgData(sysOpt):
         # srtDate = endDate - timedelta(minutes=sysOpt['mntrgMinInv'])
         with sysOpt['cfgDb']['sessionMake']() as session:
             dataList = session.execute(query, {}).all()
-            log.info(f"DB 조회, dataList : {dataList}")
 
             for dataInfo in dataList:
                 if not dataInfo.bot_token or not dataInfo.chat_id: continue
@@ -495,6 +495,35 @@ def dbMntrgData(sysOpt):
     except Exception as e:
         log.error(f'Exception : {e}')
 
+# 데이터 검사
+def dbMntrgCheck(sysOpt):
+    try:
+        query = text("""
+                     SELECT
+                        ECO.*,
+                        dev.device_name,
+                        dev.bot_token,
+                        dev.chat_id
+                    FROM (
+                        SELECT device_id, MAX(tm) AS max_tm
+                        FROM TB_ECOWITT_DATA
+                        WHERE tm >= NOW() - INTERVAL 1 HOUR
+                        GROUP BY device_id
+                    ) AS latest
+                    INNER JOIN TB_ECOWITT_DATA AS ECO
+                        ON latest.device_id = ECO.device_id AND latest.max_tm = ECO.tm
+                    LEFT OUTER JOIN TB_DEVICE_MASTER AS dev
+                        ON ECO.device_id = dev.device_id
+                    ORDER BY ECO.tm DESC;
+                 """)
+
+        with sysOpt['cfgDb']['sessionMake']() as session:
+            # dataList = session.execute(query, {"srtDate": srtDate, "endDate": endDate}).all()
+            log.info(f"DB 조회 시작")
+            dataList = session.execute(query).all()
+            log.info(f"DB 조회 종료, dataList : {dataList}")
+    except Exception as e:
+        log.error(f'Exception : {e}')
 
 async def asyncSchdl(sysOpt):
     scheduler = AsyncIOScheduler()
@@ -505,6 +534,7 @@ async def asyncSchdl(sysOpt):
         (dbMntrgOutdoor, 'cron', {'minute': '*/1', 'second': '0'}, {'args': [sysOpt]}),
         (dbMntrgData, 'cron', {'minute': '*/1', 'second': '0'}, {'args': [sysOpt]}),
         (dbMntrgProfile, 'cron', {'minute': '*/1', 'second': '0'}, {'args': [sysOpt]}),
+        (dbMntrgCheck, 'cron', {'minute': '*/1', 'second': '0'}, {'args': [sysOpt]}),
     ]
 
     for fun, trigger, triggerArgs, kwargs in jobList:
