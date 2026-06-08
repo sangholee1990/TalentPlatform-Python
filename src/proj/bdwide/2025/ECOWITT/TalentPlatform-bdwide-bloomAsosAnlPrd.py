@@ -818,8 +818,8 @@ class DtaProcess(object):
             resDtlList = []
             for (type, type2), mergeInfo in mergeDataL1.groupby(['구분1', '구분2']):
                 try:
-                    if type2 not in ['개화', '만발']: continue
-                    # if type2 not in ['개화']: continue
+                    # if type2 not in ['개화', '만발']: continue
+                    if type2 not in ['개화']: continue
                     # if type2 not in ['만발']: continue
 
                     mergeInfo = mergeInfo.rename(columns={'값': 'demand'})
