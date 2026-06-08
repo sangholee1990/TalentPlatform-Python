@@ -337,7 +337,8 @@ class DtaProcess(object):
                 'cpuCoreNum': globalVar.get('cpuCoreNum', '1'),
                 'NMSC': {
                     'request': {
-                        'urlRoot': 'https://nmsc.kma.go.kr/homepage/html/satellite/viewer/selectImgDown.do?fileKey=GK2A:AMI:LE2:SST:NC:EA:020:LC&observationTime=%Y%m%d%H%M&type=NC',
+                        # 'urlRoot': 'https://nmsc.kma.go.kr/homepage/html/satellite/viewer/selectImgDown.do?fileKey=GK2A:AMI:LE2:SST:NC:EA:020:LC&observationTime=%Y%m%d%H%M&type=NC',
+                        'urlRoot': 'https://nmsc.kma.go.kr/homepage/html/satellite/viewer/selectImgDown.do?fileKey=GK2A:AMI:LE3:SST01D:NC:EA:020:LC&observationTime=%Y%m%d%H%M&type=NC',
                         'urlList': [
                             '/SAT/GK2A/AMI/L3/SST01D/EA/%Y%m/%d/%H/gk2a_ami_le3_sst01d_ea020lc_%Y%m%d%H%M.nc',
                         ]
