@@ -3,11 +3,10 @@
 # ================================================
 # Python을 이용한 기상청 API 허브 다운로드
 
-# ps -ef | grep "TalentPlatform-INDI2025-colct-nmscImg.py" | awk '{print $2}' | xargs kill -9
+# ps -ef | grep "TalentPlatform-INDI2026-colct-nmscData.py" | awk '{print $2}' | xargs kill -9
 
-# cd /vol01/SYSTEMS/DMS02/PROG/PYTHON
-# /vol01/SYSTEMS/INDIAI/LIB/anaconda3/envs/py38/bin/python /vol01/SYSTEMS/DMS02/PROG/PYTHON/TalentPlatform-INDI2025-colct-nmscImg.py --modelList 'NMSC' --cpuCoreNum '5' --srtDate '2025-08-20 00:00' --endDate '2025-08-20 08:22'
-# nohup /vol01/SYSTEMS/INDIAI/LIB/anaconda3/envs/py38/bin/python /vol01/SYSTEMS/DMS02/PROG/PYTHON/TalentPlatform-INDI2025-colct-nmscImg.py --modelList 'NMSC' --cpuCoreNum '5' --srtDate '2025-08-20 00:00' --endDate '2025-08-20 08:22' &
+# cd/vol01/SYSTEMS/DMS02/PROG/PYTHON/src/proj/indisystem/2026
+# /vol01/SYSTEMS/INDIAI/LIB/anaconda3/envs/py38/bin/python /vol01/SYSTEMS/DMS02/PROG/PYTHON/src/proj/indisystem/2026/TalentPlatform-INDI2026-colct-nmscData.py --cpuCoreNum '5' --srtDate '2025-05-01' --endDate '2025-05-31'
 
 # */2 * * * * cd /vol01/SYSTEMS/DMS02/PROG/PYTHON && /vol01/SYSTEMS/INDIAI/LIB/anaconda3/envs/py38/bin/python /vol01/SYSTEMS/DMS02/PROG/PYTHON/TalentPlatform-INDI2025-colct-nmscImg.py --modelList 'NMSC' --cpuCoreNum '5' --srtDate "$(date -d "9 hours ago - 10 minutes" +\%Y-\%m-\%d\ \%H:\%M)" --endDate "$(date -d "9 hours ago" +\%Y-\%m-\%d\ \%H:\%M)"
 # */2 * * * * cd /vol01/SYSTEMS/DMS02/PROG7/PYTHON && /vol01/SYSTEMS/INDIAI/LIB/anaconda3/envs/py38/bin/python /vol01/SYSTEMS/DMS02/PROG/PYTHON/TalentPlatform-INDI2025-colct-nmscImg.py --modelList 'NMSC' --cpuCoreNum '5' --srtDate "$(date -u -d "1 hours ago" +\%Y-\%m-\%d\ \%H:\%M)" --endDate "$(date -u +\%Y-\%m-\%d\ \%H:\%M)"
@@ -239,7 +238,7 @@ def colctNmsc(modelInfo, dtDateInfo):
             try:
                 subprocess.run(cmd, shell=True, check=True, executable='/bin/bash')
             except subprocess.CalledProcessError as e:
-                raise ValueError(f'[ERROR] 실행 프로그램 실패 : {str(e)}')
+                raise ValueError(f'[ERROR] 실행 프로그램 실패 : {e}')
 
             if os.path.exists(tmpFileInfo):
                 if os.path.getsize(tmpFileInfo) != 1161:
@@ -268,14 +267,15 @@ class DtaProcess(object):
     # ================================================================================================
     global env, contextPath, prjName, serviceName, log, globalVar
 
-    env = 'local'  # 로컬 : 원도우 환경, 작업환경 (현재 소스 코드 환경 시 .) 설정
-    # env = 'dev'  # 개발 : 원도우 환경, 작업환경 (사용자 환경 시 contextPath) 설정
+    # env = 'local'  # 로컬 : 원도우 환경, 작업환경 (현재 소스 코드 환경 시 .) 설정
+    env = 'dev'  # 개발 : 원도우 환경, 작업환경 (사용자 환경 시 contextPath) 설정
     # env = 'oper'  # 운영 : 리눅스 환경, 작업환경 (사용자 환경 시 contextPath) 설정
 
     if platform.system() == 'Windows':
         contextPath = os.getcwd() if env in 'local' else 'E:/04. TalentPlatform/Github/TalentPlatform-Python'
     else:
-        contextPath = os.getcwd() if env in 'local' else '/SYSTEMS/PROG/PYTHON/IDE'
+        # contextPath = os.getcwd() if env in 'local' else '/SYSTEMS/PROG/PYTHON/IDE'
+        contextPath = os.getcwd() if env in 'local' else '/vol01/SYSTEMS/DMS02/PROG/PYTHON/src/proj/indisystem/2026'
 
     prjName = 'colct-nmscData'
     serviceName = 'INDI2026'
@@ -341,15 +341,13 @@ class DtaProcess(object):
                         'urlList': [
                             '/SAT/GK2A/AMI/L3/SST01D/EA/%Y%m/%d/%H/gk2a_ami_le3_sst01d_ea020lc_%Y%m%d%H%M.nc',
                         ]
-                        , 'invDate': '1m'
+                        , 'invDate': '1d'
                         # , 'invDate': '2t'
                         # , 'invDate': '10t'
                     }
                     , 'cmd': 'curl -s -C - {reqUrl} --retry 10 -o {tmpFileInfo}'
-                    , 'tmp': '/vol01/DATA/.{urlInfo}'
+                    , 'tmp': '/tmp/{urlInfo}'
                     , 'target': '/vol01/DATA/{urlInfo}'
-                    # , 'tmp': '/DATA/.{urlInfo}'
-                    # , 'target': '/DATA/{urlInfo}'
                 },
             }
 
