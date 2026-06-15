@@ -16,6 +16,7 @@
 # tail -f nohup.out
 
 # tail -f /SYSTEMS/PROG/PYTHON/IDE/resources/log/test/Linux_x86_64_64bit_solarmy-253048.novalocal_test.log
+# tail -f /HDD/SYSTEMS/PROG/PYTHON/IDE/src/proj/bdwide/2025/ECOWITT/resources/log/DbMntrgMsgAlert/Linux_x86_64_64bit_solarmy-253048.novalocal_DbMntrgMsgAlert.log
 
 import argparse
 import glob
@@ -284,9 +285,10 @@ def dbMntrgProfile(sysOpt):
                             key = f"{state}-{deviceDtlNum}-{deviceName}"
                             msgAlertDate = sysOpt['msgAlertHist'].get(key)
                             if (msgAlertDate is None) or (endDate - msgAlertDate) >= timedelta(minutes=sysOpt['msgAlertMinInv']):
+                                log.info(f"이벤트 발생, key : {key}")
                                 cfgTg = {'bot_token': dataInfo.bot_token, 'chat_id': dataInfo.chat_id}
                                 msg = sysOpt['msgAlertTemplate'][state].format(deviceDtlNum=deviceDtlNum, deviceName=deviceName, val=val)
-                                log.info(f"알림 발송 시작")
+                                log.info(f"알림 발송 시작, key : {key}, msg : {msg}")
                                 sendTgApi(cfgTg, msg)
                                 log.info(f"알림 발송 종료, key : {key}, msg : {msg}")
                                 sysOpt['msgAlertHist'][key] = endDate
@@ -340,9 +342,10 @@ def dbMntrgIndoor(sysOpt):
                 key = f"{dataInfo.state}-{dataInfo.device_id}-{dataInfo.device_name}"
                 msgAlertDate = sysOpt['msgAlertHist'].get(key)
                 if (msgAlertDate is None) or (endDate - msgAlertDate) >= timedelta(minutes=sysOpt['msgAlertMinInv']):
+                    log.info(f"이벤트 발생, key : {key}")
                     cfgTg = {'bot_token': dataInfo.bot_token, 'chat_id': dataInfo.chat_id}
                     msg = sysOpt['msgAlertTemplate'][dataInfo.state].format(device_id=dataInfo.device_id, device_name=dataInfo.device_name, indoor_temp=dataInfo.indoor_temp)
-                    log.info(f"알림 발송 시작")
+                    log.info(f"알림 발송 시작, key : {key}, msg : {msg}")
                     sendTgApi(cfgTg, msg)
                     log.info(f"알림 발송 종료, key : {key}, msg : {msg}")
                     sysOpt['msgAlertHist'][key] = endDate
@@ -441,9 +444,10 @@ def dbMntrgOutdoor(sysOpt):
                 key = f"{dataInfo.state}-{dataInfo.device_id}-{dataInfo.device_name}"
                 msgAlertDate = sysOpt['msgAlertHist'].get(key)
                 if (msgAlertDate is None) or (endDate - msgAlertDate) >= timedelta(minutes=sysOpt['msgAlertMinInv']):
+                    log.info(f"이벤트 발생, key : {key}")
                     cfgTg = {'bot_token': dataInfo.bot_token, 'chat_id': dataInfo.chat_id}
                     msg = sysOpt['msgAlertTemplate'][dataInfo.state].format(device_id=dataInfo.device_id, device_name=dataInfo.device_name, outdoor_temp=dataInfo.outdoor_temp, fill_temp=dataInfo.fill_temp)
-                    log.info(f"알림 발송 시작")
+                    log.info(f"알림 발송 시작, key : {key}, msg : {msg}")
                     sendTgApi(cfgTg, msg)
                     log.info(f"알림 발송 종료, key : {key}, msg : {msg}")
                     sysOpt['msgAlertHist'][key] = endDate
@@ -486,11 +490,13 @@ def dbMntrgData(sysOpt):
                     key = f"데이터 적재 실패-{dataInfo.device_id}-{dataInfo.device_name}"
                     msgAlertDate = sysOpt['msgAlertHist'].get(key)
                     if (msgAlertDate is None) or (endDate - msgAlertDate) >= timedelta(minutes=sysOpt['msgAlertMinInv']):
+                        log.info(f"이벤트 발생, key : {key}")
                         cfgTg = {'bot_token': dataInfo.bot_token, 'chat_id': dataInfo.chat_id}
                         msg = sysOpt['msgAlertTemplate']['데이터 적재 실패'].format(device_id=dataInfo.device_id, device_name=dataInfo.device_name, tm=dataInfo.tm.strftime("%Y-%m-%d %H:%M"), thrMsgInfo=thrMsgInfo)
+                        log.info(f"알림 발송 시작, key : {key}, msg : {msg}")
                         sendTgApi(cfgTg, msg)
                         sysOpt['msgAlertHist'][key] = endDate
-                        # log.info(f"알림 발송, key : {key}, msg : {msg}")
+                        log.info(f"알림 발송 종료, key : {key}, msg : {msg}")
                         break
     except Exception as e:
         log.error(f'Exception : {e}')
