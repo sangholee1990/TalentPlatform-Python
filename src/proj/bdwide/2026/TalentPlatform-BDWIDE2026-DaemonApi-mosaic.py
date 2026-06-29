@@ -163,6 +163,8 @@ from fastapi import Form, HTTPException, Depends
 from sqlalchemy import text
 import re
 from email.utils import formataddr
+from email.mime.base import MIMEBase
+from email import encoders
 warnings.filterwarnings('ignore')
 
 # ============================================
@@ -379,9 +381,6 @@ async def sendEmail(
         subtype = "octet-stream"
         if file.content_type and "/" in file.content_type:
             maintype, subtype = file.content_type.split("/", 1)
-            
-        from email.mime.base import MIMEBase
-        from email import encoders
         attachment = MIMEBase(maintype, subtype)
         attachment.set_payload(fileContent)
         encoders.encode_base64(attachment)
