@@ -251,7 +251,7 @@ sysOpt = {
     'cfgFile': '/HDD/SYSTEMS/PROG/PYTHON/IDE/resources/config/system.cfg',
 
     # 모델 정보
-    'modelInfo': '/HDD/SYSTEMS/models/best_float32.tflite',
+    'modelInfo': '/HDD/DATA/INPUT/BDWIDE2026/models/best_float32.tflite',
 }
 
 app = FastAPI(
