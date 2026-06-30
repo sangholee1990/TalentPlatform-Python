@@ -617,16 +617,23 @@ def makeFlamlModel(subOpt=None, xCol=None, yCol=None, trainData=None, testData=N
 
             fnlModel = AutoML(
                 task='regression',
-                metric='rmse',
+                # metric='rmse',
+                metric='r2',
                 # ensemble=True,
                 ensemble=False,
                 seed=int(datetime.datetime.now().timestamp()),
                 time_budget=60,
+                # time_budget=300,
+                # time_budget=600,
                 verbose=1,
+                # eval_method='cv',
+                # n_splits=10,
             )
 
             # 각 모형에 따른 자동 머신러닝
             fnlModel.fit(X_train=trainDataL1[xCol], y_train=trainDataL1[yCol], X_val=testDataL1[xCol], y_val=testDataL1[yCol])
+            # fnlModel.fit(X_train=trainDataL1[xCol], y_train=trainDataL1[yCol], X_val=trainDataL1[xCol], y_val=trainDataL1[yCol])
+            # fnlModel.fit(X_train=trainDataL1[xCol], y_train=trainDataL1[yCol])
 
             # 학습 모형 저장
             saveModel = subOpt['preDt'].strftime(subOpt['saveModel']).format(srv=subOpt['srv'])
@@ -816,8 +823,13 @@ class DtaProcess(object):
             # =============================================================
             resList = []
             resDtlList = []
+            trainDataL1 = pd.DataFrame()
+            testDataL1 = pd.DataFrame()
+            prdDataL1 = pd.DataFrame()
+            mergeDataL2 = pd.DataFrame()
             for (type, type2), mergeInfo in mergeDataL1.groupby(['구분1', '구분2']):
                 try:
+                    # if type not in ['코스모스']: continue
                     # if type2 not in ['개화', '만발']: continue
                     if type2 not in ['개화']: continue
                     # if type2 not in ['만발']: continue
@@ -836,12 +848,13 @@ class DtaProcess(object):
                     idx = int(len(yearList) * 0.8)
                     trainData = mergeInfo[mergeInfo['year'] <= yearList[idx - 1]]
                     testData = mergeInfo[mergeInfo['year'] > yearList[idx - 1]]
-                    prdData = mergeInfo
+                    prdData = testData
 
                     # AI 학습
                     sysOpt['flaml']['srv'] = f"{type}-{type2}-전체"
-                    # resFlaml = makeFlamlModel(sysOpt['flaml'], xCol, yCol, trainData, testData)
-                    resFlaml = makeFlamlModel(sysOpt['flaml'], xCol, yCol, trainData, prdData)
+                    resFlaml = makeFlamlModel(sysOpt['flaml'], xCol, yCol, trainData, testData)
+                    # resFlaml = makeFlamlModel(sysOpt['flaml'], xCol, yCol, mergeInfo, testData)
+                    # resFlaml = makeFlamlModel(sysOpt['flaml'], xCol, yCol, testData, testData)
                     # log.info(f'resFlaml : {resFlaml}')
 
                     if not resFlaml: continue
@@ -850,6 +863,11 @@ class DtaProcess(object):
                     prdData['ai'] = prdVal
 
                     if len(prdData) < 1: continue
+
+                    trainDataL1 = pd.concat([trainDataL1, trainData], ignore_index=True)
+                    testDataL1 = pd.concat([testDataL1, testData], ignore_index=True)
+                    mergeDataL2 = pd.concat([mergeDataL2, mergeInfo], ignore_index=True)
+                    prdDataL1 = pd.concat([prdDataL1, prdData], ignore_index=True)
 
                     try:
                         r = np.corrcoef(prdData['demand'], prdData['ai'])[0, 1]
@@ -871,7 +889,7 @@ class DtaProcess(object):
                         try:
                             r = np.corrcoef(stnInfo['demand'], stnInfo['ai'])[0, 1]
                             rmse = np.sqrt(mean_squared_error(stnInfo['demand'], stnInfo['ai']))
-                            resInfo = {
+                            resDtlInfo = {
                                 'type': type,
                                 'type2': type2,
                                 'stnName': stn,
@@ -879,18 +897,46 @@ class DtaProcess(object):
                                 'RMSE': round(rmse, 4) if not np.isnan(rmse) else np.nan,
                                 'R': round(r, 4) if not np.isnan(r) else np.nan
                             }
-                            resDtlList.append(resInfo)
+                            resDtlList.append(resDtlInfo)
                         except Exception as e:
                             log.error(f'Exception : {e}')
                 except Exception as e:
                     log.error(f"Exception : {e}")
+
+            # try:
+            #     r = np.corrcoef(prdDataL1['demand'], prdDataL1['ai'])[0, 1]
+            #     rmse = np.sqrt(mean_squared_error(prdDataL1['demand'], prdDataL1['ai']))
+            #     resInfo = {
+            #         'type': '전체',
+            #         'type2': '개화',
+            #         'stnName': '전체',
+            #         'N': len(prdDataL1['demand']),
+            #         'RMSE': round(rmse, 4) if not np.isnan(rmse) else np.nan,
+            #         'R': round(r, 4) if not np.isnan(r) else np.nan
+            #     }
+            #     log.info(resInfo)
+            #     resList.append(resInfo)
+            # except Exception as e:
+            #     log.error(f'Exception : {e}')
+
+            # # 전처리 데이터 (19,644개)
+            # mergeDataL2.to_csv('/DATA/OUTPUT/BDWIDE2026/BDWIDE2025_mergeDataL1_20260625.csv', index=False, encoding='euc-kr')
+            #
+            # # 학습 데이터 (17,957개)
+            # trainDataL1.to_csv('/DATA/OUTPUT/BDWIDE2026/BDWIDE2025_trainDataL1_20260625.csv', index=False, encoding='euc-kr')
+            #
+            # # 검증 데이터 (1,687개)
+            # testDataL1.to_csv('/DATA/OUTPUT/BDWIDE2026/BDWIDE2025_testDataL1_20260625.csv', index=False, encoding='euc-kr')
+            #
+            # # 예측 데이터 (19,644개)
+            # prdDataL1.to_csv('/DATA/OUTPUT/BDWIDE2026/BDWIDE2025_prdDataL1_20260625.csv', index=False, encoding='euc-kr')
 
             resData = pd.DataFrame(resList)
             log.info(resData)
 
             saveFile = datetime.datetime.now().strftime(sysOpt['saveFile'])
             os.makedirs(os.path.dirname(saveFile), exist_ok=True)
-            resData.to_csv(saveFile, index=False)
+            resData.to_csv(saveFile, index=False, encoding='euc-kr')
             log.info(f'saveFile : {saveFile}')
 
             resDtlData = pd.DataFrame(resDtlList)
@@ -898,7 +944,7 @@ class DtaProcess(object):
 
             saveDtlFile = datetime.datetime.now().strftime(sysOpt['saveDtlFile'])
             os.makedirs(os.path.dirname(saveDtlFile), exist_ok=True)
-            resDtlData.to_csv(saveDtlFile, index=False)
+            resDtlData.to_csv(saveDtlFile, index=False, encoding='euc-kr')
             log.info(f'saveDtlFile : {saveDtlFile}')
 
             # **********************************************************************************************************
