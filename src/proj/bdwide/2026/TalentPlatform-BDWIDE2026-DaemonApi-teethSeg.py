@@ -79,97 +79,32 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi import FastAPI, Header, HTTPException, Response
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.security import APIKeyHeader
-import asyncio
 from fastapi import FastAPI
-import socket
-import json
-import requests
-# from google.cloud import bigquery
-# from google.oauth2 import service_account
-# import db_dtypes
-# from src.api.guest.router import router as guest_router
 from fastapi.responses import RedirectResponse
 from fastapi import FastAPI, HTTPException, Query, Depends
 from fastapi.middleware.cors import CORSMiddleware
-import pandas as pd
-import urllib
-import os
-import shutil
-import os
 from fastapi import FastAPI, HTTPException, UploadFile, File, Form
 import tempfile
 import os
 from enum import Enum
 from pydantic import BaseModel, Field, constr, validator
-from konlpy.tag import Okt
-from collections import Counter
-import nltk
-from nltk.corpus import stopwords
-# nltk.download('stopwords')
-from urllib import parse
-import time
-from urllib.parse import quote_plus, urlencode
 import pytz
-from pytrends.request import TrendReq
-from bs4 import BeautifulSoup
-from lxml import etree
-import xml.etree.ElementTree as et
-from pytrends.request import TrendReq
 from fastapi.responses import StreamingResponse
 from io import BytesIO
-from google import genai
 import configparser
-import httpx
 import numpy as np
 from datetime import datetime, timedelta
-import matplotlib.pyplot as plt
-from sklearn.preprocessing import StandardScaler, OneHotEncoder, MinMaxScaler
-from sklearn.feature_extraction.text import TfidfVectorizer
-from sklearn.compose import ColumnTransformer
-from sklearn.pipeline import Pipeline
-from sklearn.decomposition import TruncatedSVD
-from sklearn.metrics.pairwise import cosine_similarity
-import warnings
-import asyncio
-from apscheduler.schedulers.asyncio import AsyncIOScheduler
-from apscheduler.executors.asyncio import AsyncIOExecutor
-import threading
-import matplotlib.pyplot as plt
 import numpy as np
-import matplotlib.patches as patches
-from concurrent.futures import ProcessPoolExecutor, as_completed
-import pymysql
-import random
-from urllib.parse import quote_plus
-from urllib.parse import unquote_plus
-import urllib.parse
-import sqlalchemy
-from sqlalchemy import create_engine, text
-import requests
-from sqlalchemy.orm import sessionmaker
-from sqlalchemy.ext.automap import automap_base
-from sqlalchemy import text
 import warnings
-import uuid
-import smtplib
-from email.mime.multipart import MIMEMultipart
-from email.mime.text import MIMEText
-from email.mime.application import MIMEApplication
-from typing import Optional
-from fastapi import File, UploadFile, Form
-from email.mime.multipart import MIMEMultipart
-from email.mime.text import MIMEText
 from fastapi import Form, HTTPException, Depends
-from sqlalchemy import text
 import re
-from email.utils import formataddr
-from email.mime.base import MIMEBase
-from email import encoders
 import numpy as np
 import cv2
 from fastapi import FastAPI, UploadFile, File, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from ultralytics import YOLO
+import base64
+import time
 warnings.filterwarnings('ignore')
 
 # ============================================
@@ -252,6 +187,7 @@ sysOpt = {
 
     # 모델 정보
     'modelInfo': '/HDD/DATA/INPUT/BDWIDE2026/models/best_float32.tflite',
+    'modelInfo2': '/HDD/DATA/INPUT/BDWIDE2026/models2/best.pt',
 }
 
 app = FastAPI(
@@ -274,8 +210,6 @@ app.add_middleware(
     , allow_headers=["*"]
 )
 
-clientAsync = httpx.AsyncClient()
-
 # ============================================
 # 비즈니스 로직
 # ============================================
@@ -286,13 +220,17 @@ tzUtc = pytz.timezone('UTC')
 config = configparser.ConfigParser()
 config.read(sysOpt['cfgFile'], encoding='utf-8')
 
+# 모델 분류 클래스 정보
+CLASS_NAMES = ['cavity', 'normal']  # index 0 = cavity, index 1 = normal
+CONFIDENCE_THRESHOLD = 0.25
 
 try:
-    modelInfo = YOLO(sysOpt['modelInfo'], task='segment')
-    log.info(f"[CHECK] YOLO Model successfully loaded from {modelInfo}")
+    # model = YOLO(sysOpt['modelInfo'], task='segment')
+    model = YOLO(sysOpt['modelInfo2'])
 except Exception as e:
     log.error(f"Exception during model load : {e}")
-    model = None
+    sys.exit(1)
+
 
 # sysOpt['cfgDb'] = initCfgInfo(config, sysOpt['cfgDbKey'])
 # sysOpt['cfgMail'] = {
@@ -314,7 +252,8 @@ async def redirect_to_docs():
 # @app.post(f"/api/detectTeeth", dependencies=[Depends(chkKey)])
 @app.post(f"/api/detectTeeth")
 async def detectTeeth(
-        file: UploadFile = File(..., description='치아 이미지 첨부파일')
+        file: UploadFile = File(..., description='치아 이미지 첨부파일'),
+        confidence: float = Form(CONFIDENCE_THRESHOLD, description='신뢰도 임계값 (예: 0.25)')
 ):
     """
     기능\n
@@ -323,6 +262,7 @@ async def detectTeeth(
         file: 이미지 첨부파일 (jpg, png 등)\n
     """
     try:
+        start_time = time.time()
         if not file:
             return resResponse("fail", 400, "치아 탐지 실패, 이미지 첨부파일 없음")
 
@@ -336,14 +276,77 @@ async def detectTeeth(
         if img is None:
             return resResponse("fail", 400, "치아 탐지 실패, 이미지 첨부파일 이상")
 
-        results = model(img)[0]
+        # results = model(img)[0]
+        #
+        # polygons = []
+        # if results.masks is not None:
+        #     for poly in results.masks.xy:
+        #         polygon = [[float(x), float(y)] for x, y in poly]
+        #         polygons.append(polygon)
+        # return resResponse("succ", 200, "처리 완료", len(polygons), {"polygons": polygons})
 
+        results = model.predict(source=img, conf=confidence, verbose=False)[0]
+
+        inference_time = (time.time() - start_time) * 1000
+
+        annotated_img = img.copy()
         polygons = []
+        detections = []
+
+        # 1. Polygon 데이터 추출 (기존 로직 유지)
         if results.masks is not None:
             for poly in results.masks.xy:
                 polygon = [[float(x), float(y)] for x, y in poly]
                 polygons.append(polygon)
-        return resResponse("succ", 200, "처리 완료", len(polygons), {"polygons": polygons})
+
+        # 2. Bounding Box 시각화 및 Detection 정보 추출 (신규 로직 추가)
+        if results.boxes is not None:
+            for idx, box in enumerate(results.boxes, start=1):
+                cls_id = int(box.cls)
+                conf = float(box.conf)
+                x1, y1, x2, y2 = map(int, box.xyxy[0])
+                class_name = CLASS_NAMES[cls_id] if cls_id < len(CLASS_NAMES) else f"class_{cls_id}"
+
+                # Cavity = Red, Normal = Green
+                color = (0, 0, 255) if cls_id == 0 else (0, 255, 0)
+
+                # Bounding Box 및 Object Number 그리기
+                cv2.rectangle(annotated_img, (x1, y1), (x2, y2), color, 2)
+                cv2.putText(annotated_img, str(idx), (x1, y1 - 5),
+                            cv2.FONT_HERSHEY_SIMPLEX, 0.7, (255, 255, 255), 2)
+
+                # 확률 배열: [cavity_prob, normal_prob]
+                probs = [0.0, 0.0]
+                if cls_id == 0:  # cavity
+                    probs[0] = conf
+                elif cls_id == 1:  # normal
+                    probs[1] = conf
+
+                detections.append({
+                    'object_id': idx,
+                    'class_id': cls_id,
+                    'class_name': class_name,
+                    'confidence': round(conf, 4),
+                    'bbox': [x1, y1, x2, y2],
+                    'probabilities': probs
+                })
+
+        # 3. 처리된 이미지를 Base64 형태로 변환
+        # _, buffer = cv2.imencode('.jpg', annotated_img)
+        # img_base64 = base64.b64encode(buffer).decode('utf-8')
+
+        # 반환할 데이터 조합
+        responseData = {
+            "inference_time_ms": round(inference_time, 2),
+            "confidence_threshold": confidence,
+            "num_detections": len(detections),
+            "polygons": polygons,
+            "detections": detections,
+            # "annotated_image": img_base64
+        }
+
+        return resResponse("succ", 200, "처리 완료", len(detections), responseData)
+
     except Exception as e:
         log.error(f'Exception : {e}')
         return resResponse("fail", 400, f"치아 탐지 실패, {e}")
