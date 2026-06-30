@@ -919,17 +919,17 @@ class DtaProcess(object):
             # except Exception as e:
             #     log.error(f'Exception : {e}')
 
-            # # 전처리 데이터 (19,644개)
-            # mergeDataL2.to_csv('/DATA/OUTPUT/BDWIDE2026/BDWIDE2025_mergeDataL1_20260625.csv', index=False, encoding='euc-kr')
-            #
-            # # 학습 데이터 (17,957개)
-            # trainDataL1.to_csv('/DATA/OUTPUT/BDWIDE2026/BDWIDE2025_trainDataL1_20260625.csv', index=False, encoding='euc-kr')
-            #
-            # # 검증 데이터 (1,687개)
-            # testDataL1.to_csv('/DATA/OUTPUT/BDWIDE2026/BDWIDE2025_testDataL1_20260625.csv', index=False, encoding='euc-kr')
-            #
-            # # 예측 데이터 (19,644개)
-            # prdDataL1.to_csv('/DATA/OUTPUT/BDWIDE2026/BDWIDE2025_prdDataL1_20260625.csv', index=False, encoding='euc-kr')
+            # 전처리 데이터 (19,644개)
+            mergeDataL2.to_csv('/DATA/OUTPUT/BDWIDE2026/BDWIDE2025_mergeDataL1_20260625.csv', index=False, encoding='euc-kr')
+
+            # 학습 데이터 (17,957개)
+            trainDataL1.to_csv('/DATA/OUTPUT/BDWIDE2026/BDWIDE2025_trainDataL1_20260625.csv', index=False, encoding='euc-kr')
+
+            # 검증 데이터 (1,687개)
+            testDataL1.to_csv('/DATA/OUTPUT/BDWIDE2026/BDWIDE2025_testDataL1_20260625.csv', index=False, encoding='euc-kr')
+
+            # 예측 데이터 (19,644개)
+            prdDataL1.to_csv('/DATA/OUTPUT/BDWIDE2026/BDWIDE2025_prdDataL1_20260625.csv', index=False, encoding='euc-kr')
 
             resData = pd.DataFrame(resList)
             log.info(resData)
