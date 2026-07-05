@@ -105,6 +105,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from ultralytics import YOLO
 import base64
 import time
+import torch
 warnings.filterwarnings('ignore')
 
 # ============================================
@@ -188,6 +189,8 @@ sysOpt = {
     # 모델 정보
     'modelInfo': '/HDD/DATA/INPUT/BDWIDE2026/models/best_float32.tflite',
     'modelInfo2': '/HDD/DATA/INPUT/BDWIDE2026/models2/best.pt',
+    'modelInfo3': '/HDD/DATA/INPUT/BDWIDE2026/models3/last.pt',
+    'modelInfo4': '/HDD/DATA/INPUT/BDWIDE2026/models4/best.pt',
 }
 
 app = FastAPI(
@@ -220,27 +223,15 @@ tzUtc = pytz.timezone('UTC')
 config = configparser.ConfigParser()
 config.read(sysOpt['cfgFile'], encoding='utf-8')
 
-# 모델 분류 클래스 정보
-CLASS_NAMES = ['cavity', 'normal']  # index 0 = cavity, index 1 = normal
-CONFIDENCE_THRESHOLD = 0.25
-
 try:
     # model = YOLO(sysOpt['modelInfo'], task='segment')
-    model = YOLO(sysOpt['modelInfo2'])
+    # model = YOLO(sysOpt['modelInfo2'])
+    # model = torch.hub.load('ultralytics/yolov5', 'custom', path=sysOpt['modelInfo3'])
+    model = YOLO(sysOpt['modelInfo4'])
 except Exception as e:
     log.error(f"Exception during model load : {e}")
     sys.exit(1)
 
-
-# sysOpt['cfgDb'] = initCfgInfo(config, sysOpt['cfgDbKey'])
-# sysOpt['cfgMail'] = {
-#     'email': config.get(sysOpt['cfgMailKey'], 'email'),
-#     'appPwd': config.get(sysOpt['cfgMailKey'], 'appPwd'),
-# }
-# sysOpt['cfgTg'] = {
-#     'botToken': config.get(sysOpt['cfgTgKey'], 'botToken'),
-#     'chatId': config.get(sysOpt['cfgTgKey'], 'chatId'),
-# }
 
 # ============================================
 # API URL 주소
@@ -253,11 +244,10 @@ async def redirect_to_docs():
 @app.post(f"/api/detectTeeth")
 async def detectTeeth(
         file: UploadFile = File(..., description='치아 이미지 첨부파일'),
-        confidence: float = Form(CONFIDENCE_THRESHOLD, description='신뢰도 임계값 (예: 0.25)')
 ):
     """
     기능\n
-        YOLOv8 기반 치아 객체 탐지 및 세그멘테이션 API\n
+        YOLO 기반 구강검진 탐지 및 세그멘테이션 API\n
     파라미터\n
         file: 이미지 첨부파일 (jpg, png 등)\n
     """
@@ -276,76 +266,29 @@ async def detectTeeth(
         if img is None:
             return resResponse("fail", 400, "치아 탐지 실패, 이미지 첨부파일 이상")
 
-        # results = model(img)[0]
-        #
-        # polygons = []
-        # if results.masks is not None:
-        #     for poly in results.masks.xy:
-        #         polygon = [[float(x), float(y)] for x, y in poly]
-        #         polygons.append(polygon)
-        # return resResponse("succ", 200, "처리 완료", len(polygons), {"polygons": polygons})
+        results = model.predict(source=img, verbose=False)
+        result = results[0]
+        output = []
+        for box in result.boxes:
+            x1, y1, x2, y2 = [
+                round(x) for x in box.xyxy[0].tolist()
+            ]
+            class_id = box.cls[0].item()
+            # if class_id != 0: continue
+            prob = round(box.conf[0].item(), 2)
 
-        results = model.predict(source=img, conf=confidence, verbose=False)[0]
+            output.append({
+                "x1": x1,
+                "y1": y1,
+                "x2": x2,
+                "y2": y2,
+                "class_name": result.names[class_id],
+                "probability": prob
+            })
 
-        inference_time = (time.time() - start_time) * 1000
+        log.info(f"output : {output}")
 
-        annotated_img = img.copy()
-        polygons = []
-        detections = []
-
-        # 1. Polygon 데이터 추출 (기존 로직 유지)
-        if results.masks is not None:
-            for poly in results.masks.xy:
-                polygon = [[float(x), float(y)] for x, y in poly]
-                polygons.append(polygon)
-
-        # 2. Bounding Box 시각화 및 Detection 정보 추출 (신규 로직 추가)
-        if results.boxes is not None:
-            for idx, box in enumerate(results.boxes, start=1):
-                cls_id = int(box.cls)
-                conf = float(box.conf)
-                x1, y1, x2, y2 = map(int, box.xyxy[0])
-                class_name = CLASS_NAMES[cls_id] if cls_id < len(CLASS_NAMES) else f"class_{cls_id}"
-
-                # Cavity = Red, Normal = Green
-                color = (0, 0, 255) if cls_id == 0 else (0, 255, 0)
-
-                # Bounding Box 및 Object Number 그리기
-                cv2.rectangle(annotated_img, (x1, y1), (x2, y2), color, 2)
-                cv2.putText(annotated_img, str(idx), (x1, y1 - 5),
-                            cv2.FONT_HERSHEY_SIMPLEX, 0.7, (255, 255, 255), 2)
-
-                # 확률 배열: [cavity_prob, normal_prob]
-                probs = [0.0, 0.0]
-                if cls_id == 0:  # cavity
-                    probs[0] = conf
-                elif cls_id == 1:  # normal
-                    probs[1] = conf
-
-                detections.append({
-                    'object_id': idx,
-                    'class_id': cls_id,
-                    'class_name': class_name,
-                    'confidence': round(conf, 4),
-                    'bbox': [x1, y1, x2, y2],
-                    'probabilities': probs
-                })
-
-        # 3. 처리된 이미지를 Base64 형태로 변환
-        # _, buffer = cv2.imencode('.jpg', annotated_img)
-        # img_base64 = base64.b64encode(buffer).decode('utf-8')
-
-        # 반환할 데이터 조합
-        responseData = {
-            "inference_time_ms": round(inference_time, 2),
-            "confidence_threshold": confidence,
-            "num_detections": len(detections),
-            "polygons": polygons,
-            "detections": detections,
-            # "annotated_image": img_base64
-        }
-
-        return resResponse("succ", 200, "처리 완료", len(detections), responseData)
+        return resResponse("succ", 200, "처리 완료", len(output), output)
 
     except Exception as e:
         log.error(f'Exception : {e}')
