@@ -169,15 +169,15 @@ def initArgument(globalVar):
     return globalVar
 
 
-def propOrgData(baseUrl, page):
+def propOrgData(baseName, baseUrl, page):
 
     result = pd.DataFrame()
 
     try:
         url = f"{baseUrl.rstrip('/')}/ptemplate/construction.asp"
-        page.goto(url, timeout=10000)
+        # page.goto(url, timeout=1000 * 5)
+        page.goto(url, timeout=1000 * 5, wait_until='domcontentloaded')
 
-        # 탭 메뉴 리스트 추출
         tabList = page.locator(".organized_tab_wrap_sn ul li a")
         tabCnt = tabList.count()
 
@@ -189,17 +189,16 @@ def propOrgData(baseUrl, page):
             tab = tabList.nth(i)
             tabName = tab.get_attribute("title")
             page.evaluate(f"fnChangeGrade('11', '', '{tabName}');")
-            log.info(f"tabName : {tabName}")
+            log.info(f"baseName : {baseName} / tabName : {tabName}")
 
             try:
-                page.wait_for_selector(".name_card", timeout=3000)
+                page.wait_for_selector(".name_card", timeout=1000 * 3)
                 time.sleep(0.5)
 
-                # --- [병합된 파싱 로직 시작] ---
                 html = page.content()
                 soup = BeautifulSoup(html, 'html.parser')
                 cards = soup.find_all('div', class_='name_card')
-                parsed_results = []
+                carDtlList = []
 
                 for card in cards:
                     if not card.text.strip(): continue
@@ -248,8 +247,9 @@ def propOrgData(baseUrl, page):
                     if not name and not office_name:
                         continue
 
-                    parsed_results.append({
-                        "조직명": tabName,  # 두 함수를 합쳤기 때문에 tabName을 바로 넣을 수 있습니다.
+                    carDtlList.append({
+                        "행정구역": baseName,
+                        "조직명": tabName,
                         "이름": name,
                         "직위": position,
                         "사무소명칭": office_name,
@@ -260,7 +260,7 @@ def propOrgData(baseUrl, page):
                         "이미지URL": img_url
                     })
 
-                cardData = pd.DataFrame(parsed_results)
+                cardData = pd.DataFrame(carDtlList)
                 result = pd.concat([result, cardData], ignore_index=True)
             except Exception as e:
                 log.error(f'Exception : {e}')
@@ -353,7 +353,7 @@ class DtaProcess(object):
 
             res.encoding = res.apparent_encoding
             soup = BeautifulSoup(res.text, 'html.parser')
-            urlList = soup.find_all('a', class_='loc')
+            urlList = soup.select('tr > td:nth-child(1) > a.loc')
 
             urlItem = {}
             for tag in urlList:
@@ -366,138 +366,24 @@ class DtaProcess(object):
             data = pd.DataFrame()
             with sync_playwright() as p:
                 browser = p.chromium.launch(headless=True)
-                page = browser.new_page()
 
                 for name, href in urlItem.items():
-                    propData = propOrgData(href, page)
+                    page = browser.new_page()
+                    propData = propOrgData(name, href, page)
                     data = pd.concat([data, propData], ignore_index=True)
+                    page.close()
                 browser.close()
 
             saveFile = sysOpt['saveFile']
             os.makedirs(os.path.dirname(saveFile), exist_ok=True)
-            data.to_csv(saveFile, index=False)
+            data.to_csv(saveFile, index=False, encoding='euc-kr')
             log.info(f'saveFile : {saveFile}')
 
-
-
-            # =================================================================
-            # 네이버뉴스 API 전처리
-            # =================================================================
-            # okt = Okt()
-            # for modelType in sysOpt['modelList']:
-            #     log.info(f'[CHECK] modelType : {modelType}')
-            #
-            #     modelInfo = sysOpt.get(modelType)
-            #     if modelInfo is None: continue
-            #
-            #     inpFile = modelInfo['inpFile']
-            #     fileList = sorted(glob.glob(inpFile), reverse=True)
-            #     fileInfo = fileList[0]
-            #
-            #     data = pd.read_csv(fileInfo)
-            #     data['titleDesc'] = data['title'].fillna('') + ' ' + data['description'].fillna('')
-            #
-            #     # key = 'title'
-            #     # key = 'description'
-            #     key = 'titleDesc'
-            #
-            #     # for i, row in data.iterrows():
-            #     #     if i > 20: break
-            #     #     per = round(i / len(data) * 100, 1)
-            #     #     log.info(f'[CHECK] i : {i} / {per}%')
-            #     #
-            #     #     try:
-            #     #         articleInfo = Article(row['link'], language='ko')
-            #     #
-            #     #         # 뉴스 다운로드/파싱/자연어 처리
-            #     #         articleInfo.download()
-            #     #         articleInfo.parse()
-            #     #         articleInfo.nlp()
-            #     #
-            #     #         # 명사/동사/형용사 추출
-            #     #         text = articleInfo.text
-            #     #         data.loc[i, f'text'] = None if text is None or len(text) < 1 else str(text)
-            #     #         data.loc[i, f'summary'] = None if articleInfo.summary is None or len(articleInfo.summary) < 1 else str(articleInfo.summary)
-            #     #         data.loc[i, f'authors'] = None if articleInfo.authors is None or len(articleInfo.authors) < 1 else str(articleInfo.authors)
-            #     #     except Exception as e:
-            #     #         log.error(f"Exception : {e}")
-            #
-            #     dataL1 = data.groupby(['sgg', 'search'])[key].apply(
-            #         lambda x: ' '.join([str(text).strip() for text in x.dropna() if str(text).strip() != ''])
-            #     ).reset_index()
-            #     dataL1 = dataL1[dataL1[key].str.strip() != ''].reset_index(drop=True)
-            #
-            #     keywordDataL2 = pd.DataFrame()
-            #     for i, row in dataL1.iterrows():
-            #         textList = row[key]
-            #         if textList is None or len(textList) < 1: continue
-            #         posTagList = okt.pos(textList, stem=True)
-            #
-            #         keyList = ['Noun']
-            #         for keyInfo in keyList:
-            #             keywordList = [word for word, pos in posTagList if pos in keyInfo]
-            #
-            #             # 불용어 제거
-            #             keywordList = [word for word in keywordList if word not in sysOpt['stopWordList'] and len(word) > 1]
-            #
-            #             # 빈도수 계산
-            #             keywordCnt = Counter(keywordList).most_common(100)
-            #             keywordData = pd.DataFrame(keywordCnt, columns=['keyword', 'cnt']).sort_values(by='cnt', ascending=False)
-            #             keywordDataL1 = keywordData[keywordData['keyword'].str.len() >= 2].reset_index(drop=True)
-            #
-            #             keywordDataL1['sgg'] = row['sgg']
-            #             keywordDataL1['search'] = row['search']
-            #
-            #             keywordDataL2 = pd.concat([keywordDataL2, keywordDataL1], ignore_index=True)
-            #
-            #     # =================================================================
-            #     # CSV 통합파일
-            #     # =================================================================
-            #     saveFile = sysOpt['키워드']['saveFile']
-            #     os.makedirs(os.path.dirname(saveFile), exist_ok=True)
-            #     keywordDataL2.to_csv(saveFile, index=False)
-            #     log.info(f'[CHECK] saveFile : {saveFile}')
-            #
-            #     # =================================================================
-            #     # 빅쿼리 업로드
-            #     # =================================================================
-            #     jsonFile = sysOpt['jsonFile']
-            #     jsonList = sorted(glob.glob(jsonFile))
-            #     if jsonList is None or len(jsonList) < 1:
-            #         log.error(f'설정 파일 없음 : {jsonFile}')
-            #         raise Exception(f'설정 파일 없음 : {jsonFile}')
-            #         # exit(1)
-            #
-            #     jsonInfo = jsonList[0]
-            #
-            #     try:
-            #         credentials = service_account.Credentials.from_service_account_file(jsonInfo)
-            #         client = bigquery.Client(credentials=credentials, project=credentials.project_id)
-            #     except Exception as e:
-            #         log.error(f'빅쿼리 연결 실패 : {e}')
-            #         raise Exception(f'빅쿼리 연결 실패 : {e}')
-            #         # exit(1)
-            #
-            #     jobCfg = bigquery.LoadJobConfig(
-            #         source_format=bigquery.SourceFormat.CSV,
-            #         skip_leading_rows=1,
-            #         autodetect=True,
-            #         write_disposition=bigquery.WriteDisposition.WRITE_TRUNCATE,
-            #         max_bad_records=1000,
-            #     )
-            #
-            #     tableId = f"{credentials.project_id}.DMS01.TB_KEYWORD"
-            #     with open(saveFile, "rb") as file:
-            #         job = client.load_table_from_file(file, tableId, job_config=jobCfg)
-            #     job.result()
-            #     log.info(f"[CHECK] tableId : {tableId}")
-
         except Exception as e:
-            log.error(f"Exception : {str(e)}")
+            log.error(f"Exception : {e}")
             raise e
         finally:
             log.info('[END] {}'.format("exec"))
-
 
 # ================================================
 # 3. 주 프로그램
