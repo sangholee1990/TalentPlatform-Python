@@ -169,108 +169,105 @@ def initArgument(globalVar):
     return globalVar
 
 
-def parse_name_cards(html_source):
-    soup = BeautifulSoup(html_source, 'html.parser')
-    cards = soup.find_all('div', class_='name_card')
-    results = []
+def propOrgData(baseUrl, page):
 
-    for card in cards:
-        if not card.text.strip(): continue
-
-        name = ""
-        position = ""
-        office_name = ""
-        address = ""
-        phone = ""
-        fax = ""
-        email = ""
-        img_url = ""
-
-        img_tag = card.find('img')
-        if img_tag and img_tag.get('src'):
-            img_url = img_tag.get('src').strip()
-
-        # 3. 이름 및 직위 추출
-        name_tag = card.select_one('.lc01')
-        if name_tag:
-            name = name_tag.text.strip()
-
-        pos_tag = card.select_one('.lc03')
-        if pos_tag:
-            position = pos_tag.text.strip()
-
-        trs = card.find_all('tr')
-        for tr in trs:
-            tds = tr.find_all('td')
-            if not tds: continue
-
-            label = tds[0].text.strip().replace(' ', '')
-
-            if label == '직위':
-                position = tds[1].text.strip() if len(tds) > 1 else position
-            elif label == '사무소명칭':
-                office_name = tds[1].text.strip() if len(tds) > 1 else ""
-            elif label == '사무소소재지':
-                address = tds[1].text.strip() if len(tds) > 1 else ""
-            elif label == '일반전화':
-                phone = tds[1].text.strip() if len(tds) > 1 else ""
-                if len(tds) > 2:
-                    fax = tds[2].text.replace('FAX', '').strip()
-            elif label == 'E-mail' or label == '이메일':
-                email = tds[1].text.strip() if len(tds) > 1 else ""
-
-        # 빈 껍데기 HTML 걸러내기
-        if not name and not office_name:
-            continue
-
-        results.append({
-            "이름": name,
-            "직위": position,
-            "사무소명칭": office_name,
-            "사무소 소재지": address,
-            "일반전화": phone,
-            "팩스번호": fax,
-            "이메일": email,
-            "이미지URL": img_url
-        })
-
-    return results
-
-def scrape_organization_data(base_url, page):
-    target_url = f"{base_url.rstrip('/')}/ptemplate/construction.asp"
-    all_data = []
+    result = pd.DataFrame()
 
     try:
-        page.goto(target_url, timeout=10000) # 10초 안에 안 열리면 예외처리
+        url = f"{baseUrl.rstrip('/')}/ptemplate/construction.asp"
+        page.goto(url, timeout=10000)
+
+        # 탭 메뉴 리스트 추출
+        tabList = page.locator(".organized_tab_wrap_sn ul li a")
+        tabCnt = tabList.count()
+
+        if tabCnt == 0:
+            log.error(f"탭 메뉴 없음, {url}")
+            return result
+
+        for i in range(tabCnt):
+            tab = tabList.nth(i)
+            tabName = tab.get_attribute("title")
+            page.evaluate(f"fnChangeGrade('11', '', '{tabName}');")
+            log.info(f"tabName : {tabName}")
+
+            try:
+                page.wait_for_selector(".name_card", timeout=3000)
+                time.sleep(0.5)
+
+                # --- [병합된 파싱 로직 시작] ---
+                html = page.content()
+                soup = BeautifulSoup(html, 'html.parser')
+                cards = soup.find_all('div', class_='name_card')
+                parsed_results = []
+
+                for card in cards:
+                    if not card.text.strip(): continue
+
+                    name = ""
+                    position = ""
+                    office_name = ""
+                    address = ""
+                    phone = ""
+                    fax = ""
+                    email = ""
+                    img_url = ""
+
+                    img_tag = card.find('img')
+                    if img_tag and img_tag.get('src'):
+                        img_url = img_tag.get('src').strip()
+
+                    name_tag = card.select_one('.lc01')
+                    if name_tag:
+                        name = name_tag.text.strip()
+
+                    pos_tag = card.select_one('.lc03')
+                    if pos_tag:
+                        position = pos_tag.text.strip()
+
+                    trs = card.find_all('tr')
+                    for tr in trs:
+                        tds = tr.find_all('td')
+                        if not tds: continue
+
+                        label = tds[0].text.strip().replace(' ', '')
+
+                        if label == '직위':
+                            position = tds[1].text.strip() if len(tds) > 1 else position
+                        elif label == '사무소명칭':
+                            office_name = tds[1].text.strip() if len(tds) > 1 else ""
+                        elif label == '사무소소재지':
+                            address = tds[1].text.strip() if len(tds) > 1 else ""
+                        elif label == '일반전화':
+                            phone = tds[1].text.strip() if len(tds) > 1 else ""
+                            if len(tds) > 2:
+                                fax = tds[2].text.replace('FAX', '').strip()
+                        elif label == 'E-mail' or label == '이메일':
+                            email = tds[1].text.strip() if len(tds) > 1 else ""
+
+                    if not name and not office_name:
+                        continue
+
+                    parsed_results.append({
+                        "조직명": tabName,  # 두 함수를 합쳤기 때문에 tabName을 바로 넣을 수 있습니다.
+                        "이름": name,
+                        "직위": position,
+                        "사무소명칭": office_name,
+                        "사무소 소재지": address,
+                        "일반전화": phone,
+                        "팩스번호": fax,
+                        "이메일": email,
+                        "이미지URL": img_url
+                    })
+
+                cardData = pd.DataFrame(parsed_results)
+                result = pd.concat([result, cardData], ignore_index=True)
+            except Exception as e:
+                log.error(f'Exception : {e}')
     except Exception as e:
-        log.error(f"페이지 접속 실패: {target_url} - {e}")
-        return all_data
+        log.error(f'Exception : {e}')
 
-    # 탭 메뉴 리스트 추출
-    tab_links = page.locator(".organized_tab_wrap_sn ul li a")
-    tab_count = tab_links.count()
-
-    if tab_count == 0:
-        log.warning(f"조직도 탭을 찾을 수 없습니다 (구조가 다를 수 있음): {target_url}")
-        return all_data
-
-    for i in range(tab_count):
-        tab = tab_links.nth(i)
-        tab_name = tab.get_attribute("title")
-        log.info(f"  └ [수집 중] 탭: {tab_name}")
-        page.evaluate(f"fnChangeGrade('11', '', '{tab_name}');")
-
-        try:
-            page.wait_for_selector(".name_card", timeout=3000)
-            time.sleep(0.5)
-        except Exception as e:
-            print("해당 탭에 등록된 데이터가 없거나 로딩에 실패했습니다.")
-
-        html_source = page.content()
-        parsed_cards = parse_name_cards(html_source)
-        all_data.extend(parsed_cards)
-
-    return all_data
+    return result
 
 # ================================================
 # 4. 부 프로그램
@@ -336,91 +333,52 @@ class DtaProcess(object):
 
             # 옵션 설정
             sysOpt = {
-                # 수행 목록
-                # 'modelList': ['NEWS'],
-
-                # # 세부 정보
-                # 'NEWS': {
-                #     'inpFile': '/DATA/OUTPUT/VERSE2026/naverNews_*.csv',
-                #     'saveCsvFile': '/DATA/OUTPUT/VERSE2026/naverNewsL1_%Y%m%d.csv',
-                #     'saveXlsxFile': '/DATA/OUTPUT/VERSE2026/naverNewsL1_%Y%m%d.xlsx',
-                # },
-                #
-                # 'stopWordList': ["서울", "서울특별시", "경기도", "구로구", "종로구", "중구", "마포구",
-                #     "은평구", "강남구", "동작구", "금천구",
-                #     "중랑구", "노원구", "용인시", "강동구",
-                #     "이천시", "하남시", "가평군", "양평군",
-                #     "광주시", "서대문구", "영등포구", "용산구",
-                #     "강서구", "동대문구", "광진구", "안양시",
-                #     "의왕시", "성남시", "광명시", "포천시",
-                #     "김포시", "화성시", "구리시", "연천군",
-                #     "성북구", "성동구", "수원시", "과천시",
-                #     "군포시", "동두천시", "오산시", "여주시",
-                #     "관악구", "서초구", "강북구", "송파구",
-                #     "평택시", "파주시", "도봉구", "고양시",
-                #     "안산시", "남양주시", "시흥시", "의정부시",
-                #     "양천구", "양주시", "안성시", "조례", "아파트", "지역아파트"
-                #     "지역", "기사", "섹션", "분류", "언론사", "안내", "정보"
-                #     "정보", "해당", "개별", "이상", "중복", "한국", "한국"
-                #     "입찰", "기관", "일시", "신탁", "공고", "이번", "의장", "개정", "지원", "임시회"
-                #     "운영", "의회", "거래", "안건", "매물", "일부", "위주", "무궁화", "지역", "안내"
-                #     "본회의", "브리프", "인터뷰", "자치구", "토지"
-                # ],
-                #
-                # # 빅쿼리 설정 정보
-                # # 'jsonFile': '/SYSTEMS/PROG/PYTHON/IDE/resources/config/iconic-ruler-239806-7f6de5759012.json',
-                # 'jsonFile': '/SYSTEMS/PROG/PYTHON/IDE/resources/config/project-p-32424-f1fe6277556d.json',
-                #
-                # '키워드': {
-                #     'saveFile': '/DATA/OUTPUT/VERSE2026/통합/키워드.csv',
-                # },
+                'headers': {
+                    'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36'
+                },
+                'url': 'https://www.kar.or.kr/pabout/branch.asp',
+                'saveFile': '/DATA/OUTPUT/VERSE2026/한국공인중개사협회 시도지회.csv',
             }
 
             # ==========================================================================================================
             # 기본정보 수집
             # ==========================================================================================================
-            url = "https://www.kar.or.kr/pabout/branch.asp"
-            headers = {
-                'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36'
-            }
+            url = sysOpt['url']
+            headers = sysOpt['headers']
 
-            response = requests.get(url, headers=headers)
-            if not response.status_code == 200:
+            res = requests.get(url, headers=headers)
+            if not res.status_code == 200:
                 log.error(f"자료 없음")
-            response.encoding = response.apparent_encoding
-            soup = BeautifulSoup(response.text, 'html.parser')
-            linkList = soup.find_all('a', class_='loc')
+                return
 
-            branch_links = []
-            for tag in linkList:
+            res.encoding = res.apparent_encoding
+            soup = BeautifulSoup(res.text, 'html.parser')
+            urlList = soup.find_all('a', class_='loc')
+
+            urlItem = {}
+            for tag in urlList:
                 href = tag.get('href')
                 name = tag.get_text(strip=True)
                 if href and href.startswith('http'):
-                    branch_links.append((name, href))
-            log.info(f"branch_links : {branch_links}")
+                    urlItem[name] = href
+            log.info(f"urlItem : {urlItem}")
 
-            log.info(f"총 {len(branch_links)}개의 지부 링크를 찾았습니다. 조직도 수집을 시작합니다.")
-
-            # 전체 과정에서 브라우저는 딱 한 번만 실행 (속도 최적화)
+            data = pd.DataFrame()
             with sync_playwright() as p:
                 browser = p.chromium.launch(headless=True)
                 page = browser.new_page()
 
-                for name, href in branch_links:
-                    log.info(f"\n========== [{name}] 조직도 수집 시작 ==========")
-
-                    # 여기서 base_url(href)을 넘겨서 동적으로 수집
-                    extracted_data = scrape_organization_data(href, page)
-
-                    log.info(f"[{name}] 수집 완료: 총 {len(extracted_data)} 건")
-
-                    # 데이터 확인을 위해 콘솔에 출력
-                    for data in extracted_data:
-                        print(data)
-
+                for name, href in urlItem.items():
+                    propData = propOrgData(href, page)
+                    data = pd.concat([data, propData], ignore_index=True)
                 browser.close()
 
-            log.info("[END] 모든 수집 완료")
+            saveFile = sysOpt['saveFile']
+            os.makedirs(os.path.dirname(saveFile), exist_ok=True)
+            data.to_csv(saveFile, index=False)
+            log.info(f'saveFile : {saveFile}')
+
+
 
             # =================================================================
             # 네이버뉴스 API 전처리
