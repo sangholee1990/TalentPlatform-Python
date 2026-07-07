@@ -178,7 +178,7 @@ def propOrgData(baseName, baseUrl, page):
         page.goto(url, timeout=1000 * 10, wait_until='networkidle')
 
         url = f"{baseUrl.rstrip('/')}/ptemplate/construction.asp"
-        page.goto(url, timeout=1000 * 10, wait_until='networkidle')
+        page.goto(url, timeout=1000 * 10)
 
         page.wait_for_selector(".organized_tab_wrap_sn ul li a", timeout=1000 * 5)
 
@@ -211,68 +211,133 @@ def propOrgData(baseName, baseUrl, page):
                 cards = soup.find_all('div', class_='name_card')
                 carDtlList = []
 
-                for card in cards:
-                    if not card.text.strip(): continue
+                if '분회장' in tabName:
+                    for card in cards:
+                        if not card.text.strip(): continue
 
-                    name = ""
-                    position = ""
-                    office_name = ""
-                    address = ""
-                    phone = ""
-                    fax = ""
-                    email = ""
-                    img_url = ""
+                        name = ""
+                        position = ""
+                        office_name = ""
+                        address = ""
+                        phone = ""
+                        fax = ""
+                        email = ""
+                        img_url = ""
 
-                    img_tag = card.find('img')
-                    if img_tag and img_tag.get('src'):
-                        img_url = img_tag.get('src').strip()
+                        img_tag = card.find('img')
+                        if img_tag and img_tag.get('src'):
+                            img_url = img_tag.get('src').strip()
 
-                    name_tag = card.select_one('.lc01')
-                    if name_tag:
-                        name = name_tag.text.strip()
+                        trs = card.find_all('tr')
+                        for tr in trs:
+                            tds = tr.find_all('td')
+                            if not tds: continue
 
-                    pos_tag = card.select_one('.lc03')
-                    if pos_tag:
-                        position = pos_tag.text.strip()
+                            label = tds[0].text.strip().replace(' ', '')
 
-                    trs = card.find_all('tr')
-                    for tr in trs:
-                        tds = tr.find_all('td')
-                        if not tds: continue
+                            if label == '직위':
+                                position = tds[1].text.strip() if len(tds) > 1 else ""
+                            elif label == '이름':
+                                name = tds[1].text.strip() if len(tds) > 1 else ""
+                                # 이름 행 옆에 '사무소명칭' span 구조가 함께 붙어있는 경우 처리
+                                if len(tds) > 2:
+                                    office_td = tds[2]
+                                    span = office_td.find('span')
+                                    if span and '사무소명칭' in span.text:
+                                        office_name = office_td.text.replace(span.text, '').strip()
+                            elif label == '사무소소재지':
+                                address = tds[1].text.strip() if len(tds) > 1 else ""
+                            elif label == '일반전화':
+                                phone = tds[1].text.strip() if len(tds) > 1 else ""
+                                # 일반전화 행 내부에 나장된 FAX, 이메일 span 구조 파싱
+                                for td in tds:
+                                    span = td.find('span')
+                                    if span:
+                                        span_label = span.text.strip().replace(' ', '')
+                                        val = td.text.replace(span.text, '').strip()
+                                        if span_label == 'FAX':
+                                            fax = val
+                                        elif '이메일' in span_label or 'E-mail' in span_label:
+                                            email = val
 
-                        label = tds[0].text.strip().replace(' ', '')
+                        if not name and not office_name:
+                            continue
 
-                        if label == '직위':
-                            position = tds[1].text.strip() if len(tds) > 1 else position
-                        elif label == '사무소명칭':
-                            office_name = tds[1].text.strip() if len(tds) > 1 else ""
-                        elif label == '사무소소재지':
-                            address = tds[1].text.strip() if len(tds) > 1 else ""
-                        elif label == '일반전화':
-                            phone = tds[1].text.strip() if len(tds) > 1 else ""
-                            if len(tds) > 2:
-                                fax = tds[2].text.replace('FAX', '').strip()
-                        elif label == 'E-mail' or label == '이메일':
-                            email = tds[1].text.strip() if len(tds) > 1 else ""
+                        carDtlList.append({
+                            "행정구역": baseName,
+                            "조직명": tabName,
+                            "이름": name,
+                            "직위": position,
+                            "사무소명칭": office_name,
+                            "사무소 소재지": address,
+                            "일반전화": phone,
+                            "팩스번호": fax,
+                            "이메일": email,
+                            "이미지URL": img_url
+                        })
+                else:
+                    for card in cards:
+                        if not card.text.strip(): continue
 
-                    if not name and not office_name:
-                        continue
+                        name = ""
+                        position = ""
+                        office_name = ""
+                        address = ""
+                        phone = ""
+                        fax = ""
+                        email = ""
+                        img_url = ""
 
-                    carDtlList.append({
-                        "행정구역": baseName,
-                        "조직명": tabName,
-                        "이름": name,
-                        "직위": position,
-                        "사무소명칭": office_name,
-                        "사무소 소재지": address,
-                        "일반전화": phone,
-                        "팩스번호": fax,
-                        "이메일": email,
-                        "이미지URL": img_url
-                    })
+                        img_tag = card.find('img')
+                        if img_tag and img_tag.get('src'):
+                            img_url = img_tag.get('src').strip()
+
+                        name_tag = card.select_one('.lc01')
+                        if name_tag:
+                            name = name_tag.text.strip()
+
+                        pos_tag = card.select_one('.lc03')
+                        if pos_tag:
+                            position = pos_tag.text.strip()
+
+                        trs = card.find_all('tr')
+                        for tr in trs:
+                            tds = tr.find_all('td')
+                            if not tds: continue
+
+                            label = tds[0].text.strip().replace(' ', '')
+
+                            if label == '직위':
+                                position = tds[1].text.strip() if len(tds) > 1 else position
+                            elif label == '사무소명칭':
+                                office_name = tds[1].text.strip() if len(tds) > 1 else ""
+                            elif label == '사무소소재지':
+                                address = tds[1].text.strip() if len(tds) > 1 else ""
+                            elif label == '일반전화':
+                                phone = tds[1].text.strip() if len(tds) > 1 else ""
+                                if len(tds) > 2:
+                                    fax = tds[2].text.replace('FAX', '').strip()
+                            elif label == 'E-mail' or label == '이메일':
+                                email = tds[1].text.strip() if len(tds) > 1 else ""
+
+                        if not name and not office_name:
+                            continue
+
+                        carDtlList.append({
+                            "행정구역": baseName,
+                            "조직명": tabName,
+                            "이름": name,
+                            "직위": position,
+                            "사무소명칭": office_name,
+                            "사무소 소재지": address,
+                            "일반전화": phone,
+                            "팩스번호": fax,
+                            "이메일": email,
+                            "이미지URL": img_url
+                        })
 
                 cardData = pd.DataFrame(carDtlList)
-                # log.info(f"carDtlList : {carDtlList}")
+                log.info(f"carDtlList : {carDtlList}")
                 result = pd.concat([result, cardData], ignore_index=True)
             except Exception as e:
                 log.error(f'Exception : {e}')
@@ -378,17 +443,19 @@ class DtaProcess(object):
             data = pd.DataFrame()
             with sync_playwright() as p:
                 browser = p.chromium.launch(headless=True)
-                page = browser.new_page()
-                page.on("dialog", lambda dialog: dialog.accept())
+
                 for name, href in urlItem.items():
+                    page = browser.new_page()
+                    page.on("dialog", lambda dialog: dialog.accept())
                     propData = propOrgData(name, href, page)
                     data = pd.concat([data, propData], ignore_index=True)
-                page.close()
+                    page.close()
                 browser.close()
 
             saveFile = sysOpt['saveFile']
             os.makedirs(os.path.dirname(saveFile), exist_ok=True)
-            data.to_csv(saveFile, index=False, encoding='euc-kr')
+            # data.to_csv(saveFile, index=False, encoding='euc-kr')
+            data.to_csv(saveFile, index=False, encoding='utf-8')
             log.info(f'saveFile : {saveFile}')
 
         except Exception as e:
