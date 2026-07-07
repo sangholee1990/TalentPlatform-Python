@@ -174,9 +174,13 @@ def propOrgData(baseName, baseUrl, page):
     result = pd.DataFrame()
 
     try:
+        url = f"{baseUrl.rstrip('/')}"
+        page.goto(url, timeout=1000 * 10, wait_until='networkidle')
+
         url = f"{baseUrl.rstrip('/')}/ptemplate/construction.asp"
-        # page.goto(url, timeout=1000 * 5)
-        page.goto(url, timeout=1000 * 5, wait_until='domcontentloaded')
+        page.goto(url, timeout=1000 * 10, wait_until='networkidle')
+
+        page.wait_for_selector(".organized_tab_wrap_sn ul li a", timeout=1000 * 5)
 
         tabList = page.locator(".organized_tab_wrap_sn ul li a")
         tabCnt = tabList.count()
@@ -188,12 +192,19 @@ def propOrgData(baseName, baseUrl, page):
         for i in range(tabCnt):
             tab = tabList.nth(i)
             tabName = tab.get_attribute("title")
-            page.evaluate(f"fnChangeGrade('11', '', '{tabName}');")
-            log.info(f"baseName : {baseName} / tabName : {tabName}")
+
+            hrefScript = tab.get_attribute("href")
+            if hrefScript and "javascript:" in hrefScript:
+                jsCode = hrefScript.replace("javascript:", "")
+                page.evaluate(jsCode)
+            else:
+                tab.click()
+
+            log.info(f"url : {url} / baseName : {baseName} / tabName : {tabName}")
 
             try:
-                page.wait_for_selector(".name_card", timeout=1000 * 3)
-                time.sleep(0.5)
+                page.wait_for_selector(".name_card", timeout=1000 * 5)
+                time.sleep(1)
 
                 html = page.content()
                 soup = BeautifulSoup(html, 'html.parser')
@@ -261,6 +272,7 @@ def propOrgData(baseName, baseUrl, page):
                     })
 
                 cardData = pd.DataFrame(carDtlList)
+                # log.info(f"carDtlList : {carDtlList}")
                 result = pd.concat([result, cardData], ignore_index=True)
             except Exception as e:
                 log.error(f'Exception : {e}')
@@ -366,12 +378,12 @@ class DtaProcess(object):
             data = pd.DataFrame()
             with sync_playwright() as p:
                 browser = p.chromium.launch(headless=True)
-
+                page = browser.new_page()
+                page.on("dialog", lambda dialog: dialog.accept())
                 for name, href in urlItem.items():
-                    page = browser.new_page()
                     propData = propOrgData(name, href, page)
                     data = pd.concat([data, propData], ignore_index=True)
-                    page.close()
+                page.close()
                 browser.close()
 
             saveFile = sysOpt['saveFile']
