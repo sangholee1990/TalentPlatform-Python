@@ -142,28 +142,22 @@ def initLog(env=None, contextPath=None, prjName=None):
 
     os.makedirs(os.path.dirname(saveLogFile), exist_ok=True)
 
-    # logger instance 생성
     log = logging.getLogger(prjName)
 
     if len(log.handlers) > 0:
         return log
 
-    # format 생성
     format = logging.Formatter('%(asctime)s [%(name)s | %(lineno)d | %(filename)s] [%(levelname)-5.5s] %(message)s')
 
-    # handler 생성
     streamHandler = logging.StreamHandler()
     fileHandler = logging.handlers.TimedRotatingFileHandler(filename=saveLogFile, when='midnight', interval=1, backupCount=30, encoding='utf-8')
 
-    # logger instance에 format 설정
     streamHandler.setFormatter(format)
     fileHandler.setFormatter(format)
 
-    # logger instance에 handler 설정
     log.addHandler(streamHandler)
     log.addHandler(fileHandler)
 
-    # logger instance로 log 기록
     log.setLevel(level=logging.INFO)
 
     return log
@@ -185,9 +179,10 @@ def resResponse(status: str, code: int, message: str, cnt: Any = None, data: Any
 # ============================================
 # 주요 설정
 # ============================================
-env = 'local'
+# env = 'local'
+env = 'dev'
 serviceName = 'LSH0623'
-prjName = 'test'
+prjName = 'projectE'
 
 ctxPath = os.getcwd()
 # ctxPath = f"/SYSTEMS/PROG/PYTHON/IDE"
