@@ -473,7 +473,6 @@ class DtaProcess(object):
             # ==========================================================================================================
             # 엑셀 파일 저장
             # ==========================================================================================================
-            # excel_filename = "capture_with_images.xlsx"
             saveFile = sysOpt['saveFile']
             os.makedirs(os.path.dirname(saveFile), exist_ok=True)
             wb.save(saveFile)
