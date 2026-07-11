@@ -1,11 +1,11 @@
 # ================================================
 # 요구사항
 # ================================================
-# Python을 이용한 한국공인중개사 협회 수집
+# Python을 이용한 공공기관 메뉴 URL 및 디바이스별 캡처
 
 # cd /SYSTEMS/PROG/PYTHON/IDE/src/talentPlatform/unitSys
-# /SYSTEMS/LIB/anaconda3/envs/py39/bin/python /SYSTEMS/PROG/PYTHON/IDE/src/talentPlatform/unitSys/TalentPlatform-LSH0612-DaemonFramework-analy-naverSearchApi.py
-# nohup /SYSTEMS/LIB/anaconda3/envs/py39/bin/python /SYSTEMS/PROG/PYTHON/IDE/src/talentPlatform/unitSys/TalentPlatform-LSH0612-DaemonFramework-analy-naverSearchApi.py &
+# /SYSTEMS/LIB/anaconda3/envs/py39/bin/python /SYSTEMS/PROG/PYTHON/IDE/src/talentPlatform/unitSys/TalentPlatform-INDI2026-DaemonFramework-captWebPage.py
+# nohup /SYSTEMS/LIB/anaconda3/envs/py39/bin/python /SYSTEMS/PROG/PYTHON/IDE/src/talentPlatform/unitSys/TalentPlatform-INDI2026-DaemonFramework-captWebPage.py &
 # tail -f nohup.out
 
 import argparse
@@ -253,34 +253,25 @@ class DtaProcess(object):
                 'saveFile': '/DATA/OUTPUT/INDI2026/capture_with_images.xlsx',
             }
 
-            url = sysOpt['url']
             # ==========================================================================================================
-            # 캡처
+            # 공공기관 메뉴 URL 수집
             # ==========================================================================================================
             target_url = "https://nmsc.kma.go.kr/homepage/html/main/main.do"
             base_domain = "https://nmsc.kma.go.kr"
-
             log.info(f"Playwright 브라우저로 웹사이트 접속 중... ({target_url})")
 
             html_content = ""
-
-            # 1. Playwright 실행 (요청하신 방식)
             with sync_playwright() as p:
-                # 브라우저 실행 (headless=True: 화면 안 보임, False: 화면 보임)
                 browser = p.chromium.launch(headless=True)
                 page = browser.new_page()
 
                 try:
-                    # 타겟 URL로 이동
                     page.goto(target_url, timeout=60000)
 
-                    # [핵심] 자바스크립트가 메뉴(id="menutop")를 다 그릴 때까지 최대 10초간 기다림
                     page.wait_for_selector('#menutop', timeout=10000)
 
-                    # (선택) 동적 애니메이션이나 추가 데이터 로딩을 위해 1초 여유 대기
                     page.wait_for_timeout(1000)
 
-                    # 화면 렌더링이 모두 끝난 최종 HTML 소스코드를 가져옴
                     html_content = page.content()
                     log.info("브라우저 렌더링 완료 및 HTML 소스 추출 성공!")
 
@@ -288,10 +279,8 @@ class DtaProcess(object):
                     log.info(f"웹페이지 로딩 중 오류 발생: {e}")
 
                 finally:
-                    # 작업이 끝나면 브라우저 종료
                     browser.close()
 
-            # 2. BeautifulSoup으로 HTML 구조 분석 (이전과 동일)
             soup = BeautifulSoup(html_content, 'html.parser')
             menu_top = soup.find('ul', id='menutop')
 
@@ -300,7 +289,6 @@ class DtaProcess(object):
 
             parsed_data = []
 
-            # 3. 메뉴 데이터 추출
             depth1_lis = menu_top.find_all('li', class_=lambda c: c and c.startswith('depth1-menu'), recursive=False)
 
             for d1 in depth1_lis:
@@ -340,7 +328,6 @@ class DtaProcess(object):
                     final_link = urljoin(base_domain, raw_link) if raw_link and raw_link != "void" else "링크 없음"
                     parsed_data.append([d1_name, "", "", d1_name, final_link])
 
-            # 4. 데이터프레임 생성 및 엑셀 저장
             columns = ["1뎁스", "2뎁스", "3뎁스(메뉴명)", "전체 메뉴경로", "URL 주소"]
             df = pd.DataFrame(parsed_data, columns=columns)
 
@@ -348,9 +335,8 @@ class DtaProcess(object):
             df.loc[condition, 'URL 주소'] = 'https://nmsc.kma.go.kr/exposition/exposition.html'
 
             # ==========================================================================================================
-            # 기본정보 수집
+            # 디바이스별 캡처
             # ==========================================================================================================
-            # 1. 화면 모드 설정 (태블릿 가로, 세로 분리 추가)
             viewports = {
                 "PC": {"width": 1920, "height": 1080},
                 "Tablet_Landscape": {"width": 1024, "height": 768},
@@ -358,7 +344,6 @@ class DtaProcess(object):
                 "Mobile": {"width": 375, "height": 812}
             }
 
-            # 2. 엑셀 워크북 초기화 및 스타일 설정
             wb = openpyxl.Workbook()
             ws = wb.active
             ws.title = "디바이스별 전체화면 캡처"
@@ -383,23 +368,19 @@ class DtaProcess(object):
 
             log.info("DataFrame 기준 일괄 캡처 및 엑셀 삽입 작업을 시작합니다...")
 
-            # 3. 브라우저 실행 및 DataFrame 순회
-            # 이미지 삽입 열 매핑 (C: PC, D: 태블릿 가로, E: 태블릿 세로, F: 모바일)
             col_mapping = {"PC": "C", "Tablet_Landscape": "D", "Tablet_Portrait": "E", "Mobile": "F"}
 
             max_excel_row_height = 405
-            target_img_height_px = int(max_excel_row_height / 0.75)  # 약 540px
-            row_idx = 2  # 엑셀 데이터 시작 행
+            target_img_height_px = int(max_excel_row_height / 0.75)
+            row_idx = 2
 
             with sync_playwright() as p:
                 browser = p.chromium.launch(headless=True)
 
-                # DataFrame을 순회하며 캡처 진행
                 for index, row in df.iterrows():
                     menu_path = row['전체 메뉴경로']
                     url = row['URL 주소']
 
-                    # "링크 없음" 이거나 값이 비어있는 경우 패스
                     if pd.isna(url) or url == "링크 없음":
                         continue
 
@@ -412,22 +393,18 @@ class DtaProcess(object):
                     ws.cell(row=row_idx, column=2).border = thin_border
 
                     for mode, size in viewports.items():
-                        # 모바일/태블릿 터치 에뮬레이션 적용
                         is_mobile_mode = ("Mobile" in mode or "Tablet" in mode)
                         context = browser.new_context(viewport=size, is_mobile=is_mobile_mode)
                         page = context.new_page()
 
-                        # 파일명이 덮어씌워지지 않도록 index를 파일명에 포함
                         file_name = f"capture_{index}_{mode}.png"
 
                         try:
                             page.goto(url, timeout=60000)
-                            page.wait_for_timeout(3000)  # 로딩 대기
+                            page.wait_for_timeout(3000)
 
-                            # 전체 화면 캡처
                             page.screenshot(path=file_name, full_page=True)
 
-                            # 엑셀 이미지 삽입 로직
                             if os.path.exists(file_name):
                                 col_letter = col_mapping[mode]
                                 img = ExcelImage(file_name)
@@ -442,30 +419,22 @@ class DtaProcess(object):
 
                                 ws.add_image(img, f"{col_letter}{row_idx}")
 
-                                # 열 너비는 가장 넓은 이미지를 기준으로 유지
                                 current_col_width = ws.column_dimensions[col_letter].width or 10
                                 new_col_width = (img.width / 7.5) + 3
                                 if new_col_width > current_col_width:
                                     ws.column_dimensions[col_letter].width = new_col_width
 
-                                # 테두리 적용
                                 ws.cell(row=row_idx, column=ord(col_letter) - 64).border = thin_border
-
-                                # (선택) 엑셀 삽입이 완료된 로컬 이미지 파일은 용량 확보를 위해 삭제
-                                # os.remove(file_name)
-
                         except Exception as e:
                             log.info(f"[{mode}] 캡처 오류: {e}")
                         finally:
                             context.close()
 
-                    # 행 높이 고정 및 다음 행으로 이동
                     ws.row_dimensions[row_idx].height = max_excel_row_height
                     row_idx += 1
 
                 browser.close()
 
-            # 4. 텍스트 열(A, B열) 너비 조정
             ws.column_dimensions['A'].width = 35
             ws.column_dimensions['B'].width = 50
 
