@@ -353,8 +353,8 @@ class DtaProcess(object):
             # 1. 화면 모드 설정 (태블릿 가로, 세로 분리 추가)
             viewports = {
                 "PC": {"width": 1920, "height": 1080},
-                "Tablet_Landscape": {"width": 1024, "height": 768},  # 태블릿 가로
-                "Tablet_Portrait": {"width": 768, "height": 1024},  # 태블릿 세로 (추가)
+                "Tablet_Landscape": {"width": 1024, "height": 768},
+                "Tablet_Portrait": {"width": 768, "height": 1024},
                 "Mobile": {"width": 375, "height": 812}
             }
 
@@ -370,8 +370,7 @@ class DtaProcess(object):
             thin_border = Border(left=Side(style='thin', color='E0E0E0'), right=Side(style='thin', color='E0E0E0'),
                                  top=Side(style='thin', color='E0E0E0'), bottom=Side(style='thin', color='E0E0E0'))
 
-            # 헤더 구성: df의 정보 + 4가지 화면 모드
-            headers = ["메뉴 경로", "요청 URL", "PC 화면", "태블릿(가로)", "태블릿(세로)", "모바일 화면"]
+            headers = ["메뉴 경로", "URL", "PC", "태블릿 가로", "태블릿 세로", "모바일"]
             ws.append(headers)
             ws.row_dimensions[1].height = 30
 
