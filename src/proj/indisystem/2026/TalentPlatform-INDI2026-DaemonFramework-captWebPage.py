@@ -260,7 +260,7 @@ class DtaProcess(object):
             target_url = "https://nmsc.kma.go.kr/homepage/html/main/main.do"
             base_domain = "https://nmsc.kma.go.kr"
 
-            print(f"Playwright 브라우저로 웹사이트 접속 중... ({target_url})")
+            log.info(f"Playwright 브라우저로 웹사이트 접속 중... ({target_url})")
 
             html_content = ""
 
@@ -282,10 +282,10 @@ class DtaProcess(object):
 
                     # 화면 렌더링이 모두 끝난 최종 HTML 소스코드를 가져옴
                     html_content = page.content()
-                    print("브라우저 렌더링 완료 및 HTML 소스 추출 성공!")
+                    log.info("브라우저 렌더링 완료 및 HTML 소스 추출 성공!")
 
                 except Exception as e:
-                    print(f"웹페이지 로딩 중 오류 발생: {e}")
+                    log.info(f"웹페이지 로딩 중 오류 발생: {e}")
 
                 finally:
                     # 작업이 끝나면 브라우저 종료
@@ -296,7 +296,7 @@ class DtaProcess(object):
             menu_top = soup.find('ul', id='menutop')
 
             if not menu_top:
-                print("페이지에서 'menutop' 아이디를 찾을 수 없습니다.")
+                log.info("페이지에서 'menutop' 아이디를 찾을 수 없습니다.")
 
             parsed_data = []
 
@@ -403,7 +403,7 @@ class DtaProcess(object):
                     if pd.isna(url) or url == "링크 없음":
                         continue
 
-                    print(f"[{index + 1}/{len(df)}] 캡처 진행 중: {menu_path}")
+                    log.info(f"[{index + 1}/{len(df)}] 캡처 진행 중: {menu_path}")
 
                     # A, B열 텍스트 데이터 입력
                     ws.cell(row=row_idx, column=1, value=menu_path).alignment = center_align
@@ -455,7 +455,7 @@ class DtaProcess(object):
                                 # os.remove(file_name)
 
                         except Exception as e:
-                            print(f"[{mode}] 캡처 오류: {e}")
+                            log.info(f"[{mode}] 캡처 오류: {e}")
                         finally:
                             context.close()
 
