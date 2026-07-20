@@ -418,7 +418,7 @@ class DtaProcess(object):
                 },
                 'url': 'https://campustown.seoul.go.kr/site/main/startup/list?cp={page}&pageSize=15&sortOrder=COMP_NM&sortDirection=ASC&listType=list',
                 'urlDtl': 'https://campustown.seoul.go.kr/site/main/startup/intro?compId={compId}',
-                'saveFile': '/DATA/OUTPUT/VERSE2026/서울캠퍼스타운 창입기업.csv',
+                'saveFile': 'cd /서울캠퍼스타운 창입기업.csv',
             }
 
             # ==========================================================================================================
