@@ -330,14 +330,11 @@ class DtaProcess(object):
             # log.info(f'saveFile : {saveFile}')
 
             # ==========================================================================================================
-            # 홈페이지 수집
+            # 부가정보 수집
             # ==========================================================================================================
             urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
 
-            # 대상 URL (기존 반복문 안에서는 추출한 홈페이지 URL 변수를 여기에 할당하시면 됩니다)
             targetUrl = "http://gausslab.co.kr/"
-
-            # 1. 초기값 세팅 (에러가 나도 크롤링이 멈추지 않고 빈 값을 유지하도록)
             contactInfo = {
                 '이메일': '',
                 '대표번호': '',
@@ -348,7 +345,6 @@ class DtaProcess(object):
                 if not targetUrl.startswith(('http://', 'https://')):
                     targetUrl = 'http://' + targetUrl
 
-                # 2. 재시도(Retry) 세션 설정 (일시적 서버 오류 시 최대 3번 재시도)
                 session = requests.Session()
                 retry = Retry(total=3, backoff_factor=1, status_forcelist=[500, 502, 503, 504])
                 adapter = HTTPAdapter(max_retries=retry)
@@ -360,54 +356,33 @@ class DtaProcess(object):
                 }
 
                 try:
-                    # 3. 요청 및 응답 (timeout 10초 설정으로 무한 대기 방지, verify=False로 SSL 오류 무시)
                     response = session.get(targetUrl, headers=headers, timeout=10, verify=False)
                     response.raise_for_status()
-
-                    # 한글 깨짐 방지
                     response.encoding = response.apparent_encoding
-
                     soup = BeautifulSoup(response.text, 'html.parser')
                     textContent = soup.get_text(separator=' ', strip=True)
 
-                    # 4. 정규표현식을 이용한 데이터 추출
-                    # 4-1. 이메일 추출
                     emailMatch = re.search(r'[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}', textContent)
                     if emailMatch:
                         contactInfo['이메일'] = emailMatch.group(0)
 
-                    # 4-2. 대표번호 추출 ('전화번호', 'Tel', 'T', '대표번호' 등 다양한 형태 대응)
-                    phoneMatch = re.search(
-                        r'(?:전화번호|대표전화|대표번호|Tel|TEL|T)\.?\s*[:]?\s*([\d]{2,3}[-\s]?\d{3,4}[-\s]?\d{4})', textContent,
-                        re.IGNORECASE)
+                    phoneMatch = re.search(r'(?:전화번호|대표전화|대표번호|Tel|TEL|T)\.?\s*[:]?\s*([\d]{2,3}[-\s]?\d{3,4}[-\s]?\d{4})', textContent, re.IGNORECASE)
                     if phoneMatch:
                         contactInfo['대표번호'] = phoneMatch.group(1).strip()
 
-                    # 4-3. 주소 추출 ('주소', '본점', 'ADDRESS' 키워드 인식)
-                    addrMatch = re.search(
-                        r'(?:주소|본점|ADDRESS)\s*[:]?\s*(.+?)(?=\s+(?:전화번호|대표번호|대표전화|Tel|Fax|이메일|사업자|COPYRIGHT|ⓒ|©|$))',
-                        textContent, re.IGNORECASE)
+                    addrMatch = re.search(r'(?:주소|본점|ADDRESS)\s*[:]?\s*(.+?)(?=\s+(?:전화번호|대표번호|대표전화|Tel|Fax|이메일|사업자|COPYRIGHT|ⓒ|©|$))', textContent, re.IGNORECASE)
                     if addrMatch:
                         contactInfo['주소'] = addrMatch.group(1).strip()[:100]
 
-                # 5. 디테일한 예외 처리 (오류가 발생해도 패스하고 다음 작업 진행)
-                except requests.exceptions.Timeout:
-                    print(f"[Timeout] 서버 응답 지연: {targetUrl}")
-                except requests.exceptions.ConnectionError:
-                    print(f"[ConnectionError] 사이트 접속 불가: {targetUrl}")
-                except requests.exceptions.HTTPError as err:
-                    print(f"[HTTPError] 접근 권한 없음 또는 페이지 없음 ({err.response.status_code}): {targetUrl}")
                 except Exception as e:
-                    print(f"[ParseError] 데이터 추출 중 알 수 없는 오류 발생: {targetUrl} - {e}")
+                    log.error(f"Exception : {e}")
 
                 finally:
                     session.close()
 
-            # 결과 출력 (실제 코드에서는 이 contactInfo 딕셔너리의 값을 itemList 항목에 추가하시면 됩니다)
-            print("=== 최종 추출 결과 ===")
-            print(f"이메일: {contactInfo['이메일']}")
-            print(f"대표번호: {contactInfo['대표번호']}")
-            print(f"주소: {contactInfo['주소']}")
+            log.info(f"이메일: {contactInfo['이메일']}")
+            log.info(f"대표번호: {contactInfo['대표번호']}")
+            log.info(f"주소: {contactInfo['주소']}")
 
         except Exception as e:
             log.error(f"Exception : {e}")
