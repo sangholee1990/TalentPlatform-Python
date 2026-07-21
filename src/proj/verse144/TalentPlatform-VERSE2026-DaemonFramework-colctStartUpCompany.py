@@ -1,11 +1,11 @@
 # ================================================
 # 요구사항
 # ================================================
-# Python을 이용한 한국공인중개사 협회 수집
+# Python을 이용한 서울캠퍼스타운 창입기업 수집
 
-# cd /SYSTEMS/PROG/PYTHON/IDE/src/talentPlatform/unitSys
-# /SYSTEMS/LIB/anaconda3/envs/py39/bin/python /SYSTEMS/PROG/PYTHON/IDE/src/talentPlatform/unitSys/TalentPlatform-LSH0612-DaemonFramework-analy-naverSearchApi.py
-# nohup /SYSTEMS/LIB/anaconda3/envs/py39/bin/python /SYSTEMS/PROG/PYTHON/IDE/src/talentPlatform/unitSys/TalentPlatform-LSH0612-DaemonFramework-analy-naverSearchApi.py &
+# cd /SYSTEMS/PROG/PYTHON/IDE/src/proj/verse144
+# /SYSTEMS/LIB/anaconda3/envs/py39/bin/python /SYSTEMS/PROG/PYTHON/IDE/src/proj/verse144/TalentPlatform-VERSE2026-DaemonFramework-colctStartUpCompany.py
+# nohup /SYSTEMS/LIB/anaconda3/envs/py39/bin/python /SYSTEMS/PROG/PYTHON/IDE/src/proj/verse144/TalentPlatform-VERSE2026-DaemonFramework-colctStartUpCompany.py &
 # tail -f nohup.out
 
 import argparse
@@ -53,6 +53,12 @@ import time
 import urllib.parse as urlparse
 
 from tensorflow.python.grappler import item
+import requests
+from requests.adapters import HTTPAdapter
+from urllib3.util.retry import Retry
+import urllib3
+from bs4 import BeautifulSoup
+import re
 
 # =================================================
 # 사용자 매뉴얼
@@ -171,184 +177,6 @@ def initArgument(globalVar):
 
     return globalVar
 
-
-def propOrgData(baseName, baseUrl, page):
-
-    result = pd.DataFrame()
-
-    try:
-        url = f"{baseUrl.rstrip('/')}"
-        page.goto(url, timeout=1000 * 10, wait_until='networkidle')
-
-        url = f"{baseUrl.rstrip('/')}/ptemplate/construction.asp"
-        page.goto(url, timeout=1000 * 10)
-
-        page.wait_for_selector(".organized_tab_wrap_sn ul li a", timeout=1000 * 5)
-
-        tabList = page.locator(".organized_tab_wrap_sn ul li a")
-        tabCnt = tabList.count()
-
-        if tabCnt == 0:
-            log.error(f"탭 메뉴 없음, {url}")
-            return result
-
-        for i in range(tabCnt):
-            tab = tabList.nth(i)
-            tabName = tab.get_attribute("title")
-
-            hrefScript = tab.get_attribute("href")
-            if hrefScript and "javascript:" in hrefScript:
-                jsCode = hrefScript.replace("javascript:", "")
-                page.evaluate(jsCode)
-            else:
-                tab.click()
-
-            log.info(f"url : {url} / baseName : {baseName} / tabName : {tabName}")
-
-            try:
-                page.wait_for_selector(".name_card", timeout=1000 * 5)
-                time.sleep(1)
-
-                html = page.content()
-                soup = BeautifulSoup(html, 'html.parser')
-                cards = soup.find_all('div', class_='name_card')
-                carDtlList = []
-
-                if '분회장' in tabName:
-                    for card in cards:
-                        if not card.text.strip(): continue
-
-                        name = ""
-                        position = ""
-                        office_name = ""
-                        address = ""
-                        phone = ""
-                        fax = ""
-                        email = ""
-                        img_url = ""
-
-                        img_tag = card.find('img')
-                        if img_tag and img_tag.get('src'):
-                            img_url = img_tag.get('src').strip()
-
-                        trs = card.find_all('tr')
-                        for tr in trs:
-                            tds = tr.find_all('td')
-                            if not tds: continue
-
-                            label = tds[0].text.strip().replace(' ', '')
-
-                            if label == '직위':
-                                position = tds[1].text.strip() if len(tds) > 1 else ""
-                            elif label == '이름':
-                                name = tds[1].text.strip() if len(tds) > 1 else ""
-                                # 이름 행 옆에 '사무소명칭' span 구조가 함께 붙어있는 경우 처리
-                                if len(tds) > 2:
-                                    office_td = tds[2]
-                                    span = office_td.find('span')
-                                    if span and '사무소명칭' in span.text:
-                                        office_name = office_td.text.replace(span.text, '').strip()
-                            elif label == '사무소소재지':
-                                address = tds[1].text.strip() if len(tds) > 1 else ""
-                            elif label == '일반전화':
-                                phone = tds[1].text.strip() if len(tds) > 1 else ""
-                                # 일반전화 행 내부에 나장된 FAX, 이메일 span 구조 파싱
-                                for td in tds:
-                                    span = td.find('span')
-                                    if span:
-                                        span_label = span.text.strip().replace(' ', '')
-                                        val = td.text.replace(span.text, '').strip()
-                                        if span_label == 'FAX':
-                                            fax = val
-                                        elif '이메일' in span_label or 'E-mail' in span_label:
-                                            email = val
-
-                        if not name and not office_name:
-                            continue
-
-                        carDtlList.append({
-                            "행정구역": baseName,
-                            "조직명": tabName,
-                            "이름": name,
-                            "직위": position,
-                            "사무소명칭": office_name,
-                            "사무소 소재지": address,
-                            "일반전화": phone,
-                            "팩스번호": fax,
-                            "이메일": email,
-                            "이미지URL": img_url
-                        })
-                else:
-                    for card in cards:
-                        if not card.text.strip(): continue
-
-                        name = ""
-                        position = ""
-                        office_name = ""
-                        address = ""
-                        phone = ""
-                        fax = ""
-                        email = ""
-                        img_url = ""
-
-                        img_tag = card.find('img')
-                        if img_tag and img_tag.get('src'):
-                            img_url = img_tag.get('src').strip()
-
-                        name_tag = card.select_one('.lc01')
-                        if name_tag:
-                            name = name_tag.text.strip()
-
-                        pos_tag = card.select_one('.lc03')
-                        if pos_tag:
-                            position = pos_tag.text.strip()
-
-                        trs = card.find_all('tr')
-                        for tr in trs:
-                            tds = tr.find_all('td')
-                            if not tds: continue
-
-                            label = tds[0].text.strip().replace(' ', '')
-
-                            if label == '직위':
-                                position = tds[1].text.strip() if len(tds) > 1 else position
-                            elif label == '사무소명칭':
-                                office_name = tds[1].text.strip() if len(tds) > 1 else ""
-                            elif label == '사무소소재지':
-                                address = tds[1].text.strip() if len(tds) > 1 else ""
-                            elif label == '일반전화':
-                                phone = tds[1].text.strip() if len(tds) > 1 else ""
-                                if len(tds) > 2:
-                                    fax = tds[2].text.replace('FAX', '').strip()
-                            elif label == 'E-mail' or label == '이메일':
-                                email = tds[1].text.strip() if len(tds) > 1 else ""
-
-                        if not name and not office_name:
-                            continue
-
-                        carDtlList.append({
-                            "행정구역": baseName,
-                            "조직명": tabName,
-                            "이름": name,
-                            "직위": position,
-                            "사무소명칭": office_name,
-                            "사무소 소재지": address,
-                            "일반전화": phone,
-                            "팩스번호": fax,
-                            "이메일": email,
-                            "이미지URL": img_url
-                        })
-
-                cardData = pd.DataFrame(carDtlList)
-                log.info(f"carDtlList : {carDtlList}")
-                result = pd.concat([result, cardData], ignore_index=True)
-            except Exception as e:
-                log.error(f'Exception : {e}')
-    except Exception as e:
-        log.error(f'Exception : {e}')
-
-    return result
-
 # ================================================
 # 4. 부 프로그램
 # ================================================
@@ -418,90 +246,168 @@ class DtaProcess(object):
                 },
                 'url': 'https://campustown.seoul.go.kr/site/main/startup/list?cp={page}&pageSize=15&sortOrder=COMP_NM&sortDirection=ASC&listType=list',
                 'urlDtl': 'https://campustown.seoul.go.kr/site/main/startup/intro?compId={compId}',
-                'saveFile': 'cd /서울캠퍼스타운 창입기업.csv',
+                'urlRoot': 'https://campustown.seoul.go.kr',
+                'saveFile': '/DATA/OUTPUT/VERSE2026/서울캠퍼스타운 창입기업.csv',
             }
 
             # ==========================================================================================================
             # 기본정보 수집
             # ==========================================================================================================
-            data = []
-            pageList = np.arange(1, 20, 1)
+            # itemList = []
+            # pageList = np.arange(1, 400, 1)
+            #
+            # # 기본 정보
+            # for i, page in enumerate(pageList):
+            #     percent = ((i + 1) / len(pageList)) * 100
+            #     log.info(f"{page}, {percent:.1f}%")
+            #
+            #     urlList = sysOpt['url'].format(page=page)
+            #     urlRes = requests.get(urlList, headers=sysOpt['headers'])
+            #     urlRes.raise_for_status()
+            #     urlSoup = BeautifulSoup(urlRes.text, 'html.parser')
+            #
+            #     trList = urlSoup.select('table > tbody > tr')
+            #     for tr in trList:
+            #         try:
+            #             linkTag = tr.select_one('a')
+            #             if not linkTag: continue
+            #             compName = linkTag.text.strip()
+            #             compId = None
+            #
+            #             if 'href' in linkTag.attrs:
+            #                 href = linkTag['href']
+            #                 parsedUrl = urlparse.urlparse(href)
+            #                 compId = urlparse.parse_qs(parsedUrl.query).get('compId', [None])[0]
+            #
+            #             if not compId: continue
+            #
+            #             # 상세 정보
+            #             detailUrl = sysOpt['urlDtl'].format(compId=compId)
+            #
+            #             detailResponse = requests.get(detailUrl, headers=sysOpt['headers'])
+            #             detailResponse.raise_for_status()
+            #             detailSoup = BeautifulSoup(detailResponse.text, 'html.parser')
+            #
+            #             item = {
+            #                 '기업명': compName,
+            #                 '기업ID': compId,
+            #                 '상세URL': detailUrl,
+            #             }
+            #
+            #             logoTag = detailSoup.select_one('.startup_logo img')
+            #             if logoTag and 'src' in logoTag.attrs:
+            #                 item['로고'] = sysOpt['urlRoot'] + logoTag['src']
+            #             else:
+            #                 item['로고'] = ''
+            #
+            #             infoList = detailSoup.select('.cont_right li')
+            #             for li in infoList:
+            #                 keyTag = li.select_one('h3')
+            #                 if not keyTag: continue
+            #
+            #                 key = keyTag.text.strip()
+            #
+            #                 valTagA = li.select_one('a')
+            #                 valTagP = li.select_one('p')
+            #
+            #                 if valTagA:
+            #                     val = valTagA.text.strip()
+            #                 elif valTagP:
+            #                     val = valTagP.text.strip()
+            #                 else:
+            #                     val = ''
+            #                 item[key] = val
+            #
+            #             itemList.append(item)
+            #             # time.sleep(1.5)
+            #         except Exception as e:
+            #             log.error(f"Exception : {e}")
+            #
+            # data = pd.DataFrame(itemList)
+            # saveFile = sysOpt['saveFile']
+            # os.makedirs(os.path.dirname(saveFile), exist_ok=True)
+            # data.to_csv(saveFile, index=False, encoding='utf-8')
+            # log.info(f'saveFile : {saveFile}')
 
-            # 기본 정보
-            for i, page in enumerate(pageList):
-                percent = ((i + 1) / len(pageList)) * 100
-                log.info(f"{page} 페이지, {percent:.1f}%")
+            # ==========================================================================================================
+            # 홈페이지 수집
+            # ==========================================================================================================
+            urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
 
-                list_url = sysOpt['url'].format(page=page)
-                list_response = requests.get(list_url, headers=sysOpt['headers'])
-                list_response.raise_for_status()
-                list_soup = BeautifulSoup(list_response.text, 'html.parser')
+            # 대상 URL (기존 반복문 안에서는 추출한 홈페이지 URL 변수를 여기에 할당하시면 됩니다)
+            targetUrl = "http://gausslab.co.kr/"
 
-                list_items = list_soup.select('table > tbody > tr')
+            # 1. 초기값 세팅 (에러가 나도 크롤링이 멈추지 않고 빈 값을 유지하도록)
+            contactInfo = {
+                '이메일': '',
+                '대표번호': '',
+                '주소': ''
+            }
 
-                for tr in list_items:
-                    try:
-                        link_tag = tr.select_one('a')
-                        if not link_tag: continue
-                        comp_name = link_tag.text.strip()
-                        compId = None
-                        if 'href' in link_tag.attrs:
-                            href = link_tag['href']
-                            parsed_url = urlparse.urlparse(href)
-                            compId = urlparse.parse_qs(parsed_url.query).get('compId', [None])[0]
+            if targetUrl:
+                if not targetUrl.startswith(('http://', 'https://')):
+                    targetUrl = 'http://' + targetUrl
 
-                        if not compId: continue
+                # 2. 재시도(Retry) 세션 설정 (일시적 서버 오류 시 최대 3번 재시도)
+                session = requests.Session()
+                retry = Retry(total=3, backoff_factor=1, status_forcelist=[500, 502, 503, 504])
+                adapter = HTTPAdapter(max_retries=retry)
+                session.mount('http://', adapter)
+                session.mount('https://', adapter)
 
-                        # 상세 정보
-                        detail_url = sysOpt['urlDtl'].format(compId = compId)
+                headers = {
+                    'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36'
+                }
 
-                        detail_response = requests.get(detail_url, headers=sysOpt['headers'])
-                        detail_response.raise_for_status()
-                        detail_soup = BeautifulSoup(detail_response.text, 'html.parser')
+                try:
+                    # 3. 요청 및 응답 (timeout 10초 설정으로 무한 대기 방지, verify=False로 SSL 오류 무시)
+                    response = session.get(targetUrl, headers=headers, timeout=10, verify=False)
+                    response.raise_for_status()
 
-                        item = {
-                            '기업명': comp_name,
-                            '기업ID': compId,
-                            '상세URL': detail_url,
-                        }
+                    # 한글 깨짐 방지
+                    response.encoding = response.apparent_encoding
 
-                        logo_tag = detail_soup.select_one('.startup_logo img')
-                        if logo_tag and 'src' in logo_tag.attrs:
-                            item['로고'] = "https://campustown.seoul.go.kr" + logo_tag['src']
-                        else:
-                            item['로고'] = ''
+                    soup = BeautifulSoup(response.text, 'html.parser')
+                    textContent = soup.get_text(separator=' ', strip=True)
 
-                        info_list = detail_soup.select('.cont_right li')
-                        for li in info_list:
-                            key_tag = li.select_one('h3')
+                    # 4. 정규표현식을 이용한 데이터 추출
+                    # 4-1. 이메일 추출
+                    emailMatch = re.search(r'[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}', textContent)
+                    if emailMatch:
+                        contactInfo['이메일'] = emailMatch.group(0)
 
-                            if not key_tag: continue
+                    # 4-2. 대표번호 추출 ('전화번호', 'Tel', 'T', '대표번호' 등 다양한 형태 대응)
+                    phoneMatch = re.search(
+                        r'(?:전화번호|대표전화|대표번호|Tel|TEL|T)\.?\s*[:]?\s*([\d]{2,3}[-\s]?\d{3,4}[-\s]?\d{4})', textContent,
+                        re.IGNORECASE)
+                    if phoneMatch:
+                        contactInfo['대표번호'] = phoneMatch.group(1).strip()
 
-                            key = key_tag.text.strip()
+                    # 4-3. 주소 추출 ('주소', '본점', 'ADDRESS' 키워드 인식)
+                    addrMatch = re.search(
+                        r'(?:주소|본점|ADDRESS)\s*[:]?\s*(.+?)(?=\s+(?:전화번호|대표번호|대표전화|Tel|Fax|이메일|사업자|COPYRIGHT|ⓒ|©|$))',
+                        textContent, re.IGNORECASE)
+                    if addrMatch:
+                        contactInfo['주소'] = addrMatch.group(1).strip()[:100]
 
-                            val_tag_a = li.select_one('a')
-                            val_tag_p = li.select_one('p')
+                # 5. 디테일한 예외 처리 (오류가 발생해도 패스하고 다음 작업 진행)
+                except requests.exceptions.Timeout:
+                    print(f"[Timeout] 서버 응답 지연: {targetUrl}")
+                except requests.exceptions.ConnectionError:
+                    print(f"[ConnectionError] 사이트 접속 불가: {targetUrl}")
+                except requests.exceptions.HTTPError as err:
+                    print(f"[HTTPError] 접근 권한 없음 또는 페이지 없음 ({err.response.status_code}): {targetUrl}")
+                except Exception as e:
+                    print(f"[ParseError] 데이터 추출 중 알 수 없는 오류 발생: {targetUrl} - {e}")
 
-                            if val_tag_a:
-                                val = val_tag_a.text.strip()
-                            elif val_tag_p:
-                                val = val_tag_p.text.strip()
-                            else:
-                                val = ''
-                            item[key] = val
+                finally:
+                    session.close()
 
-                        data.append(item)
-                        # time.sleep(1.5)
-
-                    except Exception as e:
-                        log.error(f"Exception : {e}")
-                        continue
-
-            dataL1 = pd.DataFrame(data)
-            saveFile = sysOpt['saveFile']
-            os.makedirs(os.path.dirname(saveFile), exist_ok=True)
-            dataL1.to_csv(saveFile, index=False, encoding='utf-8')
-            log.info(f'saveFile : {saveFile}')
+            # 결과 출력 (실제 코드에서는 이 contactInfo 딕셔너리의 값을 itemList 항목에 추가하시면 됩니다)
+            print("=== 최종 추출 결과 ===")
+            print(f"이메일: {contactInfo['이메일']}")
+            print(f"대표번호: {contactInfo['대표번호']}")
+            print(f"주소: {contactInfo['주소']}")
 
         except Exception as e:
             log.error(f"Exception : {e}")
