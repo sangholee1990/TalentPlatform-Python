@@ -247,7 +247,8 @@ class DtaProcess(object):
                 'url': 'https://campustown.seoul.go.kr/site/main/startup/list?cp={page}&pageSize=15&sortOrder=COMP_NM&sortDirection=ASC&listType=list',
                 'urlDtl': 'https://campustown.seoul.go.kr/site/main/startup/intro?compId={compId}',
                 'urlRoot': 'https://campustown.seoul.go.kr',
-                'saveFile': '/DATA/OUTPUT/VERSE2026/서울캠퍼스타운 창입기업.csv',
+                'saveFile': '/DATA/OUTPUT/VERSE2026/서울캠퍼스타운 창업기업 원본.csv',
+                'fnlFile': '/DATA/OUTPUT/VERSE2026/서울캠퍼스타운 창업기업 최종.csv',
             }
 
             # ==========================================================================================================
@@ -334,16 +335,20 @@ class DtaProcess(object):
             # ==========================================================================================================
             urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
 
-            targetUrl = "http://gausslab.co.kr/"
-            contactInfo = {
-                '이메일': '',
-                '대표번호': '',
-                '주소': ''
-            }
+            dataL1 = pd.read_csv(sysOpt['saveFile'])
+            for i, info in dataL1.iterrows():
+                urlHome = info['홈페이지']
+                if not urlHome: continue
+                if str(urlHome) == 'nan': continue
 
-            if targetUrl:
-                if not targetUrl.startswith(('http://', 'https://')):
-                    targetUrl = 'http://' + targetUrl
+                l = {
+                    '이메일': '',
+                    '대표번호': '',
+                    '주소': ''
+                }
+
+                if not urlHome.startswith(('http://', 'https://')):
+                    urlHome = 'http://' + urlHome
 
                 session = requests.Session()
                 retry = Retry(total=3, backoff_factor=1, status_forcelist=[500, 502, 503, 504])
@@ -351,12 +356,8 @@ class DtaProcess(object):
                 session.mount('http://', adapter)
                 session.mount('https://', adapter)
 
-                headers = {
-                    'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36'
-                }
-
                 try:
-                    response = session.get(targetUrl, headers=headers, timeout=10, verify=False)
+                    response = session.get(urlHome, headers=sysOpt['headers'], timeout=10, verify=False)
                     response.raise_for_status()
                     response.encoding = response.apparent_encoding
                     soup = BeautifulSoup(response.text, 'html.parser')
@@ -380,9 +381,14 @@ class DtaProcess(object):
                 finally:
                     session.close()
 
-            log.info(f"이메일: {contactInfo['이메일']}")
-            log.info(f"대표번호: {contactInfo['대표번호']}")
-            log.info(f"주소: {contactInfo['주소']}")
+                dataL1.loc[i, '이메일'] = contactInfo['이메일']
+                dataL1.loc[i, '대표번호'] = contactInfo['주소']
+                dataL1.loc[i, '주소'] = contactInfo['주소']
+
+            saveFile = sysOpt['fnlFile']
+            os.makedirs(os.path.dirname(saveFile), exist_ok=True)
+            dataL1.to_csv(saveFile, index=False, encoding='utf-8')
+            log.info(f'saveFile : {saveFile}')
 
         except Exception as e:
             log.error(f"Exception : {e}")
