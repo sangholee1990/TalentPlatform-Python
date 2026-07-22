@@ -327,7 +327,7 @@ class DtaProcess(object):
             # data = pd.DataFrame(itemList)
             # saveFile = sysOpt['saveFile']
             # os.makedirs(os.path.dirname(saveFile), exist_ok=True)
-            # data.to_csv(saveFile, index=False, encoding='utf-8')
+            # data.to_csv(saveFile, index=False, encoding='utf-8-sig')
             # log.info(f'saveFile : {saveFile}')
 
             # ==========================================================================================================
@@ -336,16 +336,16 @@ class DtaProcess(object):
             urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
 
             dataL1 = pd.read_csv(sysOpt['saveFile'])
+            dataL1['이메일'] = ''
+            dataL1['대표번호'] = ''
+            dataL1['주소'] = ''
+
             for i, info in dataL1.iterrows():
                 urlHome = info['홈페이지']
                 if not urlHome: continue
                 if str(urlHome) == 'nan': continue
 
-                l = {
-                    '이메일': '',
-                    '대표번호': '',
-                    '주소': ''
-                }
+                contactInfo = {'이메일': '', '대표번호': '', '주소': ''}
 
                 if not urlHome.startswith(('http://', 'https://')):
                     urlHome = 'http://' + urlHome
@@ -387,7 +387,8 @@ class DtaProcess(object):
 
             saveFile = sysOpt['fnlFile']
             os.makedirs(os.path.dirname(saveFile), exist_ok=True)
-            dataL1.to_csv(saveFile, index=False, encoding='utf-8')
+            # dataL1.to_csv(saveFile, index=False, encoding='euc-kr')
+            dataL1.to_csv(saveFile, index=False, encoding='utf-8-sig')
             log.info(f'saveFile : {saveFile}')
 
         except Exception as e:
