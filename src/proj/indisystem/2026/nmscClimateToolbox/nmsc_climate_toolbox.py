@@ -19,21 +19,31 @@ class NMSCClimateToolbox:
 
     @staticmethod
     def open(filepaths):
-        """Open one or multiple NetCDF/GeoTIFF files."""
+        """Open one or multiple NetCDF/GeoTIFF files with graceful fallback."""
         if isinstance(filepaths, str):
             if filepaths.lower().endswith(('.tif', '.tiff')):
                 import rioxarray
-                # Convert rioxarray to standard dataset
-                da = rioxarray.open_rasterio(filepaths)
+                try:
+                    da = rioxarray.open_rasterio(filepaths, chunks='auto')
+                except Exception:
+                    # Fallback to no chunks
+                    da = rioxarray.open_rasterio(filepaths)
+                
                 if da.name is None: da.name = 'band_data'
                 ds = da.to_dataset()
-                # Rename x/y to lon/lat if applicable
                 if 'x' in ds.coords and 'y' in ds.coords:
                     ds = ds.rename({'x': 'lon', 'y': 'lat'})
                 return ds
-            return xr.open_dataset(filepaths)
+            
+            try:
+                return xr.open_dataset(filepaths, chunks='auto')
+            except Exception:
+                return xr.open_dataset(filepaths)
         else:
-            return xr.open_mfdataset(filepaths, combine='by_coords', parallel=False)
+            try:
+                return xr.open_mfdataset(filepaths, combine='by_coords', parallel=False, chunks='auto')
+            except Exception:
+                return xr.open_mfdataset(filepaths, combine='by_coords', parallel=False)
 
     @staticmethod
     def filter(dataset, time_slice=None, lon_slice=None, lat_slice=None):
@@ -276,6 +286,6 @@ nct = NMSCClimateToolbox()
 if __name__ == '__main__':
     nct = NMSCClimateToolbox()
 
-    data = nct.open('C:/SYSTEMS/PROG/PYTHON/TalentPlatform-Python/src/proj/indisystem/2026/nmscClimateToolbox\doc\L3_CDR_Monthly_201501_202312_Final_Combinded_gapfilled.nc')
+    # data = nct.open('C:/SYSTEMS/PROG/PYTHON/TalentPlatform-Python/src/proj/indisystem/2026/nmscClimateToolbox\doc\L3_CDR_Monthly_201501_202312_Final_Combinded_gapfilled.nc')
 
-    aa = xr.open_dataset('C:/SYSTEMS/PROG/PYTHON/TalentPlatform-Python/src/proj/indisystem/2026/nmscClimateToolbox\doc\L3_CDR_Monthly_201501_202312_Final_Combinded_gapfilled.nc')
+    # aa = xr.open_dataset('C:/SYSTEMS/PROG/PYTHON/TalentPlatform-Python/src/proj/indisystem/2026/nmscClimateToolbox\doc\L3_CDR_Monthly_201501_202312_Final_Combinded_gapfilled.nc')
