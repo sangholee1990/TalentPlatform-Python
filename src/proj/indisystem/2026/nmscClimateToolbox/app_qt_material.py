@@ -467,7 +467,7 @@ class PreprocessInterface(QWidget):
         
     def init_ui(self):
         main_layout = QVBoxLayout(self)
-        main_layout.setContentsMargins(20, 20, 20, 20)
+        main_layout.setContentsMargins(5, 5, 5, 5)
         
         title = TitleLabel("데이터 준비 (Preprocess)")
         main_layout.addWidget(title)
@@ -811,7 +811,7 @@ class CalculateInterface(QWidget):
 
     def init_ui(self):
         main_layout = QVBoxLayout(self)
-        main_layout.setContentsMargins(20, 20, 20, 20)
+        main_layout.setContentsMargins(5, 5, 5, 5)
         title = TitleLabel("산출 (Calculation & R-Toolbox)")
         main_layout.addWidget(title)
         
@@ -939,6 +939,264 @@ class CalculateInterface(QWidget):
         ToastNotification.show_toast(self, "알림", "트렌드 연산 모듈이 호출되었습니다.")
 
 
+from PyQt6.QtCore import QThread, pyqtSignal
+
+class MapPlotThread(QThread):
+    finished = pyqtSignal(str, str)
+    error_occurred = pyqtSignal(str)
+
+    def __init__(self, ds, var_name, time_idx, cmap, bounds, show_basemap, raw_mode=False, data_layer='original'):
+        super().__init__()
+        self.ds = ds
+        self.var_name = var_name
+        self.time_idx = time_idx
+        self.cmap = cmap
+        self.bounds = bounds
+        self.show_basemap = show_basemap
+        self.raw_mode = raw_mode
+        self.data_layer = data_layer
+
+    def run(self):
+        try:
+            import numpy as np
+            import matplotlib
+            matplotlib.use('Agg')
+            import matplotlib.pyplot as plt
+            import io
+            import base64
+            
+            lat_dim = 'lat' if 'lat' in self.ds.dims else ('latitude' if 'latitude' in self.ds.dims else None)
+            lon_dim = 'lon' if 'lon' in self.ds.dims else ('longitude' if 'longitude' in self.ds.dims else None)
+            
+            if not lat_dim or not lon_dim:
+                self.error_occurred.emit("위도/경도 차원을 찾을 수 없습니다.")
+                return
+                
+            if 'time' in self.ds.dims:
+                data = self.ds[self.var_name].isel(time=self.time_idx)
+            else:
+                data = self.ds[self.var_name]
+                
+            
+            lon_vals = data[lon_dim].values
+            lat_vals = data[lat_dim].values
+            min_lon, max_lon = float(lon_vals.min()), float(lon_vals.max())
+            min_lat, max_lat = float(lat_vals.min()), float(lat_vals.max())
+            
+            data_2d = data.values
+            if data_2d.ndim > 2:
+                data_2d = data_2d.squeeze()
+            while data_2d.ndim > 2:
+                data_2d = data_2d[0]
+                
+            
+            import matplotlib
+            if self.data_layer == 'anomaly':
+                SST_ANOM_COLORS = [
+                    '#FF66FF', '#FF33CC', '#CC33CC', '#9933CC', '#6633CC', '#3333CC', '#0033CC',
+                    '#0066CC', '#3399FF', '#66CCFF', '#99FFFF', '#CCFFFF', '#FFFFCC', '#FFFF99',
+                    '#FFFF33', '#FFCC33', '#FF9933', '#FF6633', '#FF3333', '#FF0000', '#CC0000',
+                    '#A00000', '#800000', '#600000'
+                ]
+                from matplotlib.colors import ListedColormap
+                self.cmap = ListedColormap(SST_ANOM_COLORS)
+                vmin, vmax = -6.0, 6.0
+            else:
+                vmin, vmax = float(np.nanmin(data_2d)), float(np.nanmax(data_2d))
+                
+            # Determine origin and calculate exact pixel bounds
+            img_origin = 'upper' if lat_vals[0] > lat_vals[-1] else 'lower'
+            
+            h, w = data_2d.shape
+            dx = (max_lon - min_lon) / max(1, w - 1)
+            dy = (max_lat - min_lat) / max(1, h - 1)
+            
+            # Matplotlib extent: [left, right, bottom, top]
+            ext_left, ext_right = min_lon - dx/2, max_lon + dx/2
+            ext_bottom, ext_top = min_lat - dy/2, max_lat + dy/2
+            
+            # OpenLayers extent: [minX, minY, maxX, maxY]
+            
+            try:
+                import cartopy.crs as ccrs
+                has_cartopy = True
+            except ImportError:
+                has_cartopy = False
+            
+            fig = plt.figure(figsize=(12, 12), dpi=250, frameon=False)
+            
+            if has_cartopy and not self.raw_mode:
+                crs_3857 = ccrs.Mercator.GOOGLE
+                crs_4326 = ccrs.PlateCarree()
+                ax = fig.add_axes([0., 0., 1., 1.], projection=crs_3857)
+                ax.set_axis_off()
+                
+                if self.data_layer == 'anomaly':
+                    SST_ANOM_COLORS = [
+                        '#FF66FF', '#FF33CC', '#CC33CC', '#9933CC', '#6633CC', '#3333CC', '#0033CC',
+                        '#0066CC', '#3399FF', '#66CCFF', '#99FFFF', '#CCFFFF', '#FFFFCC', '#FFFF99',
+                        '#FFFF33', '#FFCC33', '#FF9933', '#FF6633', '#FF3333', '#FF0000', '#CC0000',
+                        '#A00000', '#800000', '#600000'
+                    ]
+                    from matplotlib.colors import ListedColormap
+                    cmap = ListedColormap(SST_ANOM_COLORS)
+                    vmin, vmax = -6.0, 6.0
+                else:
+                    vmin, vmax = float(np.nanmin(data_2d)), float(np.nanmax(data_2d))
+                    import matplotlib
+                    cmap = self.cmap if isinstance(self.cmap, matplotlib.colors.Colormap) else plt.get_cmap(self.cmap)
+                
+                cmap.set_bad('none')
+                
+                ax.imshow(data_2d, origin=img_origin, extent=[ext_left, ext_right, ext_bottom, ext_top], 
+                          transform=crs_4326, cmap=cmap, vmin=vmin, vmax=vmax, regrid_shape=max(1500, max(h, w)), interpolation='nearest')
+                          
+                ax.set_extent([ext_left, ext_right, ext_bottom, ext_top], crs=crs_4326)
+                
+                x0, x1 = ax.get_xlim()
+                y0, y1 = ax.get_ylim()
+                ol_extent = [float(x0), float(y0), float(x1), float(y1)]
+                projection_epsg = "EPSG:3857"
+            else:
+                ax = plt.Axes(fig, [0., 0., 1., 1.])
+                ax.set_axis_off()
+                fig.add_axes(ax)
+                
+                if self.data_layer == 'anomaly':
+                    SST_ANOM_COLORS = [
+                        '#FF66FF', '#FF33CC', '#CC33CC', '#9933CC', '#6633CC', '#3333CC', '#0033CC',
+                        '#0066CC', '#3399FF', '#66CCFF', '#99FFFF', '#CCFFFF', '#FFFFCC', '#FFFF99',
+                        '#FFFF33', '#FFCC33', '#FF9933', '#FF6633', '#FF3333', '#FF0000', '#CC0000',
+                        '#A00000', '#800000', '#600000'
+                    ]
+                    from matplotlib.colors import ListedColormap
+                    cmap = ListedColormap(SST_ANOM_COLORS)
+                    vmin, vmax = -6.0, 6.0
+                else:
+                    vmin, vmax = float(np.nanmin(data_2d)), float(np.nanmax(data_2d))
+                    import matplotlib
+                    cmap = self.cmap if isinstance(self.cmap, matplotlib.colors.Colormap) else plt.get_cmap(self.cmap)
+                
+                cmap.set_bad('none')
+                
+                ax.imshow(data_2d, extent=[ext_left, ext_right, ext_bottom, ext_top], origin=img_origin, 
+                          cmap=cmap, vmin=vmin, vmax=vmax, aspect='auto', interpolation='nearest')
+                ol_extent = [ext_left, ext_bottom, ext_right, ext_top]
+                projection_epsg = "EPSG:4326"
+            
+            buf = io.BytesIO()
+            plt.savefig(buf, format='png', transparent=True, pad_inches=0, bbox_inches='tight')
+            plt.close(fig)
+            buf.seek(0)
+            img_b64 = base64.b64encode(buf.read()).decode('utf-8')
+            
+            # Downsample data for JS tooltip lookup (max 200x200 to keep HTML small)
+            h, w = data_2d.shape
+            step_y = max(1, h // 200)
+            step_x = max(1, w // 200)
+            ds_data = data_2d[::step_y, ::step_x]
+            ds_data = np.where(np.isnan(ds_data), "null", np.round(ds_data, 2))
+            
+            # Create JS nested array string
+            js_grid = "[" + ",".join("[" + ",".join(map(str, row)) + "]" for row in ds_data) + "]"
+            
+            html = f"""
+            <!DOCTYPE html>
+            <html>
+            <head>
+                <link rel="stylesheet" href="https://cdn.rawgit.com/openlayers/openlayers.github.io/master/en/v5.3.0/css/ol.css" type="text/css">
+                <style>
+                    html, body {{ margin:0; padding:0; height:100%; background:#f0f2f5; font-family:sans-serif; }}
+                    #map {{ width: 100%; height: 100%; }}
+                    #tooltip {{
+                        position: absolute;
+                        background: rgba(0,0,0,0.8);
+                        color: white;
+                        padding: 5px 10px;
+                        border-radius: 4px;
+                        font-size: 12px;
+                        pointer-events: none;
+                        display: none;
+                        z-index: 1000;
+                    }}
+                </style>
+                <script src="https://cdn.rawgit.com/openlayers/openlayers.github.io/master/en/v5.3.0/build/ol.js"></script>
+            </head>
+            <body>
+                <div id="map"></div>
+                <div id="tooltip"></div>
+                <script>
+                    var extent = ol.proj.transformExtent([{ext_left}, {ext_bottom}, {ext_right}, {ext_top}], 'EPSG:4326', 'EPSG:3857');
+                    
+                    var layers = [];
+                    if ({str(self.show_basemap).lower()}) {{
+                        layers.push(new ol.layer.Tile({{ source: new ol.source.OSM() }}));
+                    }}
+                    
+                    var imageLayer = new ol.layer.Image({{
+                        source: new ol.source.ImageStatic({{
+                            url: 'data:image/png;base64,{img_b64}',
+                            projection: 'EPSG:3857',
+                            imageExtent: extent
+                        }}),
+                        opacity: 0.8
+                    }});
+                    layers.push(imageLayer);
+
+                    var map = new ol.Map({{
+                        target: 'map',
+                        layers: layers,
+                        view: new ol.View({{
+                            center: ol.proj.fromLonLat([{(min_lon+max_lon)/2}, {(min_lat+max_lat)/2}]),
+                            zoom: 4
+                        }})
+                    }});
+                    map.getView().fit(extent, map.getSize());
+                    
+                    var gridData = {js_grid};
+                    var minLon = {min_lon};
+                    var maxLon = {max_lon};
+                    var minLat = {min_lat};
+                    var maxLat = {max_lat};
+                    var gridRows = gridData.length;
+                    var gridCols = gridData[0].length;
+                    var tooltip = document.getElementById('tooltip');
+                    
+                    map.on('pointermove', function(evt) {{
+                        if (evt.dragging) {{ tooltip.style.display = 'none'; return; }}
+                        var coord4326 = ol.proj.transform(evt.coordinate, 'EPSG:3857', 'EPSG:4326');
+                        var lon = coord4326[0];
+                        var lat = coord4326[1];
+                        
+                        if (lon >= minLon && lon <= maxLon && lat >= minLat && lat <= maxLat) {{
+                            var px = (lon - minLon) / (maxLon - minLon);
+                            var py = (lat - minLat) / (maxLat - minLat);
+                            var col = Math.floor(px * gridCols);
+                            var row = Math.floor(py * gridRows);
+                            
+                            if (row >= 0 && row < gridRows && col >= 0 && col < gridCols) {{
+                                var val = gridData[row][col];
+                                if (val !== null) {{
+                                    tooltip.innerHTML = "Lon: " + lon.toFixed(2) + "<br>Lat: " + lat.toFixed(2) + "<br><b>Value: " + val + "</b>";
+                                    tooltip.style.display = 'block';
+                                    tooltip.style.left = (evt.pixel[0] + 15) + 'px';
+                                    tooltip.style.top = (evt.pixel[1] + 15) + 'px';
+                                    return;
+                                }}
+                            }}
+                        }}
+                        tooltip.style.display = 'none';
+                    }});
+                </script>
+            </body>
+            </html>
+            """
+            self.finished.emit(html, img_b64)
+        except Exception as e:
+            import traceback
+            traceback.print_exc()
+            self.error_occurred.emit(str(e))
+
 class VisualizeInterface(QWidget):
     def __init__(self, parent=None):
         super().__init__(parent=parent)
@@ -947,7 +1205,7 @@ class VisualizeInterface(QWidget):
 
     def init_ui(self):
         main_layout = QVBoxLayout(self)
-        main_layout.setContentsMargins(20, 20, 20, 20)
+        main_layout.setContentsMargins(5, 5, 5, 5)
         title = TitleLabel("시각화 (Visualization)")
         main_layout.addWidget(title)
         
@@ -956,7 +1214,7 @@ class VisualizeInterface(QWidget):
         # --- LEFT SIDE (Options) ---
         left_widget = CardWidget()
         v_left = QVBoxLayout(left_widget)
-        v_left.setContentsMargins(20, 20, 20, 20)
+        v_left.setContentsMargins(10, 10, 10, 10)
         
         v_left.addWidget(SubtitleLabel("시각화 옵션 설정"))
         
@@ -977,6 +1235,38 @@ class VisualizeInterface(QWidget):
         self.cb_cmap.addItems(['RdYlBu_r', 'viridis', 'plasma', 'inferno', 'magma', 'coolwarm', 'bwr', 'jet'])
         h_cmap.addWidget(self.cb_cmap, 1)
         v_left.addLayout(h_cmap)
+
+        # Date Selection for Anomaly
+        h_date = QHBoxLayout()
+        h_date.addWidget(StrongBodyLabel("검색 기준 날짜:"))
+        self.cb_date = ComboBox()
+        self.cb_date.addItem("전체 기간 평균")
+        # TODO: populate actual dates from dataset if time dim exists
+        h_date.addWidget(self.cb_date, 1)
+        v_left.addLayout(h_date)
+
+        # Basemap Toggle
+        h_base = QHBoxLayout()
+        self.chk_basemap = QCheckBox("배경지도 표시 (Show Basemap)")
+        self.chk_basemap.setChecked(True)
+        self.chk_basemap.stateChanged.connect(self.toggle_basemap)
+        h_base.addWidget(self.chk_basemap)
+        v_left.addLayout(h_base)
+
+        h_raw = QHBoxLayout()
+        self.chk_raw_mode = QCheckBox("원본 데이터 유지 (Raw Mode)")
+        self.chk_raw_mode.setChecked(False)
+        self.chk_raw_mode.stateChanged.connect(self.refresh_current_plot)
+        h_raw.addWidget(self.chk_raw_mode)
+        v_left.addLayout(h_raw)
+
+        v_left.addSpacing(10)
+        from qfluentwidgets import PrimaryPushButton
+        self.btn_ai = PrimaryPushButton("✨ AI 분석 요청")
+        self.btn_ai.clicked.connect(self.request_ai_analysis)
+        v_left.addWidget(self.btn_ai)
+
+
         
         v_left.addWidget(StrongBodyLabel("값 표시 범위 (Value Range)"))
         h_range = QHBoxLayout()
@@ -1269,188 +1559,68 @@ class VisualizeInterface(QWidget):
     def plot_map(self):
         ds = self.get_ds()
         var_name = self.window().selected_var
+        time_idx = self.window().selected_time_idx
+        
         if ds is None or not var_name:
-            self.clear_layout(self.map_canvas_layout)
-            self.map_canvas_layout.addWidget(BodyLabel("데이터를 먼저 불러오세요."))
+            ToastNotification.show_toast(self, "오류", "데이터셋이 없습니다.")
             return
 
-        time_idx = self.window().selected_time_idx
-        vds = self.window().valid_ds
-        vvar = self.window().selected_valid_var
-        cmap = self.cb_cmap.currentText()
-        vmin_txt = self.txt_vmin.text().strip()
-        vmax_txt = self.txt_vmax.text().strip()
-
         self.clear_layout(self.map_canvas_layout)
-        loading_label = TitleLabel("지도를 그리는 중입니다... (최대 15초 소요)")
+        loading_label = TitleLabel("지도 그리는 중입니다... (최대 15초 소요)")
         self.map_canvas_layout.addWidget(loading_label)
 
         self.map_thread = MapPlotThread(
-            ds, var_name, time_idx, vds, vvar,
-            vmin_txt, vmax_txt, cmap, self.window().bounds
+            ds=ds,
+            var_name=var_name,
+            time_idx=time_idx,
+            cmap=self.cb_cmap.currentText(),
+            bounds=self.window().bounds,
+            show_basemap=self.chk_basemap.isChecked(), raw_mode=self.chk_raw_mode.isChecked(), data_layer=self.cb_layer.currentData()
         )
-        self.map_thread.plot_finished.connect(self.on_map_finished)
-        self.map_thread.error_occurred.connect(self.on_map_error)
+        self.map_thread.finished.connect(self.on_map_finished)
+        self.map_thread.error_occurred.connect(lambda e: ToastNotification.show_toast(self, "오류", e))
         self.map_thread.start()
 
-    def on_map_finished(self, result_json):
+    def toggle_basemap(self, state):
+        if hasattr(self, 'map_view') and self.map_view is not None:
+            visibility = 'true' if state == 2 else 'false'
+            self.map_view.page().runJavaScript(f"if (typeof tileLayer !== 'undefined') tileLayer.setVisible({visibility});")
+        else:
+            self.refresh_current_plot()
+
+    def request_ai_analysis(self):
+        if not hasattr(self, 'last_map_b64') or not self.last_map_b64:
+            ToastNotification.show_toast(self, "오류", "분석할 지도가 아직 그려지지 않았습니다.")
+            return
+            
+        var_name = self.window().selected_var
+        prompt = f"현재 표시된 기상 데이터('{var_name}') 지도를 자세히 분석해 줘. 주요 기후 패턴, 아노말리(Anomaly) 특징, 그리고 이 지역의 날씨에 미칠 영향을 중심으로 설명해 줘."
+        
+        import tempfile
+        import base64
+        import os
+        tmp_path = os.path.join(tempfile.gettempdir(), 'current_map.png')
+        with open(tmp_path, 'wb') as f:
+            f.write(base64.b64decode(self.last_map_b64))
+            
+        main_nav = self.window().nav_panel
+        self.window().stacked_widget.setCurrentWidget(self.window().ai_interface)
+        if hasattr(self.window().nav_panel, 'setCurrentItem'):
+            self.window().nav_panel.setCurrentItem('ai')
+        
+        ai_interface = self.window().ai_interface
+        ai_interface.txt_image_path.setText(tmp_path)
+        ai_interface.txt_input.setPlainText(prompt)
+        ai_interface.send_message()
+
+    def on_map_finished(self, html, img_b64):
+        self.last_map_b64 = img_b64
         self.clear_layout(self.map_canvas_layout)
-        try:
-            import json
-            result = json.loads(result_json)
-            img_b64 = result['image_b64']
-            extent = result['extent']   # [minLon, minLat, maxLon, maxLat]
-            vmin = result['vmin']
-            vmax = result['vmax']
-            var_name = result['var_name']
-            buoy_points = result.get('buoy_points', [])
-            buoy_json = json.dumps(buoy_points)
-            img_src = f"data:image/png;base64,{img_b64}"
+        self.map_view = QWebEngineView()
+        self.map_view.setHtml(html)
+        self.map_canvas_layout.addWidget(self.map_view)
 
-            center_lon = (extent[0] + extent[2]) / 2
-            center_lat = (extent[1] + extent[3]) / 2
-
-            ol_html = f"""<!DOCTYPE html>
-<html>
-<head>
-<meta charset="utf-8">
-<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/ol@v8.2.0/ol.css">
-<script src="https://cdn.jsdelivr.net/npm/ol@v8.2.0/dist/ol.js"></script>
-<style>
-  html, body {{ margin:0; padding:0; height:100%; background:#1a1a2e; font-family:sans-serif; }}
-  #map {{ width:100%; height:100%; }}
-  #info-panel {{
-    position:absolute; top:10px; left:10px; z-index:100;
-    background:rgba(0,0,0,0.75); color:white;
-    padding:8px 14px; border-radius:8px; font-size:13px; pointer-events:none;
-  }}
-  #tooltip {{
-    position:absolute; background:rgba(0,0,0,0.8); color:white;
-    padding:6px 10px; border-radius:5px; font-size:12px;
-    display:none; pointer-events:none; white-space:nowrap; z-index:200;
-  }}
-  #legend {{
-    position:absolute; bottom:20px; right:14px; z-index:100;
-    background:rgba(255,255,255,0.93); padding:10px 14px;
-    border-radius:8px; font-size:12px; min-width:60px; text-align:center;
-    box-shadow:0 2px 8px rgba(0,0,0,0.3);
-  }}
-  .cb-bar {{
-    width:20px; height:140px;
-    background:linear-gradient(to top,#313695,#4575b4,#74add1,#abd9e9,#e0f3f8,#ffffbf,#fee090,#fdae61,#f46d43,#d73027,#a50026);
-    display:inline-block; margin-right:6px; border:1px solid #ccc; vertical-align:middle;
-  }}
-  .cb-labels {{display:inline-block; height:140px; position:relative; vertical-align:middle;}}
-  .cb-labels span {{position:absolute; right:0; font-size:11px; font-weight:bold;}}
-</style>
-</head>
-<body>
-<div id="map"></div>
-<div id="info-panel">🗺 {var_name} | 범위: {vmin:.1f} ~ {vmax:.1f}</div>
-<div id="tooltip"></div>
-<div id="legend">
-  <div style="font-size:11px;font-weight:bold;margin-bottom:4px;">{var_name}</div>
-  <div style="display:flex;align-items:center;">
-    <div class="cb-bar"></div>
-    <div class="cb-labels">
-      <span style="top:0">{vmax:.1f}</span>
-      <span style="top:50%;transform:translateY(-50%)">{(vmin+vmax)/2:.1f}</span>
-      <span style="bottom:0">{vmin:.1f}</span>
-    </div>
-  </div>
-</div>
-<script>
-const extent = {extent};
-const imgSrc = "{img_src}";
-const buoyPoints = {buoy_json};
-
-// 투영 (EPSG:4326)
-const proj4326 = new ol.proj.Projection({{
-  code:'EPSG:4326', units:'degrees', axisOrientation:'neu'
-}});
-
-// 데이터 이미지 레이어 (Basemap 렌더링 결과물을 지리 좌표에 정확히 오버레이)
-const imageLayer = new ol.layer.Image({{
-  source: new ol.source.ImageStatic({{
-    url: imgSrc,
-    projection: proj4326,
-    imageExtent: extent,
-  }}),
-  opacity: 0.85
-}});
-
-// 부이 벡터 레이어
-const vectorSource = new ol.source.Vector();
-buoyPoints.forEach(pt => {{
-  const feature = new ol.Feature({{
-    geometry: new ol.geom.Point([pt.lon, pt.lat]),
-    name: pt.name
-  }});
-  vectorSource.addFeature(feature);
-}});
-const vectorLayer = new ol.layer.Vector({{
-  source: vectorSource,
-  style: new ol.style.Style({{
-    image: new ol.style.Circle({{
-      radius: 7,
-      fill: new ol.style.Fill({{color:'rgba(255,60,60,0.9)'}}),
-      stroke: new ol.style.Stroke({{color:'white', width:2}})
-    }})
-  }})
-}});
-
-// OSM 베이스 타일
-const tileLayer = new ol.layer.Tile({{
-  source: new ol.source.OSM(),
-  opacity: 0.3
-}});
-
-const map = new ol.Map({{
-  target:'map',
-  layers:[tileLayer, imageLayer, vectorLayer],
-  view: new ol.View({{
-    projection:'EPSG:4326',
-    center:[{center_lon}, {center_lat}],
-    zoom:4
-  }})
-}});
-map.getView().fit(extent, {{padding:[30,30,30,30], maxZoom:10}});
-
-// 툴팁
-const tooltip = document.getElementById('tooltip');
-map.on('pointermove', evt => {{
-  const feature = map.forEachFeatureAtPixel(evt.pixel, f => f);
-  if (feature) {{
-    tooltip.style.display='block';
-    tooltip.style.left = evt.pixel[0]+12+'px';
-    tooltip.style.top  = evt.pixel[1]+12+'px';
-    tooltip.innerHTML = `<b>🔴 부이 관측소</b><br>${{feature.get('name')}}`;
-  }} else {{
-    tooltip.style.display='none';
-  }}
-}});
-map.getViewport().addEventListener('mouseout', () => {{ tooltip.style.display='none'; }});
-</script>
-</body>
-</html>"""
-
-            view = QWebEngineView()
-            view.setHtml(ol_html)
-            self.map_canvas_layout.addWidget(view)
-
-        except Exception as e:
-            import traceback
-            self.map_canvas_layout.addWidget(StrongBodyLabel(f"이미지 표출 오류:\n{traceback.format_exc()}"))
-
-
-
-    def on_map_error(self, err_msg):
-        self.clear_layout(self.map_canvas_layout)
-        self.map_canvas_layout.addWidget(StrongBodyLabel(f"지도 렌더링 오류:\n{err_msg}"))
-
-
-
-    def plot_valid(self):
+def plot_valid(self):
         ds = self.get_ds()
         vds = self.window().valid_ds
         var_name = self.window().selected_var
@@ -1461,10 +1631,8 @@ map.getViewport().addEventListener('mouseout', () => {{ tooltip.style.display='n
             return
             
         try:
-            import matplotlib.pyplot as plt
-            import io
-            import base64
-            import pandas as pd
+            import json
+            import numpy as np
             
             lat_dim = 'lat' if 'lat' in ds.dims else ('latitude' if 'latitude' in ds.dims else None)
             lon_dim = 'lon' if 'lon' in ds.dims else ('longitude' if 'longitude' in ds.dims else None)
@@ -1474,13 +1642,15 @@ map.getViewport().addEventListener('mouseout', () => {{ tooltip.style.display='n
             if not lat_dim or not v_lat_dim:
                 return
                 
-            y_vals = []
+            scatter_data = []
             x_vals = []
+            y_vals = []
             
             for st in vds['station_id'].values:
                 try:
                     lat_v = float(vds[v_lat_dim].sel(station_id=st).values)
                     lon_v = float(vds[v_lon_dim].sel(station_id=st).values)
+                    st_name = str(vds['station_name'].sel(station_id=st).values)
                     
                     if 'time' in ds.dims:
                         d_val = float(ds[var_name].isel(time=time_idx).sel({lat_dim: lat_v, lon_dim: lon_v}, method='nearest').values)
@@ -1492,98 +1662,78 @@ map.getViewport().addEventListener('mouseout', () => {{ tooltip.style.display='n
                     else:
                         v_val = float(vds[vvar].sel(station_id=st).values)
                         
-                    x_vals.append(d_val)
-                    y_vals.append(v_val)
+                    if not np.isnan(d_val) and not np.isnan(v_val):
+                        scatter_data.append({'x': d_val, 'y': v_val, 'name': st_name})
+                        x_vals.append(d_val)
+                        y_vals.append(v_val)
                 except:
                     continue
                     
-            if not x_vals: return
-            
-            fig = plt.figure(figsize=(6, 6), dpi=100)
-            plt.scatter(x_vals, y_vals, alpha=0.7)
+            if not scatter_data: return
             
             min_v = min(min(x_vals), min(y_vals))
             max_v = max(max(x_vals), max(y_vals))
-            plt.plot([min_v, max_v], [min_v, max_v], 'r--')
             
-            plt.title(f"Scatter Plot: {var_name} vs {vvar}")
-            plt.xlabel(f"Satellite ({var_name})")
-            plt.ylabel(f"Validation ({vvar})")
-            plt.grid(True, linestyle='--', alpha=0.6)
+            # Extend line a bit
+            padding = (max_v - min_v) * 0.1
+            if padding == 0: padding = 1
+            line_min = min_v - padding
+            line_max = max_v + padding
             
-            buf = io.BytesIO()
-            plt.savefig(buf, format='png', bbox_inches='tight')
-            plt.close(fig)
+            scatter_json = json.dumps(scatter_data)
             
-            buf.seek(0)
-            img_b64 = base64.b64encode(buf.read()).decode('utf-8')
-            html = f'<div style="width:100%; height:100%; display:flex; justify-content:center; align-items:center; background:white;"><img src="data:image/png;base64,{img_b64}" style="max-width:100%; max-height:100%; object-fit:contain;"></div>'
+            hc_html = f"""
+            <!DOCTYPE html>
+            <html>
+            <head>
+                <script src="https://code.highcharts.com/highcharts.js"></script>
+                <script src="https://code.highcharts.com/modules/exporting.js"></script>
+                <style>
+                    body, html {{ margin: 0; padding: 0; height: 100%; }}
+                    #container {{ width: 100%; height: 100%; }}
+                </style>
+            </head>
+            <body>
+                <div id="container"></div>
+                <script>
+                    Highcharts.chart('container', {{
+                        chart: {{ type: 'scatter', zoomType: 'xy' }},
+                        title: {{ text: '{var_name} vs {vvar} 검증 산점도' }},
+                        xAxis: {{ title: {{ text: '위성 산출물 ({var_name})' }}, crosshair: true }},
+                        yAxis: {{ title: {{ text: '검증 자료 ({vvar})' }}, crosshair: true }},
+                        tooltip: {{
+                            useHTML: true,
+                            headerFormat: '<b>{{point.key}}</b><br>',
+                            pointFormat: '위성: {{point.x}}<br>부이: {{point.y}}'
+                        }},
+                        series: [{{
+                            name: '관측소 데이터',
+                            data: {scatter_json},
+                            color: 'rgba(223, 83, 83, .5)',
+                            marker: {{ radius: 5 }}
+                        }}, {{
+                            type: 'line',
+                            name: 'Y = X',
+                            data: [[{line_min}, {line_min}], [{line_max}, {line_max}]],
+                            marker: {{ enabled: false }},
+                            states: {{ hover: {{ lineWidth: 0 }} }},
+                            enableMouseTracking: false,
+                            color: 'black',
+                            dashStyle: 'Dash'
+                        }}],
+                        credits: {{ enabled: false }}
+                    }});
+                </script>
+            </body>
+            </html>
+            """
             
             self.clear_layout(self.valid_canvas_layout)
             view = QWebEngineView()
-            view.setHtml(html)
+            view.setHtml(hc_html)
             self.valid_canvas_layout.addWidget(view)
         except Exception as e:
-            pass
-
-
-
-
-from PyQt6.QtCore import QThread, pyqtSignal
-
-class AIGeneratorThread(QThread):
-    chunk_received = pyqtSignal(str)
-    finished = pyqtSignal()
-    error_occurred = pyqtSignal(str)
-
-    def __init__(self, engine, prompt, api_key="", model_id="", hf_token=""):
-        super().__init__()
-        self.engine = engine
-        self.prompt = prompt
-        self.api_key = api_key
-        self.model_id = model_id
-        self.hf_token = hf_token
-
-    def run(self):
-        try:
-            if self.engine == "gemini":
-                if not self.api_key:
-                    self.error_occurred.emit("Gemini API 키가 입력되지 않았습니다.")
-                    return
-                from google import genai
-                client = genai.Client(api_key=self.api_key)
-                response = client.models.generate_content_stream(
-                    model='gemini-2.5-flash',
-                    contents=self.prompt,
-                )
-                for chunk in response:
-                    self.chunk_received.emit(chunk.text)
-            elif self.engine == "gemma":
-                model_id = self.model_id if self.model_id else "Qwen/Qwen2.5-7B-Instruct"
-                if not self.hf_token:
-                    self.error_occurred.emit("HF Access Token이 입력되지 않았습니다.")
-                    return
-                
-                try:
-                    from huggingface_hub import InferenceClient
-                except ImportError:
-                    self.error_occurred.emit("huggingface_hub 패키지가 설치되지 않았습니다.")
-                    return
-                    
-                self.chunk_received.emit("[System] HuggingFace 클라우드 서버(API)를 통해 답변을 생성 중입니다...\n\n")
-                
-                client = InferenceClient(model=model_id, token=self.hf_token)
-                
-                messages = [{"role": "user", "content": self.prompt}]
-                for chunk in client.chat_completion(messages=messages, max_tokens=512, stream=True):
-                    content = chunk.choices[0].delta.content
-                    if content:
-                        self.chunk_received.emit(content)
-                    
-        except Exception as e:
-            self.error_occurred.emit(str(e))
-        finally:
-            self.finished.emit()
+            print("Valid plot error:", e)
 
 class AIAssistantInterface(QWidget):
     def __init__(self, parent=None):
@@ -1592,18 +1742,22 @@ class AIAssistantInterface(QWidget):
         self.llm_thread = None
         
         main_layout = QVBoxLayout(self)
-        main_layout.setContentsMargins(20, 20, 20, 20)
+        main_layout.setContentsMargins(5, 5, 5, 5)
         title = TitleLabel("AI 어시스턴트 (AI Chat)")
         main_layout.addWidget(title)
         
-        # --- Config Area ---
-        config_card = CardWidget()
-        v_config = QVBoxLayout(config_card)
+        splitter = QSplitter(Qt.Orientation.Horizontal)
+        
+        # --- LEFT SIDE: Config Area ---
+        left_widget = CardWidget()
+        v_config = QVBoxLayout(left_widget)
+        v_config.setContentsMargins(20, 20, 20, 20)
+        v_config.addWidget(SubtitleLabel("설정 정보 (Settings)"))
         
         h_engine = QHBoxLayout()
         h_engine.addWidget(StrongBodyLabel("AI 엔진 선택:"))
         self.combo_engine = ComboBox()
-        self.combo_engine.addItems(["Gemini (Cloud)", "Gemma (Local Transformers)"])
+        self.combo_engine.addItems(["Gemini (Cloud API)", "Gemma (Local Vision)"])
         self.combo_engine.currentTextChanged.connect(self.on_engine_changed)
         h_engine.addWidget(self.combo_engine, 1)
         v_config.addLayout(h_engine)
@@ -1612,97 +1766,133 @@ class AIAssistantInterface(QWidget):
         
         # Gemini config
         page_gemini = QWidget()
-        h_gemini = QHBoxLayout(page_gemini)
-        h_gemini.setContentsMargins(0,0,0,0)
-        h_gemini.addWidget(StrongBodyLabel("Gemini API Key:"))
+        v_gemini = QVBoxLayout(page_gemini)
+        v_gemini.setContentsMargins(0,10,0,0)
+        v_gemini.addWidget(StrongBodyLabel("Gemini API Key:"))
         self.txt_api_key = LineEdit()
         self.txt_api_key.setPlaceholderText("AIzaSy...")
         self.txt_api_key.setEchoMode(QLineEdit.EchoMode.Password)
-        h_gemini.addWidget(self.txt_api_key, 1)
+        v_gemini.addWidget(self.txt_api_key)
+        v_gemini.addStretch(1)
         self.stack_config.addWidget(page_gemini)
         
         # Gemma config
         page_gemma = QWidget()
         v_gemma = QVBoxLayout(page_gemma)
-        v_gemma.setContentsMargins(0,0,0,0)
+        v_gemma.setContentsMargins(0,10,0,0)
         
-        h_gemma_1 = QHBoxLayout()
-        h_gemma_1.addWidget(StrongBodyLabel("HuggingFace Model ID:"))
-        self.txt_model_id = LineEdit()
-        self.txt_model_id.setText("Qwen/Qwen2.5-7B-Instruct")
-        h_gemma_1.addWidget(self.txt_model_id, 1)
-        v_gemma.addLayout(h_gemma_1)
+        v_gemma.addWidget(StrongBodyLabel("Gemma Model Path (.gguf):"))
+        h_mod = QHBoxLayout()
+        self.txt_model_path = LineEdit()
+        self.txt_model_path.setText("D:/ollama/gemma-4-E2B-it-Q8_0.gguf")
+        h_mod.addWidget(self.txt_model_path, 1)
+        btn_mod = QPushButton("찾기")
+        btn_mod.clicked.connect(self.browse_model)
+        h_mod.addWidget(btn_mod)
+        v_gemma.addLayout(h_mod)
         
-        h_gemma_2 = QHBoxLayout()
-        h_gemma_2.addWidget(StrongBodyLabel("HF Access Token (Gemma 필수):"))
-        self.txt_hf_token = LineEdit()
-        self.txt_hf_token.setText("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")
-        self.txt_hf_token.setEchoMode(QLineEdit.EchoMode.Password)
-        h_gemma_2.addWidget(self.txt_hf_token, 1)
-        v_gemma.addLayout(h_gemma_2)
+        v_gemma.addWidget(StrongBodyLabel("Projector Path (mmproj.gguf):"))
+        h_proj = QHBoxLayout()
+        self.txt_proj_path = LineEdit()
+        self.txt_proj_path.setText("D:/ollama/mmproj-F16.gguf")
+        h_proj.addWidget(self.txt_proj_path, 1)
+        btn_proj = QPushButton("찾기")
+        btn_proj.clicked.connect(self.browse_proj)
+        h_proj.addWidget(btn_proj)
+        v_gemma.addLayout(h_proj)
+        
+        v_gemma.addWidget(StrongBodyLabel("Image Path (Optional):"))
+        h_img = QHBoxLayout()
+        self.txt_image_path = LineEdit()
+        self.txt_image_path.setText("D:/ollama/20260722_143203.png")
+        btn_img = QPushButton("찾기")
+        btn_img.clicked.connect(self.browse_image)
+        h_img.addWidget(self.txt_image_path, 1)
+        h_img.addWidget(btn_img)
+        v_gemma.addLayout(h_img)
+        v_gemma.addStretch(1)
         
         self.stack_config.addWidget(page_gemma)
-        
         v_config.addWidget(self.stack_config)
+        splitter.addWidget(left_widget)
         
+        # --- RIGHT SIDE: Chat Area ---
+        right_widget = QWidget()
+        v_chat = QVBoxLayout(right_widget)
+        v_chat.setContentsMargins(0, 0, 0, 0)
         
-        # --- Chat Area ---
         self.chat_area = TextEdit()
         self.chat_area.setReadOnly(True)
-        self.chat_area.setPlaceholderText("여기에 AI와의 대화 내용이 표시됩니다...")
-        main_layout.addWidget(self.chat_area, 1)
+        self.chat_area.setStyleSheet("font-size: 14px; line-height: 1.5;")
+        v_chat.addWidget(self.chat_area, 1)
         
-        # --- Input Area ---
         h_input = QHBoxLayout()
         self.txt_prompt = TextEdit()
-        self.txt_prompt.setFixedHeight(80)
-        self.txt_prompt.setPlaceholderText("기후 데이터에 관해 AI에게 질문해보세요...")
+        self.txt_prompt.setPlaceholderText("질문을 입력하세요... (Shift+Enter로 줄바꿈)")
+        self.txt_prompt.setMaximumHeight(80)
         h_input.addWidget(self.txt_prompt, 1)
         
-        self.btn_send = PushButton("전송 🚀")
+        self.btn_send = PushButton("전송")
         self.btn_send.setMinimumHeight(80)
         self.btn_send.clicked.connect(self.send_message)
         h_input.addWidget(self.btn_send)
+        v_chat.addLayout(h_input)
+        splitter.addWidget(right_widget)
         
-        
+        # Set Splitter ratio
+        splitter.setSizes([300, 700])
+        main_layout.addWidget(splitter, 1)
+
+
+    def browse_model(self):
+        from PyQt6.QtWidgets import QFileDialog
+        path, _ = QFileDialog.getOpenFileName(self, "Model 파일 선택", "", "GGUF Files (*.gguf);;All Files (*)")
+        if path:
+            self.txt_model_path.setText(path)
+
+    def browse_proj(self):
+        from PyQt6.QtWidgets import QFileDialog
+        path, _ = QFileDialog.getOpenFileName(self, "Projector 파일 선택", "", "GGUF Files (*.gguf);;All Files (*)")
+        if path:
+            self.txt_proj_path.setText(path)
+
+    def browse_image(self):
+        from PyQt6.QtWidgets import QFileDialog
+        path, _ = QFileDialog.getOpenFileName(self, "이미지 선택", "", "Images (*.png *.jpg *.jpeg)")
+        if path:
+            self.txt_image_path.setText(path)
 
     def on_engine_changed(self, text):
         if "Gemini" in text:
             self.stack_config.setCurrentIndex(0)
         else:
             self.stack_config.setCurrentIndex(1)
-            
+
     def send_message(self):
         prompt = self.txt_prompt.toPlainText().strip()
         if not prompt: return
         
-        engine_text = self.combo_engine.currentText()
-        engine = "gemini" if "Gemini" in engine_text else "gemma"
-        api_key = self.txt_api_key.text().strip()
-        model_id = self.txt_model_id.text().strip()
-        hf_token = self.txt_hf_token.text().strip() if hasattr(self, 'txt_hf_token') else ""
-        
-        # 사용자 질문 (우측 정렬, 파란색)
-        you_html = f"<div align='right' style='color:#0078d4; margin-bottom:10px;'><b>[나]</b><br>{prompt}</div><br>"
-        self.chat_area.append(you_html)
+        self.chat_area.append(f"<b>[사용자]</b><br>{prompt}<br><br>")
         self.txt_prompt.clear()
+        self.chat_area.append("<b>[AI 어시스턴트]</b><br>")
         
-        # AI 답변 시작 (좌측 정렬)
-        ai_html = f"<div align='left' style='margin-bottom:10px;'><b>[AI]</b><br></div>"
-        self.chat_area.append(ai_html)
-        
-        # Move cursor to end to prepare for chunk insertion inside the AI div block
-        cursor = self.chat_area.textCursor()
-        cursor.movePosition(cursor.MoveOperation.End)
-        self.chat_area.setTextCursor(cursor)
+        engine = "gemini" if self.combo_engine.currentIndex() == 0 else "gemma"
         
         self.btn_send.setEnabled(False)
-        self.txt_prompt.setEnabled(False)
-        
-        self.llm_thread = AIGeneratorThread(engine, prompt, api_key, model_id, hf_token)
-        self.llm_thread.chunk_received.connect(self.on_chunk)
-        self.llm_thread.error_occurred.connect(self.on_error)
-        self.llm_thread.finished.connect(self.on_finished)
+        self.llm_thread = AIGeneratorThread(
+            engine=engine,
+            prompt=prompt,
+            api_key=self.txt_api_key.text(),
+            model_path=self.txt_model_path.text(),
+            proj_path=self.txt_proj_path.text(),
+            image_path=self.txt_image_path.text() if engine == "gemma" else ""
+        )
+        self.llm_thread.chunk_received.connect(lambda t: self.chat_area.insertPlainText(t))
+        self.llm_thread.error_occurred.connect(lambda e: ToastNotification.show_toast(self, "오류", e))
+        def on_finished():
+            self.chat_area.append("<br><br>")
+            self.btn_send.setEnabled(True)
+        self.llm_thread.finished.connect(on_finished)
         self.llm_thread.start()
         
     def on_chunk(self, text):
@@ -1746,9 +1936,9 @@ class NMSCFluentApp(MSFluentWindow):
         self.init_navigation()
 
     def init_navigation(self):
-        self.addSubInterface(self.visualize_interface, FluentIcon.PHOTO, "시각화")
         self.addSubInterface(self.preprocess_interface, FluentIcon.DOCUMENT, "전처리")
         self.addSubInterface(self.calculate_interface, FluentIcon.PIE_SINGLE, "산출")
+        self.addSubInterface(self.visualize_interface, FluentIcon.PHOTO, "시각화")
         
         self.addSubInterface(self.ai_interface, FluentIcon.CHAT, "AI 어시스턴트", position=NavigationItemPosition.BOTTOM)
         

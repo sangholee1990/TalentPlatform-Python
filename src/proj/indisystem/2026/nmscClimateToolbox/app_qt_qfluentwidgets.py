@@ -1379,7 +1379,7 @@ class AIAssistantInterface(QWidget):
         h_gemma_2 = QHBoxLayout()
         h_gemma_2.addWidget(StrongBodyLabel("HF Access Token (Gemma 필수):"))
         self.txt_hf_token = LineEdit()
-        self.txt_hf_token.setText("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")
+        self.txt_hf_token.setText("hf_232323")
         self.txt_hf_token.setEchoMode(LineEdit.EchoMode.Password)
         h_gemma_2.addWidget(self.txt_hf_token, 1)
         v_gemma.addLayout(h_gemma_2)
