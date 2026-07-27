@@ -77,6 +77,7 @@ mpl.rcParams['axes.unicode_minus'] = False
 tzKst = pytz.timezone('Asia/Seoul')
 tzUtc = pytz.timezone('UTC')
 
+
 # =================================================
 # 2. 유틸리티 함수
 # =================================================
@@ -105,7 +106,8 @@ def initLog(env=None, contextPath=None, prjName=None):
     format = logging.Formatter('%(asctime)s [%(name)s | %(lineno)d | %(filename)s] [%(levelname)-5.5s] %(message)s')
 
     streamHandler = logging.StreamHandler()
-    fileHandler = logging.handlers.TimedRotatingFileHandler(filename=saveLogFile, when='midnight', interval=1, backupCount=30, encoding='utf-8')
+    fileHandler = logging.handlers.TimedRotatingFileHandler(filename=saveLogFile, when='midnight', interval=1,
+                                                            backupCount=30, encoding='utf-8')
 
     streamHandler.setFormatter(format)
     fileHandler.setFormatter(format)
@@ -116,6 +118,7 @@ def initLog(env=None, contextPath=None, prjName=None):
     log.setLevel(level=logging.INFO)
 
     return log
+
 
 #  초기 변수 설정
 def initGlobalVar(env=None, contextPath=None, prjName=None):
@@ -139,11 +142,13 @@ def initGlobalVar(env=None, contextPath=None, prjName=None):
         , 'logPath': contextPath if env in 'local' else os.path.join(contextPath, 'resources', 'log', prjName)
         , 'mapPath': contextPath if env in 'local' else os.path.join(contextPath, 'resources', 'mapInfo')
         , 'sysCfg': contextPath if env in 'local' else os.path.join(contextPath, 'resources', 'config', 'system.json')
-        , 'seleniumPath': contextPath if env in 'local' else os.path.join(contextPath, 'resources', 'config', 'selenium')
+        ,
+        'seleniumPath': contextPath if env in 'local' else os.path.join(contextPath, 'resources', 'config', 'selenium')
         , 'fontPath': contextPath if env in 'local' else os.path.join(contextPath, 'resources', 'config', 'fontInfo')
     }
 
     return globalVar
+
 
 #  초기 전달인자 설정
 def initArgument(globalVar):
@@ -170,7 +175,6 @@ def initArgument(globalVar):
 # 4. 부 프로그램
 # ================================================
 class DtaProcess(object):
-
     # ================================================================================================
     # 환경변수 설정
     # ================================================================================================
@@ -277,8 +281,9 @@ class DtaProcess(object):
             llm = Llama(
                 model_path=MODEL_PATH,
                 chat_handler=chat_handler,
-                n_ctx=2048,  # 컨텍스트 윈도우 (검색된 문서 길이에 유의)
-                n_gpu_layers=0,  # RAM 환경 고려 CPU 전용
+                n_ctx=2048 * 4,
+                # n_ctx=2048 * 1,
+                n_gpu_layers=0,
                 verbose=False
             )
 
@@ -300,7 +305,8 @@ class DtaProcess(object):
 
                 # 1단계: 질문과 유사한 PDF 내용 검색 (Context Retrieval)
                 # k=2: 컨텍스트 길이 제한(2048)을 넘지 않도록 가장 연관성 높은 2개의 청크만 가져옵니다.
-                docs = vectorstore.similarity_search(user_query, k=10)
+                # docs = vectorstore.similarity_search(user_query, k=4)
+                docs = vectorstore.similarity_search(user_query, k=5)
 
                 # 검색된 문서 내용 병합
                 retrieved_context = "\n\n".join([doc.page_content for doc in docs])
@@ -308,8 +314,12 @@ class DtaProcess(object):
                 # 2단계: RAG 기반 프롬프트 구성 (Prompt Engineering)
                 # 이미지 + PDF 검색 결과 + 사용자의 실제 질문을 하나로 묶습니다.
                 prompt_text = f"""
-                다음 제공된 [참고 문서]를 바탕으로 원인, 우선확인사항, 조치사항, 재발 방지 등에 답변해 줘
+                다음 제공된 [참고 문서]를 바탕으로 원인, 우선 확인사항, 조치사항 등에 답변해 줘
     
+                [지시사항]
+                1. 각 항목(원인, 확인사항 등)마다 최소 1~3줄 이상 길고 구체적으로 설명할 것.
+                2. 단순히 문서를 요약하지 말고, 실무자가 바로 이해하고 적용할 수 있도록 가이드라인 형태로 작성할 것.
+
                 [참고 문서]
                 {retrieved_context}
     
@@ -337,7 +347,7 @@ class DtaProcess(object):
 
                 response_stream = llm.create_chat_completion(
                     messages=messages,
-                    max_tokens=None,
+                    max_tokens=-1,
                     temperature=0.3,
                     stream=True
                 )
@@ -346,13 +356,14 @@ class DtaProcess(object):
                     delta = chunk['choices'][0]['delta']
                     if 'content' in delta:
                         print(delta['content'], end='', flush=True)
-                print()  # 줄바꿈
+                print()
 
         except Exception as e:
             log.error(f"Exception : {e}")
             raise e
         finally:
             log.info('[END] {}'.format("exec"))
+
 
 # ================================================
 # 3. 주 프로그램
