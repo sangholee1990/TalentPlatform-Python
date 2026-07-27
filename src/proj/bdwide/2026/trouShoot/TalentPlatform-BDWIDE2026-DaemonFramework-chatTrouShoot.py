@@ -348,7 +348,7 @@ class DtaProcess(object):
                 response_stream = llm.create_chat_completion(
                     messages=messages,
                     max_tokens=-1,
-                    temperature=0.3,
+                    temperature=0.5,
                     stream=True
                 )
 
