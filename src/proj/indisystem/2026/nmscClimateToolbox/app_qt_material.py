@@ -1099,6 +1099,7 @@ class CalculateInterface(QWidget):
         self.cb_time_freq = ComboBox()
         self.cb_time_freq.addItems(["월간", "연간"])
         self.cb_time_freq.setCurrentIndex(0)
+        self.cb_time_freq.currentIndexChanged.connect(self.update_climatology_dates)
         h_row1.addWidget(self.cb_time_freq, 1)
 
         h_row1.addSpacing(20)
@@ -1114,28 +1115,16 @@ class CalculateInterface(QWidget):
         h_row2 = QHBoxLayout()
         h_row2.addWidget(StrongBodyLabel("기후 평년"))
         self.txt_cli_start = LineEdit()
-        self.txt_cli_start.setPlaceholderText("시작 (1991)")
+        self.txt_cli_start.setPlaceholderText("시작 (예: 1991-01)")
         self.txt_cli_end = LineEdit()
-        self.txt_cli_end.setPlaceholderText("종료 (2020)")
+        self.txt_cli_end.setPlaceholderText("종료 (예: 2020-12)")
         h_row2.addWidget(self.txt_cli_start, 1)
         h_row2.addWidget(StrongBodyLabel("~"))
         h_row2.addWidget(self.txt_cli_end, 1)
         v_content.addLayout(h_row2)
         v_content.addSpacing(15)
 
-        # 3. 기후 편차 대상 월 선택 (1행)
-        h_row3 = QHBoxLayout()
-        h_row3.addWidget(StrongBodyLabel("기후 편차"))
-        self.cb_ano_target = ComboBox()
-        self.cb_ano_target.addItem("전체")
-        for m in range(1, 13):
-            self.cb_ano_target.addItem(f"{m}월")
-        self.cb_ano_target.setCurrentIndex(0)
-        h_row3.addWidget(self.cb_ano_target, 1)
-        v_content.addLayout(h_row3)
-        v_content.addSpacing(15)
-
-        # 4. 추세 설정 알고리즘 (1행)
+        # 3. 추세 설정 알고리즘 (1행)
         h_row4 = QHBoxLayout()
         h_row4.addWidget(StrongBodyLabel("시계열 추세"))
         self.cb_trend_method = ComboBox()
@@ -1161,101 +1150,142 @@ class CalculateInterface(QWidget):
         self.segment.addItem("main", "주요 설정", lambda: self.stack.setCurrentIndex(0))
         self.segment.setCurrentItem("main")
 
-    def run_all_calculations(self):
-        """통합 적용 버튼 동작: 모든 설정을 순차적으로 적용 및 연산 수행"""
-        self.run_spatial()
-        self.run_trend()
-        self.run_climatology()
-
-    def showEvent(self, event):
-        super().showEvent(event)
-        # 데이터가 있으면 평년 설정의 년도를 자동 반영
+    def update_climatology_dates(self):
         w = self.window()
+        freq_is_monthly = (self.cb_time_freq.currentText() == '월간')
+        
+        self.txt_cli_start.setPlaceholderText("시작 (예: 1991-01)" if freq_is_monthly else "시작 (예: 1991)")
+        self.txt_cli_end.setPlaceholderText("종료 (예: 2020-12)" if freq_is_monthly else "종료 (예: 2020)")
+        
         if hasattr(w, 'ds') and w.ds is not None and 'time' in w.ds.dims:
             import pandas as pd
             try:
                 times = pd.to_datetime(w.ds['time'].values)
                 if len(times) > 0:
-                    start_yr = str(times.min().year)
-                    end_yr = str(times.max().year)
-                    if not self.txt_cli_start.text():
-                        self.txt_cli_start.setText(start_yr)
-                    if not self.txt_cli_end.text():
-                        self.txt_cli_end.setText(end_yr)
+                    if freq_is_monthly:
+                        start_str = times.min().strftime('%Y-%m')
+                        end_str = times.max().strftime('%Y-%m')
+                    else:
+                        start_str = str(times.min().year)
+                        end_str = str(times.max().year)
+                    self.txt_cli_start.setText(start_str)
+                    self.txt_cli_end.setText(end_str)
             except Exception as e:
                 print("Failed to auto-populate year:", e)
 
+    def showEvent(self, event):
+        super().showEvent(event)
+        self.update_climatology_dates()
 
-    def on_toolbox_changed(self, index):
-        self.stack.setCurrentIndex(index)
-
-    def run_climatology(self):
+    def run_all_calculations(self):
+        """UI에서 선택된 시공간, 기후, 추세 조건을 바탕으로 실제 xarray 연산을 수행"""
         w = self.window()
         if w.ds is None:
             ToastNotification.show_toast(self, "오류", "먼저 데이터를 불러오세요.")
             return
+            
         try:
-            var_name = w.selected_var
-            layer_to_set = None
-            msg = ""
-            if 'time' not in w.ds.dims:
-                ToastNotification.show_toast(self, '오류', '시간(time) 차원이 없어 평년값/편차를 계산할 수 없습니다.')
+            var_name = getattr(w, 'selected_var', None)
+            if not var_name:
+                ToastNotification.show_toast(self, '오류', '변수(Variable)가 선택되지 않았습니다.')
                 return
-
-            # 사용자 요청: 각 월마다 평균하여 평년값을 구하고 개별 월평균값에서 빼야함
-            ds_monthly = w.ds.resample(time='1MS').mean('time')
-
-            if self.sw_cli.isChecked():
-                ds_cli = ds_monthly.groupby('time.month').mean('time')
-                w.calculated_ds = ds_cli
-                if not hasattr(w, 'results_dict'): w.results_dict = {}
-                w.results_dict['climatology'] = ds_cli
-                layer_to_set = 'climatology'
-                msg = f"{var_name} 평년값 계산이 완료되었습니다.\n[시각화 탭 > 평년 영상] 에서 미리보기 및 분석이 가능합니다.\n\n지금 바로 시각화 탭으로 이동하시겠습니까?"
-            elif self.sw_ano.isChecked():
-                ds_cli = ds_monthly.groupby('time.month').mean('time')
-                ds_ano = ds_monthly.groupby('time.month') - ds_cli
-
-                # Fix: groupby('time.month') scrambles the chronological order (groups by month).
-                # We MUST sort it back by time so the timeline slider works correctly!
-                if 'time' in ds_ano.coords:
-                    ds_ano = ds_ano.sortby('time')
-
-                w.calculated_ds = ds_ano
-                if not hasattr(w, 'results_dict'): w.results_dict = {}
-                w.results_dict['anomaly'] = ds_ano
-                layer_to_set = 'anomaly'
-                msg = f"{var_name} 편차(아노말리) 계산이 완료되었습니다.\n[시각화 탭 > 아노말리 영상] 에서 미리보기 및 분석이 가능합니다.\n\n지금 바로 시각화 탭으로 이동하시겠습니까?"
-
-            if layer_to_set:
-                from PyQt6.QtWidgets import QMessageBox
-                reply = QMessageBox.question(self, '계산 완료 및 미리보기', msg,
-                                             QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
-                                             QMessageBox.StandardButton.Yes)
-
-                if reply == QMessageBox.StandardButton.Yes:
-                    if hasattr(w, 'nav_panel'):
-                        w.nav_panel.setCurrentItem('viz')
-                        w.stacked_widget.setCurrentWidget(w.viz_interface)
-
-                    # Set the combobox layer to trigger the preview
-                    cb = w.viz_interface.cb_layer
-                    idx = cb.findData(layer_to_set)
-                    if idx >= 0:
-                        cb.setCurrentIndex(idx)
-
+                
+            if 'time' not in w.ds.dims:
+                ToastNotification.show_toast(self, '오류', '시간(time) 차원이 없어 연산을 수행할 수 없습니다.')
+                return
+            
+            # 1. 시공간 설정 (시간 주기 및 연산)
+            freq = '1YS' if self.cb_time_freq.currentText() == '연간' else '1MS'
+            op = self.cb_time_op.currentText()
+            
+            if op == '합계':
+                ds_resampled = w.ds.resample(time=freq).sum('time')
+            elif op == '최대':
+                ds_resampled = w.ds.resample(time=freq).max('time')
+            elif op == '최소':
+                ds_resampled = w.ds.resample(time=freq).min('time')
+            else: # 평균
+                ds_resampled = w.ds.resample(time=freq).mean('time')
+                
+            if not hasattr(w, 'results_dict'):
+                w.results_dict = {}
+            w.results_dict['original'] = w.ds
+            
+            # 2. 기후 설정 (평년 기준 연도 및 편차 계산)
+            start_yr = self.txt_cli_start.text().strip()
+            end_yr = self.txt_cli_end.text().strip()
+            
+            if start_yr and end_yr:
+                ds_base = ds_resampled.sel(time=slice(start_yr, end_yr))
+            else:
+                ds_base = ds_resampled
+            
+            if freq == '1MS':
+                ds_cli = ds_base.groupby('time.month').mean('time')
+                ds_ano = ds_resampled.groupby('time.month') - ds_cli
+            else:
+                # 연간 주기의 경우 전체 시계열 평균이 단일 평년값이 됨
+                ds_cli = ds_base.mean('time')
+                ds_ano = ds_resampled - ds_cli
+                
+            if 'time' in ds_ano.coords:
+                ds_ano = ds_ano.sortby('time')
+                
+            w.calculated_ds = ds_ano
+            w.results_dict['climatology'] = ds_cli
+            w.results_dict['anomaly'] = ds_ano
+            
+            # 3. 추세 설정 (알고리즘)
+            trend_method = self.cb_trend_method.currentText()
+            # 추후 선형/Theil-Sen 추세 맵핑 시 활용하기 위해 메타데이터 저장
+            w.results_dict['trend_method'] = trend_method
+            
+            # ----------------------------------------------------
+            # 4. 검증 자료(Observation)에도 동일한 기후 설정 적용
+            # ----------------------------------------------------
+            if hasattr(w, 'valid_ds') and w.valid_ds is not None and 'time' in w.valid_ds.dims:
+                if op == '합계':
+                    vds_resampled = w.valid_ds.resample(time=freq).sum('time')
+                elif op == '최대':
+                    vds_resampled = w.valid_ds.resample(time=freq).max('time')
+                elif op == '최소':
+                    vds_resampled = w.valid_ds.resample(time=freq).min('time')
+                else: # 평균
+                    vds_resampled = w.valid_ds.resample(time=freq).mean('time')
+                    
+                if not hasattr(w, 'valid_results_dict'):
+                    w.valid_results_dict = {}
+                w.valid_results_dict['original'] = w.valid_ds
+                
+                if start_yr and end_yr:
+                    try:
+                        vds_base = vds_resampled.sel(time=slice(start_yr, end_yr))
+                    except Exception:
+                        vds_base = vds_resampled
+                else:
+                    vds_base = vds_resampled
+                    
+                if freq == '1MS':
+                    vds_cli = vds_base.groupby('time.month').mean('time')
+                    vds_ano = vds_resampled.groupby('time.month') - vds_cli
+                else:
+                    vds_cli = vds_base.mean('time')
+                    vds_ano = vds_resampled - vds_cli
+                    
+                if 'time' in vds_ano.coords:
+                    vds_ano = vds_ano.sortby('time')
+                    
+                w.calculated_valid_ds = vds_ano
+                w.valid_results_dict['climatology'] = vds_cli
+                w.valid_results_dict['anomaly'] = vds_ano
+            
+            msg = f"{var_name} 기반 통합 연산(시간축 {op}, 평년, 편차 등)이 완료되었습니다.\n[시각화 탭]에서 확인할 수 있습니다."
+            ToastNotification.show_toast(self, "연산 완료", msg)
+                    
         except Exception as e:
-            ToastNotification.show_toast(self, "오류", f"계산 중 오류: {e}")
-
-    def run_spatial(self):
-        w = self.window()
-        if w.ds is None:
-            ToastNotification.show_toast(self, "오류", "먼저 데이터를 불러오세요.")
-            return
-        ToastNotification.show_toast(self, "알림", "공간 연산 수행 완료.")
-
-    def run_trend(self):
-        ToastNotification.show_toast(self, "알림", "트렌드 연산 모듈이 호출되었습니다.")
+            import traceback
+            traceback.print_exc()
+            ToastNotification.show_toast(self, "오류", f"통합 계산 중 오류 발생: {e}")
 
 
 from PyQt6.QtCore import QThread, pyqtSignal
@@ -1476,7 +1506,7 @@ class VisualizeInterface(QWidget):
         h_layer = QHBoxLayout()
         h_layer.addWidget(StrongBodyLabel("데이터"))
         self.cb_layer = ComboBox()
-        self.cb_layer.addItem("원본", "original")
+        self.cb_layer.addItem("가공", "original")
         self.cb_layer.addItem("평년", "climatology")
         self.cb_layer.addItem("아노말리", "anomaly")
         # self.cb_layer.addItem("트렌드 영상", "trend")
@@ -1518,7 +1548,7 @@ class VisualizeInterface(QWidget):
         self.w_raw = QWidget()
         h_raw = QHBoxLayout(self.w_raw)
         h_raw.setContentsMargins(0, 0, 0, 0)
-        self.chk_raw_mode = QCheckBox("원본 데이터 유지")
+        self.chk_raw_mode = QCheckBox("가공 데이터 유지")
         self.chk_raw_mode.setChecked(False)
         self.chk_raw_mode.stateChanged.connect(self.refresh_current_plot)
         h_raw.addWidget(self.chk_raw_mode)
@@ -1752,7 +1782,7 @@ class VisualizeInterface(QWidget):
         current_data = self.cb_layer.currentData()
         self.cb_layer.blockSignals(True)
         self.cb_layer.clear()
-        self.cb_layer.addItem("원본", "original")
+        self.cb_layer.addItem("가공", "original")
         
         if idx not in [1, 2]:
             self.cb_layer.addItem("평년", "climatology")
@@ -1870,14 +1900,23 @@ class VisualizeInterface(QWidget):
         w = self.window()
         layer = self.cb_layer.currentData()
 
-        if layer != 'original' and hasattr(w, 'results_dict') and w.results_dict.get(layer) is not None:
+        if hasattr(w, 'results_dict') and w.results_dict.get(layer) is not None:
             return w.results_dict[layer]
 
-        if hasattr(w, 'calculated_ds') and w.calculated_ds is not None:
-            return w.calculated_ds
-        elif hasattr(w, 'processed_ds') and w.processed_ds is not None:
+        if hasattr(w, 'processed_ds') and w.processed_ds is not None:
             return w.processed_ds
         return w.ds
+
+    def get_vds(self):
+        w = self.window()
+        layer = self.cb_layer.currentData()
+        
+        if hasattr(w, 'valid_results_dict') and w.valid_results_dict.get(layer) is not None:
+            return w.valid_results_dict[layer]
+            
+        if hasattr(w, 'valid_ds') and w.valid_ds is not None:
+            return w.valid_ds
+        return None
 
     def clear_layout(self, layout):
         while layout.count():
@@ -1890,7 +1929,7 @@ class VisualizeInterface(QWidget):
 
     def plot_trend(self):
         ds = self.get_ds()
-        vds = self.window().valid_ds
+        vds = self.get_vds()
         var_name = self.window().selected_var
         vvar = self.window().selected_valid_var
 
@@ -2143,129 +2182,6 @@ class VisualizeInterface(QWidget):
         except Exception as e:
             print("Trend plot error:", e)
 
-    def plot_valid(self):
-        try:
-            import json
-            import pandas as pd
-            import numpy as np
-            from scipy.stats import linregress
-
-            # Use data already computed by plot_trend
-            all_merged_dfs = getattr(self, '_trend_merged_dfs', None)
-            
-            var_name = self.window().selected_var if hasattr(self.window(), 'selected_var') else '위성'
-            vvar = self.window().selected_valid_var if hasattr(self.window(), 'selected_valid_var') else '관측'
-
-            if not all_merged_dfs:
-                self.valid_view.page().runJavaScript(
-                    f"updateChart({json.dumps({'title': {'text': '먼저 검증 시계열 탭에서 적용 버튼을 눌러주세요'}})});")
-                return
-
-            final_df = pd.concat(all_merged_dfs, ignore_index=True)
-            print(f"[plot_valid] 사용 데이터: {len(final_df)} 행, 지점: {final_df['station_name'].unique()}")
-            
-            scatter_series = []
-            x_vals = []
-            y_vals = []
-
-            for st_name_val in final_df['station_name'].unique():
-                m_df = final_df[final_df['station_name'] == st_name_val]
-                if m_df.empty:
-                    continue
-
-                m_x = m_df['SST_Sat'].astype(float).values
-                m_y = m_df['SST_Buoy'].astype(float).values
-                m_n = len(m_x)
-                m_bias = float(np.mean(m_x - m_y)) if m_n > 0 else 0.0
-                m_rmse = float(np.sqrt(np.mean((m_x - m_y)**2))) if m_n > 0 else 0.0
-
-                m_r, m_slope, m_intercept, m_p = 0.0, 0.0, 0.0, 0.0
-                if m_n > 1:
-                    try:
-                        m_slope, m_intercept, m_r, m_p, _ = linregress(m_x, m_y)
-                        m_slope = float(m_slope); m_intercept = float(m_intercept)
-                        m_r = float(m_r); m_p = float(m_p)
-                    except Exception as e:
-                        print(f"linregress error for {st_name_val}: {e}")
-
-                m_data = [{'x': float(r['SST_Sat']), 'y': float(r['SST_Buoy']), 'name': r['station_name']}
-                           for _, r in m_df.iterrows()]
-                x_vals.extend([d['x'] for d in m_data])
-                y_vals.extend([d['y'] for d in m_data])
-                    
-                series_name = f"{st_name_val} (Y={m_slope:.3f}x+{m_intercept:.3f}, p={m_p:.3f}, R={m_r:.3f}, Bias={m_bias:.3f}, RMSE={m_rmse:.3f}, N={m_n})"
-                scatter_series.append({'name': series_name, 'data': m_data})
-
-            if not scatter_series:
-                self.valid_view.page().runJavaScript(f"updateChart({json.dumps({'title': {'text': '데이터가 없습니다'}})});")
-                return
-
-            x_arr = np.array(x_vals, dtype=float)
-            y_arr = np.array(y_vals, dtype=float)
-            N = len(x_vals)
-            bias = float(np.mean(x_arr - y_arr)) if N > 0 else 0.0
-            rmse = float(np.sqrt(np.mean((x_arr - y_arr)**2))) if N > 0 else 0.0
-
-            r_value = 0.0
-            global_p, global_slope, global_intercept = 0.0, 0.0, 0.0
-            trend_line = []
-            if N > 1:
-                try:
-                    global_slope, global_intercept, r_value, global_p, _ = linregress(x_arr, y_arr)
-                    global_slope = float(global_slope); global_intercept = float(global_intercept)
-                    r_value = float(r_value); global_p = float(global_p)
-                    min_x, max_x = float(np.min(x_arr)), float(np.max(x_arr))
-                    trend_line = [
-                        [min_x, min_x * global_slope + global_intercept],
-                        [max_x, max_x * global_slope + global_intercept]
-                    ]
-                except Exception as e:
-                    print(f"Global linregress error: {e}")
-            
-            if trend_line:
-                scatter_series.append({
-                    'type': 'line',
-                    'name': f'전체 회귀선 (Y={global_slope:.3f}x+{global_intercept:.3f}, p={global_p:.3f}, R={r_value:.3f})',
-                    'data': trend_line,
-                    'marker': {'enabled': False},
-                    'enableMouseTracking': False,
-                    'color': 'black'
-                })
-
-            ax_min, ax_max = None, None
-            if N > 0:
-                raw_min = float(min(np.min(x_arr), np.min(y_arr)))
-                raw_max = float(max(np.max(x_arr), np.max(y_arr)))
-                pad = (raw_max - raw_min) * 0.05 if raw_max > raw_min else 1.0
-                ax_min = raw_min - pad
-                ax_max = raw_max + pad
-
-            options = {
-                'chart': {'type': 'scatter', 'zoomType': 'xy'},
-                'title': {'text': f"{var_name} vs {vvar}"},
-                'subtitle': {'text': f"R = {r_value:.3f}, Bias = {bias:.3f}, RMSE = {rmse:.3f}, N = {N}"},
-                'xAxis': {'title': {'text': f"위성 ({var_name})"}, 'min': ax_min, 'max': ax_max},
-                'yAxis': {'title': {'text': f"관측소 ({vvar})"}, 'min': ax_min, 'max': ax_max},
-                'legend': {
-                    'layout': 'horizontal',
-                    'align': 'center',
-                    'verticalAlign': 'bottom',
-                    'floating': False
-                },
-                'tooltip': {
-                    'pointFormat': '{point.name}<br/>위성: {point.x:.2f}<br/>관측: {point.y:.2f}',
-                    'valueDecimals': 2
-                },
-                'series': scatter_series,
-                'credits': {'enabled': False}
-            }
-
-            js_code = f"updateChart({json.dumps(options)});"
-            self.valid_view.page().runJavaScript(js_code)
-
-        except Exception as e:
-            print("Valid plot error:", e)
-
     def plot_map(self):
         ds = self.get_ds()
         var_name = self.window().selected_var
@@ -2496,6 +2412,7 @@ class VisualizeInterface(QWidget):
                 # Update naming to "지점 - {st_name_val}" and store stats in custom
                 sname = f"지점 - {st_name_val}"
                 scatter_series.append({
+                    'id': sname,
                     'name': sname,
                     'data': m_data,
                     'custom': {'r': m_r, 'bias': m_bias, 'rmse': m_rmse, 'n': m_n}
@@ -2507,13 +2424,14 @@ class VisualizeInterface(QWidget):
                     scatter_series.append({
                         'type': 'line',
                         'name': f'추세 - {st_name_val}',
+                        'linkedTo': sname,
                         'data': [[x0, x0 * m_slope + m_intercept],
                                  [x1, x1 * m_slope + m_intercept]],
                         'marker': {'enabled': False},
                         'enableMouseTracking': False,
                         'dashStyle': 'Dash',
                         'lineWidth': 1,
-                        'showInLegend': True
+                        'showInLegend': False
                     })
 
             if not scatter_series:
@@ -3020,6 +2938,7 @@ class AIGeneratorThread(QThread):
                         except ImportError:
                             pass
 
+                    self.chunk_received.emit("*(모델 로드 중...)*\n\n")
                     llm = Llama(
                         model_path=self.model_path,
                         chat_handler=chat_handler,
@@ -3089,8 +3008,8 @@ class AIAssistantInterface(QWidget):
         # main_layout.addWidget(title)
 
         self.segment = SegmentedWidget(self)
-        self.segment.addItem("online", "온라인", lambda: self.stack.setCurrentIndex(0))
         self.segment.addItem("offline", "오프라인", lambda: self.stack.setCurrentIndex(1))
+        self.segment.addItem("online", "온라인", lambda: self.stack.setCurrentIndex(0))
         main_layout.addWidget(self.segment, 0, Qt.AlignmentFlag.AlignLeft)
         # main_layout.addSpacing(10)
 
@@ -3146,17 +3065,21 @@ class AIAssistantInterface(QWidget):
         btn_proj.clicked.connect(self.browse_proj)
         h_proj.addWidget(btn_proj)
         v_offline.addLayout(h_proj)
+        v_offline.addStretch(1)
 
-        # Image attachment
-        v_offline.addWidget(StrongBodyLabel("첨부 이미지 (선택 - 멀티모달 분석)"))
+        self.stack.addWidget(page_offline)
+        v_config.addWidget(self.stack)
+
+        # Image attachment (Common for both Online and Offline)
+        v_config.addWidget(StrongBodyLabel("첨부 이미지"))
         h_img = QHBoxLayout()
         self.txt_image_path = LineEdit()
-        self.txt_image_path.setPlaceholderText('이미지 경로 (비워두면 텍스트만 사용)')
+        self.txt_image_path.setPlaceholderText('이미지 경로')
         btn_img = QPushButton('찾기')
         btn_img.clicked.connect(self.browse_image)
         h_img.addWidget(self.txt_image_path, 1)
         h_img.addWidget(btn_img)
-        v_offline.addLayout(h_img)
+        v_config.addLayout(h_img)
 
         # Image preview
         from PyQt6.QtWidgets import QLabel
@@ -3166,15 +3089,11 @@ class AIAssistantInterface(QWidget):
         self.lbl_img_preview.setAlignment(_Qt.AlignmentFlag.AlignCenter)
         self.lbl_img_preview.setStyleSheet('border: 1px solid #ccc; min-height: 100px; color: #999;')
         self.lbl_img_preview.setMaximumHeight(150)
-        v_offline.addWidget(self.lbl_img_preview)
+        v_config.addWidget(self.lbl_img_preview)
         self.txt_image_path.textChanged.connect(self._update_img_preview)
 
-        v_offline.addStretch(1)
-
-        self.stack.addWidget(page_offline)
-        v_config.addWidget(self.stack)
-
-        self.segment.setCurrentItem("online")
+        self.segment.setCurrentItem("offline")
+        self.stack.setCurrentIndex(1)
         splitter.addWidget(left_widget)
 
         # --- RIGHT SIDE: Chat Area ---
@@ -3184,13 +3103,15 @@ class AIAssistantInterface(QWidget):
 
         self.chat_area = TextEdit()
         self.chat_area.setReadOnly(True)
-        self.chat_area.setStyleSheet("font-size: 14px; line-height: 1.5;")
+        self.chat_area.setStyleSheet("background-color: white; color: black; border: 1px solid #e0e0e0; border-radius: 6px; font-size: 14px; line-height: 1.5; padding: 10px;")
         v_chat.addWidget(self.chat_area, 1)
 
         h_input = QHBoxLayout()
         self.txt_prompt = TextEdit()
         self.txt_prompt.setPlaceholderText("질문을 입력하세요... (Shift+Enter로 줄바꿈)")
         self.txt_prompt.setMaximumHeight(80)
+        self.txt_prompt.setStyleSheet("background-color: white; color: black; border: 1px solid #e0e0e0; border-radius: 6px; padding: 5px; font-size: 14px;")
+        self.txt_prompt.installEventFilter(self)
         h_input.addWidget(self.txt_prompt, 1)
 
         self.btn_send = PushButton("전송")
@@ -3241,6 +3162,17 @@ class AIAssistantInterface(QWidget):
         path, _ = QFileDialog.getOpenFileName(self, "이미지 선택", "", "Images (*.png *.jpg *.jpeg)")
         if path:
             self.txt_image_path.setText(path)
+
+    def eventFilter(self, obj, event):
+        import PyQt6.QtCore as QtCore
+        if obj is self.txt_prompt and event.type() == QtCore.QEvent.Type.KeyPress:
+            if event.key() in (QtCore.Qt.Key.Key_Return, QtCore.Qt.Key.Key_Enter):
+                if event.modifiers() & QtCore.Qt.KeyboardModifier.ShiftModifier:
+                    return False # allow newline
+                else:
+                    self.send_message()
+                    return True # intercept
+        return super().eventFilter(obj, event)
 
     def on_engine_changed(self, text):
         if "Gemini" in text:
@@ -3294,19 +3226,15 @@ class AIAssistantInterface(QWidget):
         self.llm_thread.start()
 
     def on_chunk(self, text):
-        from PyQt6.QtGui import QTextCursor
         # History 업데이트
         if self.chat_history and self.chat_history[-1]['role'] == 'ai':
+            # Remove loading message if it exists
+            if self.chat_history[-1]['text'] == "*(모델 로드 중...)*\n\n":
+                self.chat_history[-1]['text'] = ""
             self.chat_history[-1]['text'] += text
 
-        # 글자를 끝에 삽입 (드래그나 선택이 풀리지 않도록 insertText 사용)
-        cursor = self.chat_area.textCursor()
-        cursor.movePosition(QTextCursor.MoveOperation.End)
-        cursor.insertText(text)
-
-        # 자동 스크롤
-        scrollbar = self.chat_area.verticalScrollBar()
-        scrollbar.setValue(scrollbar.maximum())
+        # 렌더링 (Markdown 적용)
+        self.update_full_chat_ui()
 
     def on_error(self, error_msg):
         self.chat_area.append(f"<br><font color='red'>[Error] {error_msg}</font><br>")
