@@ -318,7 +318,7 @@ class NMSCClimateToolbox:
         r = np.corrcoef(v1, v2)[0, 1] if len(v1) > 1 else 0.0
         bias = np.mean(v1 - v2)
         
-        ax.set_title(f"검증자료 비교 산점도 (Scatter Plot)\nR: {r:.3f}, Bias: {bias:.3f}")
+        ax.set_title(f"검증자료 비교 산점도 (Scatter Plot)/nR: {r:.3f}, Bias: {bias:.3f}")
         ax.set_xlabel(f"Product: {var_prod}")
         ax.set_ylabel(f"Validation: {var_valid}")
         fig.colorbar(hb, ax=ax, label='Density Count')
@@ -327,3 +327,97 @@ class NMSCClimateToolbox:
         return fig
 
 nct = NMSCClimateToolbox()
+
+if __name__ == '__main__':
+    nct = NMSCClimateToolbox()
+
+    data = nct.open('C:/SYSTEMS/PROG/PYTHON/TalentPlatform-Python/src/proj/indisystem/2026/nmscClimateToolbox/doc/L3_CDR_Monthly_201501_202312_Final_Combinded_gapfilled22.nc')
+    rdata = nct.open('C:/SYSTEMS/PROG/PYTHON/TalentPlatform-Python/src/proj/indisystem/2026/nmscClimateToolbox/doc/Validation_BUOY_SST_2D.nc')
+
+    stnCodeList = rdata['station_code'].values
+    import pandas as pd
+    import xarray as xr
+    import matplotlib.pyplot as plt
+    # 결과를 저장할 빈 리스트 생성
+    matched_results = []
+
+    for stn in stnCodeList:
+        # ---------------------------------------------------------
+        # 1. 부이(Buoy) 데이터 추출 및 전처리 (시간 일치 준비)
+        # ---------------------------------------------------------
+        buoy_da = rdata['sst'].sel(station_code=stn)
+        buoy_df = buoy_da.to_dataframe().reset_index()
+
+        # 관측소의 위경도 추출 (NetCDF 구조에 따라 lat/lon 변수명이 다를 수 있음)
+        # rdata에 위경도가 변수 또는 좌표로 존재한다고 가정합니다.
+        stn_lat = rdata['lat'].sel(station_code=stn).values.item()
+        stn_lon = rdata['lon'].sel(station_code=stn).values.item()
+
+        # 시간 컬럼을 datetime 형식으로 확실히 변환
+        buoy_df['time'] = pd.to_datetime(buoy_df['time'])
+
+        # 부이 데이터가 월간(Monthly) 단위가 아니라면 위성 데이터와 맞추기 위해 월평균 리샘플링
+        # 위성 자료가 월초(MS, Month Start)를 기준으로 저장되었다고 가정
+        buoy_monthly = buoy_df.set_index('time').resample('MS')['sst'].mean().reset_index()
+        buoy_monthly = buoy_monthly.rename(columns={'sst': 'SST_Buoy'})
+
+        # ---------------------------------------------------------
+        # 2. 위성(Satellite/Grid) 데이터 공간 추출 (공간 일치)
+        # ---------------------------------------------------------
+        # method='nearest'를 사용하여 부이 위치와 가장 가까운 격자 데이터 추출
+        sat_da = data['SST_L3_monthly'].sel(lat=stn_lat, lon=stn_lon, method='nearest')
+        sat_df = sat_da.to_dataframe().reset_index()
+
+        sat_df['time'] = pd.to_datetime(sat_df['time'])
+        sat_df = sat_df[['time', 'SST_L3_monthly']].rename(columns={'SST_L3_monthly': 'SST_Sat'})
+
+        # ---------------------------------------------------------
+        # 3. 시간축 기준으로 두 데이터 병합 (시공간 매칭 완료)
+        # ---------------------------------------------------------
+        # 두 데이터셋에 모두 존재하는 시간(inner join)만 남김
+        merged_df = pd.merge(sat_df, buoy_monthly, on='time', how='inner')
+
+        # 메타데이터 추가 (어떤 관측소인지, 매칭된 위경도 정보 등)
+        merged_df['station_code'] = stn
+        merged_df['station_lat'] = stn_lat
+        merged_df['station_lon'] = stn_lon
+
+        # 추출된 격자의 실제 위경도 (부이 위치와 얼마나 차이나는지 확인용)
+        merged_df['grid_lat'] = sat_da.lat.values.item()
+        merged_df['grid_lon'] = sat_da.lon.values.item()
+
+        matched_results.append(merged_df)
+
+        # target_station = stn
+        # plot_df = merged_df
+        #
+        # # 그래프 크기 설정
+        # plt.figure(figsize=(14, 6))
+        #
+        # # 위성 데이터 (파란색 선)
+        # plt.plot(plot_df['time'], plot_df['SST_Sat'],
+        #          label='Satellite SST', color='blue', marker='o', markersize=4, linestyle='-')
+        #
+        # # 부이 데이터 (빨간색 선) - NaN 값은 자동으로 끊겨서 또는 점으로 그려짐
+        # plt.plot(plot_df['time'], plot_df['SST_Buoy'],
+        #          label='Buoy SST', color='red', marker='x', markersize=6, linestyle='-')
+        #
+        # # 그래프 꾸미기
+        # plt.title(f'SST Time Series Comparison (Station: {target_station})', fontsize=14)
+        # plt.xlabel('Time', fontsize=12)
+        # plt.ylabel('Sea Surface Temperature (°C)', fontsize=12)
+        # plt.legend(fontsize=12)
+        # plt.grid(True, linestyle='--', alpha=0.7)
+        #
+        # # x축 날짜 포맷 겹치지 않게 회전
+        # plt.xticks(rotation=45)
+        # plt.tight_layout()
+        #
+        # # 그래프 출력
+        # plt.show()
+
+    # 리스트에 담긴 개별 관측소 매칭 결과를 하나의 데이터프레임으로 합침
+    final_matched_df = pd.concat(matched_results, ignore_index=True)
+
+    # 결과 확인 (오차 계산 등 추가 분석에 활용)
+    print(final_matched_df.head())

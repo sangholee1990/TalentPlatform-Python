@@ -121,8 +121,10 @@ class CheckableComboBox(QComboBox):
         super().__init__(parent)
         from PyQt6.QtGui import QStandardItemModel, QStandardItem
         from PyQt6.QtCore import Qt
-        self.view().pressed.connect(self.handleItemPressed)
         self.setModel(QStandardItemModel(self))
+        from PyQt6.QtWidgets import QListView
+        self.setView(QListView())
+        self.view().pressed.connect(self.handleItemPressed)
         self.QStandardItem = QStandardItem
         self.Qt = Qt
 
@@ -132,6 +134,12 @@ class CheckableComboBox(QComboBox):
             item.setCheckState(self.Qt.CheckState.Unchecked)
         else:
             item.setCheckState(self.Qt.CheckState.Checked)
+        self.update()
+
+    def hidePopup(self):
+        if self.view().underMouse():
+            return
+        super().hidePopup()
 
     def addCheckableItem(self, text, data=None, checked=True):
         item = self.QStandardItem(text)
@@ -140,6 +148,7 @@ class CheckableComboBox(QComboBox):
         if data is not None:
             item.setData(data)
         self.model().appendRow(item)
+        self.update()
 
     def getCheckedItems(self):
         checked = []
@@ -148,6 +157,27 @@ class CheckableComboBox(QComboBox):
             if item.checkState() == self.Qt.CheckState.Checked:
                 checked.append(item.data() if item.data() is not None else item.text())
         return checked
+
+    def paintEvent(self, event):
+        from PyQt6.QtWidgets import QStylePainter, QStyleOptionComboBox, QStyle
+        painter = QStylePainter(self)
+        painter.setPen(self.palette().color(self.foregroundRole()))
+        opt = QStyleOptionComboBox()
+        self.initStyleOption(opt)
+        
+        checked_count = 0
+        for i in range(self.model().rowCount()):
+            item = self.model().item(i)
+            if item.checkState() == self.Qt.CheckState.Checked:
+                checked_count += 1
+                
+        if checked_count > 0:
+            opt.currentText = f"선택됨: {checked_count}개"
+        else:
+            opt.currentText = "선택 없음"
+            
+        painter.drawComplexControl(QStyle.ComplexControl.CC_ComboBox, opt)
+        painter.drawControl(QStyle.ControlElement.CE_ComboBoxLabel, opt)
 
 
 class PushButton(QPushButton):
@@ -473,7 +503,7 @@ class DateSlider(QWidget):
         layout = QVBoxLayout(self)
         layout.setContentsMargins(0, 0, 0, 0)
 
-        layout.addWidget(StrongBodyLabel(f"{label}:"))
+        layout.addWidget(StrongBodyLabel(f"{label}"))
 
         # Arbitrary integer range for dates (e.g., year 1970 to 2050 in days)
         # We will dynamically set the range when a file is loaded
@@ -1127,7 +1157,7 @@ class CalculateInterface(QWidget):
         v_page_3.setAlignment(Qt.AlignmentFlag.AlignTop)
         v_page_3.addWidget(SubtitleLabel("시계열 추세 분석 옵션"))
         v_page_3.addSpacing(10)
-        v_page_3.addWidget(BodyLabel("선형 회귀(Linear Regression) 기반 트렌드 분석을 수행합니다."))
+        v_page_3.addWidget(BodyLabel("선형 회귀 기반 트렌드 분석을 수행합니다."))
 
         v_page_3.addSpacing(10)
         btn_calc_3 = PushButton("추세 계산 실행")
@@ -1438,9 +1468,9 @@ class VisualizeInterface(QWidget):
         h_layer = QHBoxLayout()
         h_layer.addWidget(StrongBodyLabel("데이터"))
         self.cb_layer = ComboBox()
-        self.cb_layer.addItem("원본 영상", "original")
-        self.cb_layer.addItem("평년 영상", "climatology")
-        self.cb_layer.addItem("아노말리 영상", "anomaly")
+        self.cb_layer.addItem("원본", "original")
+        self.cb_layer.addItem("평년", "climatology")
+        self.cb_layer.addItem("아노말리", "anomaly")
         # self.cb_layer.addItem("트렌드 영상", "trend")
         self.cb_layer.currentIndexChanged.connect(self.on_layer_changed)
         h_layer.addWidget(self.cb_layer, 1)
@@ -1493,7 +1523,7 @@ class VisualizeInterface(QWidget):
 
         # Station Multi-Select
         h_vst = QHBoxLayout()
-        h_vst.addWidget(StrongBodyLabel("검증 지점"))
+        h_vst.addWidget(StrongBodyLabel("검증지점"))
         self.valid_station_combo = CheckableComboBox()
         h_vst.addWidget(self.valid_station_combo, 1)
         v_vst = QVBoxLayout()
@@ -1663,12 +1693,12 @@ class VisualizeInterface(QWidget):
         self.on_tab_changed(3)
 
         splitter.addWidget(right_widget)
-        splitter.setStretchFactor(0, 2)
-        splitter.setStretchFactor(1, 8)
-        splitter.setSizes([2000, 8000])
-        # splitter.setStretchFactor(0, 3)
-        # splitter.setStretchFactor(1, 7)
-        # splitter.setSizes([3000, 7000])
+        # splitter.setStretchFactor(0, 2)
+        # splitter.setStretchFactor(1, 8)
+        # splitter.setSizes([2000, 8000])
+        splitter.setStretchFactor(0, 3)
+        splitter.setStretchFactor(1, 7)
+        splitter.setSizes([3000, 7000])
         # splitter.setStretchFactor(0, 4)
         # splitter.setStretchFactor(1, 6)
         # splitter.setSizes([4000, 6000])
@@ -1700,11 +1730,11 @@ class VisualizeInterface(QWidget):
         current_data = self.cb_layer.currentData()
         self.cb_layer.blockSignals(True)
         self.cb_layer.clear()
-        self.cb_layer.addItem("기본 영상", "original")
+        self.cb_layer.addItem("원본", "original")
         
         if idx not in [1, 2]:
-            self.cb_layer.addItem("평년 영상", "climatology")
-            self.cb_layer.addItem("아노말리 영상", "anomaly")
+            self.cb_layer.addItem("평년", "climatology")
+            self.cb_layer.addItem("편차", "anomaly")
             
         idx_to_set = self.cb_layer.findData(current_data)
         if idx_to_set >= 0:
@@ -1872,8 +1902,8 @@ class VisualizeInterface(QWidget):
             lon_dim = 'lon' if 'lon' in ds.dims else ('longitude' if 'longitude' in ds.dims else None)
 
             if vds is not None and vvar and lat_dim and lon_dim:
-                v_lat_dim = 'lat' if 'lat' in vds.coords else ('latitude' if 'latitude' in vds.coords else None)
-                v_lon_dim = 'lon' if 'lon' in vds.coords else ('longitude' if 'longitude' in vds.coords else None)
+                v_lat_dim = 'lat' if 'lat' in vds.variables else ('latitude' if 'latitude' in vds.variables else None)
+                v_lon_dim = 'lon' if 'lon' in vds.variables else ('longitude' if 'longitude' in vds.variables else None)
 
                 if v_lat_dim and v_lon_dim and 'station_code' in vds.dims:
                     sat_time_series = {}
@@ -1897,39 +1927,58 @@ class VisualizeInterface(QWidget):
                             f"updateChart({json.dumps({'title': {'text': '선택된 기간에 데이터가 없습니다'}})});")
                         return
 
-                    for t_idx in range(len(times)):
-                        ds_t = ds[var_name].isel(**{time_dim: t_idx})
+                    for st in vds['station_code'].values:
+                        if st not in selected_stations and str(st) not in selected_stations:
+                            continue
+                        try:
+                            # 1. Buoy processing
+                            buoy_da = vds[vvar].sel(station_code=st)
+                            buoy_df = buoy_da.to_dataframe().reset_index()
 
-                        vds_t = None
-                        if 'time' in vds.dims:
-                            try:
-                                vds_t = vds[vvar].isel(**{time_dim: t_idx})
-                            except:
-                                vds_t = vds[vvar].isel(**{time_dim: -1})
-                        else:
-                            vds_t = vds[vvar]
+                            stn_lat = float(vds[v_lat_dim].sel(station_code=st).values.item())
+                            stn_lon = float(vds[v_lon_dim].sel(station_code=st).values.item())
 
-                        for st in vds['station_code'].values:
-                            if st not in selected_stations and str(st) not in selected_stations:
-                                continue
-                            try:
-                                lat_v = float(vds[v_lat_dim].sel(station_code=st).values)
-                                lon_v = float(vds[v_lon_dim].sel(station_code=st).values)
+                            if 'time' in buoy_df.columns:
+                                buoy_df['time'] = pd.to_datetime(buoy_df['time'])
+                                buoy_monthly = buoy_df.set_index('time').resample('MS')[vvar].mean().reset_index()
+                            else:
+                                buoy_monthly = buoy_df
+                                
+                            buoy_monthly = buoy_monthly.rename(columns={vvar: 'SST_Buoy'})
 
-                                s_val = float(ds_t.sel({lat_dim: lat_v, lon_dim: lon_v}, method='nearest').values)
-                                v_val = float(vds_t.sel(station_code=st).values)
+                            # 2. Satellite extraction
+                            sat_da = ds[var_name].sel({lat_dim: stn_lat, lon_dim: stn_lon}, method='nearest')
+                            sat_df = sat_da.to_dataframe().reset_index()
 
-                                st_str = str(st)
-                                if st_str not in sat_time_series:
-                                    sat_time_series[st_str] = []
-                                    valid_time_series[st_str] = []
+                            if time_dim in sat_df.columns:
+                                sat_df['time'] = pd.to_datetime(sat_df[time_dim])
+                                sat_df = sat_df[['time', var_name]].rename(columns={var_name: 'SST_Sat'})
+                            else:
+                                sat_df = sat_df[[var_name]].rename(columns={var_name: 'SST_Sat'})
 
-                                if not np.isnan(s_val):
-                                    sat_time_series[st_str].append([timestamps[t_idx], s_val])
-                                if not np.isnan(v_val):
-                                    valid_time_series[st_str].append([timestamps[t_idx], v_val])
-                            except:
-                                continue
+                            st_str = str(st)
+                            sat_time_series[st_str] = []
+                            valid_time_series[st_str] = []
+
+                            # 3. Merge
+                            if 'time' in sat_df.columns and 'time' in buoy_monthly.columns:
+                                merged_df = pd.merge(sat_df, buoy_monthly, on='time', how='inner')
+                                merged_df = merged_df.dropna(subset=['SST_Sat', 'SST_Buoy'])
+                                
+                                merged_df['timestamp'] = merged_df['time'].astype('int64') // 10**6
+                                for _, row in merged_df.iterrows():
+                                    sat_time_series[st_str].append([int(row['timestamp']), float(row['SST_Sat'])])
+                                    valid_time_series[st_str].append([int(row['timestamp']), float(row['SST_Buoy'])])
+                            else:
+                                s_val = float(sat_df['SST_Sat'].iloc[0])
+                                v_val = float(buoy_monthly['SST_Buoy'].iloc[0])
+                                if not np.isnan(s_val) and not np.isnan(v_val):
+                                    sat_time_series[st_str].append([0, s_val])
+                                    valid_time_series[st_str].append([0, v_val])
+
+                        except Exception as e:
+                            print(f"Error processing station {st}: {e}")
+                            continue
 
                     def replace_nan(ts):
                         return [[x[0], None] if x[1] is None or np.isnan(x[1]) else x for x in ts]
@@ -1940,12 +1989,33 @@ class VisualizeInterface(QWidget):
                         if len(clean_ts) > 1:
                             x_vals = [p[0] for p in clean_ts]
                             y_vals = [p[1] for p in clean_ts]
-                            slope, intercept, r_value, _, _ = linregress(x_vals, y_vals)
+                            slope, intercept, r_value, p_value, _ = linregress(x_vals, y_vals)
                             min_x, max_x = min(x_vals), max(x_vals)
-                            return [[min_x, min_x * slope + intercept], [max_x, max_x * slope + intercept]], r_value
-                        return [], 0.0
+                            
+                            return [[min_x, min_x * slope + intercept], [max_x, max_x * slope + intercept]], slope, intercept, r_value, p_value
+                        return [], 0.0, 0.0, 0.0, 0.0
 
                     series_data = []
+                    
+                    if len(sat_time_series) > 1:
+                        avg_s, avg_v, count_s, count_v = {}, {}, {}, {}
+                        for st, s_ts in sat_time_series.items():
+                            for t, val in s_ts:
+                                avg_s[t] = avg_s.get(t, 0) + val
+                                count_s[t] = count_s.get(t, 0) + 1
+                        for st, v_ts in valid_time_series.items():
+                            for t, val in v_ts:
+                                avg_v[t] = avg_v.get(t, 0) + val
+                                count_v[t] = count_v.get(t, 0) + 1
+                                
+                        s_avg_ts = sorted([[t, avg_s[t]/count_s[t]] for t in avg_s])
+                        v_avg_ts = sorted([[t, avg_v[t]/count_v[t]] for t in avg_v])
+                        s_trend, s_slope, s_intercept, s_r, s_p = calc_trendline(s_avg_ts)
+                        v_trend, v_slope, v_intercept, v_r, v_p = calc_trendline(v_avg_ts)
+                        
+                        if s_trend: series_data.append({'name': f'위성 다중 추세 (Y={s_slope:.2e}x+{s_intercept:.2f}, p={s_p:.3f}, R={s_r:.2f})', 'data': replace_nan(s_trend), 'marker': {'enabled': False}, 'dashStyle': 'Dash', 'color': '#ff0000', 'lineWidth': 3})
+                        if v_trend: series_data.append({'name': f'관측 다중 추세 (Y={v_slope:.2e}x+{v_intercept:.2f}, p={v_p:.3f}, R={v_r:.2f})', 'data': replace_nan(v_trend), 'marker': {'enabled': False}, 'dashStyle': 'Dash', 'color': '#0000ff', 'lineWidth': 3})
+                    
                     for st_str in sat_time_series:
                         try:
                             st_name_val = str(vds['station_name'].sel(station_code=int(st_str) if st_str.isdigit() else st_str).values) if 'station_name' in vds else st_str
@@ -1956,13 +2026,13 @@ class VisualizeInterface(QWidget):
                         s_ts = sat_time_series[st_str]
                         v_ts = valid_time_series[st_str]
                         
-                        s_trend, s_r = calc_trendline(s_ts)
-                        v_trend, v_r = calc_trendline(v_ts)
+                        s_trend, s_slope, s_intercept, s_r, s_p = calc_trendline(s_ts)
+                        v_trend, v_slope, v_intercept, v_r, v_p = calc_trendline(v_ts)
                         
                         series_data.append({'name': f'위성 - {st_label}', 'data': replace_nan(s_ts)})
                         series_data.append({'name': f'관측 - {st_label}', 'data': replace_nan(v_ts)})
-                        if s_trend: series_data.append({'name': f'위성 추세 - {st_label} (R={s_r:.2f})', 'data': replace_nan(s_trend), 'marker': {'enabled': False}, 'dashStyle': 'Dash', 'linkedTo': ':previous'})
-                        if v_trend: series_data.append({'name': f'관측 추세 - {st_label} (R={v_r:.2f})', 'data': replace_nan(v_trend), 'marker': {'enabled': False}, 'dashStyle': 'Dash', 'linkedTo': ':previous'})
+                        if s_trend: series_data.append({'name': f'위성 추세 - {st_label} (Y={s_slope:.2e}x+{s_intercept:.2f}, p={s_p:.3f}, R={s_r:.2f})', 'data': replace_nan(s_trend), 'marker': {'enabled': False}, 'dashStyle': 'Dash'})
+                        if v_trend: series_data.append({'name': f'관측 추세 - {st_label} (Y={v_slope:.2e}x+{v_intercept:.2f}, p={v_p:.3f}, R={v_r:.2f})', 'data': replace_nan(v_trend), 'marker': {'enabled': False}, 'dashStyle': 'Dash'})
 
                     options = {
                         'chart': {'type': 'line', 'zoomType': 'x'},
@@ -2059,13 +2129,13 @@ class VisualizeInterface(QWidget):
 
             lat_dim = 'lat' if 'lat' in ds.dims else ('latitude' if 'latitude' in ds.dims else None)
             lon_dim = 'lon' if 'lon' in ds.dims else ('longitude' if 'longitude' in ds.dims else None)
-            v_lat_dim = 'lat' if 'lat' in vds.coords else ('latitude' if 'latitude' in vds.coords else None)
-            v_lon_dim = 'lon' if 'lon' in vds.coords else ('longitude' if 'longitude' in vds.coords else None)
+            v_lat_dim = 'lat' if 'lat' in vds.variables else ('latitude' if 'latitude' in vds.variables else None)
+            v_lon_dim = 'lon' if 'lon' in vds.variables else ('longitude' if 'longitude' in vds.variables else None)
 
             if not lat_dim or not v_lat_dim:
                 return
 
-            scatter_data = []
+            scatter_series = []
             x_vals = []
             y_vals = []
 
@@ -2084,65 +2154,139 @@ class VisualizeInterface(QWidget):
                     f"updateChart({json.dumps({'title': {'text': '선택된 기간에 데이터가 없습니다'}})});")
                 return
 
-            # When time is filtered, we shouldn't use time_idx if it's out of bounds.
-            # Usually scatter plot aggregates over all times in the slice, or just the currently selected time?
-            # Let's aggregate over ALL times in the filtered slice!
-            times_len = len(ds['time']) if 'time' in ds.dims else 1
-
+            all_merged_dfs = []
             for st in vds['station_code'].values:
                 if st not in selected_stations and str(st) not in selected_stations:
                     continue
                 try:
-                    lat_v = float(vds[v_lat_dim].sel(station_code=st).values)
-                    lon_v = float(vds[v_lon_dim].sel(station_code=st).values)
+                    # 1. Buoy processing
+                    buoy_da = vds[vvar].sel(station_code=st)
+                    buoy_df = buoy_da.to_dataframe().reset_index()
+
+                    stn_lat = float(vds[v_lat_dim].sel(station_code=st).values.item())
+                    stn_lon = float(vds[v_lon_dim].sel(station_code=st).values.item())
                     st_name = str(vds['station_name'].sel(station_code=st).values) if 'station_name' in vds else str(st)
 
-                    for t_idx in range(times_len):
-                        if 'time' in ds.dims:
-                            d_val = float(ds[var_name].isel(time=t_idx).sel({lat_dim: lat_v, lon_dim: lon_v},
-                                                                            method='nearest').values)
-                        else:
-                            d_val = float(ds[var_name].sel({lat_dim: lat_v, lon_dim: lon_v}, method='nearest').values)
+                    if 'time' in buoy_df.columns:
+                        buoy_df['time'] = pd.to_datetime(buoy_df['time'])
+                        buoy_monthly = buoy_df.set_index('time').resample('MS')[vvar].mean().reset_index()
+                    else:
+                        buoy_monthly = buoy_df
+                        
+                    buoy_monthly = buoy_monthly.rename(columns={vvar: 'SST_Buoy'})
 
-                        if 'time' in vds.dims:
-                            try:
-                                v_val = float(vds[vvar].isel(time=t_idx).sel(station_code=st).values)
-                            except:
-                                v_val = float(vds[vvar].isel(time=-1).sel(station_code=st).values)
-                        else:
-                            v_val = float(vds[vvar].sel(station_code=st).values)
+                    # 2. Satellite extraction
+                    sat_da = ds[var_name].sel({lat_dim: stn_lat, lon_dim: stn_lon}, method='nearest')
+                    sat_df = sat_da.to_dataframe().reset_index()
 
-                        if not np.isnan(d_val) and not np.isnan(v_val):
-                            scatter_data.append({'x': d_val, 'y': v_val, 'name': f"{st} ({st_name})"})
-                            x_vals.append(d_val)
-                            y_vals.append(v_val)
-                except:
+                    if time_dim in sat_df.columns:
+                        sat_df['time'] = pd.to_datetime(sat_df[time_dim])
+                        sat_df = sat_df[['time', var_name]].rename(columns={var_name: 'SST_Sat'})
+                    else:
+                        sat_df = sat_df[[var_name]].rename(columns={var_name: 'SST_Sat'})
+
+                    # 3. Merge
+                    if 'time' in sat_df.columns and 'time' in buoy_monthly.columns:
+                        merged_df = pd.merge(sat_df, buoy_monthly, on='time', how='inner')
+                        merged_df = merged_df.dropna(subset=['SST_Sat', 'SST_Buoy'])
+                        merged_df['station_name'] = f"{st} ({st_name})"
+                        all_merged_dfs.append(merged_df)
+                    else:
+                        s_val = float(sat_df['SST_Sat'].iloc[0])
+                        v_val = float(buoy_monthly['SST_Buoy'].iloc[0])
+                        if not np.isnan(s_val) and not np.isnan(v_val):
+                            temp_df = pd.DataFrame({'SST_Sat': [s_val], 'SST_Buoy': [v_val], 'station_name': [f"{st} ({st_name})"], 'month': [1]})
+                            all_merged_dfs.append(temp_df)
+                            
+                except Exception as e:
+                    print(f"Error in scatter plot station {st}: {e}")
                     continue
 
-            if not scatter_data:
+            if all_merged_dfs:
+                final_df = pd.concat(all_merged_dfs)
+                
+                for st_name_val in final_df['station_name'].unique():
+                    m_df = final_df[final_df['station_name'] == st_name_val]
+                    if m_df.empty: continue
+                    
+                    m_x = m_df['SST_Sat'].astype(float).values
+                    m_y = m_df['SST_Buoy'].astype(float).values
+                    m_n = len(m_x)
+                    m_bias = np.mean(m_x - m_y) if m_n > 0 else 0
+                    m_rmse = np.sqrt(np.mean((m_x - m_y)**2)) if m_n > 0 else 0
+                    
+                    m_r = 0.0
+                    m_slope, m_intercept, m_p = 0.0, 0.0, 0.0
+                    if m_n > 1:
+                        try:
+                            m_slope, m_intercept, m_r, m_p, _ = linregress(m_x, m_y)
+                        except:
+                            pass
+                        
+                    m_data = []
+                    for _, row in m_df.iterrows():
+                        m_data.append({'x': float(row['SST_Sat']), 'y': float(row['SST_Buoy']), 'name': row['station_name']})
+                        x_vals.append(float(row['SST_Sat']))
+                        y_vals.append(float(row['SST_Buoy']))
+                        
+                    series_name = f"{st_name_val} (Y={m_slope:.2f}x+{m_intercept:.2f}, p={m_p:.3f}, R={m_r:.2f}, Bias={m_bias:.2f}, RMSE={m_rmse:.2f}, N={m_n})"
+                    scatter_series.append({'name': series_name, 'data': m_data})
+
+            if not scatter_series:
                 self.valid_view.page().runJavaScript(f"updateChart({json.dumps({'title': {'text': '데이터가 없습니다'}})});")
                 return
 
-            slope, intercept, r_value, p_value, std_err = linregress(x_vals, y_vals)
-            min_x, max_x = min(x_vals), max(x_vals)
-            trend_line = [
-                [min_x, min_x * slope + intercept],
-                [max_x, max_x * slope + intercept]
-            ]
+            import numpy as np
+            x_arr = np.array(x_vals, dtype=float)
+            y_arr = np.array(y_vals, dtype=float)
+            N = len(x_vals)
+            bias = np.mean(x_arr - y_arr) if N > 0 else 0.0
+            rmse = np.sqrt(np.mean((x_arr - y_arr)**2)) if N > 0 else 0.0
+
+            r_value = 0.0
+            global_p, global_slope, global_intercept = 0.0, 0.0, 0.0
+            trend_line = []
+            if N > 1:
+                try:
+                    global_slope, global_intercept, r_value, global_p, std_err = linregress(x_arr, y_arr)
+                    min_x, max_x = np.min(x_arr), np.max(x_arr)
+                    trend_line = [
+                        [float(min_x), float(min_x * global_slope + global_intercept)],
+                        [float(max_x), float(max_x * global_slope + global_intercept)]
+                    ]
+                except Exception as e:
+                    print(f"Global linregress error: {e}")
+                    pass
+            
+            if trend_line:
+                scatter_series.append({
+                    'type': 'line',
+                    'name': f'전체 회귀선 (Y={global_slope:.2f}x+{global_intercept:.2f}, p={global_p:.3f}, R={r_value:.2f})',
+                    'data': trend_line,
+                    'marker': {'enabled': False},
+                    'enableMouseTracking': False,
+                    'color': 'black'
+                })
+
+            ax_min, ax_max = None, None
+            if N > 0:
+                raw_min = float(min(np.min(x_arr), np.min(y_arr)))
+                raw_max = float(max(np.max(x_arr), np.max(y_arr)))
+                pad = (raw_max - raw_min) * 0.05 if raw_max > raw_min else 1.0
+                ax_min = raw_min - pad
+                ax_max = raw_max + pad
 
             options = {
                 'chart': {'type': 'scatter', 'zoomType': 'xy'},
-                'title': {'text': f"{var_name} vs {vvar} (R={r_value:.2f})"},
-                'xAxis': {'title': {'text': f"위성 ({var_name})"}},
-                'yAxis': {'title': {'text': f"관측소 ({vvar})"}},
+                'title': {'text': f"{var_name} vs {vvar}"},
+                'subtitle': {'text': f"R = {r_value:.2f}, Bias = {bias:.2f}, RMSE = {rmse:.2f}, N = {N}"},
+                'xAxis': {'title': {'text': f"위성 ({var_name})"}, 'min': ax_min, 'max': ax_max},
+                'yAxis': {'title': {'text': f"관측소 ({vvar})"}, 'min': ax_min, 'max': ax_max},
                 'tooltip': {
                     'pointFormat': '{point.name}<br/>위성: {point.x:.2f}<br/>관측: {point.y:.2f}',
                     'valueDecimals': 2
                 },
-                'series': [
-                    {'name': '관측소 비교', 'data': scatter_data, 'color': 'rgba(54, 162, 235, 0.5)'},
-                    {'name': '추세선', 'type': 'line', 'data': trend_line, 'color': 'red', 'marker': {'enabled': False}}
-                ],
+                'series': scatter_series,
                 'credits': {'enabled': False}
             }
 
@@ -2278,8 +2422,8 @@ class VisualizeInterface(QWidget):
 
             lat_dim = 'lat' if 'lat' in ds.dims else ('latitude' if 'latitude' in ds.dims else None)
             lon_dim = 'lon' if 'lon' in ds.dims else ('longitude' if 'longitude' in ds.dims else None)
-            v_lat_dim = 'lat' if 'lat' in vds.coords else ('latitude' if 'latitude' in vds.coords else None)
-            v_lon_dim = 'lon' if 'lon' in vds.coords else ('longitude' if 'longitude' in vds.coords else None)
+            v_lat_dim = 'lat' if 'lat' in vds.variables else ('latitude' if 'latitude' in vds.variables else None)
+            v_lon_dim = 'lon' if 'lon' in vds.variables else ('longitude' if 'longitude' in vds.variables else None)
 
             if not lat_dim or not v_lat_dim:
                 return
@@ -3102,8 +3246,9 @@ class NMSCFluentApp(MSFluentWindow):
     def __init__(self):
         super().__init__()
         # self.setWindowTitle("NMSC Climate Toolbox")
-        self.setWindowTitle("국가기상위성센터 분석툴박스")
-        self.resize(1000, 700)
+        self.setWindowTitle("핵심기후변수 분석툴박스")
+        # self.resize(1000, 600)
+        self.resize(1200, 800)
         try:
             import os
             from PyQt6.QtGui import QIcon

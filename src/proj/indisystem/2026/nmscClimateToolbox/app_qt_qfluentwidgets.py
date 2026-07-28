@@ -909,8 +909,8 @@ class VisualizeInterface(QWidget):
             
             lat_dim = 'lat' if 'lat' in ds.dims else ('latitude' if 'latitude' in ds.dims else None)
             lon_dim = 'lon' if 'lon' in ds.dims else ('longitude' if 'longitude' in ds.dims else None)
-            v_lat_dim = 'lat' if 'lat' in vds.coords else ('latitude' if 'latitude' in vds.coords else None)
-            v_lon_dim = 'lon' if 'lon' in vds.coords else ('longitude' if 'longitude' in vds.coords else None)
+            v_lat_dim = 'lat' if 'lat' in vds.variables else ('latitude' if 'latitude' in vds.variables else None)
+            v_lon_dim = 'lon' if 'lon' in vds.variables else ('longitude' if 'longitude' in vds.variables else None)
             
             if not lat_dim or not v_lat_dim:
                 return
@@ -1210,8 +1210,8 @@ map.getViewport().addEventListener('mouseout', () => {{ tooltip.style.display='n
             
             lat_dim = 'lat' if 'lat' in ds.dims else ('latitude' if 'latitude' in ds.dims else None)
             lon_dim = 'lon' if 'lon' in ds.dims else ('longitude' if 'longitude' in ds.dims else None)
-            v_lat_dim = 'lat' if 'lat' in vds.coords else ('latitude' if 'latitude' in vds.coords else None)
-            v_lon_dim = 'lon' if 'lon' in vds.coords else ('longitude' if 'longitude' in vds.coords else None)
+            v_lat_dim = 'lat' if 'lat' in vds.variables else ('latitude' if 'latitude' in vds.variables else None)
+            v_lon_dim = 'lon' if 'lon' in vds.variables else ('longitude' if 'longitude' in vds.variables else None)
             
             if not lat_dim or not v_lat_dim:
                 return
