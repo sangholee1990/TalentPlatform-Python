@@ -1074,109 +1074,117 @@ class CalculateInterface(QWidget):
         # main_layout.addWidget(title)
 
         # =========================================================
-        # 1. 좌측 메뉴 대신 상단 탭(SegmentedWidget) 사용
+        # 최상단 Segment 탭 추가
         self.segment = SegmentedWidget(self)
         main_layout.addWidget(self.segment, 0, Qt.AlignmentFlag.AlignLeft)
-        # main_layout.addSpacing(10)
+        
+        self.stack = QStackedWidget(self)
 
-        # 2. 하단 설정 영역 (기존 우측 패널)
+        # 1. 단일 패널로 구성 (스크롤 가능하도록)
+        from PyQt6.QtWidgets import QScrollArea
+        scroll_area = QScrollArea()
+        scroll_area.setWidgetResizable(True)
+        scroll_area.setStyleSheet("QScrollArea { border: none; background-color: transparent; }")
+
         content_widget = CardWidget()
         v_content = QVBoxLayout(content_widget)
-        self.stack = QStackedWidget()
+        v_content.setAlignment(Qt.AlignmentFlag.AlignTop)
         # =========================================================
 
-        # Tool 1: Climatology & Anomaly
-        page_1 = QWidget()
-        v_page_1 = QVBoxLayout(page_1)
-        v_page_1.setAlignment(Qt.AlignmentFlag.AlignTop)
-        v_page_1.addWidget(SubtitleLabel("평년값 및 편차 산출 옵션"))
-        v_page_1.addSpacing(10)
+        # ---------------------------------------------------------
 
-        h_cli = QHBoxLayout()
-        self.sw_cli = SwitchButton()
-        self.sw_cli.setText("평년값 계산 활성화")
-        h_cli.addWidget(self.sw_cli)
+        # 1. 시간 주기, 시간 연산 (1행)
+        h_row1 = QHBoxLayout()
+        h_row1.addWidget(StrongBodyLabel("시간 주기"))
+        self.cb_time_freq = ComboBox()
+        self.cb_time_freq.addItems(["월간", "연간"])
+        self.cb_time_freq.setCurrentIndex(0)
+        h_row1.addWidget(self.cb_time_freq, 1)
 
+        h_row1.addSpacing(20)
+        h_row1.addWidget(StrongBodyLabel("시간 연산"))
+        self.cb_time_op = ComboBox()
+        self.cb_time_op.addItems(["평균", "합계", "최대", "최소"])
+        self.cb_time_op.setCurrentIndex(0)
+        h_row1.addWidget(self.cb_time_op, 1)
+        v_content.addLayout(h_row1)
+        v_content.addSpacing(15)
+
+        # 2. 기후 평년 시작~종료 (1행)
+        h_row2 = QHBoxLayout()
+        h_row2.addWidget(StrongBodyLabel("기후 평년"))
         self.txt_cli_start = LineEdit()
-        self.txt_cli_start.setPlaceholderText("시작 (예: 1991)")
+        self.txt_cli_start.setPlaceholderText("시작 (1991)")
         self.txt_cli_end = LineEdit()
-        self.txt_cli_end.setPlaceholderText("종료 (예: 2020)")
+        self.txt_cli_end.setPlaceholderText("종료 (2020)")
+        h_row2.addWidget(self.txt_cli_start, 1)
+        h_row2.addWidget(StrongBodyLabel("~"))
+        h_row2.addWidget(self.txt_cli_end, 1)
+        v_content.addLayout(h_row2)
+        v_content.addSpacing(15)
 
-        h_cli.addWidget(StrongBodyLabel("기준 연도:"))
-        h_cli.addWidget(self.txt_cli_start)
-        h_cli.addWidget(StrongBodyLabel("~"))
-        h_cli.addWidget(self.txt_cli_end)
-        v_page_1.addLayout(h_cli)
-
-        h_ano = QHBoxLayout()
-        self.sw_ano = SwitchButton()
-        self.sw_ano.setText("편차(Anomaly) 계산 활성화")
-        h_ano.addWidget(self.sw_ano)
-        v_page_1.addLayout(h_ano)
-
-        h_month = QHBoxLayout()
-        self.cb_target_month = ComboBox()
-        self.cb_target_month.addItem("전체 월 (All Months)")
+        # 3. 기후 편차 대상 월 선택 (1행)
+        h_row3 = QHBoxLayout()
+        h_row3.addWidget(StrongBodyLabel("기후 편차"))
+        self.cb_ano_target = ComboBox()
+        self.cb_ano_target.addItem("전체")
         for m in range(1, 13):
-            self.cb_target_month.addItem(f"{m}월 (Month {m})")
-        h_month.addWidget(StrongBodyLabel("대상 월 선택 (선택):"))
-        h_month.addWidget(self.cb_target_month, 1)
-        v_page_1.addLayout(h_month)
+            self.cb_ano_target.addItem(f"{m}월")
+        self.cb_ano_target.setCurrentIndex(0)
+        h_row3.addWidget(self.cb_ano_target, 1)
+        v_content.addLayout(h_row3)
+        v_content.addSpacing(15)
 
-        v_page_1.addSpacing(10)
-        btn_calc_1 = PushButton("계산 실행")
-        btn_calc_1.clicked.connect(self.run_climatology)
-        v_page_1.addWidget(btn_calc_1)
+        # 4. 추세 설정 알고리즘 (1행)
+        h_row4 = QHBoxLayout()
+        h_row4.addWidget(StrongBodyLabel("시계열 추세"))
+        self.cb_trend_method = ComboBox()
+        self.cb_trend_method.addItems(["선형 회귀", "Theil-Sen 회귀"])
+        self.cb_trend_method.setCurrentIndex(0)
+        h_row4.addWidget(self.cb_trend_method, 1)
+        v_content.addLayout(h_row4)
 
-        self.stack.addWidget(page_1)
+        # 빈 공간 채우기
+        v_content.addStretch(1)
 
-        # Tool 2: Spatial Aggregation
-        page_2 = QWidget()
-        v_page_2 = QVBoxLayout(page_2)
-        v_page_2.setAlignment(Qt.AlignmentFlag.AlignTop)
-        v_page_2.addWidget(SubtitleLabel("공간 평균/합산 옵션"))
-        v_page_2.addSpacing(10)
-
-        h_sp = QHBoxLayout()
-        self.cb_sp_method = ComboBox()
-        self.cb_sp_method.addItems(["Mean (평균)", "Sum (합계)", "Max (최대)", "Min (최소)"])
-        h_sp.addWidget(StrongBodyLabel("연산 방식:"))
-        h_sp.addWidget(self.cb_sp_method)
-        v_page_2.addLayout(h_sp)
-
-        v_page_2.addSpacing(10)
-        btn_calc_2 = PushButton("계산 실행")
-        btn_calc_2.clicked.connect(self.run_spatial)
-        v_page_2.addWidget(btn_calc_2)
-
-        self.stack.addWidget(page_2)
-
-        # Tool 3: Trend
-        page_3 = QWidget()
-        v_page_3 = QVBoxLayout(page_3)
-        v_page_3.setAlignment(Qt.AlignmentFlag.AlignTop)
-        v_page_3.addWidget(SubtitleLabel("시계열 추세 분석 옵션"))
-        v_page_3.addSpacing(10)
-        v_page_3.addWidget(BodyLabel("선형 회귀 기반 트렌드 분석을 수행합니다."))
-
-        v_page_3.addSpacing(10)
-        btn_calc_3 = PushButton("추세 계산 실행")
-        btn_calc_3.clicked.connect(self.run_trend)
-        v_page_3.addWidget(btn_calc_3)
-
-        self.stack.addWidget(page_3)
+        # 맨 하단 "적용" 버튼
+        btn_apply = PushButton("적용")
+        btn_apply.clicked.connect(self.run_all_calculations)
+        v_content.addWidget(btn_apply)
 
         # =========================================================
-        # 3. 레이아웃에 스택 추가 및 탭 아이템 등록
-        v_content.addWidget(self.stack)
-        main_layout.addWidget(content_widget, 1)
+        # 메인 레이아웃에 스크롤 영역 추가
+        scroll_area.setWidget(content_widget)
+        self.stack.addWidget(scroll_area)
+        main_layout.addWidget(self.stack, 1)
 
-        # SegmentedWidget에 탭 아이템 추가 (클릭 시 스택 인덱스 변경)
-        self.segment.addItem("clim", "기후 평년값 및 편차 산출", lambda: self.stack.setCurrentIndex(0))
-        self.segment.addItem("spatial", "공간 평균/합산", lambda: self.stack.setCurrentIndex(1))
-        self.segment.addItem("trend", "시계열 추세 분석", lambda: self.stack.setCurrentIndex(2))
+        self.segment.addItem("main", "주요 설정", lambda: self.stack.setCurrentIndex(0))
+        self.segment.setCurrentItem("main")
 
-        self.segment.setCurrentIndex(0)
+    def run_all_calculations(self):
+        """통합 적용 버튼 동작: 모든 설정을 순차적으로 적용 및 연산 수행"""
+        self.run_spatial()
+        self.run_trend()
+        self.run_climatology()
+
+    def showEvent(self, event):
+        super().showEvent(event)
+        # 데이터가 있으면 평년 설정의 년도를 자동 반영
+        w = self.window()
+        if hasattr(w, 'ds') and w.ds is not None and 'time' in w.ds.dims:
+            import pandas as pd
+            try:
+                times = pd.to_datetime(w.ds['time'].values)
+                if len(times) > 0:
+                    start_yr = str(times.min().year)
+                    end_yr = str(times.max().year)
+                    if not self.txt_cli_start.text():
+                        self.txt_cli_start.setText(start_yr)
+                    if not self.txt_cli_end.text():
+                        self.txt_cli_end.setText(end_yr)
+            except Exception as e:
+                print("Failed to auto-populate year:", e)
+
 
     def on_toolbox_changed(self, index):
         self.stack.setCurrentIndex(index)
@@ -1518,7 +1526,7 @@ class VisualizeInterface(QWidget):
 
         # DateSlider for Vis
         v_left.addSpacing(10)
-        self.date_slider_vis = DateSlider("검색 기간")
+        self.date_slider_vis = DateSlider("검증기간")
         v_left.addWidget(self.date_slider_vis)
 
         # Station Multi-Select
@@ -2164,13 +2172,13 @@ class VisualizeInterface(QWidget):
                 m_df = final_df[final_df['station_name'] == st_name_val]
                 if m_df.empty:
                     continue
-                
+
                 m_x = m_df['SST_Sat'].astype(float).values
                 m_y = m_df['SST_Buoy'].astype(float).values
                 m_n = len(m_x)
                 m_bias = float(np.mean(m_x - m_y)) if m_n > 0 else 0.0
                 m_rmse = float(np.sqrt(np.mean((m_x - m_y)**2))) if m_n > 0 else 0.0
-                
+
                 m_r, m_slope, m_intercept, m_p = 0.0, 0.0, 0.0, 0.0
                 if m_n > 1:
                     try:
@@ -2179,7 +2187,7 @@ class VisualizeInterface(QWidget):
                         m_r = float(m_r); m_p = float(m_p)
                     except Exception as e:
                         print(f"linregress error for {st_name_val}: {e}")
-                    
+
                 m_data = [{'x': float(r['SST_Sat']), 'y': float(r['SST_Buoy']), 'name': r['station_name']}
                            for _, r in m_df.iterrows()]
                 x_vals.extend([d['x'] for d in m_data])
@@ -2375,37 +2383,103 @@ class VisualizeInterface(QWidget):
             import numpy as np
             from scipy.stats import linregress
 
-            # Get data shared from plot_trend on the input panel
-            input_panel = self.window().input_panel
-            all_merged_dfs = getattr(input_panel, '_trend_merged_dfs', None)
-
+            ds = self.get_ds()
+            vds = self.window().valid_ds
             var_name = self.window().selected_var or '위성'
             vvar = self.window().selected_valid_var or '관측'
 
-            if not all_merged_dfs:
+            if ds is None or vds is None or not var_name or not vvar:
                 self.valid_view.page().runJavaScript(
-                    f"updateChart({json.dumps({'title': {'text': '먼저 검증 시계열 탭에서 적용 버튼을 눌러주세요'}})});")
+                    f"updateChart({json.dumps({'title': {'text': '데이터를 먼저 불러오세요'}})});")
                 return
 
-            final_df = pd.concat(all_merged_dfs, ignore_index=True)
-            print(f"[plot_valid2] 사용 데이터: {len(final_df)} 행, 지점: {final_df['station_name'].unique()}")
+            # Apply date filter
+            try:
+                start_date = self.date_slider_vis.date_start.date()
+                end_date = self.date_slider_vis.date_end.date()
+                st_ts = pd.Timestamp(start_date.year(), start_date.month(), start_date.day())
+                en_ts = pd.Timestamp(end_date.year(), end_date.month(), end_date.day())
+                if 'time' in ds.dims:
+                    ds = ds.sel(time=slice(st_ts, en_ts))
+                if 'time' in vds.dims:
+                    vds = vds.sel(time=slice(st_ts, en_ts))
+            except Exception as e:
+                print("Date filter error in plot_valid:", e)
 
+            lat_dim  = 'lat' if 'lat' in ds.dims else ('latitude' if 'latitude' in ds.dims else None)
+            lon_dim  = 'lon' if 'lon' in ds.dims else ('longitude' if 'longitude' in ds.dims else None)
+            v_lat_dim = 'lat' if 'lat' in vds.variables else ('latitude' if 'latitude' in vds.variables else None)
+            v_lon_dim = 'lon' if 'lon' in vds.variables else ('longitude' if 'longitude' in vds.variables else None)
+            time_dim = 'time' if 'time' in ds.dims else None
+
+            if not lat_dim or not v_lat_dim or 'station_code' not in vds.dims:
+                self.valid_view.page().runJavaScript(
+                    f"updateChart({json.dumps({'title': {'text': '지원하지 않는 데이터 형식입니다'}})});")
+                return
+
+            # Station selection
+            try:
+                selected_stations = self.valid_station_combo.getCheckedItems()
+            except:
+                selected_stations = []
+
+            if not selected_stations:
+                self.valid_view.page().runJavaScript(
+                    f"updateChart({json.dumps({'title': {'text': '검증지점을 선택하세요'}})});")
+                return
+
+            # Fetch and merge data per station
+            all_merged = []
+            for st in vds['station_code'].values:
+                if st not in selected_stations and str(st) not in selected_stations:
+                    continue
+                try:
+                    stn_lat = float(vds[v_lat_dim].sel(station_code=st).values.item())
+                    stn_lon = float(vds[v_lon_dim].sel(station_code=st).values.item())
+                    st_name = str(vds['station_name'].sel(station_code=st).values) if 'station_name' in vds else str(st)
+
+                    buoy_df = vds[vvar].sel(station_code=st).to_dataframe().reset_index()
+                    if 'time' in buoy_df.columns:
+                        buoy_df['time'] = pd.to_datetime(buoy_df['time'])
+                        buoy_monthly = buoy_df.set_index('time').resample('MS')[vvar].mean().reset_index()
+                    else:
+                        buoy_monthly = buoy_df
+                    buoy_monthly = buoy_monthly.rename(columns={vvar: 'SST_Buoy'})
+
+                    sat_df = ds[var_name].sel({lat_dim: stn_lat, lon_dim: stn_lon}, method='nearest').to_dataframe().reset_index()
+                    if time_dim and time_dim in sat_df.columns:
+                        sat_df['time'] = pd.to_datetime(sat_df[time_dim])
+                        sat_df = sat_df[['time', var_name]].rename(columns={var_name: 'SST_Sat'})
+                    else:
+                        sat_df = sat_df[[var_name]].rename(columns={var_name: 'SST_Sat'})
+
+                    if 'time' in sat_df.columns and 'time' in buoy_monthly.columns:
+                        merged = pd.merge(sat_df, buoy_monthly, on='time', how='inner').dropna(subset=['SST_Sat', 'SST_Buoy'])
+                        merged['station_name'] = f"{st} ({st_name})"
+                        if not merged.empty:
+                            all_merged.append(merged)
+                except Exception as e:
+                    print(f"Station {st} error: {e}")
+
+            if not all_merged:
+                self.valid_view.page().runJavaScript(
+                    f"updateChart({json.dumps({'title': {'text': '선택된 기간/지점에 데이터가 없습니다'}})});")
+                return
+
+            final_df = pd.concat(all_merged, ignore_index=True)
             scatter_series = []
-            x_vals = []
-            y_vals = []
+            x_all, y_all = [], []
 
             for st_name_val in final_df['station_name'].unique():
                 m_df = final_df[final_df['station_name'] == st_name_val]
                 if m_df.empty:
                     continue
-
                 m_x = m_df['SST_Sat'].astype(float).values
                 m_y = m_df['SST_Buoy'].astype(float).values
-                m_n = len(m_x)
+                m_n  = len(m_x)
                 m_bias = float(np.mean(m_x - m_y)) if m_n > 0 else 0.0
                 m_rmse = float(np.sqrt(np.mean((m_x - m_y)**2))) if m_n > 0 else 0.0
-
-                m_r, m_slope, m_intercept, m_p = 0.0, 0.0, 0.0, 0.0
+                m_r = m_slope = m_intercept = m_p = 0.0
                 if m_n > 1:
                     try:
                         m_slope, m_intercept, m_r, m_p, _ = linregress(m_x, m_y)
@@ -2416,46 +2490,51 @@ class VisualizeInterface(QWidget):
 
                 m_data = [{'x': float(r['SST_Sat']), 'y': float(r['SST_Buoy']), 'name': r['station_name']}
                            for _, r in m_df.iterrows()]
-                x_vals.extend([d['x'] for d in m_data])
-                y_vals.extend([d['y'] for d in m_data])
+                x_all.extend([d['x'] for d in m_data])
+                y_all.extend([d['y'] for d in m_data])
 
-                series_name = f"{st_name_val} (Y={m_slope:.3f}x+{m_intercept:.3f}, p={m_p:.3f}, R={m_r:.3f}, Bias={m_bias:.3f}, RMSE={m_rmse:.3f}, N={m_n})"
-                scatter_series.append({'name': series_name, 'data': m_data})
+                # Update naming to "지점 - {st_name_val}" and store stats in custom
+                sname = f"지점 - {st_name_val}"
+                scatter_series.append({
+                    'name': sname,
+                    'data': m_data,
+                    'custom': {'r': m_r, 'bias': m_bias, 'rmse': m_rmse, 'n': m_n}
+                })
+
+                # Per-station trend line — show in legend as "추세 - {st_name_val}"
+                if m_n > 1 and m_slope != 0.0:
+                    x0, x1 = float(np.min(m_x)), float(np.max(m_x))
+                    scatter_series.append({
+                        'type': 'line',
+                        'name': f'추세 - {st_name_val}',
+                        'data': [[x0, x0 * m_slope + m_intercept],
+                                 [x1, x1 * m_slope + m_intercept]],
+                        'marker': {'enabled': False},
+                        'enableMouseTracking': False,
+                        'dashStyle': 'Dash',
+                        'lineWidth': 1,
+                        'showInLegend': True
+                    })
 
             if not scatter_series:
                 self.valid_view.page().runJavaScript(f"updateChart({json.dumps({'title': {'text': '데이터가 없습니다'}})});")
                 return
 
-            x_arr = np.array(x_vals, dtype=float)
-            y_arr = np.array(y_vals, dtype=float)
-            N = len(x_vals)
+            x_arr = np.array(x_all, dtype=float)
+            y_arr = np.array(y_all, dtype=float)
+            N = len(x_all)
             bias = float(np.mean(x_arr - y_arr)) if N > 0 else 0.0
             rmse = float(np.sqrt(np.mean((x_arr - y_arr)**2))) if N > 0 else 0.0
-
-            r_value, global_p, global_slope, global_intercept = 0.0, 0.0, 0.0, 0.0
-            trend_line = []
+            r_value = 0.0
             if N > 1:
                 try:
-                    global_slope, global_intercept, r_value, global_p, _ = linregress(x_arr, y_arr)
-                    global_slope = float(global_slope); global_intercept = float(global_intercept)
-                    r_value = float(r_value); global_p = float(global_p)
-                    min_x, max_x = float(np.min(x_arr)), float(np.max(x_arr))
-                    trend_line = [[min_x, min_x * global_slope + global_intercept],
-                                  [max_x, max_x * global_slope + global_intercept]]
-                except Exception as e:
-                    print(f"Global linregress error: {e}")
+                    _, _, r_value, _, _ = linregress(x_arr, y_arr)
+                    r_value = float(r_value)
+                except:
+                    pass
 
-            if trend_line:
-                scatter_series.append({
-                    'type': 'line',
-                    'name': f'전체 회귀선 (Y={global_slope:.3f}x+{global_intercept:.3f}, p={global_p:.3f}, R={r_value:.3f})',
-                    'data': trend_line,
-                    'marker': {'enabled': False},
-                    'enableMouseTracking': False,
-                    'color': 'black'
-                })
-
-            ax_min, ax_max = None, None
+            # Same min/max range for X and Y axes
+            ax_min = ax_max = None
             if N > 0:
                 raw_min = float(min(np.min(x_arr), np.min(y_arr)))
                 raw_max = float(max(np.max(x_arr), np.max(y_arr)))
@@ -2463,19 +2542,44 @@ class VisualizeInterface(QWidget):
                 ax_min = raw_min - pad
                 ax_max = raw_max + pad
 
+            if ax_min is not None and ax_max is not None:
+                scatter_series.append({
+                    'type': 'line',
+                    'name': '1:1 선',
+                    'data': [[ax_min, ax_min], [ax_max, ax_max]],
+                    'marker': {'enabled': False},
+                    'enableMouseTracking': False,
+                    'color': 'gray',
+                    'dashStyle': 'Solid',
+                    'lineWidth': 1.5,
+                    'showInLegend': True
+                })
+
             options = {
                 'chart': {'type': 'scatter', 'zoomType': 'xy'},
                 'title': {'text': f"{var_name} vs {vvar}"},
-                'subtitle': {'text': f"R = {r_value:.3f}, Bias = {bias:.3f}, RMSE = {rmse:.3f}, N = {N}"},
                 'xAxis': {'title': {'text': f"위성 ({var_name})"}, 'min': ax_min, 'max': ax_max},
                 'yAxis': {'title': {'text': f"관측소 ({vvar})"}, 'min': ax_min, 'max': ax_max},
-                'legend': {'layout': 'horizontal', 'align': 'center', 'verticalAlign': 'bottom', 'floating': False},
-                'tooltip': {'pointFormat': '{point.name}<br/>위성: {point.x:.2f}<br/>관측: {point.y:.2f}', 'valueDecimals': 2},
+                'legend': {'layout': 'horizontal', 'align': 'center', 'verticalAlign': 'bottom'},
+                'tooltip': {'pointFormat': '<b>{series.name}</b><br/>위성: {point.x:.2f}<br/>관측: {point.y:.2f}<br/>R: {point.series.userOptions.custom.r:.3f}, Bias: {point.series.userOptions.custom.bias:.3f}, RMSE: {point.series.userOptions.custom.rmse:.3f}, N: {point.series.userOptions.custom.n}'},
                 'series': scatter_series,
                 'credits': {'enabled': False}
             }
 
-            js_code = f"updateChart({json.dumps(options)});"
+            # Optional aspect ratio fix script injection
+            js_code = f"""
+            updateChart({json.dumps(options)});
+            // Force container aspect ratio to 1:1 for a true square scatter plot
+            var container = document.getElementById('container');
+            if (container) {{
+                container.style.aspectRatio = '1 / 1';
+                container.style.margin = '0 auto';
+                // Trigger reflow if needed
+                if (window.Highcharts && Highcharts.charts && Highcharts.charts[0]) {{
+                    Highcharts.charts[0].reflow();
+                }}
+            }}
+            """
             self.valid_view.page().runJavaScript(js_code)
         except Exception as e:
             print("Valid plot error:", e)
@@ -2931,13 +3035,22 @@ class AIGeneratorThread(QThread):
                         messages.append({"role": role, "content": msg['text']})
                     
                     if self.image_path and chat_handler:
-                        messages.append({
-                            "role": "user",
-                            "content": [
-                                {"type": "image_url", "image_url": {"url": f"file://{self.image_path}"}},
-                                {"type": "text", "text": self.prompt}
-                            ]
-                        })
+                        import base64, os
+                        if os.path.exists(self.image_path):
+                            with open(self.image_path, "rb") as f:
+                                b64_img = base64.b64encode(f.read()).decode('utf-8')
+                            img_ext = os.path.splitext(self.image_path)[1].lower()
+                            mime_type = "image/png" if img_ext == ".png" else "image/jpeg"
+                            data_uri = f"data:{mime_type};base64,{b64_img}"
+                            messages.append({
+                                "role": "user",
+                                "content": [
+                                    {"type": "image_url", "image_url": {"url": data_uri}},
+                                    {"type": "text", "text": self.prompt}
+                                ]
+                            })
+                        else:
+                            messages.append({"role": "user", "content": self.prompt})
                     else:
                         messages.append({"role": "user", "content": self.prompt})
 
@@ -2954,16 +3067,13 @@ class AIGeneratorThread(QThread):
                             if 'content' in delta:
                                 self.chunk_received.emit(delta['content'])
 
-                    for chunk in response:
-                        text = chunk['choices'][0]['text']
-                        self.chunk_received.emit(text)
                 except Exception as model_err:
                     self.error_occurred.emit(f"로컬 모델 구동 실패: {model_err}")
 
-            self.chunk_received.emit("\n")
+            self.chunk_received.emit('\n')
 
         except Exception as e:
-            self.error_occurred.emit(f"AI 분석 중 예상치 못한 오류 발생: {str(e)}")
+            self.error_occurred.emit(f'AI 분석 중 예상치 못한 오류 발생: {str(e)}')
 
 
 class AIAssistantInterface(QWidget):
@@ -3020,32 +3130,45 @@ class AIAssistantInterface(QWidget):
         v_offline.addWidget(StrongBodyLabel("VLM 대규모언어모델"))
         h_mod = QHBoxLayout()
         self.txt_model_path = LineEdit()
-        self.txt_model_path.setText("gemma-4-E2B-it-Q8_0.gguf")
+        self.txt_model_path.setText('gemma-4-E2B-it-Q8_0.gguf')
         h_mod.addWidget(self.txt_model_path, 1)
-        btn_mod = QPushButton("찾기")
+        btn_mod = QPushButton('찾기')
         btn_mod.clicked.connect(self.browse_model)
         h_mod.addWidget(btn_mod)
         v_offline.addLayout(h_mod)
 
-        v_offline.addWidget(StrongBodyLabel("VLM 시각언어모델"))
+        v_offline.addWidget(StrongBodyLabel("VLM 시각언어모델 (선택)"))
         h_proj = QHBoxLayout()
         self.txt_proj_path = LineEdit()
-        self.txt_proj_path.setText("mmproj-F16.gguf")
+        self.txt_proj_path.setText('mmproj-F16.gguf')
         h_proj.addWidget(self.txt_proj_path, 1)
-        btn_proj = QPushButton("찾기")
+        btn_proj = QPushButton('찾기')
         btn_proj.clicked.connect(self.browse_proj)
         h_proj.addWidget(btn_proj)
         v_offline.addLayout(h_proj)
 
-        v_offline.addWidget(StrongBodyLabel("첨부 이미지"))
+        # Image attachment
+        v_offline.addWidget(StrongBodyLabel("첨부 이미지 (선택 - 멀티모달 분석)"))
         h_img = QHBoxLayout()
         self.txt_image_path = LineEdit()
-        self.txt_image_path.setText("20260722_143203.png")
-        btn_img = QPushButton("찾기")
+        self.txt_image_path.setPlaceholderText('이미지 경로 (비워두면 텍스트만 사용)')
+        btn_img = QPushButton('찾기')
         btn_img.clicked.connect(self.browse_image)
         h_img.addWidget(self.txt_image_path, 1)
         h_img.addWidget(btn_img)
         v_offline.addLayout(h_img)
+
+        # Image preview
+        from PyQt6.QtWidgets import QLabel
+        from PyQt6.QtGui import QPixmap
+        from PyQt6.QtCore import Qt as _Qt
+        self.lbl_img_preview = QLabel('이미지 미리보기')
+        self.lbl_img_preview.setAlignment(_Qt.AlignmentFlag.AlignCenter)
+        self.lbl_img_preview.setStyleSheet('border: 1px solid #ccc; min-height: 100px; color: #999;')
+        self.lbl_img_preview.setMaximumHeight(150)
+        v_offline.addWidget(self.lbl_img_preview)
+        self.txt_image_path.textChanged.connect(self._update_img_preview)
+
         v_offline.addStretch(1)
 
         self.stack.addWidget(page_offline)
@@ -3078,13 +3201,28 @@ class AIAssistantInterface(QWidget):
         splitter.addWidget(right_widget)
 
         # Set Splitter ratio
-        splitter.setStretchFactor(0, 2)
-        splitter.setStretchFactor(1, 8)
-        splitter.setSizes([2000, 8000])
-        # splitter.setStretchFactor(0, 3)
-        # splitter.setStretchFactor(1, 7)
-        # splitter.setSizes([3000, 7000])
+        # splitter.setStretchFactor(0, 2)
+        # splitter.setStretchFactor(1, 8)
+        # splitter.setSizes([2000, 8000])
+        splitter.setStretchFactor(0, 3)
+        splitter.setStretchFactor(1, 7)
+        splitter.setSizes([3000, 7000])
         main_layout.addWidget(splitter, 1)
+
+    def _update_img_preview(self, path):
+        from PyQt6.QtGui import QPixmap
+        import os
+        if path and os.path.exists(path):
+            pix = QPixmap(path)
+            if not pix.isNull():
+                self.lbl_img_preview.setPixmap(
+                    pix.scaled(self.lbl_img_preview.width(), 140,
+                               aspectRatioMode=__import__('PyQt6.QtCore', fromlist=['Qt']).Qt.AspectRatioMode.KeepAspectRatio,
+                               transformMode=__import__('PyQt6.QtCore', fromlist=['Qt']).Qt.TransformationMode.SmoothTransformation)
+                )
+                return
+        self.lbl_img_preview.setText('이미지 미리보기')
+        self.lbl_img_preview.setPixmap(__import__('PyQt6.QtGui', fromlist=['QPixmap']).QPixmap())
 
     def browse_model(self):
         from PyQt6.QtWidgets import QFileDialog
