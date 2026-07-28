@@ -1592,7 +1592,7 @@ class VisualizeInterface(QWidget):
         v_left.addStretch(1)
 
         from qfluentwidgets import PrimaryPushButton
-        self.btn_ai = PrimaryPushButton("AI 분석 요청")
+        self.btn_ai = PrimaryPushButton("AI 헬퍼 요청")
         self.btn_ai.setMinimumHeight(40)
         self.btn_ai.clicked.connect(self.request_ai_analysis)
         v_left.addWidget(self.btn_ai)
@@ -2275,10 +2275,12 @@ class VisualizeInterface(QWidget):
             InfoBar.error(title="오류", content=f"이미지 캡처 중 오류가 발생했습니다: {e}", parent=self, position=InfoBarPosition.TOP)
             return
 
-        main_nav = self.window().nav_panel
-        self.window().stacked_widget.setCurrentWidget(self.window().ai_interface)
-        if hasattr(self.window().nav_panel, 'setCurrentItem'):
-            self.window().nav_panel.setCurrentItem('ai')
+        # 탭 자동 전환 로직 호환성 개선
+        win = self.window()
+        if hasattr(win, 'stackedWidget'):
+            win.stackedWidget.setCurrentWidget(win.ai_interface)
+        if hasattr(win, 'navigationInterface'):
+            win.navigationInterface.setCurrentItem(win.ai_interface.objectName())
 
         ai_interface = self.window().ai_interface
         ai_interface.txt_image_path.setText(tmp_path)
@@ -2862,6 +2864,9 @@ class StaticImageThread(QThread):
 class AIGeneratorThread(QThread):
     chunk_received = pyqtSignal(str)
     error_occurred = pyqtSignal(str)
+    
+    _cached_llm = None
+    _cached_model_path = ""
 
     def __init__(self, engine, prompt, api_key, model_path, proj_path, image_path, chat_history=None):
         super().__init__()
@@ -2872,6 +2877,25 @@ class AIGeneratorThread(QThread):
         self.proj_path = proj_path
         self.image_path = image_path
         self.chat_history = chat_history or []
+
+    def _get_system_prompt(self):
+        toolbox_docs = ""
+        try:
+            import os, ast
+            tb_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'nmsc_climate_toolbox.py')
+            if os.path.exists(tb_path):
+                with open(tb_path, 'r', encoding='utf-8') as f:
+                    tree = ast.parse(f.read())
+                    for node in tree.body:
+                        if isinstance(node, ast.ClassDef) and node.name == 'NMSCClimateToolbox':
+                            for item in node.body:
+                                if isinstance(item, ast.FunctionDef) and not item.name.startswith('_'):
+                                    doc = ast.get_docstring(item) or ""
+                                    toolbox_docs += f"- {item.name}: {doc.split(chr(10))[0]}\n"
+        except Exception as e:
+            toolbox_docs = "(문서를 불러올 수 없습니다)"
+            
+        return f"당신은 '핵심기후변수 분석 툴박스'의 AI 헬퍼입니다. 내부 엔진인 nmsc_climate_toolbox.py 파일에는 다음과 같은 핵심 분석 기능들이 포함되어 있습니다:\n{toolbox_docs}\n사용자가 프로그램의 사용법이나 분석 알고리즘에 대해 질문하면, 반드시 위의 실제 파이썬 기능 명세(함수들)를 참조하여 정확하고 전문적으로 설명해 주세요."
 
     def run(self):
         try:
@@ -2894,7 +2918,8 @@ class AIGeneratorThread(QThread):
                     role = "user" if msg['role'] == "user" else "model"
                     formatted_history.append({"role": role, "parts": [msg['text']]})
 
-                model = genai.GenerativeModel(self.model_path if self.model_path else 'gemini-1.5-flash')
+                system_prompt = self._get_system_prompt()
+                model = genai.GenerativeModel(self.model_path if self.model_path else 'gemini-1.5-flash', system_instruction=system_prompt)
 
                 contents = [self.prompt]
                 if self.image_path:
@@ -2938,18 +2963,22 @@ class AIGeneratorThread(QThread):
                         except ImportError:
                             pass
 
-                    self.chunk_received.emit("*(모델 로드 중...)*\n\n")
-                    llm = Llama(
-                        model_path=self.model_path,
-                        chat_handler=chat_handler,
-                        n_ctx=2048,
-                        n_threads=4,
-                        n_gpu_layers=0,
-                        verbose=False
-                    )
+                    if AIGeneratorThread._cached_llm is None or AIGeneratorThread._cached_model_path != self.model_path:
+                        # self.chunk_received.emit("*(오프라인 VLM 모델 읽는 중...)*\n\n")  # 사용자가 숨김 요청함
+                        AIGeneratorThread._cached_llm = Llama(
+                            model_path=self.model_path,
+                            chat_handler=chat_handler,
+                            n_ctx=4096,
+                            n_threads=4,
+                            n_gpu_layers=0,
+                            verbose=False
+                        )
+                        AIGeneratorThread._cached_model_path = self.model_path
+                    llm = AIGeneratorThread._cached_llm
 
-                    messages = []
-                    for msg in self.chat_history[-5:]:
+                    system_prompt = self._get_system_prompt()
+                    messages = [{"role": "system", "content": system_prompt}]
+                    for msg in self.chat_history[-3:]:
                         role = "user" if msg['role'] == "user" else "assistant"
                         messages.append({"role": role, "content": msg['text']})
                     
@@ -3049,17 +3078,17 @@ class AIAssistantInterface(QWidget):
         v_offline.addWidget(StrongBodyLabel("VLM 대규모언어모델"))
         h_mod = QHBoxLayout()
         self.txt_model_path = LineEdit()
-        self.txt_model_path.setText('gemma-4-E2B-it-Q8_0.gguf')
+        self.txt_model_path.setText('D:/ollama/gemma-4-E2B-it-Q8_0.gguf')
         h_mod.addWidget(self.txt_model_path, 1)
         btn_mod = QPushButton('찾기')
         btn_mod.clicked.connect(self.browse_model)
         h_mod.addWidget(btn_mod)
         v_offline.addLayout(h_mod)
 
-        v_offline.addWidget(StrongBodyLabel("VLM 시각언어모델 (선택)"))
+        v_offline.addWidget(StrongBodyLabel("VLM 시각언어모델"))
         h_proj = QHBoxLayout()
         self.txt_proj_path = LineEdit()
-        self.txt_proj_path.setText('mmproj-F16.gguf')
+        self.txt_proj_path.setText('D:/ollama/mmproj-F16.gguf')
         h_proj.addWidget(self.txt_proj_path, 1)
         btn_proj = QPushButton('찾기')
         btn_proj.clicked.connect(self.browse_proj)
@@ -3110,7 +3139,7 @@ class AIAssistantInterface(QWidget):
         self.txt_prompt = TextEdit()
         self.txt_prompt.setPlaceholderText("질문을 입력하세요... (Shift+Enter로 줄바꿈)")
         self.txt_prompt.setMaximumHeight(80)
-        self.txt_prompt.setStyleSheet("background-color: white; color: black; border: 1px solid #e0e0e0; border-radius: 6px; padding: 5px; font-size: 14px;")
+        self.txt_prompt.setStyleSheet("background-color: white; color: black; border: 1px solid #e0e0e0; border-radius: 6px;")
         self.txt_prompt.installEventFilter(self)
         h_input.addWidget(self.txt_prompt, 1)
 
@@ -3147,21 +3176,27 @@ class AIAssistantInterface(QWidget):
 
     def browse_model(self):
         from PyQt6.QtWidgets import QFileDialog
-        path, _ = QFileDialog.getOpenFileName(self, "Model 파일 선택", "", "GGUF Files (*.gguf);;All Files (*)")
-        if path:
-            self.txt_model_path.setText(path)
+        dialog = QFileDialog(self, "Model 파일 선택", "", "GGUF Files (*.gguf);;All Files (*)")
+        dialog.setOption(QFileDialog.Option.DontUseNativeDialog, True)
+        dialog.resize(800, 600)
+        if dialog.exec():
+            self.txt_model_path.setText(dialog.selectedFiles()[0])
 
     def browse_proj(self):
         from PyQt6.QtWidgets import QFileDialog
-        path, _ = QFileDialog.getOpenFileName(self, "Projector 파일 선택", "", "GGUF Files (*.gguf);;All Files (*)")
-        if path:
-            self.txt_proj_path.setText(path)
+        dialog = QFileDialog(self, "Projector 파일 선택", "", "GGUF Files (*.gguf);;All Files (*)")
+        dialog.setOption(QFileDialog.Option.DontUseNativeDialog, True)
+        dialog.resize(800, 600)
+        if dialog.exec():
+            self.txt_proj_path.setText(dialog.selectedFiles()[0])
 
     def browse_image(self):
         from PyQt6.QtWidgets import QFileDialog
-        path, _ = QFileDialog.getOpenFileName(self, "이미지 선택", "", "Images (*.png *.jpg *.jpeg)")
-        if path:
-            self.txt_image_path.setText(path)
+        dialog = QFileDialog(self, "이미지 선택", "", "Images (*.png *.jpg *.jpeg)")
+        dialog.setOption(QFileDialog.Option.DontUseNativeDialog, True)
+        dialog.resize(800, 600)
+        if dialog.exec():
+            self.txt_image_path.setText(dialog.selectedFiles()[0])
 
     def eventFilter(self, obj, event):
         import PyQt6.QtCore as QtCore
@@ -3226,15 +3261,19 @@ class AIAssistantInterface(QWidget):
         self.llm_thread.start()
 
     def on_chunk(self, text):
+        from PyQt6.QtGui import QTextCursor
         # History 업데이트
         if self.chat_history and self.chat_history[-1]['role'] == 'ai':
-            # Remove loading message if it exists
-            if self.chat_history[-1]['text'] == "*(모델 로드 중...)*\n\n":
-                self.chat_history[-1]['text'] = ""
             self.chat_history[-1]['text'] += text
 
-        # 렌더링 (Markdown 적용)
-        self.update_full_chat_ui()
+        # 스트리밍 중에는 UI 멈춤(렉) 방지를 위해 insertText 사용
+        cursor = self.chat_area.textCursor()
+        cursor.movePosition(QTextCursor.MoveOperation.End)
+        cursor.insertText(text)
+        
+        # 자동 스크롤
+        scrollbar = self.chat_area.verticalScrollBar()
+        scrollbar.setValue(scrollbar.maximum())
 
     def on_error(self, error_msg):
         self.chat_area.append(f"<br><font color='red'>[Error] {error_msg}</font><br>")
@@ -3248,7 +3287,7 @@ class AIAssistantInterface(QWidget):
                 html += f"<div align='right' style='color: #0078D4; margin-bottom: 15px;'><b>[사용자]</b><br>{text}</div>"
             else:
                 text = self.simple_markdown_to_html(msg['text'])
-                html += f"<div align='left' style='color: #000000; margin-bottom: 15px;'><b>[AI 연계]</b><br>{text}</div>"
+                html += f"<div align='left' style='color: #000000; margin-bottom: 15px;'><b>[AI 헬퍼]</b><br>{text}</div>"
         html += "</div>"
 
         # Save scroll position state before resetting HTML
@@ -3330,7 +3369,7 @@ class NMSCFluentApp(MSFluentWindow):
         self.addSubInterface(self.calculate_interface, FluentIcon.PIE_SINGLE, "산출")
         self.addSubInterface(self.visualize_interface, FluentIcon.PHOTO, "시각화")
 
-        self.addSubInterface(self.ai_interface, FluentIcon.CHAT, "AI 연계", position=NavigationItemPosition.BOTTOM)
+        self.addSubInterface(self.ai_interface, FluentIcon.CHAT, "AI 헬퍼", position=NavigationItemPosition.BOTTOM)
 
         self._nav.setCurrentRow(0)
 
