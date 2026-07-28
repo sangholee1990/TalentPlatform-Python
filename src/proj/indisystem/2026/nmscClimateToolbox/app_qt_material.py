@@ -133,10 +133,10 @@ class CheckableComboBox(QComboBox):
         else:
             item.setCheckState(self.Qt.CheckState.Checked)
 
-    def addCheckableItem(self, text, data=None):
+    def addCheckableItem(self, text, data=None, checked=True):
         item = self.QStandardItem(text)
-        item.setCheckState(self.Qt.CheckState.Checked)
-        item.setFlags(self.Qt.ItemFlag.ItemIsUserCheckable | self.Qt.ItemFlag.ItemIsEnabled)
+        item.setCheckState(self.Qt.CheckState.Checked if checked else self.Qt.CheckState.Unchecked)
+        item.setFlags(self.Qt.ItemFlag.ItemIsUserCheckable | self.Qt.ItemFlag.ItemIsEnabled | self.Qt.ItemFlag.ItemIsSelectable)
         if data is not None:
             item.setData(data)
         self.model().appendRow(item)
@@ -244,9 +244,25 @@ class MSFluentWindow(QMainWindow):
         self.setCentralWidget(_central)
 
         self._nav = QListWidget()
-        self._nav.setMaximumWidth(150)
-        self._nav.setMinimumWidth(130)
-        # We DO NOT apply any manual stylesheets here, let qt-material handle it!
+        # self._nav.setMaximumWidth(80)
+        # self._nav.setMinimumWidth(80)
+        self._nav.setMaximumWidth(100)
+        self._nav.setMinimumWidth(100)
+
+        self._nav.setStyleSheet("""
+                    QListWidget::item {
+                        color: #3c3c3c;
+                    }
+                    QListWidget::item:selected {
+                        background-color: rgba(41, 121, 255, 0.15); 
+                        color: #2979ff;
+                        font-weight: bold;
+                    }
+                    QListWidget::item:hover:!selected {
+                        background-color: #e6e6e6;
+                    }
+                """)
+
         self._nav.currentRowChanged.connect(self._on_nav_changed)
 
         _h.addWidget(self._nav)
@@ -391,7 +407,7 @@ class FloatSlider(QWidget):
         layout = QVBoxLayout(self)
         layout.setContentsMargins(0, 0, 0, 0)
 
-        layout.addWidget(StrongBodyLabel(f"{label} 범위:"))
+        layout.addWidget(StrongBodyLabel(f"{label} 범위"))
 
         self.slider = CustomRangeSlider(min_val, max_val)
 
@@ -406,10 +422,10 @@ class FloatSlider(QWidget):
         self.spin_max.setSingleStep(0.1)
         self.spin_max.setValue(max_val)
 
-        h_spin.addWidget(BodyLabel("Min:"))
+        h_spin.addWidget(BodyLabel("최소"))
         h_spin.addWidget(self.spin_min)
         h_spin.addStretch(1)
-        h_spin.addWidget(BodyLabel("Max:"))
+        h_spin.addWidget(BodyLabel("최대"))
         h_spin.addWidget(self.spin_max)
 
         layout.addWidget(self.slider)
@@ -474,10 +490,8 @@ class DateSlider(QWidget):
         self.date_start.setDisplayFormat("yyyy-MM")
         self.date_end.setDisplayFormat("yyyy-MM")
 
-        h_date.addWidget(BodyLabel("시작:"))
         h_date.addWidget(self.date_start)
         h_date.addStretch(1)
-        h_date.addWidget(BodyLabel("종료:"))
         h_date.addWidget(self.date_end)
 
         layout.addWidget(self.slider)
@@ -523,8 +537,14 @@ class DateSlider(QWidget):
             self.max_days = QDate(1970, 1, 1).daysTo(end_date)
             self.slider.min_val = self.min_days
             self.slider.max_val = self.max_days
-            self.slider.set_range(self.min_days, self.max_days)
-            self.date_start.setDate(start_date)
+            
+            default_start = end_date.addYears(-1)
+            if default_start < start_date:
+                default_start = start_date
+            default_start_days = QDate(1970, 1, 1).daysTo(default_start)
+            
+            self.slider.set_range(default_start_days, self.max_days)
+            self.date_start.setDate(default_start)
             self.date_end.setDate(end_date)
         finally:
             self.is_updating = False
@@ -537,6 +557,16 @@ class PreprocessInterface(QWidget):
         self.files = []
         self.valid_files = []
         self.init_ui()
+
+    def set_all_stations(self, state_bool):
+        try:
+            model = self.valid_station_combo.model()
+            from PyQt6.QtCore import Qt
+            new_state = Qt.CheckState.Checked if state_bool else Qt.CheckState.Unchecked
+            for i in range(model.rowCount()):
+                model.item(i).setCheckState(new_state)
+        except Exception as e:
+            print("Set all stations error:", e)
 
     def toggle_all_stations(self):
         try:
@@ -554,8 +584,8 @@ class PreprocessInterface(QWidget):
         main_layout = QVBoxLayout(self)
         main_layout.setContentsMargins(5, 5, 5, 5)
 
-        title = TitleLabel("데이터 준비 (Preprocess)")
-        main_layout.addWidget(title)
+        # title = TitleLabel("데이터 준비 (Preprocess)")
+        # main_layout.addWidget(title)
 
         self.segment = SegmentedWidget(self)
         main_layout.addWidget(self.segment, 0, Qt.AlignmentFlag.AlignLeft)
@@ -565,50 +595,60 @@ class PreprocessInterface(QWidget):
         # --- Input Data Page ---
         page_input = QWidget()
         h_input = QHBoxLayout(page_input)
-        h_input.setContentsMargins(0, 20, 0, 0)
+        # h_input.setContentsMargins(0, 10, 0, 0)
+        h_input.setContentsMargins(0, 0, 0, 0)
 
         left_input = CardWidget()
         v_left_input = QVBoxLayout(left_input)
-        v_left_input.setContentsMargins(20, 20, 20, 20)
-        v_left_input.addWidget(SubtitleLabel("입력 자료"))
+        # v_left_input.setContentsMargins(20, 20, 20, 20)
+        # v_left_input.addWidget(SubtitleLabel("자료 경로"))
+        # h_left_input = QHBoxLayout(left_input)
+        # h_left_input.setContentsMargins(20, 20, 20, 20)
+        # h_left_input.addWidget(SubtitleLabel("입력 자료"))
 
         # Row 1: File Selection
-        h_file = QHBoxLayout()
+        h_row1 = QHBoxLayout()
+        h_row1.addWidget(StrongBodyLabel("자료 설정"))
         self.file_combo = ComboBox()
         self.file_combo.currentTextChanged.connect(self.on_file_changed)
         btn_browse = PushButton("찾기")
         btn_browse.clicked.connect(self.browse_file)
-        h_file.addWidget(self.file_combo, 1)
-        h_file.addWidget(btn_browse)
-        v_left_input.addLayout(h_file)
+
+        h_row1.addWidget(self.file_combo, 1)
+        h_row1.addWidget(btn_browse)
+        v_left_input.addLayout(h_row1)
 
         # Row 2: Variable Selection
-        h_var = QHBoxLayout()
-        h_var.addWidget(StrongBodyLabel("세부 속성"))
+        h_row2 = QHBoxLayout()
+        h_row2.addWidget(StrongBodyLabel("세부 속성"))
         self.var_combo = ComboBox()
         self.var_combo.currentTextChanged.connect(lambda _: self.update_overview())
-        h_var.addWidget(self.var_combo, 1)
-        v_left_input.addLayout(h_var)
+
+        h_row2.addWidget(self.var_combo, 1)
+        v_left_input.addLayout(h_row2)
 
         # Row 3: Calendar Date Range
-        v_left_input.addWidget(StrongBodyLabel("분석 기간"))
-        h_date = QHBoxLayout()
+        h_row3 = QHBoxLayout()
+        h_row3.addWidget(StrongBodyLabel("분석 기간"))
         self.date_start = QDateEdit()
         self.date_start.setCalendarPopup(True)
         self.date_end = QDateEdit()
         self.date_end.setCalendarPopup(True)
-        self.date_start.setDisplayFormat("yyyy-MM")
-        self.date_end.setDisplayFormat("yyyy-MM")
-        h_date.addWidget(self.date_start)
-        h_date.addWidget(BodyLabel(" ~ "))
-        h_date.addWidget(self.date_end)
-        v_left_input.addLayout(h_date)
+        self.date_start.setDisplayFormat("yyyy-MM-dd")
+        self.date_end.setDisplayFormat("yyyy-MM-dd")
+
+        h_row3.addWidget(self.date_start, 1)
+        h_row3.addWidget(BodyLabel(" ~ "))
+        h_row3.addWidget(self.date_end, 1)
+        # h_row3.addStretch(1)
+        v_left_input.addLayout(h_row3)
 
         # Row 4: Spatial Range Sliders
         # v_left_input.addWidget(StrongBodyLabel("공간 범위 지정"))
-        self.lon_slider = FloatSlider("공간해상도 경도")
-        self.lat_slider = FloatSlider("공간해상도 위도", -90.0, 90.0)
+        self.lon_slider = FloatSlider("경도")
         v_left_input.addWidget(self.lon_slider)
+
+        self.lat_slider = FloatSlider("위도", -90.0, 90.0)
         v_left_input.addWidget(self.lat_slider)
 
         v_left_input.addSpacing(10)
@@ -620,16 +660,20 @@ class PreprocessInterface(QWidget):
 
         right_input = CardWidget()
         v_right_input = QVBoxLayout(right_input)
-        v_right_input.addWidget(SubtitleLabel("입력 데이터셋 상세 정보"))
+        v_right_input.addWidget(SubtitleLabel("상세 정보"))
         self.overview_table = TextEdit()
         self.overview_table.setReadOnly(True)
         self.overview_table.setStyleSheet(
-            "font-family: Consolas, monospace; font-size: 13px; background-color: #ffffff; color: #333333; border: 1px solid #cccccc; border-radius: 4px; padding: 10px;")
+            "font-family: 'Pretendard GOV', 'Pretendard', 'Malgun Gothic', sans-serif; "
+            "font-size: 13px; background-color: #ffffff; color: #333333; "
+            "border: 1px solid #cccccc; border-radius: 4px; padding: 10px;"
+        )
         v_right_input.addWidget(self.overview_table)
 
         splitter_input = QSplitter(Qt.Orientation.Horizontal)
         splitter_input.addWidget(left_input)
         splitter_input.addWidget(right_input)
+        splitter_input.setSizes([1000, 1000])
         splitter_input.setStretchFactor(0, 1)
         splitter_input.setStretchFactor(1, 1)
         h_input.addWidget(splitter_input)
@@ -638,64 +682,83 @@ class PreprocessInterface(QWidget):
         # --- Validation Data Page ---
         page_valid = QWidget()
         h_valid = QHBoxLayout(page_valid)
-        h_valid.setContentsMargins(0, 20, 0, 0)
+        h_valid.setContentsMargins(0, 0, 0, 0)
 
         left_valid = CardWidget()
         v_left_valid = QVBoxLayout(left_valid)
-        v_left_valid.setContentsMargins(20, 20, 20, 20)
-        v_left_valid.addWidget(SubtitleLabel("검증 자료"))
+        # v_left_valid.setContentsMargins(20, 20, 20, 20)
+        # v_left_valid.addWidget(SubtitleLabel("자료 설정"))
+        # v_left_valid.addSpacing(10)
 
         # Row 1
-        h_vfile = QHBoxLayout()
+        h_row1_v = QHBoxLayout()
+        h_row1_v.addWidget(StrongBodyLabel("자료 설정"))
         self.valid_file_combo = ComboBox()
         self.valid_file_combo.currentTextChanged.connect(self.on_valid_file_changed)
         btn_vbrowse = PushButton("찾기")
         btn_vbrowse.clicked.connect(self.browse_valid_file)
-        h_vfile.addWidget(self.valid_file_combo, 1)
-        h_vfile.addWidget(btn_vbrowse)
-        v_left_valid.addLayout(h_vfile)
+
+        h_row1_v.addWidget(self.valid_file_combo, 1)
+        h_row1_v.addWidget(btn_vbrowse)
+        v_left_valid.addLayout(h_row1_v)
 
         # Row 2
-        h_vvar = QHBoxLayout()
-        h_vvar.addWidget(StrongBodyLabel("세부 속성"))
+        h_row2_v = QHBoxLayout()
+        h_row2_v.addWidget(StrongBodyLabel("세부 속성"))
         self.valid_var_combo = ComboBox()
         self.valid_var_combo.currentTextChanged.connect(lambda _: self.update_valid_overview())
-        h_vvar.addWidget(self.valid_var_combo, 1)
-        v_left_valid.addLayout(h_vvar)
+
+        h_row2_v.addWidget(self.valid_var_combo, 1)
+        v_left_valid.addLayout(h_row2_v)
 
         # Row 3
-        v_left_valid.addWidget(StrongBodyLabel("분석 기간"))
-        h_vdate = QHBoxLayout()
+        h_row3_v = QHBoxLayout()
+        h_row3_v.addWidget(StrongBodyLabel("분석 기간"))
         self.vdate_start = QDateEdit()
         self.vdate_start.setCalendarPopup(True)
         self.vdate_end = QDateEdit()
         self.vdate_end.setCalendarPopup(True)
-        h_vdate.addWidget(self.vdate_start)
-        h_vdate.addWidget(BodyLabel(" ~ "))
-        h_vdate.addWidget(self.vdate_end)
-        v_left_valid.addLayout(h_vdate)
+        self.vdate_start.setDisplayFormat("yyyy-MM-dd")
+        self.vdate_end.setDisplayFormat("yyyy-MM-dd")
+
+        h_row3_v.addWidget(self.vdate_start, 1)
+        h_row3_v.addWidget(BodyLabel(" ~ "))
+        h_row3_v.addWidget(self.vdate_end, 1)
+        v_left_valid.addLayout(h_row3_v)
 
         # Row 4
-        v_left_valid.addWidget(StrongBodyLabel("공간 범위"))
+        # v_left_valid.addSpacing(10)
         self.vlon_slider = FloatSlider("경도")
-        self.vlat_slider = FloatSlider("위도", -90.0, 90.0)
         v_left_valid.addWidget(self.vlon_slider)
+
+        self.vlat_slider = FloatSlider("위도", -90.0, 90.0)
         v_left_valid.addWidget(self.vlat_slider)
+
+        v_left_valid.addSpacing(10)
+        self.btn_valid_apply = PushButton("적용")
+        self.btn_valid_apply.setMinimumHeight(40)
+        self.btn_valid_apply.clicked.connect(self.on_apply_settings)
+        v_left_valid.addWidget(self.btn_valid_apply)
 
         v_left_valid.addStretch(1)
 
         right_valid = CardWidget()
         v_right_valid = QVBoxLayout(right_valid)
-        v_right_valid.addWidget(SubtitleLabel("세부 속성"))
+        v_right_valid.addWidget(SubtitleLabel("상세 정보"))
         self.v_overview_table = TextEdit()
         self.v_overview_table.setReadOnly(True)
+        # 공공 폰트(Pretendard GOV) 적용
         self.v_overview_table.setStyleSheet(
-            "font-family: Consolas, monospace; font-size: 13px; background-color: #ffffff; color: #333333; border: 1px solid #cccccc; border-radius: 4px; padding: 10px;")
+            "font-family: 'Pretendard GOV', 'Pretendard', 'Malgun Gothic', sans-serif; "
+            "font-size: 13px; background-color: #ffffff; color: #333333; "
+            "border: 1px solid #cccccc; border-radius: 4px; padding: 10px;"
+        )
         v_right_valid.addWidget(self.v_overview_table)
 
         splitter_valid = QSplitter(Qt.Orientation.Horizontal)
         splitter_valid.addWidget(left_valid)
         splitter_valid.addWidget(right_valid)
+        splitter_valid.setSizes([1000, 1000])
         splitter_valid.setStretchFactor(0, 1)
         splitter_valid.setStretchFactor(1, 1)
         h_valid.addWidget(splitter_valid)
@@ -782,10 +845,17 @@ class PreprocessInterface(QWidget):
             self.valid_var_combo.blockSignals(False)
 
             if 'station_code' in vds.dims:
-                self.valid_station_combo.clear()
-                for st in vds['station_code'].values:
-                    st_name = str(vds['station_name'].sel(station_code=st).values) if 'station_name' in vds else str(st)
-                    self.valid_station_combo.addCheckableItem(f"{st} ({st_name})", data=st)
+                try:
+                    target_combo = self.window().visualize_interface.valid_station_combo
+                    target_combo.clear()
+                    for st in vds['station_code'].values:
+                        st_name = str(vds['station_name'].sel(station_code=st).values) if 'station_name' in vds else str(st)
+                        if "전체" in str(st) or "전체" in st_name or "All" in str(st) or "All" in st_name:
+                            continue
+                        is_target = (str(st) == "22105")
+                        target_combo.addCheckableItem(f"{st} ({st_name})", data=st, checked=is_target)
+                except AttributeError:
+                    pass
 
             if 'time' in vds.dims:
                 try:
@@ -885,18 +955,55 @@ class PreprocessInterface(QWidget):
         self.v_overview_table.setPlainText(info_str)
 
     def on_apply_settings(self):
+        # 현재 열려있는 탭 확인 (0: 입력 자료, 1: 검증 자료)
+        current_tab = self.stack.currentIndex()
+
+        # 1. 입력 자료 탭에서 적용을 눌렀을 때의 예외 처리
+        if current_tab == 0:
+            if self.window().ds is None:
+                ToastNotification.show_toast(self, "경고", "입력 자료를 먼저 불러와 주세요.")
+                return
+            if not self.var_combo.currentText():
+                ToastNotification.show_toast(self, "경고", "입력 자료의 세부 속성을 선택해 주세요.")
+                return
+
+            try:
+                # 입력 자료의 공간 범위 적용
+                self.window().bounds = {
+                    'min_lon': self.lon_slider.get_min(),
+                    'max_lon': self.lon_slider.get_max(),
+                    'min_lat': self.lat_slider.get_min(),
+                    'max_lat': self.lat_slider.get_max()
+                }
+            except Exception as e:
+                pass
+
+        # 2. 검증 자료 탭에서 적용을 눌렀을 때의 예외 처리
+        elif current_tab == 1:
+            if self.window().valid_ds is None:
+                ToastNotification.show_toast(self, "경고", "검증 자료를 먼저 불러와 주세요.")
+                return
+            if not self.valid_var_combo.currentText():
+                ToastNotification.show_toast(self, "경고", "검증 자료의 세부 속성을 선택해 주세요.")
+                return
+
+            try:
+                # 검증 자료의 공간 범위 적용
+                self.window().bounds = {
+                    'min_lon': self.vlon_slider.get_min(),
+                    'max_lon': self.vlon_slider.get_max(),
+                    'min_lat': self.vlat_slider.get_min(),
+                    'max_lat': self.vlat_slider.get_max()
+                }
+            except Exception as e:
+                pass
+
+        # 공통 적용 사항 저장
         self.window().selected_var = self.var_combo.currentText()
         self.window().selected_valid_var = self.valid_var_combo.currentText()
 
-        try:
-            self.window().bounds = {
-                'min_lon': self.lon_slider.get_min(),
-                'max_lon': self.lon_slider.get_max(),
-                'min_lat': self.lat_slider.get_min(),
-                'max_lat': self.lat_slider.get_max()
-            }
-        except:
-            pass
+        # 적용 성공 안내 메시지
+        ToastNotification.show_toast(self, "알림", "설정이 성공적으로 적용되었습니다.")
 
 
 from PyQt6.QtWidgets import QListWidget, QListWidgetItem, QWidget, QVBoxLayout, QHBoxLayout, QStackedWidget, QFrame
@@ -907,6 +1014,16 @@ class CalculateInterface(QWidget):
         super().__init__(parent=parent)
         self.setObjectName("CalculateInterface")
         self.init_ui()
+
+    def set_all_stations(self, state_bool):
+        try:
+            model = self.valid_station_combo.model()
+            from PyQt6.QtCore import Qt
+            new_state = Qt.CheckState.Checked if state_bool else Qt.CheckState.Unchecked
+            for i in range(model.rowCount()):
+                model.item(i).setCheckState(new_state)
+        except Exception as e:
+            print("Set all stations error:", e)
 
     def toggle_all_stations(self):
         try:
@@ -923,56 +1040,48 @@ class CalculateInterface(QWidget):
     def init_ui(self):
         main_layout = QVBoxLayout(self)
         main_layout.setContentsMargins(5, 5, 5, 5)
-        title = TitleLabel("산출 (Calculation & R-Toolbox)")
-        main_layout.addWidget(title)
+        # title = TitleLabel("산출")
+        # main_layout.addWidget(title)
 
-        splitter = QSplitter(Qt.Orientation.Horizontal)
+        # =========================================================
+        # 1. 좌측 메뉴 대신 상단 탭(SegmentedWidget) 사용
+        self.segment = SegmentedWidget(self)
+        main_layout.addWidget(self.segment, 0, Qt.AlignmentFlag.AlignLeft)
+        # main_layout.addSpacing(10)
 
-        # Left Panel: Toolbox List
-        left_widget = CardWidget()
-        v_left = QVBoxLayout(left_widget)
-        v_left.addWidget(SubtitleLabel("분석 툴박스 목록"))
-
-        self.list_toolbox = QListWidget()
-        self.list_toolbox.addItem("기후 평년값 및 편차 산출)")
-        self.list_toolbox.addItem("공간 평균/합산")
-        self.list_toolbox.addItem("시계열 추세 분석")
-        self.list_toolbox.currentRowChanged.connect(self.on_toolbox_changed)
-        v_left.addWidget(self.list_toolbox)
-
-        splitter.addWidget(left_widget)
-
-        # Right Panel: Toolbox Config Stack
-        right_widget = CardWidget()
-        v_right = QVBoxLayout(right_widget)
+        # 2. 하단 설정 영역 (기존 우측 패널)
+        content_widget = CardWidget()
+        v_content = QVBoxLayout(content_widget)
         self.stack = QStackedWidget()
+        # =========================================================
 
         # Tool 1: Climatology & Anomaly
         page_1 = QWidget()
         v_page_1 = QVBoxLayout(page_1)
         v_page_1.setAlignment(Qt.AlignmentFlag.AlignTop)
         v_page_1.addWidget(SubtitleLabel("평년값 및 편차 산출 옵션"))
+        v_page_1.addSpacing(10)
 
         h_cli = QHBoxLayout()
         self.sw_cli = SwitchButton()
         self.sw_cli.setText("평년값 계산 활성화")
         h_cli.addWidget(self.sw_cli)
+
         self.txt_cli_start = LineEdit()
         self.txt_cli_start.setPlaceholderText("시작 (예: 1991)")
         self.txt_cli_end = LineEdit()
         self.txt_cli_end.setPlaceholderText("종료 (예: 2020)")
+
         h_cli.addWidget(StrongBodyLabel("기준 연도:"))
         h_cli.addWidget(self.txt_cli_start)
         h_cli.addWidget(StrongBodyLabel("~"))
         h_cli.addWidget(self.txt_cli_end)
-
         v_page_1.addLayout(h_cli)
 
         h_ano = QHBoxLayout()
         self.sw_ano = SwitchButton()
         self.sw_ano.setText("편차(Anomaly) 계산 활성화")
         h_ano.addWidget(self.sw_ano)
-
         v_page_1.addLayout(h_ano)
 
         h_month = QHBoxLayout()
@@ -984,9 +1093,11 @@ class CalculateInterface(QWidget):
         h_month.addWidget(self.cb_target_month, 1)
         v_page_1.addLayout(h_month)
 
+        v_page_1.addSpacing(10)
         btn_calc_1 = PushButton("계산 실행")
         btn_calc_1.clicked.connect(self.run_climatology)
         v_page_1.addWidget(btn_calc_1)
+
         self.stack.addWidget(page_1)
 
         # Tool 2: Spatial Aggregation
@@ -994,17 +1105,20 @@ class CalculateInterface(QWidget):
         v_page_2 = QVBoxLayout(page_2)
         v_page_2.setAlignment(Qt.AlignmentFlag.AlignTop)
         v_page_2.addWidget(SubtitleLabel("공간 평균/합산 옵션"))
+        v_page_2.addSpacing(10)
+
         h_sp = QHBoxLayout()
         self.cb_sp_method = ComboBox()
         self.cb_sp_method.addItems(["Mean (평균)", "Sum (합계)", "Max (최대)", "Min (최소)"])
         h_sp.addWidget(StrongBodyLabel("연산 방식:"))
         h_sp.addWidget(self.cb_sp_method)
-
         v_page_2.addLayout(h_sp)
 
+        v_page_2.addSpacing(10)
         btn_calc_2 = PushButton("계산 실행")
         btn_calc_2.clicked.connect(self.run_spatial)
         v_page_2.addWidget(btn_calc_2)
+
         self.stack.addWidget(page_2)
 
         # Tool 3: Trend
@@ -1012,21 +1126,27 @@ class CalculateInterface(QWidget):
         v_page_3 = QVBoxLayout(page_3)
         v_page_3.setAlignment(Qt.AlignmentFlag.AlignTop)
         v_page_3.addWidget(SubtitleLabel("시계열 추세 분석 옵션"))
+        v_page_3.addSpacing(10)
         v_page_3.addWidget(BodyLabel("선형 회귀(Linear Regression) 기반 트렌드 분석을 수행합니다."))
 
+        v_page_3.addSpacing(10)
         btn_calc_3 = PushButton("추세 계산 실행")
         btn_calc_3.clicked.connect(self.run_trend)
         v_page_3.addWidget(btn_calc_3)
+
         self.stack.addWidget(page_3)
 
-        v_right.addWidget(self.stack)
-        splitter.addWidget(right_widget)
+        # =========================================================
+        # 3. 레이아웃에 스택 추가 및 탭 아이템 등록
+        v_content.addWidget(self.stack)
+        main_layout.addWidget(content_widget, 1)
 
-        splitter.setStretchFactor(0, 1)
-        splitter.setStretchFactor(1, 3)
-        main_layout.addWidget(splitter, 1)
+        # SegmentedWidget에 탭 아이템 추가 (클릭 시 스택 인덱스 변경)
+        self.segment.addItem("clim", "기후 평년값 및 편차 산출", lambda: self.stack.setCurrentIndex(0))
+        self.segment.addItem("spatial", "공간 평균/합산", lambda: self.stack.setCurrentIndex(1))
+        self.segment.addItem("trend", "시계열 추세 분석", lambda: self.stack.setCurrentIndex(2))
 
-        self.list_toolbox.setCurrentRow(0)
+        self.segment.setCurrentIndex(0)
 
     def on_toolbox_changed(self, index):
         self.stack.setCurrentIndex(index)
@@ -1171,7 +1291,7 @@ class MapPlotThread(QThread):
             except ImportError:
                 has_cartopy = False
 
-            fig = plt.figure(figsize=(12, 12), dpi=250, frameon=False)
+            fig = plt.figure(figsize=(12, 12), dpi=300, frameon=False)
 
             if has_cartopy and not self.raw_mode:
                 crs_3857 = ccrs.Mercator.GOOGLE
@@ -1275,6 +1395,16 @@ class VisualizeInterface(QWidget):
         self.setObjectName("VisualizeInterface")
         self.init_ui()
 
+    def set_all_stations(self, state_bool):
+        try:
+            model = self.valid_station_combo.model()
+            from PyQt6.QtCore import Qt
+            new_state = Qt.CheckState.Checked if state_bool else Qt.CheckState.Unchecked
+            for i in range(model.rowCount()):
+                model.item(i).setCheckState(new_state)
+        except Exception as e:
+            print("Set all stations error:", e)
+
     def toggle_all_stations(self):
         try:
             model = self.valid_station_combo.model()
@@ -1290,8 +1420,8 @@ class VisualizeInterface(QWidget):
     def init_ui(self):
         main_layout = QVBoxLayout(self)
         main_layout.setContentsMargins(5, 5, 5, 5)
-        title = TitleLabel("시각화")
-        main_layout.addWidget(title)
+        # title = TitleLabel("시각화")
+        # main_layout.addWidget(title)
 
         self.pivot = Pivot()
         main_layout.addWidget(self.pivot, 0, Qt.AlignmentFlag.AlignLeft)
@@ -1303,7 +1433,7 @@ class VisualizeInterface(QWidget):
         v_left = QVBoxLayout(left_widget)
         v_left.setContentsMargins(10, 10, 10, 10)
 
-        v_left.addWidget(SubtitleLabel("옵션 설정"))
+        # v_left.addWidget(SubtitleLabel("옵션 설정"))
 
         h_layer = QHBoxLayout()
         h_layer.addWidget(StrongBodyLabel("데이터"))
@@ -1358,7 +1488,7 @@ class VisualizeInterface(QWidget):
 
         # DateSlider for Vis
         v_left.addSpacing(10)
-        self.date_slider_vis = DateSlider("시계열 검색 기간")
+        self.date_slider_vis = DateSlider("검색 기간")
         v_left.addWidget(self.date_slider_vis)
 
         # Station Multi-Select
@@ -1366,46 +1496,30 @@ class VisualizeInterface(QWidget):
         h_vst.addWidget(StrongBodyLabel("검증 지점"))
         self.valid_station_combo = CheckableComboBox()
         h_vst.addWidget(self.valid_station_combo, 1)
-        self.btn_sel_all = PushButton("전체 선택")
-        self.btn_desel_all = PushButton("전체 해제")
-        self.btn_sel_all.clicked.connect(lambda: self.set_all_stations(True))
-        self.btn_desel_all.clicked.connect(lambda: self.set_all_stations(False))
-
-        h_vst2 = QHBoxLayout()
-        h_vst2.setContentsMargins(0, 0, 0, 0)
-        h_vst2.addWidget(self.btn_sel_all)
-        h_vst2.addWidget(self.btn_desel_all)
-
         v_vst = QVBoxLayout()
         v_vst.setContentsMargins(0, 0, 0, 0)
         v_vst.addLayout(h_vst)
-        v_vst.addLayout(h_vst2)
 
         self.w_station = QWidget()
         self.w_station.setLayout(v_vst)
         v_left.addWidget(self.w_station)
 
         self.w_range = QWidget()
-        v_range = QVBoxLayout(self.w_range)
-        v_range.setContentsMargins(0, 0, 0, 0)
-        v_range.addWidget(StrongBodyLabel("값 표시 범위 (Value Range)"))
-        h_range = QHBoxLayout()
+        h_range = QHBoxLayout(self.w_range)
+        h_range.setContentsMargins(0, 0, 0, 0)
+        h_range.addWidget(StrongBodyLabel("값범위"))
         self.txt_vmin = LineEdit()
-        self.txt_vmin.setPlaceholderText("Min (비우면 자동)")
+        self.txt_vmin.setPlaceholderText("최소값")
         self.txt_vmax = LineEdit()
-        self.txt_vmax.setPlaceholderText("Max (비우면 자동)")
+        self.txt_vmax.setPlaceholderText("최대값")
         h_range.addWidget(self.txt_vmin)
         h_range.addWidget(StrongBodyLabel("~"))
         h_range.addWidget(self.txt_vmax)
-        v_range.addLayout(h_range)
+        v_left.addWidget(self.w_range)
 
-        h_action = QHBoxLayout()
         self.btn_download = PushButton("영상 다운로드")
         self.btn_download.clicked.connect(self.download_image)
-        h_action.addWidget(self.btn_download)
-        v_range.addLayout(h_action)
-
-        v_left.addWidget(self.w_range)
+        v_left.addWidget(self.btn_download)
 
         v_left.addStretch(1)
 
@@ -1515,7 +1629,7 @@ class VisualizeInterface(QWidget):
         h_timeline = QHBoxLayout()
         h_timeline.setContentsMargins(5, 5, 5, 5)
 
-        self.lbl_timeline = StrongBodyLabel("시간: 선택 안됨")
+        self.lbl_timeline = StrongBodyLabel("시간 선택 안됨")
         from qfluentwidgets import Slider
         self.slider_timeline = Slider(Qt.Orientation.Horizontal)
         self.slider_timeline.setMinimum(0)
@@ -1540,9 +1654,9 @@ class VisualizeInterface(QWidget):
         btn_zoom_out.clicked.connect(self.zoom_out_image)
         btn_fit.clicked.connect(self.fit_image)
 
-        self.pivot.addItem("image", "정적 이미지", lambda: self.on_tab_changed(3))
+        self.pivot.addItem("image", "이미지 영상", lambda: self.on_tab_changed(3))
         # self.pivot.addItem("map", "지도 맵", lambda: self.on_tab_changed(0))
-        self.pivot.addItem("trend", "시계열 트렌드", lambda: self.on_tab_changed(1))
+        self.pivot.addItem("trend", "검증 시계열", lambda: self.on_tab_changed(1))
         self.pivot.addItem("comp", "검증 산점도", lambda: self.on_tab_changed(2))
 
         self.pivot.setCurrentItem('image')
@@ -1551,6 +1665,13 @@ class VisualizeInterface(QWidget):
         splitter.addWidget(right_widget)
         splitter.setStretchFactor(0, 2)
         splitter.setStretchFactor(1, 8)
+        splitter.setSizes([2000, 8000])
+        # splitter.setStretchFactor(0, 3)
+        # splitter.setStretchFactor(1, 7)
+        # splitter.setSizes([3000, 7000])
+        # splitter.setStretchFactor(0, 4)
+        # splitter.setStretchFactor(1, 6)
+        # splitter.setSizes([4000, 6000])
 
         main_layout.addWidget(splitter, 1)
 
@@ -1567,11 +1688,31 @@ class VisualizeInterface(QWidget):
             self.w_date.setVisible(is_map)
         self.w_base.setVisible(is_map)
         self.w_raw.setVisible(is_map)
-        self.w_range.setVisible(not is_map)
+        if hasattr(self, 'w_range'):
+            self.w_range.setVisible(idx == 3)
+        if hasattr(self, 'btn_download'):
+            self.btn_download.setVisible(not is_map)
         if hasattr(self, 'w_station'):
             self.w_station.setVisible(idx in [1, 2])
         if hasattr(self, 'date_slider_vis'):
             self.date_slider_vis.setVisible(idx in [1, 2])
+
+        current_data = self.cb_layer.currentData()
+        self.cb_layer.blockSignals(True)
+        self.cb_layer.clear()
+        self.cb_layer.addItem("기본 영상", "original")
+        
+        if idx not in [1, 2]:
+            self.cb_layer.addItem("평년 영상", "climatology")
+            self.cb_layer.addItem("아노말리 영상", "anomaly")
+            
+        idx_to_set = self.cb_layer.findData(current_data)
+        if idx_to_set >= 0:
+            self.cb_layer.setCurrentIndex(idx_to_set)
+        else:
+            self.cb_layer.setCurrentIndex(0)
+            
+        self.cb_layer.blockSignals(False)
 
         self.refresh_current_plot()
 
@@ -1592,7 +1733,14 @@ class VisualizeInterface(QWidget):
                     for st in vds['station_code'].values:
                         st_name = str(
                             vds['station_name'].sel(station_code=st).values) if 'station_name' in vds else str(st)
-                        self.valid_station_combo.addCheckableItem(f"{st} ({st_name})", data=st)
+                        
+                        # Skip '전체' or 'All' stations
+                        if "전체" in str(st) or "전체" in st_name or "All" in str(st) or "All" in st_name:
+                            continue
+                            
+                        # Default select Donghae (22105)
+                        is_target = (str(st) == "22105")
+                        self.valid_station_combo.addCheckableItem(f"{st} ({st_name})", data=st, checked=is_target)
 
         # Populate dates
         ds = self.get_ds()
@@ -1642,12 +1790,14 @@ class VisualizeInterface(QWidget):
         layer = self.cb_layer.currentData()
         if layer == 'anomaly':
             self.cb_cmap.setCurrentText('SST_ANOM (custom)')
-            self.txt_vmin.setText('-6.0')
-            self.txt_vmax.setText('6.0')
+            if hasattr(self, 'txt_vmin'):
+                self.txt_vmin.setText('-6.0')
+                self.txt_vmax.setText('6.0')
         elif layer in ['original', 'climatology']:
             self.cb_cmap.setCurrentText('jet')
-            self.txt_vmin.setText('0')
-            self.txt_vmax.setText('36')
+            if hasattr(self, 'txt_vmin'):
+                self.txt_vmin.setText('0')
+                self.txt_vmax.setText('36')
 
         self.update_dates()
 
@@ -1726,8 +1876,8 @@ class VisualizeInterface(QWidget):
                 v_lon_dim = 'lon' if 'lon' in vds.coords else ('longitude' if 'longitude' in vds.coords else None)
 
                 if v_lat_dim and v_lon_dim and 'station_code' in vds.dims:
-                    sat_time_series = []
-                    valid_time_series = []
+                    sat_time_series = {}
+                    valid_time_series = {}
 
                     times = pd.to_datetime(ds[time_dim].values)
                     timestamps = (times.astype('int64') // 10 ** 6).tolist()
@@ -1759,9 +1909,6 @@ class VisualizeInterface(QWidget):
                         else:
                             vds_t = vds[vvar]
 
-                        sat_vals = []
-                        v_vals = []
-
                         for st in vds['station_code'].values:
                             if st not in selected_stations and str(st) not in selected_stations:
                                 continue
@@ -1772,14 +1919,17 @@ class VisualizeInterface(QWidget):
                                 s_val = float(ds_t.sel({lat_dim: lat_v, lon_dim: lon_v}, method='nearest').values)
                                 v_val = float(vds_t.sel(station_code=st).values)
 
-                                if not np.isnan(s_val) and not np.isnan(v_val):
-                                    sat_vals.append(s_val)
-                                    v_vals.append(v_val)
+                                st_str = str(st)
+                                if st_str not in sat_time_series:
+                                    sat_time_series[st_str] = []
+                                    valid_time_series[st_str] = []
+
+                                if not np.isnan(s_val):
+                                    sat_time_series[st_str].append([timestamps[t_idx], s_val])
+                                if not np.isnan(v_val):
+                                    valid_time_series[st_str].append([timestamps[t_idx], v_val])
                             except:
                                 continue
-
-                        sat_time_series.append([timestamps[t_idx], np.nanmean(sat_vals) if sat_vals else None])
-                        valid_time_series.append([timestamps[t_idx], np.nanmean(v_vals) if v_vals else None])
 
                     def replace_nan(ts):
                         return [[x[0], None] if x[1] is None or np.isnan(x[1]) else x for x in ts]
@@ -1795,32 +1945,29 @@ class VisualizeInterface(QWidget):
                             return [[min_x, min_x * slope + intercept], [max_x, max_x * slope + intercept]], r_value
                         return [], 0.0
 
-                    sat_trend, sat_r = calc_trendline(sat_time_series)
-                    valid_trend, valid_r = calc_trendline(valid_time_series)
-
-                    sat_time_series = replace_nan(sat_time_series)
-                    valid_time_series = replace_nan(valid_time_series)
-
-                    series_data = [
-                        {'name': f'위성 ({var_name})', 'data': sat_time_series, 'color': 'rgba(54, 162, 235, 1)',
-                         'marker': {'enabled': True, 'radius': 3}},
-                        {'name': f'관측소 ({vvar})', 'data': valid_time_series, 'color': 'rgba(255, 99, 132, 1)',
-                         'marker': {'enabled': True, 'radius': 3}}
-                    ]
-
-                    if sat_trend:
-                        series_data.append({'name': f'위성 추세선 (R={sat_r:.2f})', 'type': 'line', 'data': sat_trend,
-                                            'color': 'rgba(54, 162, 235, 0.5)', 'dashStyle': 'Dash',
-                                            'marker': {'enabled': False}})
-                    if valid_trend:
-                        series_data.append({'name': f'관측소 추세선 (R={valid_r:.2f})', 'type': 'line', 'data': valid_trend,
-                                            'color': 'rgba(255, 99, 132, 0.5)', 'dashStyle': 'Dash',
-                                            'marker': {'enabled': False}})
+                    series_data = []
+                    for st_str in sat_time_series:
+                        try:
+                            st_name_val = str(vds['station_name'].sel(station_code=int(st_str) if st_str.isdigit() else st_str).values) if 'station_name' in vds else st_str
+                        except:
+                            st_name_val = st_str
+                        st_label = f"{st_str} ({st_name_val})"
+                        
+                        s_ts = sat_time_series[st_str]
+                        v_ts = valid_time_series[st_str]
+                        
+                        s_trend, s_r = calc_trendline(s_ts)
+                        v_trend, v_r = calc_trendline(v_ts)
+                        
+                        series_data.append({'name': f'위성 - {st_label}', 'data': replace_nan(s_ts)})
+                        series_data.append({'name': f'관측 - {st_label}', 'data': replace_nan(v_ts)})
+                        if s_trend: series_data.append({'name': f'위성 추세 - {st_label} (R={s_r:.2f})', 'data': replace_nan(s_trend), 'marker': {'enabled': False}, 'dashStyle': 'Dash', 'linkedTo': ':previous'})
+                        if v_trend: series_data.append({'name': f'관측 추세 - {st_label} (R={v_r:.2f})', 'data': replace_nan(v_trend), 'marker': {'enabled': False}, 'dashStyle': 'Dash', 'linkedTo': ':previous'})
 
                     options = {
                         'chart': {'type': 'line', 'zoomType': 'x'},
                         'title': {'text': f"{var_name} vs 관측소 시계열 검증 트렌드"},
-                        'subtitle': {'text': "선택된 관측소 및 날짜 구간 (공간 평균)"},
+                        'subtitle': {'text': "선택된 관측소별 비교"},
                         'xAxis': {'type': 'datetime', 'crosshair': True},
                         'yAxis': {'title': {'text': 'Value'}},
                         'tooltip': {'shared': True, 'valueDecimals': 2},
@@ -2229,7 +2376,7 @@ class VisualizeInterface(QWidget):
 
         layer = self.cb_layer.currentData()
         if layer == 'climatology':
-            self.lbl_timeline.setText(f"시간: {value + 1}월")
+            self.lbl_timeline.setText(f"시간 {value + 1}월")
         else:
             ds = getattr(w, 'processed_ds', None)
             if ds is None: ds = getattr(w, 'ds', None)
@@ -2246,13 +2393,13 @@ class VisualizeInterface(QWidget):
                     if value < len(ds.time):
                         time_val = ds.time.values[value]
                         ts = pd.to_datetime(str(time_val))
-                        self.lbl_timeline.setText(f"시간: {ts.strftime('%Y-%m')}")
+                        self.lbl_timeline.setText(f"시간 {ts.strftime('%Y-%m')}")
                     else:
-                        self.lbl_timeline.setText(f"시간: index {value}")
+                        self.lbl_timeline.setText(f"시간 index {value}")
                 except Exception as e:
-                    self.lbl_timeline.setText(f"시간: index {value}")
+                    self.lbl_timeline.setText(f"시간 index {value}")
             else:
-                self.lbl_timeline.setText(f"시간: index {value}")
+                self.lbl_timeline.setText(f"시간 index {value}")
 
         if not hasattr(self, 'timeline_timer'):
             from PyQt6.QtCore import QTimer
@@ -2307,14 +2454,14 @@ class VisualizeInterface(QWidget):
             self.slider_timeline.blockSignals(False)
 
             if layer == 'climatology':
-                self.lbl_timeline.setText(f"시간: {w.selected_time_idx + 1}월")
+                self.lbl_timeline.setText(f"시간 {w.selected_time_idx + 1}월")
             else:
                 try:
                     time_val = ds.time.values[w.selected_time_idx]
                     ts = pd.to_datetime(str(time_val))
-                    self.lbl_timeline.setText(f"시간: {ts.strftime('%Y-%m')}")
+                    self.lbl_timeline.setText(f"시간 {ts.strftime('%Y-%m')}")
                 except:
-                    self.lbl_timeline.setText(f"시간: index {w.selected_time_idx}")
+                    self.lbl_timeline.setText(f"시간 index {w.selected_time_idx}")
         else:
             self.slider_timeline.blockSignals(True)
             self.slider_timeline.setMaximum(0)
@@ -2324,14 +2471,15 @@ class VisualizeInterface(QWidget):
         time_idx = getattr(w, 'selected_time_idx', 0)
 
         self.image_scene.clear()
-        self.image_scene.addText("이미지 그리는 중... (최대 15초 소요)")
+        # self.image_scene.addText("이미지 그리는 중... (최대 15초 소요)")
+        ToastNotification.show_toast(self, "알림", "이미지 그리는 중... (최대 15초 소요)")
 
         try:
-            vmin = float(self.txt_vmin.text()) if self.txt_vmin.text() else None
+            vmin = float(self.txt_vmin.text()) if hasattr(self, 'txt_vmin') and self.txt_vmin.text() else None
         except ValueError:
             vmin = None
         try:
-            vmax = float(self.txt_vmax.text()) if self.txt_vmax.text() else None
+            vmax = float(self.txt_vmax.text()) if hasattr(self, 'txt_vmax') and self.txt_vmax.text() else None
         except ValueError:
             vmax = None
 
@@ -2470,19 +2618,10 @@ class StaticImageThread(QThread):
                 else:
                     pcm = m.pcolormesh(x, y, data_2d, cmap=self.cmap_name, shading='auto', vmin=VMIN, vmax=VMAX)
 
-                # median filter for contours (replaced with NaN-safe gaussian filter to prevent NaN bleeding)
-                data_ma_ano = np.ma.masked_invalid(data_2d)
-                weight_ano = np.ones_like(data_ma_ano.data)
-                weight_ano[data_ma_ano.mask] = 0.0
-                data_zeroed_ano = data_ma_ano.filled(0.0)
-                sigma_val_ano = 15
-
-                # Use gaussian_filter like original styling to safely handle NaNs (Land)
-                smoothed_data_ano = gaussian_filter(data_zeroed_ano, sigma=sigma_val_ano)
-                smoothed_weight_ano = gaussian_filter(weight_ano, sigma=sigma_val_ano)
-                with np.errstate(invalid='ignore', divide='ignore'):
-                    smoothed_corrected_ano = smoothed_data_ano / smoothed_weight_ano
-                smoothed_ma = np.ma.masked_array(smoothed_corrected_ano, mask=data_ma_ano.mask)
+                # median filter for contours
+                size_val_ano = 15
+                smoothed_data_ano = median_filter(data_2d, size=size_val_ano)
+                smoothed_ma = np.ma.masked_where(np.isnan(data_2d), smoothed_data_ano)
 
                 line_levels = np.arange(VMIN, VMAX + 1e-6, 2.0)
                 line_levels = line_levels[line_levels != 0.0]
@@ -2490,6 +2629,31 @@ class StaticImageThread(QThread):
 
                 cs = m.contour(x, y, smoothed_ma, levels=line_levels, colors='k', linewidths=1.0, alpha=0.8)
                 cs0 = m.contour(x, y, smoothed_ma, levels=[0.0], colors='k', linewidths=0.5, alpha=0.5)
+
+                candidates = []
+                paths = []
+                if hasattr(cs, 'collections'):
+                    for collection in cs.collections:
+                        paths.extend(collection.get_paths())
+                else:
+                    paths = cs.get_paths()
+                for path in paths:
+                    for poly in path.to_polygons():
+                        line_length = len(poly)
+                        if line_length > 30:
+                            mid_idx = line_length // 2
+                            candidates.append({
+                                'length': line_length,
+                                'coord': (poly[mid_idx][0], poly[mid_idx][1])
+                            })
+                candidates.sort(key=lambda x: x['length'], reverse=True)
+                MAX_LABELS = 15
+                manual_locs = [cand['coord'] for cand in candidates[:MAX_LABELS]]
+
+                labels = plt.clabel(cs, inline=True, fontsize=8, fmt='%d', colors='black', manual=manual_locs)
+                for label in labels:
+                    label.set_rotation(0)
+                    label.set_path_effects([pe.withStroke(linewidth=2.0, foreground='white')])
 
                 cbar = fig.colorbar(pcm, ax=ax, shrink=0.8, extend='both', spacing='proportional')
                 cbar.set_ticks(LEVELS)
@@ -2504,22 +2668,37 @@ class StaticImageThread(QThread):
 
                 pcm = m.pcolormesh(x, y, data_2d, cmap=self.cmap_name, shading='auto', vmin=VMIN, vmax=VMAX)
 
-                # gaussian filter for contours
-                data_ma = np.ma.masked_invalid(data_2d)
-                weight = np.ones_like(data_ma.data)
-                weight[data_ma.mask] = 0.0
-                data_zeroed = data_ma.filled(0.0)
-                sigma_val = 15
-                smoothed_data = gaussian_filter(data_zeroed, sigma=sigma_val)
-                smoothed_weight = gaussian_filter(weight, sigma=sigma_val)
-                with np.errstate(invalid='ignore', divide='ignore'):
-                    smoothed_corrected = smoothed_data / smoothed_weight
-                smoothed_ma = np.ma.masked_array(smoothed_corrected, mask=data_ma.mask)
+                # median filter for contours
+                size_val = 15
+                smoothed_data = median_filter(data_2d, size=size_val)
+                smoothed_ma = np.ma.masked_where(np.isnan(data_2d), smoothed_data)
 
                 c = m.contour(x, y, smoothed_ma, levels=LEVELS, colors='black', linewidths=1.0, alpha=0.8)
-                labels = plt.clabel(c, inline=True, fontsize=8, fmt='%d', colors='black')
+                
+                candidates = []
+                paths = []
+                if hasattr(c, 'collections'):
+                    for collection in c.collections:
+                        paths.extend(collection.get_paths())
+                else:
+                    paths = c.get_paths()
+                for path in paths:
+                    for poly in path.to_polygons():
+                        line_length = len(poly)
+                        if line_length > 30:
+                            mid_idx = line_length // 2
+                            candidates.append({
+                                'length': line_length,
+                                'coord': (poly[mid_idx][0], poly[mid_idx][1])
+                            })
+                candidates.sort(key=lambda x: x['length'], reverse=True)
+                MAX_LABELS = 15
+                manual_locs = [cand['coord'] for cand in candidates[:MAX_LABELS]]
+
+                labels = plt.clabel(c, inline=True, fontsize=8, fmt='%d', colors='black', manual=manual_locs)
                 for label in labels:
                     label.set_rotation(0)
+                    label.set_path_effects([pe.withStroke(linewidth=2.0, foreground='white')])
 
                 cbar = fig.colorbar(pcm, ax=ax, shrink=0.8, extend='both', spacing='proportional')
                 cbar.set_label('Sea Surface Temperature (C)', fontsize=10, fontname='DejaVu Sans', fontweight='bold')
@@ -2537,7 +2716,7 @@ class StaticImageThread(QThread):
             plt.tight_layout()
 
             buf = io.BytesIO()
-            plt.savefig(buf, format='png', dpi=100, transparent=False)
+            plt.savefig(buf, format='png', dpi=300, transparent=False)
             plt.close(fig)
             buf.seek(0)
             img_b64 = base64.b64encode(buf.read()).decode('utf-8')
@@ -2618,23 +2797,52 @@ class AIGeneratorThread(QThread):
                     self.error_occurred.emit("llama-cpp-python 라이브러리가 설치되어 있지 않습니다.")
                     return
 
-                # self.chunk_received.emit("[로컬 LLM (Gemma) 모델 로딩 중... 시간이 걸릴 수 있습니다.]\n")
                 try:
-                    llm = Llama(model_path=self.model_path, n_ctx=2048, n_threads=4, n_gpu_layers=0, verbose=False)
-                    # self.chunk_received.emit("[모델 로딩 완료. 답변 생성 중...]\n")
+                    chat_handler = None
+                    if self.image_path and self.proj_path:
+                        try:
+                            from llama_cpp.llama_chat_format import Llava15ChatHandler
+                            chat_handler = Llava15ChatHandler(clip_model_path=self.proj_path)
+                        except ImportError:
+                            pass
 
-                    context = ""
-                    for msg in self.chat_history[-5:]:  # Keep last 5 turns to prevent exceeding context window
-                        role = "User" if msg['role'] == "user" else "Assistant"
-                        context += f"{role}: {msg['text']}\n"
-                    context += f"User: {self.prompt}\nAssistant:"
+                    llm = Llama(
+                        model_path=self.model_path,
+                        chat_handler=chat_handler,
+                        n_ctx=2048,
+                        n_threads=4,
+                        n_gpu_layers=0,
+                        verbose=False
+                    )
 
-                    response = llm(
-                        context,
+                    messages = []
+                    for msg in self.chat_history[-5:]:
+                        role = "user" if msg['role'] == "user" else "assistant"
+                        messages.append({"role": role, "content": msg['text']})
+                    
+                    if self.image_path and chat_handler:
+                        messages.append({
+                            "role": "user",
+                            "content": [
+                                {"type": "image_url", "image_url": {"url": f"file://{self.image_path}"}},
+                                {"type": "text", "text": self.prompt}
+                            ]
+                        })
+                    else:
+                        messages.append({"role": "user", "content": self.prompt})
+
+                    response = llm.create_chat_completion(
+                        messages=messages,
                         max_tokens=-1,
                         temperature=0.5,
                         stream=True
                     )
+
+                    for chunk in response:
+                        if 'choices' in chunk and len(chunk['choices']) > 0:
+                            delta = chunk['choices'][0].get('delta', {})
+                            if 'content' in delta:
+                                self.chunk_received.emit(delta['content'])
 
                     for chunk in response:
                         text = chunk['choices'][0]['text']
@@ -2657,72 +2865,72 @@ class AIAssistantInterface(QWidget):
 
         main_layout = QVBoxLayout(self)
         main_layout.setContentsMargins(5, 5, 5, 5)
-        title = TitleLabel("AI 어시스턴트 (AI Chat)")
-        main_layout.addWidget(title)
+        # title = TitleLabel("AI 연계")
+        # main_layout.addWidget(title)
+
+        self.segment = SegmentedWidget(self)
+        self.segment.addItem("online", "온라인", lambda: self.stack.setCurrentIndex(0))
+        self.segment.addItem("offline", "오프라인", lambda: self.stack.setCurrentIndex(1))
+        main_layout.addWidget(self.segment, 0, Qt.AlignmentFlag.AlignLeft)
+        # main_layout.addSpacing(10)
 
         splitter = QSplitter(Qt.Orientation.Horizontal)
 
         # --- LEFT SIDE: Config Area ---
         left_widget = CardWidget()
         v_config = QVBoxLayout(left_widget)
-        v_config.setContentsMargins(20, 20, 20, 20)
-        v_config.addWidget(SubtitleLabel("설정 정보 (Settings)"))
+        # v_config.setContentsMargins(20, 20, 20, 20)
+        # v_config.addWidget(SubtitleLabel("설정 정보 (Settings)"))
 
-        from qfluentwidgets import SegmentedWidget
-        self.seg_engine = SegmentedWidget(self)
-        self.seg_engine.addItem("online", "온라인")
-        self.seg_engine.addItem("offline", "오프라인")
-        v_config.addWidget(self.seg_engine)
-
-        self.stack_config = QStackedWidget()
+        self.stack = QStackedWidget()
 
         # Online config (Gemini)
         page_online = QWidget()
         v_online = QVBoxLayout(page_online)
         v_online.setContentsMargins(0, 10, 0, 0)
 
-        v_online.addWidget(StrongBodyLabel("Gemini 버전:"))
+        v_online.addWidget(StrongBodyLabel("Gemini 버전"))
         self.combo_gemini_ver = ComboBox()
         self.combo_gemini_ver.addItems(["gemini-1.5-flash", "gemini-1.5-pro"])
         v_online.addWidget(self.combo_gemini_ver)
 
-        v_online.addWidget(StrongBodyLabel("API Key:"))
+        v_online.addWidget(StrongBodyLabel("API키"))
         self.txt_api_key = LineEdit()
         self.txt_api_key.setPlaceholderText("AIzaSy...")
         self.txt_api_key.setEchoMode(QLineEdit.EchoMode.Password)
         v_online.addWidget(self.txt_api_key)
         v_online.addStretch(1)
-        self.stack_config.addWidget(page_online)
+        self.stack.addWidget(page_online)
 
         # Offline config (Local LLM)
         page_offline = QWidget()
         v_offline = QVBoxLayout(page_offline)
         v_offline.setContentsMargins(0, 10, 0, 0)
 
-        v_offline.addWidget(StrongBodyLabel("LLM 언어모형 (.gguf):"))
+        v_offline.addWidget(StrongBodyLabel("VLM 대규모언어모델"))
         h_mod = QHBoxLayout()
         self.txt_model_path = LineEdit()
-        self.txt_model_path.setText("D:/ollama/gemma-4-E2B-it-Q8_0.gguf")
+        self.txt_model_path.setText("gemma-4-E2B-it-Q8_0.gguf")
         h_mod.addWidget(self.txt_model_path, 1)
         btn_mod = QPushButton("찾기")
         btn_mod.clicked.connect(self.browse_model)
         h_mod.addWidget(btn_mod)
         v_offline.addLayout(h_mod)
 
-        v_offline.addWidget(StrongBodyLabel("VLM 시각언어모형 (.gguf):"))
+        v_offline.addWidget(StrongBodyLabel("VLM 시각언어모델"))
         h_proj = QHBoxLayout()
         self.txt_proj_path = LineEdit()
-        self.txt_proj_path.setText("D:/ollama/mmproj-F16.gguf")
+        self.txt_proj_path.setText("mmproj-F16.gguf")
         h_proj.addWidget(self.txt_proj_path, 1)
         btn_proj = QPushButton("찾기")
         btn_proj.clicked.connect(self.browse_proj)
         h_proj.addWidget(btn_proj)
         v_offline.addLayout(h_proj)
 
-        v_offline.addWidget(StrongBodyLabel("Image Path (Optional):"))
+        v_offline.addWidget(StrongBodyLabel("첨부 이미지"))
         h_img = QHBoxLayout()
         self.txt_image_path = LineEdit()
-        self.txt_image_path.setText("D:/ollama/20260722_143203.png")
+        self.txt_image_path.setText("20260722_143203.png")
         btn_img = QPushButton("찾기")
         btn_img.clicked.connect(self.browse_image)
         h_img.addWidget(self.txt_image_path, 1)
@@ -2730,13 +2938,10 @@ class AIAssistantInterface(QWidget):
         v_offline.addLayout(h_img)
         v_offline.addStretch(1)
 
-        self.stack_config.addWidget(page_offline)
-        v_config.addWidget(self.stack_config)
+        self.stack.addWidget(page_offline)
+        v_config.addWidget(self.stack)
 
-        self.seg_engine.currentItemChanged.connect(
-            lambda k: self.stack_config.setCurrentIndex(0 if k == "online" else 1)
-        )
-        self.seg_engine.setCurrentItem("online")
+        self.segment.setCurrentItem("online")
         splitter.addWidget(left_widget)
 
         # --- RIGHT SIDE: Chat Area ---
@@ -2763,7 +2968,12 @@ class AIAssistantInterface(QWidget):
         splitter.addWidget(right_widget)
 
         # Set Splitter ratio
-        splitter.setSizes([300, 700])
+        splitter.setStretchFactor(0, 2)
+        splitter.setStretchFactor(1, 8)
+        splitter.setSizes([2000, 8000])
+        # splitter.setStretchFactor(0, 3)
+        # splitter.setStretchFactor(1, 7)
+        # splitter.setSizes([3000, 7000])
         main_layout.addWidget(splitter, 1)
 
     def browse_model(self):
@@ -2786,9 +2996,9 @@ class AIAssistantInterface(QWidget):
 
     def on_engine_changed(self, text):
         if "Gemini" in text:
-            self.stack_config.setCurrentIndex(0)
+            self.stack.setCurrentIndex(0)
         else:
-            self.stack_config.setCurrentIndex(1)
+            self.stack.setCurrentIndex(1)
 
     def simple_markdown_to_html(self, text):
         import re
@@ -2818,7 +3028,7 @@ class AIAssistantInterface(QWidget):
         cursor.movePosition(cursor.MoveOperation.End)
         self.ai_start_pos = cursor.position()
 
-        engine = "gemini" if self.combo_engine.currentIndex() == 0 else "gemma"
+        engine = "gemini" if self.stack.currentIndex() == 0 else "gemma"
 
         self.btn_send.setEnabled(False)
         self.llm_thread = AIGeneratorThread(
@@ -2862,7 +3072,7 @@ class AIAssistantInterface(QWidget):
                 html += f"<div align='right' style='color: #0078D4; margin-bottom: 15px;'><b>[사용자]</b><br>{text}</div>"
             else:
                 text = self.simple_markdown_to_html(msg['text'])
-                html += f"<div align='left' style='color: #000000; margin-bottom: 15px;'><b>[AI 어시스턴트]</b><br>{text}</div>"
+                html += f"<div align='left' style='color: #000000; margin-bottom: 15px;'><b>[AI 연계]</b><br>{text}</div>"
         html += "</div>"
 
         # Save scroll position state before resetting HTML
@@ -2891,8 +3101,20 @@ class AIAssistantInterface(QWidget):
 class NMSCFluentApp(MSFluentWindow):
     def __init__(self):
         super().__init__()
-        self.setWindowTitle("NMSC Climate Toolbox")
-        self.resize(1200, 800)
+        # self.setWindowTitle("NMSC Climate Toolbox")
+        self.setWindowTitle("국가기상위성센터 분석툴박스")
+        self.resize(1000, 700)
+        try:
+            import os
+            from PyQt6.QtGui import QIcon
+            icon_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), "icon/태극-문양_단독.png")
+            if os.path.exists(icon_path):
+                self.setWindowIcon(QIcon(icon_path))
+            else:
+                from qfluentwidgets import FluentIcon
+                self.setWindowIcon(FluentIcon.GLOBE.icon())
+        except Exception as e:
+            print("Icon loading error:", e)
 
         # Shared State
         self.ds = None
@@ -2931,7 +3153,7 @@ class NMSCFluentApp(MSFluentWindow):
         self.addSubInterface(self.calculate_interface, FluentIcon.PIE_SINGLE, "산출")
         self.addSubInterface(self.visualize_interface, FluentIcon.PHOTO, "시각화")
 
-        self.addSubInterface(self.ai_interface, FluentIcon.CHAT, "AI 어시스턴트", position=NavigationItemPosition.BOTTOM)
+        self.addSubInterface(self.ai_interface, FluentIcon.CHAT, "AI 연계", position=NavigationItemPosition.BOTTOM)
 
         self._nav.setCurrentRow(0)
 
@@ -2943,17 +3165,17 @@ if __name__ == "__main__":
     import os
     from datetime import datetime
 
-    # Create log directory if not exists
-    log_dir = "logs"
-    if not os.path.exists(log_dir):
-        os.makedirs(log_dir)
-
-    log_filename = os.path.join(log_dir, f"error_log_{datetime.now().strftime('%Y%m%d_%H%M%S')}.txt")
-    logging.basicConfig(
-        filename=log_filename,
-        level=logging.ERROR,
-        format='%(asctime)s - %(levelname)s - %(message)s'
-    )
+    # # Create log directory if not exists
+    # log_dir = "logs"
+    # if not os.path.exists(log_dir):
+    #     os.makedirs(log_dir)
+    #
+    # log_filename = os.path.join(log_dir, f"error_log_{datetime.now().strftime('%Y%m%d_%H%M%S')}.txt")
+    # logging.basicConfig(
+    #     filename=log_filename,
+    #     level=logging.ERROR,
+    #     format='%(asctime)s - %(levelname)s - %(message)s'
+    # )
 
 
     def global_exception_handler(exc_type, exc_value, exc_traceback):
@@ -2961,8 +3183,8 @@ if __name__ == "__main__":
             sys.__excepthook__(exc_type, exc_value, exc_traceback)
             return
 
-        # Log the error silently without crashing the app or showing popup
-        logging.error("Uncaught exception", exc_info=(exc_type, exc_value, exc_traceback))
+        print("Uncaught exception:", file=sys.stderr)
+        traceback.print_exception(exc_type, exc_value, exc_traceback)
 
 
     sys.excepthook = global_exception_handler

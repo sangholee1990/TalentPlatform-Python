@@ -18,7 +18,36 @@ class NMSCClimateToolbox:
         return glob.glob(pattern)
 
     @staticmethod
+    def _make_xcdat_compliant(ds):
+        """Ensure dataset is CF compliant and ready for xCDAT spatial/temporal operations."""
+        # Add required CF attributes for axis detection
+        if 'lat' in ds.coords: ds['lat'].attrs.update({'standard_name': 'latitude', 'axis': 'Y', 'units': 'degrees_north'})
+        elif 'latitude' in ds.coords: ds['latitude'].attrs.update({'standard_name': 'latitude', 'axis': 'Y', 'units': 'degrees_north'})
+        
+        if 'lon' in ds.coords: ds['lon'].attrs.update({'standard_name': 'longitude', 'axis': 'X', 'units': 'degrees_east'})
+        elif 'longitude' in ds.coords: ds['longitude'].attrs.update({'standard_name': 'longitude', 'axis': 'X', 'units': 'degrees_east'})
+        
+        if 'time' in ds.coords: ds['time'].attrs.update({'standard_name': 'time', 'axis': 'T'})
+        
+        # Let xcdat add bounds for conservative regridding and averaging
+        try:
+            import xcdat as xc
+            # For 1D coordinates, xcdat can generate bounds automatically
+            ds = ds.bounds.add_missing_bounds(axes=['X', 'Y'])
+            if 'time' in ds.coords:
+                ds = ds.bounds.add_missing_bounds(axes=['T'])
+        except Exception as e:
+            print(f"Warning: xCDAT bounds generation failed: {e}")
+            
+        return ds
+
+    @staticmethod
     def open(filepaths):
+        ds = NMSCClimateToolbox._open_raw(filepaths)
+        return NMSCClimateToolbox._make_xcdat_compliant(ds)
+
+    @staticmethod
+    def _open_raw(filepaths):
         """Open one or multiple NetCDF/GeoTIFF files with graceful fallback."""
         if isinstance(filepaths, str):
             if filepaths.lower().endswith(('.tif', '.tiff')):
@@ -99,23 +128,39 @@ class NMSCClimateToolbox:
         return dataset[variable].mean(dim='time', skipna=True)
 
     @staticmethod
-    def cli(dataset, variable):
+    def cli(dataset, variable=None, target_month=None):
         """Calculate standard climatology using xCDAT with a fallback."""
-        if HAS_XCDAT:
-            return dataset.temporal.climatology(variable, freq="month")[variable]
+        if target_month is not None:
+            dataset = dataset.sel(time=dataset['time'].dt.month.isin([target_month]))
+            
+        if HAS_XCDAT and variable:
+            try:
+                return dataset.temporal.climatology(variable, freq="month")
+            except:
+                pass
         if 'time' in dataset.dims:
-            return dataset[variable].groupby('time.month').mean(dim='time')
-        return dataset[variable]
+            # 일별 데이터 등을 먼저 각 년/월별 대표 평균값으로 변환
+            ds_monthly = dataset.resample(time='1MS').mean('time')
+            return ds_monthly.groupby('time.month').mean(dim='time')
+        return dataset
 
     @staticmethod
-    def ano(dataset, variable):
+    def ano(dataset, variable=None, target_month=None):
         """Calculate anomalies from climatology using xCDAT with a fallback."""
-        if HAS_XCDAT:
-            return dataset.temporal.departures(variable, freq="month")[variable]
+        if target_month is not None:
+            dataset = dataset.sel(time=dataset['time'].dt.month.isin([target_month]))
+            
+        if HAS_XCDAT and variable:
+            try:
+                return dataset.temporal.departures(variable, freq="month")
+            except:
+                pass
         if 'time' in dataset.dims:
-            clim = dataset[variable].groupby('time.month').mean(dim='time')
-            return dataset[variable].groupby('time.month') - clim
-        return dataset[variable]
+            # 일별 데이터 등을 먼저 각 년/월별 대표 평균값으로 변환
+            ds_monthly = dataset.resample(time='1MS').mean('time')
+            clim = ds_monthly.groupby('time.month').mean(dim='time')
+            return ds_monthly.groupby('time.month') - clim
+        return dataset
 
     @staticmethod
     def trend(timeseries, time_dim='time'):
@@ -282,10 +327,3 @@ class NMSCClimateToolbox:
         return fig
 
 nct = NMSCClimateToolbox()
-
-if __name__ == '__main__':
-    nct = NMSCClimateToolbox()
-
-    # data = nct.open('C:/SYSTEMS/PROG/PYTHON/TalentPlatform-Python/src/proj/indisystem/2026/nmscClimateToolbox\doc\L3_CDR_Monthly_201501_202312_Final_Combinded_gapfilled.nc')
-
-    # aa = xr.open_dataset('C:/SYSTEMS/PROG/PYTHON/TalentPlatform-Python/src/proj/indisystem/2026/nmscClimateToolbox\doc\L3_CDR_Monthly_201501_202312_Final_Combinded_gapfilled.nc')
