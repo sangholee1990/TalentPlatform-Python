@@ -1,3 +1,10 @@
+import warnings
+warnings.filterwarnings('ignore')
+import ssl
+try:
+    ssl._create_default_https_context = ssl._create_unverified_context
+except AttributeError:
+    pass
 import os
 import glob
 import xarray as xr
@@ -198,12 +205,22 @@ class NMSCClimateToolbox:
             ds_resampled = dataset
 
         # --- 2. Subset for climatology baseline period ---
-        ds_base = ds_resampled
         if start_yr is not None and end_yr is not None and 'time' in ds_resampled.dims:
             import pandas as pd
-            t0 = pd.Timestamp(f'{start_yr}-01-01')
-            t1 = pd.Timestamp(f'{end_yr}-12-31')
+            # Use full date string if provided, otherwise default to start of year/end of year
+            if len(str(start_yr)) == 4:
+                t0 = pd.Timestamp(f'{start_yr}-01-01')
+            else:
+                t0 = pd.Timestamp(str(start_yr))
+                
+            if len(str(end_yr)) == 4:
+                t1 = pd.Timestamp(f'{end_yr}-12-31')
+            else:
+                t1 = pd.Timestamp(str(end_yr))
+                
             ds_base = ds_resampled.sel(time=slice(t0, t1))
+        else:
+            ds_base = ds_resampled
 
         # --- 3. Climatology (long-term monthly/yearly mean) ---
         if 'time' in ds_base.dims:
@@ -245,77 +262,171 @@ class NMSCClimateToolbox:
         return trend_da, slope, p_value
 
     @staticmethod
-    def generate_static_map(dataset, variable, time_idx=0, data_layer='original', bounds=None, cmap_name='jet'):
+    def generate_static_map(dataset, variable, time_idx=0, data_layer='original', bounds=None, cmap_name='jet', dataset_cli=None, custom_title=None, custom_legend=None):
         import io
         import base64
         import numpy as np
+        import matplotlib
+        matplotlib.use('Agg')
         import matplotlib.pyplot as plt
-        import cartopy.crs as ccrs
-        import cartopy.feature as cfeature
+        plt.rcParams['axes.unicode_minus'] = False
+        from mpl_toolkits.basemap import Basemap
         from scipy.ndimage import median_filter
         import matplotlib.patheffects as pe
 
         lon_name = 'lon' if 'lon' in dataset.dims else 'longitude'
         lat_name = 'lat' if 'lat' in dataset.dims else 'latitude'
         
-        if 'time' in dataset.dims and dataset.sizes['time'] > 1:
-            data = dataset[variable].isel(time=time_idx)
-        elif 'time' in dataset.dims:
-            data = dataset[variable].isel(time=0)
+        if 'time' in dataset.dims and dataset.sizes['time'] > 0:
+            if data_layer == 'climatology':
+                target_month = time_idx + 1
+                if dataset_cli is not None and 'month' in dataset_cli.dims:
+                    data = dataset_cli.sel(month=target_month)[variable]
+                else:
+                    ds_month = dataset.isel(time=(dataset.time.dt.month == target_month))
+                    data = ds_month[variable].mean(dim='time')
+            elif data_layer == 'anomaly':
+                # Anomaly uses the current time_idx to find the month, computes climatology, and subtracts
+                t_slice = dataset.isel(time=time_idx)
+                target_month = int(dataset.time[time_idx].dt.month)
+                if dataset_cli is not None and 'month' in dataset_cli.dims:
+                    clim = dataset_cli.sel(month=target_month)[variable]
+                else:
+                    clim = dataset.isel(time=(dataset.time.dt.month == target_month))[variable].mean(dim='time')
+                data = t_slice[variable] - clim
+            else:
+                data = dataset[variable].isel(time=time_idx)
         else:
             data = dataset[variable]
 
         data_2d = data.values
         lons = dataset[lon_name].values
         lats = dataset[lat_name].values
-
-        if bounds:
-            vmin, vmax = bounds
-        else:
-            vmin, vmax = float(np.nanmin(data_2d)), float(np.nanmax(data_2d))
-
-        fig, ax = plt.subplots(figsize=(10, 6), subplot_kw={'projection': ccrs.PlateCarree()})
         
-        pcm = ax.pcolormesh(lons, lats, data_2d, cmap=cmap_name, vmin=vmin, vmax=vmax, transform=ccrs.PlateCarree(), shading='auto')
+        if lats[0] > lats[-1]:
+            lats = lats[::-1]
+            data_2d = data_2d[::-1, :]
+
+        fig = plt.figure(figsize=(2400 / 300, 2000 / 300))
+        ax = fig.add_subplot(111)
+
+        m = Basemap(
+            projection='lcc', resolution='i',
+            lat_0=38, lon_0=126,
+            llcrnrlat=11.308528, urcrnrlat=53.303712,
+            llcrnrlon=101.395259, urcrnrlon=175.188166,
+            lat_1=30, lat_2=60, ax=ax
+        )
+        
+        lon_grid, lat_grid = np.meshgrid(lons, lats)
+        x, y = m(lon_grid, lat_grid)
+        
+        if data_layer == 'anomaly':
+            import matplotlib.colors as mcolors
+            SST_ANOM_COLORS = [
+                '#FF66FF', '#FF33CC', '#CC33CC', '#9933CC', '#6633CC', '#3333CC', '#0033CC',
+                '#0066CC', '#3399FF', '#66CCFF', '#99FFFF', '#CCFFFF', '#FFFFCC', '#FFFF99',
+                '#FFFF33', '#FFCC33', '#FF9933', '#FF6633', '#FF3333', '#FF0000', '#CC0000',
+                '#A00000', '#800000', '#600000'
+            ]
+            VMIN = bounds[0] if bounds else -6.0
+            VMAX = bounds[1] if bounds else 6.0
+            DLEV = (VMAX - VMIN) / 24.0 if bounds else 0.5
+            LEVELS = np.arange(VMIN, VMAX + 1e-6, DLEV)
+            
+            if cmap_name == 'SST_ANOM (custom)':
+                cmap = mcolors.ListedColormap(SST_ANOM_COLORS)
+                norm = mcolors.BoundaryNorm(LEVELS, cmap.N)
+                pcm = m.pcolormesh(x, y, data_2d, cmap=cmap, norm=norm, shading='auto')
+            else:
+                pcm = m.pcolormesh(x, y, data_2d, cmap=cmap_name, shading='auto', vmin=VMIN, vmax=VMAX)
+                
+            line_levels = np.arange(VMIN, VMAX + 1e-6, 2.0)
+            line_levels = line_levels[line_levels != 0.0]
+            line_levels = line_levels.astype(int)
+        else:
+            VMIN = bounds[0] if bounds else 0.0
+            VMAX = bounds[1] if bounds else 36.0
+            DLEV = (VMAX - VMIN) / 9.0 if bounds else 4.0
+            LEVELS = np.arange(VMIN, VMAX + 1e-6, DLEV)
+            pcm = m.pcolormesh(x, y, data_2d, cmap=cmap_name, shading='auto', vmin=VMIN, vmax=VMAX)
+            line_levels = LEVELS
+
+        m.drawcoastlines(color='k', linewidth=0.5)
+        m.drawcountries(color='gray', linewidth=0.5)
+        m.fillcontinents(color='lightgray', lake_color='white')
+        
+        m.drawparallels(np.arange(-10, 61, 10), labels=[1,0,0,0], fontsize=10, fontname='DejaVu Sans', fmt='%d', fontweight='bold')
+        m.drawmeridians(np.arange(50, 181, 10), labels=[0,0,0,1], fontsize=10, fontname='DejaVu Sans', fmt='%d', fontweight='bold')
 
         size_val = 15
         smoothed_data = median_filter(data_2d, size=size_val)
         smoothed_ma = np.ma.masked_where(np.isnan(data_2d), smoothed_data)
 
-        DLEV = (vmax - vmin) / 9.0 if bounds else 4.0
-        LEVELS = np.arange(vmin, vmax + 1e-6, DLEV)
-        
-        try:
-            c = ax.contour(lons, lats, smoothed_ma, levels=LEVELS, colors='black', linewidths=1.0, alpha=0.8, transform=ccrs.PlateCarree())
-            labels = ax.clabel(c, inline=True, fontsize=8, fmt='%d', colors='black')
-            for label in labels:
-                label.set_path_effects([pe.withStroke(linewidth=2.0, foreground='white')])
-        except Exception:
-            pass
+        cs = m.contour(x, y, smoothed_ma, levels=line_levels, colors='k', linewidths=1.0, alpha=0.8)
+        if data_layer == 'anomaly':
+            cs0 = m.contour(x, y, smoothed_ma, levels=[0.0], colors='k', linewidths=0.5, alpha=0.5)
+
+        candidates = []
+        paths = []
+        if hasattr(cs, 'collections'):
+            for collection in cs.collections:
+                paths.extend(collection.get_paths())
+        else:
+            paths = cs.get_paths()
+        for path in paths:
+            for poly in path.to_polygons():
+                line_length = len(poly)
+                if line_length > 30:
+                    mid_idx = line_length // 2
+                    candidates.append({
+                        'length': line_length,
+                        'coord': (poly[mid_idx][0], poly[mid_idx][1])
+                    })
+        candidates.sort(key=lambda x: x['length'], reverse=True)
+        MAX_LABELS = 15
+        manual_locs = [cand['coord'] for cand in candidates[:MAX_LABELS]]
+
+        if manual_locs:
+            try:
+                labels = plt.clabel(cs, inline=True, fontsize=8, fmt='%d', colors='black', manual=manual_locs)
+                for label in labels:
+                    label.set_rotation(0)
+                    label.set_path_effects([pe.withStroke(linewidth=2.0, foreground='white')])
+            except Exception:
+                pass
 
         cbar = fig.colorbar(pcm, ax=ax, shrink=0.8, extend='both', spacing='proportional')
-        cbar.set_label('Value', fontsize=10, fontweight='bold')
+        if data_layer == 'anomaly':
+            cbar.set_ticks(LEVELS)
+        
+        cbar.set_label(custom_legend if custom_legend else 'Value', fontsize=10, fontname='Malgun Gothic', fontweight='bold')
+        for lbl in cbar.ax.get_yticklabels():
+            lbl.set_fontname('Malgun Gothic')
+            lbl.set_fontsize(10)
+            lbl.set_fontweight('bold')
+
         title_str = f'{data_layer.capitalize()} Map ({variable})'
         if 'time' in dataset.dims:
-            try:
-                title_str += f" - {str(dataset['time'].values[time_idx])[:10]}"
-            except:
-                pass
-        ax.set_title(title_str, fontsize=12, fontweight='bold')
-
-        ax.add_feature(cfeature.COASTLINE, linewidth=0.5)
-        ax.add_feature(cfeature.BORDERS, linewidth=0.5, linestyle=':')
+            if data_layer == 'climatology':
+                title_str += f" - Month {time_idx + 1}"
+            else:
+                try:
+                    title_str += f" - {str(dataset['time'].values[time_idx])[:7]}"
+                except:
+                    pass
         
-        gl = ax.gridlines(draw_labels=True, linewidth=0.5, color='gray', alpha=0.5, linestyle='--')
-        gl.top_labels = False
-        gl.right_labels = False
-
+        final_title = custom_title if custom_title else title_str
+        plt.title(final_title, fontsize=12, fontweight='bold', fontname='Malgun Gothic')
         plt.tight_layout()
+        
         buf = io.BytesIO()
-        plt.savefig(buf, format='png', dpi=300, transparent=False)
+        # plt.savefig(buf, format='png', transparent=True, pad_inches=0, bbox_inches='tight')
+        plt.savefig(buf, dpi=300, format='png', transparent=True)
         plt.close(fig)
         buf.seek(0)
-        return base64.b64encode(buf.read()).decode('utf-8')
+        img_b64 = base64.b64encode(buf.read()).decode('utf-8')
+        return img_b64
 
     @staticmethod
     def resMap(dataset, variable, time_idx=0, cmap='RdYlBu_r'):
