@@ -182,6 +182,79 @@ class NMSCClimateToolbox:
         return trend_da, slope, p_value
 
     @staticmethod
+    def generate_static_map(dataset, variable, time_idx=0, data_layer='original', bounds=None, cmap_name='jet'):
+        import io
+        import base64
+        import numpy as np
+        import matplotlib.pyplot as plt
+        import cartopy.crs as ccrs
+        import cartopy.feature as cfeature
+        from scipy.ndimage import median_filter
+        import matplotlib.patheffects as pe
+
+        lon_name = 'lon' if 'lon' in dataset.dims else 'longitude'
+        lat_name = 'lat' if 'lat' in dataset.dims else 'latitude'
+        
+        if 'time' in dataset.dims and dataset.sizes['time'] > 1:
+            data = dataset[variable].isel(time=time_idx)
+        elif 'time' in dataset.dims:
+            data = dataset[variable].isel(time=0)
+        else:
+            data = dataset[variable]
+
+        data_2d = data.values
+        lons = dataset[lon_name].values
+        lats = dataset[lat_name].values
+
+        if bounds:
+            vmin, vmax = bounds
+        else:
+            vmin, vmax = float(np.nanmin(data_2d)), float(np.nanmax(data_2d))
+
+        fig, ax = plt.subplots(figsize=(10, 6), subplot_kw={'projection': ccrs.PlateCarree()})
+        
+        pcm = ax.pcolormesh(lons, lats, data_2d, cmap=cmap_name, vmin=vmin, vmax=vmax, transform=ccrs.PlateCarree(), shading='auto')
+
+        size_val = 15
+        smoothed_data = median_filter(data_2d, size=size_val)
+        smoothed_ma = np.ma.masked_where(np.isnan(data_2d), smoothed_data)
+
+        DLEV = (vmax - vmin) / 9.0 if bounds else 4.0
+        LEVELS = np.arange(vmin, vmax + 1e-6, DLEV)
+        
+        try:
+            c = ax.contour(lons, lats, smoothed_ma, levels=LEVELS, colors='black', linewidths=1.0, alpha=0.8, transform=ccrs.PlateCarree())
+            labels = ax.clabel(c, inline=True, fontsize=8, fmt='%d', colors='black')
+            for label in labels:
+                label.set_path_effects([pe.withStroke(linewidth=2.0, foreground='white')])
+        except Exception:
+            pass
+
+        cbar = fig.colorbar(pcm, ax=ax, shrink=0.8, extend='both', spacing='proportional')
+        cbar.set_label('Value', fontsize=10, fontweight='bold')
+        title_str = f'{data_layer.capitalize()} Map ({variable})'
+        if 'time' in dataset.dims:
+            try:
+                title_str += f" - {str(dataset['time'].values[time_idx])[:10]}"
+            except:
+                pass
+        ax.set_title(title_str, fontsize=12, fontweight='bold')
+
+        ax.add_feature(cfeature.COASTLINE, linewidth=0.5)
+        ax.add_feature(cfeature.BORDERS, linewidth=0.5, linestyle=':')
+        
+        gl = ax.gridlines(draw_labels=True, linewidth=0.5, color='gray', alpha=0.5, linestyle='--')
+        gl.top_labels = False
+        gl.right_labels = False
+
+        plt.tight_layout()
+        buf = io.BytesIO()
+        plt.savefig(buf, format='png', dpi=300, transparent=False)
+        plt.close(fig)
+        buf.seek(0)
+        return base64.b64encode(buf.read()).decode('utf-8')
+
+    @staticmethod
     def resMap(dataset, variable, time_idx=0, cmap='RdYlBu_r'):
         """Plot 2D resource map."""
         lon_name = 'lon' if 'lon' in dataset.dims else 'longitude'
