@@ -163,6 +163,69 @@ class NMSCClimateToolbox:
         return dataset
 
     @staticmethod
+    def process_climate_data(dataset, freq='1MS', op='평균', start_yr=None, end_yr=None):
+        """Process climate data: resample, compute climatology, and compute anomalies.
+
+        Parameters
+        ----------
+        dataset : xr.Dataset
+            Input dataset with a 'time' dimension.
+        freq : str
+            Resampling frequency, e.g. '1MS' (monthly) or '1YS' (yearly).
+        op : str
+            Aggregation operation: '평균' (mean), '합계' (sum), '최대' (max), '최소' (min).
+        start_yr : str or None
+            Start year for climatology baseline (e.g. '1991').
+        end_yr : str or None
+            End year for climatology baseline (e.g. '2020').
+
+        Returns
+        -------
+        tuple of (ds_resampled, ds_cli, ds_ano)
+        """
+        # --- 1. Resample along time axis ---
+        if 'time' in dataset.dims:
+            resampler = dataset.resample(time=freq)
+            if op == '합계':
+                ds_resampled = resampler.sum('time')
+            elif op == '최대':
+                ds_resampled = resampler.max('time')
+            elif op == '최소':
+                ds_resampled = resampler.min('time')
+            else:  # 평균
+                ds_resampled = resampler.mean('time')
+        else:
+            ds_resampled = dataset
+
+        # --- 2. Subset for climatology baseline period ---
+        ds_base = ds_resampled
+        if start_yr is not None and end_yr is not None and 'time' in ds_resampled.dims:
+            import pandas as pd
+            t0 = pd.Timestamp(f'{start_yr}-01-01')
+            t1 = pd.Timestamp(f'{end_yr}-12-31')
+            ds_base = ds_resampled.sel(time=slice(t0, t1))
+
+        # --- 3. Climatology (long-term monthly/yearly mean) ---
+        if 'time' in ds_base.dims:
+            if freq == '1YS':
+                ds_cli = ds_base.mean(dim='time')
+            else:
+                ds_cli = ds_base.groupby('time.month').mean(dim='time')
+        else:
+            ds_cli = ds_base
+
+        # --- 4. Anomaly (departure from climatology) ---
+        if 'time' in ds_resampled.dims:
+            if freq == '1YS':
+                ds_ano = ds_resampled - ds_cli
+            else:
+                ds_ano = ds_resampled.groupby('time.month') - ds_cli
+        else:
+            ds_ano = ds_resampled
+
+        return ds_resampled, ds_cli, ds_ano
+
+    @staticmethod
     def trend(timeseries, time_dim='time'):
         """Calculate linear trend."""
         # timeseries is expected to be a 1D xarray DataArray
