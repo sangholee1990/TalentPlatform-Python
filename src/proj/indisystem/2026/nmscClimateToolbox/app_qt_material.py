@@ -1603,8 +1603,65 @@ class VisualizeInterface(QWidget):
         h_cmap.setContentsMargins(0, 0, 0, 0)
         h_cmap.addWidget(StrongBodyLabel("색상바"))
         self.cb_cmap = ComboBox()
-        self.cb_cmap.addItems(
-            ['RdYlBu_r', 'viridis', 'plasma', 'inferno', 'magma', 'coolwarm', 'bwr', 'jet', 'SST_ANOM (custom)'])
+        
+        # Override the style to force the selected icon to be drawn at full size
+        self.cb_cmap.setStyleSheet("QComboBox { icon-size: 80px 16px; }")
+        
+        self.cmap_mapping = {
+            '무지개 jet': 'jet',
+            '편차 anom': 'SST_ANOM (custom)',
+            '파랑-노랑-빨강 RdYlBu_r': 'RdYlBu_r',
+            '파랑-하양-빨강 bwr': 'bwr',
+            '차가움-따뜻함 coolwarm': 'coolwarm',
+            '스펙트럼 viridis': 'viridis',
+            '네온 plasma': 'plasma',
+            '불꽃 plasma': 'inferno',
+            '용암 magma': 'magma'
+        }
+        
+        from PyQt6.QtGui import QImage, QPixmap, QIcon, QColor
+        import matplotlib.pyplot as plt
+        import matplotlib.colors as mcolors
+        
+        for text, mpl_name in self.cmap_mapping.items():
+            if mpl_name == 'SST_ANOM (custom)':
+                colors = [
+                    '#FF66FF', '#FF33CC', '#CC33CC', '#9933CC', '#6633CC', '#3333CC', '#0033CC',
+                    '#0066CC', '#3399FF', '#66CCFF', '#99FFFF', '#CCFFFF', '#FFFFCC', '#FFFF99',
+                    '#FFFF33', '#FFCC33', '#FF9933', '#FF6633', '#FF3333', '#FF0000', '#CC0000',
+                    '#A00000', '#800000', '#600000'
+                ]
+                cmap = mcolors.ListedColormap(colors)
+            else:
+                try:
+                    cmap = plt.get_cmap(mpl_name)
+                except:
+                    cmap = plt.get_cmap('jet')
+                    
+            width = 80
+            height = 16
+            image = QImage(width, height, QImage.Format.Format_RGB32)
+            
+            for x in range(width):
+                val = x / (width - 1)
+                rgba = cmap(val)
+                color = QColor(int(rgba[0] * 255), int(rgba[1] * 255), int(rgba[2] * 255))
+                for y in range(height):
+                    image.setPixelColor(x, y, color)
+                    
+            pixmap = QPixmap.fromImage(image)
+            self.cb_cmap.addItem(QIcon(pixmap), text)
+
+        from PyQt6.QtCore import QSize
+        from PyQt6.QtWidgets import QComboBox
+        self.cb_cmap.setIconSize(QSize(80, 16))
+        self.cb_cmap.setSizeAdjustPolicy(QComboBox.SizeAdjustPolicy.AdjustToContents)
+        
+        # We remove manual popup minimum width so it naturally matches the combobox
+        view = self.cb_cmap.view()
+        if view:
+            view.setMinimumWidth(0)
+            
         h_cmap.addWidget(self.cb_cmap, 1)
         v_left.addWidget(self.w_cmap)
 
@@ -1672,7 +1729,7 @@ class VisualizeInterface(QWidget):
         self.w_title = QWidget()
         h_title = QHBoxLayout(self.w_title)
         h_title.setContentsMargins(0, 0, 0, 0)
-        h_title.addWidget(StrongBodyLabel("그림 제목"))
+        h_title.addWidget(StrongBodyLabel("제목명"))
         self.txt_title = LineEdit()
         self.txt_title.setPlaceholderText("자동 생성")
         h_title.addWidget(self.txt_title, 1)
@@ -1681,7 +1738,7 @@ class VisualizeInterface(QWidget):
         self.w_legend = QWidget()
         h_legend = QHBoxLayout(self.w_legend)
         h_legend.setContentsMargins(0, 0, 0, 0)
-        h_legend.addWidget(StrongBodyLabel("범례 이름"))
+        h_legend.addWidget(StrongBodyLabel("범례명"))
         self.txt_legend = LineEdit()
         self.txt_legend.setPlaceholderText("자동 생성")
         h_legend.addWidget(self.txt_legend, 1)
@@ -2045,12 +2102,12 @@ class VisualizeInterface(QWidget):
     def on_layer_changed(self, index):
         layer = self.cb_layer.currentData()
         if layer == 'anomaly':
-            self.cb_cmap.setCurrentText('SST_ANOM (custom)')
+            self.cb_cmap.setCurrentText('anom')
             if hasattr(self, 'txt_vmin'):
                 self.txt_vmin.setText('-6.0')
                 self.txt_vmax.setText('6.0')
         elif layer in ['original', 'climatology']:
-            self.cb_cmap.setCurrentText('jet')
+            self.cb_cmap.setCurrentText('RdYlBu_r')
             if hasattr(self, 'txt_vmin'):
                 self.txt_vmin.setText('0')
                 self.txt_vmax.setText('36')
@@ -2387,7 +2444,7 @@ class VisualizeInterface(QWidget):
             ds=ds,
             var_name=var_name,
             time_idx=time_idx,
-            cmap=self.cb_cmap.currentText(),
+            cmap=self.cmap_mapping.get(self.cb_cmap.currentText(), 'jet'),
             bounds=self.window().bounds,
             show_basemap=self.chk_basemap.isChecked(), raw_mode=self.chk_raw_mode.isChecked(),
             data_layer=self.cb_layer.currentData()
@@ -2829,7 +2886,7 @@ class VisualizeInterface(QWidget):
             time_idx=time_idx,
             data_layer=layer,
             bounds=(vmin, vmax) if (vmin is not None and vmax is not None) else None,
-            cmap_name=self.cb_cmap.currentText(),
+            cmap_name=self.cmap_mapping.get(self.cb_cmap.currentText(), 'jet'),
             ds_cli=getattr(w, 'processed_cli', None),
             custom_title=c_title if c_title else None,
             custom_legend=c_legend if c_legend else None
