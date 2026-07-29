@@ -2,6 +2,11 @@ import warnings
 
 warnings.filterwarnings('ignore')
 import sys
+import ssl
+try:
+    ssl._create_default_https_context = ssl._create_unverified_context
+except AttributeError:
+    pass
 import resources_rc
 import os
 import json
@@ -382,18 +387,22 @@ class CustomRangeSlider(QWidget):
 
         track_y = self.height() // 2 - 2
         track_rect = QRect(self.handle_width // 2, track_y, self.width() - self.handle_width, 4)
-        painter.setBrush(QColor("#444444"))
+        # painter.setBrush(QColor("#444444"))
+        painter.setBrush(QColor("#959595"))
+        # painter.setBrush(QColor("#e6e6e6"))
         painter.setPen(Qt.PenStyle.NoPen)
         painter.drawRoundedRect(track_rect, 2, 2)
 
         x1 = self._val_to_x(self.low)
         x2 = self._val_to_x(self.high)
         highlight_rect = QRect(x1, track_y, x2 - x1, 4)
-        painter.setBrush(QColor("#03A9F4"))
+        # painter.setBrush(QColor("#03A9F4"))
+        painter.setBrush(QColor("#2979ff"))
         painter.drawRoundedRect(highlight_rect, 2, 2)
 
         painter.setBrush(QColor("#FFFFFF"))
-        painter.setPen(QPen(QColor("#888888"), 1))
+        # painter.setPen(QPen(QColor("#888888"), 1))
+        painter.setPen(QPen(QColor("#555555"), 1))
 
         h1_rect = QRect(x1 - self.handle_width // 2, self.height() // 2 - 8, self.handle_width, 16)
         painter.drawEllipse(h1_rect)
@@ -1119,10 +1128,18 @@ class CalculateInterface(QWidget):
         # 2. 기후 평년 시작~종료 (1행)
         h_row2 = QHBoxLayout()
         h_row2.addWidget(StrongBodyLabel("기후 평년"))
-        self.txt_cli_start = LineEdit()
-        self.txt_cli_start.setPlaceholderText("시작 (예: 1991-01)")
-        self.txt_cli_end = LineEdit()
-        self.txt_cli_end.setPlaceholderText("종료 (예: 2020-12)")
+        from PyQt6.QtWidgets import QDateEdit
+        from PyQt6.QtCore import QDate
+        self.txt_cli_start = QDateEdit()
+        self.txt_cli_start.setCalendarPopup(True)
+        self.txt_cli_start.setDisplayFormat("yyyy-MM-dd")
+        self.txt_cli_start.setDate(QDate(1991, 1, 1))
+        
+        self.txt_cli_end = QDateEdit()
+        self.txt_cli_end.setCalendarPopup(True)
+        self.txt_cli_end.setDisplayFormat("yyyy-MM-dd")
+        self.txt_cli_end.setDate(QDate(2020, 12, 31))
+        
         h_row2.addWidget(self.txt_cli_start, 1)
         h_row2.addWidget(StrongBodyLabel("~"))
         h_row2.addWidget(self.txt_cli_end, 1)
@@ -1142,9 +1159,11 @@ class CalculateInterface(QWidget):
         v_content.addStretch(1)
 
         # 맨 하단 "적용" 버튼
-        btn_apply = PushButton("적용")
-        btn_apply.clicked.connect(self.run_all_calculations)
-        v_content.addWidget(btn_apply)
+        v_content.addSpacing(10)
+        self.btn_apply_all = PushButton("적용")
+        self.btn_apply_all.setMinimumHeight(40)
+        self.btn_apply_all.clicked.connect(self.run_all_calculations)
+        v_content.addWidget(self.btn_apply_all)
 
         # =========================================================
         # 메인 레이아웃에 스크롤 영역 추가
@@ -1157,24 +1176,16 @@ class CalculateInterface(QWidget):
 
     def update_climatology_dates(self):
         w = self.window()
-        freq_is_monthly = (self.cb_time_freq.currentText() == '월간')
-
-        self.txt_cli_start.setPlaceholderText("시작 (예: 1991-01)" if freq_is_monthly else "시작 (예: 1991)")
-        self.txt_cli_end.setPlaceholderText("종료 (예: 2020-12)" if freq_is_monthly else "종료 (예: 2020)")
-
         if hasattr(w, 'ds') and w.ds is not None and 'time' in w.ds.dims:
             import pandas as pd
             try:
                 times = pd.to_datetime(w.ds['time'].values)
                 if len(times) > 0:
-                    if freq_is_monthly:
-                        start_str = times.min().strftime('%Y-%m')
-                        end_str = times.max().strftime('%Y-%m')
-                    else:
-                        start_str = str(times.min().year)
-                        end_str = str(times.max().year)
-                    self.txt_cli_start.setText(start_str)
-                    self.txt_cli_end.setText(end_str)
+                    from PyQt6.QtCore import QDate
+                    start_qdate = QDate(times.min().year, times.min().month, times.min().day)
+                    end_qdate = QDate(times.max().year, times.max().month, times.max().day)
+                    self.txt_cli_start.setDate(start_qdate)
+                    self.txt_cli_end.setDate(end_qdate)
             except Exception as e:
                 print("Failed to auto-populate year:", e)
 
@@ -1183,10 +1194,22 @@ class CalculateInterface(QWidget):
         self.update_climatology_dates()
 
     def run_all_calculations(self):
-        """UI에서 선택된 시공간, 기후, 추세 조건을 바탕으로 실제 xarray 연산을 수행"""
         w = self.window()
         if w.ds is None:
-            ToastNotification.show_toast(self, "오류", "먼저 데이터를 불러오세요.")
+            ToastNotification.show_toast(self, "오류", "먼저 입력 데이터를 불러오세요.")
+            return
+            
+        self.run_input_calculations()
+        
+        if hasattr(w, 'valid_ds') and w.valid_ds is not None:
+            self.run_valid_calculations()
+        else:
+            ToastNotification.show_toast(self, "알림", "검증 데이터가 없어 입력 데이터 산출만 진행되었습니다.")
+
+    def run_input_calculations(self):
+        w = self.window()
+        if w.ds is None:
+            ToastNotification.show_toast(self, "오류", "먼저 입력 데이터를 불러오세요.")
             return
 
         try:
@@ -1196,59 +1219,151 @@ class CalculateInterface(QWidget):
                 return
 
             if 'time' not in w.ds.dims:
-                ToastNotification.show_toast(self, '오류', '시간(time) 차원이 없어 연산을 수행할 수 없습니다.')
+                ToastNotification.show_toast(self, '오류', '입력 데이터에 시간(time) 차원이 없어 연산을 수행할 수 없습니다.')
                 return
 
-            # 1. 시공간 설정 (시간 주기 및 연산)
             freq = '1YS' if self.cb_time_freq.currentText() == '연간' else '1MS'
             op = self.cb_time_op.currentText()
+            trend_method = self.cb_trend_method.currentText()
 
-            if not hasattr(w, 'results_dict'):
-                w.results_dict = {}
-            w.results_dict['original'] = w.ds
-
-            start_yr = self.txt_cli_start.text().strip() or None
-            end_yr = self.txt_cli_end.text().strip() or None
+            start_yr = self.txt_cli_start.date().toString("yyyy-MM-dd")
+            end_yr = self.txt_cli_end.date().toString("yyyy-MM-dd")
 
             ds_resampled, ds_cli, ds_ano = nct.process_climate_data(
                 w.ds, freq=freq, op=op, start_yr=start_yr, end_yr=end_yr
             )
 
+            if not hasattr(w, 'results_dict'):
+                w.results_dict = {}
+            w.results_dict['original'] = ds_resampled
+            w.results_dict['trend_method'] = trend_method
+            w.processed_ds = ds_resampled
+            w.processed_cli = ds_cli
             w.calculated_ds = ds_ano
             w.results_dict['climatology'] = ds_cli
             w.results_dict['anomaly'] = ds_ano
 
-            # 3. 추세 설정 (알고리즘)
-            trend_method = self.cb_trend_method.currentText()
-            # 추후 선형/Theil-Sen 추세 맵핑 시 활용하기 위해 메타데이터 저장
-            w.results_dict['trend_method'] = trend_method
+            msg = f"{var_name} 기반 연산(시간축 {op}, 평년, 편차 등)이 완료되었습니다.\n[시각화 탭]에서 확인할 수 있습니다."
+            # ToastNotification.show_toast(self, "입력 데이터 연산 완료", msg)
 
-            # ----------------------------------------------------
-            # 4. 검증 자료(Observation)에도 동일한 기후 설정 적용
-            # ----------------------------------------------------
-            if hasattr(w, 'valid_ds') and w.valid_ds is not None and 'time' in w.valid_ds.dims:
-                if not hasattr(w, 'valid_results_dict'):
-                    w.valid_results_dict = {}
-                w.valid_results_dict['original'] = w.valid_ds
+        except Exception as e:
+            import traceback
+            traceback.print_exc()
+            ToastNotification.show_toast(self, "오류", f"입력 데이터 계산 중 오류 발생: {e}")
 
-                start_yr = self.txt_cli_start.text().strip() or None
-                end_yr = self.txt_cli_end.text().strip() or None
+    def run_valid_calculations(self):
+        w = self.window()
+        if not hasattr(w, 'valid_ds') or w.valid_ds is None:
+            ToastNotification.show_toast(self, "오류", "먼저 검증 데이터를 불러오세요.")
+            return
 
-                vds_resampled, vds_cli, vds_ano = nct.process_climate_data(
-                    w.valid_ds, freq=freq, op=op, start_yr=start_yr, end_yr=end_yr
-                )
+        try:
+            if 'time' not in w.valid_ds.dims:
+                ToastNotification.show_toast(self, '오류', '검증 데이터에 시간(time) 차원이 없어 연산을 수행할 수 없습니다.')
+                return
 
-                w.calculated_valid_ds = vds_ano
-                w.valid_results_dict['climatology'] = vds_cli
-                w.valid_results_dict['anomaly'] = vds_ano
+            freq = '1YS' if self.cb_time_freq.currentText() == '연간' else '1MS'
+            op = self.cb_time_op.currentText()
 
-            msg = f"{var_name} 기반 통합 연산(시간축 {op}, 평년, 편차 등)이 완료되었습니다.\n[시각화 탭]에서 확인할 수 있습니다."
-            ToastNotification.show_toast(self, "연산 완료", msg)
+            start_yr = self.txt_cli_start.date().toString("yyyy-MM-dd")
+            end_yr = self.txt_cli_end.date().toString("yyyy-MM-dd")
+
+            vds_resampled, vds_cli, vds_ano = nct.process_climate_data(
+                w.valid_ds, freq=freq, op=op, start_yr=start_yr, end_yr=end_yr
+            )
+
+            if not hasattr(w, 'valid_results_dict'):
+                w.valid_results_dict = {}
+            w.valid_results_dict['original'] = vds_resampled
+
+            w.calculated_valid_ds = vds_ano
+            w.valid_results_dict['climatology'] = vds_cli
+            w.valid_results_dict['anomaly'] = vds_ano
+
+            ToastNotification.show_toast(self, "데이터 연산 완료", "데이터 산출 처리가 완료되었습니다.")
 
         except Exception as e:
             import traceback
             traceback.print_exc()
             ToastNotification.show_toast(self, "오류", f"통합 계산 중 오류 발생: {e}")
+
+    def run_collocation(self):
+        w = self.window()
+        if not hasattr(w, 'results_dict') or not hasattr(w, 'valid_results_dict'):
+            ToastNotification.show_toast(self, "오류", "입력 및 검증 데이터 산출 처리를 먼저 완료하세요.")
+            return
+            
+        try:
+            import pandas as pd
+            import numpy as np
+            
+            w.collocated_data_dict = {}
+            layers = ['original', 'climatology', 'anomaly']
+            
+            from PyQt6.QtWidgets import QApplication
+            ToastNotification.show_toast(self, "알림", "시공간 일치 데이터를 처리 중입니다... (최대 수십 초 소요)")
+            QApplication.processEvents()
+            
+            for layer in layers:
+                if layer not in w.results_dict or layer not in w.valid_results_dict:
+                    continue
+                    
+                ds = w.results_dict[layer]
+                vds = w.valid_results_dict[layer]
+                var_name = w.selected_var
+                vvar = w.selected_valid_var
+                
+                lat_dim = 'lat' if 'lat' in ds.dims else ('latitude' if 'latitude' in ds.dims else None)
+                lon_dim = 'lon' if 'lon' in ds.dims else ('longitude' if 'longitude' in ds.dims else None)
+                v_lat_dim = 'lat' if 'lat' in vds.variables else ('latitude' if 'latitude' in vds.variables else None)
+                v_lon_dim = 'lon' if 'lon' in vds.variables else ('longitude' if 'longitude' in vds.variables else None)
+                time_dim = 'time' if 'time' in ds.dims else ('month' if 'month' in ds.dims else None)
+                
+                if not lat_dim or not v_lat_dim or 'station_code' not in vds.dims:
+                    continue
+                    
+                all_merged = []
+                for st in vds['station_code'].values:
+                    try:
+                        stn_lat = float(vds[v_lat_dim].sel(station_code=st).values.item())
+                        stn_lon = float(vds[v_lon_dim].sel(station_code=st).values.item())
+                        st_name = str(vds['station_name'].sel(station_code=st).values) if 'station_name' in vds else str(st)
+
+                        buoy_df = vds[vvar].sel(station_code=st).to_dataframe().reset_index()
+                        if 'time' in buoy_df.columns:
+                            buoy_df['time'] = pd.to_datetime(buoy_df['time'])
+                            buoy_monthly = buoy_df.set_index('time').resample('MS')[vvar].mean().reset_index()
+                            merge_on = 'time'
+                        elif 'month' in buoy_df.columns:
+                            buoy_monthly = buoy_df
+                            merge_on = 'month'
+                        else:
+                            buoy_monthly = buoy_df
+                            merge_on = None
+
+                        buoy_monthly = buoy_monthly.rename(columns={vvar: 'SST_Buoy'})
+
+                        sat_df = ds[var_name].sel({lat_dim: stn_lat, lon_dim: stn_lon}, method='nearest').to_dataframe().reset_index()
+                        
+                        if merge_on and merge_on in sat_df.columns:
+                            if merge_on == 'time':
+                                sat_df['time'] = pd.to_datetime(sat_df['time'])
+                            sat_df = sat_df[[merge_on, var_name]].rename(columns={var_name: 'SST_Sat'})
+                            merged = pd.merge(sat_df, buoy_monthly, on=merge_on, how='inner').dropna(subset=['SST_Sat', 'SST_Buoy'])
+                            merged['station_name'] = f"{st} ({st_name})"
+                            merged['station_code'] = str(st)
+                            if not merged.empty:
+                                all_merged.append(merged)
+                    except Exception as e:
+                        print(f"Collocation error for station {st} on layer {layer}: {e}")
+                        
+                w.collocated_data_dict[layer] = all_merged
+                
+            ToastNotification.show_toast(self, "완료", "입력/검증 데이터 시공간 일치 처리가 완료되었습니다.")
+        except Exception as e:
+            import traceback
+            traceback.print_exc()
+            ToastNotification.show_toast(self, "오류", f"시공간 일치 처리 중 오류: {e}")
 
 
 from PyQt6.QtCore import QThread, pyqtSignal
@@ -1426,6 +1541,12 @@ class VisualizeInterface(QWidget):
         self.setObjectName("VisualizeInterface")
         self.init_ui()
 
+    def resizeEvent(self, event):
+        super().resizeEvent(event)
+        if hasattr(self, 'stack') and self.stack.currentIndex() == 3:
+            from PyQt6.QtCore import QTimer
+            QTimer.singleShot(100, self.fit_image)
+
     def set_all_stations(self, state_bool):
         try:
             model = self.valid_station_combo.model()
@@ -1471,7 +1592,7 @@ class VisualizeInterface(QWidget):
         self.cb_layer = ComboBox()
         self.cb_layer.addItem("가공", "original")
         self.cb_layer.addItem("평년", "climatology")
-        self.cb_layer.addItem("아노말리", "anomaly")
+        self.cb_layer.addItem("편차", "anomaly")
         # self.cb_layer.addItem("트렌드 영상", "trend")
         self.cb_layer.currentIndexChanged.connect(self.on_layer_changed)
         h_layer.addWidget(self.cb_layer, 1)
@@ -1547,6 +1668,24 @@ class VisualizeInterface(QWidget):
         h_range.addWidget(StrongBodyLabel("~"))
         h_range.addWidget(self.txt_vmax)
         v_left.addWidget(self.w_range)
+
+        self.w_title = QWidget()
+        h_title = QHBoxLayout(self.w_title)
+        h_title.setContentsMargins(0, 0, 0, 0)
+        h_title.addWidget(StrongBodyLabel("그림 제목"))
+        self.txt_title = LineEdit()
+        self.txt_title.setPlaceholderText("자동 생성")
+        h_title.addWidget(self.txt_title, 1)
+        v_left.addWidget(self.w_title)
+
+        self.w_legend = QWidget()
+        h_legend = QHBoxLayout(self.w_legend)
+        h_legend.setContentsMargins(0, 0, 0, 0)
+        h_legend.addWidget(StrongBodyLabel("범례 이름"))
+        self.txt_legend = LineEdit()
+        self.txt_legend.setPlaceholderText("자동 생성")
+        h_legend.addWidget(self.txt_legend, 1)
+        v_left.addWidget(self.w_legend)
 
         self.btn_download = PushButton("영상 다운로드")
         self.btn_download.clicked.connect(self.download_image)
@@ -1665,44 +1804,60 @@ class VisualizeInterface(QWidget):
         self.image_view.setRenderHint(QPainter.RenderHint.Antialiasing)
         self.image_view.setRenderHint(QPainter.RenderHint.SmoothPixmapTransform)
         self.image_view.setStyleSheet("QGraphicsView { border: none; background-color: transparent; }")
+        self.image_view.setHorizontalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
+        self.image_view.setVerticalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
+        self.image_view.setDragMode(QGraphicsView.DragMode.NoDrag)
 
         h_center.addWidget(self.image_view, 1)
         self.image_canvas_layout.addLayout(h_center)
 
         # Add Timeline Slider and Toolbar at bottom
-        h_timeline = QHBoxLayout()
-        h_timeline.setContentsMargins(5, 5, 5, 5)
+        w_timeline = QWidget()
+        # w_timeline.setStyleSheet("background-color: #555555; border-radius: 6px;")
+        h_timeline = QHBoxLayout(w_timeline)
+        h_timeline.setContentsMargins(15, 5, 15, 5)
 
-        self.lbl_timeline = StrongBodyLabel("시간 선택 안됨")
-        self.lbl_timeline.setStyleSheet("font-weight: bold;")
+        self.lbl_timeline = StrongBodyLabel("시간 없음")
+        # self.lbl_timeline.setStyleSheet("font-weight: bold; color: white;")
+        # self.lbl_timeline.setStyleSheet("color: #FFFFFF; background: transparent;")
         self.slider_timeline = Slider(Qt.Orientation.Horizontal)
         self.slider_timeline.setMinimum(0)
         self.slider_timeline.setMaximum(0)
         self.slider_timeline.setEnabled(True)
-        # Avoid blurriness by explicitly styling it
-        self.slider_timeline.setStyleSheet("background: transparent;")
+        # self.slider_timeline.setStyleSheet("background: transparent;")
+        self.slider_timeline.setStyleSheet("""
+                    QSlider {
+                        background: transparent;
+                    }
+                    QSlider::groove:horizontal {
+                        background: transparent;
+                    }
+                    QSlider::add-page:horizontal {
+                        background: #959595;
+                    }
+                """)
         self.slider_timeline.valueChanged.connect(self.on_image_timeline_changed)
 
         btn_fit = PushButton("화면 맞춤")
         btn_zoom_out = PushButton("- 축소")
         btn_zoom_in = PushButton("+ 확대")
-        btn_apply = PushButton("적용")
-
+        # btn_apply = PushButton("적용")
+        
         h_timeline.addWidget(self.lbl_timeline)
         h_timeline.addWidget(self.slider_timeline, 1)
         h_timeline.addWidget(btn_zoom_out)
         h_timeline.addWidget(btn_zoom_in)
         h_timeline.addWidget(btn_fit)
-        h_timeline.addWidget(btn_apply)
+        # h_timeline.addWidget(btn_apply)
 
-        self.image_canvas_layout.addLayout(h_timeline)
+        self.image_canvas_layout.addWidget(w_timeline)
 
         self.stack.addWidget(page_image)
 
         btn_zoom_in.clicked.connect(self.zoom_in_image)
         btn_zoom_out.clicked.connect(self.zoom_out_image)
         btn_fit.clicked.connect(self.fit_image)
-        btn_apply.clicked.connect(self.plot_static_image)
+        # btn_apply.clicked.connect(self.plot_static_image)
 
         self.pivot.addItem("image", "이미지 영상", lambda: self.on_tab_changed(3))
         # self.pivot.addItem("map", "지도 맵", lambda: self.on_tab_changed(0))
@@ -1759,12 +1914,44 @@ class VisualizeInterface(QWidget):
         self.w_raw.setVisible(is_map)
         if hasattr(self, 'w_range'):
             self.w_range.setVisible(idx == 3)
+        if hasattr(self, 'w_title'):
+            self.w_title.setVisible(idx in [1, 2, 3])
+        if hasattr(self, 'w_legend'):
+            self.w_legend.setVisible(idx == 3)
         if hasattr(self, 'btn_download'):
             self.btn_download.setVisible(not is_map)
         if hasattr(self, 'w_station'):
             self.w_station.setVisible(idx in [1, 2])
         if hasattr(self, 'date_slider_vis'):
             self.date_slider_vis.setVisible(idx in [1, 2])
+            
+        self.update_text_bindings()
+
+    def update_text_bindings(self):
+        w = self.window()
+        var_name = getattr(w, 'selected_var', "")
+        if not var_name: return
+        
+        idx = self.stack.currentIndex()
+        layer = self.cb_layer.currentData()
+        
+        if idx == 1:
+            def_title = f"{var_name} 검증 시계열"
+        elif idx == 2:
+            def_title = f"{var_name} 검증 산점도"
+        elif idx == 3:
+            layer_kr = "가공"
+            if layer == 'climatology': layer_kr = "평년"
+            elif layer == 'anomaly': layer_kr = "편차"
+            def_title = f"{layer_kr} - {var_name}"
+        else:
+            def_title = var_name
+            
+        if hasattr(self, 'txt_title'):
+            self.txt_title.setText(def_title)
+            
+        if hasattr(self, 'txt_legend'):
+            self.txt_legend.setText(var_name)
 
         current_data = self.cb_layer.currentData()
         self.cb_layer.blockSignals(True)
@@ -1869,6 +2056,7 @@ class VisualizeInterface(QWidget):
                 self.txt_vmax.setText('36')
 
         self.update_dates()
+        self.update_text_bindings()
 
         self.refresh_current_plot()
 
@@ -2097,17 +2285,20 @@ class VisualizeInterface(QWidget):
                             'custom': {'stats': f'Y={v_slope:.3e}x+{v_intercept:.3f}, p={v_p:.3f}, R={v_r:.3f}'}
                         })
 
+                    c_title = self.txt_title.text().strip() if hasattr(self, 'txt_title') else ""
+                    final_title = c_title if c_title else f"{var_name} vs 관측소 검증 시계열"
+
                     options = {
                         'chart': {'type': 'line', 'zoomType': 'x'},
-                        'title': {'text': f"{var_name} vs 관측소 시계열 검증 트렌드"},
-                        'subtitle': {'text': "선택된 관측소별 비교"},
+                        'title': {'text': final_title},
+                        'subtitle': {'text': ""},
                         'xAxis': {'type': 'datetime', 'crosshair': True},
                         'yAxis': {'title': {'text': 'Value'}},
                         'tooltip': {
                             'shared': True,
                             'valueDecimals': 2,
                             'useHTML': True,
-                            'formatter': 'function() { var s = "<b>" + Highcharts.dateFormat("%Y-%m-%d", this.x) + "</b>"; this.points.forEach(function(p) { var stats = p.series.options.custom && p.series.options.custom.stats ? "<br/><span style=color:gray;font-size:11px>" + p.series.options.custom.stats + "</span>" : ""; s += "<br/><span style=color:" + p.series.color + ">\u25CF</span> " + p.series.name + ": <b>" + p.y.toFixed(2) + "</b>" + stats; }); return s; }'
+                            'formatter': 'function() { var s = "<b>" + Highcharts.dateFormat("%Y-%m", this.x) + "</b>"; this.points.forEach(function(p) { var stats = p.series.options.custom && p.series.options.custom.stats ? "<br/><span style=color:gray;font-size:11px>" + p.series.options.custom.stats + "</span>" : ""; s += "<br/><span style=color:" + p.series.color + ">\u25CF</span> " + p.series.name + ": <b>" + p.y.toFixed(2) + "</b>" + stats; }); return s; }'
                         },
                         'legend': {
                             'layout': 'horizontal',
@@ -2156,12 +2347,20 @@ class VisualizeInterface(QWidget):
                                     'color': 'rgba(54, 162, 235, 0.5)', 'dashStyle': 'Dash',
                                     'marker': {'enabled': False}})
 
+            c_title = self.txt_title.text().strip() if hasattr(self, 'txt_title') else ""
+            final_title = c_title if c_title else f"{var_name} 시계열 트렌드 (공간 평균)"
+
             options = {
                 'chart': {'type': 'line', 'zoomType': 'x'},
-                'title': {'text': f"{var_name} 시계열 트렌드 (공간 평균)"},
+                'title': {'text': final_title},
                 'xAxis': {'type': 'datetime', 'crosshair': True},
                 'yAxis': {'title': {'text': f'{var_name}'}},
-                'tooltip': {'shared': True, 'valueDecimals': 2},
+                'tooltip': {
+                    'shared': True, 
+                    'valueDecimals': 2,
+                    'useHTML': True,
+                    'formatter': 'function() { var s = "<b>" + Highcharts.dateFormat("%Y-%m", this.x) + "</b>"; this.points.forEach(function(p) { s += "<br/><span style=color:" + p.series.color + ">\u25CF</span> " + p.series.name + ": <b>" + p.y.toFixed(2) + "</b>"; }); return s; }'
+                },
                 'series': series_data,
                 'credits': {'enabled': False}
             }
@@ -2343,7 +2542,9 @@ class VisualizeInterface(QWidget):
                     stn_lon = float(vds[v_lon_dim].sel(station_code=st).values.item())
                     st_name = str(vds['station_name'].sel(station_code=st).values) if 'station_name' in vds else str(st)
 
-                    buoy_df = vds[vvar].sel(station_code=st).to_dataframe().reset_index()
+                    # 1. 부이 데이터 전처리
+                    buoy_da = vds[vvar].sel(station_code=st)
+                    buoy_df = buoy_da.to_dataframe().reset_index()
                     if 'time' in buoy_df.columns:
                         buoy_df['time'] = pd.to_datetime(buoy_df['time'])
                         buoy_monthly = buoy_df.set_index('time').resample('MS')[vvar].mean().reset_index()
@@ -2351,18 +2552,27 @@ class VisualizeInterface(QWidget):
                         buoy_monthly = buoy_df
                     buoy_monthly = buoy_monthly.rename(columns={vvar: 'SST_Buoy'})
 
-                    sat_df = ds[var_name].sel({lat_dim: stn_lat, lon_dim: stn_lon},
-                                              method='nearest').to_dataframe().reset_index()
+                    # 2. 위성 데이터 전처리
+                    sat_da = ds[var_name].sel({lat_dim: stn_lat, lon_dim: stn_lon}, method='nearest')
+                    sat_df = sat_da.to_dataframe().reset_index()
                     if time_dim and time_dim in sat_df.columns:
                         sat_df['time'] = pd.to_datetime(sat_df[time_dim])
                         sat_df = sat_df[['time', var_name]].rename(columns={var_name: 'SST_Sat'})
                     else:
                         sat_df = sat_df[[var_name]].rename(columns={var_name: 'SST_Sat'})
 
+                    # 3. 시간축 기준으로 병합
                     if 'time' in sat_df.columns and 'time' in buoy_monthly.columns:
-                        merged = pd.merge(sat_df, buoy_monthly, on='time', how='inner').dropna(
-                            subset=['SST_Sat', 'SST_Buoy'])
+                        merged = pd.merge(sat_df, buoy_monthly, on='time', how='inner').dropna(subset=['SST_Sat', 'SST_Buoy'])
                         merged['station_name'] = f"{st} ({st_name})"
+                        merged['station_code'] = str(st)
+                        merged['station_lat'] = stn_lat
+                        merged['station_lon'] = stn_lon
+                        if hasattr(sat_da, lat_dim):
+                            merged['grid_lat'] = float(getattr(sat_da, lat_dim).values.item())
+                        if hasattr(sat_da, lon_dim):
+                            merged['grid_lon'] = float(getattr(sat_da, lon_dim).values.item())
+
                         if not merged.empty:
                             all_merged.append(merged)
                 except Exception as e:
@@ -2466,14 +2676,21 @@ class VisualizeInterface(QWidget):
                     'showInLegend': True
                 })
 
+            # Overall statistics for the subtitle
+            subtitle_text = f"전체 통계: R = {r_value:.3f}, Bias = {bias:.3f}, RMSE = {rmse:.3f}, N = {N}"
+
+            c_title = self.txt_title.text().strip() if hasattr(self, 'txt_title') else ""
+            final_title = c_title if c_title else f"{var_name} vs {vvar}"
+
             options = {
                 'chart': {'type': 'scatter', 'zoomType': 'xy'},
-                'title': {'text': f"{var_name} vs {vvar}"},
+                'title': {'text': final_title},
+                'subtitle': {'text': subtitle_text},
                 'xAxis': {'title': {'text': f"위성 ({var_name})"}, 'min': ax_min, 'max': ax_max},
                 'yAxis': {'title': {'text': f"관측소 ({vvar})"}, 'min': ax_min, 'max': ax_max},
                 'legend': {'layout': 'horizontal', 'align': 'center', 'verticalAlign': 'bottom'},
                 'tooltip': {
-                    'pointFormat': '<b>{series.name}</b><br/>위성: {point.x:.2f}<br/>관측: {point.y:.2f}<br/>R: {point.series.userOptions.custom.r:.3f}, Bias: {point.series.userOptions.custom.bias:.3f}, RMSE: {point.series.userOptions.custom.rmse:.3f}, N: {point.series.userOptions.custom.n}'},
+                    'pointFormat': '<b>{point.name}</b><br/>위성: {point.x:.2f}<br/>관측: {point.y:.2f}'},
                 'series': scatter_series,
                 'credits': {'enabled': False}
             }
@@ -2510,8 +2727,8 @@ class VisualizeInterface(QWidget):
             if ds is not None and 'time' in ds.dims:
                 try:
                     import pandas as pd
-                    start_date = self.date_slider_vis.date_start.date()
-                    end_date = self.date_slider_vis.date_end.date()
+                    start_date = w.calculate_interface.txt_cli_start.date()
+                    end_date = w.calculate_interface.txt_cli_end.date()
                     st_ts = pd.Timestamp(start_date.year(), start_date.month(), start_date.day())
                     en_ts = pd.Timestamp(end_date.year(), end_date.month(), end_date.day())
                     ds = ds.sel(time=slice(st_ts, en_ts))
@@ -2545,8 +2762,8 @@ class VisualizeInterface(QWidget):
 
         import pandas as pd
         try:
-            start_date = self.date_slider_vis.date_start.date()
-            end_date = self.date_slider_vis.date_end.date()
+            start_date = w.calculate_interface.txt_cli_start.date()
+            end_date = w.calculate_interface.txt_cli_end.date()
             st_ts = pd.Timestamp(start_date.year(), start_date.month(), start_date.day())
             en_ts = pd.Timestamp(end_date.year(), end_date.month(), end_date.day())
             if 'time' in ds.dims:
@@ -2603,13 +2820,19 @@ class VisualizeInterface(QWidget):
         except ValueError:
             vmax = None
 
+        c_title = self.txt_title.text().strip() if hasattr(self, 'txt_title') else ""
+        c_legend = self.txt_legend.text().strip() if hasattr(self, 'txt_legend') else ""
+
         self.static_thread = StaticImageThread(
             ds=ds,
             var_name=var_name,
             time_idx=time_idx,
             data_layer=layer,
             bounds=(vmin, vmax) if (vmin is not None and vmax is not None) else None,
-            cmap_name=self.cb_cmap.currentText()
+            cmap_name=self.cb_cmap.currentText(),
+            ds_cli=getattr(w, 'processed_cli', None),
+            custom_title=c_title if c_title else None,
+            custom_legend=c_legend if c_legend else None
         )
         self.static_thread.finished.connect(self.on_static_image_finished)
         self.static_thread.error_occurred.connect(lambda e: ToastNotification.show_toast(self, "오류", e))
@@ -2643,7 +2866,7 @@ class StaticImageThread(QThread):
     finished = pyqtSignal(str)
     error_occurred = pyqtSignal(str)
 
-    def __init__(self, ds, var_name, time_idx, data_layer, bounds=None, cmap_name='jet'):
+    def __init__(self, ds, var_name, time_idx, data_layer, bounds=None, cmap_name='jet', ds_cli=None, custom_title=None, custom_legend=None):
         super().__init__()
         self.ds = ds
         self.var_name = var_name
@@ -2651,12 +2874,15 @@ class StaticImageThread(QThread):
         self.data_layer = data_layer
         self.bounds = bounds
         self.cmap_name = cmap_name
+        self.ds_cli = ds_cli
+        self.custom_title = custom_title
+        self.custom_legend = custom_legend
 
     def run(self):
         try:
             from nmsc_climate_toolbox import NMSCClimateToolbox
             img_b64 = NMSCClimateToolbox.generate_static_map(
-                self.ds, self.var_name, self.time_idx, self.data_layer, self.bounds, self.cmap_name
+                self.ds, self.var_name, self.time_idx, self.data_layer, self.bounds, self.cmap_name, self.ds_cli, self.custom_title, self.custom_legend
             )
             self.finished.emit(img_b64)
 
@@ -2923,11 +3149,17 @@ class AIAssistantInterface(QWidget):
         # Image attachment (Moved to Chat Area)
         h_img = QHBoxLayout()
         self.txt_image_path = LineEdit()
-        self.txt_image_path.setPlaceholderText('첨부 이미지 경로 (옵션)')
-        btn_img = PushButton('이미지 첨부')
-        btn_img.clicked.connect(self.browse_image)
+        self.txt_image_path.setPlaceholderText('이미지 경로 (선택사항)')
+        
+        btn_img_search = PushButton('이미지 찾기')
+        btn_img_search.clicked.connect(self.browse_image)
+        
+        btn_img_delete = PushButton('삭제')
+        btn_img_delete.clicked.connect(self.delete_image)
+        
         h_img.addWidget(self.txt_image_path, 1)
-        h_img.addWidget(btn_img)
+        h_img.addWidget(btn_img_search)
+        h_img.addWidget(btn_img_delete)
         v_chat.addLayout(h_img)
 
         h_input = QHBoxLayout()
@@ -2978,6 +3210,9 @@ class AIAssistantInterface(QWidget):
         dialog.resize(800, 600)
         if dialog.exec():
             self.txt_image_path.setText(dialog.selectedFiles()[0])
+
+    def delete_image(self):
+        self.txt_image_path.clear()
 
     def eventFilter(self, obj, event):
         import PyQt6.QtCore as QtCore
@@ -3040,6 +3275,9 @@ class AIAssistantInterface(QWidget):
         self.llm_thread.error_occurred.connect(self.on_error)
         self.llm_thread.finished.connect(self.on_finished)
         self.llm_thread.start()
+
+        # 이미지 1회 사용 후 첨부 해제
+        self.txt_image_path.clear()
 
     def on_chunk(self, text):
         from PyQt6.QtGui import QTextCursor
