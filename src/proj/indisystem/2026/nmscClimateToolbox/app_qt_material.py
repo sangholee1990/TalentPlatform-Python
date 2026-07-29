@@ -2102,12 +2102,12 @@ class VisualizeInterface(QWidget):
     def on_layer_changed(self, index):
         layer = self.cb_layer.currentData()
         if layer == 'anomaly':
-            self.cb_cmap.setCurrentText('anom')
+            self.cb_cmap.setCurrentText('편차 anom')
             if hasattr(self, 'txt_vmin'):
                 self.txt_vmin.setText('-6.0')
                 self.txt_vmax.setText('6.0')
         elif layer in ['original', 'climatology']:
-            self.cb_cmap.setCurrentText('RdYlBu_r')
+            self.cb_cmap.setCurrentText('무지개 jet')
             if hasattr(self, 'txt_vmin'):
                 self.txt_vmin.setText('0')
                 self.txt_vmax.setText('36')
@@ -2440,6 +2440,10 @@ class VisualizeInterface(QWidget):
         loading_label = TitleLabel("지도 그리는 중입니다... (최대 15초 소요)")
         self.map_canvas_layout.addWidget(loading_label)
 
+        if not hasattr(self, '_active_threads'):
+            self._active_threads = []
+        self._active_threads = [t for t in self._active_threads if t.isRunning()]
+
         self.map_thread = MapPlotThread(
             ds=ds,
             var_name=var_name,
@@ -2449,6 +2453,7 @@ class VisualizeInterface(QWidget):
             show_basemap=self.chk_basemap.isChecked(), raw_mode=self.chk_raw_mode.isChecked(),
             data_layer=self.cb_layer.currentData()
         )
+        self._active_threads.append(self.map_thread)
         self.map_thread.finished.connect(self.on_map_finished)
         self.map_thread.error_occurred.connect(lambda e: ToastNotification.show_toast(self, "오류", e))
         self.map_thread.start()
@@ -2880,6 +2885,10 @@ class VisualizeInterface(QWidget):
         c_title = self.txt_title.text().strip() if hasattr(self, 'txt_title') else ""
         c_legend = self.txt_legend.text().strip() if hasattr(self, 'txt_legend') else ""
 
+        if not hasattr(self, '_active_threads'):
+            self._active_threads = []
+        self._active_threads = [t for t in self._active_threads if t.isRunning()]
+
         self.static_thread = StaticImageThread(
             ds=ds,
             var_name=var_name,
@@ -2891,6 +2900,7 @@ class VisualizeInterface(QWidget):
             custom_title=c_title if c_title else None,
             custom_legend=c_legend if c_legend else None
         )
+        self._active_threads.append(self.static_thread)
         self.static_thread.finished.connect(self.on_static_image_finished)
         self.static_thread.error_occurred.connect(lambda e: ToastNotification.show_toast(self, "오류", e))
         self.static_thread.start()
