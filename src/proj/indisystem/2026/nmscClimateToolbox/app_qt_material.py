@@ -651,10 +651,13 @@ class PreprocessInterface(QWidget):
 
         # Row 1: File Selection
         h_row1 = QHBoxLayout()
-        h_row1.addWidget(StrongBodyLabel("자료 설정"))
+        lbl_file = StrongBodyLabel("자료 설정")
+        # lbl_file.setFixedWidth(70)
+        h_row1.addWidget(lbl_file)
         self.file_combo = ComboBox()
         self.file_combo.currentTextChanged.connect(self.on_file_changed)
         btn_browse = PushButton("찾기")
+        btn_browse.setFixedWidth(60)
         btn_browse.clicked.connect(self.browse_file)
 
         h_row1.addWidget(self.file_combo, 1)
@@ -735,10 +738,13 @@ class PreprocessInterface(QWidget):
 
         # Row 1
         h_row1_v = QHBoxLayout()
-        h_row1_v.addWidget(StrongBodyLabel("자료 설정"))
+        lbl_vfile = StrongBodyLabel("자료 설정")
+        # lbl_vfile.setFixedWidth(70)
+        h_row1_v.addWidget(lbl_vfile)
         self.valid_file_combo = ComboBox()
         self.valid_file_combo.currentTextChanged.connect(self.on_valid_file_changed)
         btn_vbrowse = PushButton("찾기")
+        btn_vbrowse.setFixedWidth(60)
         btn_vbrowse.clicked.connect(self.browse_valid_file)
 
         h_row1_v.addWidget(self.valid_file_combo, 1)
@@ -814,18 +820,24 @@ class PreprocessInterface(QWidget):
         self.segment.setCurrentIndex(0)
 
     def browse_file(self):
-        filepath, _ = QFileDialog.getOpenFileName(self, "Select Data File", "",
-                                                  "NetCDF/GeoTIFF Files (*.nc *.tif *.tiff);;All Files (*)")
-        if filepath:
+        from PyQt6.QtWidgets import QFileDialog
+        dialog = QFileDialog(self, "Select Data File", "", "NetCDF/GeoTIFF Files (*.nc *.tif *.tiff);;All Files (*)")
+        dialog.setOption(QFileDialog.Option.DontUseNativeDialog, True)
+        dialog.resize(800, 600)
+        if dialog.exec():
+            filepath = dialog.selectedFiles()[0]
             if filepath not in self.files:
                 self.files.append(filepath)
                 self.file_combo.addItem(filepath)
             self.file_combo.setCurrentText(filepath)
 
     def browse_valid_file(self):
-        filepath, _ = QFileDialog.getOpenFileName(self, "Select Validation File", "",
-                                                  "NetCDF/GeoTIFF Files (*.nc *.tif *.tiff);;All Files (*)")
-        if filepath:
+        from PyQt6.QtWidgets import QFileDialog
+        dialog = QFileDialog(self, "Select Validation File", "", "NetCDF/GeoTIFF Files (*.nc *.tif *.tiff);;All Files (*)")
+        dialog.setOption(QFileDialog.Option.DontUseNativeDialog, True)
+        dialog.resize(800, 600)
+        if dialog.exec():
+            filepath = dialog.selectedFiles()[0]
             if filepath not in self.valid_files:
                 self.valid_files.append(filepath)
                 self.valid_file_combo.addItem(filepath)
@@ -1109,7 +1121,9 @@ class CalculateInterface(QWidget):
 
         # 1. 시간 주기, 시간 연산 (1행)
         h_row1 = QHBoxLayout()
-        h_row1.addWidget(StrongBodyLabel("시간 주기"))
+        lbl_time_freq = StrongBodyLabel("시간 주기")
+        lbl_time_freq.setFixedWidth(70)
+        h_row1.addWidget(lbl_time_freq)
         self.cb_time_freq = ComboBox()
         self.cb_time_freq.addItems(["월간", "연간"])
         self.cb_time_freq.setCurrentIndex(0)
@@ -1117,7 +1131,9 @@ class CalculateInterface(QWidget):
         h_row1.addWidget(self.cb_time_freq, 1)
 
         h_row1.addSpacing(20)
-        h_row1.addWidget(StrongBodyLabel("시간 연산"))
+        lbl_time_op = StrongBodyLabel("시간 연산")
+        lbl_time_op.setFixedWidth(70)
+        h_row1.addWidget(lbl_time_op)
         self.cb_time_op = ComboBox()
         self.cb_time_op.addItems(["평균", "합계", "최대", "최소"])
         self.cb_time_op.setCurrentIndex(0)
@@ -1127,7 +1143,9 @@ class CalculateInterface(QWidget):
 
         # 2. 기후 평년 시작~종료 (1행)
         h_row2 = QHBoxLayout()
-        h_row2.addWidget(StrongBodyLabel("기후 평년"))
+        lbl_cli = StrongBodyLabel("기후 평년")
+        lbl_cli.setFixedWidth(70)
+        h_row2.addWidget(lbl_cli)
         from PyQt6.QtWidgets import QDateEdit
         from PyQt6.QtCore import QDate
         self.txt_cli_start = QDateEdit()
@@ -1148,7 +1166,9 @@ class CalculateInterface(QWidget):
 
         # 3. 추세 설정 알고리즘 (1행)
         h_row4 = QHBoxLayout()
-        h_row4.addWidget(StrongBodyLabel("시계열 추세"))
+        lbl_trend = StrongBodyLabel("시계열 추세")
+        lbl_trend.setFixedWidth(70)
+        h_row4.addWidget(lbl_trend)
         self.cb_trend_method = ComboBox()
         self.cb_trend_method.addItems(["선형 회귀", "Theil-Sen 회귀"])
         self.cb_trend_method.setCurrentIndex(0)
@@ -1587,7 +1607,8 @@ class VisualizeInterface(QWidget):
 
         # v_left.addWidget(SubtitleLabel("옵션 설정"))
 
-        LABEL_WIDTH = 70
+        # LABEL_WIDTH = 70
+        LABEL_WIDTH = 50
 
         h_layer = QHBoxLayout()
         lbl_layer = StrongBodyLabel("데이터")
@@ -1969,7 +1990,14 @@ class VisualizeInterface(QWidget):
         from PyQt6.QtWidgets import QFileDialog
 
         default_path = os.path.join(os.path.expanduser("~"), "Downloads", download.downloadFileName())
-        path, _ = QFileDialog.getSaveFileName(self, "파일 저장", default_path)
+        dialog = QFileDialog(self, "파일 저장", default_path)
+        dialog.setAcceptMode(QFileDialog.AcceptMode.AcceptSave)
+        dialog.setOption(QFileDialog.Option.DontUseNativeDialog, True)
+        dialog.resize(800, 600)
+        
+        path = ""
+        if dialog.exec():
+            path = dialog.selectedFiles()[0]
 
         if path:
             download.setDownloadDirectory(os.path.dirname(path))
@@ -2516,7 +2544,13 @@ class VisualizeInterface(QWidget):
             return
         from PyQt6.QtWidgets import QFileDialog
         import base64
-        filepath, _ = QFileDialog.getSaveFileName(self, "영상 다운로드", "static_image.png", "PNG Files (*.png)")
+        dialog = QFileDialog(self, "영상 다운로드", "static_image.png", "PNG Files (*.png)")
+        dialog.setAcceptMode(QFileDialog.AcceptMode.AcceptSave)
+        dialog.setOption(QFileDialog.Option.DontUseNativeDialog, True)
+        dialog.resize(800, 600)
+        filepath = ""
+        if dialog.exec():
+            filepath = dialog.selectedFiles()[0]
         if filepath:
             try:
                 with open(filepath, 'wb') as f:
@@ -3231,7 +3265,8 @@ class AIAssistantInterface(QWidget):
         self.txt_model_path = LineEdit()
         self.txt_model_path.setText('D:/ollama/gemma-4-E2B-it-Q8_0.gguf')
         h_mod.addWidget(self.txt_model_path, 1)
-        btn_mod = QPushButton('찾기')
+        btn_mod = PushButton('찾기')
+        btn_mod.setFixedWidth(60)
         btn_mod.clicked.connect(self.browse_model)
         h_mod.addWidget(btn_mod)
         v_offline.addLayout(h_mod)
@@ -3241,7 +3276,8 @@ class AIAssistantInterface(QWidget):
         self.txt_proj_path = LineEdit()
         self.txt_proj_path.setText('D:/ollama/mmproj-F16.gguf')
         h_proj.addWidget(self.txt_proj_path, 1)
-        btn_proj = QPushButton('찾기')
+        btn_proj = PushButton('찾기')
+        btn_proj.setFixedWidth(60)
         btn_proj.clicked.connect(self.browse_proj)
         h_proj.addWidget(btn_proj)
         v_offline.addLayout(h_proj)
