@@ -1578,7 +1578,7 @@ class VisualizeInterface(QWidget):
         self.pivot = Pivot()
         main_layout.addWidget(self.pivot, 0, Qt.AlignmentFlag.AlignLeft)
 
-        splitter = QSplitter(Qt.Orientation.Horizontal)
+        self.splitter = QSplitter(Qt.Orientation.Horizontal)
 
         # --- LEFT SIDE (Options) ---
         left_widget = CardWidget()
@@ -1587,8 +1587,12 @@ class VisualizeInterface(QWidget):
 
         # v_left.addWidget(SubtitleLabel("옵션 설정"))
 
+        LABEL_WIDTH = 70
+
         h_layer = QHBoxLayout()
-        h_layer.addWidget(StrongBodyLabel("데이터"))
+        lbl_layer = StrongBodyLabel("데이터")
+        lbl_layer.setFixedWidth(LABEL_WIDTH)
+        h_layer.addWidget(lbl_layer)
         self.cb_layer = ComboBox()
         self.cb_layer.addItem("가공", "original")
         self.cb_layer.addItem("평년", "climatology")
@@ -1601,7 +1605,9 @@ class VisualizeInterface(QWidget):
         self.w_cmap = QWidget()
         h_cmap = QHBoxLayout(self.w_cmap)
         h_cmap.setContentsMargins(0, 0, 0, 0)
-        h_cmap.addWidget(StrongBodyLabel("색상바"))
+        lbl_cmap = StrongBodyLabel("색상바")
+        lbl_cmap.setFixedWidth(LABEL_WIDTH)
+        h_cmap.addWidget(lbl_cmap)
         self.cb_cmap = ComboBox()
         
         # Override the style to force the selected icon to be drawn at full size
@@ -1655,7 +1661,7 @@ class VisualizeInterface(QWidget):
         from PyQt6.QtCore import QSize
         from PyQt6.QtWidgets import QComboBox
         self.cb_cmap.setIconSize(QSize(80, 16))
-        self.cb_cmap.setSizeAdjustPolicy(QComboBox.SizeAdjustPolicy.AdjustToContents)
+        self.cb_cmap.setMinimumWidth(100)
         
         # We remove manual popup minimum width so it naturally matches the combobox
         view = self.cb_cmap.view()
@@ -1669,7 +1675,9 @@ class VisualizeInterface(QWidget):
         self.w_date = QWidget()
         h_date = QHBoxLayout(self.w_date)
         h_date.setContentsMargins(0, 0, 0, 0)
-        h_date.addWidget(StrongBodyLabel("검색 기준 날짜"))
+        lbl_date = StrongBodyLabel("검색 날짜")
+        lbl_date.setFixedWidth(LABEL_WIDTH)
+        h_date.addWidget(lbl_date)
         self.cb_date = ComboBox()
         self.cb_date.addItem("전체 기간 평균")
         self.cb_date.currentIndexChanged.connect(self.on_date_changed)
@@ -1702,7 +1710,9 @@ class VisualizeInterface(QWidget):
 
         # Station Multi-Select
         h_vst = QHBoxLayout()
-        h_vst.addWidget(StrongBodyLabel("검증지점"))
+        lbl_vst = StrongBodyLabel("검증지점")
+        lbl_vst.setFixedWidth(LABEL_WIDTH)
+        h_vst.addWidget(lbl_vst)
         self.valid_station_combo = CheckableComboBox()
         h_vst.addWidget(self.valid_station_combo, 1)
         v_vst = QVBoxLayout()
@@ -1716,11 +1726,15 @@ class VisualizeInterface(QWidget):
         self.w_range = QWidget()
         h_range = QHBoxLayout(self.w_range)
         h_range.setContentsMargins(0, 0, 0, 0)
-        h_range.addWidget(StrongBodyLabel("값범위"))
+        lbl_range = StrongBodyLabel("값범위")
+        lbl_range.setFixedWidth(LABEL_WIDTH)
+        h_range.addWidget(lbl_range)
         self.txt_vmin = LineEdit()
         self.txt_vmin.setPlaceholderText("최소값")
+        self.txt_vmin.setMinimumWidth(50)
         self.txt_vmax = LineEdit()
         self.txt_vmax.setPlaceholderText("최대값")
+        self.txt_vmax.setMinimumWidth(50)
         h_range.addWidget(self.txt_vmin)
         h_range.addWidget(StrongBodyLabel("~"))
         h_range.addWidget(self.txt_vmax)
@@ -1729,18 +1743,24 @@ class VisualizeInterface(QWidget):
         self.w_title = QWidget()
         h_title = QHBoxLayout(self.w_title)
         h_title.setContentsMargins(0, 0, 0, 0)
-        h_title.addWidget(StrongBodyLabel("제목명"))
+        lbl_title = StrongBodyLabel("제목명")
+        lbl_title.setFixedWidth(LABEL_WIDTH)
+        h_title.addWidget(lbl_title)
         self.txt_title = LineEdit()
         self.txt_title.setPlaceholderText("자동 생성")
+        self.txt_title.setMinimumWidth(100)
         h_title.addWidget(self.txt_title, 1)
         v_left.addWidget(self.w_title)
 
         self.w_legend = QWidget()
         h_legend = QHBoxLayout(self.w_legend)
         h_legend.setContentsMargins(0, 0, 0, 0)
-        h_legend.addWidget(StrongBodyLabel("범례명"))
+        lbl_legend = StrongBodyLabel("범례명")
+        lbl_legend.setFixedWidth(LABEL_WIDTH)
+        h_legend.addWidget(lbl_legend)
         self.txt_legend = LineEdit()
         self.txt_legend.setPlaceholderText("자동 생성")
+        self.txt_legend.setMinimumWidth(100)
         h_legend.addWidget(self.txt_legend, 1)
         v_left.addWidget(self.w_legend)
 
@@ -1762,7 +1782,7 @@ class VisualizeInterface(QWidget):
         self.btn_refresh.clicked.connect(self.refresh_current_plot)
         v_left.addWidget(self.btn_refresh)
 
-        splitter.addWidget(left_widget)
+        self.splitter.addWidget(left_widget)
 
         # --- RIGHT SIDE (Plots) ---
         right_widget = QWidget()
@@ -1924,18 +1944,18 @@ class VisualizeInterface(QWidget):
         self.pivot.setCurrentItem('image')
         self.on_tab_changed(3)
 
-        splitter.addWidget(right_widget)
-        # splitter.setStretchFactor(0, 2)
-        # splitter.setStretchFactor(1, 8)
-        # splitter.setSizes([2000, 8000])
-        splitter.setStretchFactor(0, 3)
-        splitter.setStretchFactor(1, 7)
-        splitter.setSizes([3000, 7000])
-        # splitter.setStretchFactor(0, 4)
-        # splitter.setStretchFactor(1, 6)
-        # splitter.setSizes([4000, 6000])
+        self.splitter.addWidget(right_widget)
+        # self.splitter.setStretchFactor(0, 2)
+        # self.splitter.setStretchFactor(1, 8)
+        # self.splitter.setSizes([2000, 8000])
+        self.splitter.setStretchFactor(0, 3)
+        self.splitter.setStretchFactor(1, 7)
+        self.splitter.setSizes([3000, 7000])
+        # self.splitter.setStretchFactor(0, 4)
+        # self.splitter.setStretchFactor(1, 6)
+        # self.splitter.setSizes([4000, 6000])
 
-        main_layout.addWidget(splitter, 1)
+        main_layout.addWidget(self.splitter, 1)
 
         profile = self.trend_view.page().profile()
         try:
@@ -1981,6 +2001,11 @@ class VisualizeInterface(QWidget):
             self.w_station.setVisible(idx in [1, 2])
         if hasattr(self, 'date_slider_vis'):
             self.date_slider_vis.setVisible(idx in [1, 2])
+            
+        if hasattr(self, 'splitter'):
+            self.splitter.setStretchFactor(0, 3)
+            self.splitter.setStretchFactor(1, 7)
+            self.splitter.setSizes([3000, 7000])
             
         self.update_text_bindings()
 
@@ -2049,7 +2074,6 @@ class VisualizeInterface(QWidget):
     def showEvent(self, event):
         super().showEvent(event)
         self.populate_vis_ui()
-        self.refresh_current_plot()
 
     def populate_vis_ui(self):
         w = self.window()
@@ -3340,8 +3364,10 @@ class AIAssistantInterface(QWidget):
         prompt = self.txt_prompt.toPlainText().strip()
         if not prompt: return
 
+        img_path = self.txt_image_path.text()
+
         # History 갱신
-        self.chat_history.append({'role': 'user', 'text': prompt})
+        self.chat_history.append({'role': 'user', 'text': prompt, 'image': img_path})
         self.chat_history.append({'role': 'ai', 'text': ''})
 
         self.txt_prompt.clear()
@@ -3363,7 +3389,7 @@ class AIAssistantInterface(QWidget):
             api_key=self.txt_api_key.text(),
             model_path=self.txt_model_path.text(),
             proj_path=self.txt_proj_path.text(),
-            image_path=self.txt_image_path.text(),
+            image_path=img_path,
             chat_history=self.chat_history[:-2]
         )
         self.llm_thread.chunk_received.connect(self.on_chunk)
@@ -3394,11 +3420,17 @@ class AIAssistantInterface(QWidget):
 
     def update_full_chat_ui(self):
         """Rebuilds the entire chat HTML to ensure flawless styling."""
+        import os
         html = "<div style='font-family: sans-serif; font-size: 14px; line-height: 1.5;'>"
         for msg in self.chat_history:
             if msg['role'] == 'user':
                 text = msg['text'].replace('\n', '<br>')
-                html += f"<div align='right' style='color: #0078D4; margin-bottom: 15px;'><b>[사용자]</b><br>{text}</div>"
+                img_html = ""
+                if msg.get('image') and os.path.exists(msg['image']):
+                    # Convert to file:/// URL for Qt Webkit/TextBrowser
+                    img_url = "file:///" + msg['image'].replace("\\", "/")
+                    img_html = f"<br><img src='{img_url}' width='300' style='border: 1px solid #ccc; margin-top: 10px;'><br>"
+                html += f"<div align='right' style='color: #0078D4; margin-bottom: 15px;'><b>[사용자]</b><br>{text}{img_html}</div>"
             else:
                 text = self.simple_markdown_to_html(msg['text'])
                 html += f"<div align='left' style='color: #000000; margin-bottom: 15px;'><b>[AI 헬퍼]</b><br>{text}</div>"

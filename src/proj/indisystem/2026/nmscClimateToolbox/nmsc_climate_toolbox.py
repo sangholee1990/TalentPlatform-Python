@@ -449,8 +449,7 @@ class NMSCClimateToolbox:
         plt.tight_layout()
         
         buf = io.BytesIO()
-        # plt.savefig(buf, format='png', transparent=True, pad_inches=0, bbox_inches='tight')
-        plt.savefig(buf, dpi=300, format='png', transparent=True)
+        plt.savefig(buf, dpi=300, format='png', transparent=True, pad_inches=0.1, bbox_inches='tight')
         plt.close(fig)
         buf.seek(0)
         img_b64 = base64.b64encode(buf.read()).decode('utf-8')
