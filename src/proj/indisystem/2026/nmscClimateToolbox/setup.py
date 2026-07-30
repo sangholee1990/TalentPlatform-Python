@@ -1,24 +1,26 @@
 from setuptools import setup
+with open("README.md", "r", encoding="utf-8") as fh:
+    long_description = fh.read()
 
 setup(
     name="nmsc-climate-toolbox",
-    version="0.1.0",
-    description="NMSC Climate Toolbox for processing and visualizing climate data",
-    author="TalentPlatform",
-    py_modules=["nmsc_climate_toolbox", "app_qt_material"],
+    version="0.1.1",
+    description="NMSC Climate Toolbox for processing climate data",
+    long_description=long_description,
+    long_description_content_type="text/markdown",
+    author="nmsc",
+    py_modules=["nmsc_climate_toolbox"],
     install_requires=[
         "numpy",
         "scipy",
         "xarray",
-                "rioxarray",
+        "rioxarray",
         "matplotlib",
-                "PyQt6",
-        "qfluentwidgets",
-        "PyQt6-WebEngine",
     ],
-    entry_points={
-        'console_scripts': [
-            'nmsc-climate-toolbox=app_qt_material:main',
-        ],
-    },
+    classifiers=[
+        "Programming Language :: Python :: 3",
+        "License :: OSI Approved :: MIT License",
+        "Operating System :: OS Independent",
+    ],
+    python_requires='>=3.11',
 )
