@@ -2642,6 +2642,7 @@ class VisualizeInterface(QWidget):
         self.map_view.page().profile().downloadRequested.connect(self.handle_download)
         self.map_view.setHtml(html)
         self.map_canvas_layout.addWidget(self.map_view)
+        self.window().show_toast("INFO_0002", msg_type="success")
 
     def plot_valid(self):
         try:
@@ -2963,7 +2964,7 @@ class VisualizeInterface(QWidget):
                 try:
                     time_val = ds.time.values[w.selected_time_idx]
                     ts = pd.to_datetime(str(time_val))
-                    self.lbl_timeline.setText(f"시간 {ts.strftime('%Y-%m')}")
+                    self.lbl_timeline.setText(f"시간 {ts.strftime('%Y.%m')}")
                 except:
                     self.lbl_timeline.setText(f"시간 index {w.selected_time_idx}")
         else:
@@ -3036,6 +3037,7 @@ class VisualizeInterface(QWidget):
 
         from PyQt6.QtCore import QTimer
         QTimer.singleShot(100, self.fit_image)
+        self.window().show_toast("INFO_0002", msg_type="success")
 
 
 class StaticImageThread(QThread):
@@ -3099,7 +3101,7 @@ class AIGeneratorThread(QThread):
         except Exception as e:
             toolbox_docs = "(문서를 불러올 수 없습니다)"
 
-        return f"당신은 '핵심기후변수 분석 툴박스'의 AI 헬퍼입니다. 내부 엔진인 nmsc_climate_toolbox.py 파일에는 다음과 같은 핵심 분석 기능들이 포함되어 있습니다:\n{toolbox_docs}\n사용자가 프로그램의 사용법이나 분석 알고리즘에 대해 질문하면, 반드시 위의 실제 파이썬 기능 명세(함수들)를 참조하여 정확하고 전문적으로 설명해 주세요."
+        return f"당신은 '핵심기후변수 분석 툴박스'의 전문 AI 헬퍼입니다.\n\n사용자가 제공한 데이터나 이미지를 분석해달라고 요청할 경우, 군더더기 없이 즉시 '분석된 결과'에만 집중하여 답변을 제공하세요. 불필요하게 툴박스 기능 전체를 나열하거나 설명하지 마세요.\n\n단, 사용자가 프로그램 사용법, 내부 알고리즘, 혹은 '어떤 기능이 있는지' 구체적으로 질문할 때만 아래의 가이드라인(실제 기능 명세)을 참조하여 설명하세요:\n\n[nmsc_climate_toolbox.py 기능 가이드라인]\n{toolbox_docs}"
 
     def run(self):
         try:
@@ -3117,33 +3119,32 @@ class AIGeneratorThread(QThread):
                 genai.configure(api_key=self.api_key)
 
                 # Format history for Gemini
-                formatted_history = []
+                full_contents = []
                 for msg in self.chat_history:
                     role = "user" if msg['role'] == "user" else "model"
-                    formatted_history.append({"role": role, "parts": [msg['text']]})
+                    full_contents.append({"role": role, "parts": [msg['text']]})
 
                 system_prompt = self._get_system_prompt()
                 model = genai.GenerativeModel(self.model_path if self.model_path else 'gemini-1.5-flash',
                                               system_instruction=system_prompt)
 
-                contents = [self.prompt]
+                current_parts = []
                 if self.image_path:
                     import os
                     if os.path.exists(self.image_path):
                         try:
                             from PIL import Image
                             img = Image.open(self.image_path)
-                            contents.insert(0, img)
+                            current_parts.append(img)
                         except Exception as e:
                             self.error_occurred.emit(f"이미지 열람 오류: {e}")
                     else:
                         self.error_occurred.emit(f"첨부된 이미지를 찾을 수 없습니다: {self.image_path}")
 
-                if formatted_history:
-                    chat = model.start_chat(history=formatted_history)
-                    response = chat.send_message(contents, stream=True)
-                else:
-                    response = model.generate_content(contents, stream=True)
+                current_parts.append(self.prompt)
+                full_contents.append({"role": "user", "parts": current_parts})
+
+                response = model.generate_content(full_contents, stream=True)
 
                 for chunk in response:
                     if chunk.text:
@@ -3169,7 +3170,7 @@ class AIGeneratorThread(QThread):
                             pass
 
                     if AIGeneratorThread._cached_llm is None or AIGeneratorThread._cached_model_path != self.model_path:
-                        # self.chunk_received.emit("*(오프라인 VLM 모델 읽는 중...)*\n\n")  # 사용자가 숨김 요청함
+                        # self.chunk_received.emit("*(오프라인 VLM 모델 읽는 중...)*\n\n")
                         AIGeneratorThread._cached_llm = Llama(
                             model_path=self.model_path,
                             chat_handler=chat_handler,
@@ -3213,6 +3214,7 @@ class AIGeneratorThread(QThread):
                     response = llm.create_chat_completion(
                         messages=messages,
                         max_tokens=-1,
+                        # temperature=0.3,
                         temperature=0.5,
                         stream=True
                     )
@@ -3513,6 +3515,7 @@ class AIAssistantInterface(QWidget):
         self.btn_send.setEnabled(True)
         self.txt_prompt.setEnabled(True)
         self.txt_prompt.setFocus()
+        self.window().show_toast("INFO_0005", msg_type="success")
 
 
 class NMSCFluentApp(MSFluentWindow):
@@ -3534,6 +3537,7 @@ class NMSCFluentApp(MSFluentWindow):
             "INFO_0002": ("처리 완료", "success"),
             "INFO_0003": ("검증 데이터가 없어 입력 데이터 산출만 진행되었습니다.", "info"),
             "INFO_0004": ("저장할 이미지가 없습니다.", "info"),
+            "INFO_0005": ("처리 완료 & AI 헬퍼 보기", "success"),
             "WARN_0001": ("입력 자료를 먼저 불러와 주세요.", "warning"),
             "WARN_0002": ("입력 자료의 세부 속성을 선택해 주세요.", "warning"),
             "WARN_0003": ("검증 자료를 먼저 불러와 주세요.", "warning"),
