@@ -31,44 +31,71 @@ from PyQt6.QtCore import QPropertyAnimation, QTimer, Qt, QRect
 from PyQt6.QtWidgets import QLabel, QWidget
 
 
-class ToastNotification(QLabel):
-    def __init__(self, parent, text, duration=3000):
-        super().__init__(text, parent)
-        self.duration = duration
+class ToastMessage(QWidget):
+    def __init__(self, message, parent=None, msg_type="success", duration=3000):
+        super().__init__(parent)
+        self.setWindowFlags(Qt.WindowType.FramelessWindowHint | Qt.WindowType.Tool | Qt.WindowType.WindowStaysOnTopHint)
+        self.setAttribute(Qt.WidgetAttribute.WA_ShowWithoutActivating)
 
-        # Styling
-        self.setStyleSheet("""
-            QLabel {
-                background-color: #323232;
-                color: #FFFFFF;
-                border-radius: 8px;
-                padding: 12px 24px;
-                font-family: 'Segoe UI';
-                font-size: 13px;
-                font-weight: bold;
-            }
-        """)
-        self.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        themes = {
+            "success": ("#28a745", "✓"),
+            "error":   ("#dc3545", "✕"),
+            "info":    ("#6c757d", "!"),
+            "warning": ("#ffc107", "!"),
+        }
+        bg_color, icon_sym = themes.get(msg_type, themes["success"])
+
+        self.setAttribute(Qt.WidgetAttribute.WA_StyledBackground, True)
+        self.setStyleSheet(f"ToastMessage {{ background-color: {bg_color}; border-radius: 8px; border: 1px solid rgba(0,0,0,0.1); }}")
+
+        from PyQt6.QtWidgets import QHBoxLayout, QPushButton, QSizePolicy
+        main_layout = QHBoxLayout(self)
+        main_layout.setContentsMargins(14, 10, 14, 10)
+        main_layout.setSpacing(10)
+
+        icon_label = QLabel(icon_sym)
+        icon_label.setFixedSize(28, 28)
+        icon_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        icon_label.setStyleSheet("QLabel { background: transparent; color: white; font-size: 13pt; font-weight: bold; border: none; }")
+        main_layout.addWidget(icon_label, 0, Qt.AlignmentFlag.AlignVCenter)
+
+        msg_label = QLabel(message)
+        msg_label.setWordWrap(True)
+        msg_label.setMinimumWidth(300)
+        msg_label.setMaximumWidth(700)
+        msg_label.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Minimum)
+        msg_label.setStyleSheet("QLabel { background: transparent; color: white; font-size: 10pt; font-weight: 600; font-family: 'PretendardGOVVariable', 'Malgun Gothic'; border: none; }")
+        main_layout.addWidget(msg_label, 1)
+
+        close_btn = QPushButton("✕")
+        close_btn.setFixedSize(20, 20)
+        close_btn.setCursor(Qt.CursorShape.PointingHandCursor)
+        close_btn.clicked.connect(self.close)
+        close_btn.setStyleSheet("QPushButton { background: transparent; color: rgba(255,255,255,180); border: none; font-size: 10pt; font-weight: bold; } QPushButton:hover { color: white; }")
+        main_layout.addWidget(close_btn, 0, Qt.AlignmentFlag.AlignVCenter)
+
         self.adjustSize()
 
-        # Position at bottom right
-        if parent:
-            parent_rect = parent.rect()
-            self.move(parent_rect.width() - self.width() - 30, parent_rect.height() - self.height() - 30)
+        from PyQt6.QtWidgets import QApplication
+        if parent and parent.window().isVisible():
+            pr = parent.window().geometry()
+            x = pr.right() - self.width() - 25
+            y = pr.bottom() - self.height() - 25
+        else:
+            sr = QApplication.primaryScreen().availableGeometry()
+            x = sr.right() - self.width() - 25
+            y = sr.bottom() - self.height() - 50
+        self.move(x, y)
 
-        self.show()
+        self._timer = QTimer(self)
+        self._timer.setSingleShot(True)
+        self._timer.timeout.connect(self.close)
+        if duration > 0:
+            self._timer.start(duration)
 
-        self.timer = QTimer(self)
-        self.timer.timeout.connect(self.hide_toast)
-        self.timer.start(self.duration)
-
-    def hide_toast(self):
-        self.timer.stop()
-        self.deleteLater()
-
-    @staticmethod
-    def show_toast(parent, title, message):
-        ToastNotification(parent, f"{title}: {message}")
+    def stop_auto_close(self):
+        if hasattr(self, '_timer'):
+            self._timer.stop()
 
 
 from qt_material import apply_stylesheet
@@ -821,8 +848,10 @@ class PreprocessInterface(QWidget):
 
     def browse_file(self):
         from PyQt6.QtWidgets import QFileDialog
-        filepath, _ = QFileDialog.getOpenFileName(self, "Select Data File", "", "NetCDF/GeoTIFF Files (*.nc *.tif *.tiff);;All Files (*)")
-        if filepath:
+        dialog = QFileDialog(self, "Select Data File", "", "NetCDF/GeoTIFF Files (*.nc *.tif *.tiff);;All Files (*)")
+        dialog.resize(800, 600)
+        if dialog.exec():
+            filepath = dialog.selectedFiles()[0]
             if filepath not in self.files:
                 self.files.append(filepath)
                 self.file_combo.addItem(filepath)
@@ -830,8 +859,10 @@ class PreprocessInterface(QWidget):
 
     def browse_valid_file(self):
         from PyQt6.QtWidgets import QFileDialog
-        filepath, _ = QFileDialog.getOpenFileName(self, "Select Validation File", "", "NetCDF/GeoTIFF Files (*.nc *.tif *.tiff);;All Files (*)")
-        if filepath:
+        dialog = QFileDialog(self, "Select Validation File", "", "NetCDF/GeoTIFF Files (*.nc *.tif *.tiff);;All Files (*)")
+        dialog.resize(800, 600)
+        if dialog.exec():
+            filepath = dialog.selectedFiles()[0]
             if filepath not in self.valid_files:
                 self.valid_files.append(filepath)
                 self.valid_file_combo.addItem(filepath)
@@ -874,7 +905,7 @@ class PreprocessInterface(QWidget):
             self.update_overview()
             self.on_apply_settings()
         except Exception as e:
-            ToastNotification.show_toast(self, "파일 로드 오류", f"입력 데이터를 처리하는 중 오류가 발생했습니다\\n{e}")
+            self.window().show_toast("ERR_0011", e, msg_type="error")
 
     def on_valid_file_changed(self):
         import pandas as pd
@@ -929,7 +960,7 @@ class PreprocessInterface(QWidget):
             self.update_valid_overview()
             self.on_apply_settings()
         except Exception as e:
-            ToastNotification.show_toast(self, "파일 로드 오류", f"검증 데이터를 처리하는 중 오류가 발생했습니다\\n{e}")
+            self.window().show_toast("ERR_0012", e, msg_type="error")
 
     def get_table_html(self, ds, var_name, title):
         if ds is None:
@@ -989,7 +1020,7 @@ class PreprocessInterface(QWidget):
     def update_overview(self):
         ds = self.window().ds
         if ds is None:
-            self.overview_table.setPlainText("데이터가 없습니다.")
+            self.overview_table.setPlainText("ERR_0009")
             return
 
         info_str = str(ds)
@@ -1011,10 +1042,10 @@ class PreprocessInterface(QWidget):
         # 1. 입력 자료 탭에서 적용을 눌렀을 때의 예외 처리
         if current_tab == 0:
             if self.window().ds is None:
-                ToastNotification.show_toast(self, "경고", "입력 자료를 먼저 불러와 주세요.")
+                self.window().show_toast("WARN_0001", msg_type="warning")
                 return
             if not self.var_combo.currentText():
-                ToastNotification.show_toast(self, "경고", "입력 자료의 세부 속성을 선택해 주세요.")
+                self.window().show_toast("WARN_0002", msg_type="warning")
                 return
 
             try:
@@ -1031,10 +1062,10 @@ class PreprocessInterface(QWidget):
         # 2. 검증 자료 탭에서 적용을 눌렀을 때의 예외 처리
         elif current_tab == 1:
             if self.window().valid_ds is None:
-                ToastNotification.show_toast(self, "경고", "검증 자료를 먼저 불러와 주세요.")
+                self.window().show_toast("WARN_0003", msg_type="warning")
                 return
             if not self.valid_var_combo.currentText():
-                ToastNotification.show_toast(self, "경고", "검증 자료의 세부 속성을 선택해 주세요.")
+                self.window().show_toast("WARN_0004", msg_type="warning")
                 return
 
             try:
@@ -1053,7 +1084,7 @@ class PreprocessInterface(QWidget):
         self.window().selected_valid_var = self.valid_var_combo.currentText()
 
         # 적용 성공 안내 메시지
-        ToastNotification.show_toast(self, "알림", "설정이 성공적으로 적용되었습니다.")
+        self.window().show_toast("INFO_0002", msg_type="success")
 
 
 from PyQt6.QtWidgets import QListWidget, QListWidgetItem, QWidget, QVBoxLayout, QHBoxLayout, QStackedWidget, QFrame
@@ -1210,7 +1241,7 @@ class CalculateInterface(QWidget):
     def run_all_calculations(self):
         w = self.window()
         if w.ds is None:
-            ToastNotification.show_toast(self, "오류", "먼저 입력 데이터를 불러오세요.")
+            self.window().show_toast("ERR_0001", msg_type="error")
             return
             
         self.run_input_calculations()
@@ -1218,22 +1249,22 @@ class CalculateInterface(QWidget):
         if hasattr(w, 'valid_ds') and w.valid_ds is not None:
             self.run_valid_calculations()
         else:
-            ToastNotification.show_toast(self, "알림", "검증 데이터가 없어 입력 데이터 산출만 진행되었습니다.")
+            self.window().show_toast("INFO_0003", msg_type="info")
 
     def run_input_calculations(self):
         w = self.window()
         if w.ds is None:
-            ToastNotification.show_toast(self, "오류", "먼저 입력 데이터를 불러오세요.")
+            self.window().show_toast("ERR_0001", msg_type="error")
             return
 
         try:
             var_name = getattr(w, 'selected_var', None)
             if not var_name:
-                ToastNotification.show_toast(self, '오류', '변수(Variable)가 선택되지 않았습니다.')
+                self.window().show_toast("ERR_0002", msg_type="error")
                 return
 
             if 'time' not in w.ds.dims:
-                ToastNotification.show_toast(self, '오류', '입력 데이터에 시간(time) 차원이 없어 연산을 수행할 수 없습니다.')
+                self.window().show_toast("ERR_0003", msg_type="error")
                 return
 
             freq = '1YS' if self.cb_time_freq.currentText() == '연간' else '1MS'
@@ -1258,22 +1289,22 @@ class CalculateInterface(QWidget):
             w.results_dict['anomaly'] = ds_ano
 
             msg = f"{var_name} 기반 연산(시간축 {op}, 평년, 편차 등)이 완료되었습니다.\n[시각화 탭]에서 확인할 수 있습니다."
-            # ToastNotification.show_toast(self, "입력 데이터 연산 완료", msg)
+            # self.window().show_toast(msg, msg_type="success")
 
         except Exception as e:
             import traceback
             traceback.print_exc()
-            ToastNotification.show_toast(self, "오류", f"입력 데이터 계산 중 오류 발생: {e}")
+            self.window().show_toast("ERR_0013", e, msg_type="error")
 
     def run_valid_calculations(self):
         w = self.window()
         if not hasattr(w, 'valid_ds') or w.valid_ds is None:
-            ToastNotification.show_toast(self, "오류", "먼저 검증 데이터를 불러오세요.")
+            self.window().show_toast("ERR_0004", msg_type="error")
             return
 
         try:
             if 'time' not in w.valid_ds.dims:
-                ToastNotification.show_toast(self, '오류', '검증 데이터에 시간(time) 차원이 없어 연산을 수행할 수 없습니다.')
+                self.window().show_toast("ERR_0005", msg_type="error")
                 return
 
             freq = '1YS' if self.cb_time_freq.currentText() == '연간' else '1MS'
@@ -1294,17 +1325,17 @@ class CalculateInterface(QWidget):
             w.valid_results_dict['climatology'] = vds_cli
             w.valid_results_dict['anomaly'] = vds_ano
 
-            ToastNotification.show_toast(self, "데이터 연산 완료", "데이터 산출 처리가 완료되었습니다.")
+            self.window().show_toast("INFO_0002", msg_type="success")
 
         except Exception as e:
             import traceback
             traceback.print_exc()
-            ToastNotification.show_toast(self, "오류", f"통합 계산 중 오류 발생: {e}")
+            self.window().show_toast("ERR_0014", e, msg_type="error")
 
     def run_collocation(self):
         w = self.window()
         if not hasattr(w, 'results_dict') or not hasattr(w, 'valid_results_dict'):
-            ToastNotification.show_toast(self, "오류", "입력 및 검증 데이터 산출 처리를 먼저 완료하세요.")
+            self.window().show_toast("ERR_0006", msg_type="error")
             return
             
         try:
@@ -1315,7 +1346,7 @@ class CalculateInterface(QWidget):
             layers = ['original', 'climatology', 'anomaly']
             
             from PyQt6.QtWidgets import QApplication
-            ToastNotification.show_toast(self, "알림", "시공간 일치 데이터를 처리 중입니다... (최대 수십 초 소요)")
+            self.window().show_toast("INFO_0001", msg_type="info")
             QApplication.processEvents()
             
             for layer in layers:
@@ -1373,11 +1404,11 @@ class CalculateInterface(QWidget):
                         
                 w.collocated_data_dict[layer] = all_merged
                 
-            ToastNotification.show_toast(self, "완료", "입력/검증 데이터 시공간 일치 처리가 완료되었습니다.")
+            self.window().show_toast("INFO_0002", msg_type="success")
         except Exception as e:
             import traceback
             traceback.print_exc()
-            ToastNotification.show_toast(self, "오류", f"시공간 일치 처리 중 오류: {e}")
+            self.window().show_toast("ERR_0015", e, msg_type="error")
 
 
 from PyQt6.QtCore import QThread, pyqtSignal
@@ -1984,7 +2015,13 @@ class VisualizeInterface(QWidget):
         from PyQt6.QtWidgets import QFileDialog
 
         default_path = os.path.join(os.path.expanduser("~"), "Downloads", download.downloadFileName())
-        path, _ = QFileDialog.getSaveFileName(self, "파일 저장", default_path)
+        dialog = QFileDialog(self, "파일 저장", default_path)
+        dialog.setAcceptMode(QFileDialog.AcceptMode.AcceptSave)
+        dialog.resize(800, 600)
+        
+        path = ""
+        if dialog.exec():
+            path = dialog.selectedFiles()[0]
 
         if path:
             download.setDownloadDirectory(os.path.dirname(path))
@@ -2489,7 +2526,7 @@ class VisualizeInterface(QWidget):
         time_idx = self.window().selected_time_idx
 
         if ds is None or not var_name:
-            ToastNotification.show_toast(self, "오류", "데이터셋이 없습니다.")
+            self.window().show_toast("ERR_0007", msg_type="error")
             return
 
         if hasattr(self, 'map_thread') and self.map_thread.isRunning():
@@ -2514,7 +2551,7 @@ class VisualizeInterface(QWidget):
         )
         self._active_threads.append(self.map_thread)
         self.map_thread.finished.connect(self.on_map_finished)
-        self.map_thread.error_occurred.connect(lambda e: ToastNotification.show_toast(self, "오류", e))
+        self.map_thread.error_occurred.connect(lambda e: self.window().show_toast("ERR_0016", e, msg_type="error"))
         self.map_thread.start()
 
     def toggle_basemap(self, state):
@@ -2527,18 +2564,23 @@ class VisualizeInterface(QWidget):
 
     def download_image(self):
         if not hasattr(self, 'current_img_b64') or not self.current_img_b64:
-            ToastNotification.show_toast(self, "알림", "저장할 이미지가 없습니다.")
+            self.window().show_toast("INFO_0004", msg_type="info")
             return
         from PyQt6.QtWidgets import QFileDialog
         import base64
-        filepath, _ = QFileDialog.getSaveFileName(self, "영상 다운로드", "static_image.png", "PNG Files (*.png)")
+        dialog = QFileDialog(self, "영상 다운로드", "static_image.png", "PNG Files (*.png)")
+        dialog.setAcceptMode(QFileDialog.AcceptMode.AcceptSave)
+        dialog.resize(800, 600)
+        filepath = ""
+        if dialog.exec():
+            filepath = dialog.selectedFiles()[0]
         if filepath:
             try:
                 with open(filepath, 'wb') as f:
                     f.write(base64.b64decode(self.current_img_b64))
-                ToastNotification.show_toast(self, "성공", "이미지가 성공적으로 저장되었습니다.")
+                self.window().show_toast("INFO_0002", msg_type="success")
             except Exception as e:
-                ToastNotification.show_toast(self, "오류", f"저장 실패: {e}")
+                self.window().show_toast("ERR_0017", e, msg_type="error")
 
     def request_ai_analysis(self):
         import tempfile
@@ -2556,7 +2598,7 @@ class VisualizeInterface(QWidget):
         try:
             if current_idx == 0:
                 if not hasattr(self, 'last_map_b64') or not self.last_map_b64:
-                    ToastNotification.show_toast(self, "오류", "분석할 지도가 아직 그려지지 않았습니다.")
+                    self.window().show_toast("ERR_0008", msg_type="error")
                     return
                 prompt = f"현재 표시된 기상 데이터('{var_name}') 공간 지도를 자세히 분석해 줘. 주요 기후 패턴, 특징, 그리고 이 지역의 날씨에 미칠 영향을 중심으로 설명해 줘."
                 with open(tmp_path, 'wb') as f:
@@ -2578,7 +2620,7 @@ class VisualizeInterface(QWidget):
                 prompt = f"현재 표시된 '{var_name}' 정적 이미지를 분석해 줘. 전반적인 기상 패턴과 눈에 띄는 특이점을 설명해 줘."
 
         except Exception as e:
-            ToastNotification.show_toast(self, "오류", f"이미지 캡처 중 오류가 발생했습니다: {e}")
+            self.window().show_toast("ERR_0018", e, msg_type="error")
             return
 
         # 탭 자동 전환 로직 호환성 개선
@@ -2857,7 +2899,7 @@ class VisualizeInterface(QWidget):
                     if value < len(ds.time):
                         time_val = ds.time.values[value]
                         ts = pd.to_datetime(str(time_val))
-                        self.lbl_timeline.setText(f"시간 {ts.strftime('%Y-%m')}")
+                        self.lbl_timeline.setText(f"시간 {ts.strftime('%Y.%m')}")
                     else:
                         self.lbl_timeline.setText(f"시간 index {value}")
                 except Exception as e:
@@ -2878,7 +2920,7 @@ class VisualizeInterface(QWidget):
         layer = self.cb_layer.currentData()
 
         if ds is None or not var_name:
-            ToastNotification.show_toast(self, "오류", "데이터가 없습니다.")
+            self.window().show_toast("ERR_0009", msg_type="error")
             return
 
         if hasattr(self, 'txt_title') and self.txt_title.text().strip() == "":
@@ -2899,7 +2941,7 @@ class VisualizeInterface(QWidget):
         if 'time' in ds.dims:
             t_len = len(ds.time)
             if t_len == 0:
-                ToastNotification.show_toast(self, "오류", "선택한 기간 내에 데이터가 없습니다.")
+                self.window().show_toast("ERR_0010", msg_type="error")
                 return
 
             self.slider_timeline.blockSignals(True)
@@ -2934,11 +2976,11 @@ class VisualizeInterface(QWidget):
 
         # 방어 코드: 이미 스레드가 실행 중이면 새로 시작하지 않고 무시
         if hasattr(self, 'static_thread') and self.static_thread.isRunning():
-            # ToastNotification.show_toast(self, "알림", "이미 처리 중입니다. 잠시만 기다려주세요.")
+            # self.window().show_toast("이미 처리 중입니다. 잠시만 기다려주세요.", msg_type="info")
             return
 
         self.image_scene.clear()
-        ToastNotification.show_toast(self, "알림", "이미지 그리는 중... (최대 15초 소요)")
+        self.window().show_toast("INFO_0001", msg_type="info")
 
         try:
             vmin = float(self.txt_vmin.text()) if hasattr(self, 'txt_vmin') and self.txt_vmin.text() else None
@@ -2969,7 +3011,7 @@ class VisualizeInterface(QWidget):
         )
         self._active_threads.append(self.static_thread)
         self.static_thread.finished.connect(self.on_static_image_finished)
-        self.static_thread.error_occurred.connect(lambda e: ToastNotification.show_toast(self, "오류", e))
+        self.static_thread.error_occurred.connect(lambda e: self.window().show_toast("ERR_0016", e, msg_type="error"))
         self.static_thread.start()
 
     def zoom_in_image(self):
@@ -3325,21 +3367,24 @@ class AIAssistantInterface(QWidget):
 
     def browse_model(self):
         from PyQt6.QtWidgets import QFileDialog
-        filepath, _ = QFileDialog.getOpenFileName(self, "Model 파일 선택", "", "GGUF Files (*.gguf);;All Files (*)")
-        if filepath:
-            self.txt_model_path.setText(filepath)
+        dialog = QFileDialog(self, "Model 파일 선택", "", "GGUF Files (*.gguf);;All Files (*)")
+        dialog.resize(800, 600)
+        if dialog.exec():
+            self.txt_model_path.setText(dialog.selectedFiles()[0])
 
     def browse_proj(self):
         from PyQt6.QtWidgets import QFileDialog
-        filepath, _ = QFileDialog.getOpenFileName(self, "Projector 파일 선택", "", "GGUF Files (*.gguf);;All Files (*)")
-        if filepath:
-            self.txt_proj_path.setText(filepath)
+        dialog = QFileDialog(self, "Projector 파일 선택", "", "GGUF Files (*.gguf);;All Files (*)")
+        dialog.resize(800, 600)
+        if dialog.exec():
+            self.txt_proj_path.setText(dialog.selectedFiles()[0])
 
     def browse_image(self):
         from PyQt6.QtWidgets import QFileDialog
-        filepath, _ = QFileDialog.getOpenFileName(self, "이미지 선택", "", "Images (*.png *.jpg *.jpeg)")
-        if filepath:
-            self.txt_image_path.setText(filepath)
+        dialog = QFileDialog(self, "이미지 선택", "", "Images (*.png *.jpg *.jpeg)")
+        dialog.resize(800, 600)
+        if dialog.exec():
+            self.txt_image_path.setText(dialog.selectedFiles()[0])
 
     def delete_image(self):
         self.txt_image_path.clear()
@@ -3471,6 +3516,73 @@ class AIAssistantInterface(QWidget):
 
 
 class NMSCFluentApp(MSFluentWindow):
+    def show_toast(self, message, *args, msg_type=None, force=False, duration=3000):
+        if getattr(self, '_is_loading', False) and not force:
+            return
+        if not hasattr(self, '_toasts'):
+            self._toasts = []
+        for t in self._toasts:
+            try:
+                if t.isVisible():
+                    t.close()
+            except Exception:
+                pass
+        self._toasts.clear()
+        
+        MSG_CODES = {
+            "INFO_0001": ("처리중 ...", "info"),
+            "INFO_0002": ("처리 완료", "success"),
+            "INFO_0003": ("검증 데이터가 없어 입력 데이터 산출만 진행되었습니다.", "info"),
+            "INFO_0004": ("저장할 이미지가 없습니다.", "info"),
+            "WARN_0001": ("입력 자료를 먼저 불러와 주세요.", "warning"),
+            "WARN_0002": ("입력 자료의 세부 속성을 선택해 주세요.", "warning"),
+            "WARN_0003": ("검증 자료를 먼저 불러와 주세요.", "warning"),
+            "WARN_0004": ("검증 자료의 세부 속성을 선택해 주세요.", "warning"),
+            "ERR_0001": ("먼저 입력 데이터를 불러오세요.", "error"),
+            "ERR_0002": ("변수(Variable)가 선택되지 않았습니다.", "error"),
+            "ERR_0003": ("입력 데이터에 시간(time) 차원이 없어 연산을 수행할 수 없습니다.", "error"),
+            "ERR_0004": ("먼저 검증 데이터를 불러오세요.", "error"),
+            "ERR_0005": ("검증 데이터에 시간(time) 차원이 없어 연산을 수행할 수 없습니다.", "error"),
+            "ERR_0006": ("입력 및 검증 데이터 산출 처리를 먼저 완료하세요.", "error"),
+            "ERR_0007": ("데이터셋이 없습니다.", "error"),
+            "ERR_0008": ("분석할 지도가 아직 그려지지 않았습니다.", "error"),
+            "ERR_0009": ("데이터가 없습니다.", "error"),
+            "ERR_0010": ("선택한 기간 내에 데이터가 없습니다.", "error"),
+            "ERR_0011": ("입력 데이터를 처리하는 중 오류가 발생했습니다.\n{0}", "error"),
+            "ERR_0012": ("검증 데이터를 처리하는 중 오류가 발생했습니다.\n{0}", "error"),
+            "ERR_0013": ("입력 데이터 계산 중 오류 발생: {0}", "error"),
+            "ERR_0014": ("통합 계산 중 오류 발생: {0}", "error"),
+            "ERR_0015": ("시공간 일치 처리 중 오류: {0}", "error"),
+            "ERR_0016": ("오류: {0}", "error"),
+            "ERR_0017": ("저장 실패: {0}", "error"),
+            "ERR_0018": ("이미지 캡처 중 오류가 발생했습니다: {0}", "error")
+        }
+
+        message_code = str(message)
+        
+        if message_code in MSG_CODES:
+            template, mapped_type = MSG_CODES[message_code]
+            if args:
+                display_text = template.format(*args)
+            else:
+                display_text = template
+            final_msg_type = msg_type if msg_type is not None else mapped_type
+        else:
+            display_text = message_code
+            final_msg_type = msg_type if msg_type is not None else "info"
+            
+            # Fallback for hardcoded strings if any missed
+            if "처리 중" in display_text or "처리중" in display_text or "그리는 중" in display_text:
+                display_text = "처리중 ..."
+            elif "완료" in display_text or "성공적으로" in display_text:
+                display_text = "처리 완료"
+        
+        toast = ToastMessage(display_text, self, msg_type=final_msg_type, duration=duration)
+        toast.show()
+        self._toasts.append(toast)
+        from PyQt6.QtWidgets import QApplication
+        QApplication.processEvents()
+
     def __init__(self):
         super().__init__()
         # self.setWindowTitle("NMSC Climate Toolbox")
