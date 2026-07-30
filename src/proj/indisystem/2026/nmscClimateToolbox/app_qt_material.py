@@ -2436,6 +2436,9 @@ class VisualizeInterface(QWidget):
             ToastNotification.show_toast(self, "오류", "데이터셋이 없습니다.")
             return
 
+        if hasattr(self, 'map_thread') and self.map_thread.isRunning():
+            return
+
         self.clear_layout(self.map_canvas_layout)
         loading_label = TitleLabel("지도 그리는 중입니다... (최대 15초 소요)")
         self.map_canvas_layout.addWidget(loading_label)
@@ -2869,6 +2872,11 @@ class VisualizeInterface(QWidget):
             self.lbl_timeline.setText("시간 차원 없음")
 
         time_idx = getattr(w, 'selected_time_idx', 0)
+
+        # 방어 코드: 이미 스레드가 실행 중이면 새로 시작하지 않고 무시
+        if hasattr(self, 'static_thread') and self.static_thread.isRunning():
+            # ToastNotification.show_toast(self, "알림", "이미 처리 중입니다. 잠시만 기다려주세요.")
+            return
 
         self.image_scene.clear()
         ToastNotification.show_toast(self, "알림", "이미지 그리는 중... (최대 15초 소요)")
