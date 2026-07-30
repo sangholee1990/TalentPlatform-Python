@@ -349,7 +349,19 @@ class NMSCClimateToolbox:
             VMAX = bounds[1] if bounds else 36.0
             DLEV = (VMAX - VMIN) / 9.0 if bounds else 4.0
             LEVELS = np.arange(VMIN, VMAX + 1e-6, DLEV)
-            pcm = m.pcolormesh(x, y, data_2d, cmap=cmap_name, shading='auto', vmin=VMIN, vmax=VMAX)
+            
+            if cmap_name == 'SST_ANOM (custom)':
+                import matplotlib.colors as mcolors
+                SST_ANOM_COLORS = [
+                    '#FF66FF', '#FF33CC', '#CC33CC', '#9933CC', '#6633CC', '#3333CC', '#0033CC',
+                    '#0066CC', '#3399FF', '#66CCFF', '#99FFFF', '#CCFFFF', '#FFFFCC', '#FFFF99',
+                    '#FFFF33', '#FFCC33', '#FF9933', '#FF6633', '#FF3333', '#FF0000', '#CC0000',
+                    '#A00000', '#800000', '#600000'
+                ]
+                cmap = mcolors.ListedColormap(SST_ANOM_COLORS)
+                pcm = m.pcolormesh(x, y, data_2d, cmap=cmap, shading='auto', vmin=VMIN, vmax=VMAX)
+            else:
+                pcm = m.pcolormesh(x, y, data_2d, cmap=cmap_name, shading='auto', vmin=VMIN, vmax=VMAX)
             line_levels = LEVELS
 
         m.drawcoastlines(color='k', linewidth=0.5)
@@ -417,6 +429,22 @@ class NMSCClimateToolbox:
                     pass
         
         final_title = custom_title if custom_title else title_str
+
+        # Replace strftime placeholders in final_title if any exist
+        if final_title and ('%' in final_title):
+            if 'time' in dataset.dims:
+                if data_layer == 'climatology':
+                    month_str = f"{time_idx + 1:02d}"
+                    final_title = final_title.replace('%m', month_str).replace('%Y.%m', month_str)
+                else:
+                    try:
+                        import pandas as pd
+                        time_val = dataset['time'].values[time_idx]
+                        ts = pd.to_datetime(str(time_val))
+                        final_title = ts.strftime(final_title)
+                    except Exception as e:
+                        print("Error formatting title:", e)
+
         plt.title(final_title, fontsize=12, fontweight='bold', fontname='Malgun Gothic')
         plt.tight_layout()
         

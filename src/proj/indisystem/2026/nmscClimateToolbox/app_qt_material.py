@@ -1992,15 +1992,32 @@ class VisualizeInterface(QWidget):
         idx = self.stack.currentIndex()
         layer = self.cb_layer.currentData()
         
+        def_title = var_name
+        def_legend = var_name
+        
         if idx == 1:
             def_title = f"{var_name} 검증 시계열"
         elif idx == 2:
             def_title = f"{var_name} 검증 산점도"
         elif idx == 3:
-            layer_kr = "가공"
-            if layer == 'climatology': layer_kr = "평년"
-            elif layer == 'anomaly': layer_kr = "편차"
-            def_title = f"{layer_kr} - {var_name}"
+            if layer == 'anomaly':
+                def_title = "GK2A SST Anomaly (%Y.%m - Climatology)"
+                def_legend = "SST Anomaly (°C)"
+                if hasattr(self, 'cb_cmap'): self.cb_cmap.setCurrentText('SST_ANOM (custom)')
+                if hasattr(self, 'txt_vmin'): self.txt_vmin.setText('-6.0')
+                if hasattr(self, 'txt_vmax'): self.txt_vmax.setText('6.0')
+            elif layer == 'climatology':
+                def_title = "Monthly Mean GK2A Sea Surface Temperature (%m)"
+                def_legend = "Sea Surface Temperature (°C)"
+                if hasattr(self, 'cb_cmap'): self.cb_cmap.setCurrentText('RdYlBu_r')
+                if hasattr(self, 'txt_vmin'): self.txt_vmin.setText('0')
+                if hasattr(self, 'txt_vmax'): self.txt_vmax.setText('36')
+            else:
+                def_title = "Monthly Mean GK2A Sea Surface Temperature (%Y.%m)"
+                def_legend = "Sea Surface Temperature (°C)"
+                if hasattr(self, 'cb_cmap'): self.cb_cmap.setCurrentText('RdYlBu_r')
+                if hasattr(self, 'txt_vmin'): self.txt_vmin.setText('0')
+                if hasattr(self, 'txt_vmax'): self.txt_vmax.setText('36')
         else:
             def_title = var_name
             
@@ -2008,7 +2025,7 @@ class VisualizeInterface(QWidget):
             self.txt_title.setText(def_title)
             
         if hasattr(self, 'txt_legend'):
-            self.txt_legend.setText(var_name)
+            self.txt_legend.setText(def_legend)
 
         current_data = self.cb_layer.currentData()
         self.cb_layer.blockSignals(True)
@@ -2824,6 +2841,9 @@ class VisualizeInterface(QWidget):
         if ds is None or not var_name:
             ToastNotification.show_toast(self, "오류", "데이터가 없습니다.")
             return
+
+        if hasattr(self, 'txt_title') and self.txt_title.text().strip() == "":
+            self.update_text_bindings()
 
         import pandas as pd
         try:
