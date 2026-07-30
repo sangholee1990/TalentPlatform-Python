@@ -821,11 +821,8 @@ class PreprocessInterface(QWidget):
 
     def browse_file(self):
         from PyQt6.QtWidgets import QFileDialog
-        dialog = QFileDialog(self, "Select Data File", "", "NetCDF/GeoTIFF Files (*.nc *.tif *.tiff);;All Files (*)")
-        dialog.setOption(QFileDialog.Option.DontUseNativeDialog, True)
-        dialog.resize(800, 600)
-        if dialog.exec():
-            filepath = dialog.selectedFiles()[0]
+        filepath, _ = QFileDialog.getOpenFileName(self, "Select Data File", "", "NetCDF/GeoTIFF Files (*.nc *.tif *.tiff);;All Files (*)")
+        if filepath:
             if filepath not in self.files:
                 self.files.append(filepath)
                 self.file_combo.addItem(filepath)
@@ -833,11 +830,8 @@ class PreprocessInterface(QWidget):
 
     def browse_valid_file(self):
         from PyQt6.QtWidgets import QFileDialog
-        dialog = QFileDialog(self, "Select Validation File", "", "NetCDF/GeoTIFF Files (*.nc *.tif *.tiff);;All Files (*)")
-        dialog.setOption(QFileDialog.Option.DontUseNativeDialog, True)
-        dialog.resize(800, 600)
-        if dialog.exec():
-            filepath = dialog.selectedFiles()[0]
+        filepath, _ = QFileDialog.getOpenFileName(self, "Select Validation File", "", "NetCDF/GeoTIFF Files (*.nc *.tif *.tiff);;All Files (*)")
+        if filepath:
             if filepath not in self.valid_files:
                 self.valid_files.append(filepath)
                 self.valid_file_combo.addItem(filepath)
@@ -1990,14 +1984,7 @@ class VisualizeInterface(QWidget):
         from PyQt6.QtWidgets import QFileDialog
 
         default_path = os.path.join(os.path.expanduser("~"), "Downloads", download.downloadFileName())
-        dialog = QFileDialog(self, "파일 저장", default_path)
-        dialog.setAcceptMode(QFileDialog.AcceptMode.AcceptSave)
-        dialog.setOption(QFileDialog.Option.DontUseNativeDialog, True)
-        dialog.resize(800, 600)
-        
-        path = ""
-        if dialog.exec():
-            path = dialog.selectedFiles()[0]
+        path, _ = QFileDialog.getSaveFileName(self, "파일 저장", default_path)
 
         if path:
             download.setDownloadDirectory(os.path.dirname(path))
@@ -2544,13 +2531,7 @@ class VisualizeInterface(QWidget):
             return
         from PyQt6.QtWidgets import QFileDialog
         import base64
-        dialog = QFileDialog(self, "영상 다운로드", "static_image.png", "PNG Files (*.png)")
-        dialog.setAcceptMode(QFileDialog.AcceptMode.AcceptSave)
-        dialog.setOption(QFileDialog.Option.DontUseNativeDialog, True)
-        dialog.resize(800, 600)
-        filepath = ""
-        if dialog.exec():
-            filepath = dialog.selectedFiles()[0]
+        filepath, _ = QFileDialog.getSaveFileName(self, "영상 다운로드", "static_image.png", "PNG Files (*.png)")
         if filepath:
             try:
                 with open(filepath, 'wb') as f:
@@ -3344,27 +3325,21 @@ class AIAssistantInterface(QWidget):
 
     def browse_model(self):
         from PyQt6.QtWidgets import QFileDialog
-        dialog = QFileDialog(self, "Model 파일 선택", "", "GGUF Files (*.gguf);;All Files (*)")
-        dialog.setOption(QFileDialog.Option.DontUseNativeDialog, True)
-        dialog.resize(800, 600)
-        if dialog.exec():
-            self.txt_model_path.setText(dialog.selectedFiles()[0])
+        filepath, _ = QFileDialog.getOpenFileName(self, "Model 파일 선택", "", "GGUF Files (*.gguf);;All Files (*)")
+        if filepath:
+            self.txt_model_path.setText(filepath)
 
     def browse_proj(self):
         from PyQt6.QtWidgets import QFileDialog
-        dialog = QFileDialog(self, "Projector 파일 선택", "", "GGUF Files (*.gguf);;All Files (*)")
-        dialog.setOption(QFileDialog.Option.DontUseNativeDialog, True)
-        dialog.resize(800, 600)
-        if dialog.exec():
-            self.txt_proj_path.setText(dialog.selectedFiles()[0])
+        filepath, _ = QFileDialog.getOpenFileName(self, "Projector 파일 선택", "", "GGUF Files (*.gguf);;All Files (*)")
+        if filepath:
+            self.txt_proj_path.setText(filepath)
 
     def browse_image(self):
         from PyQt6.QtWidgets import QFileDialog
-        dialog = QFileDialog(self, "이미지 선택", "", "Images (*.png *.jpg *.jpeg)")
-        dialog.setOption(QFileDialog.Option.DontUseNativeDialog, True)
-        dialog.resize(800, 600)
-        if dialog.exec():
-            self.txt_image_path.setText(dialog.selectedFiles()[0])
+        filepath, _ = QFileDialog.getOpenFileName(self, "이미지 선택", "", "Images (*.png *.jpg *.jpeg)")
+        if filepath:
+            self.txt_image_path.setText(filepath)
 
     def delete_image(self):
         self.txt_image_path.clear()
