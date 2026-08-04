@@ -12,6 +12,7 @@ import numpy as np
 import scipy.stats
 import matplotlib.pyplot as plt
 import cartopy.crs as ccrs
+import cartopy.feature as cfeature
 try:
     import xcdat as xc
 except ImportError:
@@ -262,12 +263,13 @@ class NMSCClimateToolbox:
         return trend_da, slope, p_value
 
     @staticmethod
-    def generate_static_map(dataset, variable, time_idx=0, data_layer='original', bounds=None, cmap_name='jet', dataset_cli=None, custom_title=None, custom_legend=None):
+    def resMap(dataset, variable, time_idx=0, data_layer='original', bounds=None, cmap_name='jet', dataset_cli=None, custom_title=None, custom_legend=None, return_type='b64'):
         import io
         import base64
         import numpy as np
         import matplotlib
-        matplotlib.use('Agg')
+        if return_type == 'b64':
+            matplotlib.use('Agg')
         import matplotlib.pyplot as plt
         plt.rcParams['axes.unicode_minus'] = False
         from mpl_toolkits.basemap import Basemap
@@ -448,102 +450,15 @@ class NMSCClimateToolbox:
         plt.title(final_title, fontsize=12, fontweight='bold', fontname='Malgun Gothic')
         plt.tight_layout()
         
+        if return_type == 'fig':
+            return fig
+            
         buf = io.BytesIO()
         plt.savefig(buf, dpi=300, format='png', transparent=True, pad_inches=0.1, bbox_inches='tight')
         plt.close(fig)
         buf.seek(0)
         img_b64 = base64.b64encode(buf.read()).decode('utf-8')
         return img_b64
-
-    @staticmethod
-    def resMap(dataset, variable, time_idx=0, cmap='RdYlBu_r'):
-        """Plot 2D resource map."""
-        lon_name = 'lon' if 'lon' in dataset.dims else 'longitude'
-        lat_name = 'lat' if 'lat' in dataset.dims else 'latitude'
-        
-        fig, ax = plt.subplots(figsize=(10, 6), subplot_kw={'projection': ccrs.PlateCarree()})
-        ax.add_feature(cfeature.COASTLINE)
-        ax.add_feature(cfeature.BORDERS, linestyle=':')
-        
-        # Get data for a specific time index
-        if 'time' in dataset.dims and dataset.sizes['time'] > 1:
-            data = dataset[variable].isel(time=time_idx)
-            title_time = str(dataset['time'].values[time_idx])[:10]
-        elif 'time' in dataset.dims:
-            data = dataset[variable].isel(time=0)
-            title_time = str(dataset['time'].values[0])[:10]
-        else:
-            data = dataset[variable]
-            title_time = "Average"
-            
-        data.plot(ax=ax, transform=ccrs.PlateCarree(), cmap=cmap, cbar_kwargs={'shrink': 0.8})
-        ax.set_title(f"{variable} Distribution ({title_time})")
-        # ax.set_global()  # Commented out to allow dynamic extent
-        return fig
-
-    @staticmethod
-    def get_map_overlay_data(dataset, variable, time_idx=0, cmap='RdYlBu_r', vmin=None, vmax=None):
-        """Generate base64 image and extent for OpenLayers overlay."""
-        import io
-        import base64
-        import matplotlib.pyplot as plt
-        
-        lon_name = 'lon' if 'lon' in dataset.dims else 'longitude'
-        lat_name = 'lat' if 'lat' in dataset.dims else 'latitude'
-        
-        if 'time' in dataset.dims and dataset.sizes['time'] > 1:
-            data = dataset[variable].isel(time=time_idx)
-            title_time = str(dataset['time'].values[time_idx])[:10]
-        elif 'time' in dataset.dims:
-            data = dataset[variable].isel(time=0)
-            title_time = str(dataset['time'].values[0])[:10]
-        else:
-            data = dataset[variable]
-            title_time = "Average"
-            
-        lon = dataset[lon_name].values
-        lat = dataset[lat_name].values
-        
-        min_lon, max_lon = float(lon.min()), float(lon.max())
-        min_lat, max_lat = float(lat.min()), float(lat.max())
-        extent = [min_lon, min_lat, max_lon, max_lat]
-        
-        fig = plt.figure(figsize=(8, 8), dpi=100)
-        ax = fig.add_axes([0, 0, 1, 1])
-        ax.set_axis_off()
-        
-        if lat[0] > lat[-1]:
-            origin = 'upper'
-        else:
-            origin = 'lower'
-            
-        # Encode raw data to base64 Float32Array for tooltip hover
-        data_filled = data.fillna(np.nan).values.astype(np.float32)
-        data_bytes = data_filled.tobytes()
-        data_b64 = base64.b64encode(data_bytes).decode('utf-8')
-        height, width = data_filled.shape
-            
-        im = ax.imshow(data.values, cmap=cmap, vmin=vmin, vmax=vmax, origin=origin, extent=[min_lon, max_lon, min_lat, max_lat], aspect='auto', interpolation='nearest')
-        
-        buf = io.BytesIO()
-        plt.savefig(buf, format='png', transparent=True, pad_inches=0, bbox_inches='tight')
-        plt.close(fig)
-        
-        buf.seek(0)
-        img_base64 = base64.b64encode(buf.read()).decode('utf-8')
-        
-        return {
-            'image_base64': f"data:image/png;base64,{img_base64}",
-            'data_base64': data_b64,
-            'extent': extent,
-            'width': width,
-            'height': height,
-            'origin': origin,
-            'min_val': float(vmin) if vmin is not None else float(data.min(skipna=True)),
-            'max_val': float(vmax) if vmax is not None else float(data.max(skipna=True)),
-            'title_time': title_time,
-            'variable': variable
-        }
 
     @staticmethod
     def timeGrp(timeseries, trend_line=None, variable_name="Variable"):
@@ -599,6 +514,90 @@ class NMSCClimateToolbox:
         ax.legend()
         
         return fig
+
+    @staticmethod
+    def histGrp(dataarray, bins=30, variable_name="Variable"):
+        """Plot histogram of data."""
+        fig, ax = plt.subplots(figsize=(8, 6))
+        # Flatten and drop nan
+        data = dataarray.values.flatten()
+        data = data[~np.isnan(data)]
+        
+        ax.hist(data, bins=bins, density=True, alpha=0.6, color='b', edgecolor='black')
+        
+        # Overlay KDE or normal distribution if seaborn is available
+        try:
+            import seaborn as sns
+            sns.kdeplot(data, ax=ax, color='r', linewidth=2)
+        except ImportError:
+            pass
+            
+        ax.set_title(f"Histogram and PDF: {variable_name}")
+        ax.set_xlabel(variable_name)
+        ax.set_ylabel("Density")
+        ax.grid(True, linestyle='--', alpha=0.7)
+        return fig
+
+    @staticmethod
+    def barGrp(x_data, y_data, title="Bar Graph", xlabel="X", ylabel="Y"):
+        """Plot bar graph for discrete comparisons."""
+        fig, ax = plt.subplots(figsize=(10, 5))
+        ax.bar(x_data, y_data, color='skyblue', edgecolor='black')
+        
+        ax.set_title(title)
+        ax.set_xlabel(xlabel)
+        ax.set_ylabel(ylabel)
+        ax.grid(True, axis='y', linestyle='--', alpha=0.7)
+        
+        # Rotate x labels if they are dates or strings
+        fig.autofmt_xdate(rotation=45)
+        return fig
+
+    @staticmethod
+    def ext(timeseries, percentile=0.95):
+        """
+        Calculate extreme climate indices including Sen's Slope and Percentile thresholds.
+        
+        Parameters
+        ----------
+        timeseries : xr.DataArray
+            1D time series data
+        percentile : float
+            Percentile threshold for extreme events (default 0.95 for 95th percentile)
+            
+        Returns
+        -------
+        dict
+            Dictionary containing threshold, extreme events count, and Sen's slope
+        """
+        # Ensure timeseries is computed to avoid dask array issues
+        if hasattr(timeseries, 'compute'):
+            timeseries = timeseries.compute()
+            
+        # Calculate threshold
+        threshold = timeseries.quantile(percentile, dim='time').item()
+        
+        # Calculate extreme events count
+        extreme_events = timeseries.where(timeseries > threshold, drop=True)
+        count = len(extreme_events)
+        
+        # Calculate Sen's Slope (using scipy.stats.mstats.theilslopes)
+        y = timeseries.values
+        valid = ~np.isnan(y)
+        if valid.sum() < 2:
+            sens_slope = np.nan
+        else:
+            from scipy.stats import mstats
+            x = np.arange(len(y))
+            # theilslopes returns: slope, intercept, lower_bound, upper_bound
+            res = mstats.theilslopes(y[valid], x[valid])
+            sens_slope = res[0]
+            
+        return {
+            'threshold': threshold,
+            'extreme_count': count,
+            'sens_slope': sens_slope
+        }
 
 nct = NMSCClimateToolbox()
 

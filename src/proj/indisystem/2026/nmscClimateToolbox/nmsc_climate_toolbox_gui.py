@@ -1977,6 +1977,21 @@ class VisualizeInterface(QWidget):
 
         self.stack.addWidget(page_image)
 
+        page_hist = QWidget()
+        self.hist_canvas_layout = QVBoxLayout(page_hist)
+        self.hist_canvas_layout.setContentsMargins(0, 0, 0, 0)
+        self.stack.addWidget(page_hist)
+
+        page_bar = QWidget()
+        self.bar_canvas_layout = QVBoxLayout(page_bar)
+        self.bar_canvas_layout.setContentsMargins(0, 0, 0, 0)
+        self.stack.addWidget(page_bar)
+
+        page_ext = QWidget()
+        self.ext_canvas_layout = QVBoxLayout(page_ext)
+        self.ext_canvas_layout.setContentsMargins(0, 0, 0, 0)
+        self.stack.addWidget(page_ext)
+
         btn_zoom_in.clicked.connect(self.zoom_in_image)
         btn_zoom_out.clicked.connect(self.zoom_out_image)
         btn_fit.clicked.connect(self.fit_image)
@@ -1986,6 +2001,9 @@ class VisualizeInterface(QWidget):
         # self.pivot.addItem("map", "지도 맵", lambda: self.on_tab_changed(0))
         self.pivot.addItem("trend", "검증 시계열", lambda: self.on_tab_changed(1))
         self.pivot.addItem("comp", "검증 산점도", lambda: self.on_tab_changed(2))
+        # self.pivot.addItem("hist", "히스토그램", lambda: self.on_tab_changed(4))
+        # self.pivot.addItem("bar", "막대 그래프", lambda: self.on_tab_changed(5))
+        # self.pivot.addItem("ext", "극한 기후", lambda: self.on_tab_changed(6))
 
         self.pivot.setCurrentItem('image')
         self.on_tab_changed(3)
@@ -2078,19 +2096,19 @@ class VisualizeInterface(QWidget):
             def_title = f"{var_name} 검증 산점도"
         elif idx == 3:
             if layer == 'anomaly':
-                def_title = "GK2A SST Anomaly (%Y.%m - Climatology)"
-                def_legend = "SST Anomaly (°C)"
+                def_title = "ECV Sea Surface Temperatur Anomaly (%Y.%m - Climatology)"
+                def_legend = "Sea Surface Temperatur Anomaly (°C)"
                 if hasattr(self, 'cb_cmap'): self.cb_cmap.setCurrentText('SST_ANOM (custom)')
                 if hasattr(self, 'txt_vmin'): self.txt_vmin.setText('-6.0')
                 if hasattr(self, 'txt_vmax'): self.txt_vmax.setText('6.0')
             elif layer == 'climatology':
-                def_title = "Monthly Mean GK2A Sea Surface Temperature (%m)"
+                def_title = "Monthly Mean ECV Sea Surface Temperature (%m)"
                 def_legend = "Sea Surface Temperature (°C)"
                 if hasattr(self, 'cb_cmap'): self.cb_cmap.setCurrentText('RdYlBu_r')
                 if hasattr(self, 'txt_vmin'): self.txt_vmin.setText('0')
                 if hasattr(self, 'txt_vmax'): self.txt_vmax.setText('36')
             else:
-                def_title = "Monthly Mean GK2A Sea Surface Temperature (%Y.%m)"
+                def_title = "Monthly Mean ECV Sea Surface Temperature (%Y.%m)"
                 def_legend = "Sea Surface Temperature (°C)"
                 if hasattr(self, 'cb_cmap'): self.cb_cmap.setCurrentText('RdYlBu_r')
                 if hasattr(self, 'txt_vmin'): self.txt_vmin.setText('0')
@@ -2220,6 +2238,12 @@ class VisualizeInterface(QWidget):
             self.plot_valid()
         elif idx == 3:
             self.plot_static_image()
+        elif idx == 4:
+            self.plot_hist()
+        elif idx == 5:
+            self.plot_bar()
+        elif idx == 6:
+            self.show_ext_results()
 
     def get_ds(self):
         w = self.window()
@@ -2418,17 +2442,17 @@ class VisualizeInterface(QWidget):
                         s_trend, s_slope, s_intercept, s_r, s_p = calc_trendline(s_ts)
                         v_trend, v_slope, v_intercept, v_r, v_p = calc_trendline(v_ts)
 
-                        series_data.append({'name': f'위성 - {st_label}', 'data': replace_nan(s_ts)})
-                        series_data.append({'name': f'관측 - {st_label}', 'data': replace_nan(v_ts)})
+                        series_data.append({'name': f'ECV - {st_label}', 'data': replace_nan(s_ts)})
+                        series_data.append({'name': f'검증 - {st_label}', 'data': replace_nan(v_ts)})
                         if s_trend: series_data.append({
-                            'name': f'위성 추세 - {st_label}',
+                            'name': f'ECV 추세 - {st_label}',
                             'data': replace_nan(s_trend),
                             'marker': {'enabled': False},
                             'dashStyle': 'Dash',
                             'custom': {'stats': f'Y={s_slope:.3e}x+{s_intercept:.3f}, p={s_p:.3f}, R={s_r:.3f}'}
                         })
                         if v_trend: series_data.append({
-                            'name': f'관측 추세 - {st_label}',
+                            'name': f'검증 추세 - {st_label}',
                             'data': replace_nan(v_trend),
                             'marker': {'enabled': False},
                             'dashStyle': 'Dash',
@@ -2437,6 +2461,7 @@ class VisualizeInterface(QWidget):
 
                     c_title = self.txt_title.text().strip() if hasattr(self, 'txt_title') else ""
                     final_title = c_title if c_title else f"{var_name} vs 관측소 검증 시계열"
+                    # final_title = c_title if c_title else f"검증 시계열"
 
                     options = {
                         'chart': {'type': 'line', 'zoomType': 'x'},
@@ -2596,6 +2621,10 @@ class VisualizeInterface(QWidget):
 
         prompt = ""
         try:
+            from PyQt6.QtWidgets import QApplication
+            screen = QApplication.screenAt(self.window().geometry().center())
+            if not screen: screen = QApplication.primaryScreen()
+
             if current_idx == 0:
                 if not hasattr(self, 'last_map_b64') or not self.last_map_b64:
                     self.window().show_toast("ERR_0008", msg_type="error")
@@ -2605,17 +2634,17 @@ class VisualizeInterface(QWidget):
                     f.write(base64.b64decode(self.last_map_b64))
 
             elif current_idx == 1:
-                pixmap = self.trend_view.grab()
+                pixmap = screen.grabWindow(self.window().winId())
                 pixmap.save(tmp_path, "PNG")
                 prompt = f"현재 표시된 '{var_name}' 시계열 트렌드 차트를 분석해 줘. 시간에 따른 값의 변화 추이와 주기성, 그리고 주요 변동폭을 중심으로 설명해 줘."
 
             elif current_idx == 2:
-                pixmap = self.valid_view.grab()
+                pixmap = screen.grabWindow(self.window().winId())
                 pixmap.save(tmp_path, "PNG")
-                prompt = f"현재 표시된 '{var_name}' 위성 및 관측소 검증 산점도 차트를 분석해 줘. 두 데이터 간의 상관관계(R값 추이)와 추세선의 기울기를 중심으로 정확도를 평가해 줘."
+                prompt = f"현재 표시된 '{var_name}' ECV 및 관측소 검증 산점도 차트를 분석해 줘. 두 데이터 간의 상관관계(R값 추이)와 추세선의 기울기를 중심으로 정확도를 평가해 줘."
 
             elif current_idx == 3:
-                pixmap = self.image_view.grab()
+                pixmap = screen.grabWindow(self.window().winId())
                 pixmap.save(tmp_path, "PNG")
                 prompt = f"현재 표시된 '{var_name}' 정적 이미지를 분석해 줘. 전반적인 기상 패턴과 눈에 띄는 특이점을 설명해 줘."
 
@@ -2776,28 +2805,33 @@ class VisualizeInterface(QWidget):
                 x_all.extend([d['x'] for d in m_data])
                 y_all.extend([d['y'] for d in m_data])
 
-                # Update naming to "지점 - {st_name_val}" and store stats in custom
-                sname = f"지점 - {st_name_val}"
+                # Update naming to include regression equation
+                sname_id = f"지점 - {st_name_val}"
+                if m_n > 1 and m_slope != 0.0:
+                    sname_legend = f"{st_name_val} (y={m_slope:.3f}x+{m_intercept:.3f})"
+                else:
+                    sname_legend = sname_id
+
                 scatter_series.append({
-                    'id': sname,
-                    'name': sname,
+                    'id': sname_id,
+                    'name': sname_legend,
                     'data': m_data,
-                    'custom': {'r': m_r, 'bias': m_bias, 'rmse': m_rmse, 'n': m_n}
+                    'custom': {'r': m_r, 'bias': m_bias, 'rmse': m_rmse, 'n': m_n, 'slope': m_slope, 'intercept': m_intercept}
                 })
 
-                # Per-station trend line — show in legend as "추세 - {st_name_val}"
+                # Per-station trend line
                 if m_n > 1 and m_slope != 0.0:
                     x0, x1 = float(np.min(m_x)), float(np.max(m_x))
                     scatter_series.append({
                         'type': 'line',
                         'name': f'추세 - {st_name_val}',
-                        'linkedTo': sname,
+                        'linkedTo': sname_id,
                         'data': [[x0, x0 * m_slope + m_intercept],
                                  [x1, x1 * m_slope + m_intercept]],
                         'marker': {'enabled': False},
                         'enableMouseTracking': False,
                         'dashStyle': 'Dash',
-                        'lineWidth': 1,
+                        'lineWidth': 2,
                         'showInLegend': False
                     })
 
@@ -2811,9 +2845,11 @@ class VisualizeInterface(QWidget):
             bias = float(np.mean(x_arr - y_arr)) if N > 0 else 0.0
             rmse = float(np.sqrt(np.mean((x_arr - y_arr) ** 2))) if N > 0 else 0.0
             r_value = 0.0
+            overall_slope = None
+            overall_intercept = None
             if N > 1:
                 try:
-                    _, _, r_value, _, _ = linregress(x_arr, y_arr)
+                    overall_slope, overall_intercept, r_value, _, _ = linregress(x_arr, y_arr)
                     r_value = float(r_value)
                 except:
                     pass
@@ -2841,7 +2877,7 @@ class VisualizeInterface(QWidget):
                 })
 
             # Overall statistics for the subtitle
-            subtitle_text = f"전체 통계: R = {r_value:.3f}, Bias = {bias:.3f}, RMSE = {rmse:.3f}, N = {N}"
+            subtitle_text = f"R = {r_value:.3f}, Bias = {bias:.3f}, RMSE = {rmse:.3f}, N = {N}"
 
             c_title = self.txt_title.text().strip() if hasattr(self, 'txt_title') else ""
             final_title = c_title if c_title else f"{var_name} vs {vvar}"
@@ -2850,11 +2886,13 @@ class VisualizeInterface(QWidget):
                 'chart': {'type': 'scatter', 'zoomType': 'xy'},
                 'title': {'text': final_title},
                 'subtitle': {'text': subtitle_text},
-                'xAxis': {'title': {'text': f"위성 ({var_name})"}, 'min': ax_min, 'max': ax_max},
-                'yAxis': {'title': {'text': f"관측소 ({vvar})"}, 'min': ax_min, 'max': ax_max},
+                'xAxis': {'title': {'text': f"ECV ({var_name})"}, 'min': ax_min, 'max': ax_max, 'startOnTick': False, 'endOnTick': False},
+                'yAxis': {'title': {'text': f"검증 ({vvar})"}, 'min': ax_min, 'max': ax_max, 'startOnTick': False, 'endOnTick': False},
                 'legend': {'layout': 'horizontal', 'align': 'center', 'verticalAlign': 'bottom'},
                 'tooltip': {
-                    'pointFormat': '<b>{point.name}</b><br/>위성: {point.x:.2f}<br/>관측: {point.y:.2f}'},
+                    'useHTML': True,
+                    'formatter': 'function() { var s = "<b>" + this.point.name + "</b><br/>ECV: " + this.point.x.toFixed(2) + "<br/>검증: " + this.point.y.toFixed(2); if(this.series.options.custom) { var c = this.series.options.custom; if(c.slope) { s += "<br/><span style=color:gray;font-size:11px>Y=" + c.slope.toFixed(3) + "x+" + c.intercept.toFixed(3) + "<br/>R=" + c.r.toFixed(3) + ", Bias=" + c.bias.toFixed(3) + ", RMSE=" + c.rmse.toFixed(3) + ", N=" + c.n + "</span>"; } } return s; }'
+                },
                 'series': scatter_series,
                 'credits': {'enabled': False}
             }
@@ -3018,6 +3056,79 @@ class VisualizeInterface(QWidget):
     def zoom_in_image(self):
         self.image_view.scale(1.2, 1.2)
 
+    def plot_hist(self):
+        w = self.window()
+        ds = getattr(w, 'processed_ds', None)
+        if ds is None: ds = getattr(w, 'ds', None)
+        var_name = w.selected_var
+        if ds is None or not var_name: return
+
+        self.clear_layout(self.hist_canvas_layout)
+        try:
+            data_at_time = ds[var_name].isel(time=w.selected_time_idx) if 'time' in ds.dims else ds[var_name]
+            fig = nct.histGrp(data_at_time, bins=30, variable_name=var_name)
+            canvas = FigureCanvas(fig)
+            self.hist_canvas_layout.addWidget(canvas)
+        except Exception as e:
+            self.window().show_toast("히스토그램 오류", str(e), msg_type="error")
+
+    def plot_bar(self):
+        w = self.window()
+        ds = getattr(w, 'processed_ds', None)
+        if ds is None: ds = getattr(w, 'ds', None)
+        var_name = w.selected_var
+        if ds is None or not var_name or 'time' not in ds.dims: return
+
+        self.clear_layout(self.bar_canvas_layout)
+        try:
+            ts_mean_da = nct.spaMean(ds, variable=var_name)
+            yearly_mean = ts_mean_da.groupby('time.year').mean(dim='time')
+            fig = nct.barGrp(yearly_mean['year'].values, yearly_mean.values, title=f"Yearly Mean: {var_name}", xlabel="Year", ylabel=var_name)
+            canvas = FigureCanvas(fig)
+            self.bar_canvas_layout.addWidget(canvas)
+        except Exception as e:
+            self.window().show_toast("막대 그래프 오류", str(e), msg_type="error")
+
+    def show_ext_results(self):
+        w = self.window()
+        ds = getattr(w, 'processed_ds', None)
+        if ds is None: ds = getattr(w, 'ds', None)
+        var_name = w.selected_var
+        if ds is None or not var_name or 'time' not in ds.dims: return
+
+        self.clear_layout(self.ext_canvas_layout)
+        try:
+            ts_mean_da = nct.spaMean(ds, variable=var_name)
+            ext_res = nct.ext(ts_mean_da, percentile=0.95)
+            
+            from PyQt6.QtWidgets import QLabel
+            from PyQt6.QtCore import Qt
+            text = f"""
+            <div style='line-height: 1.6;'>
+                <h3 style='color: #2b78e4; margin-bottom: 15px;'>극한 기후 분석 결과</h3>
+                <b>변수:</b> {var_name}<br>
+                <b>기준 임계값 (상위 95%):</b> {ext_res['threshold']:.3f}<br>
+                <b>임계값 초과 극한 현상 발생 횟수:</b> <span style='color: #e74c3c; font-weight: bold;'>{ext_res['extreme_count']}회</span><br>
+                <b>Sen's Slope (견고한 추세선):</b> {ext_res['sens_slope']:.5f}<br>
+            </div>
+            """
+            
+            lbl = QLabel(text)
+            lbl.setTextFormat(Qt.TextFormat.RichText)
+            # Remove hardcoded black/white to inherit the application theme (e.g. Dark Mode)
+            lbl.setStyleSheet("""
+                QLabel {
+                    font-size: 15px; 
+                    padding: 20px; 
+                    border: 1px solid rgba(128, 128, 128, 0.3);
+                    border-radius: 8px;
+                }
+            """)
+            self.ext_canvas_layout.addWidget(lbl)
+            self.ext_canvas_layout.addStretch(1)
+        except Exception as e:
+            self.window().show_toast("극한 기후 오류", str(e), msg_type="error")
+
     def zoom_out_image(self):
         self.image_view.scale(0.8, 0.8)
 
@@ -3059,8 +3170,8 @@ class StaticImageThread(QThread):
     def run(self):
         try:
             from nmsc_climate_toolbox import NMSCClimateToolbox
-            img_b64 = NMSCClimateToolbox.generate_static_map(
-                self.ds, self.var_name, self.time_idx, self.data_layer, self.bounds, self.cmap_name, self.ds_cli, self.custom_title, self.custom_legend
+            img_b64 = NMSCClimateToolbox.resMap(
+                self.ds, self.var_name, self.time_idx, self.data_layer, self.bounds, self.cmap_name, self.ds_cli, self.custom_title, self.custom_legend, return_type='b64'
             )
             self.finished.emit(img_b64)
 
@@ -3174,7 +3285,7 @@ class AIGeneratorThread(QThread):
                         AIGeneratorThread._cached_llm = Llama(
                             model_path=self.model_path,
                             chat_handler=chat_handler,
-                            n_ctx=4096,
+                            n_ctx=4096 * 2,
                             n_threads=4,
                             n_gpu_layers=0,
                             verbose=False
@@ -3215,7 +3326,8 @@ class AIGeneratorThread(QThread):
                         messages=messages,
                         max_tokens=-1,
                         # temperature=0.3,
-                        temperature=0.5,
+                        # temperature=0.5,
+                        temperature=0.7,
                         stream=True
                     )
 
@@ -3423,6 +3535,12 @@ class AIAssistantInterface(QWidget):
         if not prompt: return
 
         img_path = self.txt_image_path.text()
+
+        import os, tempfile
+        tmp_path = os.path.join(tempfile.gettempdir(), 'current_analysis.png')
+        if img_path == tmp_path:
+            if "표출된" not in prompt and "분석" not in prompt and "해석" not in prompt:
+                img_path = ""
 
         # History 갱신
         self.chat_history.append({'role': 'user', 'text': prompt, 'image': img_path})
