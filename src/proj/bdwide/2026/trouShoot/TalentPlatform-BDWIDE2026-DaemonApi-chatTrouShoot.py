@@ -63,8 +63,23 @@ class ChatCompletionRequest(BaseModel):
 
 from langchain_huggingface import HuggingFaceEmbeddings
 from langchain_chroma import Chroma
-from llama_cpp import Llama
-from llama_cpp.llama_chat_format import Llava15ChatHandler
+
+# --- Windows 인증서 스토어 오류(ASN1: NOT_ENOUGH_DATA) 및 깨진 환경변수 우회 패치 ---
+import ssl
+import certifi
+import os
+
+os.environ["SSL_CERT_FILE"] = certifi.where()
+os.environ["REQUESTS_CA_BUNDLE"] = certifi.where()
+
+orig_create_default_context = ssl.create_default_context
+def create_default_context_patched(*args, **kwargs):
+    kwargs['cafile'] = certifi.where()
+    return orig_create_default_context(*args, **kwargs)
+ssl.create_default_context = create_default_context_patched
+# ---------------------------------------------------------------------
+
+from openai import AsyncOpenAI
 
 warnings.filterwarnings('ignore')
 
@@ -139,19 +154,10 @@ log = initLog(env, ctxPath, prjName)
 # 옵션 설정
 sysOpt = {
     'oriList': ['*'],
-    'llmCnt': 2,
-    # 'chatModel': 'D:/ollama/gemma-4-E2B-it-Q8_0.gguf',
-    # 'chatModel': 'D:/ollama/gemma-4-E2B-it-Q5_K_M.gguf',
-    # 'chatModel': 'D:/ollama/gemma-4-E2B-it-Q4_K_M.gguf',
-    # 'visModel': 'D:/ollama/mmproj-F16.gguf',
-    # 'embModel': 'D:/ollama/multilingual-e5-small',
-    # 'vecDb': 'D:/ollama/trouShoot_chromadb',
-    # 'chatModel': '/HDD/DATA/INPUT/BDWIDE2026/chatTrouShoot/ollama/gemma-4-E2B-it-Q8_0.gguf',
-    # 'chatModel': '/HDD/DATA/INPUT/BDWIDE2026/chatTrouShoot/ollama/gemma-4-E2B-it-Q5_K_M.gguf',
-    'chatModel': '/HDD/DATA/INPUT/BDWIDE2026/chatTrouShoot/ollama/gemma-4-E2B-it-Q4_K_M.gguf',
-    'visModel': '/HDD/DATA/INPUT/BDWIDE2026/chatTrouShoot/ollama/mmproj-F16.gguf',
-    'embModel': '/HDD/DATA/INPUT/BDWIDE2026/chatTrouShoot/ollama/multilingual-e5-small',
-    'vecDb': '/HDD/DATA/INPUT/BDWIDE2026/chatTrouShoot/ollama/trouShoot_chromadb',
+    'embModel': 'D:/ollama/multilingual-e5-small',
+    'vecDb': 'D:/ollama/trouShoot_chromadb',
+    # 'embModel': '/HDD/DATA/INPUT/BDWIDE2026/chatTrouShoot/ollama/multilingual-e5-small',
+    # 'vecDb': '/HDD/DATA/INPUT/BDWIDE2026/chatTrouShoot/ollama/trouShoot_chromadb',
 }
 
 app = FastAPI(
@@ -188,22 +194,17 @@ try:
         embedding_function=embeddings
     )
 
-    llm_pool = queue.Queue()
-    for i in range(sysOpt['llmCnt']):
-        log.info(f"로딩 중: Gemma 4 LLM 워커 {i+1}/{sysOpt['llmCnt']} 불러오기...")
-        llm_instance = Llama(
-            model_path=sysOpt['chatModel'],
-            # n_ctx=2048 * 4,
-            n_ctx=2048 * 1,
-            n_gpu_layers=-1,
-            verbose=False,
-        )
-        llm_pool.put(llm_instance)
-    log.info("모든 모델 로딩 완료")
+    log.info("로딩 중: LLM 클라이언트 설정...")
+    llm_client = AsyncOpenAI(
+        api_key="llama-cpp",
+        base_url="http://localhost:9921/v1"
+    )
+    log.info("LLM 클라이언트 연결 완료")
 except Exception as e:
+    import traceback
     log.error(f"Exception during model load : {e}")
+    log.error(traceback.format_exc())
     sys.exit(1)
-
 
 # ============================================
 # API URL 주소
@@ -459,31 +460,18 @@ async def chatTrouShoot(query: str = Query(..., description="사용자 질문"))
         log.info(f"파라미터 방식 스트리밍 질의: {query}")
 
         # 동기(Non-streaming) 응답
-        log.info(f"파라미터 방식 단일 질의 대기 중...")
-        local_llm = await asyncio.to_thread(llm_pool.get)
-        try:
-            log.info(f"파라미터 방식 단일 질의 처리 중...")
-            def run_llm():
-                res_stream = local_llm.create_chat_completion(
-                    messages=llama_messages,
-                    max_tokens=-1,
-                    temperature=0.5,
-                    stream=True
-                )
-                full_content = ""
-                for chunk in res_stream:
-                    delta = chunk.get('choices', [{}])[0].get('delta', {})
-                    if 'content' in delta:
-                        full_content += delta['content']
-                return {
-                    "choices": [{"message": {"role": "assistant", "content": full_content}}]
-                }
-            response = await asyncio.to_thread(run_llm)
-        finally:
-            llm_pool.put(local_llm)
-
+        log.info(f"파라미터 방식 단일 질의 처리 중...")
+        response = await llm_client.chat.completions.create(
+            model="default",
+            messages=llama_messages,
+            temperature=0.5,
+            stream=False
+        )
+        
+        # AsyncOpenAI 반환 객체를 dict로 변환
+        resp_dict = response.model_dump()
         log.info(f"단일 응답 완료. 소요 시간: {time.time() - start_time:.2f}초")
-        return JSONResponse(content=response)
+        return JSONResponse(content=resp_dict)
 
     except Exception as e:
         log.error(f'Exception : {e}')
@@ -540,67 +528,28 @@ async def websocket_chat(websocket: WebSocket):
         log.info(f"웹소켓 질의: {query}")
 
         try:
-            local_llm = llm_pool.get_nowait()
-        except queue.Empty:
-            await websocket.send_text(json.dumps({"content": "\n*대기열: 모든 AI 챗봇을 사용 중입니다. 잠시만 기다려주세요...*\n"}, ensure_ascii=False))
-            local_llm = await asyncio.to_thread(llm_pool.get)
-
-        try:
-            await websocket.send_text(json.dumps({"clear": True}, ensure_ascii=False))
-            stop_event = threading.Event()
-            q = asyncio.Queue()
-            loop = asyncio.get_running_loop()
-
-            def llm_worker():
-                try:
-                    response_stream = local_llm.create_chat_completion(
-                        messages=llama_messages,
-                        max_tokens=-1,
-                        temperature=0.5,
-                        stream=True
-                    )
-                    for chunk in response_stream:
-                        if stop_event.is_set():
-                            break
-                        loop.call_soon_threadsafe(q.put_nowait, chunk)
-                    if not stop_event.is_set():
-                        loop.call_soon_threadsafe(q.put_nowait, None)
-                except Exception as e:
-                    if not stop_event.is_set():
-                        loop.call_soon_threadsafe(q.put_nowait, e)
-
-            thread = threading.Thread(target=llm_worker)
-            thread.start()
-
+            response_stream = await llm_client.chat.completions.create(
+                model="default",
+                messages=llama_messages,
+                temperature=0.5,
+                stream=True
+            )
+            
+            async for chunk in response_stream:
+                if chunk.choices and chunk.choices[0].delta and chunk.choices[0].delta.content:
+                    await websocket.send_text(json.dumps(chunk.model_dump(), ensure_ascii=False))
+                    
+            await websocket.send_text("[DONE]")
+            await websocket.close()
+            
+        except WebSocketDisconnect:
+            log.info("클라이언트가 스트리밍 도중 연결을 끊었습니다.")
+        except Exception as e:
+            log.error(f"LLM Error: {e}")
             try:
-                while True:
-                    chunk = await q.get()
-                    if chunk is None:
-                        break
-                    if isinstance(chunk, Exception):
-                        raise chunk
-
-                    delta = chunk.get('choices', [{}])[0].get('delta', {})
-                    if 'content' in delta:
-                        await websocket.send_text(json.dumps(chunk, ensure_ascii=False))
-            except WebSocketDisconnect:
-                log.info("클라이언트가 스트리밍 도중 연결을 끊었습니다.")
-            except Exception as e:
-                log.error(f"LLM Error: {e}")
-                try:
-                    await websocket.send_text(json.dumps({"error": f"오류 발생: {e}"}, ensure_ascii=False))
-                except RuntimeError:
-                    pass
-            finally:
-                stop_event.set()
-
-            try:
-                await websocket.send_text("[DONE]")
-                await websocket.close()
+                await websocket.send_text(json.dumps({"error": f"오류 발생: {e}"}, ensure_ascii=False))
             except RuntimeError:
                 pass
-        finally:
-            llm_pool.put(local_llm)
     except WebSocketDisconnect:
         log.info("웹소켓 클라이언트 연결 끊김")
     except Exception as e:
