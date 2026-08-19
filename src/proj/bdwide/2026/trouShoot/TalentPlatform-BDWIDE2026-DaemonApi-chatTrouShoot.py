@@ -331,22 +331,42 @@ async def get_chat_page():
                 const wsProtocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
                 ws = new WebSocket(`${wsProtocol}//${window.location.host}/ws/chatTrouShoot`);
 
+                let isDone = false;
+                let hasReceivedContent = false;
+
                 ws.onopen = () => {
                     ws.send(JSON.stringify({query: query}));
-                    currentAiElement.innerHTML = ''; 
                     fullAiResponse = '';
                 };
 
                 ws.onmessage = (event) => {
-                    if (event.data === '[DONE]') return;
+                    if (event.data === '[DONE]') {
+                        isDone = true;
+                        if (!hasReceivedContent) {
+                            currentAiElement.innerHTML = `<span class="text-gray-500 text-sm md:text-base">검색된 결과가 없습니다.</span>`;
+                        }
+                        return;
+                    }
                     try {
                         const data = JSON.parse(event.data);
                         if (data.error) {
+                            if (!hasReceivedContent) currentAiElement.innerHTML = '';
+                            hasReceivedContent = true;
                             currentAiElement.innerHTML += `<br><span class="text-red-500">${data.error}</span>`;
                             chatBox.scrollTop = chatBox.scrollHeight;
                             return;
                         }
+                        if (data.content) {
+                            if (!hasReceivedContent) currentAiElement.innerHTML = '';
+                            hasReceivedContent = true;
+                            fullAiResponse += data.content;
+                            currentAiElement.innerHTML = marked.parse(fullAiResponse, { breaks: true });
+                            chatBox.scrollTop = chatBox.scrollHeight;
+                            return;
+                        }
                         if (data.choices && data.choices[0].delta && data.choices[0].delta.content) {
+                            if (!hasReceivedContent) currentAiElement.innerHTML = '';
+                            hasReceivedContent = true;
                             fullAiResponse += data.choices[0].delta.content;
                             try {
                                 currentAiElement.innerHTML = marked.parse(fullAiResponse, { breaks: true });
@@ -363,6 +383,12 @@ async def get_chat_page():
                 ws.onerror = (error) => {
                     console.error("WebSocket 오류:", error);
                     currentAiElement.innerHTML = `<span class="text-red-500">서버와의 연결이 끊어졌습니다.</span>`;
+                };
+                
+                ws.onclose = () => {
+                    if (!isDone && !hasReceivedContent && !currentAiElement.innerHTML.includes('text-red-500')) {
+                        currentAiElement.innerHTML = `<span class="text-gray-500 text-sm md:text-base">서버에서 응답을 반환하지 않았습니다.</span>`;
+                    }
                 };
             }
         </script>
