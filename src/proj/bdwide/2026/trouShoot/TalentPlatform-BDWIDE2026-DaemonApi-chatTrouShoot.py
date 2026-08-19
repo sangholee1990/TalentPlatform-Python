@@ -28,7 +28,13 @@
 # lsof -i :9940 | awk '{print $2}' | xargs kill -9
 
 # llama-server 시작
-# /HDD/SYSTEMS/PROG/PYTHON/IDE/src/proj/bdwide/2026/trouShoot/llama-b10502/llama-server -m "/HDD/DATA/INPUT/BDWIDE2026/chatTrouShoot/ollama/gemma-4-E2B-it-Q4_K_M.gguf" --mmproj "/HDD/DATA/INPUT/BDWIDE2026/chatTrouShoot/ollama/mmproj-F16.gguf" --host 0.0.0.0 --port 9941 -ngl 999 -c 4096 --parallel 2 -fa on -rea off
+# cd D:\ollama\llama-b10502-bin-win-cpu-x64
+# llama-server.exe -m "D:/ollama/gemma-4-E2B-it-Q4_K_M.gguf" --mmproj "D:/ollama/mmproj-F16.gguf" --host 0.0.0.0 --port 9941 -ngl 999 -c 4096 --parallel 2 -fa on -rea off
+
+# export LD_LIBRARY_PATH=/HDD/SYSTEMS/LIB/anaconda3/envs/py311/lib:$LD_LIBRARY_PATH
+# cd /HDD/SYSTEMS/PROG/PYTHON/IDE/src/proj/bdwide/2026/trouShoot/llama-b10502
+# /HDD/SYSTEMS/PROG/PYTHON/IDE/src/proj/bdwide/2026/trouShoot/llama-b10502/llama-server -m "/HDD/DATA/INPUT/BDWIDE2026/chatTrouShoot/ollama/gemma-4-E2B-it-Q4_K_M.gguf" --mmproj "/HDD/DATA/INPUT/BDWIDE2026/chatTrouShoot/ollama/mmproj-F16.gguf" --host 0.0.0.0 --port 9941 -ngl 999 -c 4096 --parallel 3 -fa on -rea off
+# /HDD/SYSTEMS/PROG/PYTHON/IDE/src/proj/bdwide/2026/trouShoot/llama-b10502/llama-server -m "/HDD/DATA/INPUT/BDWIDE2026/chatTrouShoot/ollama/gemma-4-E2B-it-Q4_K_M.gguf" --host 0.0.0.0 --port 9941 -ngl 999 -c 4096 --parallel 2 -fa on -rea off
 
 # ============================================
 # 라이브러리
@@ -285,7 +291,13 @@ async def get_chat_page():
         
         <!-- Input Area -->
         <div class="absolute bottom-0 left-0 w-full bg-gradient-to-t from-white via-white to-transparent pt-10 pb-6 px-4 pointer-events-none">
-            <div class="max-w-[800px] mx-auto pointer-events-auto">
+            <div class="max-w-[800px] mx-auto pointer-events-auto flex flex-col gap-2">
+                <div class="flex items-center justify-end px-2">
+                    <div class="flex items-center gap-2 bg-[#f0f4f9] px-3 py-1.5 rounded-full border border-gray-100 shadow-sm">
+                        <label for="temp-slider" class="text-[0.75rem] text-gray-600 font-medium whitespace-nowrap">Temperature 창의성<span id="temp-val" class="font-bold w-5 inline-block text-right">0.5</span></label>
+                        <input type="range" id="temp-slider" min="0.0" max="1.0" step="0.1" value="0.5" oninput="document.getElementById('temp-val').innerText=Number(this.value).toFixed(1)" class="w-24 h-1.5 bg-gray-300 rounded-lg appearance-none cursor-pointer outline-none accent-blue-500">
+                    </div>
+                </div>
                 <form id="chat-form" onsubmit="sendMessage(event)" class="relative flex items-end gap-2 bg-[#f0f4f9] rounded-[32px] px-2 py-2 md:p-2 min-h-[60px] focus-within:ring-1 focus-within:ring-gray-300 transition-all">
                     <input type="text" id="user-input" placeholder="여기에 프롬프트를 입력하세요" required autocomplete="off" 
                            class="flex-1 bg-transparent border-none text-[#1f1f1f] text-base md:text-[1.05rem] px-4 py-3 focus:outline-none focus:ring-0 placeholder:text-gray-500 min-h-[48px]">
@@ -350,7 +362,8 @@ async def get_chat_page():
                 let hasReceivedContent = false;
 
                 ws.onopen = () => {
-                    ws.send(JSON.stringify({query: query}));
+                    const temp = parseFloat(document.getElementById('temp-slider').value) || 0.5;
+                    ws.send(JSON.stringify({query: query, temperature: temp}));
                     fullAiResponse = '';
                 };
 
@@ -494,8 +507,10 @@ async def websocket_chat(websocket: WebSocket):
         try:
             req_data = json.loads(data)
             query = req_data.get("query", "")
+            temperature = float(req_data.get("temperature", 0.5))
         except:
             query = data
+            temperature = 0.5
 
         if not query.strip():
             await websocket.send_text(json.dumps({"content": "질문을 입력해주세요."}, ensure_ascii=False))
@@ -535,7 +550,7 @@ async def websocket_chat(websocket: WebSocket):
             response_stream = await llm_client.chat.completions.create(
                 model="default",
                 messages=llama_messages,
-                temperature=0.5,
+                temperature=temperature,
                 stream=True
             )
             
