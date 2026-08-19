@@ -139,19 +139,19 @@ log = initLog(env, ctxPath, prjName)
 # 옵션 설정
 sysOpt = {
     'oriList': ['*'],
-    'llmCnt': 3,
+    'llmCnt': 2,
     # 'chatModel': 'D:/ollama/gemma-4-E2B-it-Q8_0.gguf',
     # 'chatModel': 'D:/ollama/gemma-4-E2B-it-Q5_K_M.gguf',
-    'chatModel': 'D:/ollama/gemma-4-E2B-it-Q4_K_M.gguf',
-    'visModel': 'D:/ollama/mmproj-F16.gguf',
-    'embModel': 'D:/ollama/multilingual-e5-small',
-    'vecDb': 'D:/ollama/trouShoot_chromadb',
+    # 'chatModel': 'D:/ollama/gemma-4-E2B-it-Q4_K_M.gguf',
+    # 'visModel': 'D:/ollama/mmproj-F16.gguf',
+    # 'embModel': 'D:/ollama/multilingual-e5-small',
+    # 'vecDb': 'D:/ollama/trouShoot_chromadb',
     # 'chatModel': '/HDD/DATA/INPUT/BDWIDE2026/chatTrouShoot/ollama/gemma-4-E2B-it-Q8_0.gguf',
     # 'chatModel': '/HDD/DATA/INPUT/BDWIDE2026/chatTrouShoot/ollama/gemma-4-E2B-it-Q5_K_M.gguf',
-    # 'chatModel': '/HDD/DATA/INPUT/BDWIDE2026/chatTrouShoot/ollama/gemma-4-E2B-it-Q4_K_M.gguf',
-    # 'visModel': '/HDD/DATA/INPUT/BDWIDE2026/chatTrouShoot/ollama/mmproj-F16.gguf',
-    # 'embModel': '/HDD/DATA/INPUT/BDWIDE2026/chatTrouShoot/ollama/multilingual-e5-small',
-    # 'vecDb': '/HDD/DATA/INPUT/BDWIDE2026/chatTrouShoot/ollama/trouShoot_chromadb',
+    'chatModel': '/HDD/DATA/INPUT/BDWIDE2026/chatTrouShoot/ollama/gemma-4-E2B-it-Q4_K_M.gguf',
+    'visModel': '/HDD/DATA/INPUT/BDWIDE2026/chatTrouShoot/ollama/mmproj-F16.gguf',
+    'embModel': '/HDD/DATA/INPUT/BDWIDE2026/chatTrouShoot/ollama/multilingual-e5-small',
+    'vecDb': '/HDD/DATA/INPUT/BDWIDE2026/chatTrouShoot/ollama/trouShoot_chromadb',
 }
 
 app = FastAPI(
@@ -480,7 +480,7 @@ async def chatTrouShoot(query: str = Query(..., description="사용자 질문"))
             response = await asyncio.to_thread(run_llm)
         finally:
             llm_pool.put(local_llm)
-        
+
         log.info(f"단일 응답 완료. 소요 시간: {time.time() - start_time:.2f}초")
         return JSONResponse(content=response)
 
@@ -549,7 +549,7 @@ async def websocket_chat(websocket: WebSocket):
             stop_event = threading.Event()
             q = asyncio.Queue()
             loop = asyncio.get_running_loop()
-            
+
             def llm_worker():
                 try:
                     response_stream = local_llm.create_chat_completion(
@@ -567,10 +567,10 @@ async def websocket_chat(websocket: WebSocket):
                 except Exception as e:
                     if not stop_event.is_set():
                         loop.call_soon_threadsafe(q.put_nowait, e)
-                        
+
             thread = threading.Thread(target=llm_worker)
             thread.start()
-            
+
             try:
                 while True:
                     chunk = await q.get()
@@ -578,7 +578,7 @@ async def websocket_chat(websocket: WebSocket):
                         break
                     if isinstance(chunk, Exception):
                         raise chunk
-                        
+
                     delta = chunk.get('choices', [{}])[0].get('delta', {})
                     if 'content' in delta:
                         await websocket.send_text(json.dumps(chunk, ensure_ascii=False))
@@ -592,7 +592,7 @@ async def websocket_chat(websocket: WebSocket):
                     pass
             finally:
                 stop_event.set()
-        
+
             try:
                 await websocket.send_text("[DONE]")
                 await websocket.close()
