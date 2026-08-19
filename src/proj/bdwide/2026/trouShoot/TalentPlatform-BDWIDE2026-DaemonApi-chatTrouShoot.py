@@ -554,6 +554,7 @@ async def websocket_chat(websocket: WebSocket):
                 model="default",
                 messages=llama_messages,
                 temperature=temperature,
+                max_tokens=None,
                 stream=True
             )
             
