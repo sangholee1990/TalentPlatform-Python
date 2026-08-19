@@ -13,11 +13,11 @@
 # conda activate py311
 
 # 운영 서버
-# nohup /SYSTEMS/LIB/anaconda3/envs/py311/bin/uvicorn TalentPlatform-BDWIDE2026-DaemonApi-bioPrd:app --reload --host=0.0.0.0 --port=9930 &
+# nohup /HDD/SYSTEMS/LIB/anaconda3/envs/py311/bin/uvicorn TalentPlatform-BDWIDE2026-DaemonApi-bioPrd:app --reload --host=0.0.0.0 --port=9930 &
 # tail -f nohup.out
 
 # 테스트 서버
-# /SYSTEMS/LIB/anaconda3/envs/py311/bin/uvicorn TalentPlatform-BDWIDE2026-DaemonApi-bioPrd:app --reload --host=0.0.0.0 --port=9930
+# /HDD/SYSTEMS/LIB/anaconda3/envs/py311/bin/uvicorn TalentPlatform-BDWIDE2026-DaemonApi-bioPrd:app --reload --host=0.0.0.0 --port=9930
 
 # 프로그램 종료
 # pkill -f TalentPlatform-BDWIDE2026-DaemonApi-bioPrd
