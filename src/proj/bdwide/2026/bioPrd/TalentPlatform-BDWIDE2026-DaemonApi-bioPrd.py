@@ -223,15 +223,9 @@ log = initLog(env, ctxPath, prjName)
 sysOpt = {
     'oriList': ['*'],
     # 'modelInfo': f"{ctxPath}/bioPrd/stacking_lgbm_model.pkl"
-    'modelInfo': "C:/SYSTEMS/PROG/PYTHON/TalentPlatform-Python/src/proj/bdwide/2026/bioPrd/stacking_lgbm_model.pkl"
+    # 'modelInfo': "C:/SYSTEMS/PROG/PYTHON/TalentPlatform-Python/src/proj/bdwide/2026/bioPrd/stacking_lgbm_model.pkl"
+    'modelInfo': "/HDD/DATA/INPUT/BDWIDE2026/bioPrd/stacking_lgbm_model.pkl"
 }
-
-try:
-    modelInfo = joblib.load(sysOpt['modelInfo'])
-    log.info(f"Model loaded successfully from {sysOpt['modelInfo']}")
-except Exception as e:
-    log.error(f"Exception during model load : {e}")
-    sys.exit(1)
 
 app = FastAPI(
     title="AI 바이오 공정 예측 API",
@@ -249,6 +243,16 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"]
 )
+
+# ============================================
+# 비즈니스 로직
+# ============================================
+try:
+    modelInfo = joblib.load(sysOpt['modelInfo'])
+    log.info(f"Model loaded successfully from {sysOpt['modelInfo']}")
+except Exception as e:
+    log.error(f"Exception during model load : {e}")
+    sys.exit(1)
 
 # ============================================
 # API URL 주소
