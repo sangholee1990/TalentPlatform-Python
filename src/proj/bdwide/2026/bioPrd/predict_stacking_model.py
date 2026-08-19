@@ -138,11 +138,22 @@ def predict_time_to_target(filepath, cutoff_age=None, model_path='stacking_lgbm_
     return predicted_time
 
 if __name__ == "__main__":
+    import glob
+    
     if len(sys.argv) < 2:
-        print("Usage: python predict_stacking_model.py <path_to_csv> [cutoff_age]")
-        sys.exit(1)
+        # 인자가 없으면 data 폴더에서 자동으로 첫 번째 CSV 파일을 찾아서 실행
+        csv_files = glob.glob('data/*.CSV')
+        if csv_files:
+            filepath = csv_files[0]
+            print(f"입력된 파일이 없어 자동으로 파일을 선택했습니다: {filepath}")
+        else:
+            print("Usage: python predict_stacking_model.py <path_to_csv> [cutoff_age]")
+            print("data/ 폴더에 CSV 파일이 존재하지 않습니다.")
+            sys.exit(1)
+    else:
+        filepath = sys.argv[1]
         
-    filepath = sys.argv[1]
+    # cutoff_age가 명시되지 않으면 자동으로 데이터의 마지막 Age(최대값)을 cutoff로 사용함 (predict_time_to_target 내부에서 처리)
     cutoff_age = float(sys.argv[2]) if len(sys.argv) > 2 else None
     
     predict_time_to_target(filepath, cutoff_age)
