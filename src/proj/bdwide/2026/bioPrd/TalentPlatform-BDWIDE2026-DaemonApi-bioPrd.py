@@ -8,8 +8,26 @@
 # =================================================
 # 도움말
 # =================================================
+# 프로그램 시작
+# cd /HDD/SYSTEMS/PROG/PYTHON/IDE/src/proj/bdwide/2026/bioPrd
+# conda activate py311
+
 # 운영 서버
-# nohup /HDD/SYSTEMS/LIB/anaconda3/envs/py311/bin/uvicorn TalentPlatform-BDWIDE2026-DaemonApi-bioPrd:app --reload --host=0.0.0.0 --port=8000 &
+# nohup /SYSTEMS/LIB/anaconda3/envs/py311/bin/uvicorn TalentPlatform-BDWIDE2026-DaemonApi-bioPrd:app --reload --host=0.0.0.0 --port=9930 &
+# tail -f nohup.out
+
+# 테스트 서버
+# /SYSTEMS/LIB/anaconda3/envs/py311/bin/uvicorn TalentPlatform-BDWIDE2026-DaemonApi-bioPrd:app --reload --host=0.0.0.0 --port=9930
+
+# 프로그램 종료
+# pkill -f TalentPlatform-BDWIDE2026-DaemonApi-bioPrd
+# ps -ef | grep "TalentPlatform-BDWIDE2026-DaemonApi-bioPrd" | awk '{print $2}' | xargs kill -9
+
+# 포트 종료
+# yum install lsof -y
+# lsof -i :9930
+# lsof -i :9930 | awk '{print $2}' | xargs kill -9
+
 
 # ============================================
 # 라이브러리

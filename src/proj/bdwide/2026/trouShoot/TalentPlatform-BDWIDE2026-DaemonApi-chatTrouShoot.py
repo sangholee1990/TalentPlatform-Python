@@ -7,15 +7,15 @@
 # 도움말
 # =================================================
 # 프로그램 시작
-# cd /SYSTEMS/PROG/PYTHON/TalentPlatform-Python/src/proj/bdwide/2026/trouShoot
+# cd /HDD/SYSTEMS/PROG/PYTHON/IDE/src/proj/bdwide/2026/trouShoot
 # conda activate py311
 
 # 운영 서버
-# nohup /SYSTEMS/LIB/anaconda3/envs/py311/bin/uvicorn TalentPlatform-BDWIDE2026-DaemonApi-chatTrouShoot:app --reload --host=0.0.0.0 --port=9920 &
+# nohup /SYSTEMS/LIB/anaconda3/envs/py311/bin/uvicorn TalentPlatform-BDWIDE2026-DaemonApi-chatTrouShoot:app --reload --host=0.0.0.0 --port=9940 &
 # tail -f nohup.out
 
 # 테스트 서버
-# /SYSTEMS/LIB/anaconda3/envs/py311/bin/uvicorn TalentPlatform-BDWIDE2026-DaemonApi-chatTrouShoot:app --reload --host=0.0.0.0 --port=9920
+# /SYSTEMS/LIB/anaconda3/envs/py311/bin/uvicorn TalentPlatform-BDWIDE2026-DaemonApi-chatTrouShoot:app --reload --host=0.0.0.0 --port=9940
 
 # 프로그램 종료
 # pkill -f TalentPlatform-BDWIDE2026-DaemonApi-chatTrouShoot
@@ -23,8 +23,8 @@
 
 # 포트 종료
 # yum install lsof -y
-# lsof -i :9920
-# lsof -i :9920 | awk '{print $2}' | xargs kill -9
+# lsof -i :9940
+# lsof -i :9940 | awk '{print $2}' | xargs kill -9
 
 # ============================================
 # 라이브러리
