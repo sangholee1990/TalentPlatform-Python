@@ -193,15 +193,16 @@ try:
         log.info(f"로딩 중: Gemma 4 LLM 워커 {i+1}/{sysOpt['llmCnt']} 불러오기...")
         llm_instance = Llama(
             model_path=sysOpt['chatModel'],
-            n_ctx=2048 * 4,
+            # n_ctx=2048 * 4,
+            n_ctx=2048 * 1,
             n_gpu_layers=-1,
-            verbose=False
+            verbose=False,
         )
         llm_pool.put(llm_instance)
     log.info("모든 모델 로딩 완료")
 except Exception as e:
     log.error(f"Exception during model load : {e}")
-    # sys.exit(1)
+    sys.exit(1)
 
 
 # ============================================
