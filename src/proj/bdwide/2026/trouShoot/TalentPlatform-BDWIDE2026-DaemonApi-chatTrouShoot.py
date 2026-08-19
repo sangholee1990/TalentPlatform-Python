@@ -292,12 +292,6 @@ async def get_chat_page():
         <!-- Input Area -->
         <div class="absolute bottom-0 left-0 w-full bg-gradient-to-t from-white via-white to-transparent pt-10 pb-6 px-4 pointer-events-none">
             <div class="max-w-[800px] mx-auto pointer-events-auto flex flex-col gap-2">
-                <div class="flex items-center justify-end px-2">
-                    <div class="flex items-center gap-2 bg-[#f0f4f9] px-3 py-1.5 rounded-full border border-gray-100 shadow-sm">
-                        <label for="temp-slider" class="text-[0.75rem] text-gray-600 font-medium whitespace-nowrap">Temperature 창의성<span id="temp-val" class="font-bold w-5 inline-block text-right">0.5</span></label>
-                        <input type="range" id="temp-slider" min="0.0" max="1.0" step="0.1" value="0.5" oninput="document.getElementById('temp-val').innerText=Number(this.value).toFixed(1)" class="w-24 h-1.5 bg-gray-300 rounded-lg appearance-none cursor-pointer outline-none accent-blue-500">
-                    </div>
-                </div>
                 <form id="chat-form" onsubmit="sendMessage(event)" class="relative flex items-end gap-2 bg-[#f0f4f9] rounded-[32px] px-2 py-2 md:p-2 min-h-[60px] focus-within:ring-1 focus-within:ring-gray-300 transition-all">
                     <input type="text" id="user-input" placeholder="여기에 프롬프트를 입력하세요" required autocomplete="off" 
                            class="flex-1 bg-transparent border-none text-[#1f1f1f] text-base md:text-[1.05rem] px-4 py-3 focus:outline-none focus:ring-0 placeholder:text-gray-500 min-h-[48px]">
@@ -306,8 +300,17 @@ async def get_chat_page():
                         <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="22" y1="2" x2="11" y2="13"></line><polygon points="22 2 15 22 11 13 2 9 22 2"></polygon></svg>
                     </button>
                 </form>
-                <div class="text-center mt-3 text-[0.75rem] text-gray-500 font-medium">
-                    AI 챗봇은 실수를 할 수 있습니다. 중요한 정보를 확인하세요.
+                <div class="flex items-center justify-between px-2 mt-2">
+                    <div class="text-[0.75rem] text-gray-500 font-medium ml-2 hidden md:block">
+                        AI 챗봇은 실수를 할 수 있습니다. 중요한 정보를 확인하세요.
+                    </div>
+                    <div class="text-[0.75rem] text-gray-500 font-medium ml-2 md:hidden">
+                        AI 챗봇은 실수를 할 수 있습니다.
+                    </div>
+                    <div class="flex items-center gap-2 bg-[#f0f4f9] px-3 py-1.5 rounded-full border border-gray-100 shadow-sm">
+                        <label for="temp-slider" class="text-[0.75rem] text-gray-600 font-medium whitespace-nowrap">Temperature 창의성<span id="temp-val" class="font-bold w-5 inline-block text-right">0.5</span></label>
+                        <input type="range" id="temp-slider" min="0.0" max="1.0" step="0.1" value="0.5" oninput="document.getElementById('temp-val').innerText=Number(this.value).toFixed(1)" class="w-24 h-1.5 bg-gray-300 rounded-lg appearance-none cursor-pointer outline-none accent-blue-500">
+                    </div>
                 </div>
             </div>
         </div>
