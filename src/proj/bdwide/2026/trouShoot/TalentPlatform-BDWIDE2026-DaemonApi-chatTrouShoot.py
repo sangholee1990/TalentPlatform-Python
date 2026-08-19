@@ -11,11 +11,12 @@
 # conda activate py311
 
 # 운영 서버
-# nohup /SYSTEMS/LIB/anaconda3/envs/py311/bin/uvicorn TalentPlatform-BDWIDE2026-DaemonApi-chatTrouShoot:app --reload --host=0.0.0.0 --port=9940 &
+# nohup /HDD/SYSTEMS/LIB/anaconda3/envs/py311/bin/uvicorn TalentPlatform-BDWIDE2026-DaemonApi-chatTrouShoot:app --reload --host=0.0.0.0 --port=9940 &
 # tail -f nohup.out
 
 # 테스트 서버
-# /SYSTEMS/LIB/anaconda3/envs/py311/bin/uvicorn TalentPlatform-BDWIDE2026-DaemonApi-chatTrouShoot:app --reload --host=0.0.0.0 --port=9940
+# /HDD/SYSTEMS/LIB/anaconda3/envs/py311/bin/uvicorn TalentPlatform-BDWIDE2026-DaemonApi-chatTrouShoot:app --reload --host=0.0.0.0 --port=9940
+# /HDD/SYSTEMS/LIB/anaconda3/envs/py311/bin/python -m uvicorn TalentPlatform-BDWIDE2026-DaemonApi-chatTrouShoot:app --host=0.0.0.0 --port=9940
 
 # 프로그램 종료
 # pkill -f TalentPlatform-BDWIDE2026-DaemonApi-chatTrouShoot
@@ -25,6 +26,9 @@
 # yum install lsof -y
 # lsof -i :9940
 # lsof -i :9940 | awk '{print $2}' | xargs kill -9
+
+# llama-server 시작
+# /HDD/SYSTEMS/PROG/PYTHON/IDE/src/proj/bdwide/2026/trouShoot/llama-b10502/llama-server -m "/HDD/DATA/INPUT/BDWIDE2026/chatTrouShoot/ollama/gemma-4-E2B-it-Q4_K_M.gguf" --mmproj "/HDD/DATA/INPUT/BDWIDE2026/chatTrouShoot/ollama/mmproj-F16.gguf" --host 0.0.0.0 --port 9941 -ngl 999 -c 4096 --parallel 2 -fa on -rea off
 
 # ============================================
 # 라이브러리
@@ -154,10 +158,10 @@ log = initLog(env, ctxPath, prjName)
 # 옵션 설정
 sysOpt = {
     'oriList': ['*'],
-    'embModel': 'D:/ollama/multilingual-e5-small',
-    'vecDb': 'D:/ollama/trouShoot_chromadb',
-    # 'embModel': '/HDD/DATA/INPUT/BDWIDE2026/chatTrouShoot/ollama/multilingual-e5-small',
-    # 'vecDb': '/HDD/DATA/INPUT/BDWIDE2026/chatTrouShoot/ollama/trouShoot_chromadb',
+    # 'embModel': 'D:/ollama/multilingual-e5-small',
+    # 'vecDb': 'D:/ollama/trouShoot_chromadb',
+    'embModel': '/HDD/DATA/INPUT/BDWIDE2026/chatTrouShoot/ollama/multilingual-e5-small',
+    'vecDb': '/HDD/DATA/INPUT/BDWIDE2026/chatTrouShoot/ollama/trouShoot_chromadb',
 }
 
 app = FastAPI(
@@ -197,7 +201,7 @@ try:
     log.info("로딩 중: LLM 클라이언트 설정...")
     llm_client = AsyncOpenAI(
         api_key="llama-cpp",
-        base_url="http://localhost:9921/v1"
+        base_url="http://localhost:9941/v1"
     )
     log.info("LLM 클라이언트 연결 완료")
 except Exception as e:
