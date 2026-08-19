@@ -240,7 +240,6 @@ log = initLog(env, ctxPath, prjName)
 
 sysOpt = {
     'oriList': ['*'],
-    # 'modelInfo': f"{ctxPath}/bioPrd/stacking_lgbm_model.pkl"
     # 'modelInfo': "C:/SYSTEMS/PROG/PYTHON/TalentPlatform-Python/src/proj/bdwide/2026/bioPrd/stacking_lgbm_model.pkl"
     'modelInfo': "/HDD/DATA/INPUT/BDWIDE2026/bioPrd/stacking_lgbm_model.pkl"
 }
