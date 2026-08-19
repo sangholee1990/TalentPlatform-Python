@@ -285,7 +285,7 @@ async def get_chat_page():
         </div>
         
         <!-- Chat Area -->
-        <div id="chat-box" class="flex-1 w-full overflow-y-auto flex flex-col items-center pt-24 pb-32 scroll-smooth px-4">
+        <div id="chat-box" class="flex-1 w-full overflow-y-auto flex flex-col items-center pt-24 pb-48 md:pb-56 scroll-smooth px-4">
             <div id="chat-inner" class="w-full max-w-[800px] flex flex-col gap-8 md:gap-10"></div>
         </div>
         
