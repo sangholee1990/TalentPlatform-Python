@@ -245,8 +245,8 @@ sysOpt = {
 }
 
 app = FastAPI(
-    title="AI 바이오 공정 예측 API",
-    description="타겟 시간 도달 시점을 예측하는 API",
+    title="AI 배양예측 API",
+    description="배양 예측 도달 시간 (TURB <= 0.25) 예측 API",
     version="1.0",
     openapi_url='/api',
     docs_url='/docs',
@@ -280,11 +280,11 @@ async def redirect_to_docs():
 
 @app.post(f"/api/prd")
 async def prd(
-        file: UploadFile = File(..., description='공정 데이터 CSV 파일')
+        file: UploadFile = File(..., description='배양예측 데이터 CSV 파일')
 ):
     """
     기능\n
-        바이오 공정 타겟(TURB <= 0.253) 도달 시점 예측 API\n
+        배양 예측 도달 시간 (TURB <= 0.25) 예측 API\n
     파라미터\n
         file: 공정 데이터 첨부파일 (.CSV)\n
     """
