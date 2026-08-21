@@ -531,9 +531,9 @@ async def get_sse_page():
         </div>
 
         <script>
-            // WebSocket 변수 대신 EventSource 변수 사용
-            let eventSource = null;
-
+            // POST 스트리밍을 제어하기 위한 AbortController
+            let abortController = null;
+        
             async function sendMessage(event) {
                 event.preventDefault();
                 const input = document.getElementById('user-input');
@@ -543,10 +543,9 @@ async def get_sse_page():
                 input.value = '';
                 
                 let fullAiResponse = '';
-
                 const chatInner = document.getElementById('chat-inner');
                 
-                // 유저 메시지 렌더링
+                // 1. 유저 메시지 렌더링
                 const userWrapper = document.createElement('div');
                 userWrapper.className = 'flex flex-col w-full items-end animate-pop-in opacity-0';
                 userWrapper.innerHTML = `
@@ -555,8 +554,8 @@ async def get_sse_page():
                     </div>
                 `;
                 chatInner.appendChild(userWrapper);
-
-                // AI 응답 렌더링
+        
+                // 2. AI 응답 렌더링 (초기 로딩 상태)
                 const aiWrapper = document.createElement('div');
                 aiWrapper.className = 'flex w-full items-start gap-4 md:gap-6 animate-fade-in-up opacity-0 mt-2';
                 aiWrapper.innerHTML = `
@@ -572,91 +571,108 @@ async def get_sse_page():
                 chatInner.appendChild(aiWrapper);
                 const currentAiElement = aiWrapper.querySelector('.ai-text');
                 chatBox.scrollTop = chatBox.scrollHeight;
-
-                // 기존 연결이 있다면 닫기
-                if (eventSource) {
-                    eventSource.close();
+        
+                // 기존 진행 중인 스트리밍이 있다면 중단
+                if (abortController) {
+                    abortController.abort();
                 }
-                
-                // 파라미터 준비 (GET 방식이므로 URL 인코딩 필수)
+                abortController = new AbortController();
+        
                 const temp = parseFloat(document.getElementById('temp-slider').value) || 0.5;
-                const encodedQuery = encodeURIComponent(query);
-                
-                // SSE API 엔드포인트 URL
-                const sseUrl = `/sse/chatTrouShoot?query=${encodedQuery}&temperature=${temp}`;
-                
-                // EventSource 연결 시작
-                eventSource = new EventSource(sseUrl);
-
-                let isDone = false;
                 let hasReceivedContent = false;
-                fullAiResponse = '';
-
-                // 서버로부터 메시지를 받을 때마다 실행
-                eventSource.onmessage = (event) => {
-                    // 서버가 '[DONE]'을 보내면 스트리밍 완료 처리
-                    if (event.data === '[DONE]') {
-                        isDone = true;
-                        eventSource.close(); // 브라우저 자동 재연결 방지
-                        if (!hasReceivedContent) {
-                            currentAiElement.innerHTML = `<span class="text-gray-500 text-sm md:text-base">검색된 결과가 없습니다.</span>`;
-                        }
-                        return;
+        
+                try {
+                    // 3. fetch API로 POST 요청 전송
+                    const response = await fetch('/sse/chatTrouShoot', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ query: query, temperature: temp }),
+                        signal: abortController.signal
+                    });
+        
+                    if (!response.ok) {
+                        throw new Error(`HTTP error! status: ${response.status}`);
                     }
-                    
-                    try {
-                        const data = JSON.parse(event.data);
+        
+                    // 4. ReadableStream 데이터를 처리
+                    const reader = response.body.getReader();
+                    const decoder = new TextDecoder('utf-8');
+                    let buffer = '';
+        
+                    while (true) {
+                        const { done, value } = await reader.read();
                         
-                        if (data.clear) {
-                            fullAiResponse = '';
-                            currentAiElement.innerHTML = '<div class="inline-flex items-center gap-1 h-6"><span class="w-1.5 h-1.5 bg-gray-400 rounded-full animate-typing delay-1"></span><span class="w-1.5 h-1.5 bg-gray-400 rounded-full animate-typing delay-2"></span><span class="w-1.5 h-1.5 bg-gray-400 rounded-full animate-typing"></span></div>';
-                            hasReceivedContent = false;
-                            return;
-                        }
-                        
-                        if (data.error) {
-                            if (!hasReceivedContent) currentAiElement.innerHTML = '';
-                            hasReceivedContent = true;
-                            currentAiElement.innerHTML += `<br><span class="text-red-500">${data.error}</span>`;
-                            chatBox.scrollTop = chatBox.scrollHeight;
-                            eventSource.close(); // 에러 발생 시 연결 종료
-                            return;
-                        }
-                        
-                        if (data.content) {
-                            if (!hasReceivedContent) currentAiElement.innerHTML = '';
-                            hasReceivedContent = true;
-                            fullAiResponse += data.content;
-                            currentAiElement.innerHTML = marked.parse(fullAiResponse, { breaks: true });
-                            chatBox.scrollTop = chatBox.scrollHeight;
-                            return;
-                        }
-                        
-                        if (data.choices && data.choices[0].delta && data.choices[0].delta.content) {
-                            if (!hasReceivedContent) currentAiElement.innerHTML = '';
-                            hasReceivedContent = true;
-                            fullAiResponse += data.choices[0].delta.content;
-                            try {
-                                currentAiElement.innerHTML = marked.parse(fullAiResponse, { breaks: true });
-                            } catch (err) {
-                                currentAiElement.innerHTML = fullAiResponse.replace(/\\n/g, '<br>');
+                        if (done) {
+                            if (!hasReceivedContent) {
+                                currentAiElement.innerHTML = `<span class="text-gray-500 text-sm md:text-base">검색된 결과가 없습니다.</span>`;
                             }
-                            chatBox.scrollTop = chatBox.scrollHeight;
+                            break;
                         }
-                    } catch (e) {
-                        console.log("SSE Raw Message Error:", e, event.data);
+        
+                        buffer += decoder.decode(value, { stream: true });
+                        
+                        let messageIndex;
+                        while (true) {
+                            messageIndex = buffer.indexOf('\\n\\n');
+                            let matchLength = 2;
+                            if (messageIndex === -1) {
+                                messageIndex = buffer.indexOf('\\r\\n\\r\\n');
+                                matchLength = 4;
+                            }
+                            if (messageIndex === -1) break;
+                            
+                            const message = buffer.slice(0, messageIndex).trim();
+                            buffer = buffer.slice(messageIndex + matchLength);
+                            
+                            if (message.startsWith('data: ')) {
+                                const dataStr = message.substring(6).trim();
+                                
+                                // [DONE] 신호 처리
+                                if (dataStr === '[DONE]') {
+                                    break;
+                                }
+                                
+                                try {
+                                    const data = JSON.parse(dataStr);
+        
+                                    if (data.error) {
+                                        if (!hasReceivedContent) currentAiElement.innerHTML = '';
+                                        hasReceivedContent = true;
+                                        currentAiElement.innerHTML += `<br><span class="text-red-500">${data.error}</span>`;
+                                        chatBox.scrollTop = chatBox.scrollHeight;
+                                        abortController.abort();
+                                        break;
+                                    }
+        
+                                    if (data.choices && data.choices[0].delta && data.choices[0].delta.content) {
+                                        if (!hasReceivedContent) currentAiElement.innerHTML = '';
+                                        hasReceivedContent = true;
+                                        fullAiResponse += data.choices[0].delta.content;
+                                        
+                                        try {
+                                            currentAiElement.innerHTML = marked.parse(fullAiResponse, { breaks: true });
+                                        } catch (err) {
+                                            currentAiElement.innerHTML = fullAiResponse.replace(/\\n/g, '<br>');
+                                        }
+                                        chatBox.scrollTop = chatBox.scrollHeight;
+                                    }
+                                } catch (e) {
+                                    // 불완전한 JSON 조각이 파싱될 때 무시
+                                    // console.warn("JSON 파싱 에러 (무시됨):", dataStr);
+                                }
+                            }
+                        }
                     }
-                };
-
-                // 에러 처리
-                eventSource.onerror = (error) => {
-                    console.error("SSE 오류:", error);
-                    eventSource.close(); // 브라우저 무한 재연결 방지
-                    if (!isDone && !currentAiElement.innerHTML.includes('text-red-500')) {
-                        currentAiElement.innerHTML += `<br><span class="text-red-500">서버와의 연결이 끊어졌습니다.</span>`;
-                        chatBox.scrollTop = chatBox.scrollHeight;
+                } catch (error) {
+                    if (error.name === 'AbortError') {
+                        console.log("사용자에 의해 스트리밍이 중단되었습니다.");
+                    } else {
+                        console.error("Fetch API 스트리밍 오류:", error);
+                        if (!currentAiElement.innerHTML.includes('text-red-500')) {
+                            currentAiElement.innerHTML = `<span class="text-red-500">서버와의 연결에 실패했습니다.</span>`;
+                        }
                     }
-                };
+                }
             }
         </script>
     </html>
@@ -717,7 +733,7 @@ async def chatTrouShoot(query: str = Query(..., description="사용자 질문"))
             temperature=0.5,
             stream=False
         )
-        
+
         # AsyncOpenAI 반환 객체를 dict로 변환
         resp_dict = response.model_dump()
         log.info(f"단일 응답 완료. 소요 시간: {time.time() - start_time:.2f}초")
@@ -787,14 +803,14 @@ async def websocket_chat(websocket: WebSocket):
                 max_tokens=None,
                 stream=True
             )
-            
+
             async for chunk in response_stream:
                 if chunk.choices and chunk.choices[0].delta and chunk.choices[0].delta.content:
                     await websocket.send_text(json.dumps(chunk.model_dump(), ensure_ascii=False))
-                    
+
             await websocket.send_text("[DONE]")
             await websocket.close()
-            
+
         except WebSocketDisconnect:
             log.info("클라이언트가 스트리밍 도중 연결을 끊었습니다.")
         except Exception as e:
@@ -809,18 +825,18 @@ async def websocket_chat(websocket: WebSocket):
         log.error(f'WebSocket Exception : {e}')
         log.error(traceback.format_exc())
 
-@app.get("/sse/chatTrouShoot")
-async def chatTrouShoot_sse(
-    request: Request,
-    query: str = Query(..., description="사용자 질문"),
-    temperature: float = Query(0.5, description="창의성 옵션")
-):
+class SSEChatRequest(BaseModel):
+    query: str
+    temperature: float = 0.5
+
+@app.post("/sse/chatTrouShoot")
+async def chatTrouShoot_sse_post(request: Request, body: SSEChatRequest):
     """
-    기능: 문서 기반 챗봇 질의응답 (RAG) SSE 스트리밍 API
+    기능: 문서 기반 챗봇 질의응답 (RAG) SSE 스트리밍 (POST 방식)
     """
     async def event_generator():
         try:
-            if not query or not query.strip():
+            if not body.query or not body.query.strip():
                 yield f"data: {json.dumps({'error': '질문을 찾을 수 없습니다.'}, ensure_ascii=False)}\n\n"
                 return
 
@@ -828,11 +844,10 @@ async def chatTrouShoot_sse(
                 yield f"data: {json.dumps({'error': '서버 모델이 로드되지 않았습니다.'}, ensure_ascii=False)}\n\n"
                 return
 
-            # 1단계: Context Retrieval (기존과 동일)
-            docs = vectorstore.similarity_search(query, k=2)
+            # 1단계: Context Retrieval
+            docs = vectorstore.similarity_search(body.query, k=2)
             retrieved_context = "\\n\\n".join([doc.page_content for doc in docs])
 
-            # 2단계: 프롬프트 구성 (기존과 동일)
             prompt_text = f'''
             다음 제공된 [참고 문서]를 바탕으로 원인, 우선 확인사항, 조치사항 등에 답변해 줘
 
@@ -844,7 +859,7 @@ async def chatTrouShoot_sse(
             {retrieved_context}
 
             [질문]
-            {query}
+            {body.query}
             '''
 
             llama_messages = [
@@ -852,30 +867,25 @@ async def chatTrouShoot_sse(
                 {"role": "user", "content": prompt_text.strip()}
             ]
 
-            log.info(f"SSE 스트리밍 질의: {query}")
+            log.info(f"SSE(POST) 스트리밍 질의: {body.query}")
 
-            # 3단계: LLM 스트리밍 호출
             response_stream = await llm_client.chat.completions.create(
                 model="default",
                 messages=llama_messages,
-                temperature=temperature,
+                temperature=body.temperature,
                 max_tokens=None,
                 stream=True
             )
 
-            # 4단계: Chunk 데이터를 SSE 규격(data: 내용\n\n)으로 변환하여 전송
             async for chunk in response_stream:
-                # 클라이언트가 연결을 끊었는지 확인
                 if await request.is_disconnected():
                     log.info("SSE 클라이언트 연결 끊김")
                     break
 
                 if chunk.choices and chunk.choices[0].delta and chunk.choices[0].delta.content:
-                    # JSON 객체를 문자열로 변환하여 전송
                     chunk_data = json.dumps(chunk.model_dump(), ensure_ascii=False)
                     yield f"data: {chunk_data}\n\n"
 
-            # 스트리밍 종료 신호
             yield "data: [DONE]\n\n"
 
         except Exception as e:
@@ -883,5 +893,4 @@ async def chatTrouShoot_sse(
             error_data = json.dumps({"error": f"오류 발생: {str(e)}"}, ensure_ascii=False)
             yield f"data: {error_data}\n\n"
 
-    # StreamingResponse에 text/event-stream 미디어 타입을 지정하여 반환
     return StreamingResponse(event_generator(), media_type="text/event-stream")
