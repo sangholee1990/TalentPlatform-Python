@@ -611,15 +611,12 @@ async def get_sse_page():
         
                         buffer += decoder.decode(value, { stream: true });
                         
-                        let messageIndex;
                         while (true) {
-                            messageIndex = buffer.indexOf('\\n\\n');
-                            let matchLength = 2;
-                            if (messageIndex === -1) {
-                                messageIndex = buffer.indexOf('\\r\\n\\r\\n');
-                                matchLength = 4;
-                            }
-                            if (messageIndex === -1) break;
+                            const match = buffer.match(/\\r?\\n\\r?\\n/);
+                            if (!match) break;
+                            
+                            const messageIndex = match.index;
+                            const matchLength = match[0].length;
                             
                             const message = buffer.slice(0, messageIndex).trim();
                             buffer = buffer.slice(messageIndex + matchLength);
@@ -877,20 +874,33 @@ async def chatTrouShoot_sse_post(request: Request, body: SSEChatRequest):
                 stream=True
             )
 
-            async for chunk in response_stream:
-                if await request.is_disconnected():
-                    log.info("SSE 클라이언트 연결 끊김")
-                    break
+            try:
+                async for chunk in response_stream:
+                    if await request.is_disconnected():
+                        log.info("SSE 클라이언트 연결 끊김")
+                        return
 
-                if chunk.choices and chunk.choices[0].delta and chunk.choices[0].delta.content:
-                    chunk_data = json.dumps(chunk.model_dump(), ensure_ascii=False)
-                    yield f"data: {chunk_data}\n\n"
+                    if chunk.choices and chunk.choices[0].delta and chunk.choices[0].delta.content:
+                        chunk_data = json.dumps(chunk.model_dump(), ensure_ascii=False)
+                        yield f"data: {chunk_data}\n\n"
 
-            yield "data: [DONE]\n\n"
+                if not await request.is_disconnected():
+                    yield "data: [DONE]\n\n"
+
+            finally:
+                # 스트림을 강제로 닫아 연결 풀(Connection Pool) 고갈 방지
+                if hasattr(response_stream, 'close') and callable(getattr(response_stream, 'close')):
+                    if asyncio.iscoroutinefunction(response_stream.close):
+                        await response_stream.close()
+                    else:
+                        response_stream.close()
+                elif hasattr(response_stream, 'aclose') and callable(getattr(response_stream, 'aclose')):
+                    await response_stream.aclose()
 
         except Exception as e:
             log.error(f"SSE Error: {e}")
-            error_data = json.dumps({"error": f"오류 발생: {str(e)}"}, ensure_ascii=False)
-            yield f"data: {error_data}\n\n"
+            if not await request.is_disconnected():
+                error_data = json.dumps({"error": f"오류 발생: {str(e)}"}, ensure_ascii=False)
+                yield f"data: {error_data}\n\n"
 
     return StreamingResponse(event_generator(), media_type="text/event-stream")
