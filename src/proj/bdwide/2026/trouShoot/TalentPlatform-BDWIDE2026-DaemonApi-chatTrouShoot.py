@@ -220,6 +220,7 @@ except Exception as e:
 # API URL 주소
 # ============================================
 @app.get(f"/", response_class=HTMLResponse, include_in_schema=False)
+@app.get(f"/ws", response_class=HTMLResponse, include_in_schema=False)
 async def get_chat_page():
     html_content = """
     <!DOCTYPE html>
@@ -433,6 +434,235 @@ async def get_chat_page():
     """
     return html_content
 
+@app.get(f"/sse", response_class=HTMLResponse, include_in_schema=False)
+async def get_sse_page():
+    html_content = """
+    <!DOCTYPE html>
+    <html lang="ko">
+    <head>
+        <meta charset="UTF-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1.0">
+        <title>AI 트러블슈팅 챗봇</title>
+        <!-- Pretendard Font -->
+        <link rel="stylesheet" as="style" crossorigin href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/static/pretendard-gov.min.css" />
+        <script src="https://cdn.tailwindcss.com?plugins=typography"></script>
+        <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+        <script>
+            tailwind.config = {
+                theme: {
+                    extend: {
+                        fontFamily: { sans: ['"Pretendard Gov"', 'Pretendard', '-apple-system', 'BlinkMacSystemFont', 'Segoe UI', 'Roboto', 'sans-serif'] },
+                        colors: {
+                            geminiBg: '#ffffff',
+                            geminiUserBg: '#f0f4f9',
+                            geminiText: '#1f1f1f'
+                        },
+                        animation: {
+                            'fade-in-down': 'fadeInDown 0.8s ease forwards',
+                            'fade-in-up': 'fadeInUp 0.8s ease forwards',
+                            'pop-in': 'popIn 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275) forwards',
+                            'typing': 'typing 1.4s infinite ease-in-out both'
+                        },
+                        keyframes: {
+                            fadeInDown: { '0%': { opacity: '0', transform: 'translateY(-20px)' }, '100%': { opacity: '1', transform: 'translateY(0)' } },
+                            fadeInUp: { '0%': { opacity: '0', transform: 'translateY(20px)' }, '100%': { opacity: '1', transform: 'translateY(0)' } },
+                            popIn: { '0%': { opacity: '0', transform: 'scale(0.95) translateY(10px)' }, '100%': { opacity: '1', transform: 'scale(1) translateY(0)' } },
+                            typing: { '0%, 80%, 100%': { transform: 'scale(0)' }, '40%': { transform: 'scale(1)' } }
+                        }
+                    }
+                }
+            }
+        </script>
+        <style>
+            body { background-color: #ffffff; }
+            #chat-box::-webkit-scrollbar { width: 8px; }
+            #chat-box::-webkit-scrollbar-thumb { background: rgba(0,0,0,0.1); border-radius: 10px; }
+            #chat-box::-webkit-scrollbar-thumb:hover { background: rgba(0,0,0,0.2); }
+            .delay-1 { animation-delay: -0.32s; }
+            .delay-2 { animation-delay: -0.16s; }
+            
+            /* 마크다운 스타일 Gemini 톤 커스텀 */
+            .prose p { line-height: 1.7; color: #1f1f1f; }
+            .prose strong { color: #1f1f1f; font-weight: 600; }
+            .prose a { color: #0b57d0; text-decoration: none; }
+            .prose a:hover { text-decoration: underline; }
+            .prose pre { background-color: #f0f4f9 !important; color: #1f1f1f !important; border-radius: 16px !important; }
+            .prose code { color: #1f1f1f; background-color: #f0f4f9; padding: 2px 6px; border-radius: 6px; }
+        </style>
+    </head>
+    <body class="bg-white text-[#1f1f1f] h-screen flex flex-col overflow-hidden font-sans relative">
+        
+        <!-- Header -->
+        <div class="absolute top-0 left-0 w-full p-4 md:p-6 flex items-center justify-between z-10 bg-gradient-to-b from-white via-white to-transparent">
+            <h2 class="text-xl md:text-2xl font-normal tracking-tight text-[#1f1f1f] flex items-center gap-2">
+                <span class="bg-gradient-to-r from-blue-500 to-purple-500 bg-clip-text text-transparent font-medium">✨ AI 트러블슈팅 챗봇</span>
+            </h2>
+        </div>
+        
+        <!-- Chat Area -->
+        <div id="chat-box" class="flex-1 w-full overflow-y-auto flex flex-col items-center pt-24 pb-48 md:pb-56 scroll-smooth px-4">
+            <div id="chat-inner" class="w-full max-w-[800px] flex flex-col gap-8 md:gap-10"></div>
+        </div>
+        
+        <!-- Input Area -->
+        <div class="absolute bottom-0 left-0 w-full bg-gradient-to-t from-white via-white to-transparent pt-10 pb-6 px-4 pointer-events-none">
+            <div class="max-w-[800px] mx-auto pointer-events-auto flex flex-col gap-2">
+                <form id="chat-form" onsubmit="sendMessage(event)" class="relative flex items-end gap-2 bg-[#f0f4f9] rounded-[32px] px-2 py-2 md:p-2 min-h-[60px] focus-within:ring-1 focus-within:ring-gray-300 transition-all">
+                    <input type="text" id="user-input" placeholder="여기에 프롬프트를 입력하세요" required autocomplete="off" 
+                           class="flex-1 bg-transparent border-none text-[#1f1f1f] text-base md:text-[1.05rem] px-4 py-3 focus:outline-none focus:ring-0 placeholder:text-gray-500 min-h-[48px]">
+                    <button type="submit" 
+                            class="w-12 h-12 rounded-full bg-white hover:bg-gray-100 flex items-center justify-center transition-colors text-black shrink-0 shadow-sm border border-gray-100">
+                        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="22" y1="2" x2="11" y2="13"></line><polygon points="22 2 15 22 11 13 2 9 22 2"></polygon></svg>
+                    </button>
+                </form>
+                <div class="flex items-center justify-between px-2 mt-2">
+                    <div class="text-[0.75rem] text-gray-500 font-medium ml-2 hidden md:block">
+                        AI 챗봇은 실수를 할 수 있습니다. 중요한 정보를 확인하세요.
+                    </div>
+                    <div class="text-[0.75rem] text-gray-500 font-medium ml-2 md:hidden">
+                        AI 챗봇은 실수를 할 수 있습니다.
+                    </div>
+                    <div class="flex items-center gap-2 bg-[#f0f4f9] px-3 py-1.5 rounded-full border border-gray-100 shadow-sm">
+                        <label for="temp-slider" class="text-[0.75rem] text-gray-600 font-medium whitespace-nowrap">Temperature 창의성<span id="temp-val" class="font-bold w-5 inline-block text-right">0.5</span></label>
+                        <input type="range" id="temp-slider" min="0.0" max="1.0" step="0.1" value="0.5" oninput="document.getElementById('temp-val').innerText=Number(this.value).toFixed(1)" class="w-24 h-1.5 bg-gray-300 rounded-lg appearance-none cursor-pointer outline-none accent-blue-500">
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <script>
+            // WebSocket 변수 대신 EventSource 변수 사용
+            let eventSource = null;
+
+            async function sendMessage(event) {
+                event.preventDefault();
+                const input = document.getElementById('user-input');
+                const chatBox = document.getElementById('chat-box');
+                const query = input.value;
+                if (!query.trim()) return;
+                input.value = '';
+                
+                let fullAiResponse = '';
+
+                const chatInner = document.getElementById('chat-inner');
+                
+                // 유저 메시지 렌더링
+                const userWrapper = document.createElement('div');
+                userWrapper.className = 'flex flex-col w-full items-end animate-pop-in opacity-0';
+                userWrapper.innerHTML = `
+                    <div class="max-w-[90%] md:max-w-[75%] px-6 py-4 rounded-[24px] text-[0.95rem] md:text-base leading-relaxed bg-[#f0f4f9] text-[#1f1f1f] break-words">
+                        ${query}
+                    </div>
+                `;
+                chatInner.appendChild(userWrapper);
+
+                // AI 응답 렌더링
+                const aiWrapper = document.createElement('div');
+                aiWrapper.className = 'flex w-full items-start gap-4 md:gap-6 animate-fade-in-up opacity-0 mt-2';
+                aiWrapper.innerHTML = `
+                    <div class="w-8 h-8 rounded-full shrink-0 flex items-center justify-center mt-1">
+                        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" class="text-blue-500"><path d="M12 2L14.64 9.36L22 12L14.64 14.64L12 22L9.36 14.64L2 12L9.36 9.36L12 2Z" fill="currentColor"/></svg>
+                    </div>
+                    <div class="flex-1 min-w-0">
+                        <div class="text-[0.95rem] md:text-base leading-relaxed break-words bg-transparent ai-text text-[#1f1f1f] prose prose-slate max-w-none prose-p:my-2 prose-ul:my-2">
+                            <div class="inline-flex items-center gap-1 h-6"><span class="w-1.5 h-1.5 bg-gray-400 rounded-full animate-typing delay-1"></span><span class="w-1.5 h-1.5 bg-gray-400 rounded-full animate-typing delay-2"></span><span class="w-1.5 h-1.5 bg-gray-400 rounded-full animate-typing"></span></div>
+                        </div>
+                    </div>
+                `;
+                chatInner.appendChild(aiWrapper);
+                const currentAiElement = aiWrapper.querySelector('.ai-text');
+                chatBox.scrollTop = chatBox.scrollHeight;
+
+                // 기존 연결이 있다면 닫기
+                if (eventSource) {
+                    eventSource.close();
+                }
+                
+                // 파라미터 준비 (GET 방식이므로 URL 인코딩 필수)
+                const temp = parseFloat(document.getElementById('temp-slider').value) || 0.5;
+                const encodedQuery = encodeURIComponent(query);
+                
+                // SSE API 엔드포인트 URL
+                const sseUrl = `/sse/chatTrouShoot?query=${encodedQuery}&temperature=${temp}`;
+                
+                // EventSource 연결 시작
+                eventSource = new EventSource(sseUrl);
+
+                let isDone = false;
+                let hasReceivedContent = false;
+                fullAiResponse = '';
+
+                // 서버로부터 메시지를 받을 때마다 실행
+                eventSource.onmessage = (event) => {
+                    // 서버가 '[DONE]'을 보내면 스트리밍 완료 처리
+                    if (event.data === '[DONE]') {
+                        isDone = true;
+                        eventSource.close(); // 브라우저 자동 재연결 방지
+                        if (!hasReceivedContent) {
+                            currentAiElement.innerHTML = `<span class="text-gray-500 text-sm md:text-base">검색된 결과가 없습니다.</span>`;
+                        }
+                        return;
+                    }
+                    
+                    try {
+                        const data = JSON.parse(event.data);
+                        
+                        if (data.clear) {
+                            fullAiResponse = '';
+                            currentAiElement.innerHTML = '<div class="inline-flex items-center gap-1 h-6"><span class="w-1.5 h-1.5 bg-gray-400 rounded-full animate-typing delay-1"></span><span class="w-1.5 h-1.5 bg-gray-400 rounded-full animate-typing delay-2"></span><span class="w-1.5 h-1.5 bg-gray-400 rounded-full animate-typing"></span></div>';
+                            hasReceivedContent = false;
+                            return;
+                        }
+                        
+                        if (data.error) {
+                            if (!hasReceivedContent) currentAiElement.innerHTML = '';
+                            hasReceivedContent = true;
+                            currentAiElement.innerHTML += `<br><span class="text-red-500">${data.error}</span>`;
+                            chatBox.scrollTop = chatBox.scrollHeight;
+                            eventSource.close(); // 에러 발생 시 연결 종료
+                            return;
+                        }
+                        
+                        if (data.content) {
+                            if (!hasReceivedContent) currentAiElement.innerHTML = '';
+                            hasReceivedContent = true;
+                            fullAiResponse += data.content;
+                            currentAiElement.innerHTML = marked.parse(fullAiResponse, { breaks: true });
+                            chatBox.scrollTop = chatBox.scrollHeight;
+                            return;
+                        }
+                        
+                        if (data.choices && data.choices[0].delta && data.choices[0].delta.content) {
+                            if (!hasReceivedContent) currentAiElement.innerHTML = '';
+                            hasReceivedContent = true;
+                            fullAiResponse += data.choices[0].delta.content;
+                            try {
+                                currentAiElement.innerHTML = marked.parse(fullAiResponse, { breaks: true });
+                            } catch (err) {
+                                currentAiElement.innerHTML = fullAiResponse.replace(/\\n/g, '<br>');
+                            }
+                            chatBox.scrollTop = chatBox.scrollHeight;
+                        }
+                    } catch (e) {
+                        console.log("SSE Raw Message Error:", e, event.data);
+                    }
+                };
+
+                // 에러 처리
+                eventSource.onerror = (error) => {
+                    console.error("SSE 오류:", error);
+                    eventSource.close(); // 브라우저 무한 재연결 방지
+                    if (!isDone && !currentAiElement.innerHTML.includes('text-red-500')) {
+                        currentAiElement.innerHTML += `<br><span class="text-red-500">서버와의 연결이 끊어졌습니다.</span>`;
+                        chatBox.scrollTop = chatBox.scrollHeight;
+                    }
+                };
+            }
+        </script>
+    </html>
+    """
+    return html_content
+
 # ============================================
 # 일반 테스트용 파라미터 API (Swagger UI 노출)
 # ============================================
@@ -578,3 +808,80 @@ async def websocket_chat(websocket: WebSocket):
     except Exception as e:
         log.error(f'WebSocket Exception : {e}')
         log.error(traceback.format_exc())
+
+@app.get("/sse/chatTrouShoot")
+async def chatTrouShoot_sse(
+    request: Request,
+    query: str = Query(..., description="사용자 질문"),
+    temperature: float = Query(0.5, description="창의성 옵션")
+):
+    """
+    기능: 문서 기반 챗봇 질의응답 (RAG) SSE 스트리밍 API
+    """
+    async def event_generator():
+        try:
+            if not query or not query.strip():
+                yield f"data: {json.dumps({'error': '질문을 찾을 수 없습니다.'}, ensure_ascii=False)}\n\n"
+                return
+
+            if vectorstore is None:
+                yield f"data: {json.dumps({'error': '서버 모델이 로드되지 않았습니다.'}, ensure_ascii=False)}\n\n"
+                return
+
+            # 1단계: Context Retrieval (기존과 동일)
+            docs = vectorstore.similarity_search(query, k=2)
+            retrieved_context = "\\n\\n".join([doc.page_content for doc in docs])
+
+            # 2단계: 프롬프트 구성 (기존과 동일)
+            prompt_text = f'''
+            다음 제공된 [참고 문서]를 바탕으로 원인, 우선 확인사항, 조치사항 등에 답변해 줘
+
+            [지시사항]
+            1. 각 항목(원인, 확인사항 등)마다 최소 1~3줄 이상 길고 구체적으로 설명할 것.
+            2. 단순히 문서를 요약하지 말고, 실무자가 바로 이해하고 적용할 수 있도록 가이드라인 형태로 작성할 것.
+
+            [참고 문서]
+            {retrieved_context}
+
+            [질문]
+            {query}
+            '''
+
+            llama_messages = [
+                {"role": "system", "content": "당신은 제공된 문서를 바탕으로 분석하는 친절하고 전문적인 AI 어시스턴트입니다."},
+                {"role": "user", "content": prompt_text.strip()}
+            ]
+
+            log.info(f"SSE 스트리밍 질의: {query}")
+
+            # 3단계: LLM 스트리밍 호출
+            response_stream = await llm_client.chat.completions.create(
+                model="default",
+                messages=llama_messages,
+                temperature=temperature,
+                max_tokens=None,
+                stream=True
+            )
+
+            # 4단계: Chunk 데이터를 SSE 규격(data: 내용\n\n)으로 변환하여 전송
+            async for chunk in response_stream:
+                # 클라이언트가 연결을 끊었는지 확인
+                if await request.is_disconnected():
+                    log.info("SSE 클라이언트 연결 끊김")
+                    break
+
+                if chunk.choices and chunk.choices[0].delta and chunk.choices[0].delta.content:
+                    # JSON 객체를 문자열로 변환하여 전송
+                    chunk_data = json.dumps(chunk.model_dump(), ensure_ascii=False)
+                    yield f"data: {chunk_data}\n\n"
+
+            # 스트리밍 종료 신호
+            yield "data: [DONE]\n\n"
+
+        except Exception as e:
+            log.error(f"SSE Error: {e}")
+            error_data = json.dumps({"error": f"오류 발생: {str(e)}"}, ensure_ascii=False)
+            yield f"data: {error_data}\n\n"
+
+    # StreamingResponse에 text/event-stream 미디어 타입을 지정하여 반환
+    return StreamingResponse(event_generator(), media_type="text/event-stream")
