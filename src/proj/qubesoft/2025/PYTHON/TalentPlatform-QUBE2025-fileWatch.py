@@ -350,7 +350,6 @@ class DtaProcess(object):
             }
 
             # 파일 감시
-            # fileWatch(sysOpt)
             fileWachThr = threading.Thread(target=fileWatch, args=(sysOpt,), daemon=True)
             fileWachThr.start()
 
