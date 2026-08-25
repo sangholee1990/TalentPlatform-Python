@@ -1,0 +1,384 @@
+# ================================================
+# 요구사항
+# ================================================
+# Python을 이용한 파일이벤트 및 비동기 스케줄러 기반 라벨링 영상 생산
+
+# 프로그램 종료
+# ps -ef | grep python | grep TalentPlatform-QUBE2025-fileWatch.py | awk '{print $2}' | xargs kill -9
+# pkill -f TalentPlatform-QUBE2025-fileWatch.py
+
+# 프로그램 시작
+# conda activate py39
+# cd /SYSTEMS/PROG/PYTHON
+# /SYSTEMS/LIB/anaconda3/envs/py39/bin/python TalentPlatform-QUBE2025-fileWatch.py
+
+# cd /SYSTEMS/PROG/PYTHON
+# nohup /SYSTEMS/LIB/anaconda3/envs/py39/bin/python TalentPlatform-QUBE2025-fileWatch.py &
+# tail -f nohup.out
+
+import argparse
+import glob
+import json
+import logging
+import logging.handlers
+import os
+import platform
+import sys
+import traceback
+import urllib.parse
+import warnings
+from builtins import enumerate
+from datetime import datetime
+import matplotlib.pyplot as plt
+import matplotlib as mpl
+import pytz
+from datetime import timedelta
+
+import time
+
+from sqlalchemy.util import await_only
+from watchdog.observers import Observer
+from watchdog.events import FileSystemEventHandler
+import fnmatch
+import re
+import tempfile
+import subprocess
+import shutil
+import asyncio
+
+import argparse
+import base64
+import json
+import os
+import os.path as osp
+
+# from labelme.logger import logger
+from retrying import retry
+import asyncio
+from apscheduler.schedulers.asyncio import AsyncIOScheduler
+from apscheduler.executors.asyncio import AsyncIOExecutor
+import threading
+import matplotlib.pyplot as plt
+import numpy as np
+
+# =================================================
+# 사용자 매뉴얼
+# =================================================
+# [소스 코드의 실행 순서]
+# 1. 초기 설정 : 폰트 설정
+# 2. 유틸리티 함수 : 초기화 함수 (로그 설정, 초기 변수, 초기 전달인자 설정) 또는 자주 사용하는 함수
+# 3. 주 프로그램 :부 프로그램을 호출
+# 4. 부 프로그램 : 자료 처리를 위한 클래스로서 내부 함수 (초기 변수, 비즈니스 로직, 수행 프로그램 설정)
+# 4.1. 환경 변수 설정 (로그 설정) : 로그 기록을 위한 설정 정보 읽기
+# 4.2. 환경 변수 설정 (초기 변수) : 입력 경로 (inpPath) 및 출력 경로 (outPath) 등을 설정
+# 4.3. 초기 변수 (Argument, Option) 설정 : 파이썬 실행 시 전달인자 설정 (pyhton3 *.py argv1 argv2 argv3 ...)
+# 4.4. 비즈니스 로직 수행 : 단위 시스템 (unit 파일명)으로 관리 또는 비즈니스 로직 구현
+
+# =================================================
+# 1. 초기 설정
+# =================================================
+warnings.filterwarnings("ignore")
+# font_manager._rebuild()
+
+# plt.rc('font', family='Malgun Gothic')
+plt.rc('axes', unicode_minus=False)
+# sns.set(font="Malgun Gothic", rc={"axes.unicode_minus": False}, style='darkgrid')
+
+# 그래프에서 마이너스 글꼴 깨지는 문제에 대한 대처
+mpl.rcParams['axes.unicode_minus'] = False
+
+# 타임존 설정
+tzKst = pytz.timezone('Asia/Seoul')
+tzUtc = pytz.timezone('UTC')
+dtKst = timedelta(hours=9)
+
+# =================================================
+# 2. 유틸리티 함수
+# =================================================
+# 로그 설정
+def initLog(env=None, contextPath=None, prjName=None):
+    if env is None: env = 'local'
+    if contextPath is None: contextPath = os.getcwd()
+    if prjName is None: prjName = 'test'
+
+    saveLogFile = "{}/{}_{}_{}_{}_{}.log".format(
+        contextPath if env in 'local' else os.path.join(contextPath, 'resources', 'log', prjName)
+        , platform.system()
+        , platform.machine()
+        , platform.architecture()[0]
+        , platform.node()
+        , prjName
+    )
+
+    os.makedirs(os.path.dirname(saveLogFile), exist_ok=True)
+
+    # logger instance 생성
+    log = logging.getLogger(prjName)
+
+    if len(log.handlers) > 0:
+        return log
+
+    # format 생성
+    format = logging.Formatter('%(asctime)s [%(name)s | %(lineno)d | %(filename)s] [%(levelname)-5.5s] %(message)s')
+
+    # handler 생성
+    streamHandler = logging.StreamHandler()
+    fileHandler = logging.handlers.TimedRotatingFileHandler(filename=saveLogFile, when='midnight', interval=1, backupCount=30, encoding='utf-8')
+
+    # logger instance에 format 설정
+    streamHandler.setFormatter(format)
+    fileHandler.setFormatter(format)
+
+    # logger instance에 handler 설정
+    log.addHandler(streamHandler)
+    log.addHandler(fileHandler)
+
+    # logger instance로 log 기록
+    log.setLevel(level=logging.INFO)
+
+    return log
+
+#  초기 변수 설정
+def initGlobalVar(env=None, contextPath=None, prjName=None):
+    if env is None: env = 'local'
+    if contextPath is None: contextPath = os.getcwd()
+    if prjName is None: prjName = 'test'
+
+    # 환경 변수 (local, 그 외)에 따라 전역 변수 (입력 자료, 출력 자료 등)를 동적으로 설정
+    # 즉 local의 경우 현재 작업 경로 (contextPath)를 기준으로 설정
+    # 그 외의 경우 contextPath/resources/input/prjName와 같은 동적으로 구성
+    globalVar = {
+        'prjName': prjName
+        , 'sysOs': platform.system()
+        , 'contextPath': contextPath
+        , 'resPath': contextPath if env in 'local' else os.path.join(contextPath, 'resources')
+        , 'cfgPath': contextPath if env in 'local' else os.path.join(contextPath, 'resources', 'config')
+        , 'inpPath': contextPath if env in 'local' else os.path.join(contextPath, 'resources', 'input', prjName)
+        , 'figPath': contextPath if env in 'local' else os.path.join(contextPath, 'resources', 'fig', prjName)
+        , 'outPath': contextPath if env in 'local' else os.path.join(contextPath, 'resources', 'input', prjName)
+        , 'movPath': contextPath if env in 'local' else os.path.join(contextPath, 'resources', 'movie', prjName)
+        , 'logPath': contextPath if env in 'local' else os.path.join(contextPath, 'resources', 'log', prjName)
+        , 'mapPath': contextPath if env in 'local' else os.path.join(contextPath, 'resources', 'mapInfo')
+        , 'sysPath': contextPath if env in 'local' else os.path.join(contextPath, 'resources', 'config', 'system.cfg')
+        , 'seleniumPath': contextPath if env in 'local' else os.path.join(contextPath, 'resources', 'config', 'selenium')
+        , 'fontPath': contextPath if env in 'local' else os.path.join(contextPath, 'resources', 'config', 'fontInfo')
+    }
+
+    return globalVar
+
+
+#  초기 전달인자 설정
+def initArgument(globalVar):
+    parser = argparse.ArgumentParser()
+
+    for i, argv in enumerate(sys.argv[1:]):
+        if not argv.__contains__('--'): continue
+        parser.add_argument(argv)
+
+    inParInfo = vars(parser.parse_args())
+    log.info(f"inParInfo : {inParInfo}")
+
+    # 전역 변수에 할당
+    for key, val in inParInfo.items():
+        if val is None: continue
+        if env not in 'local' and key.__contains__('Path'):
+            os.makedirs(val, exist_ok=True)
+        globalVar[key] = val
+
+    return globalVar
+
+@retry(stop_max_attempt_number=10)
+def makeFileProc(fileInfo):
+    try:
+        if not os.path.exists(fileInfo): return
+        # log.info(f'[CHECK] fileInfo : {fileInfo}')
+
+        fileName = os.path.basename(fileInfo)
+        isMatch = re.search(r'(\d{10})\.nc$', fileName, re.IGNORECASE)
+        if not isMatch: return
+
+        anaDtStr = isMatch.group(1)
+        anaDt = datetime.strptime(anaDtStr, '%Y%m%d%H')
+
+        saveFile = "{}/{}".format(anaDt.strftime(globalVar['oldPath']), fileName)
+        os.makedirs(os.path.dirname(saveFile), exist_ok=True)
+
+        shutil.move(fileInfo, saveFile)
+        log.info(f'[CHECK] saveFile : {saveFile}')
+    except Exception as e:
+        log.error(f'Exception : {e}')
+        raise e
+
+class handler(FileSystemEventHandler):
+    def __init__(self, patterns):
+        self.patterns = patterns
+
+    def on_any_event(self, event):
+        if not any(fnmatch.fnmatch(event.src_path, pattern) for pattern in self.patterns): return
+        if not re.search('closed', event.event_type, re.IGNORECASE): return
+        if not os.path.exists(event.src_path): return
+
+        log.info(f'[CHECK] event : {event} / event_type : {event.event_type} / src_path : {event.src_path}')
+
+        try:
+            makeFileProc(event.src_path)
+        except Exception as e:
+            log.error(f'Exception : {e}')
+
+def fileWatch(sysOpt):
+    observer = Observer()
+    eventHandler = handler(sysOpt['mntrgFileList'])
+    filePathList = set(os.path.dirname(os.path.dirname(fileInfo)) for fileInfo in sysOpt['mntrgFileList'])
+    for filePathInfo in filePathList:
+        observer.schedule(eventHandler, filePathInfo, recursive=True)
+    observer.start()
+
+    try:
+        while observer.is_alive():
+            observer.join(timeout=1)
+    except Exception as e:
+        log.error(f'Exception : {e}')
+    finally:
+        if observer.is_alive():
+            observer.stop()
+        observer.join()
+
+def makeFileList(mntrgFileInfo):
+    fileList = glob.glob(mntrgFileInfo)
+    # log.info(f"[CHECK] fileList : {fileList}")
+
+    for fileInfo in fileList:
+        try:
+            makeFileProc(fileInfo)
+        except Exception as e:
+            log.error(f'Exception : {e}')
+
+    # with ProcessPoolExecutor() as executor:
+    #     list(executor.map(makeFileProc, fileList))
+
+async def asyncSchdl(sysOpt):
+    scheduler = AsyncIOScheduler()
+
+    jobList = [
+        (makeFileList, 'cron', {'second': '0'}, {'args': [sysOpt['mntrgFileList'][0]]}),
+    ]
+
+    for fun, trigger, triggerArgs, kwargs in jobList:
+        try:
+            scheduler.add_job(fun, trigger, **triggerArgs, **kwargs)
+        except Exception as e:
+            log.error(f"Exception : {e}")
+
+    scheduler.start()
+    asyncEvent = asyncio.Event()
+
+    try:
+        await asyncEvent.wait()
+    except Exception as e:
+        log.error(f"Exception : {e}")
+    finally:
+        if scheduler.running:
+            scheduler.shutdown()
+
+# ================================================
+# 4. 부 프로그램
+# ================================================
+class DtaProcess(object):
+
+    # ================================================================================================
+    # 환경변수 설정
+    # ================================================================================================
+    global env, contextPath, prjName, serviceName, log, globalVar
+
+    # env = 'local'  # 로컬 : 원도우 환경, 작업환경 (현재 소스 코드 환경 시 .) 설정
+    env = 'dev'  # 개발 : 원도우 환경, 작업환경 (사용자 환경 시 contextPath) 설정
+    # env = 'oper'  # 운영 : 리눅스 환경, 작업환경 (사용자 환경 시 contextPath) 설정
+
+    if platform.system() == 'Windows':
+        contextPath = os.getcwd() if env in 'local' else 'E:/04. TalentPlatform/Github/TalentPlatform-Python'
+    else:
+        # contextPath = os.getcwd() if env in 'local' else '/SYSTEMS/PROG/PYTHON/IDE'
+        contextPath = os.getcwd() if env in 'local' else '/SYSTEMS/PROG/PYTHON'
+
+    prjName = 'fileWatch'
+    serviceName = 'QUBE2025'
+
+    # 4.1. 환경 변수 설정 (로그 설정)
+    log = initLog(env, contextPath, prjName)
+
+    # 4.2. 환경 변수 설정 (초기 변수)
+    globalVar = initGlobalVar(env, contextPath, prjName)
+
+    # ================================================================================================
+    # 4.3. 초기 변수 (Argument, Option) 설정
+    # ================================================================================================
+    def __init__(self):
+
+        log.info('[START] {}'.format("init"))
+
+        try:
+            # 초기 전달인자 설정 (파이썬 실행 시)
+            # pyhton3 *.py argv1 argv2 argv3 ...
+            initArgument(globalVar)
+
+        except Exception as e:
+            log.error(f"Exception : {str(e)}")
+            raise e
+        finally:
+            log.info('[END] {}'.format("init"))
+
+    # ================================================================================================
+    # 4.4. 비즈니스 로직 수행
+    # ================================================================================================
+    def exec(self):
+
+        log.info('[START] {}'.format("exec"))
+
+        try:
+
+            if platform.system() == 'Windows':
+                pass
+            else:
+                globalVar['orgPath'] = '/DATA/KMITI/data'
+                globalVar['oldPath'] = '/DATA/KMITI/data/%Y%m/%d/'
+
+            # 옵션 설정
+            sysOpt = {
+                'mntrgFileList': [
+                    f'{globalVar["orgPath"]}/*.nc',
+                ],
+            }
+
+            # 파일 감시
+            # fileWatch(sysOpt)
+            fileWachThr = threading.Thread(target=fileWatch, args=(sysOpt,), daemon=True)
+            fileWachThr.start()
+
+            # 파일 스케줄러
+            asyncio.run(asyncSchdl(sysOpt))
+
+        except Exception as e:
+            log.error(f"Exception : {e}")
+            raise e
+
+        finally:
+            log.info('[END] {}'.format("exec"))
+
+# ================================================
+# 3. 주 프로그램
+# ================================================
+if __name__ == '__main__':
+
+    print('[START] {}'.format("main"))
+
+    try:
+        # 부 프로그램 호출
+        subDtaProcess = DtaProcess()
+        subDtaProcess.exec()
+
+    except Exception as e:
+        print(traceback.format_exc())
+        sys.exit(1)
+
+    finally:
+        print('[END] {}'.format("main"))
