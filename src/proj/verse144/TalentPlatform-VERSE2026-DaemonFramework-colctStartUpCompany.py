@@ -1,7 +1,7 @@
 # ================================================
 # 요구사항
 # ================================================
-# Python을 이용한 서울캠퍼스타운 창입기업 수집
+# Python을 이용한 서울캠퍼스타운 창업기업 수집
 
 # cd /SYSTEMS/PROG/PYTHON/IDE/src/proj/verse144
 # /SYSTEMS/LIB/anaconda3/envs/py39/bin/python /SYSTEMS/PROG/PYTHON/IDE/src/proj/verse144/TalentPlatform-VERSE2026-DaemonFramework-colctStartUpCompany.py
