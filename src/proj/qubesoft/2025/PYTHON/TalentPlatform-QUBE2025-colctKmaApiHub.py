@@ -509,7 +509,6 @@ class DtaProcess(object):
                         , 'ef12': ['000', '001', '002', '003', '004', '005']
                         , 'ef18': ['000', '001', '002', '003', '004', '005']
                         , 'authKey': None
-                        # , 'authKey': '45b375cb5d553381ae3c37e0355677342940656e7e2e2466431452f0b5e74a68c5201f763a68b81e83b5ce885fee0372be1f23960b6764ae75b14d440172d483'
                         , 'invDate': '6h'
                     }
                     , 'cmd': 'curl -s -C - "{reqUrl}" --retry 1 -o "{tmpFileInfo}"'
