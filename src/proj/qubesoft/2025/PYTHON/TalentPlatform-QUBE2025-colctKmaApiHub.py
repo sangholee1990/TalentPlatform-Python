@@ -189,6 +189,8 @@ def colctProc(modelType, modelInfo, dtDateInfo):
         colctFunList = {
             'UMKR': colctNwp,
             'KIMG': colctNwp,
+            'KIM-EA': colctNwp,
+            'KIM-KO': colctNwp,
             'ASOS': colctObs,
             'AWS': colctObs,
         }
@@ -235,9 +237,9 @@ def colctObs(modelInfo, dtDateInfo):
 
         reqUrl = dtDateInfo.strftime(f"{modelInfo['request']['url']}").format(
             tmfc=dtDateInfo.strftime('%Y%m%d%H%M'),
-            tmfc2=(dtDateInfo + parseDateOffset(modelInfo['request']['invDate']) - parseDateOffset('1s')).strftime(
-                '%Y%m%d%H%M'),
-            authKey=extAuthKey()
+            tmfc2=(dtDateInfo + parseDateOffset(modelInfo['request']['invDate']) - parseDateOffset('1s')).strftime('%Y%m%d%H%M'),
+            # authKey=extAuthKey()
+            authKey=f"{modelInfo['request']['authKey']}"
         )
 
         #print(reqUrl)
@@ -294,8 +296,8 @@ def colctNwp(modelInfo, dtDateInfo):
 
             log.info(f'[CHECK] dtDateInfo : {dtDateInfo} / ef : {ef}')
 
-            reqUrl = dtDateInfo.strftime(f"{modelInfo['request']['url']}").format(tmfc=dtDateInfo.strftime('%Y%m%d%H'), ef=ef, authKey=extAuthKey())
-            #reqUrl = dtDateInfo.strftime(f"{modelInfo['request']['url']}").format(tmfc=dtDateInfo.strftime('%Y%m%d%H'), ef=ef, authKey='hQDU-t1aQHaA1PrdWvB2eA')
+            # reqUrl = dtDateInfo.strftime(f"{modelInfo['request']['url']}").format(tmfc=dtDateInfo.strftime('%Y%m%d%H'), ef=ef, authKey=extAuthKey())
+            reqUrl = dtDateInfo.strftime(f"{modelInfo['request']['url']}").format(tmfc=dtDateInfo.strftime('%Y%m%d%H'), ef=ef, authKey=f"{modelInfo['request']['authKey']}")
             # res = requests.get(reqUrl)
             # if not (res.status_code == 200): return
 
@@ -313,7 +315,7 @@ def colctNwp(modelInfo, dtDateInfo):
                 subprocess.run(cmd, shell=True, check=True, executable='/bin/bash')
                 # subprocess.run(cmd, shell=False, check=True)
             except subprocess.CalledProcessError as e:
-                raise ValueError(f'[ERROR] 실행 프로그램 실패 : {str(e)}')
+                raise ValueError(f'[ERROR] 실행 프로그램 실패 : {e}')
 
             if os.path.exists(tmpFileInfo):
                 if os.path.getsize(tmpFileInfo) > 1000:
@@ -423,12 +425,15 @@ class DtaProcess(object):
                 # 예보시간 시작일, 종료일, 시간 간격 (연 1y, 월 1m, 일 1d, 시간 1h, 분 1t, 초 1s)
                 # 'srtDate': '2024-12-01',
                 # 'endDate': '2024-12-04',
+                # 'srtDate': '2026-05-01',
+                # 'endDate': '2026-05-01',
                 'srtDate': globalVar['srtDate'],
                 'endDate': globalVar['endDate'],
 
                 # 수행 목록
                 # 'modelList': ['AWS', 'ASOS', 'UMKR', 'KIMG'],
                 # 'modelList': ['UMKR', 'KIMG'],
+                # 'modelList': ['KIM-EA'],
                 'modelList': globalVar['modelList'].split(','),
 
                 # 비동기 다중 프로세스 개수
@@ -466,7 +471,7 @@ class DtaProcess(object):
                         , 'ef06': ['00', '01', '02', '03', '04', '05', '09', '10', '11', '12', '13', '14', '15', '16', '17', '18', '19', '20', '21', '22', '23', '24', '25', '26', '27', '28', '29', '30', '31', '32']
                         , 'ef12': ['00', '01', '02', '03', '04', '05', '27', '28', '29', '30', '31', '32', '33', '34', '35', '36', '37', '38', '39', '40', '41', '42', '43', '44', '45', '46', '47']
                         , 'ef18': ['00', '01', '02', '03', '04', '05', '21', '22', '23', '24', '25', '26', '27', '28', '29', '30', '31', '32', '33', '34', '35', '36', '37', '38', '39', '40', '41', '42', '43', '44']
-                        , 'authKey': None
+                         , 'authKey': None
                         , 'invDate': '6h'
                     }
                     , 'cmd': 'curl -s -C - "{reqUrl}" --retry 10 -o "{tmpFileInfo}"'
@@ -495,6 +500,35 @@ class DtaProcess(object):
                     , 'cmd': 'curl -s -C - "{reqUrl}" --retry 1 -o "{tmpFileInfo}"'
                     , 'tmp': '/DATA/MODEL/%Y%m/%d/.KIMG_r030_unis_H{ef}_%Y%m%d%H%M.grb2'
                     , 'target': '/DATA/MODEL/%Y%m/%d/KIMG_r030_unis_H{ef}_%Y%m%d%H%M.grb2'
+                },
+                'KIM-EA': {
+                    'request': {
+                        'url': 'https://apihub-pub.kma.go.kr/api/typ06/url/nwp_file_down.php?nwp=kimr&sub=etc&tmfc={tmfc}&ef={ef}&authKey={authKey}'
+                        , 'ef00': ['000', '001', '002', '003', '004', '005']
+                        , 'ef06': ['000', '001', '002', '003', '004', '005']
+                        , 'ef12': ['000', '001', '002', '003', '004', '005']
+                        , 'ef18': ['000', '001', '002', '003', '004', '005']
+                        , 'authKey': None
+                        # , 'authKey': '45b375cb5d553381ae3c37e0355677342940656e7e2e2466431452f0b5e74a68c5201f763a68b81e83b5ce885fee0372be1f23960b6764ae75b14d440172d483'
+                        , 'invDate': '6h'
+                    }
+                    , 'cmd': 'curl -s -C - "{reqUrl}" --retry 1 -o "{tmpFileInfo}"'
+                    , 'tmp': '/DATA/KMITI/data/%Y%m/%d/.r030_v040_easia_etc.2byte.ft{ef}.%Y%m%d%H.nc'
+                    , 'target': '/DATA/KMITI/data/%Y%m/%d/r030_v040_easia_etc.2byte.ft{ef}.%Y%m%d%H.nc'
+                },
+                'KIM-KO': {
+                    'request': {
+                        'url': 'https://apihub-pub.kma.go.kr/api/typ06/url/nwp_file_down.php?nwp=kiml&sub=etc&tmfc={tmfc}&ef={ef}&authKey={authKey}'
+                        , 'ef00': ['000', '001', '002', '003', '004', '005']
+                        , 'ef06': ['000', '001', '002', '003', '004', '005']
+                        , 'ef12': ['000', '001', '002', '003', '004', '005']
+                        , 'ef18': ['000', '001', '002', '003', '004', '005']
+                        , 'authKey': None
+                        , 'invDate': '6h'
+                    }
+                    , 'cmd': 'curl -s -C - "{reqUrl}" --retry 1 -o "{tmpFileInfo}"'
+                    , 'tmp': '/DATA/KMITI/data/%Y%m/%d/.l010_v040_korea_etc.2byte.ft{ef}.%Y%m%d%H.nc'
+                    , 'target': '/DATA/KMITI/data/%Y%m/%d/l010_v040_korea_etc.2byte.ft{ef}.%Y%m%d%H.nc'
                 },
             }
 
