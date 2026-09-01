@@ -458,6 +458,13 @@ class DtaProcess(object):
                     turbidity = pvlib.clearsky.lookup_linke_turbidity(pd.to_datetime(df['date_time'].values), lat, lon, interp_turbidity=True)
                     df['turb'] = turbidity.values
 
+                    # dataframe을 Darts 전용 시계열 객체로 변환합니다.
+                    ts_pv = TimeSeries.from_dataframe(df, time_col='date_time_kst', value_cols='pv', fill_missing_dates=True, freq='1h')
+                    
+                    # Darts 내장 함수를 사용하여 NaN으로 뚫어놓은 센서 고장 구간을 앞뒤 데이터를 통해 선형 보간
+                    ts_pv_filled = fill_missing_values(ts_pv)
+                    train_pv, test_pv = ts_pv_filled.split_before(pd.Timestamp('2026-08-23'))
+
                     # 3가지 일사량 변수 조합 정의
                     cov_configs = {
                         'ai_pv_srad': ['srad', 'otemp', 'ext_rad', 'sza', 'aza', 'et', 'ghi_clr', 'dni_clr', 'dhi_clr', 'turb'],
