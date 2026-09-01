@@ -480,7 +480,7 @@ class DtaProcess(object):
                     'request': {
                         'url': 'https://apihub-pub.kma.go.kr/api/typ01/cgi-bin/url/nph-aws2_min?tm1={tmfc}&tm2={tmfc2}&stn=0&disp=0&help=0&authKey={authKey}'
                         # 'url': 'https://apihub.kma.go.kr/api/typ01/cgi-bin/url/nph-aws2_min?tm1={tmfc}&tm2={tmfc2}&stn=0&disp=0&help=0&authKey={authKey}'
-                        , 'authKey': None
+                        # , 'authKey': None
                         , 'invDate': '3h'
                     },
                     'stnList': [505, 533],
