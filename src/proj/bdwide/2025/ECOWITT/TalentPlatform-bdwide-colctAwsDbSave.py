@@ -9,13 +9,14 @@
 # 프로그램 시작
 # conda activate py38
 # cd /SYSTEMS/PROG/PYTHON/IDE/src/proj/bdwide/2025/ECOWITT
-# /SYSTEMS/LIB/anaconda3/envs/py38/bin/python /SYSTEMS/PROG/PYTHON/IDE/src/proj/bdwide/2025/ECOWITT/TalentPlatform-bdwide-colctAwsDbSave.py --srtDate "2026-03-01" --endDate "2026-06-01"
+# /SYSTEMS/LIB/anaconda3/envs/py38/bin/python /SYSTEMS/PROG/PYTHON/IDE/src/proj/bdwide/2025/ECOWITT/TalentPlatform-bdwide-colctAwsDbSave.py --srtDate "2026-07-15" --endDate "2026-09-02"
 # /SYSTEMS/LIB/anaconda3/envs/py38/bin/python /SYSTEMS/PROG/PYTHON/IDE/src/proj/bdwide/2025/ECOWITT/TalentPlatform-bdwide-colctAwsDbSave.py
 # nohup /SYSTEMS/LIB/anaconda3/envs/py38/bin/python /SYSTEMS/PROG/PYTHON/IDE/src/proj/bdwide/2025/ECOWITT/TalentPlatform-bdwide-colctAwsDbSave.py > /dev/null 2>&1 &
 # tail -f nohup.out
 
 # tail -f /SYSTEMS/PROG/PYTHON/IDE/resources/log/test/Linux_x86_64_64bit_solarmy-253048.novalocal_test.log
 
+# 30 * * * * cd /SYSTEMS/PROG/PYTHON/IDE/src/proj/bdwide/2025/ECOWITT && /SYSTEMS/LIB/anaconda3/envs/py38/bin/python /SYSTEMS/PROG/PYTHON/IDE/src/proj/bdwide/2025/ECOWITT/TalentPlatform-bdwide-colctAwsDbSave.py --srtDate "$(date -d "1 days ago" +\%Y-\%m-\%d)" --endDate "$(date -d "1 days" +\%Y-\%m-\%d)"
 
 import argparse
 import glob
@@ -52,7 +53,7 @@ import os
 import re
 from datetime import datetime
 import subprocess
-from isodate import parse_duration
+# from isodate import parse_duration
 from pandas.tseries.offsets import DateOffset
 import configparser
 from urllib.parse import urlparse, parse_qs
@@ -409,7 +410,8 @@ class DtaProcess(object):
     # env = 'oper'  # 운영 : 리눅스 환경, 작업환경 (사용자 환경 시 contextPath) 설정
 
     if platform.system() == 'Windows':
-        contextPath = os.getcwd() if env in 'local' else 'E:/04. TalentPlatform/Github/TalentPlatform-Python'
+        # contextPath = os.getcwd() if env in 'local' else 'E:/04. TalentPlatform/Github/TalentPlatform-Python'
+        contextPath = os.getcwd() if env in 'local' else '/SYSTEMS/PROG/PYTHON/TalentPlatform-Python'
     else:
         # contextPath = os.getcwd() if env in 'local' else '/SYSTEMS/PROG/PYTHON'
         contextPath = os.getcwd() if env in 'local' else '/HDD/SYSTEMS/PROG/PYTHON/IDE/src/proj/bdwide/2025/ECOWITT'
@@ -461,8 +463,8 @@ class DtaProcess(object):
             # 옵션 설정
             sysOpt = {
                 # 예보시간 시작일, 종료일, 시간 간격 (연 1y, 월 1m, 일 1d, 시간 1h, 분 1t, 초 1s)
-                'srtDate': globalVar.get('srtDate', '2026-03-01'),
-                'endDate': globalVar.get('endDate', '2026-06-05'),
+                'srtDate': globalVar.get('srtDate', '2026-07-15'),
+                'endDate': globalVar.get('endDate', '2026-09-02'),
 
                 'cfgDbKey': 'mysql-iwin-dms01user01-DMS03',
                 'cfgDb': None,
@@ -476,8 +478,9 @@ class DtaProcess(object):
 
                 'AWS': {
                     'request': {
-                        'url': 'https://apihub.kma.go.kr/api/typ01/cgi-bin/url/nph-aws2_min?tm1={tmfc}&tm2={tmfc2}&stn=0&disp=0&help=0&authKey={authKey}'
-                        , 'authKey': 'hQDU-t1aQHaA1PrdWvB2eA'
+                        'url': 'https://apihub-pub.kma.go.kr/api/typ01/cgi-bin/url/nph-aws2_min?tm1={tmfc}&tm2={tmfc2}&stn=0&disp=0&help=0&authKey={authKey}'
+                        # 'url': 'https://apihub.kma.go.kr/api/typ01/cgi-bin/url/nph-aws2_min?tm1={tmfc}&tm2={tmfc2}&stn=0&disp=0&help=0&authKey={authKey}'
+                        , 'authKey': None
                         , 'invDate': '3h'
                     },
                     'stnList': [505, 533],
@@ -486,6 +489,7 @@ class DtaProcess(object):
 
                 # 설정 정보
                 'cfgFile': '/HDD/SYSTEMS/PROG/PYTHON/IDE/resources/config/system.cfg',
+                # 'cfgFile': '/SYSTEMS/PROG/PYTHON/TalentPlatform-Python/resources/config/system.cfg',
             }
 
             # **********************************************************************************************************
@@ -497,7 +501,7 @@ class DtaProcess(object):
             sysOpt['cfgDb'] = initCfgInfo(config, sysOpt['cfgDbKey'])
 
             # 재처리
-            # colctProc(sysOpt)
+            colctProc(sysOpt)
 
             # 파일 스케줄러
             asyncio.run(asyncSchdl(sysOpt))
