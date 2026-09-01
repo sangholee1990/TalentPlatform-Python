@@ -595,41 +595,6 @@ class DtaProcess(object):
                     plt.savefig(save_fig_path, dpi=300)
                     plt.close()
                     print(f"[{srv}] 통합 산점도 저장 완료: {save_fig_path}")
-                    # dataL3 = df_result.reset_index()
-                    # dataL3['srv'] = posInfo['srv']
-                    # dataL3['date_time'] = dataL3['date_time_kst'] - dtKst
-                    #
-                    # with cfgDb['sessionMake']() as session:
-                    #     try:
-                    #         tbTmp = f"tbTm_{uuid.uuid4().hex}"
-                    #         with session.begin():
-                    #             dbEngine = session.get_bind()
-                    #
-                    #             dataL3.to_sql(
-                    #                 name=tbTmp,
-                    #                 con=dbEngine,
-                    #                 if_exists="replace",
-                    #                 index=False,
-                    #                 chunksize=1000
-                    #             )
-                    #
-                    #             query = text(f"""
-                    #                 INSERT INTO "tb_obs_data" (
-                    #                       "srv", "date_time", "date_time_kst", "ai_ano_score", "ai_ano"
-                    #                 )
-                    #                 SELECT
-                    #                       "srv", "date_time", "date_time_kst", "ai_ano_score", "ai_ano"
-                    #                 FROM "{tbTmp}"
-                    #                 ON CONFLICT ("srv", "date_time")
-                    #                 DO UPDATE SET
-                    #                     "ai_ano_score" = excluded."ai_ano_score",
-                    #                     "ai_ano" = excluded."ai_ano"
-                    #                   """)
-                    #             result = session.execute(query)
-                    #             log.info(f"result : {result.rowcount}")
-                    #             session.execute(text(f'DROP TABLE IF EXISTS "{tbTmp}"'))
-                    #     except Exception as e:
-                    #         log.error(f"Exception : {e}")
         except Exception as e:
             log.error("Exception : {}".format(e))
             raise e
