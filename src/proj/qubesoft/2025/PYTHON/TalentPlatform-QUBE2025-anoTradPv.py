@@ -458,19 +458,12 @@ class DtaProcess(object):
                     turbidity = pvlib.clearsky.lookup_linke_turbidity(pd.to_datetime(df['date_time'].values), lat, lon, interp_turbidity=True)
                     df['turb'] = turbidity.values
 
-                    # dataframe을 Darts 전용 시계열 객체로 변환합니다.
-                    ts_pv = TimeSeries.from_dataframe(df, time_col='date_time_kst', value_cols='pv', fill_missing_dates=True, freq='1h')
-                    
                     # 3가지 일사량 변수 조합 정의
                     cov_configs = {
                         'ai_pv_srad': ['srad', 'otemp', 'ext_rad', 'sza', 'aza', 'et', 'ghi_clr', 'dni_clr', 'dhi_clr', 'turb'],
                         'ai_pv_trad': ['trad', 'ptemp', 'ext_rad', 'sza', 'aza', 'et', 'ghi_clr', 'dni_clr', 'dhi_clr', 'turb'],
                         'ai_pv_srad_trad': ['srad', 'trad', 'otemp', 'ptemp', 'ext_rad', 'sza', 'aza', 'et', 'ghi_clr', 'dni_clr', 'dhi_clr', 'turb']
                     }
-
-                    # Darts 내장 함수를 사용하여 NaN으로 뚫어놓은 센서 고장 구간을 앞뒤 데이터를 통해 선형 보간
-                    ts_pv_filled = fill_missing_values(ts_pv)
-                    train_pv, test_pv = ts_pv_filled.split_before(pd.Timestamp('2026-07-25'))
 
                     print("=" * 70)
                     print(f"[{srv}] 기상 변수 조합 및 모델(1h, 6h) 성능 평가 시작")
@@ -489,7 +482,8 @@ class DtaProcess(object):
                         # 현재 조합에 대한 공변량(Covariates) 시계열 생성 및 보간
                         ts_cov = TimeSeries.from_dataframe(df, time_col='date_time_kst', value_cols=cov_cols, fill_missing_dates=True, freq='1h')
                         ts_cov_filled = fill_missing_values(ts_cov)
-                        train_cov, test_cov = ts_cov_filled.split_before(pd.Timestamp('2026-07-25'))
+                        # train_cov, test_cov = ts_cov_filled.split_before(pd.Timestamp('2026-07-25'))
+                        train_cov, test_cov = ts_cov_filled.split_before(pd.Timestamp('2026-08-23'))
 
                         # [옵션 1] 1시간 과거(lags=1)를 참조하여 1시간 미래 예측
                         model_path_1h = os.path.join(model_dir, f"QUBE2025_{srv}_{case_name}_model_1h.pkl")
@@ -595,6 +589,37 @@ class DtaProcess(object):
                     plt.savefig(save_fig_path, dpi=300)
                     plt.close()
                     print(f"[{srv}] 통합 산점도 저장 완료: {save_fig_path}")
+
+                    # --- [추가] 통합 시계열 그래프 시각화 및 저장 ---
+                    fig_ts, axes_ts = plt.subplots(nrows=2, ncols=3, figsize=(20, 10))
+                    fig_ts.suptitle(f'[{srv}] 실제 발전량 vs AI 예측 발전량 시계열 비교', fontsize=20, fontweight='bold')
+
+                    for i, model_type in enumerate(['model_1h', 'model_6h']):
+                        for j, case_name in enumerate(cov_configs.keys()):
+                            df_plot = plot_data[model_type][case_name]
+                            ax_ts = axes_ts[i, j]
+                            
+                            # 시계열 선 그래프 (실측치 vs 예측치)
+                            ax_ts.plot(df_plot.index, df_plot['actual_pv'], label='Actual PV', color='#1f77b4', linewidth=1.5, alpha=0.8)
+                            ax_ts.plot(df_plot.index, df_plot['expected_pv'], label='Expected PV', color='#ff7f0e', linewidth=1.5, alpha=0.8)
+                            
+                            # 상관계수 및 RMSE 추출 (타이틀용)
+                            corr = df_plot['actual_pv'].corr(df_plot['expected_pv'])
+                            rmse = np.sqrt(mean_squared_error(df_plot['actual_pv'], df_plot['expected_pv']))
+                            
+                            ax_ts.set_title(f"{case_name} ({model_type})\nCorr: {corr:.3f}, RMSE: {rmse:.3f}", fontsize=14)
+                            ax_ts.set_xlabel('Time', fontsize=12)
+                            ax_ts.set_ylabel('PV', fontsize=12)
+                            ax_ts.grid(True, linestyle=':', alpha=0.7)
+                            ax_ts.legend(loc='upper right')
+                            ax_ts.tick_params(axis='x', rotation=30) # X축 날짜 라벨 겹침 방지
+
+                    plt.tight_layout(rect=[0, 0.03, 1, 0.95])
+                    
+                    save_ts_path = os.path.join(fig_dir, f"QUBE2025_{srv}_timeseries_validation.png")
+                    plt.savefig(save_ts_path, dpi=300)
+                    plt.close()
+                    print(f"[{srv}] 통합 시계열 그래프 저장 완료: {save_ts_path}")
         except Exception as e:
             log.error("Exception : {}".format(e))
             raise e
