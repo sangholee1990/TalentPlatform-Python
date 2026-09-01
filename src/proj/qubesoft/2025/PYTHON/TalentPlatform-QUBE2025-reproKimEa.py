@@ -4,17 +4,17 @@
 # Python을 이용한 재처리
 
 # 프로그램 종료
-# ps -ef | grep python | grep TalentPlatform-QUBE2025-realKimEa.py | awk '{print $2}' | xargs kill -9
-# pkill -f TalentPlatform-QUBE2025-realKimEa.py
+# ps -ef | grep python | grep TalentPlatform-QUBE2025-reproKimEa.py | awk '{print $2}' | xargs kill -9
+# pkill -f TalentPlatform-QUBE2025-reproKimEa.py
 
 # 프로그램 시작
 # conda activate py39
 
 # cd /SYSTEMS/PROG/PYTHON
-# /SYSTEMS/LIB/anaconda3/envs/py39/bin/python /SYSTEMS/PROG/PYTHON/TalentPlatform-QUBE2025-realKimEa.py --cpuCoreNum '5' --srtDate "2026-03-15" --endDate "2026-04-02"
-# nohup /SYSTEMS/LIB/anaconda3/envs/py39/bin/python /SYSTEMS/PROG/PYTHON/TalentPlatform-QUBE2025-realKimEa.py --cpuCoreNum '5' --srtDate "2026-03-15" --endDate "2026-04-02" &
+# /SYSTEMS/LIB/anaconda3/envs/py39/bin/python /SYSTEMS/PROG/PYTHON/TalentPlatform-QUBE2025-reproKimEa.py --cpuCoreNum '5' --srtDate "2026-03-15" --endDate "2026-04-02"
+# nohup /SYSTEMS/LIB/anaconda3/envs/py39/bin/python /SYSTEMS/PROG/PYTHON/TalentPlatform-QUBE2025-reproKimEa.py --cpuCoreNum '5' --srtDate "2026-03-15" --endDate "2026-04-02" &
 
-# 30 * * * * cd /SYSTEMS/PROG/PYTHON && /SYSTEMS/LIB/anaconda3/envs/py39/bin/python /SYSTEMS/PROG/PYTHON/TalentPlatform-QUBE2025-realKimEa.py --srtDate "$(date -d "2 days ago" +\%Y-\%m-\%d)" --endDate "$(date -d "2 days" +\%Y-\%m-\%d)"
+# 30 * * * * cd /SYSTEMS/PROG/PYTHON && /SYSTEMS/LIB/anaconda3/envs/py39/bin/python /SYSTEMS/PROG/PYTHON/TalentPlatform-QUBE2025-reproKimEa.py --srtDate "$(date -d "2 days ago" +\%Y-\%m-\%d)" --endDate "$(date -d "2 days" +\%Y-\%m-\%d)"
 
 import glob
 # import seaborn as sns
@@ -1162,7 +1162,7 @@ class DtaProcess(object):
         # contextPath = os.getcwd() if env in 'local' else '/SYSTEMS/PROG/PYTHON/IDE'
         contextPath = os.getcwd() if env in 'local' else '/SYSTEMS/PROG/PYTHON'
 
-    prjName = 'realKimEa'
+    prjName = 'reproKimEa'
     serviceName = 'QUBE2025'
 
     # 4.1. 환경 변수 설정 (로그 설정)
