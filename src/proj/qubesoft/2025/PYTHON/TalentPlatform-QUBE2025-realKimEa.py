@@ -1230,8 +1230,8 @@ class DtaProcess(object):
 
                 # 예보 모델
                 'KIM-EA': {
-                    'cfgUmFile': '/DATA/KMITI/data/r030_v040_easia_etc.2byte.ft000.2026062906.nc',
-                    'inpUmFile': '/DATA/KMITI/data/r030_v040_easia_etc.2byte.ft{ef}.%Y%m%d%H.nc',
+                    'cfgUmFile': '/DATA/KMITI/data/202606/29/r030_v040_easia_etc.2byte.ft000.2026062906.nc',
+                    'inpUmFile': '/DATA/KMITI/data/%Y%m/%d/r030_v040_easia_etc.2byte.ft{ef}.%Y%m%d%H.nc',
                     'ef00': ['000', '001', '002', '003', '004', '005', '015', '016', '017', '018', '019', '020', '021',
                              '022', '023', '024', '025', '026', '027', '028', '029', '030', '031', '032', '033', '034',
                              '035', '036', '037', '038'],

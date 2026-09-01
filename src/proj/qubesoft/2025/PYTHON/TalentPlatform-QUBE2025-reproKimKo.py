@@ -1230,8 +1230,8 @@ class DtaProcess(object):
 
                 # 예보 모델
                 'KIM-KO': {
-                    'cfgUmFile': '/DATA/KMITI/data/l010_v040_korea_etc.2byte.ft000.2026062906.nc',
-                    'inpUmFile': '/DATA/KMITI/data/l010_v040_korea_etc.2byte.ft{ef}.%Y%m%d%H.nc',
+                    'cfgUmFile': '/DATA/KMITI/data/202606/29/l010_v040_korea_etc.2byte.ft000.2026062906.nc',
+                    'inpUmFile': '/DATA/KMITI/data/%Y%m/%d/l010_v040_korea_etc.2byte.ft{ef}.%Y%m%d%H.nc',
                     'ef00': ['000', '001', '002', '003', '004', '005'],
                     'ef06': ['000', '001', '002', '003', '004', '005'],
                     'ef12': ['000', '001', '002', '003', '004', '005'],
@@ -1322,8 +1322,8 @@ class DtaProcess(object):
             sysOpt['lat1D'] = np.array(posDataL1['lat'])
             sysOpt['lon1D'] = np.array(posDataL1['lon'])
 
-            # subPvProc(sysOpt, cfgDb)
-            # subPropProc(sysOpt, cfgDb)
+            subPvProc(sysOpt, cfgDb)
+            subPropProc(sysOpt, cfgDb)
             subModelProc(sysOpt, cfgDb)
 
         except Exception as e:
