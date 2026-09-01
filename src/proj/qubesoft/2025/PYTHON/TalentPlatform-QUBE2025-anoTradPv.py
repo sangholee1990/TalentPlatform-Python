@@ -99,6 +99,13 @@ from sklearn.preprocessing import StandardScaler
 # from deepod.models.time_series import TimesNet
 from sklearn.preprocessing import StandardScaler
 # from deepod.models.time_series import TimesNet
+from darts import TimeSeries
+from darts.utils.missing_values import fill_missing_values
+from darts.models import LightGBMModel
+from darts.utils.timeseries_generation import datetime_attribute_timeseries
+import pvlib
+from pvlib import location
+from sklearn.metrics import mean_squared_error
 
 # =================================================
 # 사용자 매뉴얼
@@ -393,8 +400,8 @@ class DtaProcess(object):
 
             for i, posInfo in posDataL1.iterrows():
                 with cfgDb['sessionMake']() as session:
-                    # srv = posInfo['srv']
-                    srv = 'SRV00009'
+                    srv = posInfo['srv']
+                    # srv = 'SRV00009'
                     # query = text("""
                     #     SELECT "srv", "date_time", "date_time_kst", "trad", "srad", "otemp", "ptemp"
                     #     FROM "tb_obs_data"
@@ -429,20 +436,11 @@ class DtaProcess(object):
                     if len(data) < 1: continue
 
                     # dataL1 = data[(data['date_time_kst'].dt.hour >= 6) & (data['date_time_kst'].dt.hour <= 20)].reset_index(drop=True)
-                    dataL1 = data
+                    # dataL1 = data
 
-                    from darts import TimeSeries
-                    from darts.utils.missing_values import fill_missing_values
-                    from darts.models import LightGBMModel
-                    from darts.utils.timeseries_generation import datetime_attribute_timeseries
-                    import pvlib
-                    from pvlib import location
-                    from sklearn.metrics import mean_squared_error
-
-
-                    # df = data
-                    df = data.dropna().reset_index(drop=True)
                     # 2. [Darts 단계] TimeSeries 객체 생성 및 결측치 보간
+                    df = data.dropna().reset_index(drop=True)
+                    if len(df) < 1: continue
 
                     lat = posInfo['lat']
                     lon = posInfo['lon']
