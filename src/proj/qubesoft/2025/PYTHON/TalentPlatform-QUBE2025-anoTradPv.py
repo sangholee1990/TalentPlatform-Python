@@ -460,78 +460,143 @@ class DtaProcess(object):
                     turbidity = pvlib.clearsky.lookup_linke_turbidity(pd.to_datetime(df['date_time'].values), lat, lon, interp_turbidity=True)
                     df['turb'] = turbidity.values
 
-
                     # dataframe을 Darts 전용 시계열 객체로 변환합니다.
                     ts_pv = TimeSeries.from_dataframe(df, time_col='date_time_kst', value_cols='pv', fill_missing_dates=True, freq='1h')
-                    # ts_cov = TimeSeries.from_dataframe(df, time_col='date_time_kst',value_cols=['trad', 'otemp', 'ptemp'], fill_missing_dates=True, freq='1h')
-                    # ts_cov = TimeSeries.from_dataframe(df, time_col='date_time_kst',value_cols=['srad', 'otemp', 'ptemp'], fill_missing_dates=True, freq='1h')
-                    # ts_cov = TimeSeries.from_dataframe(df, time_col='date_time_kst',value_cols=['trad', 'srad', 'otemp', 'ptemp'], fill_missing_dates=True, freq='1h')
+                    
+                    # 3가지 일사량 변수 조합 정의
+                    cov_configs = {
+                        'ai_pv_srad': ['srad', 'otemp', 'ext_rad', 'sza', 'aza', 'et', 'ghi_clr', 'dni_clr', 'dhi_clr', 'turb'],
+                        'ai_pv_trad': ['trad', 'ptemp', 'ext_rad', 'sza', 'aza', 'et', 'ghi_clr', 'dni_clr', 'dhi_clr', 'turb'],
+                        'ai_pv_srad_trad': ['srad', 'trad', 'otemp', 'ptemp', 'ext_rad', 'sza', 'aza', 'et', 'ghi_clr', 'dni_clr', 'dhi_clr', 'turb']
+                    }
 
-                    ts_cov = TimeSeries.from_dataframe(df, time_col='date_time_kst',value_cols=['srad', 'otemp', 'ext_rad', 'sza', 'aza', 'et', 'ghi_clr', 'dni_clr', 'dhi_clr', 'turb'], fill_missing_dates=True, freq='1h')
-                    # ts_cov = TimeSeries.from_dataframe(df, time_col='date_time_kst',value_cols=['trad', 'ptemp', 'ext_rad', 'sza', 'aza', 'et', 'ghi_clr', 'dni_clr', 'dhi_clr', 'turb'], fill_missing_dates=True, freq='1h')
-                    # ts_cov = TimeSeries.from_dataframe(df, time_col='date_time_kst',value_cols=['srad', 'trad', 'otemp', 'ptemp', 'ext_rad', 'sza', 'aza', 'et', 'ghi_clr', 'dni_clr', 'dhi_clr', 'turb'], fill_missing_dates=True, freq='1h')
-
-                    # Darts 내장 함수를 사용하여 NaN으로 뚫어놓은 센서 고장 구간을 앞뒤 데이터를 통해 선형 보간합니다.
+                    # Darts 내장 함수를 사용하여 NaN으로 뚫어놓은 센서 고장 구간을 앞뒤 데이터를 통해 선형 보간
                     ts_pv_filled = fill_missing_values(ts_pv)
-                    ts_cov_filled = fill_missing_values(ts_cov)
-
-                    # (학습용과 테스트용 데이터 분리 - 예: 마지막 7일을 테스트로 사용)
                     train_pv, test_pv = ts_pv_filled.split_before(pd.Timestamp('2026-07-25'))
-                    train_cov, test_cov = ts_cov_filled.split_before(pd.Timestamp('2026-07-25'))
 
-                    # 3. [Darts 단계] 기대 발전량(Expected PV) 예측 모델 학습
-                    # 태양광 발전은 '현재 시점'의 일사량과 온도에 즉각적으로 반응하므로
-                    # lags_future_covariates=[0] 을 사용하여 "t 시점의 날씨로 t 시점의 발전을 예측"하도록 설정합니다.
-                    model = LightGBMModel(
-                        lags=1,
-                        lags_future_covariates=[0],
-                        output_chunk_length=1,
-                        random_state=42
-                    )
-                    # model = LightGBMModel(
-                    #     lags=48,
-                    #     lags_future_covariates=[0],
-                    #     output_chunk_length=48,
-                    #     random_state=42
-                    # )
+                    print("=" * 70)
+                    print(f"[{srv}] 기상 변수 조합 및 모델(1h, 6h) 성능 평가 시작")
+                    print("=" * 70)
 
-                    # model = LightGBMModel(
-                    #     lags=48,  # 직전(t-1) 시점의 발전량 참고
-                    #     lags_future_covariates=[0],  # 현재(t) 시점의 정제된 기상 데이터(trad, ptemp) 참고
-                    #     output_chunk_length=48,
-                    #     random_state=42
-                    # )
+                    df_result = None
 
-                    # 정상적인 데이터 구간을 통해 발전소의 '정상 패턴' 학습
-                    model.fit(series=train_pv, future_covariates=train_cov)
+                    # 성능 검증을 위한 데이터를 담아둘 딕셔너리 준비
+                    plot_data = {'model_1h': {}, 'model_6h': {}}
 
-                    # 4. [Darts 단계] 테스트 데이터 구간의 기대 발전량 예측
-                    pred_pv = model.predict(n=len(test_pv), future_covariates=test_cov)
+                    # 모델이 저장될 디렉토리 정의 및 생성
+                    model_dir = os.path.join(globalVar['outPath'], 'models')
+                    os.makedirs(model_dir, exist_ok=True)
 
-                    # 5. [분석 단계] 오차 방향을 고려한 이상감지 룰 적용
-                    # 예측 결과와 실제 데이터를 다시 Pandas DataFrame으로 합쳐서 비즈니스 룰을 적용합니다.
-                    df_result = test_pv.to_dataframe().rename(columns={'pv': 'actual_pv'})
-                    df_result['ai_pv_srad'] = pred_pv.to_dataframe()['pv']
-                    # df_result['ai_pv_trad'] = pred_pv.to_dataframe()['pv']
-                    # df_result['ai_pv_srad_trad'] = pred_pv.to_dataframe()['pv']
+                    for case_name, cov_cols in cov_configs.items():
+                        # 현재 조합에 대한 공변량(Covariates) 시계열 생성 및 보간
+                        ts_cov = TimeSeries.from_dataframe(df, time_col='date_time_kst', value_cols=cov_cols, fill_missing_dates=True, freq='1h')
+                        ts_cov_filled = fill_missing_values(ts_cov)
+                        train_cov, test_cov = ts_cov_filled.split_before(pd.Timestamp('2026-07-25'))
 
+                        # [옵션 1] 1시간 과거(lags=1)를 참조하여 1시간 미래 예측
+                        model_path_1h = os.path.join(model_dir, f"QUBE2025_{srv}_{case_name}_model_1h.pkl")
+                        if os.path.exists(model_path_1h):
+                            model_1h = LightGBMModel.load(model_path_1h)
+                            print(f"[{srv}] {case_name} model_1h 로드됨: {model_path_1h}")
+                        else:
+                            model_1h = LightGBMModel(
+                                lags=1,
+                                lags_future_covariates=[0],
+                                output_chunk_length=1,
+                                random_state=42
+                            )
+                            model_1h.fit(series=train_pv, future_covariates=train_cov)
+                            model_1h.save(model_path_1h)
+                            print(f"[{srv}] {case_name} model_1h 저장됨: {model_path_1h}")
+                            
+                        pred_pv_1h = model_1h.predict(n=len(test_pv), future_covariates=test_cov)
+                        
+                        df_1h = test_pv.to_dataframe().rename(columns={'pv': 'actual_pv'})
+                        df_1h['expected_pv'] = pred_pv_1h.to_dataframe()['pv']
+                        corr_1h = df_1h['actual_pv'].corr(df_1h['expected_pv'])
+                        rmse_1h = np.sqrt(mean_squared_error(df_1h['actual_pv'], df_1h['expected_pv']))
+                        
+                        # 시각화를 위해 딕셔너리에 저장
+                        plot_data['model_1h'][case_name] = df_1h
 
+                        # [옵션 2] 6시간 과거(lags=6)를 참조하여 6시간 미래 예측
+                        model_path_6h = os.path.join(model_dir, f"QUBE2025_{srv}_{case_name}_model_6h.pkl")
+                        if os.path.exists(model_path_6h):
+                            model_6h = LightGBMModel.load(model_path_6h)
+                            print(f"[{srv}] {case_name} model_6h 로드됨: {model_path_6h}")
+                        else:
+                            model_6h = LightGBMModel(
+                                lags=6,
+                                lags_future_covariates=[0, 1, 2, 3, 4, 5],
+                                output_chunk_length=6,
+                                random_state=42
+                            )
+                            model_6h.fit(series=train_pv, future_covariates=train_cov)
+                            model_6h.save(model_path_6h)
+                            print(f"[{srv}] {case_name} model_6h 저장됨: {model_path_6h}")
+                            
+                        pred_pv_6h = model_6h.predict(n=len(test_pv), future_covariates=test_cov)
+                        
+                        df_6h = test_pv.to_dataframe().rename(columns={'pv': 'actual_pv'})
+                        df_6h['expected_pv'] = pred_pv_6h.to_dataframe()['pv']
+                        corr_6h = df_6h['actual_pv'].corr(df_6h['expected_pv'])
+                        rmse_6h = np.sqrt(mean_squared_error(df_6h['actual_pv'], df_6h['expected_pv']))
+                        
+                        # 시각화를 위해 딕셔너리에 저장
+                        plot_data['model_6h'][case_name] = df_6h
 
-                    # df_result['trad'] = test_cov.to_dataframe()['trad']  # 야간 필터링을 위해 일사량 가져오기
+                        # 결과 출력
+                        print(f"[{case_name}]")
+                        print(f"  - model_1h (lags=1) -> Corr: {corr_1h:.4f}, RMSE: {rmse_1h:.4f}")
+                        print(f"  - model_6h (lags=6) -> Corr: {corr_6h:.4f}, RMSE: {rmse_6h:.4f}\n")
 
-                    # 오차 = 실제 발전량 - 기대 발전량
-                    # df_result['error'] = df_result['actual_pv'] - df_result['expected_pv']
-                    # corr = df_result['actual_pv'].corr(df_result['expected_pv'])
-                    # rmse = np.sqrt(mean_squared_error(df_result['actual_pv'], df_result['expected_pv']))
-                    # print(corr, rmse)
+                        # 기존 DB 적재 로직과 호환되도록 가장 성능이 좋은 ai_pv_trad의 결과를 df_result로 저장
+                        if case_name == 'ai_pv_trad':
+                            df_result = df_1h  # 기준을 1h 모델로 설정
+                            df_result['ai_pv_trad'] = df_result['expected_pv']
+                            df_result['error'] = df_result['actual_pv'] - df_result['expected_pv']
 
-                    df_result.to_csv('/DATA/INPUT/QUBE2026/df_result.csv', index=False)
+                    # --- [추가] 통합 산점도 시각화 및 저장 ---
+                    fig_dir = os.path.join(globalVar['figPath'], 'validation')
+                    os.makedirs(fig_dir, exist_ok=True)
 
+                    fig, axes = plt.subplots(nrows=2, ncols=3, figsize=(18, 12))
+                    fig.suptitle(f'[{srv}] 실제 발전량 vs AI 예측 발전량 시뮬레이션 검증', fontsize=20, fontweight='bold')
 
-                    # 0.91090328617368 94.92862966539832
-                    # 0.9642343185339545 61.06584839511654
-                    # 0.9616116807136832 64.70938528789236
+                    for i, model_type in enumerate(['model_1h', 'model_6h']):
+                        for j, case_name in enumerate(cov_configs.keys()):
+                            df_plot = plot_data[model_type][case_name]
+                            ax = axes[i, j]
+                            
+                            # 실제값 vs 예측값 산점도
+                            ax.scatter(df_plot['actual_pv'], df_plot['expected_pv'], alpha=0.6, edgecolors='w', linewidth=0.5, label='Predicted')
+                            
+                            # 이상적인 기준선 (y=x)
+                            min_val = min(df_plot['actual_pv'].min(), df_plot['expected_pv'].min())
+                            max_val = max(df_plot['actual_pv'].max(), df_plot['expected_pv'].max())
+                            
+                            # 만약 값이 비정상일 경우를 대비
+                            if pd.isna(min_val) or pd.isna(max_val):
+                                min_val, max_val = 0, 100 
+                                
+                            ax.plot([min_val, max_val], [min_val, max_val], 'r--', linewidth=2, label='Ideal (y=x)')
+                            
+                            # 상관계수 및 RMSE 추출
+                            corr = df_plot['actual_pv'].corr(df_plot['expected_pv'])
+                            rmse = np.sqrt(mean_squared_error(df_plot['actual_pv'], df_plot['expected_pv']))
+                            
+                            ax.set_title(f"{case_name} ({model_type})\nCorr: {corr:.3f}, RMSE: {rmse:.3f}", fontsize=14)
+                            ax.set_xlabel('Actual PV', fontsize=12)
+                            ax.set_ylabel('Expected PV', fontsize=12)
+                            ax.grid(True, linestyle=':', alpha=0.7)
+                            ax.legend()
 
+                    plt.tight_layout(rect=[0, 0.03, 1, 0.95]) # suptitle이 겹치지 않게 여백 조정
+                    
+                    save_fig_path = os.path.join(fig_dir, f"QUBE2025_{srv}_scatter_validation.png")
+                    plt.savefig(save_fig_path, dpi=300)
+                    plt.close()
+                    print(f"[{srv}] 통합 산점도 저장 완료: {save_fig_path}")
                     # dataL3 = df_result.reset_index()
                     # dataL3['srv'] = posInfo['srv']
                     # dataL3['date_time'] = dataL3['date_time_kst'] - dtKst
