@@ -1,11 +1,11 @@
 # =================================================
 # 도움말
 # =================================================
-# http://49.247.41.71:9931
-
 # cd /HDD/SYSTEMS/PROG/PYTHON/IDE/src/proj/bdwide/2026/bioPrd
 # /HDD/SYSTEMS/LIB/anaconda3/envs/py311/bin/python -m streamlit run TalentPlatform-BDWIDE2026-streamlit-bioPrd.py --server.port 9931
 # nohup /HDD/SYSTEMS/LIB/anaconda3/envs/py311/bin/python -m streamlit run TalentPlatform-BDWIDE2026-streamlit-bioPrd.py --server.port 9931
+
+# http://49.247.41.71:9931
 
 # ============================================
 # 라이브러리
