@@ -1,10 +1,17 @@
 # =================================================
 # 도움말
 # =================================================
+# 프로그램 실행
 # cd /HDD/SYSTEMS/PROG/PYTHON/IDE/src/proj/bdwide/2026/bioPrd
 # /HDD/SYSTEMS/LIB/anaconda3/envs/py311/bin/python -m streamlit run TalentPlatform-BDWIDE2026-streamlit-bioPrd.py --server.port 9931
 # nohup /HDD/SYSTEMS/LIB/anaconda3/envs/py311/bin/python -m streamlit run TalentPlatform-BDWIDE2026-streamlit-bioPrd.py --server.port 9931
 
+# bash /HDD/SYSTEMS/PROG/PYTHON/IDE/src/talentPlatform/shell/RunShell-ProcAgentCheck.sh
+
+# 프로그램 종료
+# pkill -f TaTalentPlatform-BDWIDE2026-streamlit-bioPrd.py
+
+# 접속
 # http://49.247.41.71:9931
 
 # ============================================
@@ -216,6 +223,15 @@ except Exception as e:
     st.stop()
 
 st.set_page_config(layout="wide", page_title="AI 배양예측")
+
+st.markdown("""
+<link rel="stylesheet" as="style" crossorigin href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/static/pretendard-gov.min.css" />
+<style>
+    html, body, [class*="css"], [class*="st-"] {
+        font-family: 'Pretendard Gov', -apple-system, BlinkMacSystemFont, system-ui, Roboto, 'Helvetica Neue', 'Segoe UI', 'Apple SD Gothic Neo', 'Noto Sans KR', 'Malgun Gothic', sans-serif !important;
+    }
+</style>
+""", unsafe_allow_html=True)
 
 st.title("AI 배양예측 예측 시스템")
 st.write("실시간 공정 데이터 (Age, TURB, PRESS 등) 및 생물학적 생존 곡선을 조합하여 예상시간 (TURB <= 0.25)을 예측합니다.")
