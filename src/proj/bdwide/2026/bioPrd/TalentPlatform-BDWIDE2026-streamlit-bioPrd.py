@@ -1,3 +1,15 @@
+# =================================================
+# 도움말
+# =================================================
+# http://49.247.41.71:9931
+
+# cd /HDD/SYSTEMS/PROG/PYTHON/IDE/src/proj/bdwide/2026/bioPrd
+# /HDD/SYSTEMS/LIB/anaconda3/envs/py311/bin/python -m streamlit run TalentPlatform-BDWIDE2026-streamlit-bioPrd.py --server.port 9931
+# nohup /HDD/SYSTEMS/LIB/anaconda3/envs/py311/bin/python -m streamlit run TalentPlatform-BDWIDE2026-streamlit-bioPrd.py --server.port 9931
+
+# ============================================
+# 라이브러리
+# ============================================
 import streamlit as st
 import pandas as pd
 import numpy as np
@@ -7,37 +19,58 @@ from scipy.optimize import curve_fit
 import tempfile
 import os
 import warnings
-
+import os
+import sys
+import logging
+import logging.handlers
+import platform
+import time
+import tempfile
+import altair as alt
+import warnings
 warnings.filterwarnings('ignore')
 
+# ============================================
+# 유틸리티 함수
+# ============================================
+# 로그 설정
+def initLog(env=None, contextPath=None, prjName=None):
+    if env is None: env = 'local'
+    if contextPath is None: contextPath = os.getcwd()
+    if prjName is None: prjName = 'test'
+
+    saveLogFile = "{}/{}_{}_{}_{}_{}.log".format(
+        contextPath if env in 'local' else os.path.join(contextPath, 'resources', 'log', prjName)
+        , platform.system()
+        , platform.machine()
+        , platform.architecture()[0]
+        , platform.node()
+        , prjName
+    )
+
+    os.makedirs(os.path.dirname(saveLogFile), exist_ok=True)
+    log = logging.getLogger(prjName)
+    if len(log.handlers) > 0:
+        return log
+
+    format = logging.Formatter('%(asctime)s [%(name)s | %(lineno)d | %(filename)s] [%(levelname)-5.5s] %(message)s')
+
+    streamHandler = logging.StreamHandler()
+    fileHandler = logging.handlers.TimedRotatingFileHandler(filename=saveLogFile, when='midnight', interval=1, backupCount=30, encoding='utf-8')
+
+    streamHandler.setFormatter(format)
+    fileHandler.setFormatter(format)
+
+    log.addHandler(streamHandler)
+    log.addHandler(fileHandler)
+    log.setLevel(level=logging.INFO)
+
+    return log
+
 @st.cache_resource
-def load_models():
-    # 현재 스크립트 파일 위치를 기준으로 모델 파일의 절대 경로 생성
-    base_dir = os.path.dirname(os.path.abspath(__file__))
-    model_path = os.path.join(base_dir, 'stacking_lgbm_model.pkl')
-    
-    # 만약 현재 폴더에 없다면 Daemon API에 적혀있던 테스트용/운영용 경로를 시도
-    if not os.path.exists(model_path):
-        fallback_paths = [
-            "C:/SYSTEMS/PROG/PYTHON/TalentPlatform-Python/src/proj/bdwide/2026/bioPrd/stacking_lgbm_model.pkl",
-            "/HDD/DATA/INPUT/BDWIDE2026/bioPrd/stacking_lgbm_model.pkl"
-        ]
-        for p in fallback_paths:
-            if os.path.exists(p):
-                model_path = p
-                break
-                
-    return joblib.load(model_path)
+def load_models(sysOpt):
+    return joblib.load(sysOpt['modelInfo'])
 
-try:
-    models = load_models()
-except Exception as e:
-    st.error(f"'stacking_lgbm_model.pkl' 파일을 찾을 수 없거나 로드할 수 없습니다: {e}")
-    st.stop()
-
-# ============================================
-# 예측 및 전처리 함수 (Daemon API 참조 로직)
-# ============================================
 def lognorm_pdf(x, A, mu, sigma, C):
     return C + A * np.exp(- (np.log(x + 1e-5) - mu)**2 / (2 * sigma**2))
 
@@ -159,9 +192,28 @@ def predict_time_to_target(filepath, model, cutoff_age=None):
     return predicted_time, cutoff_age, turb_curr
 
 # ============================================
-# Streamlit UI
+# 주요 설정
 # ============================================
-import altair as alt
+env = 'dev'
+serviceName = 'BDWIDE2026'
+prjName = 'streamlit-bioPrd'
+
+ctxPath = '/HDD/SYSTEMS/PROG/PYTHON/IDE/src/proj/bdwide/2026'
+log = initLog(env, ctxPath, prjName)
+
+sysOpt = {
+    # 'modelInfo': "C:/SYSTEMS/PROG/PYTHON/TalentPlatform-Python/src/proj/bdwide/2026/bioPrd/stacking_lgbm_model.pkl"
+    'modelInfo': "/HDD/DATA/INPUT/BDWIDE2026/bioPrd/stacking_lgbm_model.pkl"
+}
+
+# ============================================
+# 비즈니스 로직
+# ============================================
+try:
+    models = load_models(sysOpt)
+except Exception as e:
+    st.error(f"'stacking_lgbm_model.pkl' 파일을 찾을 수 없거나 로드할 수 없습니다: {e}")
+    st.stop()
 
 st.set_page_config(layout="wide", page_title="AI 배양예측")
 
