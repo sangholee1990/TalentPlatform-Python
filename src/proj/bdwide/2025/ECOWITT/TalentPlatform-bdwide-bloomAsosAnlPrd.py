@@ -459,259 +459,259 @@ class DtaProcess(object):
             # **********************************************************************************************************
             # DB 설정 정보
             # **********************************************************************************************************
-            # config = configparser.ConfigParser()
-            # config.read(sysOpt['cfgFile'], encoding='utf-8')
-            #
-            # sysOpt['cfgDb'] = initCfgInfo(config, sysOpt['cfgDbKey'])
+            config = configparser.ConfigParser()
+            config.read(sysOpt['cfgFile'], encoding='utf-8')
+
+            sysOpt['cfgDb'] = initCfgInfo(config, sysOpt['cfgDbKey'])
 
             # **********************************************************************************************************
             # 파일 설정 정보
             # **********************************************************************************************************
-            # cfgData = pd.read_csv(sysOpt['stnFile'])
-            # cfgDataL1 = cfgData[['STN', 'LON', 'LAT']]
-            #
-            # obsData = pd.read_csv(sysOpt['obsFile'], encoding='EUC-KR')
-            # # obsData.columns
-            # obsData.columns = ['stnId', 'stnName', 'dt', 'avgTemp', 'avgMinTemp', 'avgMaxTemp', 'sumPrecip', 'avgRh', 'sumSolarRad', 'avgWindSpeed']
-            #
-            # refData = pd.read_csv(sysOpt['refFile'], skiprows=2, encoding='EUC-KR')
-            # refDataL1 = refData.melt(id_vars=['지점', '년도'], var_name='구분', value_name='값')
-            # refDataL1[['구분1', '구분2']] = refDataL1['구분'].str.split('_', n=1, expand=True)
-            #
-            # obsData['year'] = obsData['dt'].astype(str)
-            # refDataL1['년도'] = refDataL1['년도'].astype(str)
-            #
-            # mergeData = pd.merge(obsData, refDataL1, left_on=['stnName', 'year'], right_on=['지점', '년도'], how='inner')
-            # mergeData = pd.merge(mergeData, cfgDataL1, left_on=['stnId'], right_on=['STN'], how='inner')
-            # mergeDataL1 = mergeData.groupby(['stnName', '구분1', '구분2']).filter(lambda x: len(x) >= 30)
+            cfgData = pd.read_csv(sysOpt['stnFile'])
+            cfgDataL1 = cfgData[['STN', 'LON', 'LAT']]
+
+            obsData = pd.read_csv(sysOpt['obsFile'], encoding='EUC-KR')
+            # obsData.columns
+            obsData.columns = ['stnId', 'stnName', 'dt', 'avgTemp', 'avgMinTemp', 'avgMaxTemp', 'sumPrecip', 'avgRh', 'sumSolarRad', 'avgWindSpeed']
+
+            refData = pd.read_csv(sysOpt['refFile'], skiprows=2, encoding='EUC-KR')
+            refDataL1 = refData.melt(id_vars=['지점', '년도'], var_name='구분', value_name='값')
+            refDataL1[['구분1', '구분2']] = refDataL1['구분'].str.split('_', n=1, expand=True)
+
+            obsData['year'] = obsData['dt'].astype(str)
+            refDataL1['년도'] = refDataL1['년도'].astype(str)
+
+            mergeData = pd.merge(obsData, refDataL1, left_on=['stnName', 'year'], right_on=['지점', '년도'], how='inner')
+            mergeData = pd.merge(mergeData, cfgDataL1, left_on=['stnId'], right_on=['STN'], how='inner')
+            mergeDataL1 = mergeData.groupby(['stnName', '구분1', '구분2']).filter(lambda x: len(x) >= 30)
 
             # =============================================================
             # 지상관측 기반 학습모형 생산/예측
             # =============================================================
-            # resList = []
-            # resDtlList = []
-            # trainDataL1 = pd.DataFrame()
-            # testDataL1 = pd.DataFrame()
-            # prdDataL1 = pd.DataFrame()
-            # mergeDataL2 = pd.DataFrame()
-            # for (type, type2), mergeInfo in mergeDataL1.groupby(['구분1', '구분2']):
-            #     try:
-            #         # if type not in ['코스모스']: continue
-            #         # if type2 not in ['개화', '만발']: continue
-            #         if type2 not in ['개화']: continue
-            #         # if type2 not in ['만발']: continue
-            #
-            #         mergeInfo = mergeInfo.rename(columns={'값': 'demand'})
-            #         mergeInfo['demand'] = pd.to_datetime(mergeInfo['demand'], format='%Y-%m-%d', errors='coerce').dt.strftime('%j').astype('float')
-            #         mergeInfo = mergeInfo.dropna(subset=['demand']).reset_index(drop=True)
-            #         mergeInfo = mergeInfo.sort_values(by='year')
-            #
-            #         # 독립/종속 변수 설정
-            #         xCol = ['year', 'avgTemp', 'avgMinTemp', 'avgMaxTemp', 'sumPrecip', 'avgRh', 'avgWindSpeed']
-            #         yCol = 'demand'
-            #
-            #         # 학습/테스트 데이터
-            #         yearList = mergeInfo['year'].unique()
-            #         idx = int(len(yearList) * 0.8)
-            #         trainData = mergeInfo[mergeInfo['year'] <= yearList[idx - 1]]
-            #         testData = mergeInfo[mergeInfo['year'] > yearList[idx - 1]]
-            #         prdData = testData
-            #
-            #         # AI 학습
-            #         sysOpt['flaml']['srv'] = f"{type}-{type2}-전체"
-            #         resFlaml = makeFlamlModel(sysOpt['flaml'], xCol, yCol, trainData, testData)
-            #         # resFlaml = makeFlamlModel(sysOpt['flaml'], xCol, yCol, mergeInfo, testData)
-            #         # resFlaml = makeFlamlModel(sysOpt['flaml'], xCol, yCol, testData, testData)
-            #         # log.info(f'resFlaml : {resFlaml}')
-            #
-            #         if not resFlaml: continue
-            #         # prdVal = resFlaml['mlModel'].predict(prdData[xCol])
-            #         prdVal = resFlaml['mlModel'].predict(prdData[xCol]).astype(int)
-            #         prdData['ai'] = prdVal
-            #
-            #         if len(prdData) < 1: continue
-            #
-            #         trainDataL1 = pd.concat([trainDataL1, trainData], ignore_index=True)
-            #         testDataL1 = pd.concat([testDataL1, testData], ignore_index=True)
-            #         mergeDataL2 = pd.concat([mergeDataL2, mergeInfo], ignore_index=True)
-            #         prdDataL1 = pd.concat([prdDataL1, prdData], ignore_index=True)
-            #
-            #         try:
-            #             r = np.corrcoef(prdData['demand'], prdData['ai'])[0, 1]
-            #             rmse = np.sqrt(mean_squared_error(prdData['demand'], prdData['ai']))
-            #             resInfo = {
-            #                 'type': type,
-            #                 'type2': type2,
-            #                 'stnName': '전체',
-            #                 'N': len(prdData['demand']),
-            #                 'RMSE': round(rmse, 4) if not np.isnan(rmse) else np.nan,
-            #                 'R': round(r, 4) if not np.isnan(r) else np.nan
-            #             }
-            #             log.info(resInfo)
-            #             resList.append(resInfo)
-            #         except Exception as e:
-            #             log.error(f'Exception : {e}')
-            #
-            #         for stn, stnInfo in prdData.groupby('stnName'):
-            #             try:
-            #                 r = np.corrcoef(stnInfo['demand'], stnInfo['ai'])[0, 1]
-            #                 rmse = np.sqrt(mean_squared_error(stnInfo['demand'], stnInfo['ai']))
-            #                 resDtlInfo = {
-            #                     'type': type,
-            #                     'type2': type2,
-            #                     'stnName': stn,
-            #                     'N': len(stnInfo['demand']),
-            #                     'RMSE': round(rmse, 4) if not np.isnan(rmse) else np.nan,
-            #                     'R': round(r, 4) if not np.isnan(r) else np.nan
-            #                 }
-            #                 resDtlList.append(resDtlInfo)
-            #             except Exception as e:
-            #                 log.error(f'Exception : {e}')
-            #     except Exception as e:
-            #         log.error(f"Exception : {e}")
-            #
-            # # try:
-            # #     r = np.corrcoef(prdDataL1['demand'], prdDataL1['ai'])[0, 1]
-            # #     rmse = np.sqrt(mean_squared_error(prdDataL1['demand'], prdDataL1['ai']))
-            # #     resInfo = {
-            # #         'type': '전체',
-            # #         'type2': '개화',
-            # #         'stnName': '전체',
-            # #         'N': len(prdDataL1['demand']),
-            # #         'RMSE': round(rmse, 4) if not np.isnan(rmse) else np.nan,
-            # #         'R': round(r, 4) if not np.isnan(r) else np.nan
-            # #     }
-            # #     log.info(resInfo)
-            # #     resList.append(resInfo)
-            # # except Exception as e:
-            # #     log.error(f'Exception : {e}')
-            #
-            # # 전처리 데이터 (19,644개)
+            resList = []
+            resDtlList = []
+            trainDataL1 = pd.DataFrame()
+            testDataL1 = pd.DataFrame()
+            prdDataL1 = pd.DataFrame()
+            mergeDataL2 = pd.DataFrame()
+            for (type, type2), mergeInfo in mergeDataL1.groupby(['구분1', '구분2']):
+                try:
+                    # if type not in ['코스모스']: continue
+                    # if type2 not in ['개화', '만발']: continue
+                    if type2 not in ['개화']: continue
+                    # if type2 not in ['만발']: continue
+
+                    mergeInfo = mergeInfo.rename(columns={'값': 'demand'})
+                    mergeInfo['demand'] = pd.to_datetime(mergeInfo['demand'], format='%Y-%m-%d', errors='coerce').dt.strftime('%j').astype('float')
+                    mergeInfo = mergeInfo.dropna(subset=['demand']).reset_index(drop=True)
+                    mergeInfo = mergeInfo.sort_values(by='year')
+
+                    # 독립/종속 변수 설정
+                    xCol = ['year', 'avgTemp', 'avgMinTemp', 'avgMaxTemp', 'sumPrecip', 'avgRh', 'avgWindSpeed']
+                    yCol = 'demand'
+
+                    # 학습/테스트 데이터
+                    yearList = mergeInfo['year'].unique()
+                    idx = int(len(yearList) * 0.8)
+                    trainData = mergeInfo[mergeInfo['year'] <= yearList[idx - 1]]
+                    testData = mergeInfo[mergeInfo['year'] > yearList[idx - 1]]
+                    prdData = testData
+
+                    # AI 학습
+                    sysOpt['flaml']['srv'] = f"{type}-{type2}-전체"
+                    resFlaml = makeFlamlModel(sysOpt['flaml'], xCol, yCol, trainData, testData)
+                    # resFlaml = makeFlamlModel(sysOpt['flaml'], xCol, yCol, mergeInfo, testData)
+                    # resFlaml = makeFlamlModel(sysOpt['flaml'], xCol, yCol, testData, testData)
+                    # log.info(f'resFlaml : {resFlaml}')
+
+                    if not resFlaml: continue
+                    # prdVal = resFlaml['mlModel'].predict(prdData[xCol])
+                    prdVal = resFlaml['mlModel'].predict(prdData[xCol]).astype(int)
+                    prdData['ai'] = prdVal
+
+                    if len(prdData) < 1: continue
+
+                    trainDataL1 = pd.concat([trainDataL1, trainData], ignore_index=True)
+                    testDataL1 = pd.concat([testDataL1, testData], ignore_index=True)
+                    mergeDataL2 = pd.concat([mergeDataL2, mergeInfo], ignore_index=True)
+                    prdDataL1 = pd.concat([prdDataL1, prdData], ignore_index=True)
+
+                    try:
+                        r = np.corrcoef(prdData['demand'], prdData['ai'])[0, 1]
+                        rmse = np.sqrt(mean_squared_error(prdData['demand'], prdData['ai']))
+                        resInfo = {
+                            'type': type,
+                            'type2': type2,
+                            'stnName': '전체',
+                            'N': len(prdData['demand']),
+                            'RMSE': round(rmse, 4) if not np.isnan(rmse) else np.nan,
+                            'R': round(r, 4) if not np.isnan(r) else np.nan
+                        }
+                        log.info(resInfo)
+                        resList.append(resInfo)
+                    except Exception as e:
+                        log.error(f'Exception : {e}')
+
+                    for stn, stnInfo in prdData.groupby('stnName'):
+                        try:
+                            r = np.corrcoef(stnInfo['demand'], stnInfo['ai'])[0, 1]
+                            rmse = np.sqrt(mean_squared_error(stnInfo['demand'], stnInfo['ai']))
+                            resDtlInfo = {
+                                'type': type,
+                                'type2': type2,
+                                'stnName': stn,
+                                'N': len(stnInfo['demand']),
+                                'RMSE': round(rmse, 4) if not np.isnan(rmse) else np.nan,
+                                'R': round(r, 4) if not np.isnan(r) else np.nan
+                            }
+                            resDtlList.append(resDtlInfo)
+                        except Exception as e:
+                            log.error(f'Exception : {e}')
+                except Exception as e:
+                    log.error(f"Exception : {e}")
+
+            # try:
+            #     r = np.corrcoef(prdDataL1['demand'], prdDataL1['ai'])[0, 1]
+            #     rmse = np.sqrt(mean_squared_error(prdDataL1['demand'], prdDataL1['ai']))
+            #     resInfo = {
+            #         'type': '전체',
+            #         'type2': '개화',
+            #         'stnName': '전체',
+            #         'N': len(prdDataL1['demand']),
+            #         'RMSE': round(rmse, 4) if not np.isnan(rmse) else np.nan,
+            #         'R': round(r, 4) if not np.isnan(r) else np.nan
+            #     }
+            #     log.info(resInfo)
+            #     resList.append(resInfo)
+            # except Exception as e:
+            #     log.error(f'Exception : {e}')
+
+            # 전처리 데이터 (19,644개)
             # mergeDataL2.to_csv('/DATA/OUTPUT/BDWIDE2026/BDWIDE2025_mergeDataL1_20260625.csv', index=False, encoding='euc-kr')
-            #
-            # # 학습 데이터 (17,957개)
+
+            # 학습 데이터 (17,957개)
             # trainDataL1.to_csv('/DATA/OUTPUT/BDWIDE2026/BDWIDE2025_trainDataL1_20260625.csv', index=False, encoding='euc-kr')
-            #
-            # # 검증 데이터 (1,687개)
+
+            # 검증 데이터 (1,687개)
             # testDataL1.to_csv('/DATA/OUTPUT/BDWIDE2026/BDWIDE2025_testDataL1_20260625.csv', index=False, encoding='euc-kr')
-            #
-            # # 예측 데이터 (19,644개)
+
+            # 예측 데이터 (19,644개)
             # prdDataL1.to_csv('/DATA/OUTPUT/BDWIDE2026/BDWIDE2025_prdDataL1_20260625.csv', index=False, encoding='euc-kr')
-            #
-            # resData = pd.DataFrame(resList)
-            # log.info(resData)
-            #
-            # saveFile = datetime.datetime.now().strftime(sysOpt['saveFile'])
-            # os.makedirs(os.path.dirname(saveFile), exist_ok=True)
-            # resData.to_csv(saveFile, index=False, encoding='euc-kr')
-            # log.info(f'saveFile : {saveFile}')
-            #
-            # resDtlData = pd.DataFrame(resDtlList)
-            # log.info(resDtlData)
-            #
-            # saveDtlFile = datetime.datetime.now().strftime(sysOpt['saveDtlFile'])
-            # os.makedirs(os.path.dirname(saveDtlFile), exist_ok=True)
-            # resDtlData.to_csv(saveDtlFile, index=False, encoding='euc-kr')
-            # log.info(f'saveDtlFile : {saveDtlFile}')
+
+            resData = pd.DataFrame(resList)
+            log.info(resData)
+
+            saveFile = datetime.datetime.now().strftime(sysOpt['saveFile'])
+            os.makedirs(os.path.dirname(saveFile), exist_ok=True)
+            resData.to_csv(saveFile, index=False, encoding='euc-kr')
+            log.info(f'saveFile : {saveFile}')
+
+            resDtlData = pd.DataFrame(resDtlList)
+            log.info(resDtlData)
+
+            saveDtlFile = datetime.datetime.now().strftime(sysOpt['saveDtlFile'])
+            os.makedirs(os.path.dirname(saveDtlFile), exist_ok=True)
+            resDtlData.to_csv(saveDtlFile, index=False, encoding='euc-kr')
+            log.info(f'saveDtlFile : {saveDtlFile}')
 
             # **********************************************************************************************************
             # 기후모델 기반 예측
             # **********************************************************************************************************
-            # fileList = sorted(glob.glob(sysOpt['clmFilePattern']))
-            # ds = xr.open_mfdataset(fileList, chunks='auto')
-            #
-            # timeList = ds['time'].values
-            # for timeInfo in timeList:
-            #     # log.info(f'timeInfo : {timeInfo}')
-            #     selData = ds.sel(time=timeInfo).to_dataframe().reset_index()
-            #     selData = selData.dropna().reset_index(drop=True)
-            #     selData = selData.rename(
-            #         columns={'TA': 'avgTemp', 'TAMIN': 'avgMinTemp', 'TAMAX': 'avgMaxTemp', 'RN': 'sumPrecip',
-            #                  'RHM': 'avgRh', 'WS': 'avgWindSpeed', 'longitude': 'lon', 'latitude': 'lat'})
-            #     selData['year'] = selData['time'].apply(lambda x: x.year)
-            #     selData['lon'] = selData['lon'].astype('float64').round(2).astype('str')
-            #     selData['lat'] = selData['lat'].astype('float64').round(2).astype('str')
-            #     selDataL1 = selData.copy()
-            #
-            #     # 독립/종속 변수 설정
-            #     xCol = ['year', 'avgTemp', 'avgMinTemp', 'avgMaxTemp', 'sumPrecip', 'avgRh', 'avgWindSpeed']
-            #     yCol = 'demand'
-            #
-            #     trainData = None
-            #     testData = None
-            #     prdData = selDataL1.copy()
-            #     prdList = {}
-            #     # item = {idx: {} for idx in prdData.index}
-            #     for (type, type2), target_df in mergeData.groupby(['구분1', '구분2']):
-            #         if type2 not in ['개화', '만발']: continue
-            #
-            #         sysOpt['flaml']['srv'] = f"{type}-{type2}-전체"
-            #         sysOpt['flaml']['isOverWrite'] = False
-            #         resFlaml = makeFlamlModel(sysOpt['flaml'], xCol, yCol, trainData, testData)
-            #         # log.info(f'resFlaml : {resFlaml}')
-            #
-            #         if not resFlaml: continue
-            #         prdVal = resFlaml['mlModel'].predict(prdData[xCol]).astype(int)
-            #         # prdData['ai'] = prdVal
-            #         # prdData['type'] = type
-            #         # prdData['type2'] = type2
-            #
-            #         if type not in prdList:
-            #             prdList[type] = {}
-            #         prdList[type][type2] = prdVal
-            #
-            #     prdData['ai'] = [
-            #         json.dumps(
-            #             {
-            #                 t: {t2: int(prdList[t][t2][i]) for t2 in prdList[t]}
-            #                 for t in prdList
-            #             },
-            #             ensure_ascii=False
-            #         )
-            #         for i in range(len(prdData))
-            #     ]
-            #
-            #     # DB 적재
-            #     with sysOpt['cfgDb']['sessionMake']() as session:
-            #         try:
-            #             tbTmp = f"tbTm_{uuid.uuid4().hex}"
-            #             with session.begin():
-            #                 dbEngine = session.get_bind()
-            #
-            #                 prdData.to_sql(
-            #                     name=tbTmp,
-            #                     con=dbEngine,
-            #                     if_exists="replace",
-            #                     index=False,
-            #                     chunksize=1000
-            #                 )
-            #
-            #                 query = text(f"""
-            #                     INSERT INTO TB_BLOOM_DATA (
-            #                         LON, LAT, AVG_RH, SUM_PRECIP, AVG_TEMP, AVG_MAX_TEMP, AVG_MIN_TEMP,
-            #                         AVG_WIND_SPEED, YEAR, AI
-            #                     )
-            #                     SELECT
-            #                         lon, lat, avgRh, sumPrecip, avgTemp, avgMaxTemp, avgMinTemp,
-            #                         avgWindSpeed, year, ai
-            #                     FROM `{tbTmp}`
-            #                     ON DUPLICATE KEY UPDATE
-            #                         YEAR = VALUES(YEAR),
-            #                         AVG_RH = VALUES(AVG_RH),
-            #                         SUM_PRECIP = VALUES(SUM_PRECIP),
-            #                         AVG_TEMP = VALUES(AVG_TEMP),
-            #                         AVG_MAX_TEMP = VALUES(AVG_MAX_TEMP),
-            #                         AVG_MIN_TEMP = VALUES(AVG_MIN_TEMP),
-            #                         AVG_WIND_SPEED = VALUES(AVG_WIND_SPEED),
-            #
-            #                         AI = VALUES(AI)
-            #                 """)
-            #                 result = session.execute(query)
-            #                 log.info(f"timeInfo : {timeInfo}, result : {result.rowcount}")
-            #         except Exception as e:
-            #             log.error(f"Exception : {e}")
-            #         finally:
-            #             session.execute(text(f'DROP TABLE IF EXISTS {tbTmp}'))
+            fileList = sorted(glob.glob(sysOpt['clmFilePattern']))
+            ds = xr.open_mfdataset(fileList, chunks='auto')
+
+            timeList = ds['time'].values
+            for timeInfo in timeList:
+                # log.info(f'timeInfo : {timeInfo}')
+                selData = ds.sel(time=timeInfo).to_dataframe().reset_index()
+                selData = selData.dropna().reset_index(drop=True)
+                selData = selData.rename(
+                    columns={'TA': 'avgTemp', 'TAMIN': 'avgMinTemp', 'TAMAX': 'avgMaxTemp', 'RN': 'sumPrecip',
+                             'RHM': 'avgRh', 'WS': 'avgWindSpeed', 'longitude': 'lon', 'latitude': 'lat'})
+                selData['year'] = selData['time'].apply(lambda x: x.year)
+                selData['lon'] = selData['lon'].astype('float64').round(2).astype('str')
+                selData['lat'] = selData['lat'].astype('float64').round(2).astype('str')
+                selDataL1 = selData.copy()
+
+                # 독립/종속 변수 설정
+                xCol = ['year', 'avgTemp', 'avgMinTemp', 'avgMaxTemp', 'sumPrecip', 'avgRh', 'avgWindSpeed']
+                yCol = 'demand'
+
+                trainData = None
+                testData = None
+                prdData = selDataL1.copy()
+                prdList = {}
+                # item = {idx: {} for idx in prdData.index}
+                for (type, type2), target_df in mergeData.groupby(['구분1', '구분2']):
+                    if type2 not in ['개화', '만발']: continue
+
+                    sysOpt['flaml']['srv'] = f"{type}-{type2}-전체"
+                    sysOpt['flaml']['isOverWrite'] = False
+                    resFlaml = makeFlamlModel(sysOpt['flaml'], xCol, yCol, trainData, testData)
+                    # log.info(f'resFlaml : {resFlaml}')
+
+                    if not resFlaml: continue
+                    prdVal = resFlaml['mlModel'].predict(prdData[xCol]).astype(int)
+                    # prdData['ai'] = prdVal
+                    # prdData['type'] = type
+                    # prdData['type2'] = type2
+
+                    if type not in prdList:
+                        prdList[type] = {}
+                    prdList[type][type2] = prdVal
+
+                prdData['ai'] = [
+                    json.dumps(
+                        {
+                            t: {t2: int(prdList[t][t2][i]) for t2 in prdList[t]}
+                            for t in prdList
+                        },
+                        ensure_ascii=False
+                    )
+                    for i in range(len(prdData))
+                ]
+
+                # DB 적재
+                with sysOpt['cfgDb']['sessionMake']() as session:
+                    try:
+                        tbTmp = f"tbTm_{uuid.uuid4().hex}"
+                        with session.begin():
+                            dbEngine = session.get_bind()
+
+                            prdData.to_sql(
+                                name=tbTmp,
+                                con=dbEngine,
+                                if_exists="replace",
+                                index=False,
+                                chunksize=1000
+                            )
+
+                            query = text(f"""
+                                INSERT INTO TB_BLOOM_DATA (
+                                    LON, LAT, AVG_RH, SUM_PRECIP, AVG_TEMP, AVG_MAX_TEMP, AVG_MIN_TEMP,
+                                    AVG_WIND_SPEED, YEAR, AI
+                                )
+                                SELECT
+                                    lon, lat, avgRh, sumPrecip, avgTemp, avgMaxTemp, avgMinTemp,
+                                    avgWindSpeed, year, ai
+                                FROM `{tbTmp}`
+                                ON DUPLICATE KEY UPDATE
+                                    YEAR = VALUES(YEAR),
+                                    AVG_RH = VALUES(AVG_RH),
+                                    SUM_PRECIP = VALUES(SUM_PRECIP),
+                                    AVG_TEMP = VALUES(AVG_TEMP),
+                                    AVG_MAX_TEMP = VALUES(AVG_MAX_TEMP),
+                                    AVG_MIN_TEMP = VALUES(AVG_MIN_TEMP),
+                                    AVG_WIND_SPEED = VALUES(AVG_WIND_SPEED),
+
+                                    AI = VALUES(AI)
+                            """)
+                            result = session.execute(query)
+                            log.info(f"timeInfo : {timeInfo}, result : {result.rowcount}")
+                    except Exception as e:
+                        log.error(f"Exception : {e}")
+                    finally:
+                        session.execute(text(f'DROP TABLE IF EXISTS {tbTmp}'))
 
             # =============================================================
             # 시각화
@@ -913,8 +913,6 @@ class DtaProcess(object):
             # year_df = prdData[prdData['dt'] == target_year && prdData['구분1'] == '아까시나무'].copy()
             year_df = prdData[(prdData['dt'] == target_year) & (prdData['구분1'] == '아까시나무')].copy()
             year_df['prd'] = year_df['ai'].round().astype(int)
-
-            year_df[['stnName', 'demand', 'prd']]
 
             lats = year_df['LAT'].values
             lons = year_df['LON'].values
