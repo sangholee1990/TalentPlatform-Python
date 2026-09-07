@@ -106,6 +106,9 @@ from darts.utils.timeseries_generation import datetime_attribute_timeseries
 import pvlib
 from pvlib import location
 from sklearn.metrics import mean_squared_error
+import torch
+import torch.nn as nn
+from torch.utils.data import DataLoader, TensorDataset
 
 # =================================================
 # 사용자 매뉴얼
@@ -305,7 +308,7 @@ class DtaProcess(object):
         # contextPath = os.getcwd() if env in 'local' else '/SYSTEMS/PROG/PYTHON/IDE'
         contextPath = os.getcwd() if env in 'local' else '/SYSTEMS/PROG/PYTHON'
 
-    prjName = 'anoTradPv2'
+    prjName = 'anoTradPv'
     serviceName = 'QUBE2025'
 
     # 4.1. 환경 변수 설정 (로그 설정)
@@ -403,7 +406,6 @@ class DtaProcess(object):
                     try:
                         srv = posInfo['srv']
                         # srv = 'SRV00009'
-                        # srv = 'SRV00017'
                         # query = text("""
                         #     SELECT "srv", "date_time", "date_time_kst", "trad", "srad", "otemp", "ptemp"
                         #     FROM "tb_obs_data"
@@ -462,13 +464,24 @@ class DtaProcess(object):
 
                         # dataframe을 Darts 전용 시계열 객체로 변환합니다.
                         ts_pv = TimeSeries.from_dataframe(df, time_col='date_time_kst', value_cols='pv', fill_missing_dates=True, freq='1h')
-                        # ts_pv = TimeSeries.from_dataframe(df, time_col='date_time_kst', value_cols='pv', fill_missing_dates=False, freq='1h')
+
+                        # 데이터 스케일링을 위한 라이브러리 추가
+                        from darts.dataprocessing.transformers import Scaler
+                        from darts.models import BlockRNNModel, TCNModel
 
                         # Darts 내장 함수를 사용하여 NaN으로 뚫어놓은 센서 고장 구간을 앞뒤 데이터를 통해 선형 보간
                         ts_pv_filled = fill_missing_values(ts_pv)
-                        train_pv, test_pv = ts_pv_filled.split_before(pd.Timestamp('2026-08-23'))
-                        if len(train_pv) < 1: continue
-                        if len(test_pv) < 1: continue
+
+                        # 딥러닝 모델은 데이터 스케일에 민감하므로 0~1 사이로 정규화
+                        # (Data Leakage 방지를 위해 먼저 분할 후 scaler 학습)
+                        # train_pv_raw, test_pv_raw = ts_pv_filled.split_before(0.8)
+                        train_pv_raw, test_pv_raw = ts_pv_filled.split_before(pd.Timestamp('2026-08-23'))
+                        if len(train_pv_raw) < 1: continue
+                        if len(test_pv_raw) < 1: continue
+
+                        scaler_pv = Scaler()
+                        train_pv = scaler_pv.fit_transform(train_pv_raw)
+                        test_pv = scaler_pv.transform(test_pv_raw)
 
                         # 3가지 일사량 변수 조합 정의
                         cov_configs = {
@@ -478,13 +491,11 @@ class DtaProcess(object):
                         }
 
                         print("=" * 70)
-                        print(f"[{srv}] 기상 변수 조합 및 모델(1h, 6h) 성능 평가 시작")
+                        print(f"[{srv}] 딥러닝(LSTM/CNN) 성능 평가 시작")
                         print("=" * 70)
 
                         df_result = None
-
-                        # 성능 검증을 위한 데이터를 담아둘 딕셔너리 준비
-                        plot_data = {'model_1h': {}, 'model_6h': {}}
+                        plot_data = {'model_1h': {}, 'model_6h': {}, 'model_cnnlstm': {}}
 
                         # 모델이 저장될 디렉토리 정의 및 생성
                         model_dir = os.path.join(globalVar['outPath'], 'models')
@@ -493,73 +504,173 @@ class DtaProcess(object):
                         for case_name, cov_cols in cov_configs.items():
                             # 현재 조합에 대한 공변량(Covariates) 시계열 생성 및 보간
                             ts_cov = TimeSeries.from_dataframe(df, time_col='date_time_kst', value_cols=cov_cols, fill_missing_dates=True, freq='1h')
-                            # ts_cov = TimeSeries.from_dataframe(df, time_col='date_time_kst', value_cols=cov_cols, fill_missing_dates=False, freq='1h')
                             ts_cov_filled = fill_missing_values(ts_cov)
-                            # train_cov, test_cov = ts_cov_filled.split_before(pd.Timestamp('2026-07-25'))
-                            train_cov, test_cov = ts_cov_filled.split_before(pd.Timestamp('2026-08-23'))
-                            if len(train_cov) < 1: continue
-                            if len(test_cov) < 1: continue
 
-                            # [옵션 1] 1시간 과거(lags=1)를 참조하여 1시간 미래 예측
-                            model_path_1h = os.path.join(model_dir, f"QUBE2025_{srv}_{case_name}_model_1h.pkl")
+                            # train_cov_raw, test_cov_raw = ts_cov_filled.split_before(0.8)
+                            train_cov_raw, test_cov_raw = ts_cov_filled.split_before(pd.Timestamp('2026-08-23'))
+
+
+                            scaler_cov = Scaler()
+                            train_cov = scaler_cov.fit_transform(train_cov_raw)
+                            # 시계열 예측 시 전체 과거 데이터가 필요하므로 합쳐진 공변량도 스케일링해둡니다.
+                            ts_cov_scaled = scaler_cov.transform(ts_cov_filled)
+
+                            # [옵션 1] 딥러닝 LSTM 적용 (과거 24시간 참조 -> 1시간 예측)
+                            model_path_1h = os.path.join(model_dir, f"QUBE2025_{srv}_{case_name}_LSTM_24h_1h.pt")
                             # if os.path.exists(model_path_1h):
-                            #     model_1h = LightGBMModel.load(model_path_1h)
-                            #     print(f"[{srv}] {case_name} model_1h 로드됨: {model_path_1h}")
+                            #     model_1h = BlockRNNModel.load(model_path_1h)
+                            #     print(f"[{srv}] {case_name} LSTM 로드됨: {model_path_1h}")
                             # else:
-                            model_1h = LightGBMModel(
-                                lags=1,
-                                lags_future_covariates=[0],
+                            model_1h = BlockRNNModel(
+                                model="LSTM",
+                                input_chunk_length=24,
                                 output_chunk_length=1,
+                                n_epochs=1,
+                                # n_epochs=15,    # 딥러닝 에폭 설정
                                 random_state=42
                             )
-                            model_1h.fit(series=train_pv, future_covariates=train_cov)
+                            # 과거 공변량(past_covariates)으로 날씨 피처 사용
+                            model_1h.fit(series=train_pv, past_covariates=train_cov)
                             model_1h.save(model_path_1h)
-                            print(f"[{srv}] {case_name} model_1h 저장됨: {model_path_1h}")
+                            print(f"[{srv}] {case_name} LSTM 저장됨: {model_path_1h}")
 
-                            pred_pv_1h = model_1h.predict(n=len(test_pv), future_covariates=test_cov)
+                            pred_pv_1h_scaled = model_1h.predict(n=len(test_pv), past_covariates=ts_cov_scaled)
+                            # 평가를 위해 예측값을 원래 스케일로 역변환(Inverse Transform)
+                            pred_pv_1h = scaler_pv.inverse_transform(pred_pv_1h_scaled)
 
-                            df_1h = test_pv.to_dataframe().rename(columns={'pv': 'actual_pv'})
+                            df_1h = test_pv_raw.to_dataframe().rename(columns={'pv': 'actual_pv'})
                             df_1h['expected_pv'] = pred_pv_1h.to_dataframe()['pv']
                             corr_1h = df_1h['actual_pv'].corr(df_1h['expected_pv'])
                             rmse_1h = np.sqrt(mean_squared_error(df_1h['actual_pv'], df_1h['expected_pv']))
-
-                            # 시각화를 위해 딕셔너리에 저장
                             plot_data['model_1h'][case_name] = df_1h
+                            a = plot_data['model_1h']
 
-                            # [옵션 2] 6시간 과거(lags=6)를 참조하여 6시간 미래 예측
-                            model_path_6h = os.path.join(model_dir, f"QUBE2025_{srv}_{case_name}_model_6h.pkl")
+                            # [옵션 2] 딥러닝 CNN(TCN) 적용 (과거 24시간 참조 -> 1시간 예측)
+                            model_path_6h = os.path.join(model_dir, f"QUBE2025_{srv}_{case_name}_CNN_24h_1h.pt")
                             # if os.path.exists(model_path_6h):
-                            #     model_6h = LightGBMModel.load(model_path_6h)
-                            #     print(f"[{srv}] {case_name} model_6h 로드됨: {model_path_6h}")
+                            #     model_6h = TCNModel.load(model_path_6h)
+                            #     print(f"[{srv}] {case_name} CNN 로드됨: {model_path_6h}")
                             # else:
-                            model_6h = LightGBMModel(
-                                lags=6,
-                                lags_future_covariates=[0, 1, 2, 3, 4, 5],
-                                output_chunk_length=6,
+                            model_6h = TCNModel(
+                                input_chunk_length=24,
+                                output_chunk_length=1,
+                                n_epochs=1,
+                                # n_epochs=15,
                                 random_state=42
                             )
-                            model_6h.fit(series=train_pv, future_covariates=train_cov)
+                            model_6h.fit(series=train_pv, past_covariates=train_cov)
                             model_6h.save(model_path_6h)
-                            print(f"[{srv}] {case_name} model_6h 저장됨: {model_path_6h}")
+                            print(f"[{srv}] {case_name} CNN 저장됨: {model_path_6h}")
 
-                            pred_pv_6h = model_6h.predict(n=len(test_pv), future_covariates=test_cov)
+                            pred_pv_6h_scaled = model_6h.predict(n=len(test_pv), past_covariates=ts_cov_scaled)
+                            # 평가를 위해 예측값을 원래 스케일로 역변환(Inverse Transform)
+                            pred_pv_6h = scaler_pv.inverse_transform(pred_pv_6h_scaled)
 
-                            df_6h = test_pv.to_dataframe().rename(columns={'pv': 'actual_pv'})
+                            df_6h = test_pv_raw.to_dataframe().rename(columns={'pv': 'actual_pv'})
                             df_6h['expected_pv'] = pred_pv_6h.to_dataframe()['pv']
                             corr_6h = df_6h['actual_pv'].corr(df_6h['expected_pv'])
                             rmse_6h = np.sqrt(mean_squared_error(df_6h['actual_pv'], df_6h['expected_pv']))
-
-                            # 시각화를 위해 딕셔너리에 저장
                             plot_data['model_6h'][case_name] = df_6h
+
+                            # [옵션 3] 딥러닝 CNN-LSTM 적용 (과거 24시간 참조 -> 1시간 예측)
+                            model_path_cnnlstm = os.path.join(model_dir, f"QUBE2025_{srv}_{case_name}_CNNLSTM_24h_1h.pt")
+
+                            input_dim = 1 + len(cov_cols)
+
+                            class CNN_LSTM(nn.Module):
+                                def __init__(self, input_dim, hidden_dim=64, num_layers=2, output_dim=1):
+                                    super(CNN_LSTM, self).__init__()
+                                    self.conv1 = nn.Conv1d(in_channels=input_dim, out_channels=32, kernel_size=3, padding=1)
+                                    self.relu = nn.ReLU()
+                                    self.pool = nn.MaxPool1d(kernel_size=2)
+                                    self.lstm = nn.LSTM(input_size=32, hidden_size=hidden_dim, num_layers=num_layers, batch_first=True, dropout=0.2)
+                                    self.fc1 = nn.Linear(hidden_dim, 32)
+                                    self.fc2 = nn.Linear(32, output_dim)
+
+                                def forward(self, x):
+                                    x = x.transpose(1, 2)
+                                    x = self.conv1(x)
+                                    x = self.relu(x)
+                                    x = self.pool(x)
+                                    x = x.transpose(1, 2)
+                                    out, _ = self.lstm(x)
+                                    out = out[:, -1, :]
+                                    out = self.relu(self.fc1(out))
+                                    out = self.fc2(out)
+                                    return out
+
+                            device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+                            cnn_lstm_model = CNN_LSTM(input_dim=input_dim).to(device)
+
+                            if os.path.exists(model_path_cnnlstm):
+                                cnn_lstm_model.load_state_dict(torch.load(model_path_cnnlstm, map_location=device))
+                                print(f"[{srv}] {case_name} CNN-LSTM 로드됨: {model_path_cnnlstm}")
+                            else:
+                                seq_length = 24
+                                out_length = 1
+                                pv_arr = train_pv.values()
+                                cov_arr = train_cov.values()
+                                X_train, y_train = [], []
+                                for idx in range(len(pv_arr) - seq_length - out_length + 1):
+                                    X_train.append(np.concatenate([pv_arr[idx:idx+seq_length], cov_arr[idx:idx+seq_length]], axis=1))
+                                    y_train.append(pv_arr[idx+seq_length:idx+seq_length+out_length, 0])
+
+                                X_train_t = torch.tensor(np.array(X_train), dtype=torch.float32).to(device)
+                                y_train_t = torch.tensor(np.array(y_train), dtype=torch.float32).to(device)
+
+                                dataset = TensorDataset(X_train_t, y_train_t)
+                                dataloader = DataLoader(dataset, batch_size=64, shuffle=True)
+
+                                criterion = nn.MSELoss()
+                                optimizer = torch.optim.Adam(cnn_lstm_model.parameters(), lr=0.001)
+
+                                cnn_lstm_model.train()
+                                for epoch in range(25):
+                                    for batch_x, batch_y in dataloader:
+                                        optimizer.zero_grad()
+                                        out = cnn_lstm_model(batch_x)
+                                        loss = criterion(out, batch_y)
+                                        loss.backward()
+                                        optimizer.step()
+
+                                torch.save(cnn_lstm_model.state_dict(), model_path_cnnlstm)
+                                print(f"[{srv}] {case_name} CNN-LSTM 저장됨: {model_path_cnnlstm}")
+
+                            cnn_lstm_model.eval()
+                            preds = []
+                            history_pv = train_pv.values()[-24:]
+                            history_cov_idx = len(train_pv) - 24
+                            cov_full_vals = ts_cov_scaled.values()
+
+                            for idx in range(len(test_pv)):
+                                current_cov = cov_full_vals[history_cov_idx + idx : history_cov_idx + idx + 24]
+                                x_input = np.concatenate([history_pv, current_cov], axis=1)
+                                x_input_t = torch.tensor(x_input, dtype=torch.float32).unsqueeze(0).to(device)
+
+                                with torch.no_grad():
+                                    pred = cnn_lstm_model(x_input_t).item()
+
+                                preds.append([pred])
+                                history_pv = np.append(history_pv[1:], [[pred]], axis=0)
+
+                            preds_ts = TimeSeries.from_times_and_values(test_pv.time_index, np.array(preds))
+                            preds_scaled = scaler_pv.inverse_transform(preds_ts)
+
+                            df_cnnlstm = test_pv_raw.to_dataframe().rename(columns={'pv': 'actual_pv'})
+                            df_cnnlstm['expected_pv'] = preds_scaled.values()[:, 0]
+                            corr_cnnlstm = df_cnnlstm['actual_pv'].corr(df_cnnlstm['expected_pv'])
+                            rmse_cnnlstm = np.sqrt(mean_squared_error(df_cnnlstm['actual_pv'], df_cnnlstm['expected_pv']))
+                            plot_data['model_cnnlstm'][case_name] = df_cnnlstm
 
                             # 결과 출력
                             print(f"[{case_name}]")
-                            print(f"  - model_1h (lags=1) -> Corr: {corr_1h:.4f}, RMSE: {rmse_1h:.4f}")
-                            print(f"  - model_6h (lags=6) -> Corr: {corr_6h:.4f}, RMSE: {rmse_6h:.4f}\n")
+                            print(f"  - LSTM (1h)      -> Corr: {corr_1h:.4f}, RMSE: {rmse_1h:.4f}")
+                            print(f"  - CNN (1h)       -> Corr: {corr_6h:.4f}, RMSE: {rmse_6h:.4f}")
+                            print(f"  - CNN-LSTM (1h)  -> Corr: {corr_cnnlstm:.4f}, RMSE: {rmse_cnnlstm:.4f}\n")
 
                             # 기존 DB 적재 로직과 호환되도록 가장 성능이 좋은 ai_pv_trad의 결과를 df_result로 저장
                             if case_name == 'ai_pv_trad':
-                                df_result = df_1h  # 기준을 1h 모델로 설정
+                                df_result = df_cnnlstm  # 기준을 CNN-LSTM 모델로 설정
                                 df_result['ai_pv_trad'] = df_result['expected_pv']
                                 df_result['error'] = df_result['actual_pv'] - df_result['expected_pv']
 
@@ -567,10 +678,11 @@ class DtaProcess(object):
                         fig_dir = os.path.join(globalVar['figPath'], 'validation')
                         os.makedirs(fig_dir, exist_ok=True)
 
-                        fig, axes = plt.subplots(nrows=2, ncols=3, figsize=(18, 12))
-                        fig.suptitle(f'[{srv}] 실제 발전량 vs AI 예측 발전량 시뮬레이션 검증', fontsize=20, fontweight='bold')
+                        fig, axes = plt.subplots(nrows=3, ncols=3, figsize=(18, 18))
+                        fig.suptitle(f'[{srv}] 실제 발전량 vs 딥러닝(LSTM/CNN/CNN-LSTM) 예측 발전량 시뮬레이션 검증', fontsize=20, fontweight='bold')
 
-                        for i, model_type in enumerate(['model_1h', 'model_6h']):
+                        model_labels = {'model_1h': 'LSTM', 'model_6h': 'CNN', 'model_cnnlstm': 'CNN-LSTM'}
+                        for i, model_type in enumerate(['model_1h', 'model_6h', 'model_cnnlstm']):
                             for j, case_name in enumerate(cov_configs.keys()):
                                 df_plot = plot_data[model_type][case_name]
                                 ax = axes[i, j]
@@ -592,7 +704,8 @@ class DtaProcess(object):
                                 corr = df_plot['actual_pv'].corr(df_plot['expected_pv'])
                                 rmse = np.sqrt(mean_squared_error(df_plot['actual_pv'], df_plot['expected_pv']))
 
-                                ax.set_title(f"{case_name} ({model_type})\nCorr: {corr:.3f}, RMSE: {rmse:.3f}", fontsize=14)
+                                model_label = model_labels[model_type]
+                                ax.set_title(f"{case_name} ({model_label})\nCorr: {corr:.3f}, RMSE: {rmse:.3f}", fontsize=14)
                                 ax.set_xlabel('Actual PV', fontsize=12)
                                 ax.set_ylabel('Expected PV', fontsize=12)
                                 ax.grid(True, linestyle=':', alpha=0.7)
@@ -600,16 +713,17 @@ class DtaProcess(object):
 
                         plt.tight_layout(rect=[0, 0.03, 1, 0.95]) # suptitle이 겹치지 않게 여백 조정
 
-                        save_fig_path = os.path.join(fig_dir, f"QUBE2025_{srv}_scatter_validation.png")
+                        save_fig_path = os.path.join(fig_dir, f"QUBE2025_{srv}_DL_scatter_validation.png")
                         plt.savefig(save_fig_path, dpi=300)
                         plt.close()
                         print(f"[{srv}] 통합 산점도 저장 완료: {save_fig_path}")
 
                         # --- [추가] 통합 시계열 그래프 시각화 및 저장 ---
-                        fig_ts, axes_ts = plt.subplots(nrows=2, ncols=3, figsize=(20, 10))
-                        fig_ts.suptitle(f'[{srv}] 실제 발전량 vs AI 예측 발전량 시계열 비교', fontsize=20, fontweight='bold')
+                        fig_ts, axes_ts = plt.subplots(nrows=3, ncols=3, figsize=(20, 15))
+                        fig_ts.suptitle(f'[{srv}] 실제 발전량 vs 딥러닝(LSTM/CNN/CNN-LSTM) 예측 발전량 시계열 비교', fontsize=20, fontweight='bold')
 
-                        for i, model_type in enumerate(['model_1h', 'model_6h']):
+                        model_labels = {'model_1h': 'LSTM', 'model_6h': 'CNN', 'model_cnnlstm': 'CNN-LSTM'}
+                        for i, model_type in enumerate(['model_1h', 'model_6h', 'model_cnnlstm']):
                             for j, case_name in enumerate(cov_configs.keys()):
                                 df_plot = plot_data[model_type][case_name]
                                 ax_ts = axes_ts[i, j]
@@ -622,7 +736,8 @@ class DtaProcess(object):
                                 corr = df_plot['actual_pv'].corr(df_plot['expected_pv'])
                                 rmse = np.sqrt(mean_squared_error(df_plot['actual_pv'], df_plot['expected_pv']))
 
-                                ax_ts.set_title(f"{case_name} ({model_type})\nCorr: {corr:.3f}, RMSE: {rmse:.3f}", fontsize=14)
+                                model_label = model_labels[model_type]
+                                ax_ts.set_title(f"{case_name} ({model_label})\nCorr: {corr:.3f}, RMSE: {rmse:.3f}", fontsize=14)
                                 ax_ts.set_xlabel('Time', fontsize=12)
                                 ax_ts.set_ylabel('PV', fontsize=12)
                                 ax_ts.grid(True, linestyle=':', alpha=0.7)
@@ -631,7 +746,7 @@ class DtaProcess(object):
 
                         plt.tight_layout(rect=[0, 0.03, 1, 0.95])
 
-                        save_ts_path = os.path.join(fig_dir, f"QUBE2025_{srv}_timeseries_validation.png")
+                        save_ts_path = os.path.join(fig_dir, f"QUBE2025_{srv}_DL_timeseries_validation.png")
                         plt.savefig(save_ts_path, dpi=300)
                         plt.close()
                         print(f"[{srv}] 통합 시계열 그래프 저장 완료: {save_ts_path}")
