@@ -1816,12 +1816,12 @@ class VisualizeInterface(QWidget):
 
         v_left.addStretch(1)
 
-        self.btn_ai = PushButton("AI 헬퍼 요청")
-        self.btn_ai.setMinimumHeight(40)
-        self.btn_ai.clicked.connect(self.request_ai_analysis)
-        v_left.addWidget(self.btn_ai)
-
-        v_left.addSpacing(5)
+        # AI 헬퍼 기능 숨김
+        # self.btn_ai = PushButton("AI 헬퍼 요청")
+        # self.btn_ai.setMinimumHeight(40)
+        # self.btn_ai.clicked.connect(self.request_ai_analysis)
+        # v_left.addWidget(self.btn_ai)
+        # v_left.addSpacing(5)
 
         self.btn_refresh = PushButton("적용")
         self.btn_refresh.setMinimumHeight(40)
@@ -2654,12 +2654,15 @@ class VisualizeInterface(QWidget):
 
         # 탭 자동 전환 로직 호환성 개선
         win = self.window()
+        ai_interface = getattr(win, 'ai_interface', None)
+        if ai_interface is None:
+            return
+
         if hasattr(win, 'stackedWidget'):
             win.stackedWidget.setCurrentWidget(win.ai_interface)
         if hasattr(win, 'navigationInterface'):
             win.navigationInterface.setCurrentItem(win.ai_interface.objectName())
 
-        ai_interface = self.window().ai_interface
         ai_interface.txt_image_path.setText(tmp_path)
         ai_interface.txt_prompt.setPlainText(prompt)
         ai_interface.send_message()
@@ -3750,7 +3753,8 @@ class NMSCFluentApp(MSFluentWindow):
         self.preprocess_interface = PreprocessInterface(self)
         self.calculate_interface = CalculateInterface(self)
         self.visualize_interface = VisualizeInterface(self)
-        self.ai_interface = AIAssistantInterface(self)
+        # self.ai_interface = AIAssistantInterface(self)
+        self.ai_interface = None
 
         self.init_navigation()
 
@@ -3759,7 +3763,8 @@ class NMSCFluentApp(MSFluentWindow):
         self.addSubInterface(self.calculate_interface, FluentIcon.PIE_SINGLE, "산출")
         self.addSubInterface(self.visualize_interface, FluentIcon.PHOTO, "시각화")
 
-        self.addSubInterface(self.ai_interface, FluentIcon.CHAT, "AI 헬퍼", position=NavigationItemPosition.BOTTOM)
+        # AI 헬퍼 기능 숨김
+        # self.addSubInterface(self.ai_interface, FluentIcon.CHAT, "AI 헬퍼", position=NavigationItemPosition.BOTTOM)
 
         self._nav.setCurrentRow(0)
 
