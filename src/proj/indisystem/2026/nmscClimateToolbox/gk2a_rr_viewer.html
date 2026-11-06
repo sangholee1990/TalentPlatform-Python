@@ -1,0 +1,532 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>GK2A 위성 산출물(RR · ADPS · FF) COG OpenLayers WebGL 뷰어</title>
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/ol@v9.2.4/ol.css" />
+  <script src="https://cdn.jsdelivr.net/npm/geotiff@2.1.3/dist-browser/geotiff.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/ol@v9.2.4/dist/ol.js"></script>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body, html { width: 100%; height: 100%; font-family: 'Pretendard', -apple-system, BlinkMacSystemFont, sans-serif; background: #0f172a; color: #f8fafc; overflow: hidden; }
+    #map { width: 100%; height: 100%; }
+
+    .control-panel {
+      position: absolute;
+      top: 16px;
+      left: 16px;
+      z-index: 1000;
+      width: 370px;
+      background: rgba(15, 23, 42, 0.92);
+      backdrop-filter: blur(8px);
+      border: 1px solid rgba(148, 163, 184, 0.25);
+      border-radius: 12px;
+      padding: 16px;
+      box-shadow: 0 10px 25px rgba(0, 0, 0, 0.45);
+    }
+    .control-panel h1 {
+      font-size: 15px;
+      font-weight: 700;
+      color: #38bdf8;
+      margin-bottom: 4px;
+    }
+    .control-panel .sub {
+      font-size: 12px;
+      color: #94a3b8;
+      margin-bottom: 12px;
+    }
+    .control-group {
+      margin-bottom: 12px;
+    }
+    .control-group label {
+      display: flex;
+      justify-content: space-between;
+      font-size: 12px;
+      color: #cbd5e1;
+      margin-bottom: 6px;
+    }
+    select, input[type="range"] {
+      width: 100%;
+      background: #1e293b;
+      color: #f8fafc;
+      border: 1px solid #334155;
+      border-radius: 6px;
+      padding: 6px 8px;
+      font-size: 13px;
+      outline: none;
+    }
+    .checkbox-row {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      font-size: 12px;
+      color: #e2e8f0;
+      cursor: pointer;
+      margin-top: 6px;
+    }
+    .info-box {
+      margin-top: 10px;
+      padding: 10px;
+      background: rgba(30, 41, 59, 0.85);
+      border-radius: 8px;
+      font-size: 12px;
+      line-height: 1.6;
+      border: 1px solid rgba(148, 163, 184, 0.15);
+    }
+    .info-box .val {
+      font-weight: 700;
+      color: #38bdf8;
+    }
+
+    /* 하단 NMSC 표준 컬러바 (RR.dat / ADPS.dat / FF.dat) */
+    .colorbar-container {
+      position: absolute;
+      bottom: 24px;
+      left: 50%;
+      transform: translateX(-50%);
+      z-index: 1000;
+      width: min(760px, calc(100vw - 32px));
+      background: rgba(15, 23, 42, 0.92);
+      backdrop-filter: blur(8px);
+      border: 1px solid rgba(148, 163, 184, 0.3);
+      border-radius: 10px;
+      padding: 12px 24px 26px 24px;
+      box-shadow: 0 8px 24px rgba(0, 0, 0, 0.5);
+    }
+    .colorbar-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      font-size: 12px;
+      color: #e2e8f0;
+      margin-bottom: 8px;
+      font-weight: 600;
+    }
+    .colorbar-header .unit {
+      color: #38bdf8;
+      font-weight: 700;
+    }
+    .colorbar-cells {
+      display: grid;
+      height: 16px;
+      border: 1px solid rgba(255, 255, 255, 0.35);
+      border-radius: 3px;
+      overflow: hidden;
+    }
+    .colorbar-cell {
+      height: 100%;
+      border-right: 1px solid rgba(0, 0, 0, 0.18);
+    }
+    .colorbar-cell:last-child {
+      border-right: none;
+    }
+    .colorbar-ticks {
+      position: relative;
+      width: 100%;
+      height: 18px;
+      margin-top: 4px;
+    }
+    .colorbar-tick {
+      position: absolute;
+      top: 0;
+      transform: translateX(-50%);
+      font-size: 11px;
+      color: #cbd5e1;
+      white-space: nowrap;
+      font-variant-numeric: tabular-nums;
+      font-weight: 600;
+    }
+    .colorbar-tick.align-true::before {
+      content: '';
+      display: block;
+      width: 1px;
+      height: 4px;
+      background: rgba(203, 213, 225, 0.6);
+      margin: 0 auto 2px auto;
+    }
+  </style>
+</head>
+<body>
+  <div id="map"></div>
+
+  <div class="control-panel">
+    <h1>GK2A 위성 산출물 (AMI LE2 COG)</h1>
+    <div class="sub">East Asia 2km (EPSG:3857 Int16 COG · NMSC 표준 컬러바)</div>
+
+    <div class="control-group">
+      <label for="productSelect">
+        <span>산출물 종류 (Product)</span>
+        <span id="productBadge">RR (강우강도)</span>
+      </label>
+      <select id="productSelect">
+        <option value="RR" selected>강우강도 (RR · 2026.11.06 00:00~02:00)</option>
+        <option value="ADPS">에어로졸 (ADPS · 2026.11.06 00:00~02:00)</option>
+        <option value="FF">산불탐지 (FF · 2025.03.24 06:00~10:00)</option>
+      </select>
+    </div>
+
+    <div class="control-group">
+      <label for="fileSelect">
+        <span>관측 시각 (개별 COG 파일)</span>
+        <span id="timeLabel">-</span>
+      </label>
+      <select id="fileSelect"></select>
+    </div>
+
+    <div class="control-group">
+      <label for="opacityRange">
+        <span>레이어 투명도</span>
+        <span id="opacityVal">90%</span>
+      </label>
+      <input type="range" id="opacityRange" min="0" max="100" value="90" />
+      <label class="checkbox-row" id="rrFilterRow">
+        <input type="checkbox" id="min1mmCheck" checked />
+        <span>RR DATA_MIN (1.0 mm/h) 미만 강수 숨김</span>
+      </label>
+    </div>
+
+    <div class="info-box">
+      <div>현재 파일: <span class="val" id="curFileLabel">-</span></div>
+      <div>마우스 위치: <span id="coordLabel">-</span></div>
+      <div>관측값: <span class="val" id="pixelValLabel">-</span></div>
+    </div>
+  </div>
+
+  <!-- 하단 동적 컬러바 (RR.dat / ADPS.dat / FF.dat) -->
+  <div class="colorbar-container">
+    <div class="colorbar-header">
+      <span id="colorbarTitle">강우강도 (RR.dat · SIZE := 25)</span>
+      <span class="unit" id="colorbarUnit">단위: mm/h</span>
+    </div>
+    <div class="colorbar-cells" id="colorbarCells"></div>
+    <div class="colorbar-ticks" id="colorbarTicks"></div>
+  </div>
+
+  <script>
+    // 10분 간격 시각 리스트 생성 헬퍼
+    function generateTimeSteps(startYmdHm, endYmdHm) {
+      const parse = (s) => new Date(Date.UTC(
+        parseInt(s.slice(0, 4), 10),
+        parseInt(s.slice(4, 6), 10) - 1,
+        parseInt(s.slice(6, 8), 10),
+        parseInt(s.slice(8, 10), 10),
+        parseInt(s.slice(10, 12), 10)
+      ));
+      const pad = (n) => String(n).padStart(2, '0');
+      const items = [];
+      let cur = parse(startYmdHm);
+      const end = parse(endYmdHm);
+      while (cur <= end) {
+        const y = cur.getUTCFullYear();
+        const m = pad(cur.getUTCMonth() + 1);
+        const d = pad(cur.getUTCDate());
+        const H = pad(cur.getUTCHours());
+        const M = pad(cur.getUTCMinutes());
+        items.push({
+          obsTime: `${y}${m}${d}${H}${M}`,
+          display: `${y}-${m}-${d} ${H}:${M}`
+        });
+        cur = new Date(cur.getTime() + 10 * 60 * 1000);
+      }
+      return items;
+    }
+
+    /**
+     * 1. RR.dat 강우강도 컬러바 (DATA_MIN := 1, DATA_MAX := 100, SIZE := 25, SHOW := 0~25)
+     */
+    const RR_SPEC = {
+      title: '강우강도 (Rainfall Rate · RR.dat 25단계)',
+      unit: '단위: mm/h',
+      size: 25,
+      showMax: 25,
+      labelAlign: true,
+      prefix: 'gk2a_ami_le2_rr_ea020lc',
+      times: generateTimeSteps('202611060000', '202611060200'),
+      colors: [
+        { min: 1.0,  max: 1.5,   rgb: [150, 254, 150, 1.0] },
+        { min: 1.5,  max: 2.0,   rgb: [125, 233, 125, 1.0] },
+        { min: 2.0,  max: 3.0,   rgb: [100, 212, 100, 1.0] },
+        { min: 3.0,  max: 4.0,   rgb: [50,  170, 50,  1.0] },
+        { min: 4.0,  max: 5.0,   rgb: [0,   128, 0,   1.0] },
+        { min: 5.0,  max: 6.0,   rgb: [255, 240, 154, 1.0] },
+        { min: 6.0,  max: 7.0,   rgb: [242, 222, 115, 1.0] },
+        { min: 7.0,  max: 8.0,   rgb: [229, 204, 76,  1.0] },
+        { min: 8.0,  max: 9.0,   rgb: [216, 187, 38,  1.0] },
+        { min: 9.0,  max: 10.0,  rgb: [204, 170, 0,   1.0] },
+        { min: 10.0, max: 12.0,  rgb: [252, 171, 171, 1.0] },
+        { min: 12.0, max: 14.0,  rgb: [236, 128, 128, 1.0] },
+        { min: 14.0, max: 16.0,  rgb: [221, 85,  85,  1.0] },
+        { min: 16.0, max: 18.0,  rgb: [206, 42,  42,  1.0] },
+        { min: 18.0, max: 20.0,  rgb: [191, 0,   0,   1.0] },
+        { min: 20.0, max: 25.0,  rgb: [229, 172, 255, 1.0] },
+        { min: 25.0, max: 30.0,  rgb: [203, 129, 239, 1.0] },
+        { min: 30.0, max: 35.0,  rgb: [177, 86,  223, 1.0] },
+        { min: 35.0, max: 40.0,  rgb: [152, 43,  207, 1.0] },
+        { min: 40.0, max: 50.0,  rgb: [127, 0,   191, 1.0] },
+        { min: 50.0, max: 60.0,  rgb: [203, 204, 232, 1.0] },
+        { min: 60.0, max: 70.0,  rgb: [152, 153, 210, 1.0] },
+        { min: 70.0, max: 80.0,  rgb: [101, 103, 188, 1.0] },
+        { min: 80.0, max: 90.0,  rgb: [50,  53,  166, 1.0] },
+        { min: 90.0, max: 100.0, rgb: [0,   3,   144, 1.0] }
+      ],
+      labels: [
+        { pos: 0,  label: '1' },  { pos: 2,  label: '2' },  { pos: 3,  label: '3' },
+        { pos: 4,  label: '4' },  { pos: 5,  label: '5' },  { pos: 6,  label: '6' },
+        { pos: 7,  label: '7' },  { pos: 8,  label: '8' },  { pos: 9,  label: '9' },
+        { pos: 10, label: '10' }, { pos: 11, label: '12' }, { pos: 13, label: '16' },
+        { pos: 15, label: '20' }, { pos: 17, label: '30' }, { pos: 19, label: '40' },
+        { pos: 21, label: '60' }, { pos: 23, label: '80' }, { pos: 25, label: '100' }
+      ]
+    };
+
+    /**
+     * 2. ADPS.dat 에어로졸 컬러바 (DATA_MIN := 1, DATA_MAX := 5.99, SIZE := 12, SHOW := 0~12)
+     * GRADATION: 0, 100, 200, 240, 280, 320, 360, 400, 420, 440, 460, 480
+     * 물리값(val) = 1.0 + (GRADATION / 100.0)
+     */
+    const ADPS_SPEC = {
+      title: '에어로졸 탐지 (Aerosol Detection · ADPS.dat 12단계)',
+      unit: 'ASH / DUST / DAY HAZE',
+      size: 12,
+      showMax: 12,
+      labelAlign: true,
+      prefix: 'gk2a_ami_le2_adps_ea020lc',
+      times: generateTimeSteps('202611060000', '202611060200'),
+      colors: [
+        { min: 1.00, max: 2.00, rgb: [0,   255, 0, 1.0], name: 'ASH' },
+        { min: 2.00, max: 3.00, rgb: [0,   115, 0, 1.0], name: 'ASH' },
+        { min: 3.00, max: 3.40, rgb: [255, 170, 0, 1.0], name: 'DUST' },
+        { min: 3.40, max: 3.80, rgb: [232, 154, 0, 1.0], name: 'DUST' },
+        { min: 3.80, max: 4.20, rgb: [209, 139, 0, 1.0], name: 'DUST' },
+        { min: 4.20, max: 4.60, rgb: [186, 124, 0, 1.0], name: 'DUST' },
+        { min: 4.60, max: 5.00, rgb: [143, 95,  0, 1.0], name: 'DUST' },
+        { min: 5.00, max: 5.20, rgb: [255, 0,   0, 1.0], name: 'DAY HAZE' },
+        { min: 5.20, max: 5.40, rgb: [220, 0,   0, 1.0], name: 'DAY HAZE' },
+        { min: 5.40, max: 5.60, rgb: [186, 0,   0, 1.0], name: 'DAY HAZE' },
+        { min: 5.60, max: 5.80, rgb: [152, 0,   0, 1.0], name: 'DAY HAZE' },
+        { min: 5.80, max: 6.00, rgb: [84,  0,   0, 1.0], name: 'DAY HAZE' }
+      ],
+      labels: [
+        { pos: 0.8, label: 'ASH' },
+        { pos: 4.0, label: 'DUST' },
+        { pos: 9.0, label: 'DAY HAZE' }
+      ]
+    };
+
+    /**
+     * 3. FF.dat 산불 컬러바 (DATA_MIN := 0.5, DATA_MAX := 1.5, SIZE := 2, SHOW := 0~2, LABEL_ALIGN := FALSE)
+     * 0 := Forest Fire (255,0,0), 1 := Industrial Heat Detection (255,192,0)
+     */
+    const FF_SPEC = {
+      title: '산불 탐지 (Forest Fire · FF.dat 2단계)',
+      unit: 'Forest Fire / Industrial Heat',
+      size: 2,
+      showMax: 2,
+      labelAlign: false,
+      prefix: 'gk2a_ami_le2_ff_ea020lc',
+      times: generateTimeSteps('202503240600', '202503241000'),
+      colors: [
+        { min: 0.5,  max: 1.25, rgb: [255, 0,   0, 1.0], name: 'Forest Fire' },
+        { min: 1.25, max: 2.00, rgb: [255, 192, 0, 1.0], name: 'Industrial Heat Detection' }
+      ],
+      labels: [
+        { pos: 0.5, label: 'Forest Fire' },
+        { pos: 1.5, label: 'Industrial Heat Detection' }
+      ]
+    };
+
+    const PRODUCT_SPECS = { RR: RR_SPEC, ADPS: ADPS_SPEC, FF: FF_SPEC };
+    let currentProduct = 'RR';
+    let cogLayer = null;
+
+    // 하단 컬러바 UI 렌더링
+    function renderColorbarUI(prodKey) {
+      const spec = PRODUCT_SPECS[prodKey];
+      document.getElementById('colorbarTitle').textContent = spec.title;
+      document.getElementById('colorbarUnit').textContent = spec.unit;
+
+      const cellsEl = document.getElementById('colorbarCells');
+      const ticksEl = document.getElementById('colorbarTicks');
+      cellsEl.style.gridTemplateColumns = `repeat(${spec.size}, 1fr)`;
+      cellsEl.innerHTML = '';
+      ticksEl.innerHTML = '';
+
+      spec.colors.forEach((item) => {
+        const div = document.createElement('div');
+        div.className = 'colorbar-cell';
+        const [r, g, b] = item.rgb;
+        div.style.backgroundColor = `rgb(${r}, ${g}, ${b})`;
+        div.title = item.name ? `${item.name} (${item.min} ~ ${item.max})` : `${item.min} ~ ${item.max}`;
+        cellsEl.appendChild(div);
+      });
+
+      spec.labels.forEach((tick) => {
+        if (!tick.label) return;
+        const span = document.createElement('span');
+        span.className = 'colorbar-tick' + (spec.labelAlign ? ' align-true' : '');
+        span.style.left = `${(tick.pos / spec.showMax) * 100}%`;
+        span.textContent = tick.label;
+        ticksEl.appendChild(span);
+      });
+    }
+
+    // OpenLayers WebGLTile 스타일 표현식 생성
+    function buildWebGLStyle(prodKey, hideBelow1mm) {
+      const spec = PRODUCT_SPECS[prodKey];
+      const val = ['/', ['band', 1], 100];
+
+      let minCutoff = spec.colors[0].min;
+      if (prodKey === 'RR') {
+        minCutoff = hideBelow1mm ? 1.0 : 0.01;
+      }
+
+      const caseExpr = [
+        'case',
+        ['==', ['band', 2], 0], [0, 0, 0, 0],
+        ['<', val, minCutoff],  [0, 0, 0, 0]
+      ];
+
+      for (let i = 0; i < spec.colors.length - 1; i++) {
+        caseExpr.push(['<', val, spec.colors[i].max]);
+        caseExpr.push(spec.colors[i].rgb);
+      }
+      caseExpr.push(spec.colors[spec.colors.length - 1].rgb);
+
+      return { color: caseExpr };
+    }
+
+    const baseLayer = new ol.layer.Tile({
+      source: new ol.source.XYZ({
+        url: 'https://{a-c}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png',
+        attributions: '&copy; OpenStreetMap contributors &copy; CARTO'
+      })
+    });
+
+    const map = new ol.Map({
+      target: 'map',
+      layers: [baseLayer],
+      view: new ol.View({
+        projection: 'EPSG:3857',
+        center: ol.proj.fromLonLat([126.0, 36.0]),
+        zoom: 5
+      })
+    });
+
+    function loadCogFile(filename) {
+      const hideBelow1mm = document.getElementById('min1mmCheck').checked;
+      const opacity = parseInt(document.getElementById('opacityRange').value, 10) / 100;
+
+      if (cogLayer) {
+        map.removeLayer(cogLayer);
+        cogLayer.dispose();
+      }
+
+      const source = new ol.source.GeoTIFF({
+        normalize: false,
+        interpolate: currentProduct === 'RR',
+        // interpolate: true,
+        // interpolate: false,
+        sources: [
+          {
+            url: './' + filename,
+            nodata: -9999
+          }
+        ]
+      });
+
+      cogLayer = new ol.layer.WebGLTile({
+        source: source,
+        style: buildWebGLStyle(currentProduct, hideBelow1mm),
+        opacity: opacity
+      });
+
+      map.addLayer(cogLayer);
+      document.getElementById('curFileLabel').textContent = filename;
+    }
+
+    function populateFileDropdown(prodKey) {
+      currentProduct = prodKey;
+      const spec = PRODUCT_SPECS[prodKey];
+      const fileSelect = document.getElementById('fileSelect');
+      fileSelect.innerHTML = '';
+
+      spec.times.forEach((t, idx) => {
+        const fname = `${spec.prefix}_${t.obsTime}.tif`;
+        const opt = document.createElement('option');
+        opt.value = fname;
+        opt.textContent = `${t.display} (${t.obsTime}.tif)`;
+        if (idx === 0) opt.selected = true;
+        fileSelect.appendChild(opt);
+      });
+
+      document.getElementById('productBadge').textContent = prodKey;
+      document.getElementById('rrFilterRow').style.display = prodKey === 'RR' ? 'flex' : 'none';
+      document.getElementById('timeLabel').textContent = spec.times[0].display;
+
+      renderColorbarUI(prodKey);
+      loadCogFile(`${spec.prefix}_${spec.times[0].obsTime}.tif`);
+    }
+
+    // 초기 실행 (RR: gk2a_ami_le2_rr_ea020lc_202611060000.tif)
+    populateFileDropdown('RR');
+
+    document.getElementById('productSelect').addEventListener('change', (e) => {
+      populateFileDropdown(e.target.value);
+    });
+
+    document.getElementById('fileSelect').addEventListener('change', (e) => {
+      const file = e.target.value;
+      const label = e.target.options[e.target.selectedIndex].text.split(' (')[0];
+      document.getElementById('timeLabel').textContent = label;
+      loadCogFile(file);
+    });
+
+    document.getElementById('opacityRange').addEventListener('input', (e) => {
+      const val = parseInt(e.target.value, 10);
+      document.getElementById('opacityVal').textContent = val + '%';
+      if (cogLayer) {
+        cogLayer.setOpacity(val / 100);
+      }
+    });
+
+    document.getElementById('min1mmCheck').addEventListener('change', (e) => {
+      if (cogLayer) {
+        cogLayer.setStyle(buildWebGLStyle(currentProduct, e.target.checked));
+      }
+    });
+
+    // 마우스 이동 시 산출물별 물리량/유형 표시
+    map.on('pointermove', (evt) => {
+      if (evt.dragging || !cogLayer) return;
+      const [lon, lat] = ol.proj.toLonLat(evt.coordinate);
+      document.getElementById('coordLabel').textContent = `${lat.toFixed(2)}°N, ${lon.toFixed(2)}°E`;
+
+      const data = cogLayer.getData(evt.pixel);
+      if (data && data.length >= 2) {
+        const rawInt16 = data[0];
+        const alpha = data[1];
+        if (alpha === 0 || rawInt16 <= -9999) {
+          document.getElementById('pixelValLabel').textContent = 'Nodata (비탐지/영역 외)';
+          return;
+        }
+        const val = rawInt16 / 100.0;
+        if (currentProduct === 'RR') {
+          document.getElementById('pixelValLabel').textContent = `${val.toFixed(2)} mm/h`;
+        } else if (currentProduct === 'ADPS') {
+          let typeStr = 'ETC';
+          if (val >= 1.0 && val < 3.0) typeStr = 'ASH (화산재)';
+          else if (val >= 3.0 && val < 5.0) typeStr = 'DUST (황사)';
+          else if (val >= 5.0 && val <= 6.0) typeStr = 'DAY HAZE (연무)';
+          document.getElementById('pixelValLabel').textContent = `${val.toFixed(2)} (${typeStr})`;
+        } else if (currentProduct === 'FF') {
+          const ffStr = val < 1.25 ? 'Forest Fire (산불)' : 'Industrial Heat Detection (산업열원)';
+          document.getElementById('pixelValLabel').textContent = ffStr;
+        }
+      } else {
+        document.getElementById('pixelValLabel').textContent = '-';
+      }
+    });
+  </script>
+</body>
+</html>
